@@ -23,7 +23,6 @@ from fedcourtsai.cert_backtest import (
     replayable_items,
     run_cert_backtest,
     select_cert_backtest_set,
-    truncate_snapshot,
 )
 from fedcourtsai.cli import app
 from fedcourtsai.config import load_salience_config
@@ -31,6 +30,7 @@ from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest
 from fedcourtsai.pipeline.asof import replay_cutoff
 from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner, get_runner
 from fedcourtsai.pricing import DEFAULT_MODELS
+from fedcourtsai.provision import truncate_snapshot
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import CertBacktest, Disposition
 from fedcourtsai.serialize import read_model

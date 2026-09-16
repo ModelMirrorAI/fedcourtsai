@@ -7,6 +7,7 @@ artifacts produced end to end with no network.
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from pathlib import Path
 
@@ -30,6 +31,7 @@ from fedcourtsai.schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
+    PredictionContext,
     Stage,
 )
 from fedcourtsai.serialize import read_model
@@ -315,3 +317,226 @@ def test_a_corrupt_stored_judgment_degrades_to_no_outcome(corpus_db: Path, tmp_p
     assert report.valid, report.problems
     assert not report.outcomes  # no ground truth written from a value we cannot read
     assert not report.evaluations  # and so nothing to score
+
+
+def _store_document(corpus_db: Path, case_id: str, kind: str, entry_date: str) -> None:
+    """Give a fixture case one stored filed document, dated on the docket."""
+    with corpus.connect(corpus_db) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id=case_id,
+                    kind=kind,
+                    url=f"https://example.invalid/{kind}.pdf",
+                    entry_date=entry_date,
+                    fetched_at=date(2026, 1, 1),
+                    text=f"{kind} text",
+                )
+            ],
+        )
+        conn.commit()
+
+
+def test_cascade_provisions_the_context_and_documents_a_production_cell_gets(
+    corpus_db: Path, tmp_path: Path
+) -> None:
+    """The record a cell reads, not just its snapshot.
+
+    ``run-predict``'s provisioning step writes three things — the dated snapshot,
+    ``record/context.json``, and ``record/documents/`` with its manifest — and a
+    cascade that wrote only the first hands its agent no frozen mode, band or
+    cutoff and no filed text. The integration suite's engine-smoke leg drives a
+    real cell through this seam, so what it certifies is only the production
+    posture if all three land.
+    """
+    _store_document(corpus_db, f"{OPEN_COURT}/{OPEN_DOCKET}", "petition", "2020-01-01")
+    data_root = tmp_path / "data"
+    report = _run(corpus_db, data_root, OPEN_COURT, OPEN_DOCKET)
+    assert report.valid, report.problems
+
+    case_paths = CasePaths(data_root, OPEN_COURT, OPEN_DOCKET)
+    assert report.context == case_paths.cell_context
+    assert report.context.is_file()
+    context = PredictionContext.model_validate_json(report.context.read_text())
+    # The snapshot the context names is the one on disk — the pointer the prompt
+    # contract tells the cell to follow.
+    assert report.snapshot == case_paths.snapshot(context.snapshot_date.isoformat())
+    assert report.snapshot.is_file()
+    # The document text and the manifest that describes it, the cell's
+    # fetch-free filed inputs.
+    assert report.documents == (case_paths.document("petition"),)
+    assert case_paths.document("petition").is_file()
+    manifest = json.loads(case_paths.documents_manifest.read_text())
+    assert [row["kind"] for row in manifest] == ["petition"]
+    assert manifest[0]["empty_text"] is False
+
+
+def test_an_open_event_is_provisioned_forward_and_a_resolved_one_replay(
+    corpus_db: Path, tmp_path: Path
+) -> None:
+    """Mode is a fact about the event, not the cell's guess.
+
+    An unprovisioned cell defaults to ``forward``, so a cascade over a decided
+    case would silently run a replay while claiming a live posture — and the
+    prompt's retrieval etiquette keys on exactly this field. Both modes are placed
+    at the moment their event declares; only the mode differs.
+    """
+    forward = _run(corpus_db, tmp_path / "open", OPEN_COURT, OPEN_DOCKET)
+    assert forward.context is not None
+    assert PredictionContext.model_validate_json(forward.context.read_text()).mode == "forward"
+
+    # A resolved event whose ground truth cannot be built runs the predict half
+    # alone, so the record the run ends on is that cell's own.
+    case = fixture.add_merits_fixture(corpus_db)
+    with corpus.connect(corpus_db) as conn:
+        conn.execute(
+            "UPDATE cases SET merits_judgment = 'not-a-judgment' WHERE case_id = ?",
+            (case.case_id,),
+        )
+        conn.commit()
+    replay = _run(
+        corpus_db, tmp_path / "resolved", "scotus", case.docket, event="evt-order-judgment"
+    )
+    assert replay.outcomes == ()
+    assert replay.context is not None
+    context = PredictionContext.model_validate_json(replay.context.read_text())
+    assert context.mode == "replay"
+    # And it is placed at its moment like the forward cell beside it. The cascade
+    # is the only provisioner a local replay cell has, so leaving it uncut would
+    # hand it the disposing order and every merits brief under a context saying
+    # `replay` — the shape of a replay cell and none of its conditioning.
+    assert context.cutoff is not None
+    assert context.snapshot_provenance in {"dated", "truncated"}
+
+
+def test_the_evaluate_half_is_reprovisioned_from_the_latest_snapshot(
+    corpus_db: Path, tmp_path: Path
+) -> None:
+    """A judge's record is not a forecaster's.
+
+    ``run-evaluate`` provisions ``provision-snapshot`` with no ``--event`` — the
+    latest stored payload, no moment cut — because the event it grades has already
+    resolved. The cascade's predict cells are placed at the moment they forecast
+    from, so the record has to be rewritten between the two halves or the judge
+    reads the forecaster's cut.
+    """
+    data_root = tmp_path / "data"
+    report = _run(corpus_db, data_root, RESOLVED_COURT, RESOLVED_DOCKET, event=RESOLVED_EVENT)
+
+    assert report.evaluations
+    assert report.context is not None
+    context = PredictionContext.model_validate_json(report.context.read_text())
+    assert context.mode == "forward"
+    assert context.cutoff is None
+    assert context.snapshot_provenance == "as-stored"
+    # Which is exactly why the report carries the placements as well: the record
+    # on disk is the judge's, and reading it alone would report the forecaster's
+    # posture as the judge's. The predict cell's own row is still there.
+    assert [p.role for p in report.placements] == ["predict", "evaluate"]
+    predict_row = report.placements[0]
+    assert predict_row.event_id == RESOLVED_EVENT
+    assert predict_row.mode == "replay"
+
+
+def test_a_forward_moment_cell_is_placed_at_its_cutoff(corpus_db: Path, tmp_path: Path) -> None:
+    """The cut the engine smoke could not see: a moment cell reads its own moment.
+
+    The fixture's CVSG docket declares a later cert moment, so a cell for it must
+    be conditioned on the docket as at that moment rather than on the latest poll:
+    a CVSG cell handed the latest snapshot reads the Solicitor General's brief the
+    moment it forecasts from does not have. Flipped open here because the cut is
+    the forward path's.
+    """
+    cvsg = fixture.add_cvsg_fixture(corpus_db)
+    with corpus.connect(corpus_db) as conn:
+        conn.execute(
+            "UPDATE events SET resolved = 0 WHERE case_id = ? AND event_id = ?",
+            (cvsg.case_id, "evt-order-cvsg-disposition"),
+        )
+        conn.commit()
+
+    data_root = tmp_path / "data"
+    report = _run(corpus_db, data_root, "scotus", cvsg.docket, event="evt-order-cvsg-disposition")
+
+    assert report.context is not None
+    context = PredictionContext.model_validate_json(report.context.read_text())
+    assert context.mode == "forward"
+    # The day after the CVSG opened the moment, exclusive — the shape every
+    # reconstruction moment takes.
+    assert context.cutoff is not None
+    assert context.snapshot_provenance in {"dated", "truncated"}
+    # And the file on disk is the one the context names, dated by the cut rather
+    # than by the poll it was reconstructed from.
+    assert report.snapshot == CasePaths(data_root, "scotus", cvsg.docket).snapshot(
+        context.snapshot_date.isoformat()
+    )
+    assert report.snapshot.is_file()
+
+
+def test_provisioning_replaces_the_previous_cell_s_documents(
+    corpus_db: Path, tmp_path: Path
+) -> None:
+    """A record holds one cell's inputs, so a dropped document must not linger.
+
+    Two targets of one case declare two information sets. The cascade provisions
+    per cell, and without clearing, a document the second cell's tighter cut
+    excluded would still be sitting in ``record/documents/`` for it to read.
+    """
+    case_paths = CasePaths(tmp_path / "data", OPEN_COURT, OPEN_DOCKET)
+    stale = case_paths.document("merits-brief-petitioner")
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_text("a brief from a wider provisioning\n")
+    # And a snapshot from an earlier placement, which is the half that is itself
+    # an information set: `runner._input_snapshot` and `stamp-cell` resolve the
+    # cell's snapshot by the name `context.json` gives, so a second dated file
+    # beside it is a docket the cell was never placed at.
+    stale_snapshot = case_paths.snapshot("2099-12-31")
+    stale_snapshot.parent.mkdir(parents=True, exist_ok=True)
+    stale_snapshot.write_text("{}\n")
+
+    _store_document(corpus_db, f"{OPEN_COURT}/{OPEN_DOCKET}", "petition", "2020-01-01")
+    report = _run(corpus_db, tmp_path / "data", OPEN_COURT, OPEN_DOCKET)
+
+    assert report.valid, report.problems
+    assert not stale.exists()
+    assert not stale_snapshot.exists()
+    assert list(case_paths.snapshots_dir.iterdir()) == [report.snapshot]
+    assert case_paths.document("petition").is_file()
+
+
+def test_provisioning_clears_a_staged_opinion(corpus_db: Path, tmp_path: Path) -> None:
+    """A predict cell must never find a majority opinion in its record.
+
+    An opinion postdates every predict moment by construction, so the guarantee
+    that a forecaster cannot read one is that the predict lane stages none — which
+    holds only if provisioning also removes a body some earlier command left in
+    the same tree. `record/opinion/` is the one record subtree that can hold the
+    outcome itself, so it is cleared with the rest.
+    """
+    case_paths = CasePaths(tmp_path / "data", OPEN_COURT, OPEN_DOCKET)
+    case_paths.opinion_text.parent.mkdir(parents=True, exist_ok=True)
+    case_paths.opinion_text.write_text("the Court's opinion\n")
+    case_paths.opinion_manifest.write_text("{}\n")
+
+    report = _run(corpus_db, tmp_path / "data", OPEN_COURT, OPEN_DOCKET)
+
+    assert report.valid, report.problems
+    assert not case_paths.opinion_text.exists()
+    assert not case_paths.opinion_manifest.exists()
+
+
+def test_require_record_refuses_a_case_with_no_snapshot(corpus_db: Path, tmp_path: Path) -> None:
+    """The smoke's gate: an unprovisioned cell must fail before any token is spent."""
+    with corpus.connect(corpus_db) as conn:
+        conn.execute("DELETE FROM snapshots WHERE case_id = ?", (f"{OPEN_COURT}/{OPEN_DOCKET}",))
+        conn.commit()
+
+    with pytest.raises(CascadeError, match="would run unprovisioned"):
+        _run(corpus_db, tmp_path / "data", OPEN_COURT, OPEN_DOCKET, require_record=True)
+
+    # Without the flag the cascade still runs on the empty record: the refusal
+    # belongs to the smoke, not to the local iteration loop.
+    report = _run(corpus_db, tmp_path / "unguarded", OPEN_COURT, OPEN_DOCKET)
+    assert report.snapshot is None
+    assert report.context is None

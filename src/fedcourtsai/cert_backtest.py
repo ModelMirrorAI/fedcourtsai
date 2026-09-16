@@ -30,7 +30,6 @@ import sqlite3
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
@@ -45,7 +44,7 @@ from .backtest import (
 )
 from .config import SalienceConfig
 from .paths import CasePaths
-from .pipeline import arrival_cut, cell_context, cert_signals, moments
+from .pipeline import arrival_cut, cell_context, moments
 from .pipeline.asof import replay_cutoff
 from .pipeline.cert_signals import match_disposition_signal
 from .pipeline.evaluate import brier_skill, segment_base_rate
@@ -62,6 +61,7 @@ from .pipeline.salience import (
     salience_bands,
     salience_score,
 )
+from .provision import truncate_snapshot
 from .registry import enabled_predictors
 from .schemas import (
     CalibrationBin,
@@ -283,63 +283,6 @@ def redact_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in payload.items() if key not in SNAPSHOT_OUTCOME_FIELDS}
 
 
-def truncate_snapshot(
-    payload: Mapping[str, Any], cutoff: date | None
-) -> tuple[dict[str, Any], int]:
-    """The docket as it stood strictly before ``cutoff``, and how many entries went.
-
-    ``cutoff=None`` removes the proceedings **key**, not just its contents: when
-    no forward moment could be identified the docket's posture is unknown, and an
-    empty list would instead assert that it was empty. A real cutoff leaves the
-    list even when nothing survives, because that genuinely is an observation.
-
-    **Fails closed on an undated entry.** An entry whose date is missing or
-    unparseable is dropped, because it could be the disposing order and nothing
-    about it says otherwise. That costs a little pre-decision context and cannot
-    leak an outcome, which is the right way round.
-
-    A surviving entry is reduced to the fields a consumer reads (see
-    :data:`_ENTRY_FIELDS`), because the outcome blocklist matches top-level keys
-    only and nothing else screens what an entry nests.
-
-    Entry ids are positional and assigned on read, so truncating the *tail*
-    renumbers nothing. Dropping an undated entry from the *middle* does shift
-    everything after it — accepted, because the alternative is keeping an entry
-    that could be the disposing order, and nothing downstream pins an id across a
-    truncation.
-    """
-    out = dict(payload)
-    dropped = 0
-    for key in cert_signals.PROCEEDINGS_KEYS:
-        entries = out.get(key)
-        if not isinstance(entries, list):
-            continue
-        if cutoff is None:
-            # No cutoff means no moment could be identified, so the key is removed
-            # outright rather than emptied. An empty list is an observation — "the
-            # docket had no entries then" — and this is the opposite of one. Left
-            # as `[]`, a cell would read zero distributions and claim the weakest
-            # band about a petition whose posture is entirely unknown.
-            dropped += len(entries)
-            del out[key]
-            continue
-        kept: list[Any] = []
-        for entry in entries:
-            filed = (
-                cert_signals.entry_date(_entry_raw_date(entry))
-                if isinstance(entry, Mapping)
-                else None
-            )
-            if filed is not None and filed < cutoff:
-                kept.append(_entry_fields(entry))
-            else:
-                dropped += 1
-        # A real cutoff with nothing surviving IS an observation: as at that date
-        # the docket carried no entries, and `[]` says so.
-        out[key] = kept
-    return out, dropped
-
-
 def _kept_entries_show_a_disposition(payload: Mapping[str, Any]) -> bool:
     """Whether a truncated payload still carries a disposing order.
 
@@ -360,27 +303,6 @@ def _kept_entries_show_a_disposition(payload: Mapping[str, Any]) -> bool:
     if snapshot_shows_disposition(payload) is not None:
         return True
     return any(match_disposition_signal(text) is not None for text in entry_descriptions(payload))
-
-
-#: What a surviving entry keeps. The outcome blocklist matches **top-level** keys,
-#: so nothing screens the structures nested inside an entry — a live entry's
-#: `Links` (document pointers; a replay cell is provisioned no documents, so this
-#: would be its only path to one) or a REST entry's `recap_documents`, which
-#: carries document text and its own upload date. Rather than extend a blocklist
-#: to a shape upstream can change under us, keep only the two fields every
-#: consumer actually reads and drop the rest.
-_ENTRY_FIELDS: tuple[str, ...] = ("Date", "Text", "date_filed", "description")
-
-
-def _entry_fields(entry: Mapping[str, Any]) -> dict[str, Any]:
-    """A surviving entry reduced to the fields a consumer reads."""
-    return {key: entry[key] for key in _ENTRY_FIELDS if key in entry}
-
-
-def _entry_raw_date(entry: Mapping[str, Any]) -> str | None:
-    """An entry's own date string, over either payload shape."""
-    raw = entry.get("Date") if "Date" in entry else entry.get("date_filed")
-    return str(raw) if raw else None
 
 
 @dataclass(frozen=True)
