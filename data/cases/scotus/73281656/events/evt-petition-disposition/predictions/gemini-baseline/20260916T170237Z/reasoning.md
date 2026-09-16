@@ -1,0 +1,5 @@
+P(grant) 0.06. 
+
+The prior-Term salience band for a once-distributed paid petition in the baseline band averages a reached rate of ~5-6%. I adjust slightly up because this is a capital case involving a known circuit split on the cumulative error doctrine in ineffective-assistance-of-counsel claims. However, I keep the probability low because the petition remains in the baseline band, indicating a lack of strong cert-stage signals such as an elevated classification, amicus support, or other markers of high vehicle quality. 
+
+The second question presented—wholesale adoption of a proposed order—is generally disfavored by the Court, but it is rarely a per se due process violation granting cert on its own unless the state court completely abdicated its role. The lack of a CVSG is expected for a state criminal matter with no overriding federal interest. A summary GVR is possible if the wholesale adoption was particularly egregious in light of recent precedent, but an outright denial is the most likely outcome given the baseline base rates and the posture of the case.

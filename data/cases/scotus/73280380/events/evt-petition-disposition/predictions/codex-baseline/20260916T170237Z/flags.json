@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280380",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Independent verification of Bost was unavailable: CourtListener MCP returned HTTP 429 and official-site web attempts returned no usable output. Its possible effect on sanctions is inferred from both provisioned briefs and materially informs the GVR probability; no target-case outcome was sought or retrieved."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned opposition mentions denial of certiorari in 23-1021, the plaintiffs' separate appeal from dismissal. This is not the target attorney-sanctions petition 25-882 and was not treated as its outcome."
+    }
+  ]
+}

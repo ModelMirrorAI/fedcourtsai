@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "The question concerns access to equal-protection review when parallel Voting Rights Act litigation replaces a challenged district. It has recurring redistricting significance, but this petition's immediate issue is mootness, not the substantive validity of race-conscious maps.",
+  "big_case_score": 0.62,
+  "case_id": "scotus/73280412",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.84
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.25
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.12
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-16",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-09-16T18:03:42Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-09-16.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "gvr",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.84,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "04535f27311aa2a79fb9229e5eeef1e3dd424f2b",
+    "stamped_at": "2026-09-16T18:06:53.407429Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260916T170237Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

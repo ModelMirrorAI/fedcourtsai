@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will most likely deny certiorari in Fairfield Sentry Ltd. v. Citibank NA London. P(any grant, including a GVR or summary reversal) is **16%**. The likely disposition is an unsigned denial without an explanatory opinion.
+
+The provisioned docket shows **one distribution**, entered June 17, 2026, for the September 28, 2026 conference, and **no CVSG**. This is not a petition that has already survived repeated conferences: the first scheduled conference is still ahead of prediction time. I expect no further distribution, with a **35%** probability of at least one additional distribution. Conditional on further distribution, one or two additional distributions are my central forecast, not a prolonged series. The modal timing is the first ordinary order list following the September 28 conference, or an October/November order list if the petition is relisted. This timing prediction is not a scored claim.
+
+I assign **8%** to a new call for the Solicitor General's views. The cross-border insolvency and comity questions create a plausible federal-interest reason for consultation, but I expect the Court to dispose of the petition without it. If a CVSG occurs, I expect it during the initial fall consideration, delaying the final petition disposition substantially.
+
+If review is granted, I expect the Court to take the statutory question centered on whether Section 561(d)'s incorporation of Section 546(e) bars foreign-law avoidance and common-law recovery claims in a Chapter 15 proceeding. That formulation would make the incorporating provision explicit rather than treating the question as extraterritoriality in the abstract. The direct statutory bar versus implied preemption distinction would be central to any review of the common-law component.
+
+Conditional on a grant, I assign **6%** to disposition in the cert order itself and **94%** to a route requiring further merits proceedings. The interpretive issues and competing accounts of the statutory scheme favor plenary treatment if the Court intervenes; the materials consulted identify no intervening decision furnishing a natural GVR route. Any merits discussion here is conditional, not a prediction that an opinion will accompany denial.
+
+Conditional on denial, I assign **4%** to any noted dissent or statement respecting denial. I expect none and make no affirmative prediction about an individual Justice's vote or authorship. The forecasted reason for declining review is that the asserted conflicts are less direct than the petition suggests, while the unusual Chapter 15 setting and alternative grounds make this a less attractive vehicle than a clean disagreement about the same provision.

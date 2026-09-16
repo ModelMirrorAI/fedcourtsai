@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73281630",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebSearch", "provisioned documents (petition, BIO, QP)"],
+  "helpful": [
+    "Provisioned petition and BIO text with documents.json: the whole cert-stage argument was on disk, so no filing retrieval was needed.",
+    "The sal-v4 per-Term band table with bracketed reached rates: a clear, leakage-safe anchor.",
+    "docs/salience.md naming the scorer's feature lattice, which made it possible to tell which record features (response request, amicus count) the band does not already price."
+  ],
+  "gaps": [
+    "A statpack cut conditioned on 'response requested after waiver' and on cert-stage amicus count would turn my two largest unpriced adjustments into measured ones.",
+    "fedcourts query has no topic or subject filter that works on SCOTUS rows, so a neighbor set of prior student-speech petitions was not retrievable from the corpus.",
+    "The reply brief is not provisioned; a reply row in documents.json would complete the cert-stage record.",
+    "A distribution-count reading that distinguishes a CFR-interrupted first distribution from a true relist would make the relist signal more honest."
+  ],
+  "notes": "Two corpus queries, two web searches, no MCP calls; well under the advisory retrieval budget."
+}

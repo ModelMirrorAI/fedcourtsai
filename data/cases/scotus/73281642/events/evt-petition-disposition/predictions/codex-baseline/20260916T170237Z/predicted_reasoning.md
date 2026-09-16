@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will most likely deny Amy Hadley's petition. P(any grant, including a GVR or summary reversal) is **30%**. The likely denial will leave the judgment below undisturbed without explaining or endorsing its police-power rationale.
+
+The supplied docket shows **one distribution**, entered June 24, 2026, for the September 28, 2026 conference, and **no CVSG**. The summer interval is not a sequence of relists. I assign **44%** to at least one further distribution. Zero additional distributions is the modal forecast; if the petition receives another conference, one or two additional distributions are more likely than a prolonged sequence. The main disposition window is early October through November 2026, with denial after the September conference the single most likely path. This timing forecast is not a scored claim.
+
+I assign **3%** to a new invitation for the Solicitor General's views. The constitutional issue could affect federal law enforcement, but this dispute concerns local governments and the briefs frame a judicial disagreement rather than a need for federal administrative expertise. The expected route is disposition without a CVSG.
+
+If the Court grants review, it will more likely take a focused version of **QP1**: whether intentional property destruction while executing a law-enforcement warrant is categorically outside the Takings Clause merely because it occurs under the police power. That question permits rejection of a blanket exception while leaving the existence and limits of a necessity or search-and-arrest privilege for further proceedings. QP2's broader request to resolve compensation liability for innocent owners is less likely to be answered categorically on this pleading-stage record. These are conditional forecasts, not predictions of a merits opinion after a denial.
+
+Conditional on a grant, I assign **12%** to disposition in the cert order itself and **88%** to plenary review. The parties disagree over historical privileges, the meaning of public use, and whether different circuit rationales change the result here. Those disputes favor briefing and argument over a summary correction. The materials reviewed identify no intervening controlling decision that supplies a ready GVR instruction.
+
+Conditional on denial, I assign **24%** to some recorded dissent or statement respecting denial. No separate writing is the central forecast. If a writing appears, Justices Sotomayor or Gorsuch are plausible participants because the petition identifies their earlier statement respecting denial in Baker; that statement is not evidence that either has committed to granting this petition. No individual cert votes are forecast.

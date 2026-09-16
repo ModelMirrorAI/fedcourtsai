@@ -1,0 +1,10 @@
+P(grant) 0.12. The petition presents a clean, acknowledged circuit split on whether the Fifth Amendment's Takings Clause contains a police-power exception that exempts the government from compensating innocent owners whose property is destroyed during law enforcement operations. 
+
+The prior-Term salience band for a once-distributed private/baseline petition is very low (the baseline bracketed reached rate is ~5.7%), but I adjust this up significantly for several reasons:
+1. The issue is a core constitutional property-rights question, an area of high interest for several conservative Justices (e.g., Thomas, Gorsuch).
+2. The petitioner is represented by the Pacific Legal Foundation (PLF), a repeat and highly successful Supreme Court litigator in Takings Clause cases. Their involvement strongly signals a well-selected vehicle and a real split.
+3. The facts (destruction of an innocent homeowner's property due to a police error) are sympathetic and cleanly present the constitutional issue without apparent vehicle problems.
+
+The respondent attempts to frame the circuit split as illusory by blending various exceptions (necessity, search and arrest), but the lower courts are genuinely divided on the overarching police-power exception to the Takings Clause. 
+
+I keep the overall probability relatively modest (0.12) because the petition is only at its first distribution (relist count 0) and the baseline rate is overwhelmingly denial, but this is a very strong candidate for a relist. A CVSG is unlikely (0.05) because the case involves local police and does not directly implicate federal interests, though the DOJ might have views on law enforcement liability. A summary disposition is highly unlikely (0.02) for a doctrinal split of this magnitude; if the Court takes it, it will be for plenary review. A dissent from denial is plausible (0.15) given the conservative wing's interest in property rights.

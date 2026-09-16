@@ -1,0 +1,8 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73248556",
+  "role": "predictor",
+  "run_id": "20260916T170237Z",
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

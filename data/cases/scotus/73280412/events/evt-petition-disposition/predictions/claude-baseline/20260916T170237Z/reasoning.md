@@ -1,0 +1,30 @@
+# Rationale for the numbers
+
+**Inputs read.** `record/snapshots/2026-09-16.json` (the provisioned baseline), `record/context.json` (mode `forward`, band `high` under `sal-v4`, `distribution_count` 3, no CVSG, Term 2025), `record/documents/petition.txt` and `questions-presented.txt` (43-page petition, text extracted cleanly, `empty_text: false`). The State's brief in opposition and the reply were **not** provisioned although both are on the docket (see `flags.json`); I fetched both from supremecourt.gov and read them in full, plus the companion Trevino v. Hobbs (No. 25-918) docket and its principal filings. `retrieval.md` lists everything.
+
+**Anchor.** Band `high`, frozen at the snapshot under `sal-v4`, which matches the statpack's "Segment base rate by salience band (sal-v4)" table. Pooling the `high` column's bracketed `reached` rates over the eight Terms strictly before this case's Term (OT2017–OT2024, n = 898) gives about 35% for the grant family (plenary grants plus GVRs). The relist-count cut is not a clean read here: the three distribution entries reflect a reschedule and a response request, not conference-to-conference relists, so I did not treat the bucket-2 figure (about 41% grant family) as the anchor, though it points the same way.
+
+**Adjustments upward, to 0.60.**
+1. *The respondent asks for a GVR.* Washington's brief says the petition should ordinarily be denied but that, because the State is asking the Court to GVR the Soto Palmer judgment in Trevino in light of Callais, "it would be reasonable for this Court to do the same with this petition," and its conclusion asks for exactly that. Secretary Hobbs takes no position. Nobody in this docket opposes vacatur. A respondent-endorsed GVR is one of the strongest single predictors of a grant-family outcome.
+2. *Callais is real forward signal.* Decided April 29, 2026, before the snapshot, and the Court has since GVR'd at least three Section 2 judgments the State cites (May 11 and May 18, 2026). The Garcia mootness holding is derivative of the Soto Palmer Section 2 judgment.
+3. *The Court requested a response before Callais* (March 25, 2026), after the State waived, in both this case and Trevino. That is the signal that put the case in the `high` band and shows pre-existing interest independent of the intervening decision.
+4. *The State conceded the snap-back point below*: its Ninth Circuit brief agreed that reversal of the Soto Palmer liability ruling would revive Garcia's claim, which is the Moore v. Harper theory the Ninth Circuit's memorandum never addressed. A three-judge-court dissent (VanDyke) supplies a roadmap.
+
+**Adjustments downward, keeping it at 0.60 rather than higher.**
+1. The Garcia GVR request is *conditional* on a GVR in Trevino, and Trevino has a threshold problem the Soto Palmer plaintiffs press hard: the Ninth Circuit held the intervenors lack standing to appeal the liability determination, the State and Secretary never appealed, and Callais says nothing about intervenor standing. If a majority sees Trevino as a standing-defective vehicle and denies it, the State's own position is that Garcia should be denied. I put P(Trevino grant family) near 0.65, P(Garcia grant | Trevino GVR) near 0.85, and P(Garcia grant | Trevino denied) near 0.12, which composes to roughly 0.59.
+2. Callais does not directly bear on mootness; a GVR "in light of" it in this docket is a housekeeping vacatur, which some Justices resist when the lower court's reasoning was independent.
+3. The decision below is a three-page unpublished memorandum with no circuit split, and the Court denied Trevino's motion to expedite on May 26, 2026, though I read that as Purcell-driven (Washington's primary was August 4) rather than as a merits signal.
+4. The corpus priors I pulled (`fedcourts query`, granted and denied 2020s SCOTUS rows) were mostly recent emergency applications and did not resemble this posture; they did not move the number.
+
+**Disposition label.** `gvr`, because most of the probability mass on the grant side is a vacatur in light of Callais rather than plenary review; `granted = 1` accordingly.
+
+**Claims.**
+- `disposition` 0.60, equal to `probability`.
+- `relist-increment` 0.40. From a long conference, a GVR or a denial without writing issues without relist; a relist follows if any Justice writes separately on either of the paired petitions, or if the Court wants another look at the Trevino standing objection. I judge that closer to even than to the population's low relist hazard because the pair is contested and the intervening decision is politically salient.
+- `cvsg-increment` 0.03. No federal party or federal statute in this petition; the SG's views on Callais are already known.
+- `summary-disposition-route` 0.80, conditional on a grant: GVR is the modal grant here; plenary review of the mootness question alone is the residual.
+- `dissent-from-denial` 0.30, conditional on a denial: higher than the population rate because the VanDyke dissent and the Callais context give Justice Thomas or Justice Alito material for a statement, but most denials in this posture are silent.
+
+**Big case score 0.40.** Stakes are moderate: one state legislative district, already in use for 2024 and 2026 elections, and a procedural question. The sequencing problem (a single-judge VRA ruling mooting a three-judge-court constitutional claim) recurs in parallel redistricting litigation, and post-Callais it matters more, which is why this is not a 0.2. A GVR outcome would attract almost no coverage.
+
+**Where to discount me.** My number leans heavily on the inference that the Court will follow a respondent's GVR request across a pair of linked petitions. If the Court instead treats the Trevino standing holding as dispositive and denies both, my forecast is badly wrong in the direction the base rate would have warned about. I could not read the Soto Palmer plaintiffs' brief in full (87 pages; I read the introduction, summary, and the passages on Garcia and Callais). I do not know the outcome of this petition and found no post-June-17 entries on either docket.

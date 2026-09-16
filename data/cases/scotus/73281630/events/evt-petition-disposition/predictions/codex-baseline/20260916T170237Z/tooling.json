@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281630",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell reads of provisioned inputs and committed statpack",
+    "jq for exact prior-Term pooling",
+    "fedcourts paths",
+    "web search/open attempts: no usable content",
+    "CourtListener MCP search: throttled"
+  ],
+  "helpful": [
+    "Both adversarial briefs had usable, untruncated text.",
+    "Frozen sal-v4 context and unrounded reached-rate fields made the anchor reproducible.",
+    "Dated distribution and response entries distinguished redistribution from completed conference relists."
+  ],
+  "gaps": [
+    "The reply was docketed but its text was not provisioned.",
+    "CourtListener's shared rate limit prevented independent review of the historical split authority.",
+    "Web attempts produced no readable result content."
+  ],
+  "notes": "The default package-runner cache was read-only; disabling caching and using the existing environment allowed path resolution. Retrieval degradation did not block the forecast. No case-outcome search, direct CourtListener REST request, or live-corpus query was made."
+}

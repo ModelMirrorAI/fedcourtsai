@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281372",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell provisioned-input reads", "jq statpack aggregation", "fedcourts paths", "CourtListener MCP search (throttled)", "web search/open (no usable content)"],
+  "helpful": ["Both petition and opposition text were provisioned", "Frozen sal-v4 band and distribution count", "JSON reached-band denominators allowed exact pooling"],
+  "gaps": ["Independent precedent retrieval was unavailable", "Petition appendix source was truncated", "Reply and amicus text were not provisioned"],
+  "notes": "A writable temporary uv cache resolved the initial CLI startup failure. CourtListener returned HTTP 429; web attempts returned no usable content. Proceeded without external legal text, without a REST fallback, and without retrieving this petition's outcome."
+}

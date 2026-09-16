@@ -1,0 +1,13 @@
+# Forecast: Myslow v. United States, No. 25-1148 (cert stage, moment: distribution)
+
+**Disposition.** The petition will be denied at or shortly after the September 28, 2026 conference, most likely on the October 5, 2026 order list (the long-conference denials). P(any grant) = 0.015.
+
+**Relists.** The docket shows exactly one distribution (June 17, 2026, for the September 28 conference) and no relist. I expect no further distribution: the question is one the Court passed on this Term in a 13-case consolidated petition (Schneider, No. 25-685) and in Johnson (No. 25-682), both denied January 12, 2026 with the Solicitor General opposing, and again in Dominguez-Garcia (No. 25-730). There is nothing new here to hold a conference over. A reschedule or a hold is the residual risk, and the one realistic hold candidate would be Zhong v. United States, No. 25-742, which raises the same question and was still pending when the brief in opposition was filed; if the Court disposes of Zhong on the same order list, no relist is needed. P(at least one more distribution) = 0.12.
+
+**CVSG.** None, and effectively impossible: the United States is the respondent and has already filed through the Solicitor General. P = 0.005.
+
+**Which question, if taken.** The petition presents one question: whether Article 66(d)(2), UCMJ, lets a Court of Criminal Appeals correct a firearms-prohibition annotation made after entry of judgment. If the Court took anything it would be that jurisdictional question as reformulated by the government (whether the AFCCA may review the indorsement at all), never the embedded as-applied Second Amendment challenge, which no court below reached.
+
+**Summary disposition versus plenary review.** Conditional on any grant, a summary route is somewhat likelier than argument: the holding below is a CAAF-only reading of a single service's since-withdrawn regulation, which is a poor plenary vehicle, so the plausible grant shape is a GVR riding some intervening decision on the reach of section 922(g) to drug users, rather than an argued case. P(summary route | grant) = 0.55. The Court did not hold the January companions for any pending case, which is why the unconditional chance of any grant stays near one percent.
+
+**Dissent or statement respecting denial.** I expect a bare denial. The Second Amendment framing could in principle draw a short statement from a Justice who has written on section 922(g)(1) as applied to non-violent offenders, but the January companion denials appear to have drawn none that the parties cite, and the jurisdictional posture makes this a weak vehicle for such a statement. P(some noted dissent or statement | denial) = 0.05.

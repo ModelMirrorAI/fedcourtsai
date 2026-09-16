@@ -1,0 +1,5 @@
+Distributed twice so far (the first prior to the requested response, and now for the September 28 Long Conference). Expect one further relist before a decision on the petition, as is common for serious Long Conference petitions. No CVSG is expected, as the federal government is not a party and its interests are not squarely implicated in this student speech dispute.
+
+If granted, the Court would likely take the single question presented as written to resolve the circuit split over the scope of the `Fraser` exception. A summary GVR is unlikely because there is no intervening Supreme Court decision that bears directly on the split. 
+
+Should the Court deny review, there is a reasonable chance (20%) of a dissent from denial by one of the more conservative Justices (e.g., Justice Thomas or Alito) given the political speech at issue ("Let's Go Brandon") and the lower court's expansive reading of the `Fraser` exception to cover non-disruptive speech that a single administrator considers vulgar.

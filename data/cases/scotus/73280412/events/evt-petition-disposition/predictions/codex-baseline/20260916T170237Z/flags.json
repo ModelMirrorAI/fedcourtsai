@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280412",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot records the June 2 respondent brief and June 10 reply, but documents.json provisions only the January petition and QPs. Retrieved both exact official PDFs from snapshot links. The respondent's affirmative GVR request materially changes the forecast; omitting that brief from the text bundle risks missing the leading disposition route. This gap was recovered, not blocking."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The forecast uses pre-snapshot June filings describing the April 29, 2026 Callais decision and requesting GVR coordination with Soto Palmer. This is legitimate forward context, not this petition's disposition. No current companion status or own outcome was retrieved; the filings' intervening-precedent signal is decisive for the 0.84 grant-family probability."
+    }
+  ]
+}

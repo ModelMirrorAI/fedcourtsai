@@ -1,0 +1,2 @@
+- `uv run fedcourts query --court scotus --decided-before "2026-09-15" "commercial speech Central Hudson dietary supplement First Amendment"`
+- CourtListener MCP search: `q="Central Hudson" "commercial speech" "circuit split" type=o`

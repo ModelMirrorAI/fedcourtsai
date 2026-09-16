@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281629",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2, but the docket shows no true relist: the Apr 15 2026 distribution (Conference of 5/1/2026) was superseded by the Apr 24 'Response Requested' order, and the Jul 15 2026 distribution (Conference of 9/28/2026) is the first at which the petition will actually be considered. The elevated band therefore rides on a reschedule-before-first-consideration count (the ceiling caveat the statpack's relist cut already notes) plus the call-for-response signal. I anchored on the band as instructed and stated relist-increment from the 2-distribution state."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Material post-BIO development not in the provisioned documents: petitioner's Sep 2 2026 reply/supplemental brief relies on Kelly v. Altria Client Services (4th Cir. Aug 10 2026, published), which holds a plan administrative-services agreement disclosable under 29 U.S.C. 1024(b)(4). I retrieved the reply from the supremecourt.gov docket URL (forward mode) and verified Kelly's text via the CourtListener MCP server. Consider provisioning reply briefs alongside the petition and BIO; they routinely carry the latest split developments."
+    }
+  ]
+}

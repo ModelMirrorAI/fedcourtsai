@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281647",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "fedcourts paths", "CourtListener MCP (search, call_endpoint, get_endpoint_item)", "web search", "metrics/statpack.md"],
+  "helpful": [
+    "Provisioned petition, BIO, and QP text with page counts and no truncation",
+    "Segment base rate by salience band table, per Term, with the bracketed reached figure",
+    "CourtListener dockets endpoint for confirming the companion docket exists and this docket is not terminated",
+    "Web search for confirming both petitions' conference date"
+  ],
+  "gaps": [
+    "A cert-stage amicus-count cut in the statpack; five amici was my strongest upward signal and I had to price it from judgement",
+    "Relist histories of prior petitions on the same question: CourtListener SCOTUS dockets carry no entries and null cert dates, and fedcourts query has no case-name or docket-number lookup, so Baker/Slaybaugh trajectories were unreadable",
+    "A 'related/companion petitions' hint in context.json when another provisioned docket shares counsel and conference date",
+    "The --citation known-case lookup forced a 1357-GET / 355 MB scan and matched nothing (only 200 SCOTUS rows carry citations); a cheap refusal or a docket-number filter would be better"
+  ],
+  "notes": "Forward cell. Twelve MCP calls, three web searches, two corpus queries; well inside budget. The corpus query surface returned no case-relevant priors for a doctrinal question with a known set of predecessor petitions."
+}

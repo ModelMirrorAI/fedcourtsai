@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280412",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "web search", "web fetch of supremecourt.gov filings"],
+  "helpful": [
+    "statpack salience-band table with bracketed reached rates",
+    "provisioned petition text",
+    "supremecourt.gov docket pages and filing PDFs for this case and its companion"
+  ],
+  "gaps": [
+    "brief in opposition and reply were on the docket but not provisioned; had to fetch and extract PDF text by hand",
+    "no way to provision or query a linked/companion docket (here No. 25-918) from the corpus",
+    "fedcourts query has no topic or text filter for SCOTUS rows, so posture-similar priors (mootness, redistricting) cannot be pulled",
+    "WebFetch could not read PDF filings; needed a local PDF text extractor"
+  ],
+  "notes": "The corpus priors returned for 2020s granted/denied were dominated by recent emergency applications and did not inform the number. The decisive inputs were the respondent's brief and the companion docket, both outside the provisioned record."
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281674",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Pre-decision context disclosure: the provisioned union opposition (p. 24 n.3) and separately retrieved June 17 federal opposition (p. 25) report denial of the distinct Macy's petition, No. 25-627, on June 15, 2026. This legitimate forward signal modestly reduced the hold/remand forecast; it is not this petition's outcome or a merits ruling. The federal brief also mentions an earlier denial of emergency stay application No. 25A725 (p. 11); that distinct event was not used to infer the predicted cert outcome. No disposition of petition 25-1192 was retrieved or known.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260916T170237Z",
+  "schema_version": "1.0"
+}

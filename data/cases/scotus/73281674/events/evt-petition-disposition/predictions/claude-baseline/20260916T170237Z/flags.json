@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281674",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The docket carries two briefs in opposition filed June 17, 2026 (the federal respondent's and the Newspaper Guild's), but the document pipeline provisioned only the Guild's as `brief-in-opposition`. On an NLRB docket the Solicitor General's brief is the more informative opposition. I fetched the federal BIO from the supremecourt.gov URL in the snapshot (forward cell; ordinary retrieval) and used it; other predictors in this fan-out may not have, so the fan-out's information sets differ. Consider letting the document selector keep one opposition brief per respondent, or prefer the federal respondent's where both exist."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive pre-snapshot public information used as forward signal: the Court denied Macy's v. NLRB, No. 25-627 (June 15, 2026), the preserved Ninth Circuit vehicle on the Thryv consequential-damages remedy that this petition asked to be held for, and did so although the government requested a GVR there. Both BIOs report this; it materially lowered my grant probability on QP 3."
+    }
+  ]
+}

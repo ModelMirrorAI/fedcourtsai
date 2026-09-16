@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281381",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Supplemental web calls returned no usable content. The July 9 reply is docketed but not provisioned; a direct attempt to open its known pre-decision PDF also returned no text. The forecast therefore weighs the petition and opposition without the reply, which may address the facial-challenge vehicle objections. No outcome material was surfaced."
+    }
+  ]
+}

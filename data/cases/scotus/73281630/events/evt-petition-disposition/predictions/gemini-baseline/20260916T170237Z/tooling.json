@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/73281630",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command"
+  ],
+  "helpful": [
+    "metrics/statpack.md provided a clear baseline for the salience band."
+  ],
+  "gaps": [
+    "Free-text search via the corpus tool is not available, which makes finding factually similar cases difficult if the metadata fields (e.g. topic) are sparse."
+  ],
+  "notes": "The prompt and inputs were very clear. The instructions provided excellent guidance on which baselines to anchor on."
+}

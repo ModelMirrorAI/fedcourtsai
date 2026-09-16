@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73246321",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "record/documents (petition, questions-presented)"],
+  "helpful": [
+    "context.json band plus the sal-v4 per-Term band table gave a clean, directly scoreable anchor",
+    "provisioned petition text made the thinness of the petition verifiable rather than inferred from the docket",
+    "documents.json's ocr_derived flag set expectations for the garbled lines"
+  ],
+  "gaps": [
+    "a fee-class-by-representation cut (pro se paid vs counseled paid) would sharpen the downward adjustment from the baseline band far more than any other signal on this docket",
+    "the petition appendix (the state court orders) was not provisioned, so the judgment below is characterized from the petition's own statement",
+    "fedcourts query has no free-text or question-presented filter, so it cannot surface priors on a theme like state procedural default"
+  ],
+  "notes": "No CourtListener MCP call was needed: the snapshot is same-day and the lower-court record is two procedural orders. The query transfer line was recorded as instructed."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281394",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forecast completed from the available record. The snapshot lists an August 25, 2026 reply, but no reply text is provisioned or independently retrieved; Utah's latest answer to the BIO's finality and alternative-ground objections is therefore unassessed. The 154-page petition source is marked truncated, although its main argument and relevant appended opinion passages are available. Neither limitation was treated as evidence of an absent filing or an outcome."
+    }
+  ]
+}

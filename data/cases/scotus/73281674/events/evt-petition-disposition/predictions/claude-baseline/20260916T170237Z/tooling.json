@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281674",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "engine web fetch (supremecourt.gov PDF) + pypdf text extraction"
+  ],
+  "helpful": [
+    "The frozen band plus the sal-v4 per-Term reached rates made the anchor mechanical",
+    "Full-text petition and Guild BIO with no empty_text; the QP file was cleanly cut",
+    "Snapshot docket entries carry the supremecourt.gov PDF URLs, which made fetching the unprovisioned federal BIO a one-step retrieval"
+  ],
+  "gaps": [
+    "The document pipeline provisions one brief-in-opposition per docket; on dockets with a federal and a private respondent the SG's brief was the one dropped",
+    "fedcourts query has no case-name or party filter, so finding NLRB priors meant pulling 100-row disposition slices and filtering locally on case_name",
+    "CourtListener's SCOTUS docket search returned nothing for a current-Term docket number (25-627), so related-petition outcomes had to come from the parties' briefs",
+    "No as-at-prediction relist hazard is published; the relist-increment claim is anchored on terminal buckets"
+  ],
+  "notes": "The query rows' caption field is `case_name`, not `caption`; a note in docs/cli.md would save a wasted first pass."
+}

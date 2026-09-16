@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281346",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener mcp search", "web search", "provisioned documents (petition, BIO, QP)"],
+  "helpful": [
+    "The sal-v4 band table with the bracketed reached rate gave a direct, leakage-safe anchor for the elevated band.",
+    "Provisioned petition and BIO text made the vehicle assessment possible without leaving the record.",
+    "Forward-mode web search surfaced this Term's Zorn v. Linton docket path, the closest analog to this docket's waiver-then-call-for-response shape."
+  ],
+  "gaps": [
+    "No statpack cut for petitions where the Court called for a response after a waiver; that is the dominant docket signal here and I had to estimate its uplift from one analog.",
+    "fedcourts query has no subject filter on SCOTUS rows, so it cannot surface topically similar priors (qualified-immunity petitions); the disposition filter for summary-reversal returned nothing in the 2020s era at a cost of ~200 MB of ranged reads.",
+    "A forward hazard for relists conditioned on the current distribution state would make the relist-increment claim less of a guess."
+  ],
+  "notes": "Petition text was truncated inside the appendix; the parties' briefs were complete. Eleven retrieval calls total, under the advisory budget."
+}

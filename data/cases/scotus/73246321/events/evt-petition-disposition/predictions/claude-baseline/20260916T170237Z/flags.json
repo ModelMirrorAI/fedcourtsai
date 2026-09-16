@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73246321",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot's petition entry (and documents.json's entry_date) is dated Oct 14 2025, while the docket's DocketedDate, the petition's received stamp, and the PDF URL timestamp are all April 24, 2026, and the state-court denial under review is September 30, 2025. This looks like a corrected refiling credited to its original receipt date on supremecourt.gov rather than a pipeline error, but the six-month gap between the recorded filing date and docketing is unusual enough to note for anyone reading timeliness off entry dates. The forecast treats the petition as timely because the Clerk docketed it."
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281346",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned document reading", "jq statpack pooling", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "web search and open attempts"],
+  "helpful": ["Provisioned petition, opposition, and appellate-opinion appendix permit adversarial comparison.", "Frozen sal-v4 context and exact reached-band counts provide a reproducible anchor.", "CourtListener targeted precedent retrieval avoids querying the forecast case."],
+  "gaps": ["The docketed reply was not provisioned.", "The petition manifest marks truncation of the long filing and appendix.", "Web-tool calls returned no visible source text."],
+  "notes": "The default uv cache was read-only; using a temporary writable cache allowed the existing CLI to run. No live corpus query was needed for the selected anchor or the two known precedent checks. No pipeline files were changed."
+}

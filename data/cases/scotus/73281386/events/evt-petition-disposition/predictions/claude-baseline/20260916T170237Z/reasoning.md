@@ -1,0 +1,41 @@
+# Why P(grant) = 0.60
+
+## Anchor
+
+`record/context.json` freezes `band: baseline` under `sal-v4`, `distribution_count: 1`, `cvsg_date: null`, `term: 2025`, mode `forward`. The prompt says to use the frozen band, so the anchor is the statpack's "Segment base rate by salience band (sal-v4)" table, `baseline` column, bracketed `reached` figure, pooled over Terms strictly before 2025 (OT2017 through OT2024, the whole rendered window): roughly 593 weighted grants over 11,580 reached, about **5.1%**. That is the yardstick the evaluator will score this cell against.
+
+I then move a very long way from it, and the reader should see why before deciding how much to discount me.
+
+## Why the band anchor understates this petition
+
+**The caption class is federal, not private.** The petitioner is "U.S. Doge Service, et al.", represented by the Solicitor General (D. John Sauer, counsel of record), with OMB, its Director, NARA and the Archivist as co-petitioners. Under the salience scorer's own rule (a government party names its sovereign; an officer title with no jurisdiction qualifier reads federal) this is a federal petitioner, and the pooled federal-column `reached` rate over the same eight Terms is about 132 of 181, roughly **73%**. The frozen band says `baseline`, presumably because the scorer's federal markers did not match "U.S. Doge Service" and the respondent-side "United States District Court" caption confused the placement. I anchor on the band the harness froze, as instructed, and flag the mismatch in `flags.json`. My number sits between the two class rates for reasons that follow, not as an average of them.
+
+**The Court has already granted certiorari once in this dispute.** The petition appendix reproduces the June 6, 2025 order (No. 24-1246 / 24A1122): stay granted, application treated as a petition and granted, the D.C. Circuit's denial of mandamus vacated and remanded, with instructions to narrow discovery and with the stay running "pending ... disposition of the petition for a writ of certiorari, if such writ is timely sought." Three Justices (Sotomayor, Kagan, Jackson) would have denied. Staying a lower-court order pending a future petition is, on the Court's own Hollingsworth standard, a finding of a reasonable probability of a grant. That is the strongest single fact in the record and is why my number is far above any private-petitioner rate.
+
+**The remand order is thin.** The D.C. Circuit (Henderson, Wilkins, Childs) granted mandamus only as to the two interrogatories and five requests for admission CREW had already withdrawn and otherwise denied it, stating that the government's arguments "do not otherwise alter this court's conclusions in previously denying mandamus relief." No request-by-request Cheney analysis appears. A majority that found the first order deficient has an easy path to a second GVR-shaped order saying the same thing more pointedly.
+
+**Statpack cuts point the same way.** The originating-circuit cut shows `cadc` with the highest grant family of any circuit (granted 5.5%, gvr 2.3%). The petition is paid. The relist cut is not yet informative (one distribution).
+
+## Why not higher
+
+- **The D.C. Circuit's reading of the June order is defensible.** The order identified one category of discovery as "not appropriately tailored" (recommendation content and whether recommendations were followed). CREW withdrew exactly that. The BIO's argument that the panel "followed this Court's instructions to the letter" will appeal to Justices who joined the June order for its narrowness, and the Chief Justice and Justice Barrett could plausibly see a second intervention in a fact-bound discovery dispute as more supervision than the posture warrants.
+- **En banc rehearing was denied with no member of the court requesting a vote**, including judges who would ordinarily be receptive to the government's separation-of-powers framing. That weakens the "flagrant departure" narrative.
+- **The equities have moved.** The BIO stresses that over a year has passed, that other courts have ordered DOGE-related discovery the government did not appeal, and that the remaining discovery is a "backward-looking inquiry into DOGE's past operations." From general knowledge rather than the provisioned record, the DOGE structure was reported wound down in late 2025 and the executive order's temporary organization had a July 2026 sunset; that makes the case feel stale and gives a majority a reason to let the stay lapse. I hold this loosely because neither filing states it outright.
+- **Posture.** An unpublished mandamus denial with no circuit conflict is a poor vehicle for plenary review of QP 2, and the BIO presses forfeiture on several of the government's request-specific objections.
+
+Net: roughly 0.60 for any grant. Within that, I split about 0.33 summary disposition (a second grant-vacate-remand or per curiam) and about 0.27 plenary grant; denial about 0.40. `granted = 1` and `predicted_disposition = gvr` name the single most likely grant form, matching the Court's own route in June 2025, though denial is the most likely single label on its own.
+
+## The other claims
+
+- **relist-increment 0.55.** From one distribution. A written disposition (the likely grant form) usually costs a relist or two; a clean denial off the long conference would not. The statpack's relist cut shows the first relist barely moves the terminal grant rate, so I read the relist as a drafting signal here, not a grant signal.
+- **cvsg-increment 0.01.** The SG is a party; a CVSG cannot issue. Stated as a near-zero rather than zero only because the claim requires a probability.
+- **summary-disposition-route 0.55**, conditional on a grant. The Court's June 2025 order cited In re United States (2017), a summary per curiam in the same posture, and did the same itself; the petition asks for summary reversal in the alternative. Against that, QP 2 is a real statutory question the Court might prefer to decide with argument. The per-Term table shows GVRs at roughly half the grant family in OT2025, but the statpack warns that split is not comparable across Terms, so I lean on the case-specific history.
+- **dissent-from-denial 0.40**, conditional on denial. A denial here would split the June 2025 majority; the Justices who would not join it (Alito, Thomas, Gorsuch most plausibly) note dissents from denial in executive-prerogative cases fairly often, but far from always.
+- **big_case_score 0.62.** High public salience (DOGE, FOIA, Cheney) and real doctrinal stakes for future FOIA suits against EOP units, discounted for the discovery posture and the possibility of a narrow order.
+
+## Inputs and their limits
+
+- Read: `record/snapshots/2026-09-15.json` (the provisioned baseline), `record/context.json`, `event.yaml`, and all three provisioned documents (`questions-presented.txt`, `petition.txt` including its appendix of the June 2025 order and the July 2025 remand order, `brief-in-opposition.txt`). None was `empty_text` or truncated. The July 1, 2026 reply brief is on the docket but was not provisioned and I did not retrieve it.
+- Forward-mode CourtListener check: the docket record shows no modification after July 8, 2026 and no termination date, consistent with the snapshot; the underlying D.D.C. docket (1:25-cv-00511) shows no entries since December 2025 in CourtListener's RECAP coverage, which is consistent with the stay but is also thin coverage, so I draw nothing further from it. Nothing outcome-revealing surfaced.
+- Corpus priors: two `fedcourts query --citation` lookups (Cheney; In re United States) returned no rows, with the CLI's own note that only 200 SCOTUS rows carry citation data, so this is a coverage gap rather than an absence of analogs. A broad `--disposition granted --era 2020s` query returned recent grants with no bearing on this case. Base rates come from the committed `metrics/statpack.md`.
+- Where to discount me: the 0.60 rests heavily on one inference, that the Court's prior stay-pending-petition signals a disposition to grant again. If the Court instead treats CREW's withdrawal as full compliance, the right number was closer to 0.35. I also carry general knowledge that DOGE wound down in late 2025, which is not in the provisioned record and which I used only to shade downward.

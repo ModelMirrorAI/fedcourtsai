@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281677",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive pre-snapshot public signal, disclosed for hygiene: the petition and the BIO both record that the identical question was denied on Jan 12, 2026 in Schneider v. United States (No. 25-685, 13 consolidated CAAF cases) and Johnson (No. 25-682), and in Dominguez-Garcia (No. 25-730); a further companion, Zhong (No. 25-742), was pending at BIO time. This drove the forecast well below the band anchor. No outcome for this docket was seen; CourtListener shows it last modified 2026-06-17 with no termination."
+    }
+  ]
+}

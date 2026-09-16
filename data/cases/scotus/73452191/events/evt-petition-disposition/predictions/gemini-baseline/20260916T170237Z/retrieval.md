@@ -1,0 +1,2 @@
+- CourtListener MCP lookup for lower court docket `Bernard v. Ignelzi` (`2:23-cv-01463` and `2:23-cv-03110`)
+- Looked up base rates in `metrics/statpack.md` for "Cert petitions by relist count" and "Segment base rate by salience band"

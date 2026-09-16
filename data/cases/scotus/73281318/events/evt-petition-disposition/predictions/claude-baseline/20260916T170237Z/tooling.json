@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73281318",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "courtlistener MCP read_document"],
+  "helpful": [
+    "Full petition and BIO text provisioned under record/documents, which carried the finality argument and the GVR discussion that drove the number",
+    "context.json band plus the sal-v4 segment table gave a clean leakage-safe anchor",
+    "MCP read_document on the intervening Case v. Montana opinion confirmed its holding and date in one call"
+  ],
+  "gaps": [
+    "A statpack cut for petitions where the Court called for a response after a waiver; the CFR is the strongest signal on this docket and the pack has no conditioned rate for it",
+    "fedcourts query has no subject or QP-text filter for SCOTUS rows, so it cannot surface comparable emergency-aid or Fourth Amendment cert priors",
+    "A way to distinguish a pre-consideration redistribution (after a CFR) from a true relist in distribution_count"
+  ],
+  "notes": "The corpus query returned mostly interim applications for a granted-in-2020s filter and did not inform the forecast. The reply brief (June 18) was not provisioned; only the petition and BIO were."
+}

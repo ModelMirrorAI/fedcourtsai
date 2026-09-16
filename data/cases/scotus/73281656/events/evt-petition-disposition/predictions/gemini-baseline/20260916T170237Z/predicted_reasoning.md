@@ -1,0 +1,5 @@
+Distributed once so far; expect a low chance of further relists given the baseline band classification and the lack of other affirmative signals of interest. 
+
+The petition presents a recognized circuit split regarding whether courts must evaluate the cumulative prejudice of counsel's deficiencies under *Strickland*, as well as a challenge to a state trial court's wholesale adoption of the State's proposed order in a capital case. While capital cases receive close review and often draw attention, the lack of an elevated salience band suggests the vehicle may be poor or the lower court's decision rests on independent state grounds. 
+
+If granted, the Court might take the cumulative error QP to resolve the circuit split. A summary GVR is possible if the wholesale adoption was seen as an abdication of the judicial role, but a denial is the most likely outcome. No CVSG is expected, as this is a state criminal matter without federal institutional interests. Should the Court deny review, expect a potential dissent from denial by Justice Sotomayor or Justice Jackson, as is common in capital cases raising these types of due process and Sixth Amendment issues.

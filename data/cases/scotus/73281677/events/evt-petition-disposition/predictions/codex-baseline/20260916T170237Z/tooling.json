@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281677",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "committed statpack", "fedcourts paths", "local weighted-rate calculation", "web search/open attempts", "fedcourts validate"],
+  "helpful": ["Readable petition and opposition permit direct comparison of the competing statutory arguments.", "Frozen sal-v4 baseline and Term identify the correct reached-rate pool.", "Document metadata distinguishes usable text from extraction failures."],
+  "gaps": ["The docketed reply and separately linked appendix were not provisioned as readable texts.", "General-law web requests returned empty responses with no usable content."],
+  "notes": "No corpus or MCP retrieval was needed for this narrow question. The default uv cache was read-only; a writable temporary cache allowed the CLI to run. Increment probabilities remain judgmental because the published terminal-state cuts are not forward hazards."
+}

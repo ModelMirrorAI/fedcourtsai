@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281386",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Frozen sal-v4 context assigns baseline, while the provisioned petition and snapshot identify federal executive petitioners represented by the Solicitor General. Preserved the frozen band and its prior-Term reached-rate anchor; treated actual government participation as case-specific evidence. Maintainers may wish to inspect caption recognition for U.S. Doge Service rather than assume this is an ordinary private baseline petition."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition Appendix A contains a June 6, 2025 Supreme Court grant/vacatur/remand in earlier petition 24-1246/application 24A1122. Used this pre-decision procedural history as a decisive signal for new petition 25-1103. It is not the disposition being forecast; no outcome of the present petition was sought or surfaced in available retrieval."
+    }
+  ]
+}

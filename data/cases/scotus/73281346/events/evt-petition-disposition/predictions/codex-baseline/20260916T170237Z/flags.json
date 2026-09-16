@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281346",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The manifest marks the 160-page petition as truncated. The principal petition arguments and relevant appellate-opinion appendix passages are readable, so the forecast is completed, but it does not assume the full appendix. The docket records a July 2 reply whose text is not provisioned; its potential answers to the opposition remain an acknowledged uncertainty."
+    }
+  ]
+}

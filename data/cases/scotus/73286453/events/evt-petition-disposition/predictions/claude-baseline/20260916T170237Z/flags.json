@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73286453",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The petitioner's reply brief (docket entry of Jul 15 2026, 'Reply of petitioner Denise Hughes filed', with a supremecourt.gov PDF link) is on the provisioned snapshot but no reply text was provisioned under record/documents/. The BIO's lead argument is a preservation objection that a reply would answer, so the forecast was made without petitioner's response to it.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}
