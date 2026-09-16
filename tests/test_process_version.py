@@ -235,11 +235,14 @@ def test_no_committed_cell_predates_the_bless_it_claims() -> None:
     on a maintainer's grep. Trivially green while nothing is blessed, and
     forever after a clean freeze.
 
-    The **counting** instant is deliberately not the boundary here. It is
-    guessed generously late at the freeze commit, so cells minted between the
-    bless moment and the instant are honest ledger cells that ``is_frozen``
-    de-counts on timing — shakedown, not retroactivity — and a tripwire keyed
-    on the instant would call them a broken pre-registration.
+    The **counting** instant is deliberately not the boundary here. Where it
+    sits strictly after the bless moment, cells minted between the two are
+    honest ledger cells that ``is_frozen`` de-counts on timing — shakedown,
+    not retroactivity — and a tripwire keyed on the instant would call them a
+    broken pre-registration. Where the two coincide the distinction costs
+    nothing and the separation still matters: this walk must stay keyed on
+    each digest's own bless moment, which a carried-forward digest can hold
+    from an earlier label whatever the instant is.
 
     Predictions half; the evaluation twin below walks the evaluation ledger
     against the evaluator bless moments with the same rule.

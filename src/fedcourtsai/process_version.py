@@ -17,8 +17,8 @@ The freeze is a deliberate, explicit event: one "freeze commit" fills
 :data:`FROZEN_PROCESS_DIGESTS` and :data:`FROZEN_SINCE` together — the
 digest(s) a maintainer reads off ``fedcourts process-digest --all``, each
 carrying the instant it was blessed, and the instant a run's harness stamp
-must be at or after to count. Those are **two** boundaries doing two jobs,
-and they are deliberately not the same moment:
+must be at or after to count. Those are **two** boundaries doing two jobs, and
+they answer different questions even where they fall on the same moment:
 
 - the **bless moment** — a digest's value in the map — is when that process's
   bytes became immutable on ``main``, so it is the *retroactivity* boundary. A
@@ -26,13 +26,16 @@ and they are deliberately not the same moment:
   which is retroactive blessing and nothing licenses it. Auditable from git:
   it is the merge time of the promotion that carried the freeze commit.
 - the **counting instant**, :data:`FROZEN_SINCE`, is when the headline starts
-  counting. It is guessed generously late at the freeze commit, so cells
-  minted in the window between the two boundaries land honestly in the ledger
-  and are de-counted by timing — shakedown, not retroactivity.
+  counting. It sits at or after every bless moment: guessed generously late at
+  the freeze commit, then verified at step 4 of the cutover against the merge
+  that landed. Where it sits strictly later, cells minted in the window
+  between the two land honestly in the ledger and are de-counted by timing —
+  shakedown, not retroactivity. Where step 4 puts it *at* the merge, the
+  window is zero-width and there is no such cell to mint.
 
 A later evaluator-half re-bless revises the map's evaluator entries while
 holding the instant; a predictor-half re-bless replaces the enforced entries
-and puts the instant past the carrying promotion — by moving it, or by
+and puts the instant at or after the carrying promotion — by moving it, or by
 leaving one that already sits there — de-counting every cell stamped under
 the retired digests. Where that set holds a counted cell the move is licensed
 only by a shakedown declaration dated before the de-counted claim window's
@@ -139,9 +142,10 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 # means the commitment preceded the run, and only a time cutoff can say so.
 # Compared against the stamp's `stamped_at`, which the harness writes; anything
 # at or after the instant is in. It sits at or after every bless moment in the
-# map above — guessed generously late at the freeze commit, then corrected at
-# step 4 against the merge that actually landed — so a cell minted in any
-# window between the two lands as shakedown rather than as a counted cell. One
+# map above — guessed generously late at the freeze commit, then verified at
+# step 4 against the merge that actually landed and bumped where it came in
+# early, never pulled back — so a cell minted in any window between the two
+# lands as shakedown rather than as a counted cell. One
 # shape inverts that order — an evaluator-half re-bless that holds this
 # instant while swapping only the evaluator entries above, licensed because
 # the enforced predictor half is then byte-identical to the prior `prereg/`

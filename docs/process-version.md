@@ -488,7 +488,13 @@ land; recording and tagging that commit complete the procedure:
    the instant lands in the ledger as shakedown, honestly stamped and simply
    uncounted, while an instant before the merge would bless runs made while
    the constant was still editable. The promotion date is a forecast here
-   too — for the instant, guess late.
+   too — for the instant, guess late. Late is safe on retroactivity, which is
+   why it is the direction to guess, but it is not free: a cell minted in that
+   window carries a blessed digest and still fails `is_frozen`'s time limb, so
+   the pre-freeze re-predict rule re-owes its event and the round is paid for
+   twice. Where the merge is known before the instant must be — a correction
+   at step 4, or a freeze whose promotion has already landed — the merge's own
+   instant is the value that satisfies the rule and leaves no window at all.
 3. Commit. Because the digest excludes `pipeline_sha`, the blessed map survives
    unrelated pipeline commits — predict/evaluate can resume at a newer HEAD and
    still match.
@@ -588,11 +594,11 @@ freeze record states the exposure.
 counted cells** is the third supersession shape, and the only one that
 de-counts: the predictor digests are the enforced filter, so replacing them in
 `FROZEN_PROCESS_DIGESTS` removes every cell stamped under the retired digests
-from every frozen-scope artifact at once — and `FROZEN_SINCE` sitting past the
-carrying promotion, the ordinary step-4 rule (the held-instant exception above
-is scoped to byte-identical predictor digests and cannot apply, so the instant
-is either moved there or already sits there, which satisfies the same rule
-without a move), independently
+from every frozen-scope artifact at once — and `FROZEN_SINCE` sitting at or
+after the carrying promotion, the ordinary step-4 rule (the held-instant
+exception above is scoped to byte-identical predictor digests and cannot
+apply, so the instant is either moved there or already sits there, which
+satisfies the same rule without a move), independently
 drops every evaluation stamped before the instant via
 `graded_post_freeze`, blessed evaluator digests or not, so the boundary is
 total in both halves rather than incidental to one. That is a
