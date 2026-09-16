@@ -35,6 +35,7 @@ from fedcourtsai.store import (
     forecastable_events,
     forward_refusal_reason,
     iter_flags,
+    iter_predictions,
     iter_tooling,
     iter_tracked_cases,
     ledger_cell_counts,
@@ -1813,3 +1814,34 @@ def test_normalized_stage_reads_a_null_petition_stage_as_cert() -> None:
     assert normalized_stage(EventKind.motion, None) is None
     # A recorded stage is never overridden.
     assert normalized_stage(EventKind.petition, Stage.merits) is Stage.merits
+
+
+def test_iter_predictions_reads_every_committed_prediction_in_a_total_order(
+    tmp_path: Path,
+) -> None:
+    """Identity comes off the path, and the order is total, so two readers of one
+    tree collapse the same runs the same way."""
+    for case, event, predictor, run in (
+        ("scotus/2", "evt-petition-disposition", "codex-baseline", "r2"),
+        ("scotus/1", "evt-order-response-requested-disposition", "claude-baseline", "r1"),
+        ("scotus/1", "evt-petition-disposition", "claude-baseline", "r1"),
+        ("scotus/1", "evt-petition-disposition", "claude-baseline", "r0"),
+    ):
+        court, _, docket = case.partition("/")
+        seed_prediction(tmp_path, court, int(docket), event, predictor_id=predictor, run_id=run)
+    rows = iter_predictions(tmp_path)
+    assert [(r.case_id, r.event_id, r.predictor_id, r.run_id) for r in rows] == [
+        ("scotus/1", "evt-order-response-requested-disposition", "claude-baseline", "r1"),
+        ("scotus/1", "evt-petition-disposition", "claude-baseline", "r0"),
+        ("scotus/1", "evt-petition-disposition", "claude-baseline", "r1"),
+        ("scotus/2", "evt-petition-disposition", "codex-baseline", "r2"),
+    ]
+    assert rows[0].court_id == "scotus" and rows[0].docket_id == 1
+    assert rows[0].cell_path.endswith("predictions/claude-baseline/r1")
+    assert rows[0].prediction.case_id == "scotus/1"
+
+
+def test_iter_predictions_on_an_absent_ledger_creates_nothing(tmp_path: Path) -> None:
+    absent = tmp_path / "absent"
+    assert iter_predictions(absent) == []
+    assert not absent.exists()

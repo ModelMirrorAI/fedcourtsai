@@ -958,6 +958,14 @@ shared with the ledger models.
   (`fedcourts docket` → `metrics/docket.{json,md}`) is the court-facing cut of
   the same machinery — the docket-composition sections plus a paid/IFP split and
   a pooled per-Term census, and no claim about this project's predictions.
+- **Stakes reads** — the **big-case board** (`fedcourts big-cases` →
+  `metrics/big-cases.{json,md}`, refreshed daily by `run-analytics`): the only
+  **case-centric** published roll-up, and one whose whole input is the committed
+  *predictions* ledger, so it reads no corpus at all (`claim-scores.json` reads
+  the evaluations ledger the same way). One row per predicted case, each
+  predictor's current `big_case_score` and the mean over those that gave one. It
+  is a panel opinion about which cases matter, never a forecast or a skill figure
+  ([metrics/README.md](../metrics/README.md)).
 - **Retrieval** — a handful of *relevant* priors at prediction time:
   `fedcourts query` (and `corpus.retrieve_priors`) — exact-match filters on
   court / topic / disposition plus overlap filters on judges and citations,

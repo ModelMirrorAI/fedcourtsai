@@ -1179,6 +1179,64 @@ def iter_predicted_events(data_root: Path) -> list[PredictedEventRef]:
     return refs
 
 
+class LedgerPrediction(NamedTuple):
+    """One committed ``prediction.json``, with the identity its path carries.
+
+    The flat read behind the case-centric boards: every prediction in the ledger
+    with the case, event, predictor and run its path spells, so a caller
+    collapsing runs never re-derives an identity from a document field the agent
+    wrote. ``cell_path`` is the run directory spelled as ``data_root`` spells it
+    — repo-relative under the default root, the same convention
+    :class:`fedcourtsai.store.PredictionCell` records.
+    """
+
+    case_id: str
+    court_id: str
+    docket_id: int
+    event_id: str
+    predictor_id: str
+    run_id: str
+    prediction: Prediction
+    cell_path: str
+
+
+def iter_predictions(data_root: Path) -> list[LedgerPrediction]:
+    """Every committed prediction, in a total path order.
+
+    The whole-ledger counterpart of :func:`iter_predicted_events`, which reads
+    paths only: this one parses each document, so a caller that needs the
+    numbers rather than a selection index pays once here. Ordered by
+    (case, event, predictor, run) so two callers reading the same tree agree,
+    and returns nothing where the ledger does not exist yet (reading must not
+    create it).
+    """
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return []
+    rows: list[LedgerPrediction] = []
+    # <cases>/<court>/<docket>/events/<event>/predictions/<predictor>/<run>/prediction.json
+    for path in sorted(cases_dir.glob("*/*/events/*/predictions/*/*/prediction.json")):
+        event_dir = path.parents[3]
+        docket = event_dir.parents[1].name
+        if not docket.isdigit():
+            continue
+        court_id = event_dir.parents[2].name
+        docket_id = int(docket)
+        rows.append(
+            LedgerPrediction(
+                case_id=ids.case_id(court_id, docket_id),
+                court_id=court_id,
+                docket_id=docket_id,
+                event_id=event_dir.name,
+                predictor_id=path.parents[1].name,
+                run_id=path.parent.name,
+                prediction=read_model(path, Prediction),
+                cell_path=path.parent.as_posix(),
+            )
+        )
+    return rows
+
+
 class PredictionCell(NamedTuple):
     """One predictor's committed output for an event, documents included.
 

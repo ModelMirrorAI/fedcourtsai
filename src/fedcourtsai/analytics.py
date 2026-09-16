@@ -20,14 +20,17 @@ from collections import Counter, defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date
+from itertools import pairwise
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, NamedTuple
+from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from . import corpus
+from . import corpus, store
 from .config import StatpackConfig
 from .corpus import CorpusRow, strip_docket_annotation
+from .integrity import cell_clock, leakage_excluded
+from .paths import CasePaths
 from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
 from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from .pipeline.interim_signals import ApplicationKind
@@ -44,10 +47,18 @@ from .pipeline.salience import (
     salience_bands,
     scorer,
 )
+from .process_version import CURRENT_PROCESS_LABEL
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     AnalyticsReport,
     BaseRateBucket,
+    BigCaseBoard,
+    BigCaseCoverage,
+    BigCaseCurrentRead,
+    BigCaseEvent,
+    BigCaseProvenance,
+    BigCaseRead,
+    BigCaseRow,
     Disposition,
     DispositionShare,
     DocketPack,
@@ -56,6 +67,8 @@ from .schemas import (
     FeeClass,
     GroupBy,
     Judgment,
+    Outcome,
+    PredictableEvent,
     QpTopicLabels,
     StatPack,
     StatPackCoverage,
@@ -71,6 +84,7 @@ from .schemas import (
     TimingStats,
 )
 from .serialize import read_model
+from .store import LedgerPrediction
 from .supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
 
 if TYPE_CHECKING:
@@ -2616,4 +2630,507 @@ def render_markdown(report: AnalyticsReport) -> str:
                 f"| {key} | {bucket.cases} | {bucket.resolved} | {bucket.open} "
                 f"| {_disposition_summary(bucket)} |"
             )
+    return "\n".join(lines) + "\n"
+
+
+#: Where a board's cell links point when the command is given no repository.
+#: `tree/` rather than `blob/`: a cell link addresses the run *directory*, whose
+#: documents (the two reasoning files, the flags) are the point of following it.
+DEFAULT_REPO_TREE_URL: Final = "https://github.com/ModelMirrorAI/fedcourtsai/tree/main"
+
+# The reading rules the big-case board publishes inside itself. Registered prose
+# rather than a renderer's free text: the JSON is read by a public site, where a
+# figure travels without the document that explains it, so the caveats have to
+# travel in the artifact. The first two sentences of `_BIG_CASE_READING_RULE`
+# are `metrics/README.md`'s registered carve-out, which is why they read as they
+# do there — a stakes read is outside the scored stream, and the population that
+# follows from that is wider than any board beside it.
+_BIG_CASE_READING_RULE = (
+    "A stakes read is neither scored nor ranked: it resolves against nothing, so no "
+    "**stakes** figure here is an accuracy, a calibration or an ordering of predictors, "
+    "and none may be quoted as one. The per-cell `probability` carried beside it **is** a "
+    "forecast — the cell's raw value, unstratified, unexcluded and unscored — and it is "
+    "not a claimable one either; scored forecast performance lives on the leaderboard and "
+    "nowhere else. Like the leaderboard's big-case views, this board reads the ledger "
+    "directly, so neither the forward-claim exclusion nor the leakage exclusion applies; "
+    "it is wider still than those, since it also reads cells no judge has graded and every "
+    "process version. A wider population than the scored boards, deliberately, and a caveat "
+    "that has to travel with a quoted number. The mean is a panel opinion about which cases "
+    "matter, and it says nothing about how likely any of them is to be granted."
+)
+_BIG_CASE_LEAKAGE_NOTE = (
+    "A leakage-flagged read is worse here than on a board that drops it. A stakes read is "
+    "partly a read of the disposition, so a predictor that saw its own outcome may have read "
+    "the stakes off it too — and on this board that cell is not one point inside a "
+    "coefficient, it is the published number. Every read and every row carries "
+    "`leakage_suspected`, set where any committed grading of that run recorded the bit. Read a "
+    "marked row as evidence about the cell, not about the case."
+)
+_BIG_CASE_VERSION_SCOPE = (
+    "Version-blind on purpose: the board pools every process version, shakedown cells and "
+    "unstamped cells included, because it is a census of what the panel said rather than a "
+    "measurement of how well it said it. That is the opposite default from the performance "
+    "boards, which are scoped to the frozen partition — so `process_label` here is only what a "
+    "prediction minted today would stamp, and is not a filter on any row."
+)
+_BIG_CASE_RANK_RESOLUTION = (
+    "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer "
+    "together than the predictors inside a single row sit to each other, so the difference "
+    "between two adjacent ranks is smaller than the disagreement the ranks are built from. "
+    "`median_adjacent_gap` and `median_score_range` are published beside each other so that "
+    "comparison can be made rather than assumed."
+)
+_BIG_CASE_COLLAPSE_RULE = (
+    "One read per predictor per case: the predictor's newest prediction run across the "
+    "case's events, newest by the harness-written cell clock (the process stamp, else "
+    "`created_at`) rather than by directory name, ties broken by run id then event id. "
+    "An earlier run is listed under its event as history and is never averaged in. A "
+    "newest run carrying no score is excluded from the mean and from `n` — never imputed, "
+    "never counted as a zero. **Where a case's moments were predicted in the same round, "
+    "'newest' is a harness completion-time artifact and not a later information set**: the "
+    "two cells ran minutes apart on the same dispatch, so which one wins is arbitrary within "
+    "the round, and the mean can pool one predictor's read of one moment with another's read "
+    "of another. The per-event entries are there so that is visible rather than inferred."
+)
+_BIG_CASE_LEADERBOARD_DIVERGENCE = (
+    "This is not the leaderboard's big-case block. That block reads a case as the "
+    "**mean over its moments** before correlating it with the evaluator panel; this "
+    "board reads a case as its **newest** moment. The two answer different questions "
+    "over different collapses, so a figure here is never differenced against one there."
+)
+_BIG_CASE_POPULATION = (
+    "Every case in the committed ledger carrying at least one scored current read, pending "
+    "and decided alike; `cases_without_score` counts the predicted cases that carry none and "
+    "are therefore absent. The list is the predictions', never the corpus's — and the "
+    "predictions' list is the salience gate's deliberately non-representative selection "
+    "(`docs/salience.md`), so the board inherits that gate and is **not** a sample of the "
+    "docket or of any conference. `status` says only whether a committed `outcome.json` sits "
+    "on the case's predicted events: `pending` means the ledger records no outcome, which is "
+    "not a statement about what the Court has done."
+)
+_BIG_CASE_NO_TIME_SERIES = (
+    "The committed ledger spans a boundary at which `big_case_score` became required with "
+    "an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two "
+    "populations — the ask changed, so which cells carry a read changed with it — and the "
+    "board therefore publishes no trend and no history. A movement across that boundary "
+    "measures nothing."
+)
+_BIG_CASE_CAPTION_RULE = (
+    "The caption is the `event.yaml` title of the event carrying the case's newest "
+    "**scoring** current read, so a case read at two moments displays under the moment a "
+    "number actually came from and a declining read never decides the caption. Ties run "
+    "run id, then event id, then predictor id. There is no docket number in committed "
+    "data; `case_id` is the identifier and the caption is the human handle."
+)
+
+
+def _big_case_provenance() -> BigCaseProvenance:
+    """The board's registered reading rules, identical on every build."""
+    return BigCaseProvenance(
+        reading_rule=_BIG_CASE_READING_RULE,
+        collapse_rule=_BIG_CASE_COLLAPSE_RULE,
+        leakage_note=_BIG_CASE_LEAKAGE_NOTE,
+        leaderboard_divergence=_BIG_CASE_LEADERBOARD_DIVERGENCE,
+        population=_BIG_CASE_POPULATION,
+        version_scope=_BIG_CASE_VERSION_SCOPE,
+        rank_resolution=_BIG_CASE_RANK_RESOLUTION,
+        no_time_series=_BIG_CASE_NO_TIME_SERIES,
+        caption_rule=_BIG_CASE_CAPTION_RULE,
+        process_label=CURRENT_PROCESS_LABEL,
+    )
+
+
+def _newest_run(rows: list[LedgerPrediction]) -> LedgerPrediction:
+    """The newest of several runs, under one total order shared by both collapses.
+
+    Newest by :func:`fedcourtsai.integrity.cell_clock` — the harness stamp, not
+    the directory name, which an out-of-order re-queue can spell either way —
+    with run id and then event id breaking a tie, so a ledger carrying two runs
+    at one instant still collapses to the same one on every machine.
+    """
+    return max(rows, key=lambda row: (cell_clock(row.prediction), row.run_id, row.event_id))
+
+
+#: One predictor's output on one event — the key a grading joins on.
+type _CellKey = tuple[str, str, str]
+
+
+class _Leakage(NamedTuple):
+    """Which runs a committed grading marked leakage-suspected.
+
+    ``runs`` holds the ``(case, event, predictor, run)`` a grading named
+    outright through its harness-stamped ``prediction_run_id``. ``run_blind``
+    holds the cells whose flagging grading named no run — a record written
+    before that field existed — and those resolve the same way every other
+    evaluation reader resolves them (:func:`fedcourtsai.store.scored_prediction`):
+    to the predictor's **latest** run on the event, which is ``newest``. One
+    join rule, not a second one: fanning a run-blind grading out over every run
+    would mark a superseded read off a grading that judged a different one.
+    """
+
+    runs: set[tuple[str, str, str, str]]
+    run_blind: set[_CellKey]
+    newest: dict[_CellKey, str]
+
+
+def _median(values: list[float]) -> float | None:
+    """The median of ``values``, or ``None`` when there are none.
+
+    The even case averages the two middle values and rounds, which keeps the
+    board byte-stable: an unrounded average of two 4-place numbers can carry a
+    binary-float tail that renders differently on a different build.
+    """
+    if not values:
+        return None
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[middle]
+    return round((ordered[middle - 1] + ordered[middle]) / 2, 4)
+
+
+def _leakage_index(data_root: Path, predictions: list[LedgerPrediction]) -> _Leakage:
+    """The leakage marks the committed gradings carry, resolved onto runs.
+
+    Ledger-only, like everything else here: an ``evaluation.json`` sits in
+    ``data/`` beside the prediction it graded. The bit is read through
+    :func:`fedcourtsai.integrity.leakage_excluded`, so a **null** is "not
+    assessed" here exactly as it is on every scored surface — reading it as a
+    suspicion would mark most of the ledger.
+    """
+    by_cell: dict[_CellKey, list[LedgerPrediction]] = defaultdict(list)
+    for row in predictions:
+        by_cell[(row.case_id, row.event_id, row.predictor_id)].append(row)
+    runs: set[tuple[str, str, str, str]] = set()
+    run_blind: set[_CellKey] = set()
+    for evaluation in store.iter_evaluations(data_root):
+        if not leakage_excluded(evaluation):
+            continue
+        key = (evaluation.case_id, evaluation.event_id, evaluation.predictor_id)
+        if evaluation.prediction_run_id is None:
+            run_blind.add(key)
+        else:
+            runs.add((*key, evaluation.prediction_run_id))
+    return _Leakage(
+        runs=runs,
+        run_blind=run_blind,
+        newest={key: _newest_run(rows).run_id for key, rows in by_cell.items()},
+    )
+
+
+def _is_leakage_flagged(row: LedgerPrediction, leakage: _Leakage) -> bool:
+    """Whether a grading flagged this run, under the shared evaluation join rule."""
+    key = (row.case_id, row.event_id, row.predictor_id)
+    if (*key, row.run_id) in leakage.runs:
+        return True
+    return key in leakage.run_blind and leakage.newest.get(key) == row.run_id
+
+
+def _big_case_read(row: LedgerPrediction, *, repo_url: str, leakage: _Leakage) -> BigCaseRead:
+    """One collapsed run rendered as a board entry.
+
+    ``cell_url`` is built only from a repo-relative ``cell_path``. Under an
+    absolute data root the path is the build machine's, and concatenating that
+    onto the repository URL would publish a link to a directory on a runner.
+    """
+    prediction = row.prediction
+    linkable = bool(repo_url) and not row.cell_path.startswith("/")
+    return BigCaseRead(
+        predictor_id=row.predictor_id,
+        run_id=row.run_id,
+        mode=prediction.context.mode if prediction.context is not None else None,
+        probability=prediction.probability,
+        predicted_disposition=prediction.predicted_disposition,
+        granted=prediction.granted,
+        confidence=prediction.confidence,
+        big_case_score=prediction.big_case_score,
+        big_case_rationale=prediction.big_case_rationale,
+        cell_path=row.cell_path,
+        cell_url=f"{repo_url.rstrip('/')}/{row.cell_path}" if linkable else None,
+        leakage_suspected=_is_leakage_flagged(row, leakage),
+    )
+
+
+def _big_case_events(
+    rows: list[LedgerPrediction], *, data_root: Path, repo_url: str, leakage: _Leakage
+) -> list[BigCaseEvent]:
+    """One case's predicted events, each with every predictor's newest read of it.
+
+    The outcome is read from the event's own ``outcome.json`` rather than from
+    the corpus: the board is ledger-only by contract, and a committed outcome is
+    the resolution the ledger itself records.
+    """
+    by_event: dict[str, dict[str, list[LedgerPrediction]]] = defaultdict(lambda: defaultdict(list))
+    for row in rows:
+        by_event[row.event_id][row.predictor_id].append(row)
+    events: list[BigCaseEvent] = []
+    for event_id in sorted(by_event):
+        event_paths = CasePaths(data_root, rows[0].court_id, rows[0].docket_id).event(event_id)
+        definition = (
+            read_model(event_paths.event_file, PredictableEvent)
+            if event_paths.event_file.is_file()
+            else None
+        )
+        outcome = (
+            read_model(event_paths.outcome, Outcome) if event_paths.outcome.is_file() else None
+        )
+        events.append(
+            BigCaseEvent(
+                event_id=event_id,
+                title=definition.title if definition is not None else None,
+                actual_disposition=outcome.actual_disposition if outcome is not None else None,
+                resolved_at=outcome.resolved_at if outcome is not None else None,
+                reads=[
+                    _big_case_read(
+                        _newest_run(by_event[event_id][predictor_id]),
+                        repo_url=repo_url,
+                        leakage=leakage,
+                    )
+                    for predictor_id in sorted(by_event[event_id])
+                ],
+            )
+        )
+    return events
+
+
+def _big_case_status(
+    events: list[BigCaseEvent],
+) -> Literal["pending", "partly_resolved", "resolved"]:
+    """A case's resolution state, from committed outcomes on its predicted events."""
+    resolved = sum(1 for event in events if event.resolved_at is not None)
+    if resolved == 0:
+        return "pending"
+    return "resolved" if resolved == len(events) else "partly_resolved"
+
+
+def _big_case_row(
+    case_rows: list[LedgerPrediction], *, data_root: Path, repo_url: str, leakage: _Leakage
+) -> BigCaseRow | None:
+    """One case's board row, or ``None`` where no predictor holds a current score.
+
+    The population filter lives here rather than in the caller because it is the
+    same computation: a case is on the board iff the collapse leaves at least one
+    number to average.
+    """
+    by_predictor: dict[str, list[LedgerPrediction]] = defaultdict(list)
+    for row in case_rows:
+        by_predictor[row.predictor_id].append(row)
+    current = {
+        predictor_id: _newest_run(runs) for predictor_id, runs in sorted(by_predictor.items())
+    }
+    scores = [
+        row.prediction.big_case_score
+        for row in current.values()
+        if row.prediction.big_case_score is not None
+    ]
+    if not scores:
+        return None
+    # The caption displays the moment the case's number came from, so it is taken
+    # from the newest read that actually carries a score — a declining read has no
+    # moment to display. `_newest_run`'s tie-break reaches event id; a full tie
+    # between two predictors is resolved by predictor id, which `current` is
+    # already ordered on.
+    caption_row = _newest_run(
+        [row for row in current.values() if row.prediction.big_case_score is not None]
+    )
+    events = _big_case_events(case_rows, data_root=data_root, repo_url=repo_url, leakage=leakage)
+    caption = next(
+        (event.title for event in events if event.event_id == caption_row.event_id), None
+    )
+    first = case_rows[0]
+    return BigCaseRow(
+        case_id=first.case_id,
+        court_id=first.court_id,
+        docket_id=first.docket_id,
+        caption=caption,
+        caption_event_id=caption_row.event_id,
+        status=_big_case_status(events),
+        mean_big_case_score=round(sum(scores) / len(scores), 4),
+        n=len(scores),
+        score_min=min(scores),
+        score_max=max(scores),
+        score_range=round(max(scores) - min(scores), 4),
+        leakage_suspected=any(_is_leakage_flagged(row, leakage) for row in current.values()),
+        current_reads=[
+            BigCaseCurrentRead(
+                predictor_id=predictor_id,
+                event_id=row.event_id,
+                run_id=row.run_id,
+                big_case_score=row.prediction.big_case_score,
+                big_case_rationale=row.prediction.big_case_rationale,
+                leakage_suspected=_is_leakage_flagged(row, leakage),
+            )
+            for predictor_id, row in current.items()
+        ],
+        events=events,
+    )
+
+
+def build_big_case_board(*, data_root: Path, repo_url: str = DEFAULT_REPO_TREE_URL) -> BigCaseBoard:
+    """Roll the committed predictions into the case-centric big-case board.
+
+    Ledger-only: it reads ``data/`` and nothing else — no corpus, no network, no
+    credentials, no clock — so it runs anywhere a checkout exists and reruns over
+    an unchanged ledger reproduce the artifact byte for byte. That is also why it
+    stamps no time and no commit: the board's vintage is the commit that wrote
+    it.
+
+    What it computes is one number per case: the mean of the predictors' current
+    stakes reads, `n` beside it always. What it deliberately does **not** compute
+    is anything about how good those reads are — a stakes read resolves against
+    nothing, so the board carries no score, no ranking of predictors, and no
+    exclusion borrowed from the scored surfaces.
+    """
+    predictions = store.iter_predictions(data_root)
+    by_case: dict[str, list[LedgerPrediction]] = defaultdict(list)
+    predictors: set[str] = set()
+    for row in predictions:
+        by_case[row.case_id].append(row)
+        predictors.add(row.predictor_id)
+    leakage = _leakage_index(data_root, predictions)
+    rows = [
+        board_row
+        for case_id in sorted(by_case)
+        if (
+            board_row := _big_case_row(
+                by_case[case_id], data_root=data_root, repo_url=repo_url, leakage=leakage
+            )
+        )
+        is not None
+    ]
+    rows.sort(key=lambda row: (-row.mean_big_case_score, -row.n, row.case_id))
+    coverage = Counter(row.n for row in rows)
+    unscored = [read for row in rows for read in row.current_reads if read.big_case_score is None]
+    return BigCaseBoard(
+        cases=len(rows),
+        cases_without_score=len(by_case) - len(rows),
+        predictors=sorted(predictors),
+        current_reads=sum(len(row.current_reads) for row in rows),
+        scored_reads=sum(row.n for row in rows),
+        # A rationale is what separates the two, and it is the robust split: it
+        # holds on any cell, where a process-label test would have to enumerate
+        # which labels predate the amendment.
+        declared_no_view=sum(1 for read in unscored if read.big_case_rationale),
+        missing_reads=sum(1 for read in unscored if not read.big_case_rationale),
+        rows_with_leakage_flag=sum(1 for row in rows if row.leakage_suspected),
+        median_adjacent_gap=_median(
+            [
+                round(first.mean_big_case_score - second.mean_big_case_score, 4)
+                for first, second in pairwise(rows)
+            ]
+        ),
+        median_score_range=_median([row.score_range for row in rows]),
+        coverage=[BigCaseCoverage(n=n, cases=coverage[n]) for n in sorted(coverage, reverse=True)],
+        rows=rows,
+        provenance=_big_case_provenance(),
+    )
+
+
+def _md_cell(text: str) -> str:
+    """One field made safe to sit in a Markdown table cell.
+
+    Table cells are delimited by pipes and broken by newlines, and a caption is
+    docket text this project did not write, so both are neutralized rather than
+    trusted to be absent.
+    """
+    return " ".join(text.split()).replace("|", "\\|")
+
+
+def _big_case_score_cell(read: BigCaseCurrentRead | None) -> str:
+    """One predictor's cell: its score, the em dash that means *no score*, or blank.
+
+    The three are different facts and the table has to keep them apart. A score
+    is a number. An em dash is a read that carries none — never a zero, which
+    would fabricate a panel opinion. A blank is a predictor that did not read
+    this case at all, which is a coverage gap rather than a withheld view.
+    """
+    if read is None:
+        return ""
+    return "—" if read.big_case_score is None else f"{read.big_case_score:.2f}"
+
+
+def render_big_case_markdown(board: BigCaseBoard) -> str:
+    """Render a :class:`BigCaseBoard` as the analytics-side companion document.
+
+    Leads with the reading rules, because the single most available misreading
+    of this table is that a high mean means a likely grant. Then the whole board
+    rather than a top-N cut: the document is reviewed as a diff, and a cut would
+    hide every movement below the cut line. The per-event detail — each cell's
+    forecast, its rationale and its link — stays in the JSON sibling, which is
+    what the site renders. Deterministic; safe on the empty board.
+    """
+    lines = ["# Big-case board", ""]
+    if not board.rows:
+        lines.append("_Empty — no committed prediction carries a stakes read yet._")
+        return "\n".join(lines) + "\n"
+
+    provenance = board.provenance or _big_case_provenance()
+    coverage = ", ".join(f"{entry.n} → {entry.cases} case(s)" for entry in board.coverage)
+    gap = "—" if board.median_adjacent_gap is None else f"{board.median_adjacent_gap:.3f}"
+    spread = "—" if board.median_score_range is None else f"{board.median_score_range:.3f}"
+    lines += [
+        "Which cases the predictors think matter, and where they disagree. One row per "
+        + "predicted case, carrying each predictor's current `big_case_score` and the mean "
+        + "across the predictors that gave one.",
+        "",
+        f"**How to read this.** {provenance.reading_rule}",
+        "",
+        f"**The rank column.** {provenance.rank_resolution} Here the median gap between "
+        f"neighbouring rows is **{gap}** and the median spread inside a row's own panel is "
+        f"**{spread}**.",
+        "",
+        f"**Leakage.** {provenance.leakage_note} {board.rows_with_leakage_flag} of "
+        f"{board.cases} row(s) carry the mark, shown in the `leak` column.",
+        "",
+        f"**The collapse.** {provenance.collapse_rule}",
+        "",
+        f"**Against the leaderboard.** {provenance.leaderboard_divergence}",
+        "",
+        f"**Population.** {provenance.population}",
+        "",
+        f"**Process scope.** {provenance.version_scope} The label in force today is "
+        f"`{provenance.process_label}`.",
+        "",
+        f"**No time series.** {provenance.no_time_series}",
+        "",
+        f"**Captions.** {provenance.caption_rule}",
+        "",
+        f"**Coverage.** {board.cases} case(s) ranked over {board.current_reads} current "
+        f"read(s) from {len(board.predictors)} predictor(s) "
+        f"({', '.join(board.predictors)}), of which {board.scored_reads} carry a score. The "
+        f"other {board.current_reads - board.scored_reads} are excluded from every mean and "
+        "render as an em dash in the predictor columns — **not as a zero**, which would "
+        f"fabricate a panel opinion. They split into {board.declared_no_view} declared no "
+        "view(s), where the cell weighed the stakes and said it could not place them, and "
+        f"{board.missing_reads} missing read(s) with no rationale, elicited under the earlier "
+        f"prompt where the field was optional. {board.cases_without_score} predicted case(s) "
+        "carry no scored read at all and are off the board. A **blank** predictor column is "
+        "different again: that predictor did not read the case, which is a coverage gap "
+        f"rather than a withheld view. Cases by scoring predictors: {coverage}.",
+        "",
+        "| # | case | caption | mean | n | range | "
+        + " | ".join(board.predictors)
+        + " | status | leak |",
+        "| --: | --- | --- | --: | --: | --: | "
+        + " | ".join("--:" for _ in board.predictors)
+        + " | --- | --- |",
+    ]
+    for rank, row in enumerate(board.rows, start=1):
+        reads = {read.predictor_id: read for read in row.current_reads}
+        cells = " | ".join(
+            _big_case_score_cell(reads.get(predictor_id)) for predictor_id in board.predictors
+        )
+        lines.append(
+            f"| {rank} | `{row.case_id}` | {_md_cell(row.caption or '—')} | "
+            f"{row.mean_big_case_score:.3f} | {row.n} | {row.score_range:.3f} | {cells} | "
+            f"{row.status} | {'yes' if row.leakage_suspected else '—'} |"
+        )
+    lines += [
+        "",
+        "Read `n` before quoting a mean, and read `range` beside it — a mean of 0.5 over "
+        + "reads of 0.5 and 0.5 is a panel that agrees, and one over 0.1 and 0.9 is a panel "
+        + "that does not. A `yes` in `leak` means at least one of the row's reads sits on a "
+        + "cell a judge flagged as having seen its own outcome; that row is evidence about "
+        + "the cell, not about the case.",
+    ]
     return "\n".join(lines) + "\n"

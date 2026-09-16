@@ -4,11 +4,11 @@ The metrics artifacts are deterministic roll-ups whose inputs (the ``data/``
 evaluations ledger, the corpus) move without them. The ``run-analytics``
 workflow's weekly ``metrics-refresh`` job keeps the scheduled set current —
 ``metrics/leaderboard.json``, ``metrics/claim-scores.json``,
-``metrics/backtest.json``, ``metrics/statpack.{json,md}``, and
-``data/scope/scope.json`` — by rerunning
+``metrics/backtest.json``, ``metrics/statpack.{json,md}``,
+``metrics/big-cases.{json,md}``, and ``data/scope/scope.json`` — by rerunning
 the tested ``fedcourts`` commands
 (``leaderboard`` / ``claim-scores`` / ``backtest`` / ``statpack`` /
-``scope-manifest``) and, when anything changed,
+``big-cases`` / ``scope-manifest``) and, when anything changed,
 landing the result as a **reviewed** PR (never a direct commit to ``main``,
 never auto-merged). ``metrics/docket.{json,md}`` is committed alongside them but
 is regenerated on demand with ``fedcourts docket``, not on the schedule.
@@ -36,6 +36,7 @@ from pydantic import BaseModel
 from .claim_metrics import agreement_summary
 from .schemas import (
     Backtest,
+    BigCaseBoard,
     CertBacktest,
     ClaimScoreBoard,
     DocketPack,
@@ -67,6 +68,8 @@ _ARTIFACT_ORDER = (
     "metrics/statpack.md",
     "metrics/docket.json",
     "metrics/docket.md",
+    "metrics/big-cases.json",
+    "metrics/big-cases.md",
     "data/scope/scope.json",
 )
 
@@ -105,6 +108,7 @@ def _scope_headline(path: Path) -> str:
 _SPECIAL_HEADLINES: dict[str, Callable[[Path], str]] = {
     "metrics/statpack.md": lambda _: "human-readable statpack companion",
     "metrics/docket.md": lambda _: "human-readable docket-pack companion",
+    "metrics/big-cases.md": lambda _: "human-readable big-case-board companion",
     "data/scope/scope.json": _scope_headline,
 }
 
@@ -235,6 +239,26 @@ def _docket_headline(path: Path) -> str:
     )
 
 
+def _big_case_headline(path: Path) -> str:
+    """The big-case board's line: the ranked population and its denominators.
+
+    Deliberately carries no top-ranked case. The refresh PR body is quoted out
+    of context more than any other surface here, and a case name beside a number
+    reads as a finding about that case — which a stakes read cannot support.
+    """
+    board = read_model(path, BigCaseBoard)
+    leakage = (
+        f"; {board.rows_with_leakage_flag} row(s) leakage-flagged"
+        if board.rows_with_leakage_flag
+        else ""
+    )
+    return (
+        f"{board.cases} case(s) ranked over {board.scored_reads} scored stakes read(s) of "
+        f"{board.current_reads} from {len(board.predictors)} predictor(s) "
+        f"(never scored, never ranked){leakage}"
+    )
+
+
 # The metrics-model artifacts, keyed by filename (they all live under
 # `metrics/`; anything path-ambiguous belongs in _SPECIAL_HEADLINES instead).
 _FILENAME_HEADLINES: dict[str, Callable[[Path], str]] = {
@@ -245,6 +269,7 @@ _FILENAME_HEADLINES: dict[str, Callable[[Path], str]] = {
     "backtest.json": _backtest_headline,
     "statpack.json": _statpack_headline,
     "docket.json": _docket_headline,
+    "big-cases.json": _big_case_headline,
 }
 
 
