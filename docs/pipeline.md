@@ -388,8 +388,9 @@ queues behind the production run of the same mode. The modes:
   tested `fedcourts qp-topics` measures the labels against the hand reference
   set and enforces the agreement/coverage gate — below it, nothing is written,
   the measured block still reaches the step summary, and the job fails. The
-  `label_model` dispatch input picks the labeler's model. See
-  [qp-topic.md](qp-topic.md).
+  `label_model` dispatch input picks the labeler's model; a ceiling-sized run
+  overrides the default for `claude-fable-5`, the one tier measured to finish
+  ([budget.md](budget.md)). See [qp-topic.md](qp-topic.md).
 
 ## `integration-test` — the infrastructure preflight
 

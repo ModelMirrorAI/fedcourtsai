@@ -637,18 +637,31 @@ def _check_reference_join(
     agrees on one key and disagrees on the other is a mis-join, not a
     disagreement: it would silently measure one case's label against another
     case's text. Measuring is not worth doing until it is resolved by hand.
+
+    Docket numbers compare with the Court's ``*** CAPITAL CASE ***`` marking
+    removed (:func:`~fedcourtsai.corpus.strip_docket_annotation`). The marking
+    is a flag on the case, not part of its number: the extract carries the
+    stored, unmarked spelling, while a hand reference row may keep the marked
+    one it was recorded from, and the two name the same docket.
     """
     by_case = {entry.case_id: entry for entry in reference.entries}
-    by_docket = {entry.docket_number: entry for entry in reference.entries}
+    by_docket = {strip_docket_annotation(entry.docket_number): entry for entry in reference.entries}
+    if len(by_docket) != len(reference.entries):
+        # Two reference entries naming one docket (marked and unmarked, say)
+        # would leave one of them without a mirror-image check below.
+        raise QpTopicError("reference set names one docket number on two entries")
     for entry in entries:
+        docket = strip_docket_annotation(entry.docket_number)
         reference_entry = by_case.get(entry.case_id)
-        if reference_entry is not None and reference_entry.docket_number != entry.docket_number:
+        if reference_entry is not None and (
+            strip_docket_annotation(reference_entry.docket_number) != docket
+        ):
             raise QpTopicError(
                 f"reference join mismatch: {entry.case_id} is docket "
                 f"{reference_entry.docket_number} in the reference set, "
                 f"{entry.docket_number} in the labels"
             )
-        reference_entry = by_docket.get(entry.docket_number)
+        reference_entry = by_docket.get(docket)
         if reference_entry is not None and reference_entry.case_id != entry.case_id:
             raise QpTopicError(
                 f"reference join mismatch: docket {entry.docket_number} is "
@@ -666,6 +679,11 @@ def _check_extract_join(entries: Sequence[QpTopicLabelEntry], texts: Mapping[str
     membership probe on the reference set, whose membership encodes cert
     outcomes; and a truncated run measures a prefix of ``case_id`` order, which
     is not a random sample of the frame.
+
+    The docket comparison here is byte-exact, unlike the reference join's: both
+    sides are the same machine-produced extract row, one copied back by the
+    labeler, so this is a copy-back fidelity check rather than a join across
+    two sources, and the prompt's "copied, never reconstructed" rests on it.
     """
     labeled = {entry.case_id for entry in entries}
     missing = sorted(labeled - set(texts))
@@ -760,6 +778,9 @@ def build_labels(
             # The facets go with the label they belong to: the reference set
             # holds primaries only, so a reference row carries no secondary and
             # no vehicle flag rather than the labeler's, which nothing measured.
+            # The docket number is the extract's spelling, not the reference
+            # set's: the artifact stays keyed to the stored docket, which may
+            # lack a capital-case marking the hand set was recorded with.
             published[entry.case_id] = QpTopicPublishedEntry(
                 case_id=entry.case_id,
                 docket_number=entry.docket_number,

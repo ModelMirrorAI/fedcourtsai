@@ -936,31 +936,43 @@ inside the ≈$12.6–13.0K bootstrapping inference envelope.
 one extract of stored questions-presented texts rather than one cell per case —
 a manual dispatch, spending only when a maintainer asks for a labeling run,
 with the dispatch's `label_model` input defaulting to the cheapest Claude tier
-because the task is classification against a fixed sixteen-label vocabulary
-rather than forecasting. Its model choices price off the same
+on the reasoning that the task is classification against a fixed sixteen-label
+vocabulary rather than forecasting. The default stands in the workflow, but
+the measured runs below say the frontier tier is the one to dispatch, so a
+ceiling-sized labeling run is a dispatch that overrides it. Its model choices
+price off the same
 `fedcourtsai.pricing.MODEL_RATES` table every cell is quoted from:
 
 | Labeler model | Role | Rate (per 1M tokens) |
 |---------------|------|----------------------|
 | Haiku 4.5 | the `label_model` default | $1 in / $5 out |
-| `claude-sonnet-4-6` | the step-up for a labeling pass the default reads poorly | $3 in / $15 out |
+| `claude-sonnet-4-6` | the middle tier, unmeasured on this mode | $3 in / $15 out |
 | `claude-fable-5` | the frontier tier the dispatch offers, priced like a predict/evaluate cell's model | $10 in / $50 out |
 
-**Accounting.** Measured qp-topic spend to date is **zero on every ledger**: no
-`qp-topic-label` dispatch has produced an artifact yet, and the mode writes no
-`usage.json` — the ledger is keyed by cell, and a labeling run is not one — so
-a completed run's spend is read off its own engine log until a labeler-shaped
-accounting exists. The projected line is bounded rather than measured, and
-small: a ceiling-sized run at the default tier lands in **single-digit
-dollars** (derivation below), `claude-sonnet-4-6` is 3× the rate and
-`claude-fable-5` 10×, putting the top of the range in tens of dollars. Quote
-the tier, not a point figure. Because the mode is manual-dispatch-only, its
-annual line at any plausible refresh cadence is at most tens of dollars —
-carried inside the misc floor's buffer (driver #5) rather than as its own
-line, and the first completed run's engine log replaces the estimate. For this
-mode the artifact, not the money, is what a mis-sized dispatch loses — and
-what it keeps is the run's label-line count and the rows it did write, which
-is what sizes the next dispatch.
+**Accounting.** Measured qp-topic spend is **zero on every ledger** because
+the mode writes no `usage.json` — the ledger is keyed by cell, and a labeling
+run is not one — so a run's spend is read off its own engine log until a
+labeler-shaped accounting exists. Two engine logs have been read, both from
+dispatches of 2026-09-16. At the default tier (`claude-haiku-4-5-20251001`) a
+run labeled 200 of the 1,200 rows in 21 turns and 3 minutes for **$0.61**, the
+last of them carrying case ids absent from the extract and mismatched docket
+numbers, then ended its turn proposing to label the rest "based on case
+patterns": the tier is not a cheaper way to a ceiling-sized run, it is a run
+that does not finish, and what it leaves is a diagnostic, not an artifact
+(`qp-topics` publishes nothing from a partial file, and the invented keys
+would have failed the extract join on their own). At `claude-fable-5` a run
+labeled all 1,200 rows in 76 turns and 36 minutes for **$60**, in extract
+order with every key copied verbatim. That is the figure a ceiling-sized run
+costs, and it is why the frontier tier is the one to dispatch: the bounded
+derivation below still holds per tier, but only the frontier tier has bought a
+complete file, and `claude-sonnet-4-6` is unmeasured. Because the mode is
+manual-dispatch-only, its annual line is a bound on a cadence: ≈$180–300 a
+year at the forward cadence of a handful of frontier batches, ≈$600 in a year
+that also clears the backlog's ten — carried inside the misc floor's buffer
+(driver #5) rather than as its own line. For this mode the artifact, not the
+money, is what a mis-sized dispatch loses — and what it keeps is the run's
+label-line count and the rows it did write, which is what sizes the next
+dispatch.
 
 **What one labeling run costs, bounded.** The extract is capped at the
 labeling ceiling `fedcourts qp-corpus` enforces (1,200 rows —
@@ -974,7 +986,8 @@ which is what the batching below exists for.) A ceiling-sized run is ≈1.3 MB o
 question text ≈ 0.33M input tokens
 read once (~4 characters a token); what it bills is a multiple of that, and
 the multiple is the soft part: the session re-sends context across the
-prompt's ~120 turns, so a labeler that streams slices runs a few times the
+prompt's ~120-turn budget (76 used by the one complete run), so a labeler that
+streams slices runs a few times the
 once-read figure while one that accumulates the whole transcript runs an order
 of magnitude above it. Output is roughly 0.1–0.2M tokens. With cache reads at
 a tenth of the input rate (cache writes at 1.25×), the default model lands in
@@ -983,7 +996,11 @@ single-digit dollars.
 **What clearing the frame costs, in batches.** The frame outruns the ceiling, so
 a dispatch labels a derived batch and the artifact accrues one batch at a time
 ([qp-topic.md](qp-topic.md)). Every batch is ceiling-sized, so each costs the
-single-digit-dollar figure above and the rest is multiplication, not a new rate:
+measured **$60** at the frontier tier and the rest is multiplication, not a
+new rate (the single-digit-dollar figure above is the same work at the
+default tier's rate — the measured $60 scaled by the table's 10× lands there
+too, which is the derivation's one check against a measurement — and that
+tier buys no artifact):
 
 - **Per batch**, 353 of the 1,200 rows are the reference cases the frame holds,
   re-graded every run for the agreement measurement and publishing nothing —
@@ -993,12 +1010,12 @@ single-digit-dollar figure above and the rest is multiplication, not a new rate:
   with how much of the reference set the frame holds, and falls if that shrinks.
 - **Clearing the historical backlog** — 8,452 frame rows against the blob pulled
   2026-09-09 (newest stored snapshot 2026-07-13), leaving 8,099 to label at 847
-  new rows a batch, so **ten dispatches** — is **tens of dollars at the default
+  new rows a batch, so **ten dispatches** — is **≈$600 at the frontier
   tier**. The frame holds all 353 reference cases at that vintage — 100.0%,
   above the coverage floor the extract enforces
-  ([qp-topic.md](qp-topic.md)) — so spend begins at the first dispatch. Single-digit tens at the
-  default tier; `claude-sonnet-4-6` is 3× that and `claude-fable-5` 10×, the same
-  tier ordering the table above prices. Those are ten manual dispatches at
+  ([qp-topic.md](qp-topic.md)) — so spend begins at the first dispatch. The
+  rate table above orders the tiers 1× / 3× / 10×, but only the 10× tier has
+  produced a complete file. Those are ten manual dispatches at
   whatever cadence a maintainer chooses, not a queued campaign, and the count
   falls as the frame clears and rises as it grows. A **staging rehearsal** of
   the mode (a `--ref staging` dispatch) that reaches the labeler pays the same
@@ -1235,9 +1252,10 @@ premium and no read discount on purpose: the leg passes the cells'
 `ENABLE_PROMPT_CACHING_1H`, and a *daily* cadence against a one-hour TTL never
 finds a warm cache, so every probe writes one it will never read.
 
-Treat that as **a bounded tier, not a measurement**, the same way the qp-topic
-labeler's line is treated above. Three things it rests on, each of which can
-move it:
+Treat that as **a bounded tier, not a measurement** — the qp-topic labeler's
+line above is a measurement because its engine logs were read; this one has
+none, and stays a bounded tier until it does. Three things it rests on, each
+of which can move it:
 
 - **The token counts are estimates.** The canary writes no `usage.json` (there
   is no cell to write one beside), so nothing in the ledger measures it and the
