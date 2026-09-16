@@ -1779,6 +1779,92 @@ def test_stamp_warns_where_the_evaluator_recorded_no_correct(
     assert stamped["correct"] == 1
 
 
+def _seed_stakes_prediction(
+    data_root: Path,
+    docket: int,
+    *,
+    score: float | None = None,
+    rationale: str | None = None,
+) -> None:
+    """One predictor cell whose stakes read is set (or not) exactly as given."""
+    write_json(
+        CasePaths(data_root, "scotus", docket).event("evt-x").prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id=f"scotus/{docket}",
+            event_id="evt-x",
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.1,
+            predicted_disposition=Disposition.denied,
+            big_case_score=score,
+            big_case_rationale=rationale,
+        ),
+    )
+
+
+def test_stamp_is_silent_where_the_cell_placed_the_stakes(_data_root: Path) -> None:
+    """A cell that answered says nothing — the note is about the omission.
+
+    Every produced cell passes through this step, so a line on each would be
+    noise a maintainer learns to skip, which is exactly how the missing read
+    gets missed.
+    """
+    _seed_stakes_prediction(_data_root, 30, score=0.4)
+    result = _stamp("predictor", "claude-baseline", 30, "evt-x", "RID")
+    assert result.exit_code == 0, result.output
+    assert "big_case_score" not in result.output
+
+
+def test_stamp_warns_where_the_cell_placed_no_stakes_and_gave_no_reason(
+    _data_root: Path,
+) -> None:
+    """The contract missed, and the last moment it is legible.
+
+    The stamp rewrites the artifact through the model, which emits every field
+    at its default, so from here on a score the cell omitted and a score it
+    declared null are the same bytes. Nothing downstream can raise it either:
+    `validate` asks nothing of the field and every figure over it skips a null,
+    so the cell commits, reads as complete, and quietly costs its case one read
+    of the panel the `big_case` agreement is computed over.
+    """
+    _seed_stakes_prediction(_data_root, 31)
+    result = _stamp("predictor", "claude-baseline", 31, "evt-x", "RID")
+    assert result.exit_code == 0, result.output
+    assert "recorded neither a big_case_score nor a big_case_rationale" in result.output
+    # A warning, never a failure: the cell produced its output and the stamp
+    # landed, which is the same discipline the evaluator-side note keeps.
+    stamped = json.loads(
+        CasePaths(_data_root, "scotus", 31)
+        .event("evt-x")
+        .prediction("claude-baseline", "RID")
+        .read_text()
+    )
+    assert stamped["process_version"]["digest"].startswith("sha256:")
+
+
+def test_stamp_says_a_null_stakes_read_with_a_reason_is_an_answer(_data_root: Path) -> None:
+    """The prompt's null branch taken as written is not a silent omission.
+
+    Still said, because the case is a read short of its panel either way — but
+    said differently, since a considered no-view is the contract honoured and
+    reading it as a miss would put the two engines that behave differently on
+    the same line. The rationale's own text is not echoed: it is agent free
+    text, and an annotation publishes into the run log without passing the
+    secret scan that gates the flag roll-up.
+    """
+    reason = "The QP text was never docketed, so there is nothing to place."
+    _seed_stakes_prediction(_data_root, 32, rationale=reason)
+    result = _stamp("predictor", "claude-baseline", 32, "evt-x", "RID")
+    assert result.exit_code == 0, result.output
+    assert "gave a big_case_rationale" in result.output
+    assert "recorded neither" not in result.output
+    assert reason not in result.output
+
+
 def test_stamp_recomputes_correct_on_an_interim_cell(
     _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

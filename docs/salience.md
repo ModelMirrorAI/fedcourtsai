@@ -1264,7 +1264,14 @@ either way. What the contract changes is coverage of the number branch, and it
 makes a no-view legible where it was previously indistinguishable from a cell
 that never took the question up. The schema keeps the field nullable and
 optional so records written before the contract still validate, which leaves
-the separation the prompt's to hold rather than validation's.
+the separation the prompt's to hold rather than validation's — and the
+harness's to **report**: `stamp-cell` warns per cell when a prediction lands
+with no score, saying whether the null carried its rationale, and `collect`
+censuses the run's coverage per predictor onto the run PR and the Actions
+summary ([pipeline.md](pipeline.md)). Neither fails a cell. A missing score
+imputes nothing; it takes that `(predictor, case)` point out of the predictor's
+own rank-agreement, so what the census is really reporting is *whose* scored set
+is shrinking.
 
 It is **judged by an independent evaluator, not against a ground truth**. At
 evaluation the evaluator forms its **own** read of how big the case is, and the

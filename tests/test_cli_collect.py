@@ -264,6 +264,10 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         # Nor any cell that asked the corpus for priors, which is not a claim
         # that the priors arrived.
         "prior_availability": "",
+        # And no prediction to have placed the stakes or skipped them. The
+        # census is silent on a clean run, so a bare "0 missing" line never
+        # trains a reader to skip the place the warning will appear.
+        "stakes_reads": "",
         "feedback_comment": "",
         "stalled": False,
         "dead_actors": [],
@@ -434,6 +438,206 @@ def test_collect_plan_names_the_cells_the_corpus_did_not_serve(tmp_path: Path) -
     # The report-less cell is unknown rather than starved, and gets its own line.
     assert "Whether the corpus served 1 of 3 cell(s) with a legible attempt cannot be read" in body
     assert "`scotus/3/evt-x/gemini-baseline`" in body
+
+
+def _write_prediction(  # noqa: PLR0913 - one keyword per field a census test varies
+    root: Path,
+    cell: str,
+    actor: str,
+    *,
+    score: float | None = None,
+    rationale: str | None = None,
+    run_id: str = "R",
+    case: str = "1",
+    event: str = "evt-x",
+    predictor_id: str | None = None,
+) -> None:
+    """One cell's `prediction.json`, at the layout the cell's own data/ subtree has.
+
+    `predictor_id` defaults to `actor` — the ordinary case, where the directory
+    the harness writes and the id the agent wrote agree. They are separable
+    because the census reads the *record*, so a test can hand it an id the
+    filesystem would never hold.
+    """
+    cell_dir = (
+        root
+        / cell
+        / "data"
+        / "cases"
+        / "scotus"
+        / case
+        / "events"
+        / event
+        / "predictions"
+        / actor
+        / run_id
+    )
+    cell_dir.mkdir(parents=True, exist_ok=True)
+    (cell_dir / "prediction.json").write_text(
+        json.dumps(
+            {
+                "case_id": f"scotus/{case}",
+                "event_id": event,
+                "predictor_id": actor if predictor_id is None else predictor_id,
+                "engine": "claude-code",
+                "run_id": run_id,
+                "created_at": "2026-01-01T00:00:00Z",
+                "input_snapshot": "record/snapshots/2026-01-01.json",
+                "granted": 0,
+                "probability": 0.1,
+                "predicted_disposition": "denied",
+                "big_case_score": score,
+                "big_case_rationale": rationale,
+            }
+        )
+    )
+
+
+def test_collect_plan_censuses_the_runs_missing_stakes_reads(tmp_path: Path) -> None:
+    # The omission this makes visible fails nothing: the cell finishes, the
+    # schema keeps the score optional, and every figure over it skips a null —
+    # so a dropped read moves no published number and shrinks the case's panel
+    # instead, with no other trace anywhere in the run.
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    for name, actor in (("cell-a", "claude-baseline"), ("cell-b", "gemini-baseline")):
+        _write_cell(
+            tmp_path, name, actor=actor, produced=True, validated=True, agent_ok=True, **base
+        )
+    # Placed the stakes: outside the count entirely.
+    _write_prediction(tmp_path, "cell-a", "claude-baseline", score=0.4)
+    # Silent on both fields: the contract missed.
+    _write_prediction(tmp_path, "cell-b", "gemini-baseline")
+    _write_prediction(tmp_path, "cell-b", "gemini-baseline", case="2")
+    # The prompt's null branch taken as written: a considered no-view.
+    _write_prediction(
+        tmp_path,
+        "cell-b",
+        "codex-baseline",
+        case="3",
+        rationale="The QP text was never docketed, so there is nothing to place.",
+    )
+    # An earlier run's committed prediction, carried in every artifact — excluded.
+    _write_prediction(tmp_path, "cell-a", "gemini-baseline", run_id="Q", case="9")
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    census = plan["stakes_reads"]
+    # Three of the run's four predictions, and whose — the split a reader needs
+    # to tell one bad engine from a thin round, each against that predictor's
+    # own cells so a count is never read as a rate.
+    assert "3 of 4 prediction(s) this run carry no `big_case_score`" in census
+    assert "`gemini-baseline` 2 of 2, `codex-baseline` 1 of 1, `claude-baseline` 0 of 1" in census
+    # The two shapes are different answers and are counted apart.
+    assert "2 answered nothing at all" in census
+    assert "`scotus/1/evt-x/gemini-baseline`" in census
+    assert "A stated reason on 1 of them" in census
+    assert "`scotus/3/evt-x/codex-baseline`" in census
+    # The predictor that placed its stakes is named only in the split, as the
+    # 0-of-N comparison the concentrated engine is read against.
+    assert "`scotus/1/evt-x/claude-baseline`" not in census
+    # It rides the PR body too, so the census outlives the run's log.
+    assert census in plan["ready"]["body"]
+
+
+def test_the_stakes_census_counts_a_salvage_cells_prediction(tmp_path: Path) -> None:
+    """A prediction that failed validation is still a prediction this run
+    produced, and its stakes read is as missing as any other — so it sits in
+    both the numerator and the denominator. Filtering to validated cells would
+    move the published denominator without changing a rendered word."""
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="gemini-baseline",
+        produced=True,
+        validated=False,
+        agent_ok=True,
+        **base,
+    )
+    _write_prediction(tmp_path, "cell-a", "gemini-baseline")
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    assert "1 of 1 prediction(s) this run carry no `big_case_score`" in plan["stakes_reads"]
+    # No ready PR on this run, so the census rides the draft the maintainer reads.
+    assert plan["ready"] is None
+    assert plan["stakes_reads"] in plan["partial"]["body"]
+
+
+def test_the_stakes_census_bounds_an_id_the_cell_wrote(tmp_path: Path) -> None:
+    """The census names cells and predictors by the ids their own
+    `prediction.json` carries — agent-written, read before `validate` has held
+    them to the ledger — and the note reaches the run's public Actions summary.
+    So an id is capped where the census is built, not trusted to be short."""
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path, "cell-a", actor="runaway", produced=True, validated=True, agent_ok=True, **base
+    )
+    _write_prediction(tmp_path, "cell-a", "runaway", predictor_id="z" * 300)
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    census = json.loads(result.stdout)["stakes_reads"]
+    assert "z" * 60 in census
+    assert "z" * 61 not in census
+
+
+def test_collect_plan_is_silent_where_every_cell_placed_the_stakes(tmp_path: Path) -> None:
+    """A clean run says nothing — the census is a warning, not a standing line."""
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="claude-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    _write_prediction(tmp_path, "cell-a", "claude-baseline", score=0.4)
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["stakes_reads"] == ""
+
+
+def test_collect_plan_takes_no_stakes_census_on_an_evaluate_run(tmp_path: Path) -> None:
+    """An evaluation carries no stakes read, and the predictions in an evaluate
+    run's artifacts belong to other runs — so the census is empty by
+    construction and the wide read of committed history is not taken at all."""
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="claude-judge",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        court="scotus",
+        docket=1,
+        event_id="evt-x",
+        run_id="R",
+    )
+    # A prediction of a different run, as every evaluate artifact carries.
+    _write_prediction(tmp_path, "cell-a", "gemini-baseline", run_id="Q")
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "evaluate", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    assert json.loads(result.stdout)["stakes_reads"] == ""
 
 
 def test_collect_plan_sees_a_code_mode_cell_s_corpus_attempt(tmp_path: Path) -> None:

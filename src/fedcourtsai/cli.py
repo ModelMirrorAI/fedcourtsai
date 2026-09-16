@@ -94,6 +94,7 @@ from .collect import (
     PathJailError,
     PriorAvailabilityRollup,
     PrPlan,
+    StakesReadRollup,
     ThrottleRollup,
     assert_cleanup_within_jail,
     assert_within_jail,
@@ -5971,6 +5972,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             cell_update["context"] = _stamped_conditioning(
                 case_paths, event_paths, provisioned, record, actor, run_id
             )
+            _warn_on_missing_stakes_read(record, actor)
         if isinstance(record, Evaluation):
             # The graded-prediction identity is the harness's word like every
             # stamped field: the ordinary stamp resolves it (immediately
@@ -6204,6 +6206,61 @@ def _flag_unread_snapshot(
             return
         flags = existing.model_copy(update={"flags": [*existing.flags, flag]})
     write_json(flags_path, flags)
+
+
+def _warn_on_missing_stakes_read(record: Prediction, actor: str) -> None:
+    """Say when a predictor cell lands without a ``big_case_score``.
+
+    The stamp's second tripwire, and the mirror of ``warn_on_omission`` on the
+    evaluator side (:func:`_warn_on_discarded_number`): a field the prompt
+    requires of every cell, whose omission nothing else reports. Nothing here
+    fails or rewrites anything: the schema keeps the score optional so records
+    written before the field existed still validate, and ``validate`` asks
+    nothing of it. Nor is a null ever *imputed* — no figure reads it as a zero.
+    What it does instead is leave: the ``(predictor, case)`` point drops out of
+    that predictor's ``big_case`` tau-b, so its ``cases`` denominator falls and
+    the coefficient is recomputed over a smaller, self-selected set
+    (:func:`~fedcourtsai.leaderboard.big_case_agreement`). A cell that never
+    placed the stakes therefore finishes, commits and reads as complete while
+    quietly narrowing the population its own predictor is scored over.
+
+    The two shapes are said differently because they are different answers. The
+    prompt contracts a number **or** an explicit null carrying a one-line
+    ``big_case_rationale``, so a null with a reason is the contract taken as
+    written — a considered no-view, reported because the point leaves the board
+    either way, not because the cell misbehaved. A null with no reason
+    is the contract missed, and there the record keeps nothing to recover:
+    ``stamp-cell`` rewrites the artifact through the model, which emits every
+    field at its default, so a score the cell omitted and a score it declared
+    null are the same bytes. The rationale is the only thing that separates
+    them, which is why it is what this reads. It is said *here* because this is
+    where the cell's own log is — ``collect-plan`` re-derives the same reading
+    over the committed records for the run-level census, from the rationale that
+    survives the stamp.
+
+    The rationale's own text is deliberately **not** echoed. It is agent free
+    text, and an annotation is published straight into the run log without
+    passing the secret scan that gates the flag roll-up; the committed
+    ``prediction.json`` carries it for anyone who follows the cell id here.
+    """
+    if record.big_case_score is not None:
+        return
+    if (record.big_case_rationale or "").strip():
+        typer.echo(
+            f"::warning::stamp: {record.case_id} {record.event_id} {actor} recorded no "
+            + "big_case_score and gave a big_case_rationale for it — the prompt's null "
+            + "branch as written, so a considered no-view; the case still leaves this "
+            + "predictor's big_case tau-b.",
+            err=True,
+        )
+        return
+    typer.echo(
+        f"::warning::stamp: {record.case_id} {record.event_id} {actor} recorded neither a "
+        + "big_case_score nor a big_case_rationale; the prompt contracts a number or an "
+        + "explicit null with a one-line reason, and on the stamped record the two nulls "
+        + "are the same bytes. The case leaves this predictor's big_case tau-b.",
+        err=True,
+    )
 
 
 def _refuse_unsupported_regrade(role: str, pipeline_sha: str, stamped_at: str) -> None:
@@ -14088,6 +14145,16 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # the tripwire half still prints there, because it reports on what
         # capture could see rather than on what the corpus did.
         "prior_availability": plan.prior_availability_markdown,
+        # The census of this run's own output rather than of what reached it:
+        # how many predictions landed with no `big_case_score`, and whose. It
+        # rides the PR body like the two above, and unlike them the collect
+        # action also echoes it into the Actions summary — on the flag roll-up's
+        # own secret-scan terms, since the ids it names are the cells' own — so
+        # that a run which dropped its reads is legible without opening the
+        # cells. Nothing else reports the omission: it fails no cell and trips
+        # no gate. Empty on a run where every cell placed the stakes, and on an
+        # evaluate run.
+        "stakes_reads": plan.stakes_read_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),
@@ -14335,6 +14402,98 @@ def _load_retrieval_rollups(
     return throttle, priors
 
 
+#: How much of one identifier the stakes census carries into a note. The three
+#: ids it names a cell by are the agent's own ``prediction.json`` fields, read
+#: before ``validate`` has held them to the ledger, and the note they land in is
+#: published to the run's Actions summary — so they are bounded here, per
+#: component, rather than trusted to be short. Long enough for every id the
+#: pipeline mints (``ids.py``). The renderer escapes them and bounds each
+#: rendered id again (``collect._RENDERED_ID_CAP``), so a future builder that
+#: skips this one still cannot print an unbounded id.
+_STAKES_ID_CAP = 60
+
+
+def _bounded_id(value: str) -> str:
+    """One agent-written identifier, collapsed to one line and capped."""
+    return " ".join(value.split())[:_STAKES_ID_CAP]
+
+
+def _add_stakes_cell(rollup: StakesReadRollup, record: Prediction) -> StakesReadRollup:
+    """Fold one of this run's predictions into the stakes-read roll-up.
+
+    Every cell updates ``by_predictor``, the scored ones included: the count a
+    reader needs is this predictor's missing reads *against its own cells*, and
+    a predictor that placed every one of them is exactly the comparison the
+    concentrated case is read against.
+    """
+    predictor = _bounded_id(record.predictor_id)
+    counts = {actor: (missing, cells) for actor, missing, cells in rollup.by_predictor}
+    missing, cells = counts.get(predictor, (0, 0))
+    placed = record.big_case_score is not None
+    counts[predictor] = (missing + (0 if placed else 1), cells + 1)
+    rollup = replace(
+        rollup,
+        cells=rollup.cells + 1,
+        by_predictor=tuple(
+            (actor, missing, cells)
+            for actor, (missing, cells) in sorted(
+                counts.items(), key=lambda item: (-item[1][0], item[0])
+            )
+        ),
+    )
+    if placed:
+        return rollup
+    name = "/".join(
+        _bounded_id(part)
+        for part in (record.case_id, record.event_id, record.predictor_id)
+        if part.strip()
+    )
+    if (record.big_case_rationale or "").strip():
+        return replace(rollup, explained=(*rollup.explained, name))
+    return replace(rollup, silent=(*rollup.silent, name))
+
+
+def _load_stakes_reads(status_dir: Path, run_id: str) -> StakesReadRollup:
+    """Census this run's predictions for the stakes read they were asked for.
+
+    The same walk shape and the same two filters as
+    :func:`_load_retrieval_rollups`, for the same reasons: each cell uploads its
+    whole ``data/`` subtree, so this run's ``prediction.json`` files land
+    wherever their case paths put them, and every artifact also carries every
+    *previously committed* prediction — an earlier round's missing stakes read
+    is not this round's. The identity differs in where it comes from: a
+    prediction records its own case, event and predictor, so unlike a retrieval
+    log it needs nothing off the path. That is the agent's word for all three,
+    which is exactly right for a dedupe key — a cell of this run riding along in
+    a later cell's artifact carries the same three either way — and is why the
+    ids are bounded before they land in the roll-up.
+
+    A record that does not parse is skipped outright rather than counted as
+    blind. The retrieval roll-up keeps a blind counter because a cell whose log
+    is unreadable could still have been throttled and must not read as evidence
+    of a clean run; here there is no such asymmetry — an unparseable prediction
+    has no answer to count in either direction, and ``validate`` already routes
+    it to the draft PR a maintainer reads. Never fatal either way: this is a
+    notification, and it must not take down the aggregation carrying the run's
+    only copy of its output.
+    """
+    seen: set[tuple[str, str, str]] = set()
+    rollup = StakesReadRollup()
+    for path in sorted(status_dir.glob(f"**/{run_id}/prediction.json")):
+        try:
+            record = Prediction.model_validate_json(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if record.run_id != run_id:
+            continue
+        identity = (record.case_id, record.event_id, record.predictor_id)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        rollup = _add_stakes_cell(rollup, record)
+    return rollup
+
+
 @app.command("collect-plan")
 def collect_plan_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
@@ -14375,6 +14534,11 @@ def collect_plan_cmd(
     captured logs and likewise appended to the PR body: what the shared upstream
     quota did to the run, and whether the corpus index served the cells that
     asked it for priors. Both are empty on a run with nothing to report.
+    ``stakes_reads`` is the same shape of note about the run's own output — the
+    predictions that landed with no ``big_case_score``, counted per predictor —
+    which the collect step echoes into the Actions summary beside the flags.
+    Empty on an evaluate run and on a predict run where every cell placed the
+    stakes.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):
@@ -14410,6 +14574,14 @@ def collect_plan_cmd(
         # predicts from whatever else it had — so without a run-level count the
         # only trace is one line in one cell's tooling report.
         prior_availability=priors,
+        # And whether the run's own cells placed the stakes they were asked to.
+        # Predict only: an evaluation carries no `big_case_score`, and an
+        # evaluate run's artifacts hold predictions from *other* runs, which the
+        # run-id filter already excludes — so the walk would be a wide read of
+        # committed history for a census that is empty by construction.
+        stakes_reads=(
+            _load_stakes_reads(status_dir, run_id) if role is FinalizeRole.predict else None
+        ),
     )
     typer.echo(
         json.dumps(_collect_plan_json(plan, role=role, run_id=run_id), separators=(",", ":"))

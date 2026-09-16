@@ -544,3 +544,40 @@ runs:
             printf '%s\n' "$feedback" > feedback-comment.md
           fi
         fi
+        # The run's stakes-read census (`big_case_score`), published on the same
+        # terms as the flag roll-up above and for the same reason. The census is
+        # harness-*rendered*, but the cell ids and predictor ids it names are the
+        # agent's own `prediction.json` fields, read before `validate` has held
+        # them to the ledger — bounded and escaped where the census is built,
+        # which is not the same as scanned. So: nothing once anything above has
+        # tripped the scan — a withheld branch carried these same bytes in its PR
+        # body, and a flag roll-up that hit is reason enough to say nothing more
+        # about the run here — and otherwise only once the census text itself
+        # scans clean, since a run that opened no PR at all would publish it
+        # unscanned. Published even so, because a round
+        # that dropped its stakes reads is otherwise legible only by opening
+        # cells: the omission fails no cell and trips no gate, and no figure
+        # imputes the null — it drops the point from that predictor's own
+        # big_case tau-b instead. Empty on an evaluate run and on a predict run
+        # where every cell placed the stakes.
+        stakes_md=$(jq -r '.stakes_reads' <<<"$plan")
+        if [ -s secret-scan-issue.md ]; then
+          stakes_md=""
+        elif [ -n "$stakes_md" ] && [ "$stakes_md" != "null" ]; then
+          printf '%s\n' "$stakes_md" > run-stakes.md
+          if ! "$FEDCOURTS" scan-diff-for-secrets --name-status-file /dev/null \
+              --known-secret-env COURTLISTENER_API_TOKEN \
+              --extra-file run-stakes.md \
+              --issue-comment-file secret-scan-issue.md \
+              --run-url "$run_url" \
+              --run-id "$run_id"; then
+            echo "::warning::secret scan hit in the stakes-read census; suppressing it"
+            stakes_md=""
+          fi
+        fi
+        if [ -n "$stakes_md" ] && [ "$stakes_md" != "null" ]; then
+          # A leading blank line: the union step writes a bullet list to the same
+          # summary, and the census opens on a paragraph rather than a heading, so
+          # without the break it renders as a continuation of the last bullet.
+          printf '\n%s\n' "$stakes_md" >> "$GITHUB_STEP_SUMMARY"
+        fi
