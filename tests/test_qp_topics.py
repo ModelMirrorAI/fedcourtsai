@@ -303,6 +303,35 @@ def test_builder_aborts_on_a_half_matching_reference_pair() -> None:
         )
 
 
+def test_builder_joins_a_reference_docket_carrying_the_capital_case_marking() -> None:
+    # The Court marks some docket numbers ``*** CAPITAL CASE ***``; the extract
+    # carries the unmarked spelling. A reference row recorded with the marking
+    # names the same docket, so it joins rather than reading as a mis-join —
+    # and the mirror-image check keys on the unmarked form too.
+    reference = QpTopicReference(
+        cases=1,
+        entries=[
+            QpTopicReferenceEntry(
+                case_id="scotus/1", docket_number="25-5004 *** CAPITAL CASE ***", label="tax"
+            )
+        ],
+    )
+    labels = build_labels(
+        entries=[_entry("scotus/1", "25-5004", "tax")],
+        texts={"scotus/1": QpText("25-5004", "a question about tax")},
+        reference=reference,
+        labeler="test",
+    )
+    assert (labels.agreement.overall_agree, labels.agreement.overall_n) == (1, 1)
+    with pytest.raises(QpTopicError, match="reference join mismatch"):
+        build_labels(
+            entries=[_entry("scotus/999", "25-5004", "tax")],
+            texts={},
+            reference=reference,
+            labeler="test",
+        )
+
+
 def test_builder_counts_shadow_firings_and_disagreements() -> None:
     reference = _reference(("scotus/1", "tax"))
     labels = build_labels(
