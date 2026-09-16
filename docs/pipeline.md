@@ -1448,10 +1448,12 @@ procedure writes the pre-registration record into the tag message
 - **`prereg/<label>`** — a pre-registration freeze commit, e.g.
   `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS` and sets
   `FROZEN_SINCE` (docs/process-version.md carries the freeze procedure).
-  One tag deviates: `prereg/proc-v4` sits on the promotion merge that
-  carried its freeze commit rather than on the freeze commit itself — the
-  namespace blocks moving it, and the freeze record in docs/freeze-record.md
-  states the placement and its consequence.
+  Two tags deviate, and the freeze record in docs/freeze-record.md states
+  each placement and its consequence: `prereg/proc-v4` sits on the promotion
+  merge that carried its freeze commit rather than on the freeze commit
+  itself, and `prereg/proc-v8` sits on the step-4 correction commit, because
+  that label has two freeze commits and neither one's tree states the blessed
+  digests and the instant together. The namespace blocks moving either.
 - **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
   `-2` suffix distinguishes a same-day second batch.
 - **`results/<term>-<milestone>`** — the commit carrying a published metrics
