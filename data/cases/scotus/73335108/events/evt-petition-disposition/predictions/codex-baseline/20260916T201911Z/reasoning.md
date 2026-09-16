@@ -1,0 +1,39 @@
+# Basis for the prediction
+
+## Record and conditioning
+
+This is a forward cert-stage forecast for Henry L. Watson, III v. Kenya Mason, Warden, Supreme Court docket 25-1279. I read the provisioned event, `record/snapshots/2026-09-16.json`, `record/context.json`, the questions presented, the complete extracted petition, and the document manifest. The frozen band is `baseline`, under `sal-v4`, with Term 2025, one distribution, and no CVSG. I use that supplied band, not a new classification inferred from the respondent's office.
+
+The snapshot records a petition filing on December 22, 2025, docketing on May 13, 2026, a June 9 response waiver, and June 17 distribution for the September 28, 2026 conference. Filing and docketing are distinct recorded dates; the summer interval is not a sequence of relists. The snapshot identifies a paid, noncapital petition. There is no recorded request for a response, amicus filing, or further distribution. A waived response is not a merits concession and does not itself establish that the petition is deficient.
+
+The petition's printed pages 7-9 describe an unpublished Seventh Circuit denial of a certificate of appealability on September 12, 2025, followed by denial of rehearing September 26, after an unsuccessful federal habeas petition. Pages 13-14 describe acquittal on the charge involving the alleged aggressor and conviction of negligent homicide involving a bystander. Those descriptions and the asserted basis for acquittal are petitioner's account, not independently inspected findings. Pages 15-22 argue that Wisconsin's self-defense instruction and the courts' treatment of the statute conflict; pages 23-26 develop ineffective-assistance, COA, and due-process theories.
+
+## Anchor and adjustments
+
+The committed `metrics/statpack.md` sal-v4 table is compatible with this cell. Pooling the bracketed baseline reached rates for every displayed Term strictly before 2025 gives an approximate 5.12% any-grant anchor over weighted n=11,580. The inputs are 2024: 5.7%, n=1,271; 2023: 5.9%, n=1,312; 2022: 5.8%, n=1,192; 2021: 5.6%, n=1,500; 2020: 4.5%, n=1,739; 2019: 4.6%, n=1,399; 2018: 4.6%, n=1,524; and 2017: 4.7%, n=1,643. I computed the denominator-weighted average of the displayed rounded rates, so this is not an exact reconstruction of underlying grant counts. I excluded Terms 2025 and 2026 and did not substitute the terminal-baseline rate.
+
+The paid-segment relist and CVSG cuts support the general importance of repeated attention, but describe terminal buckets, not forward transition probabilities. I use their shape only, not their pooled rates as this case's prior-Term anchor or as a directly estimated relist hazard. The broad modern-cert disposition table is less well matched than the required selected-population anchor.
+
+I reduce the anchor to **P(any grant) = 0.008** for these case-specific reasons:
+
+- The actual review vehicle is a COA denial, and the submission predominantly seeks correction of the treatment of this trial's instructions and verdict. Supreme Court Rule 10 identifies conflicts and important federal questions as review considerations and distinguishes ordinary fact or rule-application errors. My inference is that the petition's presentation fits the latter pattern more closely. Source: Rule 10, Cornell LII reproduction, consulted September 16, 2026.
+- The asserted broader split on petition page 22 supplies no named contrary jurisdiction or conflicting decision. An allegation of a national divergence without concrete comparator holdings is substantially weaker than a developed split. This observation concerns the petition's showing, not a claim that no relevant conflict exists anywhere.
+- The petitioner must connect the asserted Wisconsin-law contradiction to a federal constitutional violation. Estelle v. McGuire, 502 U.S. 62, 67-68, 72 (1991), distinguishes state-law error from federal habeas grounds and evaluates challenged instructions in context. The asserted inconsistency is therefore not enough by itself. Source: Supreme Court opinion reproduced by Cornell LII, consulted September 16, 2026.
+- The acquittal involving the alleged aggressor does not, on this limited record, establish that the jury disregarded the instructions when assessing harm to the bystander. That is my evidentiary caution, not a holding about Watson's case. The appendix and actual COA order would be needed to assess the federal issue and procedural obstacles reliably.
+- There is only the initial distribution, with a response waiver and no visible additional attention. This supports staying below the broad baseline, but I do not treat absence of attention as proof of the future result.
+
+The probability remains nonzero because a genuine burden-of-proof or instructional defect could make a COA intervention appropriate. The record does not let me exclude that possibility. I do not infer a jurisdictional or timeliness defect from the long filing-to-docketing interval or from the petition's jurisdictional citations.
+
+## Other probabilities and stakes
+
+The 2.5% further-distribution probability reflects the initial-distribution posture and weak demonstrated review grounds, not an estimate copied from a terminal relist bucket. The 0.1% CVSG probability reflects the absence of a developed federal institutional interest in this individual state-conviction dispute. Both are subjective estimates without a published matching transition baseline.
+
+The 60% summary-route probability is conditional on the rare grant, not a 60% unconditional chance of summary action. A narrowly focused COA correction seems more plausible within that rare branch than accepting the petition's four-question merits package. It implies an unconditional summary-route probability of 0.48%. No identified intervening authority independently supports a GVR. The 1% writing probability is conditional on denial and predicts only aggregate existence. The stakes score of 0.16 recognizes substantial personal liberty interests without equating them to demonstrated national doctrinal reach.
+
+## Limits and provenance
+
+The manifest reports 27 petition pages, no truncation, and successful text extraction; both petition and QP text were fetched July 17, 2026. No BIO is provisioned, consistent with the recorded waiver. No appendix or lower-court opinion text is provisioned, so I cannot inspect the COA denial's actual reasoning, the full trial charge, or issue preservation. I flag that limitation rather than treating the petition's assertions as verified adjudicative facts. The respondent name on the petition differs from the snapshot caption; I retain the authoritative event identity and draw no substantive inference from that difference.
+
+The provisioned snapshot is dated September 16, 2026, but its source creation field is June 17, 2026 and its latest proceeding is that day's distribution. It is not evidence of a new substantive docket entry on September 16. No per-case `last_pulled` stamp or corpus-wide freshness report was consulted. The statpack is the committed artifact supplied to this run; its inspected top-level metadata supplies no build timestamp, and I make no claim that it represents a freshly pulled remote corpus.
+
+I did not seek this petition's disposition, subsequent history, or current docket. No target-case outcome was encountered or known to me. External retrieval was confined to general review standards and Estelle. Browser calls returned no usable payload. Direct credential-free shell retrieval of Cornell LII's Rule 10 and Estelle pages supplied the text confirming the general standards used here. The initial paths command failed because uv's default cache was read-only; rerunning with a temporary cache succeeded. That environment issue did not limit access to the provisioned record.

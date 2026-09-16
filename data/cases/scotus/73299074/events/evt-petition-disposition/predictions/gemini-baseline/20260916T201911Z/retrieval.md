@@ -1,0 +1,3 @@
+- `uv run fedcourts query --court scotus --decided-before 2026-09-16` (Command failed, fallback to statpack)
+- Read `metrics/statpack.md` for cert base rates.
+- CourtListener MCP lookup for case "Richard Devillier" OR docket_number:"25-1252"

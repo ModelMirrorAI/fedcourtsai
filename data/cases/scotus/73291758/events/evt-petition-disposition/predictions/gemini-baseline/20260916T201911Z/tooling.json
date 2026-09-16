@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73291758",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "The statpack baseline cuts and prompt instructions were very clear."
+  ],
+  "gaps": [],
+  "notes": ""
+}

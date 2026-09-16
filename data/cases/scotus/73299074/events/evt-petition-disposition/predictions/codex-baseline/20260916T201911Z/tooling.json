@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73299074",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local input and schema reads", "committed statpack", "fedcourts paths", "web.open", "curl", "pypdf"],
+  "helpful": ["Snapshot preserved a direct link to the pre-decision petition", "Petition appendix supplied the lower-court rationale as well as advocacy", "Reached-band table permitted an explicit prior-Term calculation"],
+  "gaps": ["No provisioned petition or opposition text", "No original-mandamus base-rate stratum", "web.open returned no usable PDF content", "Default package-manager cache was read-only; pdftotext was absent"],
+  "notes": "Recovered PDF access through the snapshot's exact public filing URL and extracted selected pages in memory with installed pypdf. Used a writable temporary cache for the CLI. No CourtListener credential access or REST fallback was needed."
+}

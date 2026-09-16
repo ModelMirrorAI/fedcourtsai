@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73299074",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "scope",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot and linked petition identify an original writ of mandamus to enforce a Supreme Court mandate, not certiorari. The provisioned event is petition-kind without an explicit stage and carries a cert salience band. Retained the required cell and five-claim contract, interpreting any grant as relief on the mandamus petition. Cert-band base rates and cert-order route conventions are imperfect comparators; review scope and downstream scoring rather than treating this as an ordinary cert petition."
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+# Retrieval record
+
+- Read the committed `metrics/statpack.md`: modern discretionary-cert disposition counts, originating-circuit context, paid-segment relist/CVSG cuts, and sal-v4 reached rates for displayed Terms 2017–2024. Computed the denominator-weighted anchor locally from rounded displayed figures.
+- No `fedcourts query` or `open-events` calls; consequently no ranged-corpus transfer lines. `fedcourts paths --court scotus --docket 73322426 --event evt-petition-disposition --role predictor` was a local path lookup, not corpus retrieval. Its first attempt failed on the default cache permissions; a writable temporary cache resolved that.
+- Two web `open` attempts for the September 4 opposition PDF returned no usable content. No web searches were run.
+- Retrieved the following fixed, pre-decision filing URLs from the provisioned snapshot via Python httpx and extracted text in memory with pypdf. No docket landing page or outcome search was consulted, and no downloaded source files were written:
+  - Opposition, 86 PDF pages including appendices: `https://www.supremecourt.gov/DocketPDF/25/25-1273/423096/20260904125721023_25-1273%20Brief%20in%20Opposition.pdf`. Three GETs: initial front-matter/keyword-selected excerpts, focused PDF pages 13–18, then pages 20–22. Used printed pp. 5–15 and visible appendix excerpts for the disputed preservation, harmlessness, and split arguments; did not read the entire appendix.
+  - Reply, 13 PDF pages: `https://www.supremecourt.gov/DocketPDF/25/25-1273/424261/20260915120247740_cert%20reply%2025-1273%20Johnson%20v%20Montana.pdf`. Two GETs: PDF pages 4–9 and 11–13, corresponding to printed pp. 1–6 and 8–10.
+- CourtListener MCP `search(type="o", case_name="Pitts v. Mississippi", num_results=2)` returned the November 24, 2025 Supreme Court decision and an earlier state decision. Then `read_document(opinion_id=11207923)` supplied the Supreme Court opinion. Used its case-specific-necessity and harmlessness analysis and its physical-screen facts; did not retrieve subsequent history.
+- No retrieval of Johnson's disposition, any other predictor's output, or outcome-bearing topic-label artifacts.

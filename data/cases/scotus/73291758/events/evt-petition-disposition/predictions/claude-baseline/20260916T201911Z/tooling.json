@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73291758",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "courtlistener MCP (dockets, docket-entries, search)", "metrics/statpack.md"],
+  "helpful": [
+    "provisioned petition.txt and questions-presented.txt",
+    "context.json frozen band + sal-v4 segment base-rate table",
+    "statpack relist-count and CVSG cuts"
+  ],
+  "gaps": [
+    "fedcourts query cannot filter on fee class, pro se status, or originating state court, so recency ranking surfaces applications rather than comparable petitions",
+    "the petition appendix (the state appellate order) was not provisioned and the order is not on CourtListener",
+    "a statpack cut for pro se / counsel-of-record-is-party petitions would sharpen the anchor for this shape"
+  ],
+  "notes": "Forward cell; CourtListener docket record matched the snapshot (last modified 2026-06-17, not terminated). Corpus query transfer: 7 GET(s), 1835008 byte(s)."
+}

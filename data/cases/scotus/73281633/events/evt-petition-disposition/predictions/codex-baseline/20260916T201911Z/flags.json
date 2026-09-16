@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281633",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The manifest marks petition.txt truncated, and it ends within the district-court appendix. The questions, principal cert arguments, and complete Second Circuit opinion are available and informed the forecast. The docket records a reply and four amicus briefs, but their texts were not provisioned or retrieved; split and vehicle assessments therefore lack those potential rebuttals. The cell was completed normally.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260916T201911Z",
+  "schema_version": "1.0"
+}

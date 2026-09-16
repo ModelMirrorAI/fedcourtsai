@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73351824",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "CourtListener MCP search", "WebFetch (supremecourt.gov docket PDFs)", "pypdf text extraction", "metrics/statpack.md"],
+  "helpful": [
+    "statpack salience-band table with bracketed reached rates",
+    "provisioned petition text and QP cut",
+    "snapshot document links, which let me fetch the BIO and reply"
+  ],
+  "gaps": [
+    "BIO and reply were filed after the 2026-07-17 document fetch and so were not provisioned; a re-fetch of documents at provisioning time (or on a redistribution entry) would have saved two web fetches and a PDF extraction step",
+    "statpack has no response-requested cut; the called-for-response signal is the main upward adjustment on this cell and I had to size it from judgment",
+    "fedcourts query --citation lookups cost ~1350 ranged GETs / ~355 MB each and returned nothing (citation column covers 200 of ~591k scotus rows); a cheaper refusal when the filter has no coverage would help",
+    "CourtListener search returned zero results for SCOTUS dockets/opinions on ICWA post-2023; a way to search recent SCOTUS order lists or statements respecting denial would help the dissent-from-denial claim",
+    "WebFetch's built-in summarizer cannot read PDFs; it saved the binary and I extracted text locally"
+  ],
+  "notes": "Snapshot shows two DISTRIBUTED entries for the same 9/28/2026 conference (initial and post-reply redistribution); context distribution_count is 1, which I read as one conference and no relist."
+}

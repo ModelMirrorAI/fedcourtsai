@@ -1,0 +1,11 @@
+# Forecast
+
+The Court will deny certiorari without a separate writing. The snapshot records one distribution, entered June 17, 2026, for the September 28, 2026 conference; it records no CVSG. I expect zero additional distributions and a denial in the late-September or early-October orders following that conference. The summer interval before a scheduled first conference is not itself a relist.
+
+The probability of at least one additional distribution is 8%. If additional consideration occurs, one further distribution is the most likely increment. I assign a 0.3% probability to a new CVSG and expect none. The petition's federal statutory arguments do not, by themselves, make this private protection-order dispute a likely vehicle for soliciting the government's views.
+
+The broad question presented combines criminal-process protections in civil protection proceedings with challenges to federal consequences and interstate enforcement. The Court is more likely to leave the Washington judgment undisturbed than to take that composite question. If it grants review, I expect a narrower question concerning the process constitutionally required before a civil protection order produces a firearm disability, rather than plenary review of every custody, immigration, and bill-of-attainder theory. That is a conditional forecast, not a prediction that the Court will issue a merits opinion.
+
+Conditional on any grant, I assign 20% to disposition in the cert order itself and 80% to a route involving subsequent merits proceedings. The supplied record identifies no intervening decision requiring a GVR. Rahimi was already decided before the lower-court decision dates in this snapshot, so it is not, merely by existing, an intervening reason to remand this petition. A grant on an unresolved procedural question is more likely to require briefing than immediate summary relief. This is an inference from the provisioned chronology and United States v. Rahimi, 602 U.S. 680 (2024), majority slip opinion at 17 n.2.
+
+Conditional on denial, the probability of some noted dissent or statement respecting denial is 4%. The modal forecast is an unexplained denial; no individual Justice's vote or writing is predicted.

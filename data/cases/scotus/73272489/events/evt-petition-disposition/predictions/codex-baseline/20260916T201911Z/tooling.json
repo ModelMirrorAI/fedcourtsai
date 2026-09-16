@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73272489",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local record and schema reads", "committed statpack", "fedcourts paths", "local arithmetic", "web general-rule retrieval attempts", "curl general-rule retrieval attempt", "fedcourts validate"],
+  "helpful": ["Readable complete petition and extracted question presented", "Frozen band and distribution count", "Prior-Term reached-band denominators"],
+  "gaps": ["No provisioned lower-court opinion or appendix text", "No provisioned opposition", "General-rule web attempts returned no usable content; PDF URL returned 404 and pdftotext was absent"],
+  "notes": "No case-outcome search or live corpus query. The initial uv cache permission error was resolved with a temporary cache and the preinstalled environment. Missing filings are limits on the available record, not evidence of a waiver or concession."
+}

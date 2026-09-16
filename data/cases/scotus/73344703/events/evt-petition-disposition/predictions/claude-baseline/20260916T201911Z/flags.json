@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73344703",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot shows the petition distributed on July 1, 2026 with no brief in opposition and no waiver entry between the June 15, 2026 response date and the distribution. Distribution without a response is legitimate under Rule 15.5, so this may be a true unopposed petition rather than a dropped entry, but the CourtListener docket mirror carries zero docket entries for this docket so it could not be cross-checked. I treated the petition as unopposed; the forecast does not depend on which reading is right."
+    }
+  ]
+}

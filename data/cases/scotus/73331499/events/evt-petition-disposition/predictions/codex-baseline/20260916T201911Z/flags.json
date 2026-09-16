@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73331499",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Question 2 ends incompletely with 'the creation of DNA profiles from.' in both questions-presented.txt and the provisioned petition text, despite the manifest marking the petition untruncated. The argument at pages 17\u201326 supports an issue-level forecast, but I did not reconstruct the missing exact wording or determine whether the defect is in the source PDF or extraction. Prediction completed using that disclosed limitation.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260916T201911Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,10 @@
+# Retrieval log
+
+- Read committed `metrics/statpack.md`: modern discretionary-cert disposition counts, paid-segment relist and CVSG cuts, and the sal-v4 per-Term reached-band table. Used only the displayed 2017–2024 rows for the numerical grant anchor. Inspected the top-level keys of `metrics/statpack.json`; no case-level membership data was read.
+- No `fedcourts query` or `open-events` lookup was made. There are no ranged-corpus transfer lines to report.
+- Web search queries: `site.supremecourt.gov opinions Tyler Hennepin 2023 traditional property interests` and `site.supremecourt.gov Rule 10 certiorari erroneous factual findings misapplication properly stated rule law`. The tool returned no visible results or source text.
+- Web open attempted: `https://www.supremecourt.gov/opinions/22pdf/22-166_8n59.pdf`. The tool returned no visible content. No claim rests on this unsuccessful retrieval.
+- CourtListener MCP `search`: type `o`, citation `598 U.S. 631`, one result requested, fields caseName/dateFiled/citation/opinions/absolute_url. Returned Tyler v. Hennepin County, May 25, 2023, with opinion ID 10516283. This was a general precedent lookup, not a search for the cell case.
+- CourtListener MCP `search_document`: opinion ID 10516283, literal query `traditional property interests`, 1000 characters of context. Read the two returned excerpts concerning traditional property interests and state-law definitions. Used to check the petition's general Tyler proposition, not to infer any later disposition of Harvey.
+- Local contract and schema inspection, the path resolver, and arithmetic on the displayed statpack rows were operational reads, not additional case retrieval. The path command was `uv run fedcourts paths --court scotus --docket 73300246 --event evt-petition-disposition --role predictor`; its first attempt failed on the read-only cache and its retry with a temporary cache and `--no-sync` succeeded.
+- No search for this petition's disposition, subsequent history, or later coverage was made. No other predictor output, realized outcome artifact, or topic-label measurement artifact was consulted.

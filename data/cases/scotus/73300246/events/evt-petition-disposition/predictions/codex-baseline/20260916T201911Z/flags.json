@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73300246",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned documents manifest marks the 194-page petition truncated. The main argument and relevant Nevada affirmance passages were available, but the prediction does not independently establish the access geometry, title chain, or permit evidence from the complete appendix. The opposition is reported untruncated. This is an input limitation, not outcome exposure."
+    }
+  ]
+}

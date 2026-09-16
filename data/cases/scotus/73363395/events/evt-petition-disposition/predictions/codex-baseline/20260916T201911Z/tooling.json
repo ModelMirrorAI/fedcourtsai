@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73363395",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "jq", "CourtListener MCP search", "CourtListener MCP read_document", "web search/open attempts", "fedcourts validate"],
+  "helpful": [
+    "Frozen context distinguishes the petition distribution from the separately distributed sealing motion.",
+    "Provisioned petition and QPs expose the federal vehicle problem without seeking the case outcome.",
+    "Full-precision JSON reached rates permit exact prior-Term pooling.",
+    "CourtListener case-name search and full-opinion retrieval supplied an on-point historical precedent."
+  ],
+  "gaps": [
+    "General web searches and a rules-PDF open returned no usable content.",
+    "The separate lower-court appendix was not provisioned; respondents waived a response, so no BIO was available."
+  ],
+  "notes": "The first uv invocation failed on a read-only default cache; using a cache under /tmp succeeded. Citation-only MCP search returned a nonmatching first result, corrected with a precise case-name and court search. No target-case outcome was sought or surfaced."
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73322426",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["exec_command", "web.open", "httpx", "pypdf", "CourtListener search", "CourtListener read_document", "fedcourts paths", "fedcourts validate"],
+  "helpful": ["Frozen sal-v4 context and reached-rate table", "Snapshot-listed fixed filing URLs", "CourtListener opinion text for checking the parties' characterization of precedent"],
+  "gaps": ["Provisioned filings did not include the docketed opposition or reply", "Web PDF opens returned no usable content"],
+  "notes": "Used in-memory PDF extraction to recover pre-decision advocacy without seeking the case's outcome. The default uv cache was read-only; a temporary writable cache allowed local commands."
+}

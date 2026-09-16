@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73363408",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "metrics/statpack.json"],
+  "helpful": [
+    "The sal-v4 segment base rate table with bracketed reached rates gave a clean, leakage-safe anchor for the baseline band.",
+    "The provisioned petition text let me read the posture (untimely state appeal, pro se, no split) directly rather than inferring from the docket."
+  ],
+  "gaps": [
+    "No statpack cut for pro se versus counseled paid petitions, or for respondent-waived petitions; both are the features that moved this cell off the anchor and I had to weight them from general knowledge.",
+    "fedcourts query ranks by recency and has no filter for originating state court, petitioner type, or waiver status, so a similar-priors pull for a state-court pro se petition is not really possible."
+  ],
+  "notes": "Clean cell: snapshot, context, petition and QP all present and consistent; no BIO because respondents waived. Did not need the CourtListener MCP server."
+}

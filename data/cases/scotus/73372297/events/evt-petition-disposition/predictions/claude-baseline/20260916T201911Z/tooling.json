@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73372297",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md"],
+  "helpful": [
+    "Provisioned petition.txt with clean text extraction: the questions presented alone settled the forecast.",
+    "The sal-v4 band table with bracketed reached rates, pooled over prior Terms, gave a direct anchor.",
+    "context.json's frozen band and distribution_count removed any need to derive conditioning state."
+  ],
+  "gaps": [
+    "fedcourts query has no case-content similarity axis (petitioner type, subject, lower-court basis), so it cannot surface comparable priors for a pro se petition.",
+    "No committed cut for relist hazard conditional on a waived response or on pro se status; the relist-increment claim is banked on judgment.",
+    "No cut for the Long Conference specifically, where reschedules are more common than at an ordinary conference."
+  ],
+  "notes": "Forward mode with unrestricted retrieval, but no CourtListener MCP call was needed: the provisioned record and petition text were sufficient. A single structured corpus query was run and did not inform the number."
+}
