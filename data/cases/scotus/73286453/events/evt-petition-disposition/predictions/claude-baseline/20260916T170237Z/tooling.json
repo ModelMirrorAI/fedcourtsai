@@ -1,0 +1,26 @@
+{
+  "case_id": "scotus/73286453",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md",
+    "courtlistener MCP search (dockets, opinions)",
+    "provisioned snapshot + petition, QP, and brief-in-opposition text"
+  ],
+  "helpful": [
+    "The provisioned petition carried the full Eleventh Circuit opinion, concurrence, dissent, and the district court opinion in its appendix, so the decision below could be read directly rather than through the petition's summary.",
+    "The provisioned BIO carried petitioner's own Eleventh Circuit brief as an appendix, which let me verify the preservation argument against the primary source.",
+    "The sal-v4 band table matched context.json's salience_version, so the anchoring rule applied cleanly."
+  ],
+  "gaps": [
+    "The reply brief (docketed 2026-07-15) is on the snapshot docket with a supremecourt.gov link but was not provisioned under record/documents/; a reply is where a preservation objection gets answered.",
+    "fedcourts query has no subject or text filter for SCOTUS rows, so topically similar priors (qualified-immunity or section 1983 petitions) cannot be pulled; the returned priors were recency-ranked and not comparable.",
+    "No statpack cut for petitions with a dissent below or for cert-order share of grants, both of which I had to estimate judgmentally.",
+    "CourtListener does not index Supreme Court dockets, so the MCP server could not confirm the docket state independently of the snapshot."
+  ],
+  "notes": "Forward-mode cell, one distribution for the 2026-09-28 long conference. 2 corpus queries and 4 MCP searches, all logged in retrieval.md."
+}

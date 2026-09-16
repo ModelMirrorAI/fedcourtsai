@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281642",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener mcp search", "courtlistener mcp get_endpoint_item", "courtlistener mcp call_endpoint"],
+  "helpful": [
+    "Full-text petition and BIO in record/documents were the decisive inputs; the BIO's outcome-convergence argument would have been invisible from the docket alone.",
+    "The sal-v4 band table with bracketed reached rates gave a clean pooled anchor.",
+    "CourtListener opinions endpoint returned the full Seventh Circuit opinion text in one call."
+  ],
+  "gaps": [
+    "fedcourts query --citation on a SCOTUS cite returned nothing and cost about 355 MB of ranged reads; a warning before the read, or a citation-coverage hint in the CLI help, would save the egress.",
+    "No corpus surface for a prior petition's relist history (e.g. how many times Baker 23-1363 was distributed), which is the most relevant prior for the relist-increment claim.",
+    "CourtListener has no SCOTUS docket for the companion petition 25-1163; a pipeline-provisioned note of same-counsel companion petitions filed in the same window would help.",
+    "Cert-stage amicus count is not surfaced in context.json for cert cells (amicus_briefs is null); it is a strong signal that I had to count by hand from the snapshot."
+  ],
+  "notes": "Eight retrieval calls total (one corpus query, seven MCP). No web searches. The snapshot's Links field ('Linked with 25A795') refers only to the extension application, not to the companion petition."
+}

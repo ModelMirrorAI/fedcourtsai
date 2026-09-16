@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281382",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "committed statpack", "web search/open attempts", "CourtListener MCP search", "fedcourts validate"],
+  "helpful": ["Both petition and BIO had usable text and extraction metadata.", "Frozen band and distribution count supported a correctly conditioned historical anchor."],
+  "gaps": ["The docketed reply was not provisioned, limiting assessment of the preservation objection.", "General-precedent web calls returned no usable content; the Bovat CourtListener search returned zero results."],
+  "notes": "Used the supplied record without seeking the target outcome. The initial uv cache permission failure was resolved by directing the cache to /tmp. No live corpus lookup was necessary."
+}

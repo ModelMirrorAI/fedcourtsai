@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500215",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The brief in opposition (docket entry Sep 14 2026) was on the snapshot but not provisioned: documents.json was fetched 2026-07-17, before the BIO existed. I fetched the BIO PDF from the supremecourt.gov link in the snapshot and read it (forward mode). Other predictors in this fan-out may not have, so the common baseline differs on this point."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "This docket carries a 'Response Requested' entry (Jul 14 2026) after a waiver, a strong grant signal that the sal-v4 band ('baseline') does not encode and the statpack carries no cut for. My number departs from the band anchor mainly on that signal, priced from general knowledge; a response-requested cut in the statpack would make this class of cell scoreable against a committed rate."
+    }
+  ]
+}

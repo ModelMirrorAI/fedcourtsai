@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73281386",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "Frozen band is `baseline` (sal-v4), but the petitioner is the United States: caption \"U.S. Doge Service, et al.\" with the Solicitor General as counsel of record and OMB, its Director, NARA and the Archivist as co-petitioners. Under the salience scorer's stated caption rule this is a `federal` petitioner. The federal-column pooled `reached` rate (OT2017-OT2024) is roughly 73% against the baseline column's roughly 5%, so the skill yardstick this cell is scored against is probably the wrong class's floor. I anchored on the frozen `baseline` band as the prompt instructs and adjusted from it. Likely cause: the scorer's federal markers do not match \"U.S. Doge Service\", and the respondent caption \"United States District Court\" may have confused placement."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The petition appendix reproduces this Court's own June 6, 2025 order in the same dispute (No. 24-1246 / 24A1122: stay granted, certiorari granted, D.C. Circuit vacated and remanded, discovery stayed pending disposition of this petition). That is pre-snapshot, provisioned material and legitimate forward signal, but it is decisive for my number, so noting it here. I also carry general knowledge, not in the provisioned record, that the DOGE structure was reported wound down in late 2025; used only to shade the forecast downward."
+    }
+  ]
+}

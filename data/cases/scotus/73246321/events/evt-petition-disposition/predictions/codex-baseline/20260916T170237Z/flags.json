@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73246321",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The petition challenges state appellate procedural dismissals, but its separately linked appendix and lower-court orders are not provisioned. The exact basis for the May 2025 dismissal and preservation of the federal questions cannot be verified from the short petition. Forecast completed from the supplied petition, docket, prior-Term base rates, and Haines; no particular state-ground jurisdictional defect is assumed. Provisioning the appendix would materially improve vehicle assessment."
+    }
+  ]
+}

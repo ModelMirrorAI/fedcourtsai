@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281694",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed metrics/statpack.md",
+    "fedcourts paths",
+    "web search/open attempts",
+    "curl official Supreme Court PDF links",
+    "pypdf in-memory extraction"
+  ],
+  "helpful": [
+    "The BIO includes the underlying waiver order, allowing its procedural objection to be assessed against actual text.",
+    "Fixed filing URLs in the snapshot permitted targeted reply and appendix retrieval without opening a current docket.",
+    "The sal-v4 table publishes reached denominators and supports a strictly-prior pooled anchor."
+  ],
+  "gaps": [
+    "Provisioning the cert reply would help when it materially rebuts a BIO vehicle objection; this run retrieved it separately.",
+    "Web tool calls returned no usable content. The system PDF extractor was absent, but installed pypdf provided a working alternative."
+  ],
+  "notes": "The default uv cache location was read-only; a writable temporary cache resolved CLI access. No CourtListener fallback or credentials were used. No current-case outcome was retrieved."
+}

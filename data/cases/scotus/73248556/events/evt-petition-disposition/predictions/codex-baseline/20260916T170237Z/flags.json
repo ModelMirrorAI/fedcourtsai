@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73248556",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned opposition's account of the June 18, 2026 Hemani decision materially lowers this forward forecast from the federal-petitioner base rate. It predates the snapshot and is legitimate companion-case context, not Hembree's own outcome. CourtListener independently corroborated the companion's identity/date but supplied no opinion text; web attempts returned no usable content. Substantive characterization remains attributed to the opposition, not independently verified. No Hembree disposition was sought or encountered."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition's Appendix A heading at page 1a says Tenth Circuit, while the petition cover, snapshot, Mississippi origin, and named panel identify the Fifth Circuit. Forecast uses the consistent Fifth Circuit identification and leaves the source untouched."
+    }
+  ]
+}

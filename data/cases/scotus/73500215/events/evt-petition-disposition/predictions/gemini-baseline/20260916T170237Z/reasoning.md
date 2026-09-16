@@ -1,0 +1,9 @@
+P(grant) 0.25. The prior-Term (OT2024 and OT2023) salience band base rate for a `baseline` paid petition is approximately 5.7% - 5.9%. However, I adjust this upward significantly for several reasons. The most compelling signal is that the respondent initially waived their right to respond, and the Court affirmatively requested a response on July 14, 2026. This act of attention demonstrates that at least one Justice flagged the petition as potentially warranting review. 
+
+Furthermore, the subject matter—qualified immunity in an excessive force context—is a frequent target for the Supreme Court's intervention, particularly concerning decisions from the Ninth Circuit. The petition argues that the Ninth Circuit combined general principles from dissimilar cases to find a right clearly established, a methodology the Supreme Court has repeatedly summarily reversed in the past (e.g., *City of Escondido v. Emmons*, *Kisela v. Hughes*). 
+
+Because the Brief in Opposition was just submitted on September 14, 2026 (a day before the snapshot), the petition has technically only been distributed once (the summer conference distribution on June 24), but it will inevitably be distributed again for a post-BIO conference, making the relist increment highly likely (P=0.95). 
+
+The probability of a summary disposition route, conditional on a grant, is also elevated (P=0.60) because the Court frequently uses summary reversals to correct lower courts on qualified immunity application without full briefing and argument. 
+
+My primary uncertainty lies in vehicle quality and whether the facts of the encounter (disobeying commands, scaling a fence) make the case too messy or fact-bound for the Court to want to expend resources on it, even if they disagree with the Ninth Circuit's doctrinal approach. If denied, a dissent from denial remains a solid possibility given the ideological valence of the issue (P=0.35).

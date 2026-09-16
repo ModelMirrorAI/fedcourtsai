@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281372",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The document manifest marks the 345-page petition source truncated. The supplied text contains the main argument through its conclusion, but completeness of the appendix was not assumed. The BIO is untruncated with some extraction gaps. Prediction completed from readable provisioned arguments; claimed conflicts and alternative grounds were not independently verified because precedent retrieval was throttled."
+    }
+  ]
+}

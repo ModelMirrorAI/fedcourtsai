@@ -1,0 +1,3 @@
+- `uv run fedcourts query --court scotus --decided-before 2026 --limit 5` (Failed due to syntax, did not return priors)
+- CourtListener MCP Search for `extraterritorial application 546(e)` (Returned 43 results, including *RJR Nabisco*, *Morrison v. National Australia Bank*, and *Abitron Austria GmbH v. Hetronic International*)
+- No retrieval of the case's own outcome beyond the provisioned inputs.

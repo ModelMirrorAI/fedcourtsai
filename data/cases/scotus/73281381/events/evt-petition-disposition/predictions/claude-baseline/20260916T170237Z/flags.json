@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281381",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forecast is driven by two companion petitions on the same 9/28/2026 conference: Hadley v. City of South Bend (No. 25-1158, CA7) and Pena v. City of Los Angeles (No. 25-1163, CA9), both raising the police-power exception to the Takings Clause that the CA7 opinion here applies by name. Their dockets (read from supremecourt.gov; CourtListener carries no entries for them) show no relist, CVSG, or disposition as of this run. Legitimate pre-snapshot forward signal, disclosed because it is decisive: most of my grant mass is a hold-and-GVR trailing those cases."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "distribution_count = 2 here reflects the Apr 28 distribution that was pulled when a response was requested on Apr 30, plus the Jul 15 post-response redistribution; the petition has not been relisted in the ordinary sense. The elevated band and relist-1 bucket therefore read a reschedule-shaped count as a relist, which the statpack's relist-count caption already warns about. No action needed; noted so the evaluator can weigh the band anchor accordingly."
+    }
+  ]
+}

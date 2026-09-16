@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281674",
+  "gaps": [
+    "Only one of two oppositions was provisioned",
+    "Reply and lower-court appendix text not provisioned",
+    "Web tools returned no usable content"
+  ],
+  "helpful": [
+    "Provisioned questions, petition, and identified union opposition",
+    "Unrounded prior-Term reached-band rates",
+    "Snapshot's exact link to the separate federal opposition"
+  ],
+  "notes": "The initial uv command hit a read-only default cache; a temporary cache with --no-sync worked. pdftotext was absent, but installed pypdf supported in-memory extraction. No corpus retrieval was needed. The federal opposition was retrieved by its known pre-decision PDF link, not by looking up current case status.",
+  "role": "predictor",
+  "run_id": "20260916T170237Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell file reads",
+    "fedcourts paths",
+    "committed statpack",
+    "web open/search attempts",
+    "urllib and pypdf"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

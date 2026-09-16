@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73246321",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned record reads", "committed statpack", "CourtListener MCP search", "CourtListener MCP read_document", "web search and open attempts", "fedcourts paths"],
+  "helpful": ["OCR petition and extracted questions supplied the actual cert arguments.", "Frozen salience context and prior-Term reached rates provided the correct population anchor.", "CourtListener full opinion retrieval clarified the petition's sole precedent."],
+  "gaps": ["Separate appendix and lower-court procedural orders were unavailable.", "Web search and open attempts returned no usable content.", "Default uv cache was read-only; a temporary writable cache was required."],
+  "notes": "No live case lookup or corpus priors were needed. The first citation-only MCP search returned an unrelated result; case-name search located the authority. Baseline pooling uses rounded published cells and is approximate."
+}

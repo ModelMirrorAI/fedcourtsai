@@ -1,0 +1,5 @@
+Distributed once so far for the September 28, 2026 conference; expect zero further relists before a decision on the petition. The Supreme Court recently denied certiorari in a consolidated petition raising the exact same issue regarding military appellate court authority over firearm ban indorsements (Schneider v. United States), so the Court is very unlikely to hold this petition over for further consideration.
+
+No CVSG is expected, as the United States is already the respondent and the Solicitor General has filed a Brief in Opposition. 
+
+If granted, the Court would take the single Question Presented as written regarding the scope of 10 U.S.C. § 866(d)(2). A summary GVR is unlikely because there is no recent intervening decision that would prompt a remand. Should it deny review, expect a clean denial with no separate writing or noted dissents, consistent with the denial in Schneider.

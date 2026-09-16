@@ -1,0 +1,33 @@
+# Rationale
+
+## Record and information boundary
+
+This is a forward cert-stage cell for Garcia v. Hobbs, Supreme Court No. 25-901. The legacy petition event has no explicit stage or moment; I use the prompt's cert default and supply its five requested cert probabilities. I read the provisioned `2026-09-16.json` snapshot, context, document manifest, questions presented, and relevant petition passages. The frozen context is `high` under `sal-v4`, Term 2025, with three distributions, no CVSG, observable proceedings, and no cutoff. I did not reinterpret the frozen band.
+
+The petition challenges the Ninth Circuit's mootness dismissal, not a merits judgment resolving racial predominance. The provisioned petition, pp. 12–16 and 27–31, describes a three-page unpublished affirmance, competing district-court views, and an alleged conflict with Covington and Moore. Its claim that the replacement map intensifies an injury is advocacy, not an established finding I adopt. The 2024 Supreme Court remand recited in the inputs concerns the earlier appeal and is not the outcome forecast here.
+
+The manifest supplies the January petition and its QP excerpt, both nonempty and untruncated; it supplies no respondent brief or reply even though the snapshot records both. I retrieved only the exact June 2 respondent brief and June 10 reply linked in that snapshot. These are pre-snapshot filings, not a current-docket search. No disposition of this petition or subsequent history of it was sought or encountered. I do not carry a known outcome of this petition.
+
+## Anchor and adjustments
+
+The matching committed statpack's bracketed `high` reached rates, pooled over every rendered Term strictly preceding 2025 (2017–2024), yield **314 / 898 = 0.349666**. I computed this using the unrounded `prefix_est_grant_rate` and `prefix_weighted_resolved` fields in `metrics/statpack.json`; the Markdown table fixes the eligible window. Neither 2025 nor 2026 enters this pool. These are committed-pack estimates, not a freshly queried corpus: no live corpus freshness or case-level `last_pulled` was obtained, and I make no claim that the pack reflects the latest remote state. The case evidence is the provisioned September 16 snapshot and the specifically dated filings.
+
+The paid-segment terminal cuts supply context, not forward transition probabilities: the two-relist bucket reports approximately 40.9% grant-family outcomes, the three-plus bucket approximately 36.8%, and the no-CVSG bucket approximately 6.3%. Those cuts are differently conditioned and are not multiplied into the band rate. Crucially, this docket's three distributions do not establish two completed substantive relists: March 4 was followed by March 11 rescheduling, March 17 by the March 25 response request, and June 17 schedules the September 28 conference. The high-band anchor remains the required benchmark, but the calendar is weaker independent evidence of sustained conference attention than its raw count suggests.
+
+The decisive upward adjustment is the **respondent's request for a GVR**. Washington's June 2 brief, pp. 1–2, 14–16 and 20, represents that Callais intervened on April 29, 2026, seeks reconsideration of the linked Soto Palmer case in light of that decision, and requests the same grant-vacate-remand treatment here. Garcia's June 10 reply, pp. 1–2 and 5–7, recognizes the State's position but argues the mootness question independently warrants review. I rely on these filings for the intervening-precedent signal; I did not independently retrieve Callais or the companion petition's current status. The State's own position makes this substantially unlike an ordinary opposed, unpublished error-correction petition.
+
+The adjustment is not to certainty. Washington conditions its final request on GVR treatment of Soto Palmer, otherwise asks for denial, and defends the distinction between a commission-drawn district and a judicially drawn replacement. Its brief, pp. 16–19, argues that Covington concerned continued injury within one suit and that Moore involved relief still obtainable in that litigation. Those are real obstacles to plenary review. The Court could leave the mootness judgment in place while handling the related litigation separately. Garcia's reply contests these distinctions, particularly the possibility that reversal could restore the original map, but I do not treat either side's legal assertions as adjudicated truth.
+
+I assign **0.84** to any grant. An illustrative coherent allocation is 0.805 GVR, 0.0098 other cert-order grant, 0.0252 plenary/partial grant, 0.15 denial, and 0.01 other non-grant. The first two sum to 0.8148, giving **0.97 conditional summary-route probability**. This is judgmental calibration, not a fitted estimate or a claim that plenary review is 84% likely.
+
+## Other probabilities and stakes
+
+The additional-distribution probability of **0.25** prices possible coordination with related litigation, but expects the completed June briefing and express remand request to allow prompt disposition after the scheduled September conference. The calendar gap is not itself evidence of a merits hold. **0.01** for a new CVSG reflects little apparent need for that extra step on the leading remand route; federal-law subject matter alone does not make a CVSG likely. **0.12** for a statement or dissent conditional on denial allows for concern about access to constitutional review without assuming public disagreement will occur. These increments and the denial-writing estimate have no published conditioned baseline in the pack.
+
+The **0.62 stakes score** reflects the recurring interaction of equal-protection litigation, statutory redistricting remedies, and Article III mootness. It is not a grant score. The immediate petition's narrow procedural issue and unpublished decision limit its independent significance relative to a case directly settling the substantive nationwide redistricting standard.
+
+## Limitations
+
+The strongest signal came from a filing absent from the provisioned text bundle but linked on the common snapshot. Its retrieval and the legitimate pre-snapshot intervening-precedent information are flagged for transparency. The prediction does not assume any unobserved decision in the related cases. This makes the forecast especially sensitive to how the Court coordinates those matters.
+
+Browser open attempts returned no usable text, and the shell lacked `pdftotext`; the exact official PDFs were therefore read in memory with the already installed `pypdf`. No CourtListener REST fallback, credentials, or case-outcome search was used. The default uv cache was read-only; a writable temporary cache allowed the path resolver and validation to run.

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280380",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell input reads", "fedcourts paths", "committed statpack", "web.run", "CourtListener MCP search"],
+  "helpful": ["Usable petition and opposition text allowed adversarial comparison.", "Frozen distribution count and salience version matched the committed band table."],
+  "gaps": ["Petition appendix and underlying opinions were not provisioned.", "CourtListener MCP was rate limited; web attempts returned no usable output."],
+  "notes": "Forecast completed from provisioned filings and committed rates. The initial uv cache path was read-only; a writable temporary cache allowed the CLI to run. Bost was not independently verified."
+}

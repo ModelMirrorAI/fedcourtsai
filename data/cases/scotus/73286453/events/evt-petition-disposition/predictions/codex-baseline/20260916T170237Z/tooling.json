@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73286453",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned document text", "committed statpack", "CourtListener MCP search", "CourtListener MCP search_document", "web search", "fedcourts paths", "fedcourts validate"],
+  "helpful": ["Full petition and opposition with appendices exposed the preservation and state-action issues.", "Frozen context specified the matching salience band and distribution count.", "Literal opinion search verified narrow precedent passages without retrieving target subsequent history."],
+  "gaps": ["The docket records a reply, but its text was not provisioned.", "Web searches returned no usable results.", "The default uv cache location was read-only; a temporary writable cache resolved the CLI error."],
+  "notes": "No target outcome information was encountered. Forecast rests on the provisioned record, prior-Term committed rates, and two historical precedents. No remote corpus freshness claim is made."
+}

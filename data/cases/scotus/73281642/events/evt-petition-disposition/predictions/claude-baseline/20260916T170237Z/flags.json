@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281642",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Companion petition: the provisioned petition (footnote 1) says the Institute for Justice filed Pena v. City of Los Angeles (CA9) concurrently, and one amicus filename in this docket carries No. 25-1163. That petition is public pre-snapshot information and shaped the summary-disposition-route claim (a hold-and-GVR path if Pena alone is granted). I could not find 25-1163 on CourtListener, so its docket state is unverified."
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281673",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition is flagged truncated and ends in the appendix around p. 55a. Main argument and the Wisconsin majority decision are available, but later separate opinions and lower-court materials are not. The forecast's treatment of their alternative suppression rationales relies on the complete BIO's descriptions, not independent review of those missing passages. Prediction completed."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "A general-precedent CourtListener MCP lookup failed with HTTP 429; general web searches and an official reports PDF attempt returned no usable content. Forecast completed from provisioned filings and committed base rates. No case-outcome search or CourtListener REST fallback was attempted."
+    }
+  ]
+}

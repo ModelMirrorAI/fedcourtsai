@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281381",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener search",
+    "courtlistener read_document",
+    "courtlistener call_endpoint dockets / docket-entries",
+    "courtlistener get_endpoint_item dockets",
+    "WebFetch supremecourt.gov docket pages",
+    "WebSearch"
+  ],
+  "helpful": [
+    "Provisioned full-text petition and BIO: the BIO's vehicle arguments (facial-only challenge, reliance on Hadley) were the single most useful input.",
+    "CourtListener read_document for the short CA7 opinion confirmed the decision below rests on Hadley.",
+    "Statpack salience-band table with the bracketed reached rate gave a clean anchor."
+  ],
+  "gaps": [
+    "CourtListener holds SCOTUS dockets for the companion petitions but no docket entries; I had to fetch supremecourt.gov docket pages over the web to learn they share this case's conference.",
+    "A structured way to find same-conference or same-issue companion petitions (e.g. dockets distributed for the same conference, or dockets whose lower-court opinion cites the same precedent) would have saved most of the retrieval budget.",
+    "fedcourts query has no text or issue filter for SCOTUS rows, so it could not surface takings / forfeiture priors; the era query returned only recency-ranked unrelated denials."
+  ],
+  "notes": "About 15 retrieval calls, under the advisory budget. Corpus query ran once for its transfer line and shape; the substantive prior work came from the statpack and the companion dockets."
+}

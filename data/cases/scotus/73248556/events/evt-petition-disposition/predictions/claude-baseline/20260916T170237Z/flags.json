@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73248556",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive public signal predating the snapshot, used in the forecast (forward cell, not leakage): the petition's sole requested relief is a hold for United States v. Hemani (No. 24-1234) followed by a GVR; Hemani was decided June 18, 2026 against the government and expressly declined to address 922(g)(1). The Solicitor General's identically framed petition in United States v. Mitchell (No. 25-935) was held for Hemani and then denied June 29, 2026, and the related government petitions in Doucet (No. 25-1001) and Cockerham (No. 25-1029) were denied April 27 and June 8, 2026. Hence a forecast far below the federal band's base rate."
+    }
+  ]
+}

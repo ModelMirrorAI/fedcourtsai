@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/73281394",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command"
+  ],
+  "helpful": [
+    "metrics/statpack.md provided a useful base rate for the state salience band."
+  ],
+  "gaps": [],
+  "notes": "Relied primarily on the petition and BIO for assessing the legal posture and jurisdictional issues."
+}
