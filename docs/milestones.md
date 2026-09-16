@@ -55,7 +55,7 @@ base rates.
 
 The counted record for this release opens at the `proc-v8` **full** freeze:
 its three blessed predictor digests and the freeze instant
-2026-09-16T00:00:00Z ([freeze-record.md](freeze-record.md)) — so predictions
+2026-09-16T00:26:04Z ([freeze-record.md](freeze-record.md)) — so predictions
 stamped from that instant, under those digests, are the release's
 claimable population. The conference cohort is re-predicted under them from
 the carrying promotion's first released tick, which is what puts this
