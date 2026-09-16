@@ -209,12 +209,11 @@ def test_deploy_environment_resolution_is_identical_at_every_site() -> None:
         "plan",
         "scenario",
         "qp-labeler-smoke",
-        "runner-idle-control",
         "codex-freeze-probe",
     ):
         assert workflow["jobs"][job]["environment"] == f"${{{{ {ENV_RESOLUTION} }}}}", job
     assert f"@ ${{{{ {ENV_RESOLUTION} }}}}" in workflow["run-name"]
-    # No seventh consumer: anywhere else reading the raw input would bypass the
+    # No sixth consumer: anywhere else reading the raw input would bypass the
     # resolution and see the literal string `auto`. Comment lines are dropped
     # first — the input's own YAML comment discusses the expression, and
     # documenting a hazard is not consuming the value.
@@ -223,7 +222,7 @@ def test_deploy_environment_resolution_is_identical_at_every_site() -> None:
         for line in (WORKFLOWS / "integration-test.yml").read_text().splitlines()
         if not line.lstrip().startswith("#")
     )
-    assert body.count("inputs.deploy-environment") == 12  # 6 sites x 2 reads each
+    assert body.count("inputs.deploy-environment") == 10  # 5 sites x 2 reads each
 
 
 def _all_matrix_entries() -> list[dict[str, str]]:
@@ -343,14 +342,13 @@ def test_which_jobs_a_scheduled_run_admits_is_stated_not_coerced() -> None:
         assert jobs[name]["if"] == (
             "${{ github.event_name == 'schedule' || (inputs.scenario != 'collect' "
             "&& inputs.scenario != 'qp-labeler-smoke' "
-            "&& inputs.scenario != 'runner-idle-control' "
             "&& !startsWith(inputs.scenario, 'codex-freeze-probe')) }}"
         ), name
     # The freeze-probe family shares one standalone job across its scenario
     # values, so its exclusion is a prefix test rather than one inequality per
     # member — and a prefix test against the empty inputs context is a plain
     # string comparison, so that clause carries none of the coercion hazard
-    # the three beside it do.
+    # the two beside it do.
     # The standalone jobs stay affirmative — equalities, or the family's
     # affirmative prefix test — and an empty inputs context satisfies none of
     # them, so the schedule excludes them by shape, with no clause of their
@@ -358,7 +356,6 @@ def test_which_jobs_a_scheduled_run_admits_is_stated_not_coerced() -> None:
     for name in (
         "collect-scenario",
         "qp-labeler-smoke",
-        "runner-idle-control",
         "codex-freeze-probe",
     ):
         standalone_if = str(jobs[name]["if"])
@@ -595,12 +592,7 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
         "mcp-sidecar",
         "qp-topic",
         "qp-labeler-smoke",
-        "runner-idle-control",
         "codex-freeze-probe",
-        "codex-freeze-probe-unwatched",
-        "codex-freeze-probe-smokeconfig",
-        "codex-freeze-probe-autopsy",
-        "codex-freeze-probe-nosudo",
         "codex-freeze-probe-unprivuser",
         "engine-actions-smoke",
         "codex-application-repro",
@@ -614,12 +606,7 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
         "mcp-sidecar",
         "qp-topic",
         "qp-labeler-smoke",
-        "runner-idle-control",
         "codex-freeze-probe",
-        "codex-freeze-probe-unwatched",
-        "codex-freeze-probe-smokeconfig",
-        "codex-freeze-probe-autopsy",
-        "codex-freeze-probe-nosudo",
         "codex-freeze-probe-unprivuser",
         "collect",
         "engine-actions-smoke",

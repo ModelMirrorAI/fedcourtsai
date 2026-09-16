@@ -276,6 +276,57 @@ def test_prior_payload_full_reads_as_empty_when_the_store_object_is_absent(
     assert corpus.prior_payload(stripped, full=True)["opinion_text"] is None
 
 
+def test_opinion_body_reads_the_blob_column_with_the_mode_off(tmp_path: Path) -> None:
+    """One definition of where the text is, so provisioning's opinion slot and
+    `query --full` cannot disagree about it."""
+    body = "The judgment of the court of appeals is affirmed."
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(conn, [_row(opinion_text=body)])
+        stored = corpus.get_row(conn, "scotus/74112233")
+    assert stored is not None
+    assert corpus.opinion_body(stored) == body
+
+
+def test_opinion_body_reads_the_store_under_the_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    casestore.set_active_transport(casestore.InMemoryObjectTransport())
+    body = "The judgment of the court of appeals is affirmed."
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(conn, [_row(opinion_text=body)])
+        stored = corpus.get_row(conn, "scotus/74112233")
+    assert stored is not None and stored.opinion_text is None
+    assert corpus.opinion_body(stored) == body
+
+
+def test_opinion_body_spends_no_store_read_without_the_presence_bit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The bit is the cost gate: an un-enriched case costs zero store requests, which
+    is what lets a provisioning step run on every evaluate cell."""
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+
+    class _CountingTransport(casestore.InMemoryObjectTransport):
+        def __init__(self) -> None:
+            super().__init__()
+            self.gets = 0
+
+        def get(self, key: str) -> bytes | None:
+            self.gets += 1
+            return super().get(key)
+
+    transport = _CountingTransport()
+    casestore.set_active_transport(transport)
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(conn, [_row()])
+        stored = corpus.get_row(conn, "scotus/74112233")
+    assert stored is not None and stored.has_opinion is False
+    transport.gets = 0
+    assert corpus.opinion_body(stored) is None
+    assert transport.gets == 0
+
+
 def test_read_opinion_text_round_trips_and_absent_reads_none(tmp_path: Path) -> None:
     """The store reader itself: the mirrored body comes back, an unmirrored case is
     `None`, and a case stored without a body is `None` rather than an empty string."""

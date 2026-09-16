@@ -8,6 +8,7 @@ token, no network — exactly as the offline local loop does.
 
 from __future__ import annotations
 
+import hashlib
 import threading
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import documents
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.salience import SalienceScorer
+from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import Disposition, Evaluation, Prediction, ProcessVersion
 from fedcourtsai.serialize import write_json
 
@@ -159,6 +161,24 @@ def frozen_stamp() -> ProcessVersion:
     )
 
 
+def retired_stamp() -> ProcessVersion:
+    """A harness stamp OUTSIDE the frozen partition: a digest no freeze blessed.
+
+    The counterpart of :func:`frozen_stamp`, for the cells a predictor-half
+    re-bless de-counted. Post-freeze on the clock, so the *only* reason
+    ``is_frozen`` rejects it is its digest — which is what a test about the
+    pre-freeze re-predict rule needs to isolate from the timing rule beside it.
+    The digest is a well-formed hash of a fixed string rather than a literal, so
+    it can never collide with a real process's inputs.
+    """
+    since = process_version.FROZEN_SINCE or datetime(2026, 1, 1, tzinfo=UTC)
+    return ProcessVersion(
+        label="proc-retired",
+        digest="sha256:" + hashlib.sha256(b"fedcourtsai test retired process").hexdigest(),
+        stamped_at=since,
+    )
+
+
 def seed_prediction(
     data_root: Path,
     court: str,
@@ -167,6 +187,7 @@ def seed_prediction(
     *,
     predictor_id: str = "claude-baseline",
     frozen: bool = False,
+    stamp: ProcessVersion | None = None,
     run_id: str = "20260101T000000Z",
 ) -> None:
     """Commit one minimal valid prediction into the ledger under ``data_root``.
@@ -179,7 +200,10 @@ def seed_prediction(
     it unstamped — a shakedown cell, which is what the pre-freeze ledger holds —
     so a gate that asks whether a claimable board counts the cohort
     (:func:`fedcourtsai.store.event_has_claimable_prediction`) sees the harder
-    case unless a test asks for the easier one.
+    case unless a test asks for the easier one. ``stamp`` overrides both with an
+    explicit :class:`ProcessVersion` — :func:`retired_stamp` for a cell a
+    re-bless de-counted, which reads as retired for a different reason from an
+    unstamped one and so is worth testing separately.
 
     ``run_id`` is the committed run directory's name, which is where the ledger
     carries the *date* a case was minted for prediction
@@ -200,7 +224,7 @@ def seed_prediction(
             granted=0,
             probability=0.05,
             predicted_disposition=Disposition.denied,
-            process_version=frozen_stamp() if frozen else None,
+            process_version=stamp or (frozen_stamp() if frozen else None),
         ),
     )
 
@@ -280,10 +304,12 @@ def open_freeze_window() -> tuple[str, datetime] | None:
     such window is open — nothing blessed, no instant, or the instant already
     reached — which the callers turn into a skip.
 
-    The latest-blessed digest is the one a round stamps under the current
-    predictor-half re-bless, where it is the enforced half; after an
-    evaluator-half re-bless it would be an evaluator digest instead, and the
-    window it reports simply closes.
+    The window is read over the **predictor** half alone, because that is the
+    half `is_frozen` enforces and the half a window cell is stamped under. An
+    evaluator-half re-bless deliberately blesses *after* the held instant, so
+    taking the latest over the whole map would report the window closed on a
+    label whose enforced half still has one open, silently retiring every
+    caller.
 
     The stamp is taken from the instant's edge rather than the bless moment's,
     so these tests keep running for the whole life of a late-guessed instant
@@ -292,7 +318,18 @@ def open_freeze_window() -> tuple[str, datetime] | None:
     since = process_version.FROZEN_SINCE
     if not process_version.FROZEN_PROCESS_DIGESTS or since is None:
         return None
-    digest, blessed = max(process_version.FROZEN_PROCESS_DIGESTS.items(), key=lambda kv: kv[1])
+    enforced = {
+        process_version.digest_for_actor(Path("."), Path("config"), "predictor", entry.id)
+        for entry in enabled_predictors(Path("config") / "predictors.yaml")
+    }
+    blessed_enforced = {
+        digest: moment
+        for digest, moment in process_version.FROZEN_PROCESS_DIGESTS.items()
+        if digest in enforced
+    }
+    if not blessed_enforced:
+        return None
+    digest, blessed = max(blessed_enforced.items(), key=lambda kv: kv[1])
     minted = since - timedelta(seconds=1)
     return None if minted < blessed else (digest, minted)
 

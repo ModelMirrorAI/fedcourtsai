@@ -26,6 +26,7 @@ from fedcourtsai.pipeline.runner import (
     StubRunner,
     _backoff_delay,
     _failure_is_transient,
+    _input_snapshot,
     _run_subprocess,
     get_runner,
 )
@@ -37,6 +38,7 @@ from fedcourtsai.schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
+    PredictionContext,
     UsageRole,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
@@ -224,6 +226,27 @@ def test_codex_runner_gets_the_inline_identifier_kickoff(tmp_path: Path) -> None
     assert ".github/prompts/predict.md" in kickoff
     assert f"PREDICTOR_ID={PREDICTOR}" in kickoff
     assert "EVENT_ID=" in kickoff
+
+
+def test_the_predict_kickoff_names_the_case_level_record_directory(tmp_path: Path) -> None:
+    """A predict cell is told where its provisioned inputs are, in the kickoff.
+
+    The template says it too, but the kickoff is the channel that survives an
+    engine which never opens the template, and `record/` is case-level — a
+    sibling of `events/` — so a cell hunting under its own event finds
+    nothing. An evaluate cell gets no such line, because its staged inputs are
+    not one directory; the asymmetry mirrors the two cell workflows and is
+    pinned so neither half drifts into the other.
+    """
+    data_root = tmp_path / "data"
+    predict = _Recorder()
+    CodexRunner(command_runner=predict).run(_predict_request(data_root, actor=PREDICTOR))
+    expected = (data_root / "cases" / COURT / str(DOCKET) / "record").as_posix()
+    assert f"Your provisioned inputs are at {expected}/" in predict.argv[-1]
+
+    evaluate = _Recorder()
+    CodexRunner(command_runner=evaluate).run(_evaluate_request(data_root))
+    assert "Your provisioned inputs are at" not in evaluate.argv[-1]
 
 
 def test_gemini_runner_builds_the_headless_yolo_call(tmp_path: Path) -> None:
@@ -753,3 +776,51 @@ def test_codex_runner_fails_loudly_when_login_fails(
         CodexRunner(command_runner=_Recorder(), login_runner=lambda _key, _env: 1).run(
             _predict_request(tmp_path / "data")
         )
+
+
+def test_stub_input_snapshot_names_the_provisioned_snapshot(tmp_path: Path) -> None:
+    """The stub names the file provisioning wrote, not the one the run id implies.
+
+    `stamp-cell` compares `input_snapshot` against the provisioned snapshot, so a
+    stub cell dating its path from the run id would model a cell that fails that
+    check — and on a replay cell the two days are routinely different, because
+    provisioning dates the file from the moment it placed the cell at.
+    """
+    data_root = tmp_path / "data"
+    case = CasePaths(data_root, "scotus", 7)
+    write_json(
+        case.cell_context,
+        PredictionContext(
+            mode="replay",
+            snapshot_date=date(2024, 6, 24),
+            signals_observable=False,
+        ),
+    )
+    request = RunRequest(
+        role=UsageRole.predictor,
+        court_id="scotus",
+        docket_id=7,
+        event_id="evt-petition-disposition",
+        actor_id="claude-baseline",
+        run_id="20260401T000000Z",
+        prompt=tmp_path / "prompt.md",
+        data_root=data_root,
+    )
+
+    assert _input_snapshot(request).endswith("record/snapshots/2024-06-24.json")
+
+
+def test_stub_input_snapshot_falls_back_to_the_run_id_day(tmp_path: Path) -> None:
+    """With no provisioned context there is nothing to name but the run's own day."""
+    request = RunRequest(
+        role=UsageRole.predictor,
+        court_id="scotus",
+        docket_id=8,
+        event_id="evt-petition-disposition",
+        actor_id="claude-baseline",
+        run_id="20260401T000000Z",
+        prompt=tmp_path / "prompt.md",
+        data_root=tmp_path / "data",
+    )
+
+    assert _input_snapshot(request).endswith("record/snapshots/2026-04-01.json")

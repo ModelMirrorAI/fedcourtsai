@@ -70,6 +70,7 @@ from ..schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
+    PredictionContext,
     SemanticClaim,
     SemanticGrade,
     SemanticGradeBlock,
@@ -169,20 +170,51 @@ def _created_at(run_id: str) -> datetime:
 
 
 def _input_snapshot(request: RunRequest) -> str:
-    """The canonical snapshot path the cell would have read, as a stable string.
+    """The snapshot path the cell would have read, as a stable string.
 
     The workflow provisions a case's latest corpus snapshot under ``record/`` and
-    the predictor reads it; the stub names that same path (dated from the run id)
-    so its ``input_snapshot`` matches the shape of a real prediction. Rendered
-    relative to the data root's parent (typically repo-relative, e.g.
-    ``data/cases/...``) when possible, else as an absolute path.
+    the predictor reads it; the stub names that same path so its
+    ``input_snapshot`` matches the shape of a real prediction. Rendered relative
+    to the data root's parent (typically repo-relative, e.g. ``data/cases/...``)
+    when possible, else as an absolute path — the ledger's commonest spelling
+    rather than the bare basename the prompt now contracts, deliberately: this
+    is the harness naming a file it resolved, not an agent answering a prompt
+    it never read, and both reduce to the same day under ``stamp-cell``.
+
+    The day comes from the **provisioned context** where one is beside the case,
+    and only falls back to the run id's own date where none is. The two are not
+    the same day on a replay cell — provisioning dates the file from the snapshot
+    it placed the cell at, not from when the run happened — and the run-id guess
+    would make the stub name a file that does not exist. ``stamp-cell`` compares
+    this field against the provisioned snapshot, so a stub cell guessing here
+    would model a cell that fails that check: the stub exists to model a real
+    cell, and this is the one field where guessing shows.
     """
     case = CasePaths(request.data_root, request.court_id, request.docket_id)
-    snapshot = case.snapshot(_created_at(request.run_id).date().isoformat())
+    snapshot = case.snapshot(
+        _provisioned_day(case) or _created_at(request.run_id).date().isoformat()
+    )
     try:
         return snapshot.relative_to(request.data_root.parent).as_posix()
     except ValueError:
         return snapshot.as_posix()
+
+
+def _provisioned_day(case: CasePaths) -> str | None:
+    """The day ``record/context.json`` names, or ``None`` where there is no usable one.
+
+    Tolerant like every other read of that file: absent, unreadable, or a shape
+    that is not a :class:`~fedcourtsai.schemas.PredictionContext` all mean "the
+    cell was not provisioned through the normal path", which is a fallback rather
+    than a failure.
+    """
+    path = case.cell_context
+    if not path.is_file():
+        return None
+    try:
+        return PredictionContext.model_validate_json(path.read_text()).snapshot_date.isoformat()
+    except (OSError, ValueError):
+        return None
 
 
 def _event_stage(events: EventPaths) -> Stage | None:
@@ -289,7 +321,11 @@ class StubRunner:
         and the grading protocol says the mask's first ground is exactly that —
         so a stub that graded on the ordinal scale would be inventing a reading
         of a document that does not exist. The ``basis`` names which mask ground
-        applied, as the protocol requires.
+        applied, as the protocol requires, and ``mask_ground`` states it as the
+        counted field: ``not-ingested``, the conservative of the three. The stub
+        knows only that the record carries no body, never that none was filed —
+        so it names the ground that says the pipeline still owes the text rather
+        than the one that would assert no opinion exists.
 
         ``None`` where the scored prediction carries **no** ``semantic_claims``
         block, which is the prompt's own rule: such a cell most likely ran under
@@ -307,6 +343,7 @@ class StubRunner:
                     claim_id=spec.claim_id,
                     grade=SemanticSupport.not_addressed,
                     basis=f"no {spec.requires} in the record to grade against",
+                    mask_ground="not-ingested",
                 )
                 for spec in specs
             ],
@@ -557,6 +594,17 @@ def _claude_instruction(request: RunRequest, model: str) -> str:
         task = f"Read {prompt} and AGENTS.md, then produce the prediction for this cell:"
         actor_line = f"PREDICTOR_ID={request.actor_id}"
         blocked_doc = "reasoning.md"
+        # The predict kickoff names the case-level record directory outright,
+        # as `run-predict.yml`'s does, so an engine that reads the identifiers
+        # and never opens the template still lands on the provisioned inputs
+        # instead of hunting for them under the event.
+        record = CasePaths(request.data_root, request.court_id, request.docket_id).record
+        record_block = (
+            f"Your provisioned inputs are at {record.as_posix()}/ — the case-level "
+            "directory (a sibling of events/, not a child of it) holding the snapshot, "
+            "context.json, and any provisioned documents.\n"
+            "\n"
+        )
     else:
         task = (
             f"Read {prompt} and AGENTS.md, then score every predictor's prediction "
@@ -564,6 +612,9 @@ def _claude_instruction(request: RunRequest, model: str) -> str:
         )
         actor_line = f"EVALUATOR_ID={request.actor_id}"
         blocked_doc = "evaluation.md"
+        # The evaluate kickoff names no record path, as `run-evaluate.yml`'s
+        # does not: an evaluate cell's staged inputs are not one directory.
+        record_block = ""
     return (
         f"{task}\n"
         "\n"
@@ -574,6 +625,7 @@ def _claude_instruction(request: RunRequest, model: str) -> str:
         f"RUN_ID={request.run_id}\n"
         f"MODEL_ID={model}\n"
         "\n"
+        f"{record_block}"
         "These values are authoritative; the same identifiers are exported as "
         "environment variables on engines that pass them through, but if "
         "`$COURT_ID` expands empty in your shell, use the literals above. "

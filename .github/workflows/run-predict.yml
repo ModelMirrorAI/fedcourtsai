@@ -1076,6 +1076,11 @@ jobs:
             RUN_ID=${{ matrix.run_id }}
             MODEL_ID=${{ matrix.model }}
 
+            Your provisioned inputs are at
+            data/cases/${{ matrix.court }}/${{ matrix.docket }}/record/ — the
+            case-level directory (a sibling of events/, not a child of it)
+            holding the snapshot, context.json, and any provisioned documents.
+
             These values are authoritative; the same identifiers are exported as
             environment variables on engines that pass them through, but if
             `$COURT_ID` expands empty in your shell, use the literals above.
@@ -1152,6 +1157,11 @@ jobs:
             PREDICTOR_ID=${{ matrix.predictor_id }}
             RUN_ID=${{ matrix.run_id }}
             MODEL_ID=${{ matrix.model }}
+
+            Your provisioned inputs are at
+            data/cases/${{ matrix.court }}/${{ matrix.docket }}/record/ — the
+            case-level directory (a sibling of events/, not a child of it)
+            holding the snapshot, context.json, and any provisioned documents.
 
             These values are authoritative; the same identifiers are exported as
             environment variables on engines that pass them through, but if
@@ -1277,6 +1287,11 @@ jobs:
             PREDICTOR_ID=${{ matrix.predictor_id }}
             RUN_ID=${{ matrix.run_id }}
             MODEL_ID=${{ matrix.model }}
+
+            Your provisioned inputs are at
+            data/cases/${{ matrix.court }}/${{ matrix.docket }}/record/ — the
+            case-level directory (a sibling of events/, not a child of it)
+            holding the snapshot, context.json, and any provisioned documents.
 
             These values are authoritative; the same identifiers are exported as
             environment variables on engines that pass them through, but if

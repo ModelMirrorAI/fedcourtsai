@@ -1,4 +1,4 @@
-"""The bounded document back-fill for queued cases holding no primary document.
+"""The bounded document back-fill for queued cases holding a document gap.
 
 Nothing reaches supremecourt.gov here. The pass fetches through the real
 :class:`SupremeCourtClient` over an ``httpx.MockTransport``, which is what keeps
@@ -6,12 +6,15 @@ the politeness posture — the browser UA, the throttle, the one retry — under
 test rather than stubbed away, and the recorded request log is what proves the
 dry run never asks for a PDF.
 
-The two things worth stating about what is exercised: the population predicate
-is **form-keyed**, so the tests that matter most are the ones where an
-application docket is measured against its application rather than a petition it
-structurally never has; and the ledger's two floors have to stay apart from its
-losses, because a slice that clears its bound without draining the class reads
-as a defect on any ledger that folds them together.
+Three things worth stating about what is exercised: the primary arm of the
+population predicate is **form-keyed**, so the tests that matter most there are
+the ones where an application docket is measured against its application rather
+than a petition it structurally never has; the merits arm is keyed on a granted
+row whose respondent has *filed*, which is what separates a gap a fetch can
+close from a case that is simply not briefed yet; and the ledger's two floors
+have to stay apart from its losses, because a slice that clears its bound
+without draining the class reads as a defect on any ledger that folds them
+together.
 """
 
 from __future__ import annotations
@@ -40,6 +43,9 @@ from fedcourtsai.pipeline.document_backfill import (
 from fedcourtsai.pipeline.documents import (
     KIND_APPLICATION,
     KIND_BRIEF_IN_OPPOSITION,
+    KIND_MERITS_BRIEF_PETITIONER,
+    KIND_MERITS_BRIEF_RESPONDENT,
+    KIND_MERITS_REPLY_PETITIONER,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
 )
@@ -275,9 +281,9 @@ def test_the_class_is_keyed_on_each_dockets_own_primary_document(tmp_path: Path)
     with _seeded(tmp_path / "corpus", rows, documents) as conn:
         scan = document_gaps(conn)
     assert [gap.case_id for gap in scan.gaps] == ["scotus/1", "scotus/3"]
-    assert {gap.case_id: gap.kind for gap in scan.gaps} == {
-        "scotus/1": KIND_PETITION,
-        "scotus/3": KIND_APPLICATION,
+    assert {gap.case_id: gap.kinds for gap in scan.gaps} == {
+        "scotus/1": (KIND_PETITION,),
+        "scotus/3": (KIND_APPLICATION,),
     }
     assert scan.cases_seen == 4
     assert scan.cases_with_documents == 4
@@ -801,3 +807,339 @@ def test_cli_an_empty_slice_walks_the_class_and_fetches_nothing(
     assert result.exit_code == 0
     assert '"candidates":1' in result.output
     assert '"attempted":0' in result.output
+
+
+# --- The merits arm of the gap class -----------------------------------------
+
+
+def _grant_entry(date_: str = "Apr 06 2026") -> dict[str, Any]:
+    """The cert grant in the Court's own words — what dates the merits stage."""
+    return {"Text": "Petition GRANTED.", "Date": date_, "Links": []}
+
+
+def _merits_entry(text: str, url: str | None, *, date_: str = "Jun 01 2026") -> dict[str, Any]:
+    """A post-grant merits filing, with its `Main Document` link or without one."""
+    links = [{"Description": "Main Document", "DocumentUrl": url}] if url else []
+    return {"Text": text, "Date": date_, "Links": links}
+
+
+def _granted_row(case_id: str, docket_number: str, **fields: Any) -> corpus.CorpusRow:
+    """A granted row whose respondent has filed on the merits — the merits arm's shape."""
+    return _row(
+        case_id,
+        docket_number,
+        date_cert_granted=date(2026, 4, 6),
+        merits_brief_filed=date(2026, 7, 13),
+        **fields,
+    )
+
+
+def test_a_granted_briefed_row_owes_its_merits_briefs(tmp_path: Path) -> None:
+    """Holding the petition is no longer leaving the class on a granted docket."""
+    rows = [
+        _granted_row("scotus/1", "25-100"),  # holds its petition, owes both briefs
+        _row("scotus/2", "25-101"),  # ungranted, holds its petition — out
+        _granted_row("scotus/3", "25-102"),  # owes the petition *and* both briefs
+    ]
+    documents = [
+        _document("scotus/1", KIND_PETITION),
+        _document("scotus/2", KIND_PETITION),
+    ]
+    with _seeded(tmp_path / "corpus", rows, documents) as conn:
+        scan = document_gaps(conn)
+    assert {gap.case_id: gap.kinds for gap in scan.gaps} == {
+        "scotus/1": (KIND_MERITS_BRIEF_PETITIONER, KIND_MERITS_BRIEF_RESPONDENT),
+        "scotus/3": (
+            KIND_PETITION,
+            KIND_MERITS_BRIEF_PETITIONER,
+            KIND_MERITS_BRIEF_RESPONDENT,
+        ),
+    }
+    assert [gap.merits for gap in scan.gaps] == [True, True]
+
+
+def test_a_granted_row_with_no_briefing_dated_on_it_is_not_in_the_merits_arm(
+    tmp_path: Path,
+) -> None:
+    """Granted-and-briefed, not granted alone — which is what makes the arm drain.
+
+    A granted docket whose respondent has not filed has nothing for this route to
+    fetch; it is a live case the selection sweep provisions at its next pass. A
+    granted-alone predicate would park it in the class for as long as the row
+    lives and spend the bound on it every dispatch.
+    """
+    rows = [
+        _row("scotus/1", "25-100", date_cert_granted=date(2026, 4, 6)),
+        _granted_row("scotus/2", "25-101"),
+    ]
+    documents = [_document("scotus/1", KIND_PETITION), _document("scotus/2", KIND_PETITION)]
+    with _seeded(tmp_path / "corpus", rows, documents) as conn:
+        scan = document_gaps(conn)
+    assert [gap.case_id for gap in scan.gaps] == ["scotus/2"]
+
+
+def test_a_missing_reply_is_not_a_gap(tmp_path: Path) -> None:
+    """Not every granted case is replied to, so an absent reply is the docket's shape.
+
+    Keying the class on one would hold every un-replied case in it forever, which
+    is the floor this arm is built to avoid rather than to create.
+    """
+    rows = [_granted_row("scotus/1", "25-100")]
+    documents = [
+        _document("scotus/1", KIND_PETITION),
+        _document("scotus/1", KIND_MERITS_BRIEF_PETITIONER),
+        _document("scotus/1", KIND_MERITS_BRIEF_RESPONDENT),
+    ]
+    with _seeded(tmp_path / "corpus", rows, documents) as conn:
+        scan = document_gaps(conn)
+    assert scan.gaps == ()
+
+
+def test_an_apply_fetches_the_merits_briefs_and_the_reply_beside_them(tmp_path: Path) -> None:
+    """The recovery, end to end: the arm's own kinds plus what rides with them.
+
+    The reply is not a gap kind, so it does not put the case in the class — and it
+    is fetched all the same, because the apply runs the whole selector over the
+    payload it just fetched.
+    """
+    rows = [_granted_row("scotus/1", "25-100")]
+    documents = [_document("scotus/1", KIND_PETITION, url="https://www.supremecourt.gov/pet.pdf")]
+    docket = _payload(
+        _petition_entry(),
+        _grant_entry(),
+        _merits_entry(
+            "Brief of petitioner Floyd Johnson filed.", "https://www.supremecourt.gov/mp.pdf"
+        ),
+        _merits_entry(
+            "Brief of respondent United States filed.",
+            "https://www.supremecourt.gov/mr.pdf",
+            date_="Jul 13 2026",
+        ),
+        _merits_entry(
+            "Reply of petitioner Floyd Johnson filed.  (Distributed)",
+            "https://www.supremecourt.gov/rp.pdf",
+            date_="Aug 12 2026",
+        ),
+    )
+    pdfs = {
+        "https://www.supremecourt.gov/mp.pdf": _pdf("Petitioner says reverse."),
+        "https://www.supremecourt.gov/mr.pdf": _pdf("Respondent says affirm."),
+        "https://www.supremecourt.gov/rp.pdf": _pdf("Petitioner replies."),
+    }
+    log = _Requests()
+    with _seeded(tmp_path / "corpus", rows, documents) as conn:
+        with _client({"25-100": docket}, pdfs=pdfs, log=log) as client:
+            result = _run(conn, client, apply=True, max_cases=5)
+        stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/1")}
+    assert result.merits_candidates == 1
+    assert result.recovered == 1
+    assert result.remaining == 0
+    assert "Petitioner says reverse." in stored[KIND_MERITS_BRIEF_PETITIONER].text
+    assert "Respondent says affirm." in stored[KIND_MERITS_BRIEF_RESPONDENT].text
+    assert "Petitioner replies." in stored[KIND_MERITS_REPLY_PETITIONER].text
+    # The petition it already holds is not re-fetched: the stored URL is unchanged,
+    # which is what keeps a merits candidate's charge to what the merits stage added.
+    assert "https://www.supremecourt.gov/pet.pdf" not in log.pdfs()
+
+
+def test_one_side_recovered_is_not_a_recovery(tmp_path: Path) -> None:
+    """Recovery is leaving the class, so it is measured against every missing kind."""
+    rows = [_granted_row("scotus/1", "25-100")]
+    documents = [_document("scotus/1", KIND_PETITION, url="https://www.supremecourt.gov/pet.pdf")]
+    docket = _payload(
+        _petition_entry(),
+        _grant_entry(),
+        _merits_entry(
+            "Brief of petitioner Floyd Johnson filed.", "https://www.supremecourt.gov/mp.pdf"
+        ),
+        # The respondent's brief is on the docket with no main document behind it.
+        _merits_entry("Brief of respondent United States filed.", None, date_="Jul 13 2026"),
+    )
+    pdfs = {"https://www.supremecourt.gov/mp.pdf": _pdf("Petitioner says reverse.")}
+    with _seeded(tmp_path / "corpus", rows, documents) as conn:
+        with _client({"25-100": docket}, pdfs=pdfs) as client:
+            result = _run(conn, client, apply=True, max_cases=5)
+        stored = {d.kind for d in corpus.documents_for_case(conn, "scotus/1")}
+    assert KIND_MERITS_BRIEF_PETITIONER in stored
+    assert result.recovered == 0
+    assert result.remaining == 1
+    assert result.documents == {"scotus/1": [KIND_MERITS_BRIEF_PETITIONER]}
+
+
+def test_a_merits_candidate_with_no_link_is_a_floor_not_a_selector_alarm(tmp_path: Path) -> None:
+    """The entry is there and nothing fetchable is behind it — a floor, and no alarm.
+
+    The alarm is reserved for a filing shape the selector has no arm for, which is
+    the class this pass exists to stop producing. A docket that posted no PDF is
+    not that, and raising it as one on a modern docket would bury the real ones.
+    """
+    docket_number = f"{MODERN_LINK_TERM - 1998}-100"
+    rows = [_granted_row("scotus/1", docket_number)]
+    documents = [_document("scotus/1", KIND_PETITION)]
+    docket = _payload(
+        _petition_entry(),
+        _grant_entry(),
+        _merits_entry("Brief of petitioner Floyd Johnson filed.", None),
+        _merits_entry("Brief of respondent United States filed.", None, date_="Jul 13 2026"),
+    )
+    with (
+        _seeded(tmp_path / "corpus", rows, documents) as conn,
+        _client({docket_number: docket}) as client,
+    ):
+        result = _run(conn, client, max_cases=5)
+    assert result.no_link == 1
+    assert result.no_entry == 0
+    assert result.no_entry_modern_cases == []
+
+
+def test_a_merits_candidate_the_selector_cannot_read_raises_the_alarm(tmp_path: Path) -> None:
+    """No entry any arm recognizes — a selector regression rather than a floor.
+
+    The row says the respondent filed on the merits, so the filing is on the
+    docket; a docket where no arm can find it is the pass's own alarm.
+    """
+    docket_number = f"{MODERN_LINK_TERM - 1998}-100"
+    rows = [_granted_row("scotus/1", docket_number)]
+    documents = [_document("scotus/1", KIND_PETITION)]
+    docket = _payload(
+        # The petition entry is dropped too, so neither arm of the class matches:
+        # the case owes only its merits briefs here, and nothing reads them.
+        _grant_entry(),
+        # A merits brief the Clerk recorded under counsel's name rather than a
+        # party's — no party-word anchor reaches it.
+        _merits_entry("Brief of AT&T, Inc. filed.", "https://www.supremecourt.gov/x.pdf"),
+    )
+    with (
+        _seeded(tmp_path / "corpus", rows, documents) as conn,
+        _client({docket_number: docket}) as client,
+    ):
+        result = _run(conn, client, max_cases=5)
+    assert result.no_entry == 1
+    assert result.no_entry_modern_cases == ["scotus/1"]
+
+
+def test_an_undatable_grant_on_a_merits_candidate_is_a_floor(tmp_path: Path) -> None:
+    """The stage bound cannot place the entry, so nothing is selected — and no alarm.
+
+    The row carries the grant the corpus read at ingest; the *payload* the fetch
+    served has no disposition entry this reader can date, so the selector's merits
+    arms decline every entry on it. That is a floor this route cannot clear, and
+    calling it a selector regression would point a maintainer at the wrong repair.
+    """
+    docket_number = f"{MODERN_LINK_TERM - 1998}-100"
+    rows = [_granted_row("scotus/1", docket_number)]
+    documents = [_document("scotus/1", KIND_PETITION)]
+    docket = _payload(
+        # Both sides' entries are on the docket and readable as text — it is only
+        # the *stage* that cannot be placed, because no entry here dates a grant.
+        _merits_entry(
+            "Brief of petitioner Floyd Johnson filed.", "https://www.supremecourt.gov/mp.pdf"
+        ),
+        _merits_entry(
+            "Brief of respondent United States filed.",
+            "https://www.supremecourt.gov/mr.pdf",
+            date_="Jul 13 2026",
+        ),
+    )
+    with (
+        _seeded(tmp_path / "corpus", rows, documents) as conn,
+        _client({docket_number: docket}) as client,
+    ):
+        result = _run(conn, client, max_cases=5)
+    assert result.no_link == 1
+    assert result.no_entry_modern_cases == []
+
+
+def test_the_ledger_splits_the_two_arms(tmp_path: Path) -> None:
+    """`merits_candidates` is the line a dispatch is sized against."""
+    rows = [
+        _granted_row("scotus/1", "25-100"),  # merits only
+        _row("scotus/2", "25-101"),  # primary only
+        _granted_row("scotus/3", "25-102"),  # both
+    ]
+    documents = [_document("scotus/1", KIND_PETITION)]
+    with _seeded(tmp_path / "corpus", rows, documents) as conn, _client({}) as client:
+        result = _run(conn, client, max_cases=0)
+    assert result.candidates == 3
+    assert result.merits_candidates == 2
+
+
+def test_a_both_arm_candidate_still_raises_the_primary_selector_alarm(tmp_path: Path) -> None:
+    """The alarm is per kind, so a readable merits entry cannot silence it.
+
+    This is the shape the widening would otherwise disable outright: a granted,
+    briefed row is in the merits arm only because the docket carries an entry the
+    respondent-brief predicate reads, so a candidate in *both* arms almost always
+    matches something. If the alarm were per candidate, the one missing kind the
+    selector genuinely cannot read — its opening filing — would be hidden behind
+    the merits entry that did match, and the class this pass exists to stop
+    producing would stop being reported.
+    """
+    docket_number = f"{MODERN_LINK_TERM - 1998}-100"
+    rows = [_granted_row("scotus/1", docket_number)]  # holds nothing at all
+    docket = _payload(
+        # An opening filing in a shape no arm reads, and readable merits entries
+        # with nothing fetchable behind them.
+        _merits_entry("Application for review filed.", None, date_="Jan 05 2026"),
+        _grant_entry(),
+        _merits_entry("Brief of petitioner Floyd Johnson filed.", None),
+        _merits_entry("Brief of respondent United States filed.", None, date_="Jul 13 2026"),
+    )
+    with (
+        _seeded(tmp_path / "corpus", rows) as conn,
+        _client({docket_number: docket}) as client,
+    ):
+        result = _run(conn, client, max_cases=5)
+    # Counted once, at the floor its matched kinds put it at …
+    assert result.no_link == 1
+    assert result.no_entry == 0
+    # … and still named, because one of its missing kinds matched no entry.
+    assert result.no_entry_modern_cases == ["scotus/1"]
+
+
+def test_a_motion_reply_does_not_take_the_reply_slot(tmp_path: Path) -> None:
+    """A collateral-motion reply is not merits advocacy, and must not close the arm.
+
+    Each reply arm takes the first qualifying entry in docket order and then
+    closes, so a motion reply filed between the grant and the briefs would both
+    store a procedural paper as merits advocacy and put the case's real reply
+    permanently out of reach.
+    """
+    rows = [_granted_row("scotus/1", "25-100")]
+    documents = [_document("scotus/1", KIND_PETITION, url="https://www.supremecourt.gov/pet.pdf")]
+    docket = _payload(
+        _petition_entry(),
+        _grant_entry(),
+        _merits_entry(
+            "Reply of petitioners in support of motion for divided argument filed.",
+            "https://www.supremecourt.gov/motion-reply.pdf",
+            date_="May 01 2026",
+        ),
+        _merits_entry(
+            "Brief of petitioner Floyd Johnson filed.", "https://www.supremecourt.gov/mp.pdf"
+        ),
+        _merits_entry(
+            "Brief of respondent United States filed.",
+            "https://www.supremecourt.gov/mr.pdf",
+            date_="Jul 13 2026",
+        ),
+        _merits_entry(
+            "Reply of petitioner Floyd Johnson filed.  (Distributed)",
+            "https://www.supremecourt.gov/rp.pdf",
+            date_="Aug 12 2026",
+        ),
+    )
+    pdfs = {
+        "https://www.supremecourt.gov/motion-reply.pdf": _pdf("About the argument order."),
+        "https://www.supremecourt.gov/mp.pdf": _pdf("Petitioner says reverse."),
+        "https://www.supremecourt.gov/mr.pdf": _pdf("Respondent says affirm."),
+        "https://www.supremecourt.gov/rp.pdf": _pdf("Petitioner replies."),
+    }
+    with (
+        _seeded(tmp_path / "corpus", rows, documents) as conn,
+        _client({"25-100": docket}, pdfs=pdfs) as client,
+    ):
+        _run(conn, client, apply=True, max_cases=5)
+        stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/1")}
+    assert "Petitioner replies." in stored[KIND_MERITS_REPLY_PETITIONER].text
+    assert "About the argument order." not in stored[KIND_MERITS_REPLY_PETITIONER].text

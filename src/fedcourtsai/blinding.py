@@ -393,7 +393,13 @@ def mask_prediction(
     Every other field is carried through with only the identity scrub applied:
     the probability, the disposition, the votes, the claims, the
     ``semantic_claims`` propositions a merits cell carries, and the frozen
-    ``context`` the base-rate lookup needs. The scrub reaches strings anywhere in
+    ``context`` the base-rate lookup needs — ``context.snapshot_uptake``
+    included, deliberately. It is a weak per-round fingerprint (a path bug marks
+    every one of a predictor's cells in a round), but the ``missing`` sentinel it
+    reports on already survives ``_relativize_snapshot`` in ``input_snapshot``,
+    so dropping it would hide from the grader a fact the staged copy discloses
+    anyway — and it is a property of the cell's conduct, which a grade may
+    legitimately read. The scrub reaches strings anywhere in
     the document, so a rationale string inside ``claims`` — or a semantic
     proposition, which is free text the predictor wrote — can carry a
     ``[redacted:identity]`` marker; the numeric fields a grade is computed from

@@ -37,6 +37,7 @@ from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Outcome
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import forecastable_events
 from fedcourtsai.supremecourt import (
+    OffHostFetch,
     SupremeCourtClient,
     current_docket_term,
     is_live_docket_id,
@@ -75,7 +76,9 @@ def _payload(
             {
                 "Date": "Jun 01 2026",
                 "Text": "Petition for a writ of certiorari filed.",
-                "Links": [{"Description": "Petition", "DocumentUrl": "https://example/p.pdf"}],
+                "Links": [
+                    {"Description": "Petition", "DocumentUrl": "https://www.supremecourt.gov/p.pdf"}
+                ],
             }
         ],
     }
@@ -214,6 +217,159 @@ def test_client_fetches_missing_and_retries() -> None:
     assert sleeps.count(1.0) == 4
     assert supremecourt._RETRY_PAUSE_SECONDS in sleeps
     assert len(calls) == 5
+
+
+_COURT_DOC = "https://www.supremecourt.gov/DocketPDF/25/25-100/petition.pdf"
+
+
+def test_is_court_url_reads_the_host_not_the_spelling() -> None:
+    # The predicate every fetch is gated on, pinned against the spellings that
+    # look like the Court's host to a reader and are not it to a resolver.
+    assert supremecourt.is_court_url(_COURT_DOC)
+    assert supremecourt.is_court_url("https://supremecourt.gov/x.pdf")  # bare
+    assert supremecourt.is_court_url("https://APPS.SupremeCourt.GOV/x.pdf")  # case
+    for refused in (
+        "http://www.supremecourt.gov/x.pdf",  # plaintext is not this channel
+        "https://www.supremecourt.gov.evil.example/x.pdf",  # a prefix, not the host
+        "https://evil.example/www.supremecourt.gov/x.pdf",  # the host is in the path
+        "https://www.supremecourt.gov@evil.example/x.pdf",  # the host is userinfo
+        "https://user:pw@www.supremecourt.gov/x.pdf",  # upstream-chosen credentials
+        "https://www.supremecourt.gov:8443/x.pdf",  # not the port it serves on
+        "https://\u0455upremecourt.gov/x.pdf",  # a Cyrillic dze opens the name
+        "https://www.supremecourt.gov./x.pdf",  # the root-dot spelling is its own host
+        "https://www.supremecourt.gov/x.pdf\n::add-mask::secret",  # a log line, smuggled
+        "https://www.supremecourt.gov/a\tb.pdf",  # urlsplit would drop the tab
+        "//www.supremecourt.gov/x.pdf",  # scheme-relative reaches no scheme
+        "/DocketPDF/25/25-100/petition.pdf",  # relative, so not a request at all
+        "file:///etc/passwd",
+        "",
+    ):
+        assert not supremecourt.is_court_url(refused), refused
+
+
+def test_client_follows_a_redirect_that_stays_on_the_court_host() -> None:
+    # The ordinary case the guard must not break: upstream moves a filing and
+    # answers with a redirect to another supremecourt.gov path, a subdomain of
+    # it included. The bytes come back, and every hop is paced like the request
+    # it is.
+    moved = "https://www.supremecourt.gov/DocketPDF/25/25-100/moved.pdf"
+    final = "https://apps.supremecourt.gov/DocketPDF/25/25-100/final.pdf"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if url == _COURT_DOC:
+            return httpx.Response(302, headers={"Location": moved})
+        if url == moved:
+            return httpx.Response(302, headers={"Location": final})
+        return httpx.Response(200, content=b"%PDF-1.4 filing")
+
+    sleeps: list[float] = []
+    with _client(handler, sleeps) as client:
+        assert client.get_document(_COURT_DOC) == b"%PDF-1.4 filing"
+    assert sleeps.count(1.0) == 2  # the two hops after the first request
+
+
+def test_client_refuses_a_redirect_off_the_court_host() -> None:
+    # What a document fetch returns is stored as a filed document and read by a
+    # cell as evidence, so an origin the channel is not scoped to must not get
+    # the request at all — the refusal is before the hop, not after it.
+    off_host = "https://evil.example/petition.pdf"
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        return httpx.Response(302, headers={"Location": off_host})
+
+    with _client(handler) as client, pytest.raises(OffHostFetch) as caught:
+        client.get_document(_COURT_DOC)
+    assert caught.value.target == off_host
+    # One request made, and it is the one the pipeline meant to make: the
+    # nominated URL was never fetched, and the refusal is not retried.
+    assert requested == [_COURT_DOC]
+
+
+def test_client_refuses_a_link_that_never_was_on_the_court_host() -> None:
+    # The other route the same upstream text takes: a `DocumentUrl` lifted
+    # verbatim out of docket JSON can name any host at all, and a first hop is
+    # no more the pipeline's channel than a second one. Refused before the
+    # request, so the transport is never reached.
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        return httpx.Response(200, content=b"%PDF-1.4 not the Court's")
+
+    with _client(handler) as client, pytest.raises(OffHostFetch) as caught:
+        client.get_document("https://evil.example/petition.pdf")
+    assert caught.value.redirected_from is None  # not a redirect, the link itself
+    assert requested == []
+
+
+def test_client_turns_an_unusable_upstream_location_into_a_protocol_error() -> None:
+    # A `Location` naming a non-ASCII host reaches httpx as an encoding error,
+    # which is a `ValueError` and would otherwise end the pass over one bad
+    # header. It is an upstream that cannot be spoken to, and it degrades as one.
+    def handler(request: httpx.Request) -> httpx.Response:
+        # A Cyrillic dze stands where the Court's host would begin its name.
+        return httpx.Response(302, headers={"Location": "https://\u0455upremecourt.gov/x.pdf"})
+
+    with _client(handler) as client, pytest.raises(httpx.RemoteProtocolError) as caught:
+        client.get_document(_COURT_DOC)
+    # Matched on the message, because httpx raises this class for some malformed
+    # locations on its own: the point is that the encoding error was converted.
+    assert "unusable URL from upstream" in str(caught.value)
+    assert isinstance(caught.value.__cause__, ValueError)
+
+
+def test_client_refuses_a_redirect_to_a_host_that_only_looks_like_the_courts() -> None:
+    # The Court's host as a *prefix* of someone else's domain is a different
+    # host; the suffix match has to read the label boundary, not the substring.
+    lookalike = "https://www.supremecourt.gov.evil.example/petition.pdf"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(301, headers={"Location": lookalike})
+
+    with _client(handler) as client, pytest.raises(OffHostFetch) as caught:
+        client.get_document(_COURT_DOC)
+    assert caught.value.target == lookalike
+
+
+def test_client_gives_up_on_a_same_host_redirect_loop() -> None:
+    # A chain that stays on the host but never resolves is an upstream failure
+    # rather than a refusal, so it raises what a caller already counts as one.
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"Location": _COURT_DOC})
+
+    with _client(handler) as client, pytest.raises(httpx.TooManyRedirects):
+        client.get_document(_COURT_DOC)
+
+
+@pytest.mark.parametrize("hops", [supremecourt._MAX_REDIRECTS, supremecourt._MAX_REDIRECTS + 1])
+def test_the_redirect_cap_counts_hops_taken(hops: int) -> None:
+    # The cap is hops walked, not requests made: a chain that ends exactly at it
+    # resolves, and the one past it gives up without spending a request whose
+    # body would then be discarded.
+    chain = [f"https://www.supremecourt.gov/hop{n}.pdf" for n in range(hops)]
+    requests: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        requests.append(url)
+        nxt = chain[0] if url == _COURT_DOC else None
+        if url in chain[:-1]:
+            nxt = chain[chain.index(url) + 1]
+        if nxt is not None:
+            return httpx.Response(302, headers={"Location": nxt})
+        return httpx.Response(200, content=b"%PDF-1.4 filing")
+
+    with _client(handler) as client:
+        if hops > supremecourt._MAX_REDIRECTS:
+            with pytest.raises(httpx.TooManyRedirects):
+                client.get_document(_COURT_DOC)
+            assert len(requests) == supremecourt._MAX_REDIRECTS + 1
+        else:
+            assert client.get_document(_COURT_DOC) == b"%PDF-1.4 filing"
+            assert len(requests) == hops + 1
 
 
 # --- the live mapping ------------------------------------------------------------
@@ -1503,7 +1659,7 @@ def test_distribution_transition_provisions_documents(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
     served_docs = {
-        "https://example/p.pdf": _pdf(
+        "https://www.supremecourt.gov/p.pdf": _pdf(
             "QUESTION PRESENTED Whether the agency exceeded its statutory authority. "
             "PARTIES TO THE PROCEEDING Acme."
         )

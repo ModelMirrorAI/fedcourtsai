@@ -1,13 +1,13 @@
 # Process versioning: which predictions count toward the headline
 
-Predictions committed during the July/August shakedown are real, timestamped
+Predictions committed during the shakedown are real, timestamped
 forward calls — irreplaceable forward-stratum data — but they ran under a process
 still being corrected; a post-freeze cohort can join them by declaration,
 where a dated freeze-record entry retires its digests before its claim
 window's outcomes exist (the third supersession shape below). The headline
 metrics must reflect only the **frozen,
 correct** process, without deleting the shakedown runs (a wipe reads as hiding
-results, not rigor). This is the same doctrine as [`sal-v1`](salience.md): a
+results, not rigor). This is the same doctrine as [`sal-v4`](salience.md): a
 process change is a **new version**, never an in-place edit, so any past ranking
 always replays against the process that produced it.
 
@@ -208,6 +208,25 @@ a basis is only readable beside the version it was banded under. An evaluate cel
 scores every predictor, so the evaluator stamp covers all of its
 `evaluation.json`.
 
+**On a predictor cell the stamp also judges its own copy.** The `context` block
+it writes is the provisioned conditioning, which reads as an assertion that the
+forecast was formed from the provisioned snapshot; the cell's `input_snapshot`
+is the only record of whether it was. Where the two disagree — both normalized
+to the provisioned file's day — the stamp records `context.snapshot_uptake`
+`unread` and writes a `flags.json` note beside it.
+
+This belongs on none of the lists above, and the reason is worth stating,
+because a change to what the harness stamps is exactly the shape they cover. It
+adds a field and changes no other byte of the block, so no scoring surface reads
+anything it did not read before: no claim's resolvability moves, no base-rate
+basis moves, no cell enters or leaves a published population, and no committed
+cell is re-stamped. That is what separates it from a masking change, which moves
+an information set, and from a membership rule, which moves the population a
+figure is computed over. The digest is untouched for the ordinary reason — the
+prompt bytes and the resolved registry config are what it hashes. The restraint
+is the point: degrading the block instead would have moved a scored number,
+which is what would have put this in the freeze record.
+
 **On an evaluate cell the stamp runs after un-aliasing, and the order is not
 interchangeable.** The stamp joins each evaluation to the prediction it scored on
 the `predictor_id` field, so under a blind-grading alias the join simply misses
@@ -370,11 +389,13 @@ direction or a false alarm in the other:
 
 So a stamp in `[bless, instant)` passes the tripwire and fails `is_frozen`
 (`graded_post_freeze`, on the evaluation half), which is exactly the intended
-reading. The two moments are independent, not
-ordered: the held-instant evaluator re-bless below leaves the instant *before*
-the newly blessed entries' bless moment. That inversion opens a real gap
-rather than a harmless one — an evaluation stamped in `[held instant, new
-evaluator bless)` passes `graded_post_freeze`, which tests timing with no
+reading. The instant sits at or after every bless moment, on an invariant the
+suite holds: no predictor digest may be blessed after it, and on a full freeze —
+one moment across the whole map — the instant is at or after it. One shape
+inverts that: the held-instant evaluator re-bless below leaves the instant
+*before* the newly blessed **evaluator** entries' bless moment. That inversion
+opens a real gap rather than a harmless one — an evaluation stamped in
+`[held instant, new evaluator bless)` passes `graded_post_freeze`, which tests timing with no
 digest limb, and so counts under a rubric not yet immutable on `main`. While
 that window is open, nothing mechanical holds it shut: the evaluation
 tripwire cannot see a digest the map does not yet hold, so what keeps the
@@ -590,9 +611,32 @@ entry then states the count of cells de-counted and points at the declaration
 that licensed it, and no claim pools across the boundary in either
 direction.
 
+**What a predictor-half re-bless leaves the predict backlog owing.** The
+de-count above is usually discussed over cells whose events have resolved,
+where what moves is a published figure. The other half of the retired cohort
+sits on events that are **still open**, and there nothing has been published
+yet — which is why it is easy to miss that those events are now worthless to
+the new label: each holds forecasts made under a retired process, so when it
+resolves the grading lands outside the frozen scope and the event is consumed
+for nothing. The predict backlog is otherwise version-blind (a committed
+prediction is a committed prediction), so it would report every one of them
+covered and derive no work at all.
+
+It does not. The deriver **re-owes** a cell on such an event while it is still
+genuinely forward and its declared moment is still open — the pre-freeze
+re-predict rule, whose predicates and moment allow-list are in
+[cli.md](cli.md). The consequence for a cutover is worth stating at planning
+time rather than discovering after it: a re-bless's real cost is not only the
+counted cells it drops, but a re-forecast of every open event the retired
+digests covered, bounded by the moments still open when the freeze lands. The
+freeze-record entry that registers such a re-predict states the cohort rule and
+its expected size **before** any of its outcomes are observable, exactly as a
+shakedown declaration does, because the cells it produces are the ones the new
+label's board will be built from.
+
 ## A note on local runs
 
-The local `cascade` / `local-cascade` path produces cells but does **not** run the
+The local `local-cascade` path produces cells but does **not** run the
 `stamp-cell` step (that is a workflow step, not part of the runner). So a local
 cascade's cells are unstamped and appear only under `--all-versions`. This is
 intended: the frozen headline is the production tournament, not a developer's

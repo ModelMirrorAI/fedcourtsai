@@ -8,8 +8,8 @@ personal data in court records is handled. For the ingestion mechanics see
 
 ## Source and attribution
 
-Case data comes from two upstream providers, through the pipeline's three
-ingestion channels (**pull**, **live**, **historical** —
+Case data comes from two upstream providers, through the pipeline's four
+ingestion channels (**pull**, **live**, **historical**, **enrich** —
 [data-pipeline.md](data-pipeline.md)):
 
 - **[CourtListener](https://www.courtlistener.com/)**, a project of the
@@ -154,8 +154,10 @@ Attribution is given in the README *Data & attribution* section and the top-leve
 
 The NoDerivatives term is why the **derived corpus is not publicly republished**.
 The raw-fact corpus — every docket, snapshot, judge, and case record drawn from
-CourtListener — lives in the **access-gated** private S3 corpus remote, never in
-public git (see [data-pipeline.md](data-pipeline.md) → *Storage*). It is an internal
+CourtListener — lives in the **access-gated** private S3 estate, its payload-free
+index blob and the per-case content store that holds the snapshots and extracted
+document text alike, never in public git (see
+[data-pipeline.md](data-pipeline.md) → *Storage*). It is an internal
 working set, not a public dataset. There is a **second gated location, on the
 same terms**: the staging corpus (see *The staging corpus (provisioning
 runbook)* in [security.md](security.md)), a lean slice of that same content
@@ -169,17 +171,30 @@ reasoning text that explains them — and the two qp-topic artifacts
 (`docs/qp-topic.md`), the hand-labeled reference set and the accrued per-case
 labels: subject-matter judgments keyed by case id and public-record
 docket number, republishing no source text. There is also a **non-git** public
-channel that carries corpus-derived text: `run-analytics`' four one-day
+channel that carries corpus-derived text: `run-analytics`' five one-day
 GitHub Actions artifacts, which on a public repository any logged-in user can
 download for their retention window. What each one
 discloses is inventoried once, in *S3 / the private stores* in
-[security.md](security.md), and not re-enumerated here; two of the four
+[security.md](security.md), and not re-enumerated here; two of the five
 carry stored questions-presented text and are argued in `docs/qp-topic.md`.
 That text is derived from petition PDFs fetched from supremecourt.gov — public
 records, outside the CC BY-ND term above — and that channel is accepted for the
-labeling run alone, not as a route for corpus content generally. The third
-republishes no document text. Prediction reasoning may quote or summarize
-public-record docket facts in the course of explaining a prediction; it is original
+labeling run alone, not as a route for corpus content generally. The other
+three republish no document text. Prediction reasoning may quote or summarize
+public-record docket facts in the course of explaining a prediction, and may
+characterize what a provisioned filing argues — a petition, a brief in
+opposition, a questions-presented section, either side's brief on the merits or
+reply on the merits — on the same public-record footing as the questions-presented text above: those
+PDFs are fetched from supremecourt.gov, outside the CC BY-ND term, and the
+staged copies are gitignored and never committed. The prompt contract asks a
+cell to summarize rather than reproduce, which is what keeps that a
+characterization; a brief pasted at length into `reasoning.md` would be
+republication of a document by a route the ledger was never meant to open. An
+evaluation's `basis` and `evaluation.md` may quote the passage of a majority
+opinion a semantic grade rests on — the opinion body is CourtListener's text
+extraction of a public-domain federal opinion, outside the CC BY-ND value-add
+layer, the staged copy is gitignored and never committed, and `basis` is capped
+at 2,000 characters by schema. Both are original
 analysis attributing CourtListener as the source, not a republication of their
 dataset. The public surface is therefore our derived judgments over public-domain
 facts — not a redistribution of the bulk corpus.
@@ -238,9 +253,10 @@ material**:
   collection, enrichment, or de-anonymization, and no redaction beyond what
   CourtListener already applies to the public records.
 - **Raw facts stay access-gated.** The corpus that holds the full docket detail
-  lives in the private S3 corpus remote, not public git. The only PII that can reach
-  public git is whatever a piece of reasoning quotes from a public docket while
-  explaining a prediction.
+  lives in the private S3 estate — the snapshot payloads in its per-case content
+  store, the scannable index beside them — not public git. The only PII that can
+  reach public git is whatever a piece of reasoning quotes from a public docket
+  while explaining a prediction.
 - **Sealed, privileged, or otherwise sensitive material is never fed into the
   pipeline** — asserted in [SECURITY.md](../SECURITY.md) and restated here. The
   scope is public-record federal appellate and Supreme Court dockets only.

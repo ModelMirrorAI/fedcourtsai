@@ -188,6 +188,14 @@ error sinks (`constitutional-rights`, `civil-procedure`) have no distinctive
 citation to key on, and keywords actively mislead — background prose fires
 rules, cited statutes belong to different subjects than the question, and
 case-name mentions contaminate ("habeas relief" inside a *Heck* discussion).
+The labeling job closes what it can rather than asking for all of it: the
+labeler's invocation denies the shell, the delegation tools and the web tools by
+name ([pipeline.md](pipeline.md)), so a label cannot be produced by a script the
+labeler runs, by a subagent labeling on its behalf, or off a fetch carrying
+knowledge the petition text does not hold. Local search is the part that
+stays contract — the labeler needs it to navigate this document, and using it
+to key a label off a word instead of reading the question is a rule the
+labeler keeps, not one the invocation takes away.
 
 Measured once at declaration time, against the reference set *as first
 labeled* — two entries have since been relabeled under the collateral-marker
@@ -355,7 +363,7 @@ Three consequences bind every use of the set:
   `data/qp-topics/` **path** rather than the reference set by name, and why that
   path prohibition is what has to hold as artifacts are added under it.
 
-  **One non-committed channel — carrying two artifacts — is in scope too,
+  **One non-committed channel — carrying three artifacts — is in scope too,
   because the boundary is about disclosure and not about git.** The labeling run's extract (`fedcourts
   qp-corpus`) is both things no committed surface carries — the stored petition
   text and an enumeration of the QP-bearing ingested population, bounded by the
@@ -403,6 +411,29 @@ Three consequences bind every use of the set:
   reasons argued above rather than a second, looser rule for the same
   disclosure class.
 
+  The **labels the run actually wrote** (`qp-labels`) are the third artifact,
+  and the one that exists for the path the other two miss: a labeling step
+  killed at its cap leaves no execution file at all, so the transcript is not
+  withheld but absent, and the file the labeler was landing slices into dies
+  with the runner. It is uploaded on every outcome the runner survives, only
+  after its own secret scan passes, under the same one-day window — and the
+  job summary states its line count whether or not the file travels, since
+  that line is arithmetic over the file rather than anything read out of it
+  and the count alone separates a slow labeler from a stuck one. What bounds
+  its disclosure is not the labeler's good behaviour but its reach: the
+  labeler can read the extract, which this same run already published under
+  the same window, and the public checkout, and nothing else — `data/qp-topics`
+  is moved out of its tree before it starts. By contract the file carries case
+  ids, docket numbers, primaries and the recorded `secondary` / `vehicle`
+  facets, and no petition text; nothing between the labeler and this artifact
+  enforces that, which is the point of scanning it. What it is *not* is the
+  published labels file — that one is written by `qp-topics` only when every
+  extract row came back in vocabulary, and this one is uploaded before that
+  command runs, so it travels on the refused runs and the accepted ones alike.
+  It therefore takes the transcript's control rather than the published file's:
+  the same scan, on the generic surface where the entropy rule stays on, since
+  nothing in a labels line is high-entropy by format.
+
   That scan holds the engine API key, so what it *imports* is as much a part of
   the gate as what it reads. `setup-python-env` installs this project editable,
   which would put the labeler's own tree — and its gitignored venv — on the
@@ -434,15 +465,20 @@ Three consequences bind every use of the set:
   that set is the bound rather than the mechanism, is stated as an invariant in
   [SECURITY.md](../SECURITY.md).
 
-  Four steps stand between the transcript and the artifact — clear the scanner
-  path, check the scanner out afresh, install it into its own venv, scan — and
-  all four are `continue-on-error`, so a scanner that fails to build costs the
-  run its transcript rather than its labels. Each step is `if:`-gated on its
-  predecessor's outcome, so a failed build **skips** the scan rather than
-  running whatever sits at the scanner path; the upload is gated in turn on the
-  scan having succeeded, so the artifact is withheld silently, via the skip —
-  read the step outcomes on the run, not the summary, to tell a withheld
-  transcript from one that was never asked for.
+  Four steps stand between an agent-written file and its artifact — clear the
+  scanner path, check the scanner out afresh, install it into its own venv,
+  scan — and all four are `continue-on-error`, so a scanner that fails to build
+  costs the run its diagnostics rather than its labels: the published labels
+  file is the measure step's and never passes through here. The build runs
+  whenever there is something to scan — a transcript, a labels file, or both —
+  so the capped run, which has no execution file, still gets one. Each step is
+  `if:`-gated on its predecessor's outcome, so a failed build **skips** the
+  scans rather than running whatever sits at the scanner path; each upload is
+  gated in turn on its own scan having succeeded, so an artifact is withheld
+  silently, via the skip — read the step outcomes on the run, not the summary,
+  to tell a withheld artifact from one that was never asked for. The
+  label-line count in the summary is outside all of it, and says what the run
+  produced even when every scan withheld.
 
 **What a measurement is.** The quantity any labeler run produces against this
 set is *agreement with the reference raters*, not accuracy — reference error
@@ -547,8 +583,8 @@ the corpus is a **document-fetch artifact, not a sample**:
   a small, docket-form-honest widening of what the section describes, not a
   second population. An *application* is a different form and never enters: no
   questions-presented row is derived from one. The extract does **not** narrow to the predict-scope segment,
-  which is the tempting narrowing and the wrong one; the reason is in *What one
-  labeling run can hold* below, and it is a measurement-integrity reason rather
+  which is the tempting narrowing and the wrong one; the reason is in *Batching:
+  how the frame gets labeled* below, and it is a measurement-integrity reason rather
   than a statistical one.
 - **No reweighting recovers the docket.** Topics exist only for QP-bearing
   rows, and QP presence is itself outcome- and stream-correlated, so a
@@ -608,8 +644,13 @@ the distortion closes on its own as the frame clears.
 The extract is **bounded by what a dispatch can finish, not by how many texts
 exist**. A labeling run is a single headless turn inside one job, and
 `qp-topics` writes nothing until the labels file holds exactly one line per
-extract row — so a run that outlasts its cap leaves durable slices, full spend,
-and no artifact. Partial progress is not partial coverage here; it is nothing.
+extract row — so a run that outlasts its cap spends in full and publishes
+nothing. Partial progress is not partial coverage: it accrues no row to the
+published labels artifact, and the rows it did write are a diagnostic rather
+than a down payment. They do survive the run as such — the slices the labeler
+landed are uploaded as the `qp-labels` run artifact and their line count
+reaches the job summary — which is what makes a mis-sized dispatch measurable
+rather than merely wasted.
 The cap that bites is the **labeling step's**, set below the surrounding job's
 so a runaway trips the step and still leaves a run to read; the ceiling is
 derived from that one, since a bound sized against the outer cap would admit
@@ -636,9 +677,9 @@ committed state alone (`derive_label_batch`), in two clauses:
    after batch. Those rows are the measurement, not the output: the publication
    gate needs 90% reference coverage and 80% agreement in *every* run, so a batch
    that carried only part of the set could not be measured at all. They are
-   re-labeled each run and cost whatever the frame holds of the set — 296 of the
-   1,200 rows against the blob pulled 2026-09-08 whose newest stored snapshot is
-   2026-07-13, about a quarter of each batch, and the standing per-run price of
+   re-labeled each run and cost whatever the frame holds of the set — 353 of the
+   1,200 rows against the blob pulled 2026-09-09 whose newest stored snapshot is
+   2026-07-13, just under a third of each batch, and the standing per-run price of
    the measurement. Only *in-frame* members can be force-included, which is what
    the coverage check below turns on.
 2. **The rest of the budget is filled from the not-yet-labeled rows** — those
@@ -676,8 +717,9 @@ observing — and stops before the labeler. A rehearsal that does reach the
 labeler (a staging pair seeded past the floor) runs it under the exact
 production posture, and at the same batch price on the staging environment's
 own engine key: a rehearsal is a real spend, and what it buys is the measured
-block in the step summary and the transcript artifact instead of a wasted
-production batch. The labeler's invocation posture itself needs no seeded
+block in the step summary, the transcript and labels artifacts, and the
+label-line count instead of a wasted production batch. The labeler's
+invocation posture itself needs no seeded
 pair: the integration suite's `qp-labeler-smoke` scenario runs it over a
 synthetic five-row extract at cents ([testing.md](testing.md)).
 
@@ -718,12 +760,12 @@ points of movement is noise; only a sustained move reads.
 That is what a held-out gold set is for, and it is the design here — but it has a
 shape worth stating rather than leaving to inference:
 
-- **No published row is ever measured.** "296 of 1,200 rows measured" is not
+- **No published row is ever measured.** "353 of 1,200 rows measured" is not
   coverage *of the batch*; it is a rate over rows that share none of the batch's
   output.
 - **The evidence base is fixed while the output grows.** `n` stays at the
   in-frame reference count for every batch, so the measured share of the artifact
-  falls from about a quarter at the first batch toward a few percent at
+  falls from just under a third at the first batch toward a few percent at
   convergence. The same passing rate licenses steadily more unmeasured rows.
 - **The oracle fence is load-bearing for the measurement, not only for
   leakage.** The rows that decide the gate are exactly the rows whose labels are
@@ -739,7 +781,7 @@ shape worth stating rather than leaving to inference:
   why the per-stream split at measurement review binds every batch, not just the
   first.
 - **Re-dispatching after a gate failure looks at the same rows.** The derivation
-  is deterministic, so a second attempt is scored on the identical 296 entries
+  is deterministic, so a second attempt is scored on the identical 353 entries
   against the identical threshold. That is the repository's own "tuned on the
   measurement set" warning, one level up: say what changed between attempts.
 - **Convergence ends measurement.** Once the frame is clear no further batch
@@ -772,8 +814,8 @@ blocks would leave the measured remainder more grant-skewed than the reference
 set already is.
 
 **Convergence.** Repeat dispatches clear the frame batch by batch. Against the
-blob above — 8,183 rows, 296 reference members in frame, so 904 new rows a
-batch — the historical backlog clears in **nine dispatches**. That figure moves
+blob above — 8,452 rows, 353 reference members in frame, so 847 new rows a
+batch — the historical backlog clears in **ten dispatches**. That figure moves
 with the frame and with the reference set; it is arithmetic over two numbers, not
 a property of the design. When nothing is left to label outside the reference
 set, `qp-corpus` says so and exits non-zero rather than spending a run to

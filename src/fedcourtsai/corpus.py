@@ -646,7 +646,10 @@ class CaseDocument(BaseModel):
         "cert-stage opposition, every respondent's in one row) | "
         "merits-brief-petitioner | merits-brief-respondent (each side's brief on "
         "the merits, one row per side, selected only after the cert grant) | "
-        "questions-presented | …"
+        "merits-reply-petitioner | merits-reply-respondent (each side's reply on "
+        "the merits, one row per side, on the same post-grant bound — the "
+        "cert-stage reply to a brief in opposition is spelled identically and is "
+        "not this kind) | questions-presented | …"
     )
     url: str = Field(
         description="The supremecourt.gov DocumentUrl fetched; for a combined "
@@ -3083,6 +3086,30 @@ class PriorQuery(BaseModel):
     )
 
 
+def opinion_body(row: CorpusRow) -> str | None:
+    """The row's opinion body, from whichever half of the estate keeps it.
+
+    One definition of "where the text is", because the answer depends on how the
+    estate was written and no caller should have to know: with the corpus split
+    off the body is the row's own ``opinion_text`` column; under the split that
+    column is NULL and the per-case content store holds it, reached through the
+    registered :class:`PayloadReadSource`.
+
+    Narrowly gated, and the gates are the point. The retained ``has_opinion``
+    bit is consulted before any store request, so a row with no linked opinion
+    costs nothing; and the store is asked only where the column is actually
+    empty, so an unsplit estate never leaves SQLite. ``None`` means the same
+    thing every way it is reached — no body to be had here — which is what lets
+    a caller treat "no opinion" as one state rather than three.
+    """
+    if row.opinion_text is not None:
+        return row.opinion_text
+    if not row.has_opinion:
+        return None
+    source = _payload_read_source()
+    return None if source is None else source.opinion_text(row.case_id)
+
+
 def prior_payload(row: CorpusRow, *, full: bool = False) -> dict[str, object]:
     """Shape one retrieved prior into the ``query`` output row.
 
@@ -3095,22 +3122,17 @@ def prior_payload(row: CorpusRow, *, full: bool = False) -> dict[str, object]:
 
     Under the corpus-split mode the body is not in the blob (the ``cases`` column
     is NULL; the content store holds it), so ``full`` would otherwise emit an
-    empty body. The hydration is narrowly gated to keep the default path exactly
-    as it was and to spend no request it does not have to: only when ``full`` is
-    asked for, only when the row's retained ``has_opinion`` bit says a body
-    exists, and only when the column is actually empty. With the mode off, or no
-    store built, nothing here runs.
+    empty body. :func:`opinion_body` is where that routing lives — here and in
+    provisioning's opinion slot alike, so the two cannot disagree about where the
+    text is — and it is reached only when ``full`` is asked for, keeping the
+    default path exactly as it was.
     """
     payload = row.model_dump(mode="json")
     payload["era"] = case_era(row)
     if not full:
         payload.pop("opinion_text", None)
-    elif (
-        row.opinion_text is None
-        and row.has_opinion
-        and (source := _payload_read_source()) is not None
-    ):
-        payload["opinion_text"] = source.opinion_text(row.case_id)
+    elif row.opinion_text is None:
+        payload["opinion_text"] = opinion_body(row)
     return payload
 
 

@@ -894,6 +894,9 @@ class _CasestoreReadSource:
         # including AccessDenied, SlowDown, and expired credentials — would abort
         # mid-stream and leave a half-written JSON-lines result on stdout. An
         # unreadable body degrades to no body, the same as an unmirrored case.
+        # It serves `provision-opinion`'s record slot too, where the degradation
+        # is what the slot's design wants: an unreadable body stages nothing and
+        # a grader masks on "not ingested", which is the correct grade either way.
         transport = active_transport()
         if transport is None:
             return None

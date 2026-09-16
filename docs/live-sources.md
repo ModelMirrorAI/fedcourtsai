@@ -32,7 +32,8 @@ faster polling of the same records, not fresher discovery or richer content.
 The Supreme Court's own site serves a structured JSON docket per case:
 
 ```
-https://www.supremecourt.gov/rss/cases/JSON/<term>-<number>.json
+https://www.supremecourt.gov/rss/cases/JSON/<term>-<number>.json   # cert
+https://www.supremecourt.gov/rss/cases/JSON/<term>A<number>.json   # application
 ```
 
 Each record carries the full **proceedings list** as dated entries (petition
@@ -50,7 +51,9 @@ Three access facts shape the client:
 - There is no push feed and no "list new dockets" endpoint. **Discovery is
   sequential probing**: docket numbers are per-Term sequential (paid petitions
   from `25-1`, IFP from `25-5001`), so a poller probes the next unseen numbers
-  and a 404/empty record marks the current frontier.
+  and `live.frontier_misses` consecutive 404/empty records mark the current
+  frontier — a tolerance rather than a single miss, since an occasional serial
+  is withheld mid-stream.
 - **A Term's numbering starts the July before the Term opens**, across all
   three streams: `26-1`, `26-5001`, and `26A1` were all docketed 2026-07-01,
   while `25-1432` (2026-06-30) closes the OT25 paid stream. A prober keyed to
@@ -243,12 +246,36 @@ the docket form, so one function serves both lanes:
   would share one extraction cap, so the second would be cut by however long the
   first ran. The first brief in docket order on each side — the first whose entry
   posts that link — is the opening one; the reply is a separate entry family
-  ("Reply [Brief] of …") that no arm selects, and the joint-appendix reprint is
-  passed over because the opening brief precedes it. **One per side** is the
+  ("Reply [Brief] of …") the two reply kinds below take, and the joint-appendix
+  reprint is passed over because the opening brief precedes it. **One per side**
+  is the
   accepted residual, and it is the opposite call from the opposition arm above
   on purpose: a case with several respondent groups files several merits briefs
   and only the first is stored, because combining them is exactly what the
   per-side kinds exist to avoid.
+- **`merits-reply-petitioner`** / **`merits-reply-respondent`** — each side's
+  *reply* on the merits, the last word on the argument and the one filing that
+  answers what the other side actually argued. A distinct entry family ("Reply
+  of X filed.", "Reply Brief of X filed.") that the opening-brief anchors never
+  reach, read on exactly the terms those arms are: one per side, the first in
+  docket order after the grant, `Main Document` only, and the same post-grant
+  bound. That bound carries more weight here than anywhere else in the selector,
+  because the **cert-stage** reply to a brief in opposition is spelled word for
+  word the same and is a routine filing — an unbounded arm would store one as
+  merits advocacy across a large part of the docket stock. Under Rule 25.3
+  the petitioner is the side that ordinarily replies; the respondent arm reaches
+  the postures where the last word is its own — a cross-petition, or a case the
+  Court appointed an amicus to defend the judgment in. Two reply shapes are
+  deliberately out of reach. A reply on a **collateral motion** is not merits
+  advocacy: the unpartied form ("Reply on motion to intervene filed.") falls
+  outside the anchor, and the partied one ("Reply of petitioners in support of
+  motion for divided argument filed.") satisfies it word for word and is excluded
+  explicitly — which matters more than the filing is worth, because each arm
+  takes the first qualifying entry and then closes, so a motion reply filed
+  before the briefs would occupy the side's slot and put its real merits reply
+  out of reach. And a reply the Clerk recorded under counsel's own name rather
+  than a party's is left unfetched rather than guessed at, since no party-word
+  anchor can read it.
 - **`questions-presented`** — derived from the `petition` text alone, never
   fetched and never derived from an `application`.
 
@@ -258,16 +285,22 @@ transition** (the
 record-complete moment, and near filing time — links are a rolling ~5-Term
 window upstream); a gate-deferred petition's transition fetches nothing, and
 the selection sweep provisions its documents if it is ever latched. That sweep
-is also the only lane a **merits** brief arrives on: the distribution transition
-is a cert-stage trigger and a granted docket stops distributing, so the two
+is the lane a **merits** filing arrives on: the distribution transition
+is a cert-stage trigger and a granted docket stops distributing, so the four
 merits kinds are fetched when the sweep re-provisions a case carrying an open
-merits event, never at the trigger that first filled its cert documents. An
+merits event, never at the trigger that first filled its cert documents. A
+granted, briefed case whose merits documents were never fetched — whatever the
+state of its events — is also reached by `document-backfill`'s merits arm, the
+maintenance pass that applies the current selector to the cases already past
+their trigger ([data-pipeline.md](data-pipeline.md)). An
 application docket is never distributed for conference, so its lane fetches on
 **any change while the application is still pending, in scope, and substantive**
 — the application rotation's own queue condition. Text is extracted with pypdf (born-digital filings under the
 e-filing mandate; a scanned paper filing degrades to empty text), capped at
-`live.document_text_cap` per document, and stored in the access-gated corpus's
-`documents` table — never the git ledger. `provision-snapshot` materializes it
+`live.document_text_cap` per document, and stored as the case's document row in
+the access-gated corpus — the per-case content store under the corpus split, the
+blob's `documents` table on a self-contained one — never the git ledger.
+`provision-snapshot` materializes it
 into the cell's gitignored `record/documents/` with a `documents.json`
 manifest, and the predict prompt points agents at it. A cell can route around
 an empty extraction — the prompt has it read the document as
@@ -279,8 +312,10 @@ or whitespace-only under the same predicate provisioning stamps as
 whether the blob or the per-case content store served the reads, since a
 blob-only read of a split corpus undercounts. The counts stay per kind because
 the causes differ: an empty petition or brief in opposition is the scan; a
-near-zero count on either merits kind is the shape of the granted slice, since
-nothing selects them before a grant, rather than a coverage gap; and an empty
+near-zero count on any of the four merits kinds is the shape of the granted
+slice, since nothing selects them before a grant, rather than a coverage gap
+(and the two reply rows are narrower again, bounded by the granted cases whose
+docket carries a reply at all); and an empty
 derived questions-presented row is as likely to be a capture the deriver would
 not vouch for. And the command reports the **absent** petition
 beside the empty one, because that is the larger failure and a different
@@ -302,13 +337,27 @@ drains from. The wide `distributed`
 stock stays petition-keyed and unfiltered, matching what it is. On the fetch
 side the routes are recorded as they happen —
 `documents.document_fetch_losses` counts every dropped document by reason (a
-transport failure, a link the upstream did not serve, an opposition whose every
-brief failed) and each one is warned into the run log — so those causes stop
-leaving the same trace, which is none. A fourth reason sits one step earlier
-and is the one loss those three cannot see: `not-selected`, recorded per
-case where the docket JSON nominated no document, so the class an upstream that
-publishes no PDF (a Rule 34.6 paper filing) and a selector with no arm for the
-filing type both land in is counted rather than silent.
+transport failure, a link the upstream did not serve, a link that is not HTTPS
+on the Court's own host, an opposition whose every brief failed) and each one is
+warned into the run log — so those causes stop leaving the same trace, which is
+none. `off-host` is the one of the four that is not an upstream failing to serve
+and is not repaired by re-attempting it. **Every request the fetching client
+makes is HTTPS on a supremecourt.gov host, and it enforces that rather than
+assuming it**: a `DocumentUrl` is upstream text lifted verbatim out of docket
+JSON and a `Location` header is upstream text too, so the client checks the URL
+a fetch starts at, then walks any redirect chain hop by hop, refusing the first
+one that leaves the host **before** making that request. Checking after httpx
+had followed the chain would be too late — the bytes a document fetch returns
+are stored and read by a cell as evidence, and the politeness pacing and the 403
+retry posture are keyed to the intended host — so a single occurrence is worth a
+maintainer's reading. (The reachability probe below keeps its own client, which
+follows a redirect wherever it leads: it builds its own URLs and writes nothing
+to the corpus, so where a body came from cannot enter the record.) A fifth
+reason sits one step earlier and is the one loss those four cannot see:
+`not-selected`, recorded per case where the docket JSON nominated no document,
+so the class an upstream that publishes no PDF (a Rule 34.6 paper
+filing) and a selector with no arm for the filing type both land in is counted
+rather than silent.
 **The questions presented
 are derived from the petition PDF, never from `QPLink`:** the `/qp/` page is
 generated when certiorari is *granted* and opens with the grant order, so the
@@ -380,9 +429,10 @@ and stays counted as empty. An empty `application` stays out for the reason its
 kind is counted at all — an application filed on paper stores empty exactly as a
 paper petition does — but the pass's population is stored *petitions*, so an
 application that arrives as a scan is measured with no repair path behind it.
-The two merits-brief kinds sit outside that population on identical terms, and
-their exposure is smaller: a merits brief is an e-filed brief rather than a
-paper petition, so the scan it would be recovering from is the rarer case.
+The four merits kinds sit outside that population on identical terms, and
+their exposure is smaller: a merits brief or reply is an e-filed brief rather
+than a paper petition, so the scan it would be recovering from is the rarer
+case.
 The empty briefs in opposition stay out for a
 structural reason rather than their share: a multi-respondent opposition is
 stored as one combined row keyed on the whole set of fetched URLs, so text
@@ -547,8 +597,8 @@ shelled to the same way, so the pass adds no Python dependency on either side.
 
 ### Contract for the document back-fill pass
 
-The answer to the other half of the gap above — the queued cases holding no
-primary document at all, which is a fetch question and repaired in the fetch
+The answer to the other half of the gap above — the queued cases holding a
+document gap at all, which is a fetch question and repaired in the fetch
 path or not at all. It is `fedcourts backfill-documents`, dispatched as
 `run-repair`'s `document-backfill` selector value. It installs nothing: the
 route is the provisioning path the live poller already runs, re-keyed off the
@@ -566,17 +616,27 @@ corpus row rather than off a poll.
   the dry run as well, which is the one way this pass's contract differs from
   the recovery's: its dry run is not free.
 - **What it reads.** Live-slice SCOTUS rows that are **predict-relevant** —
-  queued for prediction, or selected by the salience gate and not yet queued —
-  holding no stored document of their own docket form's primary kind. Form-keyed
-  rather than petition-keyed: an application docket structurally never holds a
-  petition, so a petition-keyed predicate would strand every application in the
-  class forever and spend the bound on cases no fetch can drain. The selected
-  arm is not redundant either — a reserve-selected application has no
+  queued for prediction, or selected by the salience gate and not yet queued.
+  The selected arm is not redundant — a reserve-selected application has no
   distribution transition to be queued at and reaches the predict path through
   the selection sweep. Predict-relevant rather than the wide distributed stock,
   which is overwhelmingly pre-modern rows carrying no document links at all:
   each candidate costs paced round trips, and the rows that can mint a cell are
   the ones worth spending them on.
+
+  Each such row is measured on **two arms**, and is one candidate for every kind
+  it is missing. The **primary** arm reads its own docket form's opening
+  document — form-keyed rather than petition-keyed, because an application
+  docket structurally never holds a petition and a petition-keyed predicate
+  would strand every application in the class forever and spend the bound on
+  cases no fetch can drain. The **merits** arm reads each side's brief on the
+  merits, and applies only to a **granted** row whose respondent has *filed* on
+  the merits: granted-and-briefed rather than granted alone is what makes it
+  drain, since a granted row carrying no briefing date has nothing for a fetch
+  to find. The merits **replies** are deliberately not gap kinds — not every
+  granted case is replied to, so keying the class on one would hold every
+  un-replied case in it forever — but a reply the docket carries is fetched with
+  the rest.
 - **What it fetches.** One docket JSON per candidate, addressed by the
   `(term, serial)` its stored docket number parses to, and fetched **fresh**
   rather than read from the stored snapshot — the question is whether the link
@@ -587,18 +647,27 @@ corpus row rather than off a poll.
   The apply goes on through the same fetch the poller runs, so a recovered case
   is provisioned on exactly the terms a case provisioned at its trigger was —
   the opposition briefs and the derived questions-presented row land with the
-  primary filing.
+  primary filing, and a merits reply lands with the merits briefs. Recovery is
+  **leaving the class**, so a candidate that gained one of two missing merits
+  briefs is a write and not a recovery, and stays at the head of the next slice.
 - **What it reports as a floor rather than a failure.** Two readings, and
   keeping them apart is what stops a converged class reading as a permanent
-  defect. A docket carrying the opening entry with **no link** behind it is a
-  Rule 34.6 paper filing: the Court served nothing, so there is nothing to fetch
-  and no repair reaches it. A docket carrying **no such entry** at all is a
-  legacy proceedings list holding no document links. Neither drains, so a slice
-  that clears its bound without shrinking the class is the expected reading once
-  the recoverable half is gone. The exception is the alarm: no entry on a docket
-  modern enough to carry links is a filing shape the selector has no arm for,
-  which is the class this pass exists to stop producing, and those cases are
-  **named** where the counts would bury them.
+  defect. A docket carrying an entry for a missing kind with **nothing
+  fetchable** behind it is at the first floor: a Rule 34.6 paper filing the
+  Court served nothing for, or — on a merits kind — a grant this reader cannot
+  date, so the selector's stage bound places no entry on the merits side of it.
+  A docket carrying **no such entry** for any missing kind is a legacy
+  proceedings list holding no document links. The two counts are per candidate
+  and partition the floored ones; neither drains, so a slice that clears its
+  bound without shrinking the class is the expected reading once the recoverable
+  half is gone.
+
+  The **alarm** cuts across both counts, because it is per *kind*: a missing
+  kind the selector found no entry for, on a docket modern enough to carry
+  links, is a filing shape the selector has no arm for — the class this pass
+  exists to stop producing — and those cases are **named** whichever floor they
+  were counted at, so a granted case whose merits entries are on the docket and
+  whose opening filing is unreadable is not silenced by the kind that matched.
 - **What it writes.** Each case's documents as they are made rather than batched
   at the end, so a step that hits its cap has banked what it recovered — under
   the corpus split the per-case content-store write is itself the durable one.

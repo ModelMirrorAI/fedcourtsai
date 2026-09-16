@@ -23,6 +23,8 @@ from fedcourtsai.pipeline.documents import (
     KIND_BRIEF_IN_OPPOSITION,
     KIND_MERITS_BRIEF_PETITIONER,
     KIND_MERITS_BRIEF_RESPONDENT,
+    KIND_MERITS_REPLY_PETITIONER,
+    KIND_MERITS_REPLY_RESPONDENT,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
     _qp_stored_is_fragment,
@@ -32,6 +34,7 @@ from fedcourtsai.pipeline.documents import (
     extract_pdf_text,
     extract_questions_presented,
     fetch_case_documents,
+    merits_entry_matched,
     questions_presented_extract,
     reset_document_fetch_losses,
     select_documents,
@@ -104,14 +107,25 @@ _PAYLOAD = {
             "Date": "Jun 01 2026",
             "Text": "Petition for a writ of certiorari filed. (Response due July 2, 2026)",
             "Links": [
-                {"Description": "Petition", "DocumentUrl": "https://example/petition.pdf"},
-                {"Description": "Appendix", "DocumentUrl": "https://example/appendix.pdf"},
+                {
+                    "Description": "Petition",
+                    "DocumentUrl": "https://www.supremecourt.gov/petition.pdf",
+                },
+                {
+                    "Description": "Appendix",
+                    "DocumentUrl": "https://www.supremecourt.gov/appendix.pdf",
+                },
             ],
         },
         {
             "Date": "Jul 01 2026",
             "Text": "Brief of respondents in opposition filed.",
-            "Links": [{"Description": "Main Document", "DocumentUrl": "https://example/bio.pdf"}],
+            "Links": [
+                {
+                    "Description": "Main Document",
+                    "DocumentUrl": "https://www.supremecourt.gov/bio.pdf",
+                }
+            ],
         },
         {"Date": "Jul 08 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."},
     ],
@@ -124,8 +138,8 @@ _PAYLOAD = {
 def test_select_documents_petition_and_bio_never_qplink() -> None:
     refs = select_documents(_PAYLOAD)
     assert [(r.kind, r.url) for r in refs] == [
-        (KIND_PETITION, "https://example/petition.pdf"),
-        (KIND_BRIEF_IN_OPPOSITION, "https://example/bio.pdf"),
+        (KIND_PETITION, "https://www.supremecourt.gov/petition.pdf"),
+        (KIND_BRIEF_IN_OPPOSITION, "https://www.supremecourt.gov/bio.pdf"),
     ]
     assert all("qp" not in r.url for r in refs)  # QPLink leaks the outcome
 
@@ -135,7 +149,9 @@ def _opening_payload(entry_text: str, links: list[dict[str, str]]) -> dict[str, 
     return {"ProceedingsandOrder": [{"Date": "Jun 01 2026", "Text": entry_text, "Links": links}]}
 
 
-_PETITION_LINK = [{"Description": "Petition", "DocumentUrl": "https://example/opening.pdf"}]
+_PETITION_LINK = [
+    {"Description": "Petition", "DocumentUrl": "https://www.supremecourt.gov/opening.pdf"}
+]
 
 
 @pytest.mark.parametrize(
@@ -164,7 +180,9 @@ def test_select_documents_takes_the_whole_case_opening_family(entry_text: str) -
     refs = select_documents(_opening_payload(entry_text, _PETITION_LINK))
     # One kind for the family: they are the same document to every reader here —
     # the filing that asks the Court to take the case.
-    assert [(r.kind, r.url) for r in refs] == [(KIND_PETITION, "https://example/opening.pdf")]
+    assert [(r.kind, r.url) for r in refs] == [
+        (KIND_PETITION, "https://www.supremecourt.gov/opening.pdf")
+    ]
 
 
 def test_select_documents_case_opening_arm_ignores_a_filing_about_the_petition() -> None:
@@ -184,7 +202,10 @@ def test_select_documents_case_opening_arm_ignores_a_filing_about_the_petition()
                 "Text": "Motion of petitioner to dismiss the petition for a writ "
                 + "of mandamus filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/motion.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/motion.pdf",
+                    }
                 ],
             },
         ]
@@ -199,23 +220,23 @@ def test_select_documents_takes_a_jurisdictional_statement_by_its_own_label() ->
     payload = _opening_payload(
         "Statement as to jurisdiction filed.",  # 25-845
         [
-            {"Description": "Appendix", "DocumentUrl": "https://example/appendix.pdf"},
+            {"Description": "Appendix", "DocumentUrl": "https://www.supremecourt.gov/appendix.pdf"},
             {
                 "Description": "Jurisdictional Statement",
-                "DocumentUrl": "https://example/jurisdictional.pdf",
+                "DocumentUrl": "https://www.supremecourt.gov/jurisdictional.pdf",
             },
         ],
     )
     refs = select_documents(payload)
     assert [(r.kind, r.url) for r in refs] == [
-        (KIND_PETITION, "https://example/jurisdictional.pdf")
+        (KIND_PETITION, "https://www.supremecourt.gov/jurisdictional.pdf")
     ]
     assert refs[0].description == "Jurisdictional Statement"
 
 
 _APPLICATION_ENTRY = "Application (26A203) for a stay of the mandate, submitted to Justice Kagan."
 _APPLICATION_LINK = [
-    {"Description": "Main Document", "DocumentUrl": "https://example/application.pdf"}
+    {"Description": "Main Document", "DocumentUrl": "https://www.supremecourt.gov/application.pdf"}
 ]
 
 
@@ -225,7 +246,7 @@ def test_select_documents_takes_the_application_as_its_own_kind() -> None:
     # interim relief rather than review, and keying it apart is what lets the
     # coverage report measure an application docket against its own filing.
     assert [(r.kind, r.url) for r in refs] == [
-        (KIND_APPLICATION, "https://example/application.pdf")
+        (KIND_APPLICATION, "https://www.supremecourt.gov/application.pdf")
     ]
     assert refs[0].description == _APPLICATION_ENTRY
 
@@ -277,9 +298,12 @@ def test_select_documents_application_arm_takes_only_the_main_document() -> None
         [
             {
                 "Description": "Written Request",
-                "DocumentUrl": "https://example/written-request.pdf",
+                "DocumentUrl": "https://www.supremecourt.gov/written-request.pdf",
             },
-            {"Description": "Proof of Service", "DocumentUrl": "https://example/service.pdf"},
+            {
+                "Description": "Proof of Service",
+                "DocumentUrl": "https://www.supremecourt.gov/service.pdf",
+            },
         ],
     )
     assert select_documents(letters_only) == []
@@ -289,13 +313,16 @@ def test_select_documents_application_arm_takes_only_the_main_document() -> None
         [
             {
                 "Description": "Written Request",
-                "DocumentUrl": "https://example/written-request.pdf",
+                "DocumentUrl": "https://www.supremecourt.gov/written-request.pdf",
             },
-            {"Description": "Main Document", "DocumentUrl": "https://example/application.pdf"},
+            {
+                "Description": "Main Document",
+                "DocumentUrl": "https://www.supremecourt.gov/application.pdf",
+            },
         ],
     )
     assert [(r.kind, r.url) for r in select_documents(with_filing)] == [
-        (KIND_APPLICATION, "https://example/application.pdf")
+        (KIND_APPLICATION, "https://www.supremecourt.gov/application.pdf")
     ]
 
 
@@ -311,14 +338,17 @@ def test_select_documents_application_arm_skips_an_earlier_administrative_entry(
                 "Text": "Application (24A797) to extend further the time from June 11, "
                 + "2025 to July 11, 2025, submitted to Justice Kavanaugh.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/letter.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/letter.pdf",
+                    }
                 ],
             },
             {"Date": "Jul 01 2026", "Text": _APPLICATION_ENTRY, "Links": _APPLICATION_LINK},
         ]
     }
     assert [(r.kind, r.url) for r in select_documents(payload)] == [
-        (KIND_APPLICATION, "https://example/application.pdf")
+        (KIND_APPLICATION, "https://www.supremecourt.gov/application.pdf")
     ]
 
 
@@ -329,13 +359,15 @@ def test_select_documents_reads_the_renewal_form_off_its_own_ask() -> None:
     # renewal that restates the ask is a real application entry. On a docket
     # carrying both a head entry and a refiling, docket order takes the head.
     renewal = "Application (26A118) refiled and submitted to Justice Alito."
-    refiled_link = [{"Description": "Main Document", "DocumentUrl": "https://example/refiled.pdf"}]
+    refiled_link = [
+        {"Description": "Main Document", "DocumentUrl": "https://www.supremecourt.gov/refiled.pdf"}
+    ]
     assert select_documents(_opening_payload(renewal, refiled_link)) == []
 
     restated = "Application (26A118) for a stay, refiled and submitted to Justice Alito."
     assert [
         (r.kind, r.url) for r in select_documents(_opening_payload(restated, refiled_link))
-    ] == [(KIND_APPLICATION, "https://example/refiled.pdf")]
+    ] == [(KIND_APPLICATION, "https://www.supremecourt.gov/refiled.pdf")]
 
     both = select_documents(
         {
@@ -345,7 +377,7 @@ def test_select_documents_reads_the_renewal_form_off_its_own_ask() -> None:
             ]
         }
     )
-    assert [r.url for r in both] == ["https://example/application.pdf"]
+    assert [r.url for r in both] == ["https://www.supremecourt.gov/application.pdf"]
 
 
 def _bio_url(entry_text: str, *, links: list[dict[str, str]] | None = None) -> str | None:
@@ -357,7 +389,12 @@ def _bio_url(entry_text: str, *, links: list[dict[str, str]] | None = None) -> s
                 "Date": "Jul 15 2026",
                 "Text": entry_text,
                 "Links": links
-                or [{"Description": "Main Document", "DocumentUrl": "https://example/bio.pdf"}],
+                or [
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/bio.pdf",
+                    }
+                ],
             },
         ]
     }
@@ -376,7 +413,7 @@ def _bio_url(entry_text: str, *, links: list[dict[str, str]] | None = None) -> s
     ],
 )
 def test_select_documents_recognizes_respondent_and_submitted_bios(entry_text: str) -> None:
-    assert _bio_url(entry_text) == "https://example/bio.pdf"
+    assert _bio_url(entry_text) == "https://www.supremecourt.gov/bio.pdf"
 
 
 @pytest.mark.parametrize(
@@ -403,29 +440,38 @@ def test_select_documents_returns_every_distinct_bio() -> None:
                 "Date": "May 29 2026",
                 "Text": "Brief of respondent Luzerne County in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/lead.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/lead.pdf",
+                    }
                 ],
             },
             {
                 "Date": "Jun 01 2026",
                 "Text": "Brief of respondent Northampton County in opposition filed. VIDED.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/second.pdf",
+                    }
                 ],
             },
             {  # a duplicate link (same URL) is not double-counted
                 "Date": "Jun 01 2026",
                 "Text": "Brief of respondent Northampton County in opposition filed. VIDED.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/second.pdf",
+                    }
                 ],
             },
         ]
     }
     refs = select_documents(payload)
     assert [(r.kind, r.url) for r in refs] == [
-        (KIND_BRIEF_IN_OPPOSITION, "https://example/lead.pdf"),
-        (KIND_BRIEF_IN_OPPOSITION, "https://example/second.pdf"),
+        (KIND_BRIEF_IN_OPPOSITION, "https://www.supremecourt.gov/lead.pdf"),
+        (KIND_BRIEF_IN_OPPOSITION, "https://www.supremecourt.gov/second.pdf"),
     ]
 
 
@@ -439,22 +485,30 @@ def test_fetch_case_documents_combines_multiple_bios() -> None:
                 "Date": "Jun 01 2026",
                 "Text": "Brief of respondents Bette Eakin, et al. in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/lead.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/lead.pdf",
+                    }
                 ],
             },
             {
                 "Date": "Jun 01 2026",
                 "Text": "Brief of respondent Northampton County in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/second.pdf",
+                    }
                 ],
             },
         ]
     }
     served = {
-        "https://example/petition.pdf": _pdf("QUESTION PRESENTED Whether X. PARTIES TO THE Acme."),
-        "https://example/lead.pdf": _pdf("Lead respondents say deny."),
-        "https://example/second.pdf": _pdf("Northampton also says deny."),
+        "https://www.supremecourt.gov/petition.pdf": _pdf(
+            "QUESTION PRESENTED Whether X. PARTIES TO THE Acme."
+        ),
+        "https://www.supremecourt.gov/lead.pdf": _pdf("Lead respondents say deny."),
+        "https://www.supremecourt.gov/second.pdf": _pdf("Northampton also says deny."),
     }
     with _doc_client(served) as client:
         documents = fetch_case_documents(
@@ -472,8 +526,14 @@ def test_fetch_case_documents_combines_multiple_bios() -> None:
     # Each block is headed by its docket entry text, so the respondents are named.
     assert "Bette Eakin" in bios[0].text and "Northampton County" in bios[0].text
     # Idempotency key is the canonical URL set, so an unchanged set is skipped.
-    assert bios[0].url == "https://example/lead.pdf|https://example/second.pdf"
-    stored = {KIND_BRIEF_IN_OPPOSITION: bios[0].url, KIND_PETITION: "https://example/petition.pdf"}
+    assert (
+        bios[0].url
+        == "https://www.supremecourt.gov/lead.pdf|https://www.supremecourt.gov/second.pdf"
+    )
+    stored = {
+        KIND_BRIEF_IN_OPPOSITION: bios[0].url,
+        KIND_PETITION: "https://www.supremecourt.gov/petition.pdf",
+    }
     with _doc_client(served) as client:
         again = fetch_case_documents(
             client,
@@ -495,14 +555,20 @@ def _two_bio_payload(second_date: str) -> dict[str, object]:
                 "Date": "Jun 01 2026",
                 "Text": "Brief of respondents Bette Eakin, et al. in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/lead.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/lead.pdf",
+                    }
                 ],
             },
             {
                 "Date": second_date,
                 "Text": "Brief of respondent Northampton County in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/second.pdf",
+                    }
                 ],
             },
         ]
@@ -515,9 +581,11 @@ def test_combined_bio_is_dated_by_its_earliest_brief_and_survives_a_later_cutoff
     # last constituent instead, a cutoff falling between the two drops the
     # opposition entirely — the lead respondent's brief with it.
     served = {
-        "https://example/petition.pdf": _pdf("QUESTION PRESENTED Whether X. PARTIES TO THE Acme."),
-        "https://example/lead.pdf": _pdf("Lead respondents say deny."),
-        "https://example/second.pdf": _pdf("Northampton also says deny."),
+        "https://www.supremecourt.gov/petition.pdf": _pdf(
+            "QUESTION PRESENTED Whether X. PARTIES TO THE Acme."
+        ),
+        "https://www.supremecourt.gov/lead.pdf": _pdf("Lead respondents say deny."),
+        "https://www.supremecourt.gov/second.pdf": _pdf("Northampton also says deny."),
     }
     with _doc_client(served) as client:
         documents = fetch_case_documents(
@@ -543,7 +611,9 @@ def test_combined_bio_is_dated_by_a_brief_it_actually_carries() -> None:
     # The date has to describe the text the row holds: with the lead brief
     # unfetchable, the row carries the later brief alone and must be placed at
     # the later date, or a cell cut before that filing would read it.
-    with _doc_client({"https://example/second.pdf": _pdf("Northampton says deny.")}) as client:
+    with _doc_client(
+        {"https://www.supremecourt.gov/second.pdf": _pdf("Northampton says deny.")}
+    ) as client:
         documents = fetch_case_documents(
             client,
             "scotus/9025000100",
@@ -563,8 +633,8 @@ def test_combined_bio_falls_back_to_a_date_it_cannot_order() -> None:
     # no constituent parseable the row keeps the first date string it was given
     # and is placed on `fetched_at`, exactly as an unparseable single brief is.
     served = {
-        "https://example/lead.pdf": _pdf("Lead respondents say deny."),
-        "https://example/second.pdf": _pdf("Northampton also says deny."),
+        "https://www.supremecourt.gov/lead.pdf": _pdf("Lead respondents say deny."),
+        "https://www.supremecourt.gov/second.pdf": _pdf("Northampton also says deny."),
     }
     payload = _two_bio_payload("Aug 20 2026")
     entries = payload["ProceedingsandOrder"]
@@ -596,20 +666,26 @@ def test_fetch_case_documents_retries_a_bio_that_failed_to_fetch() -> None:
                 "Date": "Jun 01 2026",
                 "Text": "Brief of respondents Bette Eakin, et al. in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/lead.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/lead.pdf",
+                    }
                 ],
             },
             {
                 "Date": "Jun 02 2026",
                 "Text": "Brief of respondent Northampton County in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/second.pdf",
+                    }
                 ],
             },
         ]
     }
     # First poll: only the lead brief is fetchable.
-    with _doc_client({"https://example/lead.pdf": _pdf("Lead says deny.")}) as client:
+    with _doc_client({"https://www.supremecourt.gov/lead.pdf": _pdf("Lead says deny.")}) as client:
         first = fetch_case_documents(
             client,
             "scotus/9025000100",
@@ -619,14 +695,14 @@ def test_fetch_case_documents_retries_a_bio_that_failed_to_fetch() -> None:
             today=date(2026, 7, 10),
         )
     bio1 = next(d for d in first if d.kind == KIND_BRIEF_IN_OPPOSITION)
-    assert bio1.url == "https://example/lead.pdf"  # keyed on what was fetched
+    assert bio1.url == "https://www.supremecourt.gov/lead.pdf"  # keyed on what was fetched
     assert "Northampton" not in bio1.text
 
     # Next poll: the second brief is now available. The partial stored key !=
     # the selected set, so the BIO re-fetches and picks up the missing brief.
     served = {
-        "https://example/lead.pdf": _pdf("Lead says deny."),
-        "https://example/second.pdf": _pdf("Northampton says deny too."),
+        "https://www.supremecourt.gov/lead.pdf": _pdf("Lead says deny."),
+        "https://www.supremecourt.gov/second.pdf": _pdf("Northampton says deny too."),
     }
     with _doc_client(served) as client:
         second = fetch_case_documents(
@@ -638,7 +714,9 @@ def test_fetch_case_documents_retries_a_bio_that_failed_to_fetch() -> None:
             today=date(2026, 7, 11),
         )
     bio2 = next(d for d in second if d.kind == KIND_BRIEF_IN_OPPOSITION)
-    assert bio2.url == "https://example/lead.pdf|https://example/second.pdf"
+    assert (
+        bio2.url == "https://www.supremecourt.gov/lead.pdf|https://www.supremecourt.gov/second.pdf"
+    )
     assert "Northampton says deny too." in bio2.text
 
 
@@ -650,7 +728,9 @@ def test_fetch_case_documents_retries_a_bio_that_failed_to_fetch() -> None:
 _MERITS_PETITION_ENTRY = {
     "Date": "Dec 17 2025",
     "Text": "Petition for a writ of certiorari filed. (Response due January 21, 2026)",
-    "Links": [{"Description": "Petition", "DocumentUrl": "https://example/petition.pdf"}],
+    "Links": [
+        {"Description": "Petition", "DocumentUrl": "https://www.supremecourt.gov/petition.pdf"}
+    ],
 }
 _GRANT_ENTRY = {"Date": "Apr 06 2026", "Text": "Petition GRANTED.", "Links": []}
 
@@ -678,9 +758,11 @@ def _granted_payload(*entries: dict[str, object]) -> dict[str, object]:
     ],
 )
 def test_select_documents_takes_the_petitioner_merits_brief(entry_text: str) -> None:
-    payload = _granted_payload(_entry("Jun 01 2026", entry_text, url="https://example/brief.pdf"))
+    payload = _granted_payload(
+        _entry("Jun 01 2026", entry_text, url="https://www.supremecourt.gov/brief.pdf")
+    )
     refs = {r.kind: r.url for r in select_documents(payload)}
-    assert refs.get(KIND_MERITS_BRIEF_PETITIONER) == "https://example/brief.pdf"
+    assert refs.get(KIND_MERITS_BRIEF_PETITIONER) == "https://www.supremecourt.gov/brief.pdf"
 
 
 @pytest.mark.parametrize(
@@ -694,9 +776,11 @@ def test_select_documents_takes_the_petitioner_merits_brief(entry_text: str) -> 
     ],
 )
 def test_select_documents_takes_the_respondent_merits_brief(entry_text: str) -> None:
-    payload = _granted_payload(_entry("Sep 15 2026", entry_text, url="https://example/brief.pdf"))
+    payload = _granted_payload(
+        _entry("Sep 15 2026", entry_text, url="https://www.supremecourt.gov/brief.pdf")
+    )
     refs = {r.kind: r.url for r in select_documents(payload)}
-    assert refs.get(KIND_MERITS_BRIEF_RESPONDENT) == "https://example/brief.pdf"
+    assert refs.get(KIND_MERITS_BRIEF_RESPONDENT) == "https://www.supremecourt.gov/brief.pdf"
     # And the cert slot does not swallow it, which is what the bound is for.
     assert KIND_BRIEF_IN_OPPOSITION not in refs
 
@@ -714,7 +798,9 @@ def test_select_documents_takes_the_respondent_merits_brief(entry_text: str) -> 
     ],
 )
 def test_select_documents_merits_arms_exclude_non_adversarial_briefs(entry_text: str) -> None:
-    payload = _granted_payload(_entry("Jun 01 2026", entry_text, url="https://example/brief.pdf"))
+    payload = _granted_payload(
+        _entry("Jun 01 2026", entry_text, url="https://www.supremecourt.gov/brief.pdf")
+    )
     refs = {r.kind for r in select_documents(payload)}
     assert KIND_MERITS_BRIEF_PETITIONER not in refs
     assert KIND_MERITS_BRIEF_RESPONDENT not in refs
@@ -727,14 +813,14 @@ def test_select_documents_reads_one_respondent_phrasing_at_two_stages() -> None:
     payload = {
         "ProceedingsandOrder": [
             _MERITS_PETITION_ENTRY,
-            _entry("Mar 06 2026", words, url="https://example/response.pdf"),
+            _entry("Mar 06 2026", words, url="https://www.supremecourt.gov/response.pdf"),
             _GRANT_ENTRY,
-            _entry("Jul 13 2026", words, url="https://example/merits.pdf"),
+            _entry("Jul 13 2026", words, url="https://www.supremecourt.gov/merits.pdf"),
         ]
     }
     refs = {r.kind: r.url for r in select_documents(payload)}
-    assert refs[KIND_BRIEF_IN_OPPOSITION] == "https://example/response.pdf"
-    assert refs[KIND_MERITS_BRIEF_RESPONDENT] == "https://example/merits.pdf"
+    assert refs[KIND_BRIEF_IN_OPPOSITION] == "https://www.supremecourt.gov/response.pdf"
+    assert refs[KIND_MERITS_BRIEF_RESPONDENT] == "https://www.supremecourt.gov/merits.pdf"
 
 
 def test_select_documents_keeps_a_grant_day_opposition_brief() -> None:
@@ -746,7 +832,7 @@ def test_select_documents_keeps_a_grant_day_opposition_brief() -> None:
             _entry(
                 "Apr 06 2026",
                 "Brief of respondent Washington in opposition filed.",
-                url="https://example/bio.pdf",
+                url="https://www.supremecourt.gov/bio.pdf",
             ),
             _GRANT_ENTRY,
         ]
@@ -765,7 +851,7 @@ def test_select_documents_takes_no_merits_brief_without_a_grant() -> None:
             _entry(
                 "Jul 13 2026",
                 "Brief of respondent United States Congress filed.",
-                url="https://example/response.pdf",
+                url="https://www.supremecourt.gov/response.pdf",
             ),
         ]
     }
@@ -782,7 +868,7 @@ def test_select_documents_merits_arms_take_the_main_document_only() -> None:
         _entry(
             "Jun 01 2026",
             "Brief of petitioner Floyd Johnson filed.",
-            url="https://example/service.pdf",
+            url="https://www.supremecourt.gov/service.pdf",
             label="Proof of Service",
         )
     )
@@ -792,33 +878,39 @@ def test_select_documents_merits_arms_take_the_main_document_only() -> None:
 def test_select_documents_takes_each_side_once_in_docket_order() -> None:
     payload = _granted_payload(
         _entry(
-            "Jun 01 2026", "Brief of petitioner Floyd Johnson filed.", url="https://example/one.pdf"
+            "Jun 01 2026",
+            "Brief of petitioner Floyd Johnson filed.",
+            url="https://www.supremecourt.gov/one.pdf",
         ),
         _entry(  # the reprint that rides the joint appendix is not a second brief
             "Jun 20 2026",
             "Brief of petitioner Floyd Johnson (reprinted), per filing of joint appendix, filed.",
-            url="https://example/two.pdf",
+            url="https://www.supremecourt.gov/two.pdf",
         ),
     )
     refs = {r.kind: r.url for r in select_documents(payload)}
-    assert refs[KIND_MERITS_BRIEF_PETITIONER] == "https://example/one.pdf"
+    assert refs[KIND_MERITS_BRIEF_PETITIONER] == "https://www.supremecourt.gov/one.pdf"
 
 
 def test_fetch_case_documents_stores_each_merits_brief_under_its_own_kind() -> None:
     payload = _granted_payload(
         _entry(
-            "Jun 01 2026", "Brief of petitioner Floyd Johnson filed.", url="https://example/pet.pdf"
+            "Jun 01 2026",
+            "Brief of petitioner Floyd Johnson filed.",
+            url="https://www.supremecourt.gov/pet.pdf",
         ),
         _entry(
             "Jul 13 2026",
             "Brief of respondent United States Congress filed.",
-            url="https://example/resp.pdf",
+            url="https://www.supremecourt.gov/resp.pdf",
         ),
     )
     served = {
-        "https://example/petition.pdf": _pdf("QUESTION PRESENTED Whether X. PARTIES TO THE Acme."),
-        "https://example/pet.pdf": _pdf("Petitioner says reverse."),
-        "https://example/resp.pdf": _pdf("Respondent says affirm."),
+        "https://www.supremecourt.gov/petition.pdf": _pdf(
+            "QUESTION PRESENTED Whether X. PARTIES TO THE Acme."
+        ),
+        "https://www.supremecourt.gov/pet.pdf": _pdf("Petitioner says reverse."),
+        "https://www.supremecourt.gov/resp.pdf": _pdf("Respondent says affirm."),
     }
     with _doc_client(served) as client:
         documents = fetch_case_documents(
@@ -832,8 +924,8 @@ def test_fetch_case_documents_stores_each_merits_brief_under_its_own_kind() -> N
     by_kind = {d.kind: d for d in documents}
     # One row per side, one URL each — no pipe-join, so each brief is extracted
     # under its own cap rather than sharing one with the other side's.
-    assert by_kind[KIND_MERITS_BRIEF_PETITIONER].url == "https://example/pet.pdf"
-    assert by_kind[KIND_MERITS_BRIEF_RESPONDENT].url == "https://example/resp.pdf"
+    assert by_kind[KIND_MERITS_BRIEF_PETITIONER].url == "https://www.supremecourt.gov/pet.pdf"
+    assert by_kind[KIND_MERITS_BRIEF_RESPONDENT].url == "https://www.supremecourt.gov/resp.pdf"
     assert "Petitioner says reverse." in by_kind[KIND_MERITS_BRIEF_PETITIONER].text
     assert "Respondent says affirm." in by_kind[KIND_MERITS_BRIEF_RESPONDENT].text
     # Each is placed by its own filing date, so a grant-moment cell reads neither.
@@ -841,6 +933,167 @@ def test_fetch_case_documents_stores_each_merits_brief_under_its_own_kind() -> N
         KIND_PETITION,
         KIND_QUESTIONS_PRESENTED,
     ]
+
+
+# --- merits replies ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    [
+        # Real post-grant entries from cases carrying committed merits cells.
+        "Reply of petitioner Michael Salazar filed.",
+        "Reply of petitioners Winston R. Anderson, et al. filed.",
+        "Reply of petitioner Floyd Johnson filed.  (Distributed)",
+        "Reply Brief of petitioner Acme Corp. filed. (Distributed)",
+    ],
+)
+def test_select_documents_takes_the_petitioner_merits_reply(entry_text: str) -> None:
+    payload = _granted_payload(
+        _entry("Aug 12 2026", entry_text, url="https://www.supremecourt.gov/reply.pdf")
+    )
+    refs = {r.kind: r.url for r in select_documents(payload)}
+    assert refs.get(KIND_MERITS_REPLY_PETITIONER) == "https://www.supremecourt.gov/reply.pdf"
+
+
+def test_select_documents_takes_the_respondent_merits_reply() -> None:
+    payload = _granted_payload(
+        _entry(
+            "Aug 12 2026",
+            "Reply of respondent New Jersey Transit Corporation filed.  VIDED. (Distributed)",
+            url="https://www.supremecourt.gov/reply.pdf",
+        )
+    )
+    refs = {r.kind: r.url for r in select_documents(payload)}
+    assert refs.get(KIND_MERITS_REPLY_RESPONDENT) == "https://www.supremecourt.gov/reply.pdf"
+    assert KIND_MERITS_BRIEF_RESPONDENT not in refs
+
+
+def test_select_documents_takes_no_cert_stage_reply() -> None:
+    """The bound that matters most: a reply to the BIO is worded identically.
+
+    It is filed on a large share of all petitions, so an unbounded arm would
+    store one as merits advocacy on almost every docket the Court ever sees.
+    """
+    payload = {
+        "ProceedingsandOrder": [
+            _MERITS_PETITION_ENTRY,
+            _entry(
+                "Mar 06 2026",
+                "Reply of petitioner Michael Salazar filed.  (Distributed)",
+                url="https://www.supremecourt.gov/cert-reply.pdf",
+            ),
+            _GRANT_ENTRY,
+        ]
+    }
+    refs = {r.kind for r in select_documents(payload)}
+    assert KIND_MERITS_REPLY_PETITIONER not in refs
+    assert KIND_MERITS_REPLY_RESPONDENT not in refs
+
+
+@pytest.mark.parametrize(
+    "entry_text",
+    [
+        "Reply on motion to intervene filed. (Distributed)",
+        "Reply in support of motion of Missouri, et al. to intervene filed.",
+        # The partied collateral-motion form, which the anchor does reach: left
+        # unselected so it cannot take the side's slot from its real reply.
+        "Reply of petitioners in support of motion for divided argument filed.",
+        "Reply of AT&T, Inc. and Verizon Communications Inc. filed (April 13, 2026).",
+        "Reply letter (No. 21-1596) filed.",
+        "Reply of respondent United States in support of petitioner filed.",
+    ],
+)
+def test_select_documents_reply_arms_exclude_what_is_not_a_sides_reply(entry_text: str) -> None:
+    payload = _granted_payload(
+        _entry("Aug 12 2026", entry_text, url="https://www.supremecourt.gov/x.pdf")
+    )
+    refs = {r.kind for r in select_documents(payload)}
+    assert KIND_MERITS_REPLY_PETITIONER not in refs
+    assert KIND_MERITS_REPLY_RESPONDENT not in refs
+
+
+def test_select_documents_reply_arms_take_the_main_document_only() -> None:
+    # A reply posts its certificate of word count and proof of service beside the
+    # filing, exactly as an opening brief does.
+    payload = _granted_payload(
+        _entry(
+            "Aug 12 2026",
+            "Reply of petitioner Floyd Johnson filed.",
+            url="https://www.supremecourt.gov/wordcount.pdf",
+            label="Certificate of Word Count",
+        )
+    )
+    assert KIND_MERITS_REPLY_PETITIONER not in {r.kind for r in select_documents(payload)}
+
+
+def test_fetch_case_documents_stores_the_reply_under_its_own_cap() -> None:
+    """Four merits rows, four URLs, four cap budgets — nothing pipe-joined."""
+    payload = _granted_payload(
+        _entry(
+            "Jun 01 2026",
+            "Brief of petitioner Floyd Johnson filed.",
+            url="https://www.supremecourt.gov/pet.pdf",
+        ),
+        _entry(
+            "Jul 13 2026",
+            "Brief of respondent United States Congress filed.",
+            url="https://www.supremecourt.gov/resp.pdf",
+        ),
+        _entry(
+            "Aug 12 2026",
+            "Reply of petitioner Floyd Johnson filed.  (Distributed)",
+            url="https://www.supremecourt.gov/reply.pdf",
+        ),
+    )
+    served = {
+        "https://www.supremecourt.gov/petition.pdf": _pdf(
+            "QUESTION PRESENTED Whether X. PARTIES TO THE Acme."
+        ),
+        "https://www.supremecourt.gov/pet.pdf": _pdf("Petitioner says reverse."),
+        "https://www.supremecourt.gov/resp.pdf": _pdf("Respondent says affirm."),
+        "https://www.supremecourt.gov/reply.pdf": _pdf("Petitioner answers the answer."),
+    }
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 8, 20),
+        )
+    by_kind = {d.kind: d for d in documents}
+    assert by_kind[KIND_MERITS_REPLY_PETITIONER].url == "https://www.supremecourt.gov/reply.pdf"
+    assert "Petitioner answers the answer." in by_kind[KIND_MERITS_REPLY_PETITIONER].text
+    # And the reply is placed by its own filing date, so a cell taken at the
+    # respondent's brief reads the openings and not the last word.
+    assert KIND_MERITS_REPLY_PETITIONER not in {
+        d.kind for d in documents_before(list(by_kind.values()), date(2026, 7, 14))
+    }
+
+
+def test_merits_entry_matched_reads_the_entry_without_the_stage_bound() -> None:
+    """The gap scan's floor test: is the filing on the docket at all.
+
+    Text only and deliberately so — a docket whose grant cannot be dated selects
+    no merits filing however it is worded, and reading that as "the entry is
+    there, nothing fetchable came back" keeps it off the selector-blindness alarm.
+    """
+    payload = {
+        "ProceedingsandOrder": [
+            _MERITS_PETITION_ENTRY,  # no grant entry at all
+            _entry(
+                "Jun 01 2026",
+                "Brief of petitioner Floyd Johnson filed.",
+                url="https://www.supremecourt.gov/pet.pdf",
+            ),
+        ]
+    }
+    assert merits_entry_matched(payload, kind=KIND_MERITS_BRIEF_PETITIONER)
+    assert not merits_entry_matched(payload, kind=KIND_MERITS_BRIEF_RESPONDENT)
+    # And a kind that opens a docket is not this reader's to answer for.
+    assert not merits_entry_matched(payload, kind=KIND_PETITION)
 
 
 # --- extraction -------------------------------------------------------------------
@@ -1190,11 +1443,11 @@ def _doc_client(served: dict[str, bytes]) -> SupremeCourtClient:
 
 def test_fetch_case_documents_fetches_extracts_and_derives_qp() -> None:
     served = {
-        "https://example/petition.pdf": _pdf(
+        "https://www.supremecourt.gov/petition.pdf": _pdf(
             "QUESTION PRESENTED Whether the agency exceeded its statutory authority. "
             "PARTIES TO THE PROCEEDING Acme."
         ),
-        "https://example/bio.pdf": _pdf("The petition should be denied because Y."),
+        "https://www.supremecourt.gov/bio.pdf": _pdf("The petition should be denied because Y."),
     }
     with _doc_client(served) as client:
         documents = fetch_case_documents(
@@ -1216,7 +1469,7 @@ def test_fetch_case_documents_fetches_extracts_and_derives_qp() -> None:
 
 
 def test_fetch_case_documents_skips_stored_urls_and_missing() -> None:
-    served = {"https://example/bio.pdf": _pdf("BIO text.")}
+    served = {"https://www.supremecourt.gov/bio.pdf": _pdf("BIO text.")}
     with _doc_client(served) as client:
         documents = fetch_case_documents(
             client,
@@ -1224,7 +1477,7 @@ def test_fetch_case_documents_skips_stored_urls_and_missing() -> None:
             _PAYLOAD,
             # Petition already stored at the same URL -> not re-fetched (and no
             # QP re-derivation); the BIO is new.
-            stored_urls={KIND_PETITION: "https://example/petition.pdf"},
+            stored_urls={KIND_PETITION: "https://www.supremecourt.gov/petition.pdf"},
             char_cap=10_000,
             today=date(2026, 7, 10),
         )
@@ -1268,22 +1521,31 @@ def test_fetch_case_documents_records_every_dropped_document(
                 "Date": "Jun 01 2026",
                 "Text": "Brief of respondents Bette Eakin, et al. in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/lead.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/lead.pdf",
+                    }
                 ],
             },
             {
                 "Date": "Jun 02 2026",
                 "Text": "Brief of respondent Northampton County in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/second.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/second.pdf",
+                    }
                 ],
             },
         ]
     }
     reset_document_fetch_losses()
     client = _failing_doc_client(
-        unserved={"https://example/petition.pdf", "https://example/second.pdf"},
-        raising={"https://example/lead.pdf"},
+        unserved={
+            "https://www.supremecourt.gov/petition.pdf",
+            "https://www.supremecourt.gov/second.pdf",
+        },
+        raising={"https://www.supremecourt.gov/lead.pdf"},
     )
     with client, caplog.at_level(logging.WARNING, logger="fedcourtsai.pipeline.documents"):
         documents = fetch_case_documents(
@@ -1305,7 +1567,7 @@ def test_fetch_case_documents_records_every_dropped_document(
     # And the run log carries it, which is the half that survives an ephemeral
     # runner — nothing there reads a counter.
     logged = "\n".join(record.getMessage() for record in caplog.records)
-    assert "https://example/petition.pdf" in logged
+    assert "https://www.supremecourt.gov/petition.pdf" in logged
     assert "unavailable" in logged and "http-error" in logged
     assert "2 selected brief(s), none fetched" in logged
     assert logged.count("scotus/9025000100") == 4
@@ -1315,13 +1577,158 @@ def test_fetch_case_documents_records_every_dropped_document(
     assert document_fetch_losses().records == 0
 
 
+def test_fetch_case_documents_records_an_off_host_redirect(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A link that resolves off supremecourt.gov is its own loss, not a transport
+    # failure: the client refuses the hop unfollowed, so no document is stored
+    # and the ledger says why — a document whose bytes would have come from a
+    # host the channel is not scoped to, which reads differently from an
+    # upstream that failed to serve and is not repaired by re-attempting it.
+    court_url = "https://www.supremecourt.gov/DocketPDF/25/25-100/petition.pdf"
+    off_host = "https://evil.example/petition.pdf"
+    payload = {
+        "ProceedingsandOrder": [
+            {
+                "Date": "May 01 2026",
+                "Text": "Petition for a writ of certiorari filed.",
+                "Links": [{"Description": "Petition", "DocumentUrl": court_url}],
+            }
+        ]
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert str(request.url) == court_url  # the off-host URL is never fetched
+        return httpx.Response(302, headers={"Location": off_host})
+
+    inner = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        headers={"User-Agent": supremecourt.BROWSER_USER_AGENT},
+    )
+    reset_document_fetch_losses()
+    client = SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None)
+    with client, caplog.at_level(logging.WARNING, logger="fedcourtsai.pipeline.documents"):
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 7, 10),
+        )
+    assert documents == []
+    losses = document_fetch_losses()
+    assert losses.off_host == 1
+    assert losses.http_error == 0  # counted apart, though the refusal is one
+    assert losses.records == 1
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "off-host" in logged
+    assert off_host in logged  # where the hop pointed, which is the diagnosis
+    reset_document_fetch_losses()
+
+
+def test_fetch_case_documents_records_a_link_that_is_not_on_the_court_host(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # The same loss by the other route: `DocumentUrl` is upstream text and can
+    # name any host, so a link that was never the Court's is refused before the
+    # request rather than fetched and filed. Nothing reaches the transport.
+    off_host = "https://evil.example/petition.pdf"
+    payload = {
+        "ProceedingsandOrder": [
+            {
+                "Date": "May 01 2026",
+                "Text": "Petition for a writ of certiorari filed.",
+                "Links": [{"Description": "Petition", "DocumentUrl": off_host}],
+            }
+        ]
+    }
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        return httpx.Response(200, content=_pdf("Not the Court's petition."))
+
+    inner = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        headers={"User-Agent": supremecourt.BROWSER_USER_AGENT},
+    )
+    reset_document_fetch_losses()
+    client = SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None)
+    with client, caplog.at_level(logging.WARNING, logger="fedcourtsai.pipeline.documents"):
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            payload,
+            stored_urls={},
+            char_cap=10_000,
+            today=date(2026, 7, 10),
+        )
+    assert documents == []
+    assert requested == []
+    losses = document_fetch_losses()
+    assert losses.off_host == 1
+    assert losses.records == 1
+    assert off_host in "\n".join(record.getMessage() for record in caplog.records)
+    reset_document_fetch_losses()
+
+
+def test_fetch_case_documents_keeps_one_loss_to_one_log_line(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # A `DocumentUrl` has passed no parser by the time it is logged, and the
+    # runner reads a log line as a command. One record stays one line, whatever
+    # upstream put in the string.
+    payload = {
+        "ProceedingsandOrder": [
+            {
+                "Date": "May 01 2026",
+                "Text": "Petition for a writ of certiorari filed.",
+                "Links": [
+                    {
+                        "Description": "Petition",
+                        "DocumentUrl": "https://evil.example/a.pdf\n::add-mask::secret",
+                    }
+                ],
+            }
+        ]
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover - never called
+        raise AssertionError("the refused URL must not be requested")
+
+    inner = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        headers={"User-Agent": supremecourt.BROWSER_USER_AGENT},
+    )
+    reset_document_fetch_losses()
+    client = SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None)
+    with client, caplog.at_level(logging.WARNING, logger="fedcourtsai.pipeline.documents"):
+        assert (
+            fetch_case_documents(
+                client,
+                "scotus/9025000100",
+                payload,
+                stored_urls={},
+                char_cap=10_000,
+                today=date(2026, 7, 10),
+            )
+            == []
+        )
+    assert document_fetch_losses().off_host == 1
+    assert [record.getMessage() for record in caplog.records if "\n" in record.getMessage()] == []
+    reset_document_fetch_losses()
+
+
 def test_fetch_case_documents_records_nothing_on_a_clean_fetch() -> None:
     # The counter must stay a signal: a pass that lost nothing records nothing,
     # including the idempotency skips, which are not losses.
     reset_document_fetch_losses()
     served = {
-        "https://example/petition.pdf": _pdf("QUESTION PRESENTED Whether X. PARTIES TO THE Acme."),
-        "https://example/bio.pdf": _pdf("The petition should be denied."),
+        "https://www.supremecourt.gov/petition.pdf": _pdf(
+            "QUESTION PRESENTED Whether X. PARTIES TO THE Acme."
+        ),
+        "https://www.supremecourt.gov/bio.pdf": _pdf("The petition should be denied."),
     }
     with _doc_client(served) as client:
         fetch_case_documents(
@@ -1338,7 +1745,7 @@ def test_fetch_case_documents_records_nothing_on_a_clean_fetch() -> None:
 def test_fetch_case_documents_records_a_docket_that_selected_nothing(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # The pre-selection loss: the three fetch reasons are raised inside the
+    # The pre-selection loss: the four fetch reasons are raised inside the
     # loops over `select_documents`' output, so a docket the pass was asked
     # about and selected nothing on leaves no trace among them — which would
     # leave a case that reaches prediction with no document indistinguishable
@@ -1419,7 +1826,7 @@ def test_fetch_case_documents_derives_no_questions_from_an_application() -> None
     reset_document_fetch_losses()
     payload = _opening_payload(_APPLICATION_ENTRY, _APPLICATION_LINK)
     served = {
-        "https://example/application.pdf": _pdf(
+        "https://www.supremecourt.gov/application.pdf": _pdf(
             "QUESTION PRESENTED Whether the mandate should be stayed. "
             "PARTIES TO THE PROCEEDING Acme Corp."
         )
@@ -1446,18 +1853,20 @@ def test_documents_roundtrip_latest_wins(tmp_path: Path) -> None:
     first = corpus.CaseDocument(
         case_id="scotus/1",
         kind=KIND_BRIEF_IN_OPPOSITION,
-        url="https://example/bio.pdf",
+        url="https://www.supremecourt.gov/bio.pdf",
         fetched_at=date(2026, 7, 9),
         text="old",
     )
-    replacement = first.model_copy(update={"url": "https://example/bio2.pdf", "text": "new"})
+    replacement = first.model_copy(
+        update={"url": "https://www.supremecourt.gov/bio2.pdf", "text": "new"}
+    )
     with corpus.connect(db) as conn:
         corpus.upsert_documents(conn, [first])
         corpus.upsert_documents(conn, [replacement])
         stored = corpus.documents_for_case(conn, "scotus/1")
         assert corpus.documents_for_case(conn, "scotus/2") == []
     assert len(stored) == 1
-    assert stored[0].text == "new" and stored[0].url == "https://example/bio2.pdf"
+    assert stored[0].text == "new" and stored[0].url == "https://www.supremecourt.gov/bio2.pdf"
 
 
 def test_the_document_existence_probe_agrees_with_the_full_read(tmp_path: Path) -> None:
@@ -1474,7 +1883,7 @@ def test_the_document_existence_probe_agrees_with_the_full_read(tmp_path: Path) 
                 corpus.CaseDocument(
                     case_id="scotus/1",
                     kind=KIND_BRIEF_IN_OPPOSITION,
-                    url="https://example/bio.pdf",
+                    url="https://www.supremecourt.gov/bio.pdf",
                     fetched_at=date(2026, 7, 9),
                     text="stored",
                 )
@@ -1508,7 +1917,7 @@ def test_provision_snapshot_materializes_documents(fixture_corpus: FixtureCorpus
                 corpus.CaseDocument(
                     case_id="scotus/305",
                     kind=KIND_QUESTIONS_PRESENTED,
-                    url="https://example/petition.pdf",
+                    url="https://www.supremecourt.gov/petition.pdf",
                     fetched_at=date(2026, 7, 10),
                     text="Whether X.",
                 )
@@ -1536,7 +1945,7 @@ def test_provision_snapshot_flags_a_blank_extraction(fixture_corpus: FixtureCorp
                 corpus.CaseDocument(
                     case_id="scotus/305",
                     kind=KIND_PETITION,
-                    url="https://example/scanned.pdf",
+                    url="https://www.supremecourt.gov/scanned.pdf",
                     fetched_at=date(2026, 7, 10),
                     pages=10,
                     text="   \n  \n",  # scanned, no text layer -> whitespace only
@@ -1566,7 +1975,7 @@ def test_provision_snapshot_carries_the_ocr_derivation_marker(
                 corpus.CaseDocument(
                     case_id="scotus/305",
                     kind=KIND_PETITION,
-                    url="https://example/scanned.pdf",
+                    url="https://www.supremecourt.gov/scanned.pdf",
                     fetched_at=date(2026, 7, 10),
                     pages=10,
                     ocr_derived=True,
@@ -1575,7 +1984,7 @@ def test_provision_snapshot_carries_the_ocr_derivation_marker(
                 corpus.CaseDocument(
                     case_id="scotus/305",
                     kind=KIND_BRIEF_IN_OPPOSITION,
-                    url="https://example/bio.pdf",
+                    url="https://www.supremecourt.gov/bio.pdf",
                     fetched_at=date(2026, 7, 10),
                     pages=8,
                     text="The petition should be denied.",
@@ -1606,7 +2015,10 @@ def test_select_documents_real_bio_caption_and_amicus_excluded() -> None:
                 "Date": "Jan 20 2023",
                 "Text": "Brief amici curiae of States in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/amicus.pdf"}
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/amicus.pdf",
+                    }
                 ],
             },
             {
@@ -1614,10 +2026,13 @@ def test_select_documents_real_bio_caption_and_amicus_excluded() -> None:
                 "Text": "Brief of respondents Gina Raimondo, Secretary of Commerce, "
                 "et al. in opposition filed.",
                 "Links": [
-                    {"Description": "Main Document", "DocumentUrl": "https://example/bio.pdf"},
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/bio.pdf",
+                    },
                     {
                         "Description": "Certificate of Word Count",
-                        "DocumentUrl": "https://example/cert.pdf",
+                        "DocumentUrl": "https://www.supremecourt.gov/cert.pdf",
                     },
                 ],
             },
@@ -1625,7 +2040,7 @@ def test_select_documents_real_bio_caption_and_amicus_excluded() -> None:
     }
     refs = select_documents(payload)
     assert [(r.kind, r.url) for r in refs] == [
-        (KIND_BRIEF_IN_OPPOSITION, "https://example/bio.pdf")
+        (KIND_BRIEF_IN_OPPOSITION, "https://www.supremecourt.gov/bio.pdf")
     ]
 
 
@@ -1647,7 +2062,7 @@ def _petition_document(case_id: str, text: str, *, pages: int = 40) -> corpus.Ca
     return corpus.CaseDocument(
         case_id=case_id,
         kind=KIND_PETITION,
-        url=f"https://example/{case_id.rsplit('/', 1)[-1]}.pdf",
+        url=f"https://www.supremecourt.gov/{case_id.rsplit('/', 1)[-1]}.pdf",
         entry_date="Jun 01 2026",
         fetched_at=date(2026, 6, 2),
         pages=pages,
@@ -1659,7 +2074,7 @@ def _bio_document(case_id: str, text: str) -> corpus.CaseDocument:
     return corpus.CaseDocument(
         case_id=case_id,
         kind=KIND_BRIEF_IN_OPPOSITION,
-        url=f"https://example/{case_id.rsplit('/', 1)[-1]}-bio.pdf",
+        url=f"https://www.supremecourt.gov/{case_id.rsplit('/', 1)[-1]}-bio.pdf",
         entry_date="Jul 01 2026",
         fetched_at=date(2026, 7, 2),
         pages=20,
@@ -1671,7 +2086,7 @@ def _application_document(case_id: str, text: str) -> corpus.CaseDocument:
     return corpus.CaseDocument(
         case_id=case_id,
         kind=KIND_APPLICATION,
-        url=f"https://example/{case_id.rsplit('/', 1)[-1]}-application.pdf",
+        url=f"https://www.supremecourt.gov/{case_id.rsplit('/', 1)[-1]}-application.pdf",
         entry_date="Jun 01 2026",
         fetched_at=date(2026, 6, 2),
         pages=45,
@@ -1683,7 +2098,7 @@ def _stored_qp(case_id: str, text: str) -> corpus.CaseDocument:
     return corpus.CaseDocument(
         case_id=case_id,
         kind=KIND_QUESTIONS_PRESENTED,
-        url=f"https://example/{case_id.rsplit('/', 1)[-1]}.pdf",
+        url=f"https://www.supremecourt.gov/{case_id.rsplit('/', 1)[-1]}.pdf",
         entry_date="Jun 01 2026",
         fetched_at=date(2026, 6, 2),
         text=text,
@@ -2071,7 +2486,7 @@ def test_degraded_extraction_provisions_as_an_empty_text_document(
     # `empty_text` — "we derived nothing", never a fragment reading as the
     # question.
     served = {
-        "https://example/petition.pdf": _pdf(
+        "https://www.supremecourt.gov/petition.pdf": _pdf(
             "QUESTIONS PRESENTED i TABLE OF CONTENTS Petitioner is Acme Corp."
         )
     }
@@ -2423,7 +2838,7 @@ def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Pa
                 corpus.CaseDocument(
                     case_id="scotus/14",
                     kind="reply",
-                    url="https://example/14-reply.pdf",
+                    url="https://www.supremecourt.gov/14-reply.pdf",
                     entry_date="Jul 01 2026",
                     fetched_at=date(2026, 7, 2),
                     pages=8,

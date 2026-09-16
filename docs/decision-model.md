@@ -220,9 +220,11 @@ withdrawn cert-signal set failed (`docs/outcome-decomposition.md`). It does **no
 clear the rest, and the gaps are specific: a per-Justice baseline would have to
 be conditioned on what the predictor is shown rather than pooled unconditionally,
 it would have to be weighted for the corpus's legacy denial-subsampled rows, writings
-respecting denial are censored in an open Term, and opinion bodies reach fewer
-than ten corpus rows (the operator-run channel that fills them, `fedcourts
-enrich-opinions`, is scoped to the cert-granted slice and converges only the
+respecting denial are censored in an open Term, and an ingested opinion body has
+set the `has_opinion` bit on 35 of the 1,232 cert-granted rows on the corpus
+blob pulled 2026-09-14 (the
+operator-run channel that fills them, `fedcourts enrich-opinions`, is scoped to
+the cert-granted slice and converges only the
 grants whose opinion cluster it can resolve — by the docket's own links or by
 the case's docket number — so the denial side stays empty by construction) — so a naive implementation would resolve "did
 not write" for all nine on all but a few cases and manufacture a base rate of

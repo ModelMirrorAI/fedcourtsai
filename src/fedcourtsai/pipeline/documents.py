@@ -63,7 +63,7 @@ from .. import corpus
 # `pipeline` at all, so the import closes no cycle — stated as the property
 # rather than as a list of modules, which the next import would falsify.
 from ..matrix import predicted_case_ids
-from ..supremecourt import SupremeCourtClient
+from ..supremecourt import OffHostFetch, SupremeCourtClient
 
 # `_scored_segment` is the salience gate's paid modern-cert predicate, imported
 # rather than restated: the censuses cut their frames with it, and `caption` is
@@ -102,7 +102,12 @@ from .interim_signals import ApplicationKind, application_kind
 # than restated so the selector fetches exactly the filing the merits signal
 # names, and so a change to the reading moves both. Leaf module, like the two
 # above it.
-from .merits_signals import is_petitioner_merits_brief, is_respondent_merits_brief
+from .merits_signals import (
+    is_petitioner_merits_brief,
+    is_petitioner_merits_reply,
+    is_respondent_merits_brief,
+    is_respondent_merits_reply,
+)
 from .prefetch import prefetch_by_case
 
 logger = logging.getLogger(__name__)
@@ -126,17 +131,25 @@ logger = logging.getLogger(__name__)
 # coverage report's application-form count read as a gap that drains rather
 # than a floor that cannot.
 #
-# The two merits briefs are kept **per side**, and each row holds one URL. A
-# granted case's two briefs are the adversarial pair — the argument and the
-# answer to it — and pooling them under one kind would mean either dropping one
-# or pipe-joining both into a single capped extraction, where the second brief's
-# text is cut by however long the first ran. One row per side gives each brief
-# its own cap budget and lets a reader ask for the side it wants.
+# The four merits filings are kept **per side and per round**, and each row
+# holds one URL. A granted case's two opening briefs are the adversarial pair —
+# the argument and the answer to it — and the replies are the last word on each;
+# pooling any of them under one kind would mean either dropping one or
+# pipe-joining several into a single capped extraction, where the later filing's
+# text is cut by however long the earlier one ran. One row apiece gives each
+# filing its own cap budget and lets a reader ask for the one it wants.
+#
+# The reply is its own kind rather than an extension of the brief's, because it
+# is a different document doing a different job: the opening brief states a
+# side's case, the reply answers what the other side actually argued. A cell
+# reading only the openings sees two theories that never meet.
 KIND_PETITION = "petition"
 KIND_APPLICATION = "application"
 KIND_BRIEF_IN_OPPOSITION = "brief-in-opposition"
 KIND_MERITS_BRIEF_PETITIONER = "merits-brief-petitioner"
 KIND_MERITS_BRIEF_RESPONDENT = "merits-brief-respondent"
+KIND_MERITS_REPLY_PETITIONER = "merits-reply-petitioner"
+KIND_MERITS_REPLY_RESPONDENT = "merits-reply-respondent"
 KIND_QUESTIONS_PRESENTED = "questions-presented"
 
 # The proceedings entry whose link carries the case-opening filing on a
@@ -486,12 +499,12 @@ def _is_application_entry(text: str) -> bool:
 def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
     """The fetchable predict-input documents on one docket JSON (pure).
 
-    Five arms, all entry-keyed rather than form-keyed — the payload says which
-    filings it carries, and nothing here needs to be told the docket's form. Two
+    Seven arms, all entry-keyed rather than form-keyed — the payload says which
+    filings it carries, and nothing here needs to be told the docket's form. Five
     of them are additionally **stage**-keyed, on the grant date read off the same
     payload (:func:`cert_signals.cert_grant_date`), because the cert stage and the
-    merits stage spell a party's brief identically and only the date separates
-    them.
+    merits stage spell a party's brief and a party's reply identically and only
+    the date separates them.
 
     - The **case-opening filing** (:data:`_CASE_OPENING_ENTRY_RE`), stored as
       ``petition``: the ordinary cert petition, a petition for certiorari
@@ -524,8 +537,7 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
       certificate of word count and proof of service beside the filing. Per side
       and never combined, so each brief carries one URL and its own extraction
       cap. The first in docket order whose entry posts that link is the opening
-      brief; the reply is a separate entry family ("Reply [Brief] of …") no arm
-      reaches, and the reprint that rides the joint appendix is passed over
+      brief; the reprint that rides the joint appendix is passed over
       because the opening brief precedes it — where the opening brief's own entry
       posts no ``Main Document``, the reprint fills the side instead, which is
       the right degradation. **One per side is the accepted residual**, and it
@@ -533,6 +545,21 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
       respondent groups files several merits briefs, and only the first is
       stored. Combining them is what the per-side kinds exist to avoid, so the
       later groups' briefs are a known loss rather than an oversight.
+    - The **petitioner's reply on the merits**
+      (:func:`merits_signals.is_petitioner_merits_reply`) and the
+      **respondent's** (:func:`~merits_signals.is_respondent_merits_reply`),
+      stored as ``merits-reply-petitioner`` and ``merits-reply-respondent``: a
+      separate entry family ("Reply [Brief] of …") the brief anchors never reach,
+      read on exactly the terms those arms are — one per side, the first in
+      docket order after the grant, ``Main Document`` only, and the same
+      post-grant bound. That bound does more work here than anywhere else in this
+      function: the *cert*-stage reply to a brief in opposition is spelled word
+      for word the same and is a routine filing, so an unbounded arm would store
+      a reply to the BIO as merits advocacy across a large part of the docket
+      stock. Under Rule 25.3 the petitioner is the side that ordinarily
+      replies; the respondent arm reaches the postures where the last word is its
+      own — a cross-petition, or a case the Court appointed an amicus to defend
+      the judgment in.
 
     ``QPLink`` is deliberately never selected: it is generated at grant time and
     leaks the outcome; the questions presented are derived from the petition
@@ -543,6 +570,8 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
     application: DocumentRef | None = None
     merits_petitioner: DocumentRef | None = None
     merits_respondent: DocumentRef | None = None
+    reply_petitioner: DocumentRef | None = None
+    reply_respondent: DocumentRef | None = None
     bios: list[DocumentRef] = []
     seen_bio_urls: set[str] = set()
     for entry in payload.get("ProceedingsandOrder") or []:
@@ -580,27 +609,47 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
             and _is_post_grant(filed, granted_on)
             and is_petitioner_merits_brief(text)
         ):
-            merits_petitioner = _merits_brief_ref(entry, KIND_MERITS_BRIEF_PETITIONER, entry_date)
+            merits_petitioner = _merits_filing_ref(entry, KIND_MERITS_BRIEF_PETITIONER, entry_date)
         elif (
             merits_respondent is None
             and _is_post_grant(filed, granted_on)
             and is_respondent_merits_brief(text)
         ):
-            merits_respondent = _merits_brief_ref(entry, KIND_MERITS_BRIEF_RESPONDENT, entry_date)
+            merits_respondent = _merits_filing_ref(entry, KIND_MERITS_BRIEF_RESPONDENT, entry_date)
+        elif (
+            reply_petitioner is None
+            and _is_post_grant(filed, granted_on)
+            and is_petitioner_merits_reply(text)
+        ):
+            reply_petitioner = _merits_filing_ref(entry, KIND_MERITS_REPLY_PETITIONER, entry_date)
+        elif (
+            reply_respondent is None
+            and _is_post_grant(filed, granted_on)
+            and is_respondent_merits_reply(text)
+        ):
+            reply_respondent = _merits_filing_ref(entry, KIND_MERITS_REPLY_RESPONDENT, entry_date)
     return [
         ref
-        for ref in (petition, application, *bios, merits_petitioner, merits_respondent)
+        for ref in (
+            petition,
+            application,
+            *bios,
+            merits_petitioner,
+            merits_respondent,
+            reply_petitioner,
+            reply_respondent,
+        )
         if ref is not None
     ]
 
 
-def _merits_brief_ref(
+def _merits_filing_ref(
     entry: Mapping[str, Any], kind: str, entry_date: str | None
 ) -> DocumentRef | None:
-    """One side's merits brief, from its ``Main Document`` link, or ``None``.
+    """One side's merits brief or reply, from its ``Main Document`` link, or ``None``.
 
     No any-link fallback, for the reason the application arm has none: a merits
-    brief posts its certificate of word count and its proof of service on the
+    filing posts its certificate of word count and its proof of service on the
     same entry, and taking the first link would store a one-page compliance
     letter as the brief. A filing whose main document is not labelled is left
     unfetched rather than replaced by a paper about it.
@@ -639,6 +688,47 @@ def primary_entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
         if kind == KIND_PETITION and _CASE_OPENING_ENTRY_RE.search(text):
             return True
         if kind == KIND_APPLICATION and _is_application_entry(text):
+            return True
+    return False
+
+
+# Which text predicate reads each merits kind, for the floor test below. The
+# selector's own arms, keyed by the kind they store, so a docket is measured
+# against exactly what would have selected it.
+_MERITS_ENTRY_PREDICATES: dict[str, Callable[[str], bool]] = {
+    KIND_MERITS_BRIEF_PETITIONER: is_petitioner_merits_brief,
+    KIND_MERITS_BRIEF_RESPONDENT: is_respondent_merits_brief,
+    KIND_MERITS_REPLY_PETITIONER: is_petitioner_merits_reply,
+    KIND_MERITS_REPLY_RESPONDENT: is_respondent_merits_reply,
+}
+
+
+def merits_entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
+    """Whether the docket carries this side's merits filing, link or no link.
+
+    :func:`primary_entry_matched`'s counterpart for the merits kinds, and it
+    exists for the same caller and the same reason: a gap-scanning pass has to
+    tell a docket the Court posted no PDF on from a docket whose filing the
+    selector has no arm for, and selection alone collapses the two.
+
+    **Text only** — the post-grant bound the selector applies is deliberately
+    *not* re-applied here, and that is the safe direction rather than a
+    shortcut. A docket whose grant this reader cannot date selects no merits
+    filing however the entries are worded, and answering ``True`` on the entry
+    text alone files that case under "the entry is there, nothing fetchable came
+    back" rather than under the selector-blindness alarm, which is what it is.
+    A wording the anchors genuinely miss still falls through to that alarm,
+    because no entry matches the text either.
+
+    ``kind`` is one of the four merits kinds; any other matches nothing.
+    """
+    predicate = _MERITS_ENTRY_PREDICATES.get(kind)
+    if predicate is None:
+        return False
+    for entry in payload.get("ProceedingsandOrder") or []:
+        if not isinstance(entry, Mapping):
+            continue
+        if predicate(str(entry.get("Text") or "")):
             return True
     return False
 
@@ -805,8 +895,16 @@ def extract_questions_presented(petition_text: str) -> str | None:
 # that was not served is worth chasing to a different one.
 FETCH_LOSS_HTTP_ERROR = "http-error"
 FETCH_LOSS_UNAVAILABLE = "unavailable"
+# The link was not HTTPS on the Court's own host — the `DocumentUrl` itself, or
+# a redirect it answered with — and the client refused it unrequested
+# (`supremecourt.OffHostFetch`). Apart from `http-error` because it is not an
+# upstream failing to serve and no re-attempt repairs it — it is a document that
+# would have been filed as evidence with bytes from another origin, so a single
+# occurrence is worth a maintainer's reading where a transport failure is
+# routine.
+FETCH_LOSS_OFF_HOST = "off-host"
 FETCH_LOSS_BIO_EMPTY = "bio-empty"
-# The fourth reason is one step earlier than the three above, and it is the one
+# The last reason is one step earlier than the four above, and it is the one
 # loss they cannot see: they are raised inside the loops over
 # `select_documents`' output, so a docket the pass was *asked* to fetch for and
 # selected nothing on leaves no trace among them — and a case that reaches
@@ -826,24 +924,26 @@ class DocumentFetchLosses:
 
     ``http_error`` is a transport failure the client's own retry did not clear;
     ``unavailable`` an upstream 404 (:meth:`SupremeCourtClient.get_document`
-    returns ``None``) — the rolling-window miss; ``bio_empty`` a case whose
-    opposition briefs were all selected and none fetched, so the combined
-    ``brief-in-opposition`` row was never built. Those three are post-selection.
-    ``not_selected`` is the pre-selection one: a case whose docket JSON
-    nominated no document at all, so nothing was ever attempted for it — the
-    class an upstream that posts no PDF (a Rule 34.6 paper filing) and a
-    selector with no arm for the filing type both land in, and the reason the
-    other three cannot see either. The last two count *cases*, not documents,
-    and ``bio_empty`` does not partition the two above it: the per-brief
-    failures that emptied the group are counted there as well. ``not_selected``
-    is disjoint from all three by construction — nothing was selected, so
-    nothing could fail. Both case counts are per *attempt*, not per distinct
-    case: a docket the poller reaches twice in one process counts twice, which
-    is the reading a pass-level record wants and the one the run log shows.
+    returns ``None``) — the rolling-window miss; ``off_host`` a link that was not
+    HTTPS on the Court's own host, or was redirected off it, refused unrequested;
+    ``bio_empty`` a case whose opposition briefs were all selected and none
+    fetched, so the combined ``brief-in-opposition`` row was never built. Those
+    four are post-selection. ``not_selected`` is the pre-selection one: a case
+    whose docket JSON nominated no document at all, so nothing was ever attempted
+    for it — the class an upstream that posts no PDF (a Rule 34.6 paper filing)
+    and a selector with no arm for the filing type both land in, and the reason
+    the others cannot see either. The last two count *cases*, not documents, and
+    ``bio_empty`` does not partition the three above it: the per-brief failures
+    that emptied the group — an off-host link among them — are counted there as
+    well. ``not_selected`` is disjoint from all four by construction — nothing
+    was selected, so nothing could fail. Both case counts are per *attempt*, not
+    per distinct case: a docket the poller reaches twice in one process counts
+    twice, which is the reading a pass-level record wants and the run log shows.
     """
 
     http_error: int = 0
     unavailable: int = 0
+    off_host: int = 0
     bio_empty: int = 0
     not_selected: int = 0
 
@@ -851,14 +951,16 @@ class DocumentFetchLosses:
     def records(self) -> int:
         """How many losses were recorded — a record count, not a document count.
 
-        Named for what it sums, because the fields do not share a unit: the two
+        Named for what it sums, because the fields do not share a unit: the three
         fetch reasons count documents while ``bio_empty`` and ``not_selected``
         count cases, so a "total documents lost" reading of it would
         double-count every case whose whole opposition failed and over-count
         every case that selected nothing. What it is good for is the only
         question that needs one number: whether this pass lost anything at all.
         """
-        return self.http_error + self.unavailable + self.bio_empty + self.not_selected
+        return (
+            self.http_error + self.unavailable + self.off_host + self.bio_empty + self.not_selected
+        )
 
 
 # Process-wide and monotonic within a run, read through `document_fetch_losses`.
@@ -866,6 +968,17 @@ class DocumentFetchLosses:
 # from the live poller's own sequential walk, and nothing here rides the
 # read-side prefetch pool — so the counter needs no lock.
 _fetch_losses: Counter[str] = Counter()
+
+
+def one_log_line(text: str) -> str:
+    """``text`` with anything unprintable blanked, so one record is one line.
+
+    Upstream URL text reaches the run log by several routes and has passed no
+    parser on any of them: a newline in it would put whatever follows on its own
+    line, where a line beginning ``::`` is a command the runner obeys. Shared so
+    that every lane logging such a string defends the same way.
+    """
+    return "".join(char if char.isprintable() else " " for char in text)
 
 
 def _record_fetch_loss(reason: str, case_id: str, kind: str, detail: str) -> None:
@@ -877,9 +990,15 @@ def _record_fetch_loss(reason: str, case_id: str, kind: str, detail: str) -> Non
     level is ``warning`` even for the expected 404, because the default root
     configuration discards anything below it and a silently discarded record is
     the condition this exists to end.
+
+    ``detail`` is usually a document URL, so it is logged through
+    :func:`one_log_line`: one record stays one line whatever upstream put in the
+    string.
     """
     _fetch_losses[reason] += 1
-    logger.warning("documents: dropped %s for %s (%s): %s", kind, case_id, reason, detail)
+    logger.warning(
+        "documents: dropped %s for %s (%s): %s", kind, case_id, reason, one_log_line(detail)
+    )
 
 
 def document_fetch_losses() -> DocumentFetchLosses:
@@ -893,6 +1012,7 @@ def document_fetch_losses() -> DocumentFetchLosses:
     return DocumentFetchLosses(
         http_error=_fetch_losses[FETCH_LOSS_HTTP_ERROR],
         unavailable=_fetch_losses[FETCH_LOSS_UNAVAILABLE],
+        off_host=_fetch_losses[FETCH_LOSS_OFF_HOST],
         bio_empty=_fetch_losses[FETCH_LOSS_BIO_EMPTY],
         not_selected=_fetch_losses[FETCH_LOSS_NOT_SELECTED],
     )
@@ -987,6 +1107,11 @@ def _combine_bio_documents(
     for ref in bio_refs:
         try:
             data = client.get_document(ref.url)
+        except OffHostFetch as exc:
+            # Before `httpx.HTTPError`, which this is a subclass of: the refusal
+            # is its own reason, and the detail carries where the hop pointed.
+            _record_fetch_loss(FETCH_LOSS_OFF_HOST, case_id, ref.kind, str(exc))
+            continue
         except httpx.HTTPError:
             _record_fetch_loss(FETCH_LOSS_HTTP_ERROR, case_id, ref.kind, ref.url)
             continue
@@ -1080,10 +1205,10 @@ def fetch_case_documents(
     unchanged, while a superseding filing (a re-filed BIO at a new URL, or a new
     respondent's BIO joining the set) is. The multiple opposition briefs of a
     multi-respondent case are combined into the one ``brief-in-opposition``
-    document (:func:`_combine_bio_documents`); each side's merits brief is
-    fetched on its own, under its own kind and its own ``char_cap``, because a
-    pair of adversarial briefs sharing one cap would cut the second by however
-    long the first ran. The questions presented are
+    document (:func:`_combine_bio_documents`); each side's merits brief and each
+    side's merits reply are fetched on their own, under their own kind and their
+    own ``char_cap``, because adversarial filings sharing one cap would cut the
+    later one by however long the earlier ran. The questions presented are
     **derived** from the petition text — never the outcome-bearing ``QPLink`` —
     whenever the petition itself was (re)fetched; a petition whose QP heading
     yields nothing usable stores the empty-text row the extractor's degraded
@@ -1110,15 +1235,14 @@ def fetch_case_documents(
     refs = select_documents(payload)
     if not refs:
         # Selection came back empty on a docket the caller asked about, which is
-        # the one loss the three post-selection reasons cannot see. Recorded
+        # the one loss the four post-selection reasons cannot see. Recorded
         # once per case, before any fetch: there is no kind and no URL to
         # attribute it to, and the count is of cases left with nothing.
         _record_fetch_loss(
             FETCH_LOSS_NOT_SELECTED,
             case_id,
             _NOT_SELECTED_KIND,
-            "no case-opening, application, opposition, or merits-brief entry "
-            "carried a document link",
+            "no case-opening, application, opposition, or merits entry carried a document link",
         )
         return []
     bio_refs = [ref for ref in refs if ref.kind == KIND_BRIEF_IN_OPPOSITION]
@@ -1131,6 +1255,11 @@ def fetch_case_documents(
             continue
         try:
             data = client.get_document(ref.url)
+        except OffHostFetch as exc:
+            # Before `httpx.HTTPError`, which this is a subclass of: the refusal
+            # is its own reason, and the detail carries where the hop pointed.
+            _record_fetch_loss(FETCH_LOSS_OFF_HOST, case_id, ref.kind, str(exc))
+            continue
         except httpx.HTTPError:
             _record_fetch_loss(FETCH_LOSS_HTTP_ERROR, case_id, ref.kind, ref.url)
             continue
@@ -1440,17 +1569,23 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
 # exactly as a paper petition does, and leaving it out would make an
 # application docket that holds only its application read as a case the pass
 # never reached (``cases_read`` counts *these* kinds, not any document).
-# The two merits briefs are counted for the same reason `application` is — they
-# are text a cell reads directly — and they read differently from the kinds above
-# them in one way worth knowing before the column is interpreted: their
+# The four merits filings are counted for the same reason `application` is —
+# they are text a cell reads directly — and they read differently from the kinds
+# above them in one way worth knowing before the column is interpreted: their
 # population is granted cases only, so a low count is the shape of the granted
-# slice rather than a coverage gap.
+# slice rather than a coverage gap. The two reply rows narrow that again, and
+# their `n` is a *third* thing: not every granted case is replied to, so a reply
+# row's count is bounded by the cases whose docket carries one at all, and the
+# respondent-side row is bounded again by the postures that give a respondent
+# the last word.
 TEXT_COVERAGE_KINDS: tuple[str, ...] = (
     KIND_PETITION,
     KIND_APPLICATION,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_MERITS_BRIEF_PETITIONER,
     KIND_MERITS_BRIEF_RESPONDENT,
+    KIND_MERITS_REPLY_PETITIONER,
+    KIND_MERITS_REPLY_RESPONDENT,
     KIND_QUESTIONS_PRESENTED,
 )
 

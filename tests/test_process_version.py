@@ -327,6 +327,108 @@ def test_every_enabled_actor_runs_a_blessed_process() -> None:
         )
 
 
+def test_the_blessed_set_holds_nothing_beyond_the_live_fleet() -> None:
+    """The retirement tripwire: a superseded digest must leave the map.
+
+    The test above runs one direction — every enabled actor's digest is
+    blessed. This runs the other, and it is the one a re-bless gets wrong: the
+    map holds **one** blessed process per actor, so a supersession that pastes
+    the new digests in without deleting the old ones leaves a retired process
+    silently blessed. For a predictor that keeps de-counted cells inside the
+    headline; for an evaluator it falsifies the freeze record, whose whole
+    account of the retired digests is that the constant no longer names them
+    and this entry does instead. Neither failure is visible on any board.
+    Skipped while nothing is blessed, exactly as its twin is.
+    """
+    if not process_version.FROZEN_PROCESS_DIGESTS:
+        pytest.skip("no digests blessed yet — the tripwire arms at the freeze commit")
+    actors = [("predictor", p) for p in enabled_predictors(CONFIG / "predictors.yaml")] + [
+        ("evaluator", e) for e in enabled_evaluators(CONFIG / "evaluators.yaml")
+    ]
+    live = {
+        process_version.digest_for_actor(REPO, CONFIG, role, entry.id) for role, entry in actors
+    }
+    stale = sorted(set(process_version.FROZEN_PROCESS_DIGESTS) - live)
+    assert not stale, (
+        f"blessed but computed by no enabled actor: {', '.join(stale)} — a "
+        "supersession that added the new digests without retiring the old ones; "
+        "the map holds one blessed process per actor"
+    )
+
+
+def test_only_an_evaluator_digest_is_ever_blessed_after_the_instant() -> None:
+    """The held-instant invariant, which only one supersession shape may use.
+
+    An evaluator-half re-bless holds `FROZEN_SINCE` while blessing new evaluator
+    digests, so those entries legitimately sit *after* the instant — the one
+    shape that inverts the ordinary order, licensed because the evaluator half
+    records and never counts. A **predictor** digest blessed after the instant
+    is the same inversion applied where it is not licensed: the enforced half's
+    bytes became immutable only after the headline began counting, so every cell
+    counted in the gap ran against a commitment that was still editable. The
+    date comparison in the cutover's step 4 is what should catch that, and it is
+    a git check nothing here can run — this is the constants-only shadow of it,
+    and the only one that runs on every commit.
+    """
+    since = process_version.FROZEN_SINCE
+    if not process_version.FROZEN_PROCESS_DIGESTS or since is None:
+        return
+    predictors = {
+        process_version.digest_for_actor(REPO, CONFIG, "predictor", entry.id): entry.id
+        for entry in enabled_predictors(CONFIG / "predictors.yaml")
+    }
+    late = {
+        predictors[digest]: moment
+        for digest, moment in process_version.FROZEN_PROCESS_DIGESTS.items()
+        if digest in predictors and moment > since
+    }
+    assert not late, (
+        f"predictor digest(s) blessed after the freeze instant {since.isoformat()}: {late} — "
+        "the held-instant exception is the evaluator half's alone; a predictor re-bless "
+        "moves the instant past its carrying promotion"
+    )
+
+
+def test_a_full_freeze_orders_the_instant_after_every_bless_it_carries() -> None:
+    """The other half of the held-instant rule, for the shape that may not use it.
+
+    The exception above is keyed on the predictor digests being carried forward
+    byte-identical from the prior `prereg/` tag, and that is visible in the
+    constants: a carried-forward digest keeps the *earlier* label's bless
+    moment, so a held-instant label's map holds more than one distinct moment.
+    A **full** freeze — both halves blessed at one carrying promotion — holds
+    exactly one, because every entry is that merge's time. There the ordinary
+    rule governs the whole map rather than the predictor half alone, so the
+    instant sits at or after it.
+
+    This is the constants-only shadow of the cutover's step 4 on a full freeze:
+    the git comparison it asks for cannot run here, but an instant left behind
+    the bless moment the maintainer wrote in can, and that is the slip that
+    would count cells against a commitment still editable when they ran.
+
+    Two limits, stated rather than left to be discovered. On a map whose
+    entries are all equal this overlaps its neighbour above, which bounds the
+    predictor entries by the same instant — the coverage it adds is the
+    evaluator half, which that one does not reach. And it is deliberately
+    blind where the map holds more than one moment: it cannot tell a
+    carried-forward predictor half from a step-4 correction that reached some
+    entries and not others, so a straggler is caught by the aware/not-in-the-
+    future guard in the coupling test rather than here.
+    """
+    since = process_version.FROZEN_SINCE
+    moments = set(process_version.FROZEN_PROCESS_DIGESTS.values())
+    if since is None or len(moments) != 1:
+        return
+    carried = moments.pop()
+    assert since >= carried, (
+        f"the freeze instant {since.isoformat()} precedes the single bless moment "
+        f"{carried.isoformat()} every digest in the map carries — on a full freeze the "
+        "instant is at or after the promotion that made those bytes immutable; the "
+        "held-instant exception is scoped to carried-forward predictor digests, which "
+        "this map has none of"
+    )
+
+
 def test_is_frozen_requires_the_stamp_to_postdate_the_freeze(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -39,8 +39,11 @@ from .collect import parse_cell_artifact_name
 from .finalize import FinalizeRole
 from .ids import case_id, parse_run_id
 from .paths import CasePaths
+from .pipeline.moments import declares
 from .pricing import DEFAULT_MODELS
 from .registry import enabled_evaluators, enabled_predictors
+from .schemas import Stage
+from .store import predictor_holds_only_retired_predictions
 
 _JSON_BLOCK = re.compile(r"```json\s*(.+?)\s*```", re.S)
 
@@ -62,12 +65,30 @@ class CaseRequest:
     the same intent, not the thing that prevents a double-commit. Empty means
     every enabled predictor; evaluate ignores it (an evaluator scores every
     committed prediction for its event).
+
+    ``reopen_events`` is, as the predict backlog deriver builds it, a subset of
+    ``events``: those admitted on the pre-freeze re-predict ground — still-forward events at a
+    still-open moment whose committed cohort a re-bless has retired
+    (:func:`fedcourtsai.pipeline.pull.derive_predict_backlog`). A later
+    narrowing of ``events`` does not prune it, so the containment is the
+    deriver's guarantee rather than a standing invariant of the class; nothing
+    depends on it, because the field is only ever consulted for an event
+    :func:`predict_matrix` is already iterating. Listing one
+    lifts :func:`predict_matrix`'s already-predicted skip for it — and only for
+    the predictors that hold no blessed cell on it, which the matrix decides
+    for itself from the ledger, so a partly-blessed cohort re-mints only the
+    retired half. Empty for evaluate and for a case list parsed from a trigger
+    body: the corpus-side half of the rule (is the event still forward, is its
+    moment still open) is not answerable from a body, so a hand-replayed case
+    list re-derives nothing and a deliberate re-predict stays
+    ``skip_predicted=False``.
     """
 
     court: str
     docket: int
     events: tuple[str, ...] = ()
     predictors: tuple[str, ...] = ()
+    reopen_events: tuple[str, ...] = ()
 
 
 def parse_cases(body: str) -> list[CaseRequest]:
@@ -101,6 +122,24 @@ def parse_cases(body: str) -> list[CaseRequest]:
     return cases
 
 
+def reopened_for(data_root: Path, case: CaseRequest, event_id: str, predictor_id: str) -> bool:
+    """Whether this cell is a pre-freeze re-predict the already-predicted skip must let through.
+
+    Both halves have to hold, and they come from different places on purpose.
+    The **event** half is the deriver's: only an event it listed in
+    ``reopen_events`` is reopenable at all, because whether the event is still
+    forward and its moment still open are corpus questions the matrix cannot
+    answer. The **predictor** half is the ledger's, and the matrix answers it
+    itself (:func:`fedcourtsai.store.predictor_holds_only_retired_predictions`)
+    rather than taking a per-engine list from the deriver — so a blessed cell
+    committed between the derivation and the fan-out drops its engine from the
+    re-predict rather than buying a second blessed forecast of the same moment.
+    """
+    return event_id in case.reopen_events and predictor_holds_only_retired_predictions(
+        data_root, case.court, case.docket, event_id, predictor_id
+    )
+
+
 def predict_matrix(
     predictors_path: Path,
     cases: list[CaseRequest],
@@ -130,6 +169,16 @@ def predict_matrix(
     ``CaseRequest.predictors`` narrowing is orthogonal: it names *which* engines a
     backfill body targets, while this gate independently drops any of them that
     already landed.
+
+    ``CaseRequest.reopen_events`` is the gate's one standing exception, and it
+    is narrower than ``skip_predicted=False`` in both directions: it lifts the
+    skip for the named events only, and within them only for the predictors
+    whose every committed cell carries a retired process digest
+    (:func:`reopened_for`). That is the fan-out half of the backlog deriver's
+    pre-freeze re-predict rule — the deriver decides *which events* are still
+    forward at a still-open moment, this decides *which engines* on them are
+    owed a blessed cell. A predictor already holding one is skipped here as
+    before.
     """
     predictors = enabled_predictors(predictors_path)
     enabled_ids = {p.id for p in predictors}
@@ -154,6 +203,7 @@ def predict_matrix(
                     and event_has_predictions(
                         data_root, case.court, case.docket, event_id, predictor_id=predictor.id
                     )
+                    and not reopened_for(data_root, case, event_id, predictor.id)
                 ):
                     continue
                 include.append(
@@ -492,6 +542,44 @@ def predicted_case_ids(data_root: Path) -> frozenset[str]:
         # counted back from the file: parents[5] is the docket, parents[6] the court.
         case_id(path.parents[6].name, int(path.parents[5].name))
         for path in cases_root.glob("*/*/events/*/predictions/*/*/prediction.json")
+    )
+
+
+def merits_event_case_ids(data_root: Path) -> frozenset[str]:
+    """Every case id the git ledger holds a committed **merits** event for.
+
+    The ledger's answer to "is this case one the pipeline forecasts on the
+    merits" — the priority key the opinion-enrichment walk orders on, since the
+    opinion body a merits grading needs is only ever needed for a case whose
+    merits event is already committed. Answering it at the case grain is what
+    makes it one glob for the whole tree rather than a per-row probe of every
+    granted row in the corpus.
+
+    A merits event is recognized by
+    :func:`fedcourtsai.pipeline.moments.declares`, not by a listed id, so a
+    moment added to that table is admitted here without an edit — the table is
+    the vocabulary, this is a walk over it.
+
+    Committed events live at ``cases/<court>/<docket>/events/<event>/``, and the
+    glob is anchored on ``event.yaml``: the definition is what makes a directory
+    an event, so a bare directory holding only cell output is not one. The file
+    is written by the mint seam that opens the moment
+    (:func:`fedcourtsai.pipeline.outcome.persist_moment_events`) and by
+    ``materialize-event`` at a cell's first touch — so membership is "the ledger
+    holds this forecast", not "the corpus knows of the event". An absent
+    ``data_root`` — a fresh checkout, an offline caller — yields the empty set,
+    which prioritizes nothing. A malformed *docket* segment is fatal, as it is
+    in :func:`predicted_case_ids`: that layout is written only through
+    :class:`~fedcourtsai.paths.CasePaths`, so a non-numeric docket directory is
+    a corrupted ledger rather than a stray.
+    """
+    cases_root = data_root / "cases"
+    return frozenset(
+        # `<court>/<docket>/events/<event>/event.yaml` — counted back from the
+        # file: parents[0] is the event, parents[2] the docket, parents[3] the court.
+        case_id(path.parents[3].name, int(path.parents[2].name))
+        for path in cases_root.glob("*/*/events/*/event.yaml")
+        if declares(path.parents[0].name, Stage.merits)
     )
 
 

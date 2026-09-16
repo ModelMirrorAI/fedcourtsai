@@ -38,7 +38,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
-| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, qp-labeler-smoke one labeling agent over a synthetic extract, and each codex-freeze-probe member one trivial codex turn — with the watchdog armed around it, or deliberately unarmed |
+| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, qp-labeler-smoke one labeling agent over a synthetic extract, and each codex-freeze-probe member one trivial codex turn with the watchdog armed around it |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -271,8 +271,8 @@ queues behind the production run of the same mode. The modes:
   rather than the page. The artifact rides the **one-day** retention every
   analytics run artifact does — this repository is public, so one is
   downloadable by any logged-in user for as long as it exists, and the
-  compilation-extent inventory in [security.md](security.md) bounds all three
-  the same way. Re-reading a census after the day is therefore a re-dispatch
+  compilation-extent inventory in [security.md](security.md) bounds every one
+  of them the same way. Re-reading a census after the day is therefore a re-dispatch
   rather than a longer window: it is deterministic over the blob its
   `corpus_sha256` names. Two things an operator needs before dispatching
   it. It carries by far the largest budget of the read-only modes — a
@@ -308,7 +308,8 @@ queues behind the production run of the same mode. The modes:
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
   committed `metrics/statpack.json`, which its realized-Term skill column is
   scored against — so it regenerates *after* the pack)
-  and `metrics/backtest.json` / `metrics/statpack.{json,md}`
+  and `metrics/backtest.json` / `metrics/statpack.{json,md}` /
+  `data/scope/scope.json`
   (input: the corpus) are deterministic stage commands that otherwise change
   only when someone reruns them locally. It reruns those tested
   `fedcourts` commands and — only when an artifact actually changed (they are
@@ -360,11 +361,25 @@ queues behind the production run of the same mode. The modes:
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
   credential in its environment and no MCP config (the vocabulary is text-only,
-  so the extract is the agent's entire evidentiary input). The labeler's
+  so the extract is the agent's entire evidentiary input). Its tools are
+  Write, Edit and free reads; the shell, the delegation tools and the web
+  tools are denied by name in the invocation, because a grant list
+  pre-approves without withholding anything. The labeling run is a single
+  headless session, so a delegated subagent would die with it leaving the
+  batch part-labeled and the measure step refusing a partial file; labels
+  have to come from the agent reading each text rather than from a command
+  it runs; and a fetch is either redundant with the extract or later than the
+  petition, and the later kind has to stay out of a label for the label to be
+  replay-safe. Its
   turn-by-turn transcript is scanned and published as a second one-day
   artifact, `qp-label-transcript` — the thing to open when a run reports
-  success but writes no labels (disclosure argued in
-  [qp-topic.md](qp-topic.md)). It applies the same
+  success but writes no labels — and the rows it did write are scanned and
+  published as a third, `qp-labels`, beside a job-summary line stating their
+  count. That artifact and that line are what a step killed at its cap leaves,
+  since the action writes its execution log at exit and there is then no
+  transcript to read (disclosure argued in [qp-topic.md](qp-topic.md)). The
+  measure step still refuses a partial file: it is captured for reading, never
+  for publication. It applies the same
   structural prohibition the cell workflows do — `data/qp-topics/` is moved out
   of the tree for the duration of the agent step, since reading the reference
   set would not improve the labels, only destroy the measurement — and restores
@@ -379,8 +394,8 @@ queues behind the production run of the same mode. The modes:
 ## `integration-test` — the infrastructure preflight
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
-a side-effect-free scenario runner (one carve-out: the application-repro leg,
-the idle control and the freeze probe each
+a side-effect-free scenario runner (one carve-out: the application-repro leg
+and the freeze probe each
 write their watchdog's telemetry row onto the bound channel's telemetry
 issue — `codex-watchdog`, or `codex-watchdog-staging` on a staging-bound
 dispatch —
@@ -390,7 +405,7 @@ read backends, the two sidecars, cascade cells, the engines' own invocation
 blocks, the collect writer, and the
 qp-topic measure path**,
 against the real corpus remote for every scenario but collect, qp-topic,
-qp-labeler-smoke, runner-idle-control and the codex-freeze-probe family —
+qp-labeler-smoke and the codex-freeze-probe family —
 the tested `fedcourts corpus-integration-check` read set, a
 cell's-eye probe of the service sidecar, the tokenless CourtListener MCP
 sidecar under the tested `mcp-integration-check` client, a stub
@@ -409,9 +424,8 @@ CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
 releases — from main, or via the `staging` deployment environment (collect
 binds none; qp-topic binds one it never reads; the labeler smoke binds one
-and reads exactly its engine key; the idle control binds one and reads
-exactly the telemetry App's pair; the freeze probe binds one and reads that
-pair plus the codex key) from the `staging` branch, which
+and reads exactly its engine key; the freeze probe binds one and reads the
+telemetry App's pair plus the codex key) from the `staging` branch, which
 is the only branch that environment accepts (those runs are the promotion
 gate's freshness evidence; see *Promotion: staging → main* below). The deployment environment resolves from
 the dispatching branch by default — `main` gets `prod`, `staging` gets
@@ -490,11 +504,14 @@ SCOTUS freshness for free). One other consumer shares that REST budget:
 **run-pull**'s dispatch-only **enrich** job (`mode=enrich-opinions`, sized by
 the `max_cases` input) walks granted SCOTUS rows to their published opinion
 cluster and lands the reporter citations and opinion body
-(`fedcourts enrich-opinions`; scope and arithmetic in
+(`fedcourts enrich-opinions`; scope, walk order and arithmetic in
 [data-pipeline.md](data-pipeline.md)). It is the pass's only production lane —
 never scheduled, and dispatched into a dead zone between pull windows so it
 neither queues on the corpus-write lock nor stacks API spend onto a pull
-window's. run-seed also runs eight
+window's. The job carries `max_cases` and nothing else: the walk orders itself
+ledger-first, so the cases the pipeline is waiting on reach the head without a
+dispatch naming them, and the CLI's `--case` targeting stays a local
+maintenance tool rather than a dispatch input. run-seed also runs eight
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
@@ -650,7 +667,7 @@ store rather than the blob, so the pointer cannot witness it: the step re-reads
 the class afterwards and requires exactly what the apply's ledger said it would
 leave behind.
 
-`document-backfill` provisions the queued cases that hold no primary document.
+`document-backfill` provisions the queued cases that hold a document gap.
 A case reaches prediction with the filing that opens it — the petition on a
 cert-form docket, the application on an interim one — because provisioning runs
 at the transition that queues it; a case whose provisioning ran before the
@@ -661,18 +678,20 @@ number and fetches that docket's JSON **fresh** rather than reading the stored
 snapshot, because the question is whether the link is served now, then runs the
 same selection and fetch the live poller runs — so a recovered case is
 provisioned on exactly the terms a case provisioned at its trigger was, opposition
-briefs and derived questions-presented row included. Its population is
-**form-keyed** and scoped to rows that can still mint a cell, not to the wide
-distributed stock, which is overwhelmingly legacy rows carrying no document
-links at all. It is the second slice-bounded pass, and the one whose `dry-run`
+briefs and derived questions-presented row included. Its population is scoped to
+rows that can still mint a cell, not to the wide distributed stock, which is
+overwhelmingly legacy rows carrying no document links at all, and each such row
+is measured on two arms: its own docket form's opening document, and — on a
+granted row whose respondent has filed on the merits — each side's merits brief. It is the second slice-bounded pass, and the one whose `dry-run`
 is bounded too: that dry run fetches each candidate's docket JSON, which is the
 whole diagnostic — it is what separates a case with a link waiting for it from
 one at a floor — and it is a paced round trip per candidate. Two floors are
 reported apart from the failures, because neither drains and reading them as
-failures reports a converged class as a permanent defect: a docket carrying the
-opening entry with no PDF behind it, and one carrying no such entry at all. The
-second on a *modern* docket is not a floor but a selector regression, and those
-cases are named rather than counted. Like the OCR recovery it writes documents,
+failures reports a converged class as a permanent defect: a docket carrying an
+entry for a missing kind with nothing fetchable behind it, and one carrying no
+such entry at all. A missing kind the selector found no entry for on a *modern*
+docket is not a floor but a selector regression, and those cases are named
+whichever floor their candidate was counted at. Like the OCR recovery it writes documents,
 which under the corpus split live in the content store, so the step re-walks the
 class afterwards — an empty slice, which costs no round trip — and requires
 exactly what the apply's ledger said it would leave behind.
@@ -1486,7 +1505,62 @@ hand until there is a reason to parameterize it.
 the matrix command itself: given no case list, `predict-matrix` derives the
 predict backlog (`pipeline.pull.derive_predict_backlog`, described in
 [cli.md](cli.md)) and `evaluate-matrix` the evaluate backlog, each from committed
-state. That is the shape both workflows invoke, on every round. The commands
+state. That derivation is version-blind in one direction only: a case is owed
+cells for an event **some** enabled predictor has not covered, and — under the
+**pre-freeze re-predict rule** — for an event whose committed cohort a
+predictor-half re-bless has since retired. The second arm exists because
+without it a freeze silently empties the board it defines: an event forecast
+only under de-counted digests reads as covered, resolves, is graded, and every
+result is dropped from the frozen partition. So it is re-owed a cell while it
+is still genuinely forward (nothing in the ledger or the corpus records its
+stage decided) and its declared moment is still open (`REPREDICT_MOMENTS` —
+cert distribution and CVSG plus the interim moments; cert arrival and the
+merits moments are held out, and a distribution is refused unless it carries a
+conference still ahead). The two arms overlap per event and are disjoint per
+cell: an engine with no cell is the first arm's, an engine whose cells are all
+out of frozen scope is the second's, and an event carrying both — what a
+quota-failed engine leaves behind — is re-owed on both, so a run can never
+mint one blessed cell beside de-counted rivals.
+
+The rule also **widens the funding gate**, and that is the one place it reaches
+work the salience round declined. A case neither selection nor the merits bypass
+funds reaches the derivation only on the cohort-completion ground, whose
+narrowing keeps the events a claimable board already counts. That narrowing
+governs the never-predicted arm alone: the re-predict rule is asked over the
+case's **whole** forecastable set, so an event whose cohort a re-bless retired
+is re-owed on a declined case as on a funded one. The reason is the
+comparability argument the narrowing itself rests on: what it refuses is a
+*partial* completion, one blessed cell beside siblings that will never be
+counted, and a wholly retired cohort is re-minted for every engine at once.
+Without this a re-bless re-predicts only the funded half of the forward cohort,
+and the rest is graded on resolution and dropped from the frozen board — the
+state the rule exists to repair, left standing on the larger half.
+
+The widening is bounded by the rule and reaches no further. An event no
+predictor has forecast is not re-owed, so no *event* the funding gate declined
+is opened and the selection itself does not move
+([salience.md](salience.md) carries both bounds). At the **cell** grain a
+re-owed event does complete: an engine holding nothing on it is minted a first
+cell, since the already-predicted skip never drops such an engine — that is the
+completeness the rule is justified by, and it changes no priority, because a
+declined case admitted only by the rule still sorts behind every
+never-predicted one. The same fact is stated as an `or`-arm at the
+`predict-matrix`/`predict-plan` scope backstop, which cannot ask the corpus
+itself and so reads the deriver's own `reopen_events` — a case list parsed from
+a trigger body carries none, so a hand-written body cannot reach it. The live
+channel's **selection sweep** is not widened — it has no channel for that
+licence either (*Holding predict is lossless* below) — so these cells arrive on
+the scheduled round.
+
+Old cells are never edited:
+provisioning stages the newest run per predictor, so a re-predict **supersedes**
+the earlier cell rather than replacing or removing it, and re-owed work is
+ordered after never-predicted work so it cannot starve the ordinary backlog
+under the cycle cap. [cli.md](cli.md) carries the predicates; `predict-plan`
+reports the re-owed cells in their own `reowed_pre_freeze_cells` bucket, which
+is what a maintainer reads at the hold before any spend.
+
+That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or
 `--court`/`--docket` — which is what a local dry run of one case uses; no
 workflow passes one, because a case list a round did not derive is a case list
@@ -1578,6 +1652,34 @@ cells is attributable from the Actions UI — and the unprovisioned arm ends its
 step red under `continue-on-error` on purpose, since it is an anomaly worth a
 visible mark where the forward gate's refusal is a designed outcome.
 
+That gate stops a cell **running** without a snapshot. Its post-agent twin
+catches the other shape: a cell that was handed one and reports not having
+opened it. The predictor stamp copies the provisioned conditioning onto
+`prediction.json`, which reads as an assertion that the forecast was formed from
+that snapshot, and the cell's own `input_snapshot` is the only record of whether
+it was — so `stamp-cell` compares the two, both sides normalized to the
+provisioned file's day so the several spellings the field carries all read as
+agreement. Disagreement is **recorded, not masked and not refused**:
+`context.snapshot_uptake` is stamped `unread` and nothing else about the block
+moves, so the cell stays `ready`, committed and fully scoreable while the record
+now says plainly what the artifact used to hide. The stamp also appends a
+`warning` to the cell's `flags.json`, so the disagreement rides the artifact
+into the run PR body, the Actions summary, and the agent-feedback issue rather
+than living only in the artifact — unless the run's secret scan hits, which
+withholds the whole flag roll-up. It is a harness-authored note in a channel
+that is otherwise the agent's, and its `Harness tripwire:` prefix is what
+separates the two by eye.
+
+Neither alternative earns its cost. Degrading the block — nulling the band, or
+the payload signals — would price a forward cell against the `terminal` basis
+(the band re-derived at evaluation) or let a predictor decline its way into the
+availability mask, both of which move a scored number to punish a reporting gap.
+And refusing the stamp buys nothing: a non-zero exit here reddens the cell job
+but changes no recorded outcome — `Record cell status` still runs, `validate`
+requires no stamp, and the cell lands `ready` regardless — while landing it
+*unstamped*, which is the one state in which an agent-authored `context` block
+survives.
+
 The predict prompt still tells a forward cell it may find itself without a
 provisioned snapshot and should then predict from priors and base rates with a
 `flags.json` note. That branch is unreachable — the workflow refuses such a cell
@@ -1666,6 +1768,15 @@ renames the evaluator's alias-keyed output back onto the real predictor ids. The
 staging area lives under the case's gitignored `record/`, which stays on the
 runner — neither committed nor uploaded, since the cell artifact carries only
 the cell's own event directory — and so never reaches the ledger.
+
+That same `record/` carries the cell's one evaluate-only input: `fedcourts
+provision-opinion` stages the case's majority opinion at `record/opinion/` for
+the semantic grades to be formed against, on a best-effort step that runs before
+the agent on every cell. It stages nothing where the corpus row holds no body,
+which is most cases, so an **absent** slot is the ordinary state and the grader
+masks. When a round's semantic claims all mask, read that step's outcome first:
+a failed staging and genuine non-coverage leave the same empty slot, and the
+step annotates the run summary where it failed.
 
 A second pair of steps keeps the aliases worth having. The committed `predictions/` and
 `evaluations/` trees name every predictor elsewhere in the same case tree, at
@@ -1841,7 +1952,14 @@ already-predicted gate is per `(predictor, event)` in its own right
 live channel's selection sweep uses), so a scheduled round over the full registry
 drops every engine that already committed a prediction for the event and mints
 only the missing ones — which is why a failed engine's cells come back on the
-next cycle with no intervention at all. `predictors` **narrows** the fan-out; it
+next cycle with no intervention at all. That gate has exactly one standing
+exception, and it runs at the same grain: an engine whose every committed cell
+on a **reopened** event is out of frozen scope is not dropped, because the
+pre-freeze re-predict rule owes it a cell under the blessed process (the
+derivation above, and `matrix.reopened_for`). So a backfill whose event is also
+reopened mints the failed engine *and* re-mints the ones whose cells a re-bless
+de-counted, which is what keeps the recovered cohort comparable rather than
+leaving one blessed cell among retired rivals. `predictors` **narrows** the fan-out; it
 does not deduplicate it — what it buys is a plan (and a cost) confined to the
 engines asked for. Naming an id that is not an enabled predictor fails the plan
 rather than silently skipping the engine. The evaluate side ignores the field: an
@@ -1893,8 +2011,8 @@ refused for a session token) — one line per judge in `repair_target`:
 ```bash
 gh workflow run run-repair.yml --ref main \
   -f repair=regrade-stale -f repair_mode=dry-run \
-  -f repair_target='scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge
-scotus/1119228/evt-petition-certiorari/20260624T103000Z/codex-judge'
+  -f repair_target='scotus/1119228/evt-petition-disposition/20260624T103000Z/claude-judge
+scotus/1119228/evt-petition-disposition/20260624T103000Z/codex-judge'
 ```
 
 The `dry-run` echoes each `stamp-cell` command it would run; re-dispatch with
@@ -2179,7 +2297,8 @@ exactly the evidence a wedge is best placed to destroy. (A *reaped* cell keeps
 it: concluding the step is what makes the tail that uploads it run.) The record
 that survives a cancellation is off the runner entirely, and it is **codex cells
 only** — the run workflows' cells and the integration suite's application-repro
-leg. The reaper needs no telemetry to work, and the record is load-bearing
+leg and codex-freeze-probe members. The reaper needs no telemetry to work, and
+the record is load-bearing
 only where the escalation fails to end the step at all and the job cap cancels
 the runner regardless — the deadline path, which codex is the one engine to have
 taken. Widening the mint would put an issues:write App token in every cell of
@@ -2295,7 +2414,15 @@ already paid to predict. The narrowing carries two bounds on that ground: queuei
 the case's *other* open events would buy new cells on a case the gate declined,
 and completing an event whose cohort sits wholly outside the frozen process scope
 would hand the board an event scored on the completing engine alone. A deferred
-case the ledger holds nothing for is not even a candidate. What a number off a
+case the ledger holds nothing for is not even a candidate. The second of those
+bounds has one exception, and it lives at the **scheduled** predict backlog's
+seam rather than this one: the pre-freeze re-predict rule re-owes a wholly
+retired cohort, because it is re-minted for every engine at once and so
+completes rather than manufactures a comparison (*The predict/evaluate matrix*
+above). This sweep does not apply it, and the reason is a channel rather than
+a capability: the rule's licence travels as the backlog deriver's own
+`reopen_events`, which this seam neither reads nor writes. So a re-bless's
+re-predicts arrive on the scheduled round, not on the live cycle. What a number off a
 completed cohort does and does not support is in
 [salience.md](salience.md). The per-cell owed check also
 honors `predict.max_attempts_per_cell` via the ledger-derived failure facts

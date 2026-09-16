@@ -16,13 +16,17 @@ plumbing:
 - :func:`summarize_semantic_grades`, the roll-up that turns graded units into a
   descriptive census plus leave-one-out inter-grader agreement.
 
-**Elicited and graded, and producing nothing.** A grade needs three things.
-Two are built: this declaration, and the prompts that ask a merits cell for the
-propositions and a grader for the grades — so both process digests hash a
-semantic contract. The third is not: **no opinion body is ingested** to grade a
-claim against, and both declared claims require a majority opinion, so every
-unit masks (``not-addressed``), :func:`summarize_semantic_grades` publishes
-nothing, and no published number depends on any of it
+**Elicited, graded, and waiting on coverage.** A grade needs three things, and
+all three are now built: this declaration; the prompts that ask a merits cell
+for the propositions and a grader for the grades — so both process digests hash
+a semantic contract; and the text, which ``fedcourts provision-opinion`` stages
+into the evaluate cell's ``record/opinion/`` slot on the ``run-evaluate`` step
+that calls it. What is left is **coverage**: the corpus holds an opinion body
+for a slice of the decided docket rather than all of it, so on most cells
+nothing is staged, both declared claims require a majority opinion, and the unit
+masks (``not-addressed``, on the ``not-ingested`` ground the grader names in
+``mask_ground``). :func:`summarize_semantic_grades` publishes nothing while the
+census carries no ordinal unit, and no published number depends on any of it
 (``docs/outcome-decomposition.md``, *What remains unbuilt*). The mandatory-set
 discipline binds both sides: :func:`graded_units` refuses a non-conforming
 grader block, and :func:`semantic_claim_problems` /
@@ -59,8 +63,10 @@ from typing import Literal
 from ..ids import parse_event_kind
 from ..leaderboard import kendall_tau_b
 from ..schemas import (
+    MASK_GROUND_UNSTATED,
     Evaluation,
     EventKind,
+    MaskGround,
     Prediction,
     SemanticClaimSummary,
     SemanticGradeBlock,
@@ -239,6 +245,11 @@ class GradedUnit:
     grader_id: str
     claim_id: str
     grade: SemanticSupport
+    #: Which ground a `not-addressed` grade rests on, where the grader named one.
+    #: ``None`` on every ordinal grade, and on a mask whose grader named none —
+    #: the state of every block graded before the field existed, which the census
+    #: counts as ``MASK_GROUND_UNSTATED`` rather than guessing.
+    mask_ground: MaskGround | None = None
     declared_set_version: str = SEMANTIC_SET_V1
 
     @property
@@ -296,11 +307,23 @@ def graded_units(evaluation: Evaluation) -> tuple[GradedUnit, ...]:
     claim_ids = tuple(spec.claim_id for spec in specs)
     if block.declared_set_version != set_version:
         return ()
-    graded: dict[str, SemanticSupport] = {}
+    graded: dict[str, tuple[SemanticSupport, MaskGround | None]] = {}
     for row in block.grades:
         if row.claim_id in graded:
             return ()
-        graded[row.claim_id] = SemanticSupport(row.grade)
+        grade = SemanticSupport(row.grade)
+        # The ground is carried only where it means something. A ground beside an
+        # ordinal grade is a grader answering a question it was not asked, and
+        # counting it would put a mask's ground on a unit that never masked.
+        # Dropped silently, and `semantic_grade_problems` does not report it —
+        # the same treatment a row outside the declared set gets, and for the
+        # same reason: this is a stray field on a conforming block, not a block
+        # the roll-up refuses. Making it a refusal would add a sixth arm on both
+        # sides of the enumerator correspondence, buying a contract change for a
+        # field the grading protocol already tells a grader to set on masked rows
+        # only — so the stray is dropped rather than refused, deliberately.
+        ground = row.mask_ground if grade is SemanticSupport.not_addressed else None
+        graded[row.claim_id] = (grade, ground)
     if any(claim_id not in graded for claim_id in claim_ids):
         return ()
     return tuple(
@@ -310,7 +333,8 @@ def graded_units(evaluation: Evaluation) -> tuple[GradedUnit, ...]:
             predictor_id=evaluation.predictor_id,
             grader_id=evaluation.evaluator_id,
             claim_id=claim_id,
-            grade=graded[claim_id],
+            grade=graded[claim_id][0],
+            mask_ground=graded[claim_id][1],
             declared_set_version=set_version,
         )
         for claim_id in claim_ids
@@ -426,6 +450,7 @@ class _Census:
     partial: int = 0
     unsupported: int = 0
     not_addressed: int = 0
+    mask_grounds: Counter[str] = field(default_factory=Counter)
     mask_disputed: int = 0
     cells: set[tuple[str, str, str]] = field(default_factory=set)
 
@@ -441,10 +466,11 @@ class _Census:
         else:  # pragma: no cover - unreachable: `ordinal` yields only the three
             raise ValueError(f"not an ordinal grade level: {level!r}")
 
-    def add_mask(self, cell: tuple[str, str, str]) -> None:
-        """Count one unit the whole panel read as `not-addressed`."""
+    def add_mask(self, cell: tuple[str, str, str], ground: str) -> None:
+        """Count one unit the whole panel read as `not-addressed`, at its ground."""
         self.cells.add(cell)
         self.not_addressed += 1
+        self.mask_grounds[ground] += 1
 
     def add_mask_dispute(self, cell: tuple[str, str, str]) -> None:
         """Count one unit the panel split on — mask against ordinal."""
@@ -460,11 +486,57 @@ class _Census:
             partial=self.partial,
             unsupported=self.unsupported,
             not_addressed=self.not_addressed,
+            # Only the grounds actually seen, so an empty census carries an empty
+            # split rather than three zeroes asserting a breakdown of nothing.
+            not_addressed_by_ground=dict(sorted(self.mask_grounds.items())),
             mask_disputed=self.mask_disputed,
             graded=graded,
             cells=len(self.cells),
             supported_share=self.supported / graded if publishable else None,
         )
+
+
+#: The order a split panel's mask ground resolves in. Every ground is a fact
+#: about the record, but of three different kinds: `not-ingested` says the body
+#: exists and the pipeline has not fetched it (work owed), `no-judgment` says
+#: none of the required kind was ever filed (the case's posture, which nothing
+#: can fetch), and `silent-on-axis` says the body was read and did not speak (a
+#: finding about the Court). The two **availability** grounds come before the
+#: substantive one, because a census must never let a record the graders could
+#: not all confirm they had read stand as a statement about what the opinion
+#: said; between the two, the one that names work owed comes first. So the bias
+#: runs one way and should be read that way: a `not-ingested`/`silent-on-axis`
+#: split reports a coverage gap, and a `no-judgment`/`silent-on-axis` split
+#: reports no opinion existed where one grader says it read one. The census can
+#: under-state what an opinion said; it cannot over-state it.
+_GROUND_PRECEDENCE: tuple[MaskGround, ...] = ("not-ingested", "no-judgment", "silent-on-axis")
+
+
+def _panel_ground(grounds: Iterable[MaskGround | None]) -> str:
+    """The ground one unanimously-masked unit is counted under.
+
+    ``MASK_GROUND_UNSTATED`` when no grader on the unit named a ground — which
+    is every block graded before the field existed, and the reason the bucket is
+    there at all: those units still belong in the mask total, and inventing a
+    ground for them would manufacture a coverage claim out of an absent field.
+    A single named ground carries the unit even where its peers stayed silent:
+    silence is not a competing answer.
+
+    Where graders name *different* grounds, :data:`_GROUND_PRECEDENCE` settles
+    it — deterministically and in one direction, for the reason stated there.
+    The resolved unit is then indistinguishable in the census from a unanimous
+    one, which is why
+    :attr:`~fedcourtsai.schemas.SemanticClaimSummary.not_addressed_by_ground`
+    reads as *units resolved to a ground* rather than as panel agreement. A
+    dispute counter on the model of ``mask_disputed`` is the honest next move,
+    and it waits on evidence rather than on elicitation: the protocol asks every
+    grader for the ground, so what such a counter needs is a real disagreement
+    to shape its semantics against, and no merits cell has been graded yet.
+    """
+    named = {ground for ground in grounds if ground is not None}
+    if not named:
+        return MASK_GROUND_UNSTATED
+    return next(ground for ground in _GROUND_PRECEDENCE if ground in named)
 
 
 def _panel_ordinal(levels: list[int]) -> int:
@@ -546,7 +618,7 @@ def summarize_semantic_grades(
     the units graders disagreed on most sharply. Read it against
     ``mask_disputed``, not merely beside it.
     """
-    by_unit: dict[tuple[str, str, str, str], dict[str, SemanticSupport]] = defaultdict(dict)
+    by_unit: dict[tuple[str, str, str, str], dict[str, GradedUnit]] = defaultdict(dict)
     cells: set[tuple[str, str, str]] = set()
     cases: set[str] = set()
     graders: set[str] = set()
@@ -557,7 +629,7 @@ def summarize_semantic_grades(
             raise ValueError(
                 f"grader {unit.grader_id!r} graded {unit.claim_id!r} twice on the same cell"
             )
-        panel[unit.grader_id] = unit.grade
+        panel[unit.grader_id] = unit
         cells.add(unit.cell_key)
         cases.add(unit.case_id)
         graders.add(unit.grader_id)
@@ -571,11 +643,12 @@ def summarize_semantic_grades(
     for unit_key in sorted(by_unit):
         cell, claim_id = unit_key[:3], unit_key[3]
         panel = by_unit[unit_key]
-        levels = {grader: ordinal(grade) for grader, grade in panel.items()}
+        levels = {grader: ordinal(graded.grade) for grader, graded in panel.items()}
         graded_levels = {g: lvl for g, lvl in levels.items() if lvl is not None}
         if not graded_levels:
-            per_claim[claim_id].add_mask(cell)
-            pooled.add_mask(cell)
+            ground = _panel_ground(graded.mask_ground for graded in panel.values())
+            per_claim[claim_id].add_mask(cell, ground)
+            pooled.add_mask(cell, ground)
             continue
         if len(graded_levels) != len(levels):
             per_claim[claim_id].add_mask_dispute(cell)

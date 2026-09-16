@@ -185,15 +185,17 @@ class never enters selection — per-Term unstable, its below-cap
 slice underperforming the arrival population — though it is a *band* under
 the caption-banded versions (placed above `elevated` from the class
 marginal, and the band's own realized rate, net of its strongest members
-leaving for `high`, does not settle that placement). Four Terms clear the
-30-row realized floor — OT2017 n=33, OT2019 n=37, OT2020 n=33, OT2021 n=46 —
+leaving for `high`, does not settle that placement). Five Terms clear the
+30-row realized floor — OT2017 n=39, OT2018 n=31, OT2019 n=42, OT2020 n=37,
+OT2021 n=53 (`metrics/statpack.json`, refreshed 2026-09-14) —
 and what decides nothing is not the spread alone but the **sign flip** inside
-it: state lands *below* `elevated`'s terminal rate in two of the four (6.1% vs
-8.5%, 8.1% vs 10.6%) and above it in the other two (30.3% vs 11.4%, 23.9% vs
-11.5%). Pooled over those same four Terms state runs 17.5% (26/149) against
-`elevated`'s 10.5% (116/1107), which would weakly support the registered
-placement — but the four were selected on sample size out of nine, and the
-floor is a *per-Term* rule, so that pooled cut is a post-hoc read the
+it: on the `sal-v4` segments the pack is rendered against, state lands *below*
+`elevated`'s terminal rate in two of the five (9.7% vs 10.0%, 7.1% vs 10.5%)
+and above it in the other three (10.3% vs 7.8%, 32.4% vs 11.2%, 28.3% vs
+13.0%). Pooled over those same five Terms state runs 18.3% (37/202) against
+`elevated`'s 10.5% (139/1330), which would weakly support the
+registered placement — but the five were selected on sample size out of nine,
+and the floor is a *per-Term* rule, so that pooled cut is a post-hoc read the
 registration does not authorize and it is not claimed. The ordering rests on
 the registration, frozen per version, rather than on a measurement. The gate replay still
 cannot validate any caption feature, because the replay's reconstruction
@@ -1033,7 +1035,10 @@ holds any committed prediction for is admitted as a sweep candidate — admissio
 only, and deliberately the cheaper question — and on that ground the queue is narrowed to the events that pass **both**
 bounds below. The `predict-matrix` scope backstop applies the same two bounds
 to a deferred case's *listed* events, so a queued cell and a planned cell answer
-to the same test. The two seams are not identical at the edges, and both
+to the same test — with one ground the backstop has and this seam does not,
+because the lane it serves is the one that owns the rule: the pre-freeze
+re-predict rule's licence travels on the backlog deriver's own case list
+(`reopen_events`), which this sweep neither reads nor writes. The two seams are not identical at the edges, and both
 divergences refuse rather than admit: the plan seam reads
 `corpus.is_salience_deferred`, which treats an unscored row as fail-open
 selected and so keeps it whole, where the sweep's own predicate counts it
@@ -1046,7 +1051,26 @@ poison-pilled cohort is not swept either.
 The **spend bound** is the first: only the case's already-predicted events are
 queued. Finishing a cohort buys the missing engines on a case the project already
 funded, while the case's *untouched* open events would be new cells on a case the
-gate declined. This half mirrors the evaluate backlog's reading of the same gate
+gate declined. "Missing" spans two readings at the engine grain: an engine with
+no cell on the event, and — where a predictor-half re-bless has put its cells
+outside the frozen process scope — an engine owed a re-forecast under the
+blessed process, which the predict backlog's pre-freeze re-predict rule
+(*The predict/evaluate matrix* in [pipeline.md](pipeline.md)) derives. The
+second reading is the one place the spend bound admits work the first would not:
+an event whose whole cohort a re-bless retired is re-owed, so **a
+salience-declined case is predicted again** where the rule reaches it. The
+widening is bounded by the rule and by nothing else — an event no predictor has
+forecast is not re-owed, so a declined case still earns no cells on its
+untouched events, and the selection itself does not move. At the cell grain a
+re-owed event does complete — an engine holding no cell on it is minted a first
+one, which is the completeness the rule is justified by — and such a case still
+sorts behind every case owed a never-predicted cell. It does change the
+**predicted population's band mix**, since a declined case is a lower-band one by
+construction; the composition of the cohort the current rule derives, and the
+reading rules that follow from it, are registered in
+[freeze-record.md](freeze-record.md)'s entry for 2026-09-15.
+
+This half mirrors the evaluate backlog's reading of the same gate
 (a prediction on a since-deferred case must still be graded): selection funds
 forecasts, and it does not un-fund one already made. The mirror reaches the
 funding question and stops there — grading scores a fixed artifact, while cohort
@@ -1058,7 +1082,18 @@ existing cohort is one a claimable board will count once the event resolves and
 is graded — at least one committed prediction on it in the **frozen process
 scope** ([process-version.md](process-version.md)),
 keyed per predictor on the latest run, the same rule the boards' scope gate
-joins on. Without it the carve-out would defeat its own purpose. The completing
+joins on. Without it the carve-out would defeat its own purpose.
+
+Both bounds govern the **never-predicted** arm, and the exemption below belongs
+to the **backlog** seam — this sweep does not apply the re-predict rule at all,
+having no channel for its licence. There, the pre-freeze re-predict rule
+is not narrowed by them, and that exemption turns on the comparability bound's
+own reasoning rather than waiving it: what the bound refuses is a *partial*
+completion, where the completing cell lands in the frozen partition beside
+siblings that never will, and a wholly retired cohort is not that shape —
+every engine is re-owed at once, so what the board gains is a complete frozen
+cohort. An event the rule does **not** re-owe — its moment closed, its stage
+already decided — is refused exactly as before. The completing
 cell is stamped with a blessed digest at a post-freeze instant — so long as the
 running process's digest is blessed, which a re-bless window briefly suspends —
 and so lands inside the frozen partition; if every sibling on the event sits outside it —
@@ -1212,12 +1247,24 @@ math; this doc owns the default and the knob's semantics.
 
 ## The big-case score (a pre-registered stakes opinion)
 
-A field on `prediction.json` — `big_case_score` (0–1) plus an optional one-line
-rationale — capturing the predictor's view of the case's **stakes / importance /
-newsworthiness, decoupled from grant likelihood**. Define it as *significance if
-decided*: a case can be denied yet high-stakes and closely watched, or granted yet
-narrow and technical, so the score carries information beyond `probability` rather
-than shadowing it.
+A field on `prediction.json` — `big_case_score` (0–1, or an explicit `null`),
+with a one-line `big_case_rationale` beside it wherever the score is null —
+capturing the predictor's view of the case's **stakes / importance /
+newsworthiness, decoupled from grant likelihood**. Define it as
+*significance if decided*: a case can be denied yet high-stakes and closely
+watched, or granted yet narrow and technical, so the score carries information
+beyond `probability` rather than shadowing it.
+
+The predict prompt contracts an **answer**, not necessarily a score: the number,
+or an explicit `null` whose rationale says why the cell could not place the
+stakes. The separation that buys is carried by the **rationale**, not by the
+null — `stamp-cell` rewrites the record through the model, so an omitted score
+and a declared null land as the same bytes, and every figure here skips a null
+either way. What the contract changes is coverage of the number branch, and it
+makes a no-view legible where it was previously indistinguishable from a cell
+that never took the question up. The schema keeps the field nullable and
+optional so records written before the contract still validate, which leaves
+the separation the prompt's to hold rather than validation's.
 
 It is **judged by an independent evaluator, not against a ground truth**. At
 evaluation the evaluator forms its **own** read of how big the case is, and the
@@ -1282,9 +1329,10 @@ prediction's timing contract:
 
 **The lookback window is a stated choice, not a default.** The band rate is pooled
 over prior Terms — but *how many* prior Terms is a real parameter, and it moves the
-anchor. Per-Term high-band grant rates over the walked range (OT2017–OT2025),
-on the **`sal-v4`** segments the committed pack is rendered against, run
-**24.5%–42.3%**, a ~1.73× spread. The pack's `sal-v1`/`sal-v2` alternative
+anchor. Per-Term high-band grant rates over the Terms carrying a resolved
+high-band row (OT2017–OT2025), on the **`sal-v4`** segments the committed pack
+is rendered against, run
+**25.5%–42.7%**, a ~1.67× spread. The pack's `sal-v1`/`sal-v2` alternative
 segments give materially different high pools, while its `sal-v3` block is
 `sal-v4`'s pool wearing `sal-v3`'s name — the pack bands every registered
 version off the single stored `distribution_count` column, so an alternative
@@ -1292,13 +1340,13 @@ block cannot exhibit a parse effect. Read the version before the number,
 know the block does not record its parse, and read every figure here against
 the pack's own vintage. Nothing
 reachable sits above `high`, so that is its **risk-set** range as well as its
-terminal one; elevated runs 13.2%–19.2% on the risk-set rate a
+terminal one; elevated runs 13.5%–20.5% on the risk-set rate a
 forecast is scored against (6.9%–13.1% on the terminal rate the same table shows
 in the lead column — see below). Those risk-set figures are what the
 reachable-ladder pooling produces. Anchored at an OT2026
-petition, the high band reads roughly **35.5% (n=923)** pooling every prior Term,
-**36.4% (n=505)** over the last five, and **≈42%** over the last one — a Term
-still resolving (64 of OT2025's 80 high-band petitions resolved), so the
+petition, the high band reads roughly **35.5% (n=966)** pooling every prior Term,
+**36.2% (n=531)** over the last five, and **≈43%** over the last one — a Term
+still resolving (68 of OT2025's 84 high-band petitions resolved), so the
 shortest window's anchor is censored as well as thin — recompute from the
 statpack's per-Term band table rather than quoting these. That is a
 ~7-point spread in the number a forecast's Brier skill is scored against, and in
@@ -1392,10 +1440,10 @@ under the same version, and that gap is visible instead of silently papered
 over.
 
 The tension is bias against variance, and it has no free answer. Per-Term
-high-band samples are small (64–133 weighted-resolved petitions), so a short
-window is noisy: two Terms gives n=176. Pooling every prior Term buys n=923 and a
+high-band samples are small (68–140 weighted-resolved petitions), so a short
+window is noisy: two Terms gives n=184. Pooling every prior Term buys n=966 and a
 stable estimate, but assumes the Court's grant behaviour is stationary across the
-whole range — and the spread above cannot adjudicate that either way: at 64–133
+whole range — and the spread above cannot adjudicate that either way: at 68–140
 petitions a Term the widest per-Term deviation is about 2.2 standard errors over
 nine looks, which is what a constant rate produces as often as a drifting one.
 The window is therefore stated rather than defaulted, and no skill claim rests
@@ -1412,7 +1460,7 @@ So the window is **config, not a constant**: `salience.base_rate_lookback_terms`
 in `config/tracking.yaml`, where `0` would mean every prior Term. It is set to
 **10**, matching `statpack.markdown_terms`, so the scored baseline and the band
 table the agents anchor on share one window by construction and cannot silently
-diverge as walked Terms accumulate; with nine Terms walked the bound excludes
+diverge as walked Terms accumulate; with ten Terms in the pack the bound excludes
 nothing, so every published skill number is what the unbounded pool produced.
 The choice is on the record and a change to it is
 a reviewable diff rather than an invisible shift in every published
@@ -1433,7 +1481,8 @@ replayed predictors, which run the same prompt — reads the band table in
 limit: `statpack.json` sits in the same checkout and carries every Term, and the
 prompts are what direct anchoring at the table.
 
-With the walked range at OT2017–OT2025 the pack holds nine Terms, nothing is
+With OT2017–OT2026 in the pack — nine walked Terms plus the open one the live
+channel fills — it holds ten Terms, nothing is
 truncated, and the two windows **coincide** — and because both knobs read `10`,
 they keep coinciding when the pack passes ten Terms, instead of parting inside a
 single back-test run where a replayed agent would be scored against a Term it
@@ -1580,12 +1629,12 @@ so banding an application on caption alone would be the same mismatch.)
 Reusing the band would be the
 conditioning mismatch this document spends its length warning about.
 
-**Most of the docket is not the thing predicted.** Over the 1,797 parsed
-application dockets — every walked Term pooled, though seven of the ten
-contribute none and OT2025 alone is 76% of the total — **81.9%** are requests
+**Most of the docket is not the thing predicted.** Over the 2,128 parsed
+application dockets — every walked Term pooled, though 23 of the 26
+contribute none and OT2025 alone is 69% of the total — **79.5%** are requests
 to extend the time to file: granted
 by a single Justice as a matter of course, with nothing about the case moving
-the answer. **13.9%** are substantive and **4.3%** carry an ask the parser
+the answer. **16.5%** are substantive and **4.0%** carry an ask the parser
 cannot read. The cohort accumulates with every walk, so recompute these from
 the statpack's `interim` section rather than quoting them. Admitting the whole docket would hand a
 predictor a base rate it beats by answering "granted" every time — the IFP
@@ -1757,8 +1806,8 @@ transmitted relative error at or under one third therefore needs
 `n ≥ 36(1 − p)/p`: 36 at `p = 0.5`, 84 at `p = 0.3`, unbounded as `p` falls.
 **The criterion cannot pin a number, and 50 is not claimed to satisfy it.** It
 is monotone decreasing in `p` and unbounded, so at the rates this docket has
-actually shown it asks for roughly 231 resolutions at the pooled 13.5% and
-roughly 364 at a single Term's 9%; 50 clears it only for `p` above about 0.42.
+actually shown it asks for roughly 318 resolutions at the pooled 10.2% and
+roughly 443 at a single Term's 7.5%; 50 clears it only for `p` above about 0.42.
 What the criterion establishes is that **thirty is too low here**, and what 50
 buys is stated exactly: an absolute standard error of at most 0.071, inside the
 bound the siblings accept at thirty (0.091). So the figure is chosen on the
@@ -1770,14 +1819,17 @@ merits floor does. Below it there is **no baseline and no substitute**: not the
 pack-level rate (it contains the case's own Term), not a single Term's, and not
 the cert band table (a different population on a different standard) — the cell
 carries a null skill, visibly, rather than a borrowed number. Its effect today
-is that no single-Term pool qualifies, which on the committed pack is the whole
-of the live docket: an OT2025 application's only strictly-prior contributor is
-OT2024's 44 resolutions, so **no currently predictable application carries a
-baseline at all** until OT2026 opens and OT2025's own resolutions join the
-pool. That effect is **accepted rather
-than incidental**: 50 was chosen with the committed pack visible, and the
-criterion's own value at `p = 0.5` (36) would have admitted the one single-Term
-pool that exists. What is *not* registered is a companion "at least two Terms"
+is that the live docket clears it by accumulation: an OT2025 application's only
+strictly-prior contributor is OT2024's 70 resolutions, giving a baseline of
+0.200, and an OT2026 application pools OT2024 and OT2025 for 296 resolutions and
+0.105 (`metrics/statpack.json`, refreshed 2026-09-14). The two differ by a
+factor of two, and the thinner one rests on a Term the poller parsed 325 of
+1,297 applications for, so no interim skill number is comparable across
+application Terms. A single Term suffices
+only where that Term itself passes fifty. The floor is **deliberate rather
+than incidental**: 50 is chosen on the siblings' absolute-SE standard rather
+than on which pools it admits, and the criterion's own value at `p = 0.5` (36)
+sits below it. What is *not* registered is a companion "at least two Terms"
 condition — considered and **rejected**, because a
 second parameter with no derivation behind it, chosen in knowledge of which
 cells it would exclude, is a forking path however reasonable it sounds.
@@ -1801,8 +1853,8 @@ strictly-prior substantive slice, while the cells scored against it are the
 reserve's occupants — and the reserve fills its bounded slots in **escalation
 ladder order** (a requested response first, then the amicus count). A predicted
 application therefore sits systematically higher on those rungs than the cohort
-behind the rate: of the accumulated substantive slice only about a fifth (53 of
-257, `metrics/statpack.json` as refreshed 2026-08-24) ever
+behind the rate: of the accumulated substantive slice only about a sixth (60 of
+352, `metrics/statpack.json` as refreshed 2026-09-14) ever
 drew a response request, while a reserve-selected cell is frequently picked
 *because* it did. The baseline is unconditioned on the ladder and the scored set
 is selected on it, which is the outcome-decomposition register's test 3 answered
@@ -1988,7 +2040,7 @@ the posture below keeps selection additive and never destructive:
 - **The segment base rate's lookback matches the agent-facing window** —
   `salience.base_rate_lookback_terms: 10` equals `statpack.markdown_terms: 10`,
   so the scored baseline and the band table the agents anchor on share one
-  window; with nine Terms walked the bound excludes nothing. Both are stated so
+  window; with ten Terms in the pack the bound excludes nothing. Both are stated so
   the pair can be moved together, on evidence, in one reviewable diff (*Base
   rates & baselines for the predicted segment* above).
 - **The segment baseline stays SCOTUS-cert-only** — the Term is its leakage

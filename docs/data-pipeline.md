@@ -165,7 +165,7 @@ through `fedcourtsai.corpus`) plus shared dedup/cursor utilities. **Unify the
 library and the data, not the job:** every job writes the same stores through
 the same APIs; separate jobs only keep the budget boundary crisp.
 
-One writer sits outside these four without contradicting the claim above: the
+One writer sits outside these five without contradicting the claim above: the
 dispatch-only `staging-corpus-refresh` workflow holds the **staging** pair's
 read-write role (`fedcourts corpus-seed-slice`), which is read-only against
 production. It writes a disposable slice, never these stores — which is the
@@ -402,7 +402,7 @@ harness-written field, `process_version` — the stamp of the process that produ
 the cell (prompt template + resolved registry config, hashed to a content
 `digest`). Like `usage.json`, it is the harness's word, not the agent's: a
 post-agent `stamp-cell` step injects it from the registry in force at run time.
-Headline metrics partition on this digest so the July/August shakedown is
+Headline metrics partition on this digest so the shakedown is
 excluded from the frozen board without deleting it. See
 [process-version.md](process-version.md).
 
@@ -611,6 +611,18 @@ whole forward fleet reads one store without per-command flags; an explicit
 `--corpus-backend` still wins), proven byte-identical across backends by a
 parity gate (`tests/test_provision_casestore.py`).
 
+A third command writes into that same `record/` and reads the store a different
+way: `provision-opinion` stages a decided case's majority opinion at
+`record/opinion/` for an **evaluate** cell to grade a semantic claim against,
+on a `run-evaluate` step that runs on every cell and stages nothing where the
+row holds nothing. It
+does *not* take `casestore` — the presence bit and the citation it stages are
+index facts and the content store exposes no rows — so it reads the row over
+`local`/`ranged` while the body half routes itself through the payload read
+source described below. Its own slot rather than a filed document, because an
+opinion postdates every predict moment and `record/documents/` is cut by date
+alone; the predict lane never invokes it, which is the whole of the guarantee.
+
 *Which* point in time the record is sourced at is the cell's declared moment,
 not the corpus's newest read: where a cell names an event that declares
 a moment, `provision-snapshot` places it at the day after that event opened,
@@ -627,11 +639,14 @@ provenances, the two cut kinds, and the moments the cut does not apply to.
 The `casestore` backend has no query surface, so `query` / `stats` / `open-events` / scope reconcile read
 the index — locally pulled or ranged in place — and `cert-backtest` replay
 reads its redacted snapshots from the store through the payload read source.
-`query --full` is the one reader that needs a payload the index does not hold:
-it hydrates each prior's opinion body from the store through the same payload
-read source, inside the shared payload shaper so the CLI and the query service
-behave identically — the sidecar is the credentialed process, which is what
-lets a credential-free cell ask for a body at all. The hydration is gated on
+The opinion body is the payload the index does not hold, and two readers need
+it: `query --full`, which hydrates each prior's body inside the shared payload
+shaper so the CLI and the query service behave identically — the sidecar is the
+credentialed process, which is what lets a credential-free cell ask for a body
+at all — and `provision-opinion`, which stages one case's body into its
+`record/` slot. Both go through `corpus.opinion_body`, the single definition of
+which half of the estate holds the text, so provisioning and a `--full` query
+can never disagree about it. The hydration is gated on
 `full` *and* on the row's retained `has_opinion` bit, so the default path never
 leaves the index and an opinion-less prior costs no store request. It degrades
 rather than fails: a case whose `case.json` was never mirrored, and a store that
@@ -667,7 +682,8 @@ refusal is a counted line in the run's report.
 
 Its **scope is its budget argument**. The pass walks the cert-granted SCOTUS
 slice only — rows carrying `date_cert_granted`, which is grants and GVRs
-together: ≈1,250 all-time and ≈120–130 a Term — at up to four REST requests a
+together: ≈1,230 all-time (1,232 on the corpus blob pulled 2026-09-14) and
+≈120–130 a Term — at up to four REST requests a
 case resolved by docket number (docket, cluster list, the docket that cluster
 names, opinion) and three by the docket route (docket, cluster, opinion),
 dropping to two on the rare row whose newest snapshot is REST-shaped rather
@@ -686,8 +702,46 @@ outside a pull window rather than beside one. Convergence is not monotone: a
 grant that never publishes an opinion (a GVR, a DIG) is retried whenever its
 turn comes round, and so is a decided grant neither route resolves — one
 carrying no docket number to ask with, or one whose number upstream joins
-several clusters to. A **last-attempted
-cursor** is what keeps those residues from holding the head of every run: an
+several clusters to.
+
+The walk's **first key is the git ledger's decided merits cases**: a case for
+which `data/cases/<court>/<docket>/events/` already holds a committed merits
+event **and** whose `merits_judgment` has latched goes ahead of the backlog.
+Both halves are load-bearing. *On the ledger* is who the body is for — grading a
+merits forecast is the only thing it is an input to — and without the key those
+few dozen cases are the *last* walked, not the first: upstream mints a
+current-Term grant one of the highest docket ids there is, so `case_id` order
+puts the case the pipeline is waiting on dozens of capped dispatches behind
+grants from a decade ago. *Decided* is whether there is a body to fetch at all,
+and it is what keeps the promotion from costing more than it buys: the promoted
+group is walked **in full** before anything else, so promoting a pending case —
+whose opinion does not exist yet — would spend a whole dispatch's `--max-cases`
+on guaranteed `no_cluster` verdicts and stop the ≈1,200-row backlog converging
+until those cases are decided, which on a Term's calendar is months. A pending
+ledger case therefore keeps its ordinary place in the rotation and is promoted
+at the latch, which the live poll writes on a granted docket within a day of the
+decision. The same arithmetic is the standing condition on the key: the backlog
+advances only while the promoted group is smaller than `--max-cases`, which the
+group's own convergence is what maintains — a decided case lands its body and
+drops out of the predicate, where a pending one never would have. The run
+reports `promoted`, the share of the cap that group took, so the condition is
+read off the run rather than assumed. The ledger
+read is one glob over the committed tree, with
+[`pipeline/moments.py`](../src/fedcourtsai/pipeline/moments.py)'s declared
+merits moments as the vocabulary.
+
+`--case <court>/<docket>` (repeatable) narrows the walk to named cases, and it
+is a **diagnostic rather than a second way in**: the applied lane is the
+dispatched enrich job, which names no case, and a dev checkout's corpus role is
+read-only, so a local `--apply` cannot be pushed anywhere. What it buys is a dry
+run's answer about one case — which route reaches its cluster, whether the
+cluster is ambiguous, whether the opinion carries text — without spending a
+slice to find out. It narrows only: eligibility and `--max-cases` still decide,
+and a named case the predicate does not admit is reported with its reason rather
+than silently skipped. Getting a case walked in production is the ledger key's
+job, not this flag's. A **last-attempted
+cursor** then orders *within* each of those priority groups, and is what keeps
+the residues from holding the head of either: an
 applied run stamps `opinion_enrich_attempted_at` on every case it classifies —
 enriched, no cluster, refused, 4xx on one of its records — through the same upsert the
 enrichment itself writes through, and it takes never-attempted rows first (in
@@ -1159,7 +1213,7 @@ population and apply against another.
 | `normalize-docket-markings` | `normalize-docket-markings` | `--max-rewrites` | — | — |
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
 | `ocr-recovery` | `ocr-recover-petitions` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`) | — | — |
-| `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too) | — | — |
+| `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too; the class has two arms, a form-keyed opening document and, on a granted row whose respondent has filed on the merits, each side's merits brief, and the ledger's `merits_candidates` says how the **class** splits between them, which is not the mix a bounded slice takes — the class is in `case_id` order and the arms are not separated in it) | — | — |
 | `mirror-stored-documents` | `mirror-stored-documents` | `--max-cases` (a slice, not a ceiling — **apply only**: the dry run always enumerates the whole population, and the command refuses a bound without `--apply`) | — | — |
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
@@ -1220,18 +1274,20 @@ must not report the same way.
 
 The **document back-fill** reads the same way with one addition its class
 forces. Its candidates are live-slice rows queued for prediction or selected by
-the salience gate that hold no document of their own docket form's primary kind
-— an application-form row measured against its `application`, a cert-form row
-against its `petition` — and a candidate it cannot recover falls into one of two
-**floors** rather than a failure: a docket carrying the opening entry with no
-PDF behind it is a Rule 34.6 paper filing the Court served nothing for, and one
-carrying no such entry at all is a legacy docket whose proceedings list holds no
-document links. Neither drains, so a slice that clears its bound without
-shrinking the class is the expected reading once the recoverable half is gone,
-and only the floor counts say so. The exception is the alarm: a docket modern
-enough that its proceedings list should carry links, matching no opening entry,
-is a filing shape the selector has no arm for rather than a floor, and the
-ledger **names** those cases where the counts would bury them. Its ledger
+the salience gate, measured on two arms: their own docket form's opening
+document — an application-form row against its `application`, a cert-form row
+against its `petition` — and, on a **granted** row whose respondent has filed on
+the merits, each side's merits brief. A candidate it cannot recover falls into
+one of two **floors** rather than a failure: a docket carrying an entry for a
+missing kind with nothing fetchable behind it (a Rule 34.6 paper filing the
+Court served nothing for, or a merits kind on a docket whose grant cannot be
+dated), and one carrying no such entry at all. Neither drains, so a slice that
+clears its bound without shrinking the class is the expected reading once the
+recoverable half is gone, and only the floor counts say so. The alarm cuts
+across both counts because it is per **kind**: a missing kind the selector found
+no entry for on a docket modern enough to carry links is a filing shape it has
+no arm for rather than a floor, and the ledger **names** those cases whichever
+floor they were counted at. Its ledger
 carries two denominators, not one — the predict-relevant rows the walk read at
 all, which the command refuses on, and how many of them served any stored
 document, which is the opposite degradation: a content store the process cannot
@@ -1251,7 +1307,7 @@ command's own refusal, since that registry lives in Python. The re-grade takes a
 so spaces work as well as newlines, as in
 
 ```
-scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge
+scotus/1119228/evt-petition-disposition/20260624T103000Z/claude-judge
 ```
 
 One re-grade per line, so a cell three judges graded is three lines — which
@@ -1357,12 +1413,28 @@ into: there is no `include-scored` analogue here, because the re-freeze corrects
 a value the old reading got wrong rather than re-characterizing an order, so
 holding scored events back would leave a known-wrong number standing under a
 grade. It re-freezes every committed interim block unconditionally, and the
-re-grade backlog follows. It also **presupposes
-the widened amicus reading is promoted** — it corrects the rows frozen under the
-old one, so it rides the same promotion batch as that reading and is not
-dispatched before it. One pass per dispatch makes each follow-through a second
-dispatch rather than a silent second step, which is the point: the backlog a
-rewrite owes is a maintainer's to schedule.
+re-grade backlog follows. **That backlog lists only what the dispatch can
+pay**, because `stamp-cell --regrade` *refuses* a cell it will not recompute
+rather than skipping it, and the step dies at the first refusal without
+committing anything — so a backlog that is not dispatchable whole is not
+dispatchable at all. A judge's re-runs of one cell therefore collapse to the
+surviving run, as every scoring surface collapses them, and the cells the
+re-grade would still refuse are **reported** with their reason rather than
+listed: an unstamped cell (which takes the ordinary stamp instead), an
+unparseable or path-disagreeing record, and — the one arm no dispatch reaches
+— a run that survives for one predictor while a later run supersedes it for
+another under the same judge, since one dispatch writes every predictor under
+the run. The count is of dispatchable cells, not of the grading directories
+under the re-frozen events. Two consequences for the reading: a maintainer
+pastes the list as printed, and after the follow-through the event holds cells
+scored against two resolution values, because a reported cell's
+`amicus-increment` still resolves against the superseded count and is not
+comparable with its re-graded siblings. It also **presupposes the widened
+amicus reading is promoted** — it corrects the rows frozen under the old one,
+so it rides the same promotion batch as that reading and is not dispatched
+before it. One pass per dispatch makes each follow-through a second dispatch
+rather than a silent second step, which is the point: the backlog a rewrite
+owes is a maintainer's to schedule.
 
 **Dispatching.** Dispatch on `main`, in a dead zone between the scheduled
 windows (`run-pull` at `:17` and `:47`, `run-seed` at `:31`). A *queued* repair
@@ -1395,6 +1467,14 @@ gh workflow run run-repair.yml --ref main \
 # candidate, so an unbounded dry run over a large class is an hour of them.
 # Read the ledger's floor counts before sizing the apply: they say how much of
 # the class no fetch reaches, so a bound above the recoverable half buys nothing.
+# Read its arm split too (`merits_candidates` against `candidates`), and read
+# it as a property of the whole class rather than of the next slice: the class
+# is in case-id order and the two arms are not separated in it, so a bound of
+# 40 does not take 40 candidates in that ratio — where the granted dockets sort
+# relative to the rest is what decides a given slice's mix. The floor counts are
+# pooled across both arms too, so where the split matters read the dry run's
+# per-case `would fetch` lines, which name the kinds each candidate has a link
+# waiting under.
 gh workflow run run-repair.yml --ref main \
   -f repair=document-backfill -f repair_mode=dry-run -f repair_bound=40
 gh workflow run run-repair.yml --ref main \
@@ -1433,8 +1513,8 @@ gh workflow run run-repair.yml --ref main \
 # A pass with a target. The re-grade takes one cell per line, one per judge.
 gh workflow run run-repair.yml --ref main \
   -f repair=regrade-stale -f repair_mode=dry-run \
-  -f repair_target='scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge
-scotus/1119228/evt-petition-certiorari/20260624T103000Z/codex-judge'
+  -f repair_target='scotus/1119228/evt-petition-disposition/20260624T103000Z/claude-judge
+scotus/1119228/evt-petition-disposition/20260624T103000Z/codex-judge'
 
 # The distribution re-derivation names its parse and takes no bound. Dispatch
 # the INCUMBENT parse first as a control: it must report `changed = 0`.
@@ -1522,7 +1602,8 @@ give the data **invariants** worth asserting on their own, distinct from
   the schedule to catch anything that bypassed the gate).
 
   The path that bypasses it is the **deterministic writers**: pull, live,
-  enrich, and seed commit to `main` directly, with no PR and therefore no gate.
+  enrich, seed, and the repair bench commit to `main` directly, with no PR and
+  therefore no gate.
   So a writer that lands a malformed or orphaned artifact reddens the data
   stage on *every
   open PR at once*, since each one validates the whole tree it checked out —

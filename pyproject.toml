@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "Agentic AI system to predict events in US federal courts"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = { text = "BSD-3-Clause" }
 authors = [{ name = "ModelMirrorAI" }]
 dependencies = [
     "httpx>=0.28",

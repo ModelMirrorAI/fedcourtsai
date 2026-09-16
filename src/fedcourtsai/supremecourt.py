@@ -26,6 +26,7 @@ import time
 from collections.abc import Callable
 from datetime import date
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -53,6 +54,81 @@ IFP_SERIAL_BASE = 5001
 
 # Backoff pause before the single retry on a transient upstream response.
 _RETRY_PAUSE_SECONDS = 5.0
+
+# The host this channel is scoped to. Every URL it requests is a supremecourt.gov
+# path — the docket JSON this module builds, and the filed documents whose links
+# come verbatim out of that JSON — because the Court's own site is the only place
+# those records live (docs/data-sources.md, docs/live-sources.md). Anywhere else
+# is not a channel the pipeline has: it would let another origin supply bytes
+# that are stored as a filed document and read by a cell as evidence, while the
+# politeness pacing and the 403 retry posture stay keyed to the intended host.
+# The rule binds the URL a fetch starts at as well as every hop it is sent to,
+# because a `DocumentUrl` is upstream-controlled text and a `Location` header is
+# upstream-controlled text — the same input by two routes. Matched as a suffix
+# so the Court's subdomains are in and a lookalike like `supremecourt.gov.example`
+# is out.
+DOCUMENT_HOST_SUFFIX = "supremecourt.gov"
+
+# How many same-host hops one fetch may walk before the chain is treated as a
+# loop. Tighter than httpx's own default, because this channel's redirects are
+# an upstream housekeeping detail rather than a routing layer.
+_MAX_REDIRECTS = 5
+
+
+def is_court_url(url: str) -> bool:
+    """Whether ``url`` is HTTPS on the Court's own host.
+
+    The predicate both the redirect guard below and the OCR pass's
+    ``fetchable_document_url`` are written against, so "the host this channel is
+    scoped to" has one spelling rather than two that can drift apart. Scheme is
+    part of it: a plaintext hop to the right host is still not this channel, and
+    a `file:` or relative URL would reach the client as something other than an
+    HTTP request. Userinfo is refused for a reason of its own — it dials the
+    right host, but it lets an upstream string decide what credentials the
+    request carries — and a non-default port is refused because the Court serves
+    its records on 443. So is any URL carrying a character that is not
+    printable: ``urlsplit`` drops tabs and newlines before parsing, so a control
+    character inside an otherwise-plausible link would pass this and then reach
+    the transport as a different string from the one checked.
+    """
+    if any(not char.isprintable() for char in url):
+        return False
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return False
+    if parts.scheme != "https" or not parts.hostname:
+        return False
+    if parts.username or parts.password or port not in (None, 443):
+        return False
+    host = parts.hostname.lower()
+    return host == DOCUMENT_HOST_SUFFIX or host.endswith(f".{DOCUMENT_HOST_SUFFIX}")
+
+
+class OffHostFetch(httpx.HTTPError):
+    """A request that would have left the Court's host, refused unmade.
+
+    Raised for the two routes a fetch can leave the host: the URL it starts at
+    — which for a document is a ``DocumentUrl`` lifted verbatim from docket
+    JSON, the case this exists for, though the docket-JSON URL this module
+    builds is checked by the same rule — and a ``Location`` header it is
+    redirected to. ``redirected_from`` is what tells them apart in the log line.
+
+    An ``httpx.HTTPError`` so that a caller which does not know the condition
+    degrades the way it degrades every other failed fetch — skipping the
+    document rather than crashing the run — while a caller that wants it apart
+    catches this class first and counts it under its own reason. The distinction
+    is worth keeping: a transport failure is routine and self-healing, an
+    off-host fetch is a document the channel would have taken from a host it is
+    not scoped to, and one occurrence is worth a maintainer's reading.
+    """
+
+    def __init__(self, target: str, *, redirected_from: str | None = None) -> None:
+        where = target if redirected_from is None else f"{redirected_from} -> {target}"
+        super().__init__(f"refused a fetch off the Court's host: {where}")
+        self.target = target
+        self.redirected_from = redirected_from
 
 
 def live_docket_id(term: int, serial: int) -> int:
@@ -177,7 +253,10 @@ class SupremeCourtClient:
     under some failure modes, and "no docket here" must never crash a poll).
     Throttles before every request after the first and retries once, after a
     pause, on 403/429/5xx or a transport error; a second failure raises, so a
-    degraded upstream degrades the run instead of being hammered.
+    degraded upstream degrades the run instead of being hammered. Redirects are
+    walked here rather than left to httpx, so that a hop off the Court's host is
+    refused (:class:`OffHostFetch`) before the request is made rather than
+    discovered after the bytes are in hand.
     """
 
     def __init__(
@@ -193,7 +272,6 @@ class SupremeCourtClient:
         self._client = client or httpx.Client(
             headers={"User-Agent": BROWSER_USER_AGENT},
             timeout=httpx.Timeout(30.0),
-            follow_redirects=True,
         )
         self._first_request = True
 
@@ -238,7 +316,11 @@ class SupremeCourtClient:
 
         Same politeness as the docket fetch. Document links may vanish — the
         reachability probe found coverage is a rolling ~5-Term window — so a
-        missing document is an expected condition, never an error.
+        missing document is an expected condition, never an error. A link that
+        is not on the Court's host, or that redirects off it, raises
+        :class:`OffHostFetch` instead of returning bytes: the link comes
+        verbatim out of upstream JSON and what comes back is filed as evidence,
+        so the bytes have to have come from the host the channel is scoped to.
         """
         response = self._fetch(url)
         return response.content if response is not None else None
@@ -248,7 +330,11 @@ class SupremeCourtClient:
         for attempt in (1, 2):
             self._pace()
             try:
-                response = self._client.get(url)
+                response = self._walk(url)
+            except (OffHostFetch, httpx.TooManyRedirects):
+                # Neither is retried: asking again returns the same refusal or
+                # walks the same loop, at the cost of a pause and a second walk.
+                raise
             except httpx.HTTPError:
                 if attempt == 1:
                     self._sleep(_RETRY_PAUSE_SECONDS)
@@ -263,3 +349,58 @@ class SupremeCourtClient:
                 response.raise_for_status()
             return response
         raise AssertionError("unreachable")  # pragma: no cover
+
+    def _walk(self, url: str) -> httpx.Response:
+        """One GET on the Court's host, following only hops that stay on it.
+
+        Both ends of the chain are checked, because both are upstream text: the
+        starting URL is a ``DocumentUrl`` copied verbatim out of docket JSON,
+        and each hop is a ``Location`` header. Following is done here rather
+        than by the client, because checking the final origin after httpx has
+        followed the chain would mean the off-host request was already made and
+        its body already read — the bytes become a stored document, and the
+        pacing and the 403 retry posture are keyed to the intended host. Every
+        hop is paced like the request it is, and a same-host chain resolves to
+        its final response. The per-request ``follow_redirects=False`` also
+        binds an injected client, so a caller's client cannot follow the chain
+        out from under this.
+        """
+        if not is_court_url(url):
+            raise OffHostFetch(url)
+        current = url
+        response = self._get(current)
+        hops = 0
+        while response.is_redirect and response.next_request is not None:
+            if hops == _MAX_REDIRECTS:
+                # The cap counts hops taken, so the response after the last one
+                # is still read: a chain that ends exactly at the cap resolves
+                # rather than spending a request whose body is then discarded.
+                response.close()
+                raise httpx.TooManyRedirects(
+                    f"too many redirects fetching {url}", request=response.request
+                )
+            target = str(response.next_request.url)
+            if not is_court_url(target):
+                response.close()
+                raise OffHostFetch(target, redirected_from=current)
+            hops += 1
+            self._pace()
+            current = target
+            response = self._get(current)
+        return response
+
+    def _get(self, url: str) -> httpx.Response:
+        """One unfollowed GET, with a malformed upstream URL kept in-protocol.
+
+        A ``Location`` naming a non-ASCII host reaches httpx as an encoding
+        error rather than an HTTP one — raised while the redirect request is
+        built, so it surfaces on the request that *received* the header — and
+        neither ``UnicodeEncodeError`` (a ``ValueError``) nor ``httpx.InvalidURL``
+        is an ``httpx.HTTPError``, so either escaping here would end the whole
+        pass over one bad header. It is an upstream that cannot be spoken to,
+        which is what ``RemoteProtocolError`` says.
+        """
+        try:
+            return self._client.get(url, follow_redirects=False)
+        except (ValueError, httpx.InvalidURL) as exc:
+            raise httpx.RemoteProtocolError(f"unusable URL from upstream at {url}") from exc

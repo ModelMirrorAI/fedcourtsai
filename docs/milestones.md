@@ -33,8 +33,9 @@ Sources: [28 U.S.C. § 2](https://www.law.cornell.edu/uscode/text/28/2) (term st
 
 ## Where the pipeline stands
 
-The machinery for the first release is running end to end — ingestion live on
-all three channels, the corpus split on in production, the SCOTUS-gated
+The machinery for the first release is running end to end — ingestion running on
+all four channels, the three daily ones plus opinion enrichment by dispatch,
+the corpus split on in production, the SCOTUS-gated
 predict/evaluate cascade producing valid ledger artifacts with per-run cost
 measured from the engines' own logs, and the cert back-test as the
 never-claimable vetting loop. The dated record of the process-version freezes —
@@ -52,11 +53,13 @@ short article — *"We predicted the long conference — here's how we did"* —
 the calibration numbers attached, compared against the statpack's per-Term cert
 base rates.
 
-The counted record for this release opens at the `proc-v7` freeze: the six
-blessed digests and the freeze instant 2026-09-07T00:00:00Z
-([freeze-record.md](freeze-record.md)) — so predictions
+The counted record for this release opens at the `proc-v8` **full** freeze:
+its three blessed predictor digests and the freeze instant
+2026-09-16T00:00:00Z ([freeze-record.md](freeze-record.md)) — so predictions
 stamped from that instant, under those digests, are the release's
-claimable population. It is small, datable, and end-to-end, and it defines the
+claimable population. The conference cohort is re-predicted under them from
+the carrying promotion's first released tick, which is what puts this
+conference inside the counted record rather than behind its boundary. It is small, datable, and end-to-end, and it defines the
 scope cleanly: the petitions on that conference list are SCOTUS dockets,
 exactly the gate the budget sizes for bootstrapping.
 
@@ -110,10 +113,9 @@ budget.md's *Scaling plan*; no release above depends on it.
   ([budget.md](budget.md)).
 - Finish re-anchoring the budget once an evaluate-side per-run cost under the
   currently blessed grading digests is measured **at the cert stage**. The
-  predict side is measured; the evaluate measurements so far are interim-stage
-  only, and every one of them predates the currently blessed grading digests —
-  six events under `proc-v3`'s, plus a single partial event under `proc-v4`'s,
-  all since superseded ([budget.md](budget.md), *Evaluate cost*).
+  predict side is measured; every evaluate measurement predates the currently
+  blessed grading digests, and every one taken under a post-freeze process is
+  interim-stage ([budget.md](budget.md), *Evaluate cost*).
 - Re-anchor the per-predictor grading margin at the first `P = 4` fan-out.
 
 The last two are distinct triggers — one prices the evaluate half at today's

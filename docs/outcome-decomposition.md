@@ -26,10 +26,13 @@ split, and writing claims remain pre-registered only —
 semantic family is declared but not pre-registered: `semantic-v1` (*The
 semantic family, alpha*) declares two claims on the merits moments and is an
 **alpha** — a methodology that has never met an opinion, explicitly not a
-commitment of the kind the rest of this document makes. It is elicited and
-graded — the predict prompt asks a merits cell for the two propositions and the
-evaluate prompt asks a grader for the grades — and it still produces nothing:
-no opinion body is ingested to grade against, so every declared claim masks.
+commitment of the kind the rest of this document makes. It is
+elicited, graded and staged — the predict prompt asks a merits cell for the two
+propositions, the evaluate prompt asks a grader for the grades, and the evaluate
+cell is handed the case's own majority opinion wherever the corpus holds one —
+and it still produces nothing: opinion coverage is a rounding error against the
+granted slice, so on almost every cell there is no body to read and every
+declared claim masks.
 
 Everything else — the whole document up to *The semantic family, alpha* — is
 pre-registration: the decomposition and the rule are settled before there is
@@ -671,9 +674,9 @@ land.
 wrong.** It is not unconditional: over all resolved petitions the summary class
 runs near one percent, which test 8 above rejects outright, and conditioning on
 the grant family is what moves it to a coin-flip-scale question. Over the
-committed pack, under the configured ten-Term window that the pack's nine Terms
-do not fill, the pooled prior-Term rate for a cell in OT2025 is **0.348** (278
-cert-order dispositions over 799 paid grant-family rows, OT2017–OT2024 — a raw
+committed pack, under the configured ten-Term window that a cell's strictly-prior
+slice does not fill, the pooled prior-Term rate for a cell in OT2025 is **0.354**
+(288 cert-order dispositions over 814 paid grant-family rows, OT2017–OT2024 — a raw
 `n`, not an estimate, because only denials were ever subsampled and every
 grant-family row carries weight 1).
 
@@ -681,12 +684,12 @@ It reads the **paid** per-fee-class cut, not the Term-level pooled one, because
 the paid class is the scored population: IFP petitions are Tier-0-excluded by
 the salience gate (`docs/salience.md`), so no cell is ever an IFP row. They are
 better than a quarter of the pooled grant family at roughly three-quarters GVR,
-so the pooled rate reads 0.459 against the paid 0.348. Eleven points is not a
+so the pooled rate reads 0.467 against the paid 0.354. Eleven points is not a
 rounding error against a difference-form rule: a predictor knowing only its own
-segment's rate would bank `(0.459 − 0.348)² ≈ 0.012` per scored claim, larger
+segment's rate would bank `(0.467 − 0.354)² ≈ 0.013` per scored claim, larger
 than the drift term this document already calls dominant, and the
 identically-zero floor prices none of it. The salience *band* needs no such cut
-— the cert-order share runs 0.347 / 0.345 / 0.352 across baseline / elevated /
+— the cert-order share runs 0.350 / 0.352 / 0.353 across baseline / elevated /
 high — so fee class is the whole of the population gap.
 
 Reading the fee-class cut also keeps the pooling inside what `StatPackTerm`
@@ -694,7 +697,7 @@ permits. That field warns the `dispositions` split is "safe within a Term and
 meaningless between them", because the `gvr` label is a forward convention and
 an un-relabelled Term carries its GVRs as plain `granted`. On the committed pack
 that convention gap sits **entirely in the IFP class**, whose cert-order share
-drops to zero in OT2023 and OT2024 against 0.87–0.95 in its neighbours; the paid
+drops to zero in OT2023 and OT2024 against 0.72–0.95 in its neighbours; the paid
 series stays inside 0.29–0.46 throughout.
 
 One residual bias remains. A summary reversal is a cert-order disposition no
@@ -901,8 +904,8 @@ and the counts are raw — but **not** on frame uniformity: parse coverage diffe
 sharply between application-Terms, so a pooled rate blends a Term the poller
 covered fully with one it reached only in part, and that unevenness is the
 leading candidate explanation for the spread between Term rates. **Test 8**
-passes on the realized substantive grant rate, which runs between roughly 9% and
-32% by Term —
+passes on the realized substantive grant rate, which runs between roughly 7.5%
+and 20% by Term —
 clear of the boundary where a season's total collapses to a Bernoulli draw.
 **Test 6** holds because the two ends are read at two different times from two
 different channels: the resolution end is a latched corpus column frozen at
@@ -967,8 +970,10 @@ authorship or separate writings for a modern case; the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
 coverage — the operator-run channel that fills it (`fedcourts
-enrich-opinions`) has landed bodies on fewer than ten rows against a
-cert-granted slice of ≈1,250. Their blind-grading
+enrich-opinions`) has set the `has_opinion` bit an ingested body carries on 35
+of the 1,232 rows carrying a cert-grant date, on the corpus blob pulled
+2026-09-14 — the body itself living in the content store, since the index is
+payload-free. Their blind-grading
 precondition above is met on the explicit-identifier channel and on the
 engine channel's tool *names* — the staged retrieval log respells each call's
 `tool` as an engine-neutral class
@@ -1196,9 +1201,11 @@ the elicitation and the grading protocol are **inside the frozen process
 digest**: the digest is the prompt bytes plus the resolved actor config, and
 both prompts carry this section's contract in theirs. The label is not a claim
 about whether anything asks. It is a claim about whether the design has been
-tested against the thing it grades, and it has not: no opinion body is ingested,
-both declared claims require a majority opinion, so every unit masks and the
-methodology has never met a single real opinion.
+tested against the thing it grades, and it has not: the staging step delivers
+whatever the corpus row holds and coverage is a rounding error against the
+granted slice, and both declared claims require a majority opinion, so
+essentially every unit masks and the methodology has never met a single real
+opinion.
 
 **The set id and the process label answer different questions, and turning the
 elicitation on is the second one's business.** A *set* version names what was
@@ -1322,8 +1329,10 @@ of the predictor** — the same *treatment* the mechanical family gives a vacuou
 claim, though not the same provenance: a mechanical mask is harness-computed
 with no latitude, and this one is a reader's call, which is why a split on it
 has to be counted separately at all. It bites three ways, all of them facts
-about the record: no opinion body of the required kind exists (no concurrence
-was filed), none is ingested, or the opinion is silent on the claim's axis. The
+about the record, and `SemanticGrade.mask_ground` is where a grade records
+which: no opinion body of the required kind exists (`no-judgment` — no
+concurrence was filed), none is ingested (`not-ingested`), or the opinion is
+silent on the claim's axis (`silent-on-axis`). The
 third is a fact about the record only because the claim's **axis is fixed by
 the declaration** rather than by the predictor's free-text proposition — that
 is the load-bearing reason nothing a predictor writes can move a claim into the
@@ -1605,9 +1614,12 @@ does not carry.
   may skip claims selects the graded population. A grader that finds the record
   settles nothing writes `not-addressed`; it does not skip the row.
 - **The mask is the record's, three ways.** No opinion body of the required
-  kind exists; none is ingested; the opinion is silent on the claim's axis.
-  Never "the prediction was vague" — a vague proposition is graded, and graded
-  poorly.
+  kind exists (`no-judgment`); none is ingested (`not-ingested`); the opinion is
+  silent on the claim's axis (`silent-on-axis`). Never "the prediction was
+  vague" — a vague proposition is graded, and graded poorly. Those three names
+  are `SemanticGrade.mask_ground`'s vocabulary, the field the census splits on
+  and the grading prompt asks a grader to name on every masked row; the
+  vocabulary is closed, and `validate` fails a cell that writes anything else.
 - **A grader must not reward paraphrase of the prediction back at itself.** The
   failure mode is a predicted proposition that restates the question presented,
   the syllabus, or the standard of review, and is therefore "matched" in the
@@ -1726,38 +1738,76 @@ semantic sides is not one series.
 
 ### What remains unbuilt
 
-The declaration and the prompts that ask for it are built — two of the three
-things a grade needs. In dependency order, most binding first, what is still
-owed:
+The declaration, the prompts that ask for it, and the staging step that puts the
+Court's own words on the grader's disk are all built — every mechanical part a
+grade needs. In dependency order, most binding first, what is still owed:
 
-1. **Opinion coverage.** Fewer than ten corpus rows carry an opinion body,
-   against a cert-granted slice of ≈1,250. The channel that fills them —
+1. **A decided merits case.** A grade lives in an evaluation, and the evaluate
+   backlog mints a cell only for a resolved event, so a merits cell carries no
+   grade until its judgment resolves — 90 committed merits predictions, on 30 of
+   the 44 committed merits events, sit against no resolved merits event at
+   all. Nothing is owed
+   here but the Court's own calendar; it is listed because it binds ahead of
+   everything below it.
+2. **Opinion coverage.** 35 rows carry the `has_opinion` bit an ingested body
+   sets, against the 1,232 rows carrying a cert-grant date on the corpus blob
+   pulled 2026-09-14. The
+   channel that fills them —
    `fedcourts enrich-opinions`, operator-run over that slice
    (`docs/data-pipeline.md`) — has run, so what is missing is neither a design
    nor a dispatch but *yield*: a walk converges only the grants whose opinion
-   cluster it resolves, and re-walks the rest every run. Until
+   cluster it resolves, and re-walks the rest every run. The staging step hands
+   a cell whatever the row holds and nothing where it holds nothing, so until
    coverage is a slice rather than a rounding error, nothing can be graded
    against text that is not there, and no amount of methodology substitutes:
-   every declared claim requires a majority opinion, so every unit masks.
-2. **Any baseline.** Left open as an empirical question above.
-3. **An argument date.** `majority-ground`'s forecastability decays across the
+   every declared claim requires a majority opinion, so almost every unit masks
+   — on `not-ingested`, which is exactly the shape a coverage gap should leave
+   in the census.
+3. **Any baseline.** Left open as an empirical question above.
+4. **An argument date.** `majority-ground`'s forecastability decays across the
    Term and no artifact records the vantage, so the caveat above travels as
    prose rather than as a column beside the grade.
-4. **A counted split of the mask's grounds.** The grading protocol requires a
-   grader to say in `basis` which ground it masked on — no opinion body of the
-   required class, none ingested, or silence on the axis — because a missing
-   document is a coverage gap somebody can fix while in-document silence is a
-   fact about the Court. But `SemanticGrade.basis` is free text and
-   `SemanticClaimSummary` carries one undifferentiated `not_addressed` count, so
-   that distinction is readable by a person auditing a cell and by nothing else.
-   While every unit masks it is the *only* signal the family produces, and the
-   register's own standard — a coverage gap and a substantive finding must never
-   be tradeable — says it should be counted rather than merely written down.
+5. **A validated grading design.** The protocol is built and live, and it has
+   never graded a decided merits case, because none has reached a cell yet.
+   Everything below — the axis discipline, the mask's grounds, the
+   paraphrase test, the agreement estimator — is a design argued from what the
+   family is for, not one checked against grades anyone has read. The first
+   real grades under it arrive no earlier than the first OT2026 opinions, and
+   the freeze-record entry registering the design says so, so a reader meeting
+   the first census knows it is the design's debut rather than its
+   confirmation.
+
+The **text** and the **ground** are both wired. `fedcourts provision-opinion`
+stages a decided case's majority opinion at `record/opinion/` — the body plus a
+manifest carrying its digest, its length, and the citation the corpus row holds
+— on a `run-evaluate` step that runs unconditionally, writing nothing where the
+row carries no body so the slot's absence is what tells a grader to mask. It is
+an **evaluate**-lane command by construction rather than by wiring: the body
+postdates every predict moment by construction, so it is deliberately not a
+filed document (`record/documents/` is cut by date, and an opinion has no docket
+date to be cut at) and deliberately not a mode of the provisioner the predict
+lane runs — a predict cell would have to invoke a command it never invokes. The
+mask's ground is a counted field, `SemanticGrade.mask_ground`, on the closed
+vocabulary `no-judgment` / `not-ingested` / `silent-on-axis`, and
+`SemanticClaimSummary.not_addressed_by_ground` splits the census on it — with an
+`unstated` bucket, since the field is optional and a block that names no ground
+still belongs in the mask total. A panel naming different grounds is settled by
+a fixed precedence putting the two availability grounds before the substantive
+one, so the census can under-state what an opinion said and never over-state it.
+
+Both halves are governed by the discipline in
+[process-version.md](process-version.md): staging a file the evaluate cell does
+not otherwise receive changes the evaluator's information set under an unchanged
+digest, so such a change ships **with** the prompt edit that describes it (the
+prompt bytes are hashed, so the boundary becomes visible in the data) and with a
+freeze-record entry. A workflow step shipped on its own would be the one shape
+that rule exists to rule out.
 
 The prompts are built: the predict prompt asks a merits cell for one
 proposition per declared claim on its declared axis, and the evaluate prompt
-carries the grading protocol above — the axis discipline, the mask's grounds
-and the requirement to say which one applied, and the five refusals. So is the
+carries the grading protocol above — the axis discipline, the staged slot as the
+graded text, the mask's grounds and the requirement to name which one applied in
+`mask_ground` as well as in `basis`, and the five refusals. So is the
 **mandatory-set discipline on both sides**, the discipline the mechanical family
 keeps and the one place this family's enforcement had to be built rather than
 inherited, since nothing consumes a predictor's block at all:
@@ -1783,5 +1833,6 @@ blind-grading bracket itself
 (`fedcourtsai.blinding`, wired around every evaluate cell), whose alias staging
 and engine-neutral tool classes remove identity from the staged bytes — with the
 residuals its module docstring names, the call-class profile among them. So what
-separates a declared set from a produced grade is opinion text alone — not a
-shape, and no longer an elicitation.
+separates a declared set from a produced grade is a decided merits case — its
+resolution to mint the grading cell, and its opinion text for the grader to read
+— not a shape, and not an elicitation.

@@ -19,10 +19,9 @@ scored: it describes the corpus, it does not predict anything.
 | `LABELS_OUT`| Where to write your JSONL labels                                |
 | `LABELER`   | Your actor string (engine and model), recorded on the artifact  |
 
-Their values are stated in your kickoff prompt; on engines that pass them
-through they are also environment variables of the same names, but some engines
-sanitize the shell environment in CI — `$VAR` here is notation for these values,
-so if one expands empty, substitute the literal from your kickoff prompt.
+Their values are stated in your kickoff prompt. `$VAR` here is notation for
+those values and never something you expand — this run grants you no shell —
+so read every `$VAR` below as the literal your kickoff prompt gives it.
 
 ## Inputs (read-only)
 
@@ -146,29 +145,38 @@ labels against a reference you are forbidden to see.
 
 ## Rules
 
-- **Your tools are Write, Edit, and free reads — there is no shell.** The
-  run's sandbox hardens the permission mode and grants exactly those two
-  writing tools; any shell command you attempt will be refused, and that
-  refusal is the posture working, not a blocker to report. Everything the
-  contract asks of you is a read or a write to `$LABELS_OUT`.
+- **Your tools are Write, Edit, and free reads — nothing else.** The run's
+  sandbox hardens the permission mode and grants those two writing tools, and
+  the invocation denies by name every tool that would take you outside reading
+  and writing: the shell, the delegation tools, and the web. Do not go looking
+  for them or plan around them — a denial is the posture working, not a
+  blocker to report. Everything the contract asks of you is a read or a write
+  to `$LABELS_OUT`.
 - **The session ends with your final message — never leave work in flight.**
-  You run in a single headless turn: no completion notification arrives after
-  it, and nothing you delegate or leave running can finish for you — a
-  spawned subagent dies with the session, and a background process left
-  writing races the measure step. (`AGENTS.md`'s delegate-to-subagents
-  guidance is for interactive development sessions and does not apply to this
-  run.) Label every text yourself, **by reading it** — never through a
-  subagent, and never through a keyword or statute script, which
-  `docs/qp-topic.md` rules out as an instrument for this vocabulary. Work in
-  slices of roughly 50–100 texts against the budget (about 120 turns and a
-  40-minute step). **The extract is bounded, not a fixed size**: the command
-  that built it sizes it to what a labeling run can finish, so whatever
+  You run in a single headless session: no completion notification arrives
+  after it, and nothing you delegate can finish for you — a spawned subagent
+  would die with the session, part-labeled work and all, which is why the
+  delegation tools are denied. (`AGENTS.md`'s delegate-to-subagents guidance
+  is for interactive development sessions and does not apply to this run.)
+  Label every text yourself, **by reading it** — never by matching keywords or
+  statutes across the extract, which `docs/qp-topic.md` rules out as an
+  instrument for this vocabulary. That last one the run cannot take away from
+  you: search tools are how you navigate the vocabulary doc, and using them to
+  assign a label instead of reading the question is the one rule here you keep
+  on your own.
+
+  Work in slices of roughly 50–100 texts against the budget (about 120 turns
+  and a 40-minute step). **The extract is bounded, not a fixed size**: the
+  command that built it sizes it to what a labeling run can finish, so whatever
   `$QP_TEXTS` holds fits the step — count its rows once at the start and pace
   against that number, never against a figure quoted here.
   Land each slice's lines in
   `$LABELS_OUT` **exactly once** as it finishes, so a failed turn costs one
-  slice rather than the run — though only the complete file yields an
-  artifact. The tool mechanics matter here: **Write replaces the entire
+  slice rather than the run — though only the complete file yields published
+  labels. The slices you have landed are also the only record of the run's
+  progress if the step is cut short at its cap, so land them as you go
+  rather than holding the whole batch for one final write. The tool mechanics
+  matter here: **Write replaces the entire
   file**, so it is for the first slice and for a deliberate full repair
   only — a Write mid-run that carries anything less than every line written
   so far silently truncates the run down to what it carries, and the loss
@@ -178,7 +186,8 @@ labels against a reference you are forbidden to see.
   repair a bad slice, rewrite the whole file with one Write holding every
   line, never append a correction, and check the line count and key
   uniqueness before finishing. `$LABELS_OUT` is also the only file you
-  write — its line count is your progress record; keep no scratch files.
+  write — its line count, read back from the file itself since no command can
+  count it for you, is your progress record; keep no scratch files.
   Apart from the abort paths this section names, never end the turn with a
   text unlabeled; once the file holds exactly one line per extract row,
   report your counts as the hand-off section asks.

@@ -447,6 +447,27 @@ class SemanticSupport(StrEnum):
     not_addressed = "not-addressed"
 
 
+# Which of the availability mask's three grounds a `not-addressed` grade rests
+# on. The grading protocol already requires a grader to say which one applied;
+# typing it here makes the answer a counted field rather than a sentence inside
+# `SemanticGrade.basis` that only a person auditing a cell can read. The three
+# are three different *kinds* of fact, which is the whole reason to separate
+# them: `no-judgment` is the case's posture (no body of the required kind was
+# ever filed, so the unit could never have been graded and nothing can be
+# fetched to change that), `not-ingested` is pipeline debt (a body exists and
+# the record does not carry it), and `silent-on-axis` is a finding about what
+# the Court wrote. Closed, because a grader that could name a fourth ground
+# would be defining the population the census measures.
+MaskGround = Literal["no-judgment", "not-ingested", "silent-on-axis"]
+
+# The census bucket for a masked unit whose grades name no ground at all — the
+# state of every block graded before the field existed. Named rather than
+# spelled at each call site, and deliberately *not* a fourth `MaskGround`: a
+# grader may not write it, and a census that folded it into one of the three
+# would report a ground nobody asserted.
+MASK_GROUND_UNSTATED = "unstated"
+
+
 # The pre-registration stratum a scored cell belongs to. Defined here, beside
 # the models that carry it, so a field can be typed on the closed vocabulary
 # rather than on a bare string; `fedcourtsai.integrity` carries the named
@@ -608,9 +629,22 @@ class PredictionContext(_Strict):
     **Harness-owned.** Written by ``provision-snapshot`` and copied onto the
     prediction by ``stamp-cell``, exactly like ``process_version`` and
     ``usage.json`` — never the agent's word. That matters here more than
-    elsewhere: ``input_snapshot`` is the agent's own string and is written four
-    different ways across the committed set, with some cells naming no path at
+    elsewhere: ``input_snapshot`` is the agent's own string and is written
+    several ways across the committed set, with some cells naming no path at
     all, so it cannot carry a scoring input.
+
+    The agent's string is not *nothing*, though: it is the cell's own account of
+    which snapshot it read, and where it disagrees with the file the harness
+    provisioned, the block and the cell are describing different information
+    sets. ``stamp-cell`` compares them — both sides normalized to the provisioned
+    file's day — and records the answer in ``snapshot_uptake``, which is the only
+    field here the cell's word decides.
+
+    That one field reports; it does not mask. What the rest of the block records
+    is what **provisioning** derived and offered, which is a fact about the
+    record whether or not a given cell took it up — so a reader wanting the
+    cell's own information set reads the two together, and every scoring surface
+    reads the conditioning exactly as it did before the field existed.
 
     It exists because the salience band moves. ``distribution_count`` is
     max-latched and a ``cvsg_date``, once set, stays set, so a petition's band
@@ -631,7 +665,11 @@ class PredictionContext(_Strict):
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     mode: str = Field(description="The cell's mode: forward or replay")
-    snapshot_date: date = Field(description="Date of the provisioned snapshot the cell read")
+    snapshot_date: date = Field(
+        description="Date of the snapshot the harness provisioned for this cell, "
+        "and the day its file is named for. Whether the cell went on to read it "
+        "is `snapshot_uptake`, not this field"
+    )
     snapshot_provenance: Literal["as-stored", "dated", "truncated", "blind"] = Field(
         default="as-stored",
         description="How the provisioned snapshot was obtained. 'as-stored' is the "
@@ -652,6 +690,27 @@ class PredictionContext(_Strict):
         "— reachable only from the replay provisioner, the one path that removes "
         "the proceedings key. Recorded so the four can be separated; a figure "
         "pooling them is pooling different information sets",
+    )
+    snapshot_uptake: Literal["read", "unread"] | None = Field(
+        default=None,
+        description="Whether the cell's own `input_snapshot` named the snapshot the "
+        "harness provisioned. Judged by `stamp-cell`, which normalizes both sides to "
+        "the provisioned file's day, so the several spellings the field carries "
+        "across the committed set all read as agreement. 'read' is agreement — the "
+        "cell's SELF-REPORT that it read that file, never verified uptake. 'unread' "
+        "is a cell that reported no snapshot, or named a different one, while the "
+        "provisioned file sat on disk: it says the forecast may have been formed "
+        "without the baseline every predictor is supposed to share, which is the one "
+        "thing the rest of this block cannot say. Null where the stamp could not "
+        "judge: a record stamped before the comparison existed, or a context with no "
+        "provisioned snapshot file beside it to compare against. **It masks "
+        "nothing.** The fields beside it stay as provisioning derived them, because "
+        "they are not all payload-uptake facts — `band` and `salience_version` reach "
+        "the cell through `record/context.json`, a different file, and are the "
+        "population label the evaluator prices the cell against rather than an input "
+        "it conditions on; nulling them would move the cell to the `terminal` basis, "
+        "which is the band re-derived at evaluation. So this field reports, and "
+        "every scoring surface goes on reading the same conditioning it did before",
     )
     cutoff: date | None = Field(
         default=None,
@@ -712,7 +771,9 @@ class PredictionContext(_Strict):
         "means the docket-progress signals below are UNOBSERVABLE from what the cell "
         "saw, not that they are zero — a redacted replay snapshot drops the "
         "proceedings wholesale, and reading that absence as 'never distributed' "
-        "would invent a fact"
+        "would invent a fact. A property of the PAYLOAD: a cell that did not report "
+        "reading the payload leaves this alone, since what the payload disclosed is "
+        "unchanged by that — `snapshot_uptake` is where the uptake is recorded"
     )
     distribution_count: int | None = Field(
         default=None,
@@ -811,6 +872,55 @@ class PredictionContext(_Strict):
         return self
 
 
+class StagedOpinion(_Strict):
+    """The manifest beside a staged majority opinion — ``record/opinion/opinion.json``.
+
+    **Harness-owned and evaluate-only.** Written by ``provision-opinion``, never
+    by an agent, and never by the provisioner the predict lane calls: the body it
+    describes postdates every predict moment's cutoff, so the slot exists at all
+    only because a judge needs to grade a semantic claim against the text the
+    Court actually wrote.
+
+    Written **only alongside a body**, so its presence is itself the answer to
+    "is there an opinion to grade against?". A case whose row carries no opinion
+    gets no file rather than a file saying so — a manifest asserting absence
+    would be a second place for the answer to live, and the two could disagree
+    after a later enrichment pass fills the row.
+
+    The digest and length are the provenance a grader's basis can be audited
+    against: a quote checked later resolves against a body identified by content,
+    not by the path it happened to be written to.
+    """
+
+    case_id: str = Field(description="The case whose opinion is staged, `<court_id>/<docket_id>`")
+    has_opinion: bool = Field(
+        description="Always true on a written manifest — the corpus row's "
+        "retained presence bit, restated here so the file is readable on its "
+        "own. Absence of the file, not a false here, is how 'no opinion' is "
+        "recorded"
+    )
+    sha256: str = Field(
+        description="Hex SHA-256 of the staged text, UTF-8 encoded, so a "
+        "grade's basis can later be resolved against the body it was formed "
+        "from rather than against whatever that path holds now"
+    )
+    length: int = Field(
+        ge=0,
+        description="Characters of staged text. Beside the digest it is the "
+        "cheap sanity read: a body of a few hundred characters is an order "
+        "stub rather than an opinion, and a grader that masked on it should say "
+        "so rather than grade a fragment",
+    )
+    source: dict[str, object] = Field(
+        default_factory=dict,
+        description="Where the body came from, as the corpus records it — the "
+        "court, the case name, the decision date, the reporter citations and "
+        "the precedential status the row carries. Open-shaped because it is a "
+        "citation for a reader rather than a field anything computes on; keys "
+        "whose corpus value is null are omitted rather than carried as nulls",
+    )
+
+
 class ClaimProbability(_Strict):
     """One declared claim's stated probability, inside ``Prediction.claims``.
 
@@ -885,7 +995,23 @@ class Prediction(_Strict):
     )
     run_id: str
     created_at: datetime
-    input_snapshot: str = Field(description="Repo-relative path to the snapshot used as input")
+    input_snapshot: str = Field(
+        description="Which provisioned snapshot the cell read — the file under "
+        "`data/cases/<court>/<docket>/record/snapshots/`, named for a day. The "
+        "agent's own word. The prompt contracts one spelling — the file's bare "
+        "basename `YYYY-MM-DD.json`, or the literal `missing` where the cell "
+        "found none — but the committed ledger predates that contract and "
+        "spells one file several ways (a repo-rooted path, commonest by far; a "
+        "`record/`-relative one; the bare basename; the bare day). Validation "
+        "accepts any string: the ledger is the ledger, and refusing a spelling "
+        "the contract never asked of those cells would fail records that are "
+        "not wrong. So the harness "
+        "normalizes instead of requiring: `stamp-cell` reduces both this field "
+        "and the provisioned filename to that file's **day** and compares them, "
+        "which makes every spelling above agreement, and records the answer in "
+        "`context.snapshot_uptake`. That comparison is the only thing this field "
+        "decides; nothing scored conditions on it."
+    )
     granted: int = Field(
         ge=0,
         le=1,
@@ -922,13 +1048,20 @@ class Prediction(_Strict):
         "newsworthiness — *significance if decided*, decoupled from grant likelihood "
         "(a case can be denied yet high-stakes, or granted yet narrow). 0-1; judged "
         "later by an independent evaluator's agreement, never against a ground truth. "
-        "Optional (defaults None) so records written before the field existed still "
-        "validate. See docs/salience.md.",
+        "The prompt contracts a number or an explicit null carrying a one-line "
+        "`big_case_rationale`; the rationale is what separates a considered no-view "
+        "from silence, since `stamp-cell` rewrites the record through this model and an "
+        "omitted score lands as the same null. The schema stays permissive (defaults "
+        "None) because records written before the field existed still validate. See "
+        "docs/salience.md.",
     )
     big_case_rationale: str | None = Field(
         default=None,
         max_length=500,
-        description="Optional one-line rationale for `big_case_score`; null if none",
+        description="One-line rationale for `big_case_score`: required by the prompt "
+        "contract where that score is an explicit null — it is the only thing that "
+        "distinguishes a considered no-view from a cell that answered nothing — "
+        "optional beside a number, and null if none",
     )
     reasoning_doc: str = Field(
         default="reasoning.md",
@@ -958,7 +1091,9 @@ class Prediction(_Strict):
         "puts here is overwritten. Absent on predictions written before the block "
         "existed, and on any cell that ran without a provisioned snapshot — a "
         "state run-predict refuses outright, so on that path only older records "
-        "carry the gap.",
+        "carry the gap. A cell that WAS provisioned one and did not report "
+        "reading it keeps the block unchanged, with `context.snapshot_uptake` "
+        "recording the disagreement — the honest record, and not a gap.",
     )
     claims: list[ClaimProbability] | None = Field(
         default=None,
@@ -1404,6 +1539,20 @@ class SemanticGrade(_Strict):
         "against itself, which the grading protocol forbids; this field is what "
         "makes that visible in review. Null when the grader recorded none",
     )
+    mask_ground: MaskGround | None = Field(
+        default=None,
+        description="Which of the mask's three grounds this grade rests on, "
+        "where the grade is `not-addressed`: `no-judgment` (no opinion body of "
+        "the kind the claim requires was filed — the case's posture, which "
+        "bounds what could ever have been graded), `not-ingested` (one exists "
+        "and the record does not carry it — work the pipeline still owes), or "
+        "`silent-on-axis` (the body is in hand and says nothing on the claim's "
+        "axis — a finding about what the Court wrote). Counted rather than left "
+        "to `basis`, because those are three different kinds of fact and an "
+        "undifferentiated mask total lets any of them be read as another. Null "
+        "on every grade that is not a mask, and on a mask whose grader named no "
+        "ground — the census counts those as `unstated` rather than assuming one",
+    )
 
 
 class SemanticGradeBlock(_Strict):
@@ -1418,11 +1567,13 @@ class SemanticGradeBlock(_Strict):
 
     **Alpha, and still producing nothing.** ``semantic-v1`` is provisional and
     unproven against opinion text — not a pre-registered commitment in the sense
-    ``cert-v1`` and ``merits-v1`` are. The merits moments declare it and the
-    evaluate prompt asks a grader for it, but no opinion body is ingested to
-    grade against, so every declared claim masks (``not-addressed``) and no
-    published number depends on it. Supersession by a set formed with text in
-    hand is the expected path, not an exception.
+    ``cert-v1`` and ``merits-v1`` are. The merits moments declare it, the
+    evaluate prompt asks a grader for it, and the evaluate cell is handed its
+    case's majority opinion wherever the corpus holds one — but opinion coverage
+    is a rounding error against the granted slice, so essentially every declared
+    claim masks (``not-addressed``) and no published number depends on it.
+    Supersession by a set formed with text in hand is the expected path, not an
+    exception.
     """
 
     declared_set_version: str = Field(
@@ -1733,7 +1884,11 @@ class AgentFlags(_Strict):
 
     A predict/evaluate cell writes this *only when it has something to
     surface* — a data-quality problem, a scope question, an ambiguous event, or the
-    reason it was blocked. It rides the cell's artifact to the ``collect`` job, which
+    reason it was blocked. Mostly the agent's own word, but not exclusively: a
+    post-agent harness step appends its own findings about the cell to the same
+    file (``stamp-cell``, where a cell reports not having read its provisioned
+    snapshot), and the roll-up counts those with the rest — the message text is
+    what distinguishes them. It rides the cell's artifact to the ``collect`` job, which
     rolls every cell's flags into the run PR body (and the Actions summary), so a
     note outlives the run that raised it and a maintainer sees it without
     reading every ``reasoning.md``. The agent token stays comment-only: the file is
@@ -3165,11 +3320,19 @@ class SemanticClaimSummary(_Strict):
     """The grade census for one semantic claim — counts, and nothing derived from them.
 
     Descriptive by construction. The three ordinal levels are counted, the
-    availability mask is counted apart from them, and the one derived figure —
-    ``supported_share`` — is withheld below the minimum graded count, because a
-    share over three grades describes three grades rather than a predictor.
-    Nothing here is a score, nothing is pooled with a mechanical claim total,
-    and nothing is a rank key (``metrics/README.md``).
+    availability mask is counted apart from them **and split by the ground it
+    rests on**, and the one derived figure — ``supported_share`` — is withheld
+    below the minimum graded count, because a share over three grades describes
+    three grades rather than a predictor. Nothing here is a score, nothing is
+    pooled with a mechanical claim total, and nothing is a rank key
+    (``metrics/README.md``).
+
+    While every unit masks, ``not_addressed_by_ground`` is the only thing this
+    census says that varies — which is why the mask is split rather than left as
+    one total: ``no-judgment`` bounds what could ever have been graded,
+    ``not-ingested`` names work the pipeline owes, and ``silent-on-axis`` names
+    a fact about the opinion. Three different kinds of fact, none substitutable
+    for another.
     """
 
     claim_id: str | None = Field(
@@ -3188,6 +3351,19 @@ class SemanticClaimSummary(_Strict):
         "property of the record and never of the predictor. Counted apart from "
         "the ordinal levels and never inside `graded`, so a claim the record "
         "could not settle never reads as a claim the predictor got wrong",
+    )
+    not_addressed_by_ground: dict[str, int] = Field(
+        default_factory=dict,
+        description="`not_addressed` split by ground — the three "
+        "`SemanticGrade.mask_ground` values, plus `unstated` for a unit whose "
+        "grades name none. Sums to `not_addressed` exactly, and carries only "
+        "the grounds with a non-zero count. Read each count as *units resolved "
+        "to that ground*, not as units the panel agreed on: where graders name "
+        "different grounds a stated precedence settles the unit, and nothing "
+        "here bounds how many were resolved rather than agreed. The split is "
+        "the signal, not a detail of it — the case's posture, work the pipeline "
+        "owes, and a finding about the Court are three different facts, and one "
+        "total lets any of them be read as another",
     )
     mask_disputed: int = Field(
         default=0,
@@ -3224,6 +3400,27 @@ class SemanticClaimSummary(_Strict):
         "when `graded` sits below the published minimum, where the counts still "
         "publish and only this figure is withheld",
     )
+
+    @model_validator(mode="after")
+    def _ground_split_accounts_for_every_mask(self) -> SemanticClaimSummary:
+        """The split is a partition of `not_addressed`, not a sample of it.
+
+        Enforced rather than documented because the whole reason to separate the
+        grounds is that they are not tradeable: a split that dropped units, or
+        that carried a bucket outside the closed vocabulary, would let a reader
+        subtract one ground from the total and get a number describing nothing.
+        Every producer here is the harness, so this can only fire on a bug.
+        """
+        allowed = {*get_args(MaskGround), MASK_GROUND_UNSTATED}
+        if unknown := sorted(set(self.not_addressed_by_ground) - allowed):
+            raise ValueError(f"mask grounds outside the vocabulary: {', '.join(unknown)}")
+        counted = sum(self.not_addressed_by_ground.values())
+        if self.not_addressed_by_ground and counted != self.not_addressed:
+            raise ValueError(
+                f"the mask's ground split totals {counted}, "
+                f"not `not_addressed` ({self.not_addressed})"
+            )
+        return self
 
 
 class SemanticGraderAgreement(_Strict):

@@ -7,6 +7,7 @@ committed under ``data/`` matches the schema contract.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -157,6 +158,7 @@ from .matrix import (
     parse_cases,
     predict_matrix,
     read_stranded_census,
+    reopened_for,
 )
 from .merits_event_migration import (
     backfill_event_moments,
@@ -186,7 +188,7 @@ from .ops import (
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import arrival_cut, cell_context, historical, liveprobe, moments, qp_topics, semantic
-from .pipeline.amicus_rederive import rederive_amicus_briefs
+from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
 from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.arrival_cut import arrival_cut_ledger
 from .pipeline.asof import CutoffPolicy
@@ -270,6 +272,7 @@ from .required_checks import produced_contexts
 from .salience_replay import replay_gate
 from .schemas import (
     EXPORTABLE_MODELS,
+    AgentFlag,
     AgentFlags,
     AgentToolingFeedback,
     Backtest,
@@ -286,6 +289,8 @@ from .schemas import (
     Disposition,
     Engine,
     Evaluation,
+    FlagCategory,
+    FlagSeverity,
     ForwardClaimRecord,
     Leaderboard,
     LeaderboardEntry,
@@ -305,6 +310,7 @@ from .schemas import (
     RetrievalLog,
     SalienceReplay,
     Stage,
+    StagedOpinion,
     StatPack,
     Stratum,
     UsageRole,
@@ -900,6 +906,45 @@ def rederive_distribution_counts_cmd(
         raise typer.Exit(code=1)
 
 
+def _echo_regrade_backlog(result: AmicusRederiveResult) -> None:
+    """Print the re-grade debt the re-freeze creates, in two parts.
+
+    The first is the dispatch input: the cells in the grammar `run-repair`'s
+    `regrade-stale` selector parses, copied off the ledger rather than
+    reconstructed from a directory walk. Every line in it is one `stamp-cell
+    --regrade` accepts, because that command *refuses* a cell it will not
+    recompute and the step dies at the first refusal without committing
+    anything — a list that is not dispatchable whole is not dispatchable at all.
+    The count is of dispatchable cells, so it is not the same quantity as a
+    count of the grading directories under the re-frozen events.
+
+    The second is what this dispatch does not pay, each line saying why and what
+    to do instead — an unstamped cell takes the ordinary stamp, a run superseded
+    for one of the predictors it graded is reachable by no re-grade at all. Kept
+    out of the first list, which mixing them would make refuse, but printed: an
+    unlistable re-grade is still a published number standing against a moved
+    resolution end, and after the follow-through its event holds cells scored
+    against two different resolution values.
+    """
+    owed = sorted({cell for entry in result.refrozen for cell in entry.regrade_cells})
+    if owed:
+        typer.echo(
+            f"regrade-stale backlog: {len(owed)} dispatchable evaluator cell(s) graded "
+            "against a moved resolution end — dispatch repair=regrade-stale with "
+            "repair_target:"
+        )
+        for cell in owed:
+            typer.echo(f"  {cell}")
+    blocked = sorted({line for entry in result.refrozen for line in entry.regrade_blocked})
+    if blocked:
+        typer.echo(
+            f"regrade-stale: {len(blocked)} further cell(s) a re-grade would refuse, "
+            "reported rather than listed:"
+        )
+        for line in blocked:
+            typer.echo(f"  {line}")
+
+
 @app.command("rederive-amicus-briefs")
 def rederive_amicus_briefs_cmd(
     apply: Annotated[
@@ -1049,17 +1094,7 @@ def rederive_amicus_briefs_cmd(
         typer.echo(f"  corpus {move.case_id}: {move.was} -> {move.now}")
     for entry in result.refrozen:
         typer.echo(f"  outcome {entry.ref}: {entry.was} -> {entry.now}")
-    # The re-grade debt this apply owes, in the grammar the `regrade-stale`
-    # selector parses, so the follow-through dispatch is copied off the ledger
-    # rather than reconstructed from a directory walk.
-    owed = sorted({cell for entry in result.refrozen for cell in entry.regrade_cells})
-    if owed:
-        typer.echo(
-            f"regrade-stale backlog: {len(owed)} evaluator cell(s) graded against a "
-            "moved resolution end — dispatch repair=regrade-stale with repair_target:"
-        )
-        for cell in owed:
-            typer.echo(f"  {cell}")
+    _echo_regrade_backlog(result)
     if not apply and max_changes is not None and result.total_changes > max_changes:
         # The dry run never consults the bound, so without this the refusal would
         # surface only on the second dispatch — after the reading meant to decide
@@ -2038,6 +2073,13 @@ def enrich_opinions_cmd(
         int,
         typer.Option(help="Cases to walk this run — the per-run REST spend bound."),
     ] = DEFAULT_MAX_OPINION_CASES,
+    case: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--case",
+            help="Restrict the walk to this `court/docket` case; repeatable.",
+        ),
+    ] = None,
 ) -> None:
     """Fill each granted SCOTUS case's reporter cites and opinion body from REST.
 
@@ -2079,11 +2121,36 @@ def enrich_opinions_cmd(
     window: the governor is per-process, so two runs would each stay under the
     ceiling while the account did not.
 
+    The walk takes the **git ledger's decided merits cases first** — the cases
+    holding a committed merits event whose `merits_judgment` has latched —
+    because the body is an input to grading a merits forecast and to nothing
+    else, and a current-Term grant's high docket id would otherwise put it
+    behind the whole standing backlog. A *pending* ledger case is deliberately
+    not promoted: its opinion does not exist yet, and since the promoted group
+    is walked in full, promoting it would spend the whole `--max-cases` on
+    guaranteed misses and stall the backlog until those cases are decided. It is
+    promoted at the latch instead, which the live poll writes within a day of
+    the decision. The run reports how much of the cap the promoted group took
+    (`promoted`), since the walk takes that group in full and the backlog
+    advances only with what is left.
+
+    `--case court/docket` (repeatable) narrows the walk to named cases. It is a
+    **diagnostic**, not a way to prioritise a case into production: the applied
+    lane is the dispatched enrich job, which names no case, and a dev checkout's
+    corpus role is read-only, so a local `--apply` cannot be pushed. What it
+    answers is what one case costs and where it stops — does either route reach
+    a cluster, is the cluster ambiguous, does the opinion carry text — without
+    spending a whole slice to find out. It narrows only, so eligibility and
+    `--max-cases` still decide, and a named case the predicate does not admit is
+    reported with its reason rather than silently skipped. Getting a case walked
+    in production is the ledger key's job, not this flag's.
+
     Idempotent: an enriched row no longer matches, while one that found no
     cluster is retried, so a grant picks up its opinion the run after
     publication. A grant that never publishes one (a GVR, a DIG) never
     converges, and neither does a decided grant that neither route resolves —
-    so the walk rotates on a last-attempted cursor
+    so within each of those priority groups the walk rotates on a
+    last-attempted cursor
     (`opinion_enrich_attempted_at`, stamped on every case an applied run
     classifies — a landed body, no cluster, a refusal, a 4xx on one of its
     records):
@@ -2099,6 +2166,23 @@ def enrich_opinions_cmd(
     pulled, `corpus-push` after an `--apply`. Fails loud if the corpus is
     absent.
     """
+    named: list[str] | None = None
+    if case is not None:
+        # The slice is refused before anything is opened: a typo is an argument
+        # error, not a case the corpus turns out not to hold. Blank values are
+        # caught here rather than in the shared parser, whose "no case" message
+        # names the seed command's own options.
+        wanted = [value for value in case if value.strip()]
+        if not wanted:
+            typer.echo("enrich-opinions: --case was given no case id", err=True)
+            raise typer.Exit(code=2)
+        try:
+            # The repo's own case-id grammar, so the walk never sees a name the
+            # corpus could not hold in the first place.
+            named = corpus_seed.parse_case_ids(wanted)
+        except corpus_seed.SeedSliceError as exc:
+            typer.echo(f"enrich-opinions: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
@@ -2109,7 +2193,14 @@ def enrich_opinions_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn, _client() as client:
-        result = enrich_opinions(conn, client, apply=apply, max_cases=max_cases)
+        result = enrich_opinions(
+            conn,
+            client,
+            apply=apply,
+            max_cases=max_cases,
+            data_root=settings.data_root,
+            cases=named,
+        )
     if apply:
         _ensure_corpus_layout(db_path)
     verb = "enriched" if apply else "would enrich"
@@ -2125,11 +2216,22 @@ def enrich_opinions_cmd(
             f"  refused: {result.ambiguous_cluster} case(s) matching several clusters, "
             f"{result.foreign_cluster} cluster(s) naming a docket that is not the case's"
         )
-    if result.live_only:
+    if result.promoted:
+        typer.echo(
+            f"  {result.promoted} of the {result.considered} walked were promoted "
+            "(a committed merits event with a latched judgment); the rest came off "
+            "the rotation"
+        )
+    # Under a named slice each such row is named below with its reason, so the
+    # count would only say the same thing twice.
+    if result.live_only and not case:
         typer.echo(
             f"  {result.live_only} granted row(s) carry a live-channel docket id, which "
             "addresses nothing upstream — not walked"
         )
+    for entry in result.ineligible:
+        # A named case is a question; an unadmitted one still gets an answer.
+        typer.echo(f"  not walked {entry['case_id']}: {entry['reason']}")
     if result.stopped:
         typer.echo(f"  stopped: {result.stopped} ({len(result.deferred)} case(s) deferred)")
     for entry in result.failed:
@@ -3531,7 +3633,7 @@ def backfill_documents_cmd(
         bool,
         typer.Option(
             "--apply",
-            help="Fetch and store the primary documents; omit for a dry run that "
+            help="Fetch and store the missing documents; omit for a dry run that "
             "fetches each candidate's docket JSON and reports what selection finds.",
         ),
     ] = False,
@@ -3559,23 +3661,35 @@ def backfill_documents_cmd(
         ),
     ] = None,
 ) -> None:
-    """Provision the queued cases that hold no primary document, a slice at a time.
+    """Provision the queued cases that hold a document gap, a slice at a time.
 
     A case reaches prediction with the filing that opens it — the `petition` on a
     cert-form docket, the `application` on an interim one — because provisioning
-    runs at the transition that queues it. A case whose provisioning ran before
-    the selector had an arm for its filing type kept nothing, and no lane repairs
-    that: the poller re-fetches a kind only when its link changes, and a kind
-    never stored has no link to change. This applies the current selector to the
-    cases already past their trigger.
+    runs at the transition that queues it, and a granted case reaches its merits
+    moments with both sides' merits advocacy because the selection sweep
+    re-provisions it while a merits event is open. A case whose provisioning ran
+    before the selector had an arm for its filing type kept nothing, and no lane
+    repairs that: the poller re-fetches a kind only when its link changes, and a
+    kind never stored has no link to change. This applies the current selector to
+    the cases already past their trigger.
 
-    The population is **form-keyed**: live-slice rows queued for prediction or
-    selected by the salience gate, measured against their own docket form's
-    primary document, so an application docket is never reported as missing a
-    petition it structurally never has. Not the wide distributed stock, which is
-    overwhelmingly legacy rows carrying no document links at all — this pass
-    costs paced round trips against the Court's own host, and the cases that can
-    mint a cell are the ones worth spending them on.
+    The population is live-slice rows queued for prediction or selected by the
+    salience gate — not the wide distributed stock, which is overwhelmingly
+    legacy rows carrying no document links at all, since this pass costs paced
+    round trips against the Court's own host and the cases that can mint a cell
+    are the ones worth spending them on. Each of those rows is measured on two
+    arms. The **primary** arm is form-keyed, against the row's own docket form's
+    opening document, so an application docket is never reported as missing a
+    petition it structurally never has. The **merits** arm applies to a granted
+    row whose respondent has filed its brief on the merits, and measures it
+    against each side's merits brief; granted-and-briefed rather than granted
+    alone is what makes the arm drain, since a granted row with no briefing dated
+    on it has nothing for a fetch to find and would sit in the class forever. A
+    row can be in both arms, and is then one candidate missing up to three kinds.
+    The
+    merits **replies** are not gap kinds — not every case is replied to, so a
+    missing reply is the docket's ordinary state — but a reply the docket does
+    carry is fetched along with the rest.
 
     Each candidate is re-keyed off its stored docket number to the `(term,
     serial)` the upstream endpoint addresses, and its docket JSON is fetched
@@ -3589,9 +3703,11 @@ def backfill_documents_cmd(
 
     Two floors are reported apart from the failures, because neither drains and
     reading them as failures reports a converged class as a permanent defect: a
-    docket carrying the opening entry with no PDF behind it (a Rule 34.6 paper
-    filing), and one carrying no such entry at all. The second on a *modern*
-    docket is not a floor but a selector regression, and those cases are named.
+    docket carrying an entry for a missing kind with nothing fetchable behind it
+    (a Rule 34.6 paper filing, or a merits kind on a docket whose grant cannot be
+    dated so the stage bound places no entry), and one carrying no such entry at
+    all. The second on a *modern* docket is not a floor but a selector
+    regression, and those cases are named.
 
     `--max-cases` is a slice size rather than a refusal threshold, required on an
     apply and honored on a dry run too, since both spend paced GETs.
@@ -3673,17 +3789,27 @@ def backfill_documents_cmd(
         f"(bound {'none' if result.bound is None else result.bound}); "
         f"{result.unaddressable} unaddressable row(s) outside the class"
     )
+    # The split between the two arms, because they cost and drain differently:
+    # a merits candidate holds its cert-stage documents already and pays only for
+    # what the merits stage added, while a primary one pays for the filing that
+    # opens the docket and everything selection returns beside it.
+    typer.echo(
+        f"  of the candidates, {result.merits_candidates} are missing a merits "
+        f"brief on a granted, briefed docket and "
+        f"{result.candidates - result.merits_candidates} their opening filing alone"
+    )
     if apply and len(result.documents) > result.recovered:
         # The gap between the two counts, said out loud: these cases gained a
         # document and stayed in the class, which is the one shape of this pass
         # that reads like a recovery on a per-case line and is not one.
         typer.echo(
-            f"  {len(result.documents) - result.recovered} case(s) stored a "
-            "secondary document without their primary one and stay in the class"
+            f"  {len(result.documents) - result.recovered} case(s) stored some of "
+            "what they were missing but not all of it and stay in the class"
         )
     typer.echo(
-        f"  floors: {result.no_link} with no link behind the opening entry "
-        f"(Rule 34.6 paper filings), {result.no_entry} with no opening entry at all"
+        f"  floors: {result.no_link} with no fetchable link behind the entry "
+        f"(Rule 34.6 paper filings, or an undatable grant on a merits kind), "
+        f"{result.no_entry} with no such entry at all"
     )
     typer.echo(
         f"  losses: {result.docket_unserved} docket(s) unserved, "
@@ -3695,10 +3821,15 @@ def backfill_documents_cmd(
     for case_id, kinds in result.selected.items():
         typer.echo(f"  {case_id}: would fetch {', '.join(kinds)}")
     for case_id in result.no_entry_modern_cases:
-        # Named, not counted: a modern docket whose opening filing matched no
-        # entry is a filing shape the selector has no arm for, which is the class
-        # this pass exists to stop producing rather than to absorb.
-        typer.echo(f"  {case_id}: NO OPENING ENTRY on a modern docket (selector regression)")
+        # Named on top of its floor count rather than instead of it: the alarm is
+        # per kind, so a candidate whose other missing kinds did match an entry is
+        # counted at `no_link` and still named here. A filing shape the selector
+        # has no arm for is the class this pass exists to stop producing rather
+        # than to absorb; the step log names which kind on each case.
+        typer.echo(
+            f"  {case_id}: a missing kind matched NO ENTRY the selector reads, on a "
+            "modern docket (selector regression; the log names the kind)"
+        )
     _echo_unreached(result.unreached)
     if apply:
         _ensure_corpus_layout(db_path)
@@ -4883,9 +5014,11 @@ def semantic_summary_command(
     written and the state is printed, naming which precondition failed.
 
     So today it writes nothing and says so. The evaluate prompt asks a merits
-    grader for a block, but no opinion body is ingested to grade against and
-    both declared claims require a majority opinion, so every unit is the
-    availability mask and the census carries no ordinal grades to publish.
+    grader for a block and the cell is handed its case's majority opinion
+    wherever the corpus holds one, but opinion coverage is a rounding error
+    against the granted slice and both declared claims require a majority
+    opinion, so essentially every unit is the availability mask and the census
+    carries no ordinal grades to publish.
     """
     if stratum not in get_args(Stratum):
         raise typer.BadParameter(
@@ -4932,10 +5065,24 @@ def semantic_summary_command(
     masked = summary.overall.not_addressed if summary.overall is not None else 0
     disputed = summary.overall.mask_disputed if summary.overall is not None else 0
     agreed = any(record.rank_agreement is not None for record in summary.agreement.values())
+    grounds = summary.overall.not_addressed_by_ground if summary.overall is not None else {}
+    # The mask's ground split rides the shared census line, so it prints in the
+    # withheld state too — which is the only state there is while every unit
+    # masks. The three grounds are three kinds of fact ("no-judgment" the case's
+    # posture, "not-ingested" work the pipeline owes, "silent-on-axis" a finding
+    # about the opinion) and an undifferentiated total lets a reader take one
+    # for another. Until the grading prompt asks for the field, every real grade
+    # names none and lands in "unstated" — so a split showing only that bucket
+    # says nobody was asked, not that nobody could tell.
+    ground_split = (
+        "; masked on " + ", ".join(f"{name} {count}" for name, count in sorted(grounds.items()))
+        if grounds
+        else ""
+    )
     census = (
         f"{blocks} block(s), {refused} refused; {graded} graded / {masked} masked / "
         f"{disputed} mask-disputed unit(s) over {summary.cells} cell(s) "
-        f"on {summary.cases} case(s)"
+        f"on {summary.cases} case(s){ground_split}"
     )
     if graded < semantic.SEMANTIC_MIN_GRADED or not agreed:
         reason = (
@@ -5784,7 +5931,8 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
         update["process_version"] = _resolve_stamp(digest, pipeline_sha, stamped_at)
 
-    event_paths = CasePaths(settings.data_root, court, docket).event(event)
+    case_paths = CasePaths(settings.data_root, court, docket)
+    event_paths = case_paths.event(event)
     if role == "predictor":
         targets = [event_paths.prediction(actor, run_id)]
         model_cls: type[Prediction] | type[Evaluation] = Prediction
@@ -5805,13 +5953,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     # where it has to become durable. Absent when provisioning left nothing to
     # freeze — and the evaluator then falls back to the terminal band rather
     # than inventing one.
-    if role == "predictor":
-        # Assigned unconditionally, so an agent-authored block is cleared rather
-        # than preserved when provisioning left nothing to freeze. A guarded
-        # assignment would let a cell that ran without a provisioned record
-        # supply its own baseline conditioning, which is the one thing this
-        # field must not be.
-        update["context"] = _read_cell_context(CasePaths(settings.data_root, court, docket))
+    provisioned = _read_cell_context(case_paths) if role == "predictor" else None
 
     graded = 0
     basis_records: dict[Path, tuple[str | None, str | None, Prediction | None]] = {}
@@ -5820,6 +5962,15 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             continue
         record = read_model(path, model_cls)
         cell_update = dict(update)
+        if isinstance(record, Prediction):
+            # Assigned unconditionally, so an agent-authored block is cleared
+            # rather than preserved when provisioning left nothing to freeze. A
+            # guarded assignment would let a cell that ran without a provisioned
+            # record supply its own baseline conditioning, which is the one
+            # thing this field must not be.
+            cell_update["context"] = _stamped_conditioning(
+                case_paths, event_paths, provisioned, record, actor, run_id
+            )
         if isinstance(record, Evaluation):
             # The graded-prediction identity is the harness's word like every
             # stamped field: the ordinary stamp resolves it (immediately
@@ -5889,6 +6040,170 @@ def _report_no_targets(regrade: bool, role: str, actor: str) -> None:
         )
         raise typer.Exit(code=1)
     typer.echo(f"stamp: no {role} artifact for {actor} to stamp; skipping.", err=True)
+
+
+def _snapshot_stem(value: str) -> str:
+    """``input_snapshot`` reduced to the day the provisioned file is named for.
+
+    The field is the agent's own string and the committed ledger spells the same
+    file several ways — repo-rooted, ``record/``-relative, the bare basename, the
+    bare day — so a comparison against the provisioned file has to normalize
+    before it can be exact. Both separators, because the agent chose the
+    spelling; the trailing ``.json`` because a cell naming the day alone named
+    the same file. A sentinel (``missing``, ``none``, ``unavailable``) carries no
+    separator and survives as itself, which is what makes it *fail* the
+    comparison rather than accidentally pass it.
+
+    The result is a **day**, not a file identity: a cell naming another case's
+    snapshot of the same date reads as agreement. That residue is deliberate —
+    the leading path is exactly the part the spellings disagree on, so it cannot
+    carry the comparison — and it bounds what a ``read`` means.
+    """
+    return value.strip().replace("\\", "/").rsplit("/", 1)[-1].removesuffix(".json")
+
+
+def _stamped_conditioning(
+    case_paths: CasePaths,
+    event_paths: EventPaths,
+    provisioned: PredictionContext | None,
+    record: Prediction,
+    actor: str,
+    run_id: str,
+) -> PredictionContext | None:
+    """The ``context`` block to stamp, flagging a cell that never read its snapshot.
+
+    The stamp's own tripwire. The provisioned snapshot is every predictor's
+    guaranteed-common input, and copying its conditioning onto a prediction reads
+    as an assertion that the forecast was formed from it — but a cell that
+    reports ``missing`` while the file sits on disk is saying it was not.
+    Stamping the block over that disagreement in silence is how a committed
+    artifact comes to describe an information set its forecast never used, with
+    every downstream reader trusting the stamp rather than the admission.
+
+    So the two are compared, both sides normalized by :func:`_snapshot_stem` to
+    the provisioned file's day, and the answer is recorded in
+    ``snapshot_uptake``. A spelling variant is agreement, which is the point of
+    normalizing rather than matching the literal string.
+
+    **Recorded, not masked, and not refused.** Nothing else about the block
+    moves: the disagreement is evidence about the *snapshot payload* alone, and
+    the conditioning fields beside it are not all payload-uptake facts. ``band``
+    and ``salience_version`` in particular reach the cell through
+    ``record/context.json`` — a different file the prompt tells it to read — and
+    they are the population label the evaluator prices the cell against, not an
+    input the forecast conditions on. Nulling them would route the cell to the
+    ``terminal`` basis, which is the band re-derived at evaluation from the
+    corpus row, so a forward cell would be scored against a baseline conditioned
+    on its own future to punish a reporting gap. Masking the payload signals
+    would be the same mistake one step down: it would make the increment claims
+    unresolvable on the predictor's own conduct, and the availability mask is a
+    property of the record (``docs/outcome-decomposition.md``). The honest record
+    is the provisioned conditioning plus the fact that this cell did not report
+    taking it up.
+
+    Refusing instead would buy nothing and cost two things: a non-zero exit here
+    reddens the cell job but changes no recorded outcome — ``Record cell status``
+    still runs, ``validate`` requires no stamp, and the cell lands ``ready`` and
+    auto-merges — and it would land *unstamped*, which means an agent-authored
+    ``context`` block would survive the refusal, the one thing that field must
+    never be.
+
+    Judged only where there is something to judge. No provisioned context is the
+    existing gap and stamps ``None`` as before; a context naming a snapshot file
+    that is not on disk is a re-stamp away from the runner rather than evidence
+    about what the cell read, so it stamps the block unjudged.
+    """
+    if provisioned is None:
+        return None
+    snapshot = case_paths.snapshot(provisioned.snapshot_date.isoformat())
+    if not snapshot.is_file():
+        return provisioned
+    if _snapshot_stem(record.input_snapshot) == snapshot.stem:
+        return provisioned.model_copy(update={"snapshot_uptake": "read"})
+    _flag_unread_snapshot(
+        event_paths.prediction_flags(actor, run_id), snapshot.name, record, actor, run_id
+    )
+    return provisioned.model_copy(update={"snapshot_uptake": "unread"})
+
+
+def _flag_unread_snapshot(
+    flags_path: Path,
+    snapshot: str,
+    record: Prediction,
+    actor: str,
+    run_id: str,
+) -> None:
+    """Leave the tripwire's finding where a maintainer will see it.
+
+    A field on one artifact is quiet, and nothing that renders a number reads
+    it, so the disagreement also has to leave the runner as prose a maintainer
+    meets. ``flags.json`` is the durable channel: ``collect`` commits
+    each produced cell's file with its output and rolls every flag into the run
+    PR body, the Actions summary, and the long-lived agent-feedback issue.
+
+    Appended to the agent's own file where there is one, because a cell that
+    noticed its own missing snapshot already wrote a flag saying so and the
+    harness's confirmation belongs beside it rather than over it. A file that
+    does not parse is left alone: overwriting it would destroy agent prose to
+    add a note, and an unparseable ``flags.json`` fails ``validate`` into the
+    draft PR a maintainer reads anyway. Deduplicated on the message so a
+    re-stamp of the same cell does not grow the list.
+
+    ``warning`` rather than ``blocker``: the cell finished and its artifact is
+    usable and fully scoreable — what is wrong is upstream of it, a cell that
+    could not find the inputs it was given, which is what ``data-quality`` names.
+    It is a **harness-authored** note in a channel that is otherwise the agent's;
+    the roll-up counts it with the rest, and the ``Harness tripwire:`` prefix is
+    what separates the two by eye.
+    """
+    # `input_snapshot` is unbounded agent text and the flag message is capped at
+    # 2000 characters, so quote a bounded prefix: a stamp must not fail the cell
+    # over the length of the string it is reporting.
+    reported = repr(record.input_snapshot[:120])
+    message = (
+        f"Harness tripwire: this cell recorded input_snapshot {reported}, which does not name "
+        f"the provisioned snapshot {snapshot}, so it reports not having read the baseline every "
+        "predictor shares. The stamped context records snapshot_uptake 'unread'; the conditioning "
+        "beside it is what provisioning wrote, which this cell may not have used. A cell that "
+        "looked under events/<event_id>/record/ has the wrong path: record/ is case-level."
+    )
+    # Echoed before any of the file handling below, and so before the dedupe
+    # return: the annotation is about the finding, not about the write. A
+    # maintainer re-running the stamp step to reproduce a cell must see the line
+    # they are re-running for, whether or not this invocation appends anything.
+    typer.echo(
+        f"::warning::stamp: {record.case_id} {record.event_id} {actor} reported "
+        + f"input_snapshot {reported} against provisioned {snapshot}; "
+        + "stamped snapshot_uptake 'unread'.",
+        err=True,
+    )
+    flag = AgentFlag(
+        category=FlagCategory.data_quality,
+        severity=FlagSeverity.warning,
+        message=message,
+        event_id=record.event_id,
+    )
+    flags = AgentFlags(
+        case_id=record.case_id,
+        run_id=run_id,
+        role=UsageRole.predictor,
+        actor_id=actor,
+        flags=[flag],
+    )
+    if flags_path.is_file():
+        try:
+            existing = AgentFlags.model_validate_json(flags_path.read_text())
+        except (OSError, ValueError):
+            typer.echo(
+                f"::warning::stamp: {flags_path} does not parse, so the unread-snapshot finding "
+                + "survives only in the stamped context; the cell's flags are left as written.",
+                err=True,
+            )
+            return
+        if any(item.message == message for item in existing.flags):
+            return
+        flags = existing.model_copy(update={"flags": [*existing.flags, flag]})
+    write_json(flags_path, flags)
 
 
 def _refuse_unsupported_regrade(role: str, pipeline_sha: str, stamped_at: str) -> None:
@@ -7725,9 +8040,11 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         "petition-family kinds. An application-form docket is never modern-cert, "
         "so an `application` row sits in `rest` unless the application was filed "
         "into a paid cert docket, and that row's segment says nothing about fee "
-        "class. The two merits-brief rows are counted over granted cases alone — "
+        "class. The four merits rows are counted over granted cases alone — "
         "nothing selects them before a cert grant — so a near-zero `n` there is "
-        "the size of the granted slice and not a coverage gap)"
+        "the size of the granted slice and not a coverage gap, and the two reply "
+        "rows are bounded again by the granted cases whose docket carries a reply "
+        "at all)"
     )
     # The triage list an extraction fix works from, untruncated for the reason
     # the questions-presented backfill prints its whole ledger: the count says
@@ -8221,6 +8538,7 @@ def corpus_info(
             help="Also count the stored documents whose text is empty, per kind "
             "(petition / application / brief-in-opposition / "
             "merits-brief-petitioner / merits-brief-respondent / "
+            "merits-reply-petitioner / merits-reply-respondent / "
             "questions-presented) and split on "
             "the salience gate's paid modern-cert segment. Opt-in and not cheap: "
             "it reads the documents of every live-slice case, tens of thousands of "
@@ -9272,7 +9590,9 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     the per-case content store (``--corpus-backend casestore``, the default under
     the corpus-split mode) — and write it where the agent reads it (a gitignored
     ``record/`` path, never committed). Any stored filed-document text (petition,
-    questions presented, brief in opposition — fetched pipeline-side by the live poller) is
+    questions presented, the cert-stage brief in opposition, each side's brief on
+    the merits once the petition is granted, and the application itself wherever
+    one was filed — fetched pipeline-side by the live poller) is
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
     fetch rights.
@@ -9445,6 +9765,146 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         )
         kinds = ", ".join(doc.kind for doc in documents)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
+
+
+def _clear_opinion_slot(paths: CasePaths) -> None:
+    """Remove a previously staged opinion, so "no slot" always means "no body".
+
+    The slot's whole contract is that its **absence** tells a grader there is
+    nothing to grade against. A run that stages nothing and leaves an older
+    body in place would break that on the one tree where it can happen — a
+    re-provision over a dirty checkout — and the grader would read a stale
+    opinion as this cell's. Ephemeral runners never reach the state; the
+    invariant is stated unconditionally, so it holds unconditionally.
+    """
+    paths.opinion_text.unlink(missing_ok=True)
+    paths.opinion_manifest.unlink(missing_ok=True)
+    if paths.opinion_dir.is_dir() and not any(paths.opinion_dir.iterdir()):
+        paths.opinion_dir.rmdir()
+
+
+@app.command("provision-opinion")
+def provision_opinion(
+    *,
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Stage a decided case's majority opinion for an **evaluate** cell to grade against.
+
+    The semantic claim family grades a predicted proposition against what the
+    Court actually wrote, and nothing else delivers that text to a judge: the
+    provisioned ``record/`` carries the docket, the snapshot, the filed documents
+    and the blinded candidates, and none of them is the opinion. A cell can reach
+    a body only through a priors query, which the grading protocol excludes by
+    requiring the grade to rest on the opinion text **in the record** — so
+    without this slot every declared claim masks on "not ingested" whatever the
+    corpus holds.
+
+    **A separate command, and that is the guarantee.** The body postdates every
+    predict moment's cutoff by construction — an opinion is the outcome — so it
+    must never reach a predict cell. Two structural things keep it out, neither
+    of them a flag anyone can mis-set. It is not a document: ``record/documents/``
+    is cut by :func:`fedcourtsai.provision.documents_before` alone, a date filter
+    over rows the docket carries, and an opinion body has no docket date to be
+    cut at. And it is not a mode of the provisioner the predict lane runs — a
+    predict cell would have to invoke a command it never invokes, rather than
+    pass a flag whose default happened to change. ``record/opinion/`` is written
+    here or by nothing.
+
+    Writes **nothing** and exits 0 where the row's ``has_opinion`` bit is clear
+    or the body cannot be read, reporting which. That is the ordinary state on
+    most cases — coverage is a slice of the granted docket, not all of it — so a
+    workflow step can run this unconditionally and the absence of the slot,
+    rather than a failed step, is what tells a grader there is nothing to grade
+    against.
+    The body is read through the one registered payload path
+    (:func:`fedcourtsai.corpus.opinion_body`): the blob's own column with the
+    corpus split off, the per-case content store under it.
+
+    Exits **1** where the corpus holds no row for the case at all, which is a
+    different fact from a case with no opinion — the first says the coordinates
+    are wrong, the second that this case has not been enriched yet.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    case = ids.case_id(court, docket)
+    # Local/ranged only, deliberately: the presence bit and the citation are
+    # index facts and the content store exposes no rows. Under the corpus split
+    # this still reaches the body — `opinion_body` routes the payload half to the
+    # registered store while the row half comes off the index, which is exactly
+    # the pair of credentials a cell's provisioning step already carries.
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if backend in ("service", "casestore"):
+        # Reachable from the ambient setting alone — every cell's agent steps
+        # export the service backend — which `_corpus_backend` never sees, since
+        # it parses only the flag. Refused by name rather than left to fail
+        # inside `connect_readonly`, where it surfaces as a traceback that reads
+        # like the exit-1 "no such case" this command reserves for bad
+        # coordinates.
+        typer.echo(
+            f"the {backend} backend serves no corpus rows, and the opinion "
+            "slot's presence bit and citation are row facts; use "
+            "--corpus-backend local or ranged.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        row = corpus.get_row(conn, case)
+        _echo_read_stats(conn)
+    if row is None:
+        typer.echo(f"No corpus row for {case} (corpus-pull the corpus first?)", err=True)
+        raise typer.Exit(code=1)
+    paths = CasePaths(settings.data_root, court, docket)
+    if not row.has_opinion:
+        _clear_opinion_slot(paths)
+        typer.echo(f"{case} has no linked opinion; nothing staged")
+        return
+    body = corpus.opinion_body(row)
+    # Whitespace-only counts as no body, on the reasoning the documents manifest
+    # applies to a scanned filing with no text layer: "present but empty" must
+    # not read as "text present". A grader handed two blank characters and a
+    # valid digest has a slot that says a body is there and nothing to grade.
+    if body is None or not body.strip():
+        # The bit says a body exists and the estate did not hand one over — a
+        # split-mode store that is unbuilt, unreachable, or has not mirrored this
+        # case yet. Spoken as a warning rather than an exit: the grader's mask on
+        # "not ingested" is the correct grade either way, and failing the step
+        # would cost the cell its whole evaluation over a slot it can do without.
+        _clear_opinion_slot(paths)
+        typer.echo(
+            f"::warning::{case} is marked as carrying an opinion but no usable "
+            f"body was readable from the {backend} backend; nothing staged",
+            err=True,
+        )
+        return
+    # Digest and count exactly the bytes that land on disk, so the manifest
+    # identifies the body a grade was formed from rather than approximately it.
+    staged = body if body.endswith("\n") else body + "\n"
+    write_text(paths.opinion_text, staged)
+    # Null fields are dropped rather than carried: this block is a citation a
+    # grader reads, and a run of nulls reads as missing provenance instead of as
+    # a corpus that never recorded a reporter cite for this case.
+    source: dict[str, object] = {"court": court, "docket_id": docket}
+    if row.case_name:
+        source["case_name"] = row.case_name
+    if row.date_decided is not None:
+        source["date_decided"] = row.date_decided.isoformat()
+    if row.citations:
+        source["citations"] = list(row.citations)
+    if row.precedential_status:
+        source["precedential_status"] = row.precedential_status
+    write_json(
+        paths.opinion_manifest,
+        StagedOpinion(
+            case_id=case,
+            has_opinion=True,
+            sha256=hashlib.sha256(staged.encode("utf-8")).hexdigest(),
+            length=len(staged),
+            source=source,
+        ),
+    )
+    typer.echo(f"{case} opinion ({len(staged)} chars) -> {paths.opinion_dir}")
 
 
 @app.command("assert-cell-record")
@@ -10820,9 +11280,10 @@ def _cohort_narrowing_reason(data_root: Path, court: str, docket: int, event_id:
     if event_has_predictions(data_root, court, docket, event_id):
         return (
             "narrowed away on a salience-deferred case kept for cohort completion: this "
-            "event's whole cohort sits outside the frozen process scope, so a freshly "
-            "stamped cell would not complete a comparison but leave a board an event "
-            "scored on one engine alone."
+            "event's whole cohort sits outside the frozen process scope and the request "
+            "carries no pre-freeze re-predict licence for it, so a freshly stamped cell "
+            "would not complete a comparison but leave a board an event scored on one "
+            "engine alone."
         )
     return (
         "narrowed away on a salience-deferred case kept for cohort completion: no committed "
@@ -10881,21 +11342,28 @@ def _scope_filtered(
     :func:`corpus.connect_readonly` itself.
 
     ``data_root`` enables the **cohort-completion** reading of the salience
-    drop, the plan-time mirror of the live sweep's carve-out: a deferred case
-    whose listed events hold a cohort a claimable board will count once the
-    event resolves and is graded
-    (:func:`fedcourtsai.store.event_has_claimable_prediction`) is kept, narrowed
-    to exactly those events, because finishing such a cohort buys only the
-    missing engines on a case the project already funded. Everything else about
-    the case goes with the drop — its unpredicted events, which would be new
-    spend on a case the funding gate declined, and its events whose whole cohort
-    sits outside the frozen process scope, where a freshly-stamped cell would
-    not complete a comparison but manufacture a one-engine one. A deferred case
-    with no qualifying listed event is dropped as before, and so is one whose
-    request lists no events at all: an unlisted request means "resolve this
-    case's defaults", which is a request for new cells, not for a cohort.
-    Without ``data_root`` (the evaluate reading, which ``for_grading`` already
-    exempts from the salience drop) the carve-out is off.
+    drop, the plan-time mirror of the live sweep's carve-out, and with it the
+    pre-freeze re-predict rule's widening of the same gate. A deferred case is
+    kept, narrowed to the listed events qualifying on either ground: an event
+    whose cohort a claimable board will count once the event resolves and is
+    graded (:func:`fedcourtsai.store.event_has_claimable_prediction`), because
+    finishing it buys only the missing engines on a case the project already
+    funded; or an event the backlog deriver named in ``reopen_events``, whose
+    whole cohort a re-bless retired while the event is still forward at an open
+    moment, because a wholly retired cohort is re-minted for every engine at
+    once and so completes rather than manufactures a comparison. Everything else
+    about the case goes with the drop — its unpredicted events, which would be
+    new spend on a case the funding gate declined, and its predicted-but-retired
+    events the rule does not re-owe, where a freshly-stamped cell would leave a
+    board an event scored on one engine alone. A deferred case with no
+    qualifying listed event is dropped as before, and so is one whose request
+    lists no events at all: an unlisted request means "resolve this case's
+    defaults", which is a request for new cells, not for a cohort. Only the
+    deriver sets ``reopen_events`` — the corpus-side gates behind it are not
+    answerable from a trigger body, which carries none — so the second arm is
+    unreachable from a hand-written case list. Without ``data_root`` (the
+    evaluate reading, which ``for_grading`` already exempts from the salience
+    drop) the carve-out is off.
 
     ``dropped_out`` collects each skipped case as a structured record carrying
     the same reason the stderr note prints, so a plan can attribute a missing
@@ -10943,6 +11411,7 @@ def _scope_filtered(
                         if event_has_claimable_prediction(
                             data_root, case.court, case.docket, event_id
                         )
+                        or event_id in case.reopen_events
                     )
                 ):
                     # Cohort completion: these events were funded and predicted
@@ -10950,6 +11419,17 @@ def _scope_filtered(
                     # them. `predict_matrix`'s per-(predictor, event) skip mints
                     # exactly those; the narrowing here is what keeps the case's
                     # *unpredicted* events out of the fan-out entirely.
+                    #
+                    # The second arm is the deriver's pre-freeze re-predict
+                    # rule, and this is the same widening of the funding gate
+                    # the deriver applies — stated in both places because a
+                    # backstop that refused what the deriver admitted would drop
+                    # the whole case here and silently halve the re-predicted
+                    # cohort. Only the deriver can set `reopen_events`: it alone
+                    # can ask the corpus-side gates (is the event still forward,
+                    # is its moment still open), and a case list parsed from a
+                    # trigger body carries none, so a hand-written body cannot
+                    # reach this arm.
                     typer.echo(
                         f"Narrowing {case.court}/{case.docket}: {drop} Kept "
                         f"{len(cohort)} of {len(case.events)} listed event(s) for "
@@ -11065,6 +11545,14 @@ def _predict_backlog_cases() -> list[CaseRequest]:
     should not be able to fan out wider than the lane it stands in for; the
     per-cell attempt cap comes from the ``predict`` section.
 
+    It carries one thing a trigger body cannot: each entry's ``reopened``
+    events become the request's ``reopen_events``, the fan-out's licence to
+    re-mint a cell the ledger already holds under a retired process digest (the
+    pre-freeze re-predict rule, spelled out on
+    :func:`fedcourtsai.pipeline.pull.derive_predict_backlog`). Only this
+    derivation sets it, because only it has the corpus open to ask whether the
+    event is still forward and its moment still open.
+
     Stamp-free, exactly as :func:`_evaluate_backlog_cases` is and for the same
     reason: ``predict_queued_at`` is a write to the corpus of record, and those
     credentials live only in the writer jobs, so a stamp made here would die with
@@ -11142,7 +11630,10 @@ def _predict_backlog_cases() -> list[CaseRequest]:
             max_attempts=predict_cfg.max_attempts_per_cell,
         )
     _report_predict_backlog(backlog, cap=salience_cfg.sweep_cases_per_cycle)
-    return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
+    return [
+        CaseRequest(entry.court, entry.docket, entry.events, reopen_events=entry.reopened)
+        for entry in backlog.entries
+    ]
 
 
 def _report_predict_backlog(backlog: PredictBacklog, *, cap: int) -> None:
@@ -11170,6 +11661,16 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int) -> None:
         f"provisioning reads resolve against {source}.{censored}",
         err=True,
     )
+    if backlog.reowed_events:
+        typer.echo(
+            f"Predict backlog: {backlog.reowed_events} of the owed event(s) are "
+            "RE-OWED under the pre-freeze rule — still forward, still at an open "
+            "moment, and every committed prediction on them carries a retired "
+            "process digest, so their cells would never reach a claimable board. "
+            "Re-predicting replaces nothing: the older cells stay under their own "
+            "run ids and the newest run per predictor is the one staged for grading.",
+            err=True,
+        )
     if backlog.held_stale:
         typer.echo(
             f"Predict backlog: held {backlog.held_stale} owed case(s) whose corpus row was "
@@ -12275,11 +12776,18 @@ class _LedgerGate:
     balance, so the later drops reconcile against the surviving set (candidates
     minus request-narrowed minus already-predicted minus withheld minus deferred
     is exactly what a run would mint) instead of being taken on trust.
+
+    ``reowed`` is **not** a drop list: it is the cells the already-predicted
+    gate would have removed and the pre-freeze re-predict rule kept, each
+    carrying why. They stay in the surviving set, so the reconciliation above is
+    unchanged — what the list adds is the one thing the counts cannot say, which
+    is that a cell the ledger already holds is being minted again on purpose.
     """
 
     candidates: int
     request_narrowed: tuple[_DropRecord, ...]
     already_predicted: tuple[_DropRecord, ...]
+    reowed: tuple[_DropRecord, ...] = ()
 
 
 def _predict_ledger_gate(
@@ -12297,10 +12805,19 @@ def _predict_ledger_gate(
     backfill body naming the engines that failed), while the ledger gate is what
     the *corpus* already holds. Collapsed, a narrowed backfill would read as an
     already-complete event.
+
+    A third class rides beside them and removes nothing: a cell the ledger holds
+    only under **retired** process digests, on an event the backlog deriver
+    reopened, survives the gate under the pre-freeze re-predict rule
+    (:func:`fedcourtsai.matrix.reopened_for`). It is reported separately rather
+    than silently absent from ``already_predicted``, because a maintainer
+    reading the plan before the spend hold has to see that these cells are
+    deliberate re-forecasts of events the ledger already covers.
     """
     candidates = 0
     narrowed: list[_DropRecord] = []
     records: list[_DropRecord] = []
+    reowed: list[_DropRecord] = []
     for predictor in enabled_predictors(predictors_path):
         for case in resolved:
             candidates += len(case.events)
@@ -12316,19 +12833,33 @@ def _predict_ledger_gate(
                     for event_id in case.events
                 )
                 continue
-            records.extend(
-                _DropRecord(
-                    case_id,
-                    "this predictor has already committed a prediction for the event",
-                    event_id=event_id,
-                    actor_id=predictor.id,
-                )
-                for event_id in case.events
-                if event_has_predictions(
+            for event_id in case.events:
+                if not event_has_predictions(
                     data_root, case.court, case.docket, event_id, predictor_id=predictor.id
+                ):
+                    continue
+                if reopened_for(data_root, case, event_id, predictor.id):
+                    reowed.append(
+                        _DropRecord(
+                            case_id,
+                            "every committed prediction by this predictor on the event "
+                            "carries a retired process digest, and the event is still "
+                            "forward at an open moment — re-owed a cell under the "
+                            "blessed process",
+                            event_id=event_id,
+                            actor_id=predictor.id,
+                        )
+                    )
+                    continue
+                records.append(
+                    _DropRecord(
+                        case_id,
+                        "this predictor has already committed a prediction for the event",
+                        event_id=event_id,
+                        actor_id=predictor.id,
+                    )
                 )
-            )
-    return _LedgerGate(candidates, tuple(narrowed), tuple(records))
+    return _LedgerGate(candidates, tuple(narrowed), tuple(records), tuple(reowed))
 
 
 def _plan_count_lines(plan: dict[str, Any], *, stage: str) -> list[str]:
@@ -12782,6 +13313,12 @@ def predict_plan_cmd(
                 "candidate_cells": gate.candidates,
                 "dropped_by_request_narrowing_cells": len(gate.request_narrowed),
                 "dropped_already_predicted_cells": len(gate.already_predicted),
+                # Not a drop: cells the already-predicted gate would have taken
+                # and the pre-freeze re-predict rule kept. Already inside
+                # `would_mint`, so the reconciliation above is unaffected — the
+                # count is here because a re-forecast of an event the ledger
+                # covers is a spend decision a reader must be able to see.
+                "reowed_pre_freeze_cells": len(gate.reowed),
                 "withheld_stranded_cells": len(fanout.guard.withheld),
                 "deferred_by_cap_cells": fanout.capped.dropped_cells,
                 "would_mint_cells": len(would_mint),
@@ -12797,6 +13334,7 @@ def predict_plan_cmd(
         "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
         "dropped_by_request_narrowing": [r.as_json() for r in gate.request_narrowed],
         "dropped_already_predicted": [r.as_json() for r in gate.already_predicted],
+        "reowed_pre_freeze": [r.as_json() for r in gate.reowed],
         # A withheld count of zero means nothing on its own — see
         # `_StrandedGuardReport`, which separates a clean guard from an absent
         # one and from one that failed open.

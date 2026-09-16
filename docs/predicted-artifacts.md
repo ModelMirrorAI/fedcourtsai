@@ -53,9 +53,23 @@ fields that mean the same thing at every stage:
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so
   a cell's provisioned inputs (the snapshot, `context.json`, and `documents/`)
   sit beside every event of the case rather than under the event being
-  predicted. The field is the agent's own string and is spelled several ways
-  across the committed set, so nothing scored conditions on it; the
+  predicted. The field is the agent's own string. The prompt contracts one
+  spelling — the file's bare basename `YYYY-MM-DD.json`, or the literal
+  `missing` with the reason in `flags.json` where the cell found no snapshot at
+  all — while the committed ledger predates that contract and spells one file
+  several ways: a repo-rooted path (much the commonest, and what the example
+  below shows), a `record/`-relative one, the bare basename, the bare day.
+  Validation accepts all of them, because the ledger is the
+  ledger and refusing a spelling those cells were never asked for would fail
+  records that are not wrong. Nothing scored conditions on it; the
   harness-written `context` block carries the conditioning state instead.
+
+  It is not inert, either. It is the cell's own account of which snapshot it
+  read, so rather than requiring a spelling the harness normalizes: the stamp
+  reduces both this field and the provisioned filename to that file's **day**
+  and compares them, which makes every spelling above agreement. The answer is
+  recorded in `context.snapshot_uptake`, and that comparison is the only thing
+  this field decides; see the `context` entry below.
 - **`granted` / `probability`** — the stage's declared binary and the
   probability of it. The stage names the binary, and the outcome's
   `actual_granted` is defined on the same axis, so `(probability -
@@ -71,10 +85,21 @@ fields that mean the same thing at every stage:
   prediction carrying it must carry a non-empty `votes` block; the schema
   enforces that on every artifact.
 - **`confidence`** — optional, 0–1.
-- **`big_case_score` / `big_case_rationale`** — an optional pre-registered read
-  of the case's stakes *if decided*, explicitly not grant likelihood. Graded
+- **`big_case_score` / `big_case_rationale`** — a pre-registered read of the
+  case's stakes *if decided*, explicitly not grant likelihood. Graded
   later by rank-agreement with the evaluators' own independent reads, never
-  against a ground truth ([salience.md](salience.md)).
+  against a ground truth ([salience.md](salience.md)). The prompt contracts an
+  answer: the number, or an explicit `null` carrying a one-line
+  `big_case_rationale` for why the cell could not place the stakes. The schema
+  keeps the field optional so records written before it existed still validate.
+  **The rationale is what separates a considered no-view from silence, and the
+  null cannot.** `stamp-cell` rewrites the artifact through the model, which
+  emits every field at its default, so a score the cell omitted and a score it
+  declared null are the same bytes on a stamped record — key presence says
+  whether the cell was stamped, not what it answered. Every figure over the
+  score skips a null either way, so neither form moves a denominator; what a
+  reader can tell apart is a null **with** a rationale beside it from a null
+  without one.
 - **`reasoning_doc` / `predicted_reasoning_doc`** — the filenames of the two
   prose documents, beside this file. `validate` resolves both pointers, so a
   named document that is not there fails the cell, as does a name carrying a
@@ -96,8 +121,9 @@ fields that mean the same thing at every stage:
   alpha*). The set is mandatory as the mechanical one is, and `validate` holds
   the block to the declaration, so a claim the harness never asked for fails
   the cell rather than travelling unread. Every grade the block earns today is
-  the availability mask: both claims require a majority opinion body and none
-  is ingested.
+  the availability mask: both claims require a majority opinion body, and the
+  corpus holds one for a rounding error of the granted slice — 35 of the 1,232
+  rows carrying a cert-grant date on the corpus blob pulled 2026-09-14.
 - **`process_version` / `context`** — harness-written, never the agent's; see
   *What the cell does not write*.
 
@@ -165,6 +191,7 @@ absent optional field as null.
     "mode": "forward",
     "snapshot_date": "2026-04-10",
     "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
     "cutoff": null,
     "cut_kind": null,
     "cut_anchor_index": null,
@@ -180,7 +207,7 @@ absent optional field as null.
     "term": 2025
   },
   "process_version": {
-    "label": "proc-v4",
+    "label": "proc-v8",
     "digest": "sha256:1f0a9c7e5b3d2648a0c1e4f78b95d2360a7c4e18b5d9f0632a1c8e7d40b6f925",
     "algo": "sha256",
     "pipeline_sha": "9f2c1ab7d40e5836c2b90f14a7de3c58b1042ef6",
@@ -281,7 +308,8 @@ and a summary reversal, which terminate at the cert order, mint nothing.
   `semantic-v1` set's two propositions, `majority-ground` and `ground-breadth`,
   each on its declared axis and each carrying no probability. They are graded
   by a reader against the majority opinion, never scored, and mask on every
-  case the opinion coverage has not reached — which is every case today.
+  case the opinion coverage has not reached — which is all but 35 of the 1,232
+  cert-granted rows on the corpus blob pulled 2026-09-14.
 
 ```json
 {
@@ -310,6 +338,8 @@ and a summary reversal, which terminate at the cert order, mint nothing.
     {"justice": "Justice I", "vote": "recused"}
   ],
   "confidence": 0.5,
+  "big_case_score": 0.8,
+  "big_case_rationale": "A separation-of-powers question against the United States.",
   "reasoning_doc": "reasoning.md",
   "predicted_reasoning_doc": "predicted_reasoning.md",
   "claims": [
@@ -552,6 +582,34 @@ directory without knowing which part is which invites trusting the wrong half.
   being stale — a `truncated` cell's `snapshot_date` *is* its cutoff, so it
   dates the moment rather than the pull the payload was reconstructed from.
 
+  **`snapshot_uptake` is whether the cell *said* it opened the snapshot.**
+  Copying the provisioned conditioning onto a prediction reads as an assertion
+  that the forecast was formed from it, and the cell's `input_snapshot` is the
+  only record of whether it was. So the stamp compares them, both sides
+  normalized to the provisioned file's day. `read` is agreement — a self-report,
+  never verified uptake, since nothing here watches the cell open a file.
+  `unread` is a cell that reported no snapshot, or named a different one, while
+  the provisioned file sat on disk; it also gets a harness `flags.json` note, so
+  the disagreement reaches the run PR rather than only the artifact. Null where
+  the stamp could not judge: a record written before the comparison existed, or
+  a re-stamp away from the runner with no `record/` beside it.
+
+  **It reports; it masks nothing.** The conditioning beside it is what
+  provisioning derived and offered, and that is a fact about the record whatever
+  a given cell did with it — so every scoring surface reads the block exactly as
+  it did before the field existed, and a reader wanting the cell's own
+  information set reads the two together. Degrading the block instead would cost
+  twice over. `band` and `salience_version` reach the cell through
+  `record/context.json`, a **different** file the prompt tells it to read, so
+  `input_snapshot` is no evidence about them at all; and they are the population
+  label the evaluator prices the cell against, so nulling them would move it to
+  the `terminal` basis — the band re-derived at evaluation from the corpus
+  row — and score a forward cell against a baseline conditioned on its own
+  future. Clearing the payload signals would be the same mistake one step down:
+  it would make the increment claims unresolvable on the predictor's own
+  conduct, and the availability mask is a property of the record, never of the
+  predictor ([outcome-decomposition.md](outcome-decomposition.md)).
+
   **`cut_kind` is the boundary, and the cutoff on its own is not.** A date
   cannot express the interim arrival moment: an application is submitted,
   referred, responded to and sometimes disposed of inside one day, so a cutoff
@@ -613,9 +671,12 @@ in prose.
   null wherever the prediction or the outcome it compares was unreadable.
   `semantic_grades` is the counterpart of the prediction's `semantic_claims`
   above: written on a **merits** cell, one ordinal grade per declared claim, and
-  null on every other stage. No opinion body is ingested, so every grade it
-  carries today is `not-addressed` — the availability mask, a property of the
-  record — and no census publishes. It is the one *claim-family* block that
+  null on every other stage. The cell is handed its case's majority opinion at
+  `record/opinion/` wherever the corpus holds one, but coverage is a rounding
+  error against the granted slice, so essentially every grade it carries today
+  is `not-addressed` — the availability mask, a property of the record — with
+  `mask_ground` naming which of the mask's three grounds applied, and no census
+  publishes. It is the one *claim-family* block that
   could never be the harness's word, unlike `claim_scores`, since resolving a
   semantic claim needs a reader; that is why inter-grader agreement is what a
   published grade would have to travel with.
@@ -691,6 +752,7 @@ as on the predictions above:
   "engine": "claude-code",
   "model": "claude-fable-5",
   "run_id": "20260620T090200Z",
+  "prediction_run_id": "20260412T101500Z",
   "created_at": "2026-06-20T09:11:33Z",
   "correct": 1,
   "brier_score": 0.0025,
@@ -719,7 +781,7 @@ as on the predictions above:
        "outcome": 0, "score": null},
       {"claim_id": "cvsg-increment", "probability": 0.08, "baseline": null,
        "outcome": 0, "score": null},
-      {"claim_id": "summary-disposition-route", "probability": 0.30, "baseline": 0.348,
+      {"claim_id": "summary-disposition-route", "probability": 0.30, "baseline": 0.354,
        "outcome": null, "score": null},
       {"claim_id": "dissent-from-denial", "probability": 0.04, "baseline": null,
        "outcome": 0, "score": null}
