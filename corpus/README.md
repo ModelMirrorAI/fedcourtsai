@@ -117,6 +117,7 @@ source.
 | `merits_terminated`   | text            | why a granted case's merits proceeding ended **without** a disposition (the `MeritsTermination` vocabulary — a post-grant Rule 46 dismissal, a dismissal as moot, an abatement on the petitioner's death, a grant the Court vacated, a bare mandate notation), written by the backfill sweep alone; null = not known to have terminated |
 | `capital_case`        | integer (0/1)   | the Court's `*** CAPITAL CASE ***` marking, read from the annotation upstream appends to the case number and latched here as ingest strips the number to its canonical spelling; max-latched, since only one channel serves the annotation — 0 = not marked by any channel that wrote the row, which on a CourtListener-only row is silence rather than a denial |
 | `opinion_enrich_attempted_at` | date    | tracking state: when the opinion-enrichment walk (`enrich-opinions`) last reached a verdict about this case (a body, no cluster, a refusal, a 4xx) — the walk's rotation key, read never-attempted-first then stalest-stamp-first, so the grants that can never converge (a GVR or DIG that publishes no opinion; a decided grant neither of the walk's two routes resolves) cannot hold the head of every run; null = never attempted. The rotation orders *within* the walk's priority groups: a case the git ledger holds a committed merits event for, whose `merits_judgment` has latched, comes first — grading a merits forecast is what the body is an input to, and the latch is what says the body exists (a pending case stays in the rotation, since promoting it would spend the run's cap on opinions that have not published) |
+| `document_floor_probed_at` | date    | tracking state: when the document back-fill (`backfill-documents`) last read this case at one of its fetch floors — it fetched the docket and the selector found nothing fetchable behind any kind the case is missing; null = never floored. It is that pass's exclusion key, not a rotation key: a floored candidate is held out of the gap class while the stamp is no older than `last_live_polled`, so a floor costs one paced docket GET per poll of that docket rather than one per dispatch. The next poll releases it; a docket that has left the live rotation (decided, or below its Term floor) is never re-polled, which is the terminal reading for a closed docket the Court served no PDF on. Written on an apply only, never for a floor the pass's own modern-docket alarm fired on, and through a direct `UPDATE` rather than the row upsert — under the corpus split a row read off the payload-free index carries no opinion body, and re-mirroring it would delete the body from the store's `case.json` |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.
@@ -161,8 +162,14 @@ slice of the unresolved set within the API budget (see
 [docs/data-pipeline.md](../docs/data-pipeline.md)).
 `opinion_enrich_attempted_at` is the same kind of column for a different walk:
 the opinion enrichment stamps it on every case an applied run reached a verdict about, and
-rotates never-attempted-first then stalest-first over it. Both are fill-in
-latched, so a writer carrying no stamp preserves the stored one.
+rotates never-attempted-first then stalest-first over it.
+`document_floor_probed_at` is a third, and the one that is not a rotation key:
+the document back-fill stamps it where a case sits at a fetch floor, and reads
+it against `last_live_polled` to hold that case out of its gap class until the
+docket is polled again. All three are fill-in latched, so a writer carrying no
+stamp preserves the stored one — on the floor probe the latch is the only thing
+that does, since it is written by a direct `UPDATE` that no other writer
+repeats.
 `embedding[]` (semantic retrieval) is a later upgrade and is not stored yet.
 
 The live-parsed signal family (`distributed_for_conference`,

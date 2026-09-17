@@ -19,6 +19,7 @@ together.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -30,7 +31,7 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus, supremecourt
+from fedcourtsai import casestore, corpus, supremecourt
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline.document_backfill import (
     ESTIMATED_DOCKET_SECONDS,
@@ -38,6 +39,7 @@ from fedcourtsai.pipeline.document_backfill import (
     backfill_documents,
     document_gaps,
     estimated_candidate_seconds,
+    floor_probe_standing,
     is_predict_relevant,
 )
 from fedcourtsai.pipeline.documents import (
@@ -558,6 +560,302 @@ def test_a_docket_that_nominated_nothing_is_a_floor_and_fetches_nothing(
     assert result.no_link == 1
     assert not stored
     assert result.recovered == 0
+    # Nothing was fetched and nothing recovered, and the candidate still left the
+    # class: an applied floor is stamped against the docket it was read on, so
+    # `remaining` nets it out exactly as it nets out a recovery.
+    assert result.floors_stamped == 1
+    assert result.remaining == 0
+
+
+# --- The floor probe ---------------------------------------------------------
+
+
+def _floored(tmp_path: Path, **row_fields: Any) -> tuple[Path, str]:
+    """Apply one slice over a single candidate whose docket posts no link.
+
+    Returns the corpus root and the case's stored probe stamp, so a caller can
+    re-open the same corpus and scan it again. The docket carries the petition
+    entry with nothing behind it, which is the `no_link` floor.
+    """
+    corpus_root = tmp_path / "corpus"
+    with (
+        _seeded(corpus_root, [_row("scotus/1", "25-100", **row_fields)]) as conn,
+        _client({"25-100": _payload(_petition_entry(url=None))}) as client,
+    ):
+        result = _run(conn, client, apply=True, max_cases=5)
+        assert result.no_link == 1
+        assert result.floors_stamped == 1
+        stamped = corpus.get_row(conn, "scotus/1")
+    assert stamped is not None and stamped.document_floor_probed_at == _TODAY
+    return corpus_root, "scotus/1"
+
+
+def test_an_applied_floor_is_held_out_of_the_next_scan(tmp_path: Path) -> None:
+    """The defect this probe exists for: a floor re-walked every dispatch.
+
+    The second scan must not merely decline to fetch — it must not *reach* the
+    candidate at all, because reaching it is the paced docket GET the class
+    cannot afford once its floors outnumber its recoverable head.
+    """
+    corpus_root, _ = _floored(tmp_path)
+    log = _Requests()
+    with (
+        corpus.connect(corpus.corpus_db_path(corpus_root)) as conn,
+        _client({"25-100": _payload(_petition_entry(url=None))}, log=log) as client,
+    ):
+        again = _run(conn, client, max_cases=5)
+    assert again.candidates == 0
+    assert again.standing_floors == 1
+    # The row still holds its gap — the exclusion is about what a slice spends
+    # on, not about the case having been repaired.
+    assert again.cases_seen == 1
+    assert not log.urls
+
+
+def test_a_polled_docket_returns_its_floored_candidate_to_the_class(tmp_path: Path) -> None:
+    """The exclusion lasts a docket version, not forever.
+
+    A live poll after the probe is the corpus saying the docket was read again,
+    so whatever the floor was read off may have moved and the candidate is owed
+    another look.
+    """
+    corpus_root, case_id = _floored(tmp_path)
+    url = "https://www.supremecourt.gov/pet.pdf"
+    with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
+        stored = corpus.get_row(conn, case_id)
+        assert stored is not None
+        corpus.upsert_rows(conn, [stored.model_copy(update={"last_live_polled": date(2026, 9, 8)})])
+        conn.commit()
+    with (
+        corpus.connect(corpus.corpus_db_path(corpus_root)) as conn,
+        _client(
+            {"25-100": _payload(_petition_entry(url=url))},
+            pdfs={url: _pdf("The petition presents one question.")},
+        ) as client,
+    ):
+        again = _run(conn, client, apply=True, max_cases=5)
+        recovered = {d.kind for d in corpus.documents_for_case(conn, case_id)}
+    assert again.candidates == 1
+    assert again.standing_floors == 0
+    assert again.recovered == 1
+    assert recovered == {KIND_PETITION}
+
+
+def test_a_recoverable_candidate_is_never_stamped(tmp_path: Path) -> None:
+    """Only a floor is stamped: a case that gained its filing left on its own."""
+    url = "https://www.supremecourt.gov/pet.pdf"
+    with (
+        _seeded(tmp_path / "corpus", [_row("scotus/1", "25-100")]) as conn,
+        _client(
+            {"25-100": _payload(_petition_entry(url=url))},
+            pdfs={url: _pdf("The petition presents one question.")},
+        ) as client,
+    ):
+        result = _run(conn, client, apply=True, max_cases=5)
+        row = corpus.get_row(conn, "scotus/1")
+    assert result.recovered == 1
+    assert result.floors_stamped == 0
+    assert row is not None and row.document_floor_probed_at is None
+
+
+def test_a_partly_recovered_candidate_is_not_stamped(tmp_path: Path) -> None:
+    """A candidate that stored something is not at a floor, however much it owes.
+
+    The merits arm is where the two readings diverge: this docket serves one of
+    the two briefs, so the case is a write and not a recovery — and stamping it
+    would hold a case with a fetchable link left on it out of the class.
+    """
+    url = "https://www.supremecourt.gov/merits-pet.pdf"
+    with (
+        _seeded(tmp_path / "corpus", [_granted_row("scotus/1", "25-100")]) as conn,
+        _client(
+            {"25-100": _payload(_grant_entry(), _merits_entry("Brief of petitioner", url))},
+            pdfs={url: _pdf("Petitioner's brief on the merits.")},
+        ) as client,
+    ):
+        result = _run(conn, client, apply=True, max_cases=5)
+        row = corpus.get_row(conn, "scotus/1")
+    assert result.recovered == 0
+    assert result.documents == {"scotus/1": [KIND_MERITS_BRIEF_PETITIONER]}
+    assert result.floors_stamped == 0
+    assert row is not None and row.document_floor_probed_at is None
+    # Still in the class, still at the head of the next slice.
+    assert result.remaining == 1
+
+
+def test_a_dry_run_reads_a_floor_and_stamps_nothing(tmp_path: Path) -> None:
+    """The stamp is an apply's write. A dry run's would never be pushed."""
+    with (
+        _seeded(tmp_path / "corpus", [_row("scotus/1", "25-100")]) as conn,
+        _client({"25-100": _payload(_petition_entry(url=None))}) as client,
+    ):
+        result = _run(conn, client, max_cases=5)
+        row = corpus.get_row(conn, "scotus/1")
+    assert result.no_link == 1
+    assert result.floors_stamped == 0
+    assert result.remaining == 1
+    assert row is not None and row.document_floor_probed_at is None
+
+
+def test_the_ledger_splits_the_class_between_walked_and_held_out(tmp_path: Path) -> None:
+    """`candidates + standing_floors` is the addressable gap class, on one ledger.
+
+    Two rows hold the same gap; one was floored on the docket the corpus still
+    holds and one has been polled since. A slice spends on the second, and the
+    first is still reported.
+    """
+    rows = [
+        _row("scotus/1", "25-100", document_floor_probed_at=date(2026, 8, 1)),
+        _row("scotus/2", "25-101", document_floor_probed_at=date(2026, 5, 1)),
+    ]
+    log = _Requests()
+    with (
+        _seeded(tmp_path / "corpus", rows) as conn,
+        _client({"25-101": _payload(_petition_entry(url=None))}, log=log) as client,
+    ):
+        result = _run(conn, client, max_cases=5)
+    assert result.cases_seen == 2
+    assert result.candidates == 1
+    assert result.standing_floors == 1
+    assert result.attempted == 1
+    assert result.no_link == 1
+    # One docket GET, for the one candidate the class still admits.
+    assert len(log.urls) == 1
+
+
+def test_a_standing_probe_leaves_the_walk_order_alone(tmp_path: Path) -> None:
+    """Exclusion, not re-ordering: what remains is still in `case_id` order."""
+    rows = [
+        _row("scotus/1", "25-100"),
+        _row("scotus/2", "25-101", document_floor_probed_at=date(2026, 8, 1)),
+        _row("scotus/3", "25-102"),
+    ]
+    with _seeded(tmp_path / "corpus", rows) as conn:
+        scan = document_gaps(conn)
+    assert [gap.case_id for gap in scan.gaps] == ["scotus/1", "scotus/3"]
+    assert scan.standing_floors == 1
+
+
+def test_the_probe_stands_only_against_the_docket_it_was_read_on() -> None:
+    """The predicate itself, at each of its edges.
+
+    The unstamped-live-poll arm is the one the lane's witness silently depends
+    on: a stamped row reading as a candidate again would leave the apply's
+    `remaining` short of the walk-only re-read and fail the job. It cannot arise
+    today because the walk's population filter *is* that column being set, so
+    the assertion is here to trip a test rather than a red job if that ever
+    changes.
+    """
+    polled = date(2026, 8, 1)
+    assert not floor_probe_standing(_row("scotus/1", "25-100", last_live_polled=polled))
+    assert floor_probe_standing(
+        _row("scotus/1", "25-100", last_live_polled=polled, document_floor_probed_at=polled)
+    )
+    assert not floor_probe_standing(
+        _row(
+            "scotus/1",
+            "25-100",
+            last_live_polled=polled,
+            document_floor_probed_at=date(2026, 7, 31),
+        )
+    )
+    assert not floor_probe_standing(
+        _row("scotus/1", "25-100", last_live_polled=None, document_floor_probed_at=polled)
+    )
+
+
+def test_an_applies_remaining_equals_the_walk_only_re_read(tmp_path: Path) -> None:
+    """The lane's witness, pinned here: `remaining` is what the next scan sees.
+
+    The run-repair step re-reads the class on an empty slice after every apply
+    and fails the job unless the count matches the ledger's `remaining`, because
+    a content-store write that silently failed would leave a "recovered" case in
+    the class. A stamped floor leaves the class exactly as a recovery does, so
+    `remaining` has to net out both or the witness fires on a healthy run. The
+    slice below does one of each and leaves a third candidate untouched.
+    """
+    url = "https://www.supremecourt.gov/pet.pdf"
+    rows = [
+        _row("scotus/1", "25-100"),  # recoverable
+        _row("scotus/2", "25-101"),  # at the no_link floor
+        _row("scotus/3", "25-102"),  # outside the bound
+    ]
+    corpus_root = tmp_path / "corpus"
+    with (
+        _seeded(corpus_root, rows) as conn,
+        _client(
+            {
+                "25-100": _payload(_petition_entry(url=url)),
+                "25-101": _payload(_petition_entry(url=None)),
+            },
+            pdfs={url: _pdf("The petition presents one question.")},
+        ) as client,
+    ):
+        applied = _run(conn, client, apply=True, max_cases=2)
+    assert applied.recovered == 1
+    assert applied.floors_stamped == 1
+    with (
+        corpus.connect(corpus.corpus_db_path(corpus_root)) as conn,
+        _client({}) as client,
+    ):
+        witness = _run(conn, client, max_cases=0)
+    assert witness.candidates == applied.remaining == 1
+    assert witness.standing_floors == 1
+
+
+def test_the_floor_stamp_does_not_rewrite_the_stored_case_object(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The stamp is a column write, and under the split that is load-bearing.
+
+    The pass reads its population off the payload-free index, where the opinion
+    body is stripped and the store's `case.json` holds it. Upserting such a row
+    back to stamp it would re-mirror a body-less `case.json` over the stored one
+    — deleting the body while `has_opinion` stays latched — on a class that is
+    granted and decided, which is exactly where the enrichment lands bodies.
+    """
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    store = casestore.InMemoryObjectTransport()
+    casestore.set_active_transport(store)
+    row = _row("scotus/1", "25-100", opinion_text="THE OPINION BODY")
+    with (
+        _seeded(tmp_path / "corpus", [row]) as conn,
+        _client({"25-100": _payload(_petition_entry(url=None))}) as client,
+    ):
+        assert corpus.get_row(conn, "scotus/1") is not None
+        assert _run(conn, client, apply=True, max_cases=5).floors_stamped == 1
+        stamped = corpus.get_row(conn, "scotus/1")
+    # The index carries the stamp — it is the system of record for the column.
+    assert stamped is not None and stamped.document_floor_probed_at == _TODAY
+    # And the store still serves the body the index cannot.
+    assert casestore.read_opinion_text(store, "scotus/1") == "THE OPINION BODY"
+    mirrored = json.loads(store.objects[casestore.case_key("scotus/1")])
+    assert mirrored["opinion_text"] == "THE OPINION BODY"
+
+
+def test_a_floor_the_alarm_fired_on_is_never_stamped(tmp_path: Path) -> None:
+    """A floor this pass may itself be the cause of is not recorded as one.
+
+    A missing kind the selector matched no entry for, on a docket modern enough
+    to carry links, is the selector's blind spot rather than the docket's last
+    word — and it is the shape an upstream payload that changed or degraded
+    would take across a whole slice. Stamping it would bank an exclusion over a
+    defect on our side, so the candidate keeps its place and widening the
+    selector is enough to recover it.
+    """
+    with (
+        _seeded(tmp_path / "corpus", [_row("scotus/1", f"{MODERN_LINK_TERM - 1999}-100")]) as conn,
+        _client({f"{MODERN_LINK_TERM - 1999}-100": _payload(_bio_entry("https://x/bio.pdf"))}) as (
+            client
+        ),
+    ):
+        result = _run(conn, client, apply=True, max_cases=5)
+        row = corpus.get_row(conn, "scotus/1")
+    assert result.no_entry_modern_cases == ["scotus/1"]
+    assert result.no_entry == 1
+    assert result.floors_stamped == 0
+    assert row is not None and row.document_floor_probed_at is None
+    # Still in the class, so a widened selector reaches it next dispatch.
     assert result.remaining == 1
 
 

@@ -61,6 +61,32 @@ their trigger.
   proceedings list holds no document links. Neither is a failure and neither
   drains, and the two counts partition the floored candidates.
 
+  Because neither drains, neither is re-walked. An apply **stamps** the
+  candidate it read at a floor — ``document_floor_probed_at`` on the corpus row
+  — and the class holds a stamped candidate out while that stamp is no older
+  than ``last_live_polled``, the live channel's own record of when it last read
+  that same docket. A floor is then paid for once per docket version rather
+  than once per dispatch, which is what lets a bounded slice reach the tail of
+  the class at all: once the recoverable head has drained, the floors ahead of
+  the tail are otherwise a paced docket GET each, every dispatch, forever. The
+  stamp releases when the docket is next polled: a docket the live rotation
+  still serves returns its candidate within a cycle, and one that has left the
+  rotation — decided, or below its Term floor — does not, which is the terminal
+  reading for a closed docket the Court served no PDF on. It is never silent
+  either: ``standing_floors`` reports the held-out balance beside
+  ``candidates``, so the whole class this route can address is readable off one
+  ledger (``unaddressable`` sits outside both, as it always has).
+
+  Two floors are **not** stamped. A candidate that raised the modern-docket
+  alarm is one this pass may itself be the cause of — a filing shape the
+  selector has no arm for — so recording it against the docket would bank an
+  exclusion over a defect on our side, and it is exactly the shape an upstream
+  payload that changed or degraded would produce across a whole slice. Widening
+  the selector is then enough to recover those candidates; they never left.
+  And only an **apply** stamps at all: a dry run writes nothing the lane pushes,
+  so a stamp it wrote would be thrown away with the runner and the two modes
+  would disagree about the class.
+
   The **alarm** cuts across both counts, because it is per *kind*: a missing kind
   the selector found no entry for, on a docket modern enough that its proceedings
   list should carry links, is a filing shape the selector has no arm for — the
@@ -79,12 +105,18 @@ their trigger.
 - **Written per case.** Each case's documents are upserted as they are made, not
   batched at the end, so a step that hits its cap has banked what it recovered:
   under the corpus split the per-case content-store write is itself the durable
-  one.
+  one. The floor stamps are the other way round — index columns, durable only
+  once the lane pushes the blob — so a slice cut short at its cap keeps its
+  documents and loses its exclusions, which is the safe direction: the floors
+  are simply re-read next dispatch.
 
 Additive by construction. :func:`fetch_case_documents` is idempotent against the
 stored ``(kind, url)`` mapping, so a case that already holds a document at the
-selected URL is not re-fetched, and a case this pass cannot recover keeps
-exactly what it had and re-enters the next slice.
+selected URL is not re-fetched, and no case this pass touches loses anything it
+had. What it re-enters the next slice with depends on why it did not recover: a
+candidate whose docket or filing the fetch did not return keeps its place at the
+head of the class, while an applied floor is stamped out of it until its docket
+is polled again.
 """
 
 from __future__ import annotations
@@ -214,7 +246,24 @@ class DocumentBackfillResult(BaseModel):
     candidates: int = Field(
         ge=0,
         description="Addressable rows in the gap class, in `case_id` order — the "
-        "whole population this route can act on",
+        "population this route can act on now. Net of `standing_floors`: a "
+        "candidate a previous apply read at a floor is held out until its docket "
+        "is polled again, so `candidates + standing_floors` is the whole gap "
+        "class this route can address — `unaddressable` sits outside both — and "
+        "this is the part of it a slice would spend on",
+    )
+    standing_floors: int = Field(
+        ge=0,
+        default=0,
+        description="Rows holding a document gap that a standing floor probe kept "
+        "out of `candidates`: an apply already fetched that docket, found nothing "
+        "fetchable behind any kind the row is missing, and stamped it, and the "
+        "live channel has not re-read the docket since. Held out rather than "
+        "re-walked because re-fetching an unchanged docket spends a paced round "
+        "trip to learn the same thing, and a class that re-pays its floors every "
+        "dispatch never reaches its own tail. A standing balance and not a "
+        "backlog — the next poll of a docket returns its candidate to "
+        "`candidates`",
     )
     merits_candidates: int = Field(
         ge=0,
@@ -250,7 +299,21 @@ class DocumentBackfillResult(BaseModel):
     remaining: int = Field(
         ge=0,
         description="Candidates the run did not reach, plus those it reached and "
-        "could not recover — the backlog the next slice would face",
+        "could not recover and did not stamp — the class the next slice would "
+        "face. Net of `floors_stamped` as well as `recovered`, because a stamped "
+        "floor leaves `candidates` exactly as a recovered case does; that is what "
+        "keeps this equal to the walk-only re-read the lane makes its witness",
+    )
+    floors_stamped: int = Field(
+        ge=0,
+        default=0,
+        description="Candidates this slice read at a floor and stamped, so the "
+        "next scan holds them out (apply only — a dry run writes nothing). Short "
+        "of `no_link + no_entry` by the floors the modern-docket alarm fired on, "
+        "which are never stamped. It is what this slice **added** to the "
+        "held-out balance, not part of the `standing_floors` printed beside it: "
+        "that count is read off the scan this slice started from, so these show "
+        "up in the next walk's",
     )
     stored: dict[str, int] = Field(
         default_factory=dict,
@@ -379,6 +442,11 @@ class DocumentGapScan:
     gaps: tuple[DocumentGap, ...]
     cases_seen: int
     cases_with_documents: int
+    #: Rows holding a gap that a standing floor probe kept out of ``gaps``. The
+    #: class is ``gaps`` plus these, and the split is what makes an excluding
+    #: scan honest: a slice spends on ``gaps``, and this says how much of the
+    #: class it is not looking at and why.
+    standing_floors: int = 0
 
 
 def _primary_kind(row: corpus.CorpusRow) -> str:
@@ -457,6 +525,67 @@ def is_predict_relevant(row: corpus.CorpusRow) -> bool:
     return row.predict_queued_at is not None or row.salience_selected
 
 
+def floor_probe_standing(row: corpus.CorpusRow) -> bool:
+    """Whether this row's stored floor reading still speaks for its docket.
+
+    The pass reads a floor off a docket it fetched *fresh*, so the reading is
+    about one version of that docket: nothing on it is fetchable behind the
+    kinds this row is missing. It stays true until the docket moves, and
+    ``last_live_polled`` is the corpus's own record of when the live channel
+    last read that same supremecourt.gov docket — so a stamp no older than it
+    means no channel has looked at the docket since the probe, and re-fetching
+    it would spend a paced round trip to reach the same verdict.
+
+    ``last_live_polled`` rather than the stored snapshot's date. The same poll
+    writes both, and the stamp additionally advances on the polls that retrieved
+    nothing to store (a withdrawn docket, an unaddressable number), so it is an
+    upper bound on when the docket could have moved — the safe side. The column
+    is also already on the row this pass's walk hydrates, while under the corpus
+    split a per-case snapshot read is a content-store round trip, one per
+    candidate, on a walk that already pays one for the documents. And rather
+    than ``last_pulled``, which is the CourtListener rotation's stamp: it is
+    NULL on almost every live-minted row and says nothing about the Clerk's
+    docket even where it is set.
+
+    The comparison is deliberately the conservative one. ``last_live_polled``
+    advances on *every* poll, change or not, so an unchanged docket that was
+    re-polled costs one re-probe; the alternative — missing a change — costs a
+    case its documents. Equal dates read as standing, so a poll landing after
+    the probe on the probe's own day waits for the next poll; that is one
+    deferred re-probe on a class whose rotation is measured in weeks.
+
+    What the stamp accepts, said rather than hidden: the Court sometimes posts a
+    filing's PDF after the entry that names it, so a ``no_link`` read a day early
+    is a floor that was about to stop being one. On a docket the rotation still
+    serves that costs nothing — the next poll releases it. On one that has left
+    the rotation it is terminal, and the case keeps the gap. The trade is
+    deliberate and it is the whole point: the floors are the thousand paced GETs
+    standing between a bounded slice and the candidates behind them, and holding
+    the cases that can still mint a cell out of reach costs more than a decided
+    docket's late-posted filing does.
+
+    How long a probe stands is therefore the live rotation's business, not this
+    pass's. A docket the rotation still serves — undecided, with an open event,
+    at or above its Term floor — comes back within a cycle. One that has left it
+    never does, and the stamp stands until something re-polls the case. That is
+    the right reading for the class this pass mostly holds, which is closed
+    dockets the Court served no PDF on: nothing further will be filed and no
+    number of re-probes will find a link. It is also the reading to remember
+    when the selector gains an arm it lacked, because the candidates a previous
+    slice floored on that arm would stay held out — which is why a floor the
+    modern-docket alarm fired on is never stamped in the first place.
+
+    A row with no live-poll stamp is not held out. It cannot arise in this
+    pass's population (the walk is ``live_slice=True``, which *is* that column
+    being set), and if it ever did, re-probing costs a GET where excluding
+    forever costs the case.
+    """
+    probed = row.document_floor_probed_at
+    if probed is None:
+        return False
+    return row.last_live_polled is not None and probed >= row.last_live_polled
+
+
 def document_gaps(conn: corpus.ReadConnection) -> DocumentGapScan:
     """Every predict-relevant row holding a reachable document gap, in ``case_id`` order.
 
@@ -466,6 +595,14 @@ def document_gaps(conn: corpus.ReadConnection) -> DocumentGapScan:
     would report an empty class against the corpus production reads.
     :func:`~fedcourtsai.corpus.documents_for_case` is the read that routes to
     whichever holds them.
+
+    A row whose floor probe still stands (:func:`floor_probe_standing`) holds a
+    gap but is **not** a candidate: it is counted in ``standing_floors`` and left
+    out of ``gaps``. That is the second half of what makes a bounded slice
+    self-advancing, and the load-bearing half once the recoverable cases are
+    gone — a floor cannot be recovered, so without it the class would present
+    the same paced docket GETs to every dispatch and a slice would never walk
+    past them to the cases behind.
 
     Ordering is the row order (``case_id``), which is what makes a bounded slice
     self-advancing: a recovered case leaves the class, so the next dispatch's
@@ -483,7 +620,7 @@ def document_gaps(conn: corpus.ReadConnection) -> DocumentGapScan:
     ]
     by_case = {row.case_id: row for row in rows}
     gaps: list[DocumentGap] = []
-    cases_seen = cases_with_documents = 0
+    cases_seen = cases_with_documents = standing_floors = 0
     with prefetch_by_case(
         list(by_case),
         lambda case_id: corpus.documents_for_case(conn, case_id),
@@ -503,6 +640,9 @@ def document_gaps(conn: corpus.ReadConnection) -> DocumentGapScan:
                 missing.extend(kind for kind in MERITS_GAP_KINDS if kind not in stored)
             if not missing:
                 continue
+            if floor_probe_standing(row):
+                standing_floors += 1
+                continue
             gaps.append(
                 DocumentGap(
                     case_id=case_id,
@@ -512,7 +652,10 @@ def document_gaps(conn: corpus.ReadConnection) -> DocumentGapScan:
                 )
             )
     return DocumentGapScan(
-        gaps=tuple(gaps), cases_seen=cases_seen, cases_with_documents=cases_with_documents
+        gaps=tuple(gaps),
+        cases_seen=cases_seen,
+        cases_with_documents=cases_with_documents,
+        standing_floors=standing_floors,
     )
 
 
@@ -605,13 +748,20 @@ def backfill_documents(
     pointer push the workflow makes after the pass, and a cap hit loses the slice
     however it was written.
 
-    Additive and self-advancing on the recoverable class only. A recovered case
-    leaves the class; a candidate at either floor, or one whose docket or filing
-    the fetch did not return, keeps exactly what it had, stays in the class and
-    sits at the head of the next slice. That is why the ledger reports the floors
-    apart from the losses: a slice that clears its bound without draining the
-    class is the expected reading once the recoverable half is gone, and only the
-    floor counts say so.
+    Additive, and self-advancing on both halves of the class. A recovered case
+    leaves it by holding every kind it was missing. A candidate at either floor
+    leaves it by being **stamped** (:func:`_stamp_floor`) against the docket
+    version its floor was read on, and re-enters when that docket is next polled
+    — so a floor costs the class one paced docket GET per docket version rather
+    than one per dispatch, and the candidates behind a thousand of them are
+    reachable inside a bounded slice. A floor the modern-docket alarm fired on
+    is the exception and keeps its place, because that reading is about this
+    pass rather than about the docket. Only a candidate whose docket or filing
+    the fetch did not return keeps exactly what it had and its place at the head
+    of the next slice, which is what a transport failure should do. The ledger
+    reports the floors apart from the losses, and the stamped ones apart again:
+    a slice that clears its bound without draining the class is the expected
+    reading once the recoverable half is gone, and the counts are what say so.
     """
     if apply and max_cases is None:
         return DocumentBackfillResult(
@@ -674,7 +824,18 @@ def backfill_documents(
             continue
         refs = [ref for ref in select_documents(payload) if ref.kind in gap.kinds]
         if not refs:
-            _record_floor(payload, gap, tally)
+            alarmed = _record_floor(payload, gap, tally)
+            # A floor the alarm fired on is not stamped. That reading is a
+            # missing kind the selector matched no entry for on a docket modern
+            # enough to carry links — which is this pass's own blind spot rather
+            # than the docket's last word, and the class it exists to stop
+            # producing. Stamping it would bank an exclusion over a defect on our
+            # side, and the same shape is what an upstream payload that changed
+            # or degraded would produce across a whole slice: the candidates a
+            # selector regression floors stay in the class, so widening the
+            # selector is all that is needed to recover them.
+            if apply and not alarmed:
+                _stamp_floor(conn, gap, today=today, tally=tally)
         elif not apply:
             tally.selected[gap.case_id] = [ref.kind for ref in refs]
         else:
@@ -686,12 +847,20 @@ def backfill_documents(
         cases_with_documents=scan.cases_with_documents,
         unaddressable=len(unaddressable),
         candidates=len(candidates),
+        standing_floors=scan.standing_floors,
         merits_candidates=sum(1 for gap in candidates if gap.merits),
         bound=max_cases,
         attempted=len(slice_) - len(unreached),
         unreached=unreached,
         recovered=len(tally.recovered),
-        remaining=len(candidates) - len(tally.recovered),
+        # Both subtractions are the same fact: a candidate that left the class.
+        # A recovered one left by gaining every kind it was missing, a stamped
+        # one by having its floor recorded against the docket version it was
+        # read on, and the next scan will see neither. The lane's witness is a
+        # walk-only re-read compared against this number, so a stamp missing
+        # here would read as an apply that failed to converge.
+        remaining=len(candidates) - len(tally.recovered) - tally.floors_stamped,
+        floors_stamped=tally.floors_stamped,
         stored=dict(sorted(tally.stored.items())),
         documents=dict(sorted(tally.documents.items())),
         selected=dict(sorted(tally.selected.items())),
@@ -715,6 +884,7 @@ class _SliceTally:
     recovered: set[str] = field(default_factory=set)
     no_link: int = 0
     no_entry: int = 0
+    floors_stamped: int = 0
     docket_unserved: int = 0
     docket_errors: int = 0
 
@@ -734,8 +904,12 @@ def _entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
     return primary_entry_matched(payload, kind=kind)
 
 
-def _record_floor(payload: Mapping[str, Any], gap: DocumentGap, tally: _SliceTally) -> None:
+def _record_floor(payload: Mapping[str, Any], gap: DocumentGap, tally: _SliceTally) -> bool:
     """Attribute a candidate selection nominated nothing for, to its own floor.
+
+    Returns whether this candidate raised the modern-docket **alarm**, which the
+    caller reads to decide whether the floor may be stamped: a floor this pass
+    may be the cause of is not one to record against the docket.
 
     Told apart by the docket's own text: an entry the selector recognizes with no
     fetchable link behind it is a filing the Court posted no PDF for, while no
@@ -771,6 +945,41 @@ def _record_floor(payload: Mapping[str, Any], gap: DocumentGap, tally: _SliceTal
             gap.term_year,
             ", ".join(unmatched),
         )
+        return True
+    return False
+
+
+def _stamp_floor(
+    conn: sqlite3.Connection,
+    gap: DocumentGap,
+    *,
+    today: date,
+    tally: _SliceTally,
+) -> None:
+    """Record that this candidate's docket was read at a floor today.
+
+    A column write through :func:`~fedcourtsai.corpus.stamp_document_floor_probe`
+    rather than a row upsert, and that is load-bearing under the corpus split
+    rather than a style choice: the population is read off the payload-free
+    index, so a row in hand carries no opinion body, and upserting it back would
+    re-mirror a body-less ``case.json`` over the one the content store holds —
+    deleting the body while ``has_opinion`` stays latched. The class is granted
+    and decided cases, which is precisely where the enrichment lands bodies.
+
+    Stamped per case as the floor is read rather than batched at the end of the
+    slice, matching the per-case document writes: the step that runs this has a
+    wall-clock cap, and a batched stamp turns a cap hit into a slice that walked
+    a thousand floors and recorded none of them. The stamps are index columns,
+    so the durable step for them is the lane's pointer push rather than the
+    content-store write that banks the documents.
+
+    Apply-only, decided by the caller. The stamp lives in the index, which the
+    lane pushes only after an apply, so a dry run's would be discarded with the
+    runner — and a dry run that quietly moved the class its own ledger reports
+    would be worse than one that spends the round trips.
+    """
+    corpus.stamp_document_floor_probe(conn, gap.case_id, today)
+    tally.floors_stamped += 1
 
 
 def _store_case(

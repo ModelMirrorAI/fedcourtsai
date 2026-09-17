@@ -2113,6 +2113,60 @@ def test_from_record_tolerates_a_record_without_the_enrich_cursor() -> None:
     assert row == _row()
 
 
+def test_the_document_floor_probe_migrates_and_latches(tmp_path: Path) -> None:
+    """A blob written before the column gains it never-probed, and once stamped
+    the probe survives every writer that does not carry one.
+
+    The latch is what makes the stamp readable at all: it means something only
+    against `last_live_polled`, so a live poll that wiped it would erase the very
+    comparison the document back-fill reads to hold a floored case out.
+    """
+    pre = tmp_path / "pre-change.db"
+    legacy = sqlite3.connect(pre)
+    columns = ",\n".join(
+        f"{name} {ddl}"
+        for name, ddl in corpus._CASES_COLUMN_DDL.items()
+        if name != "document_floor_probed_at"
+    )
+    legacy.executescript(
+        f"CREATE TABLE cases ({columns});\n"
+        "INSERT INTO cases (case_id, court, docket_number) VALUES "
+        "('scotus/24001', 'scotus', '23-101');"
+    )
+    legacy.commit()
+    legacy.close()
+    with corpus.connect(pre) as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(cases)")}
+        assert "document_floor_probed_at" in cols
+        migrated = corpus.get_row(conn, "scotus/24001")
+        assert migrated is not None and migrated.document_floor_probed_at is None
+        # Idempotent: a second connect to the same blob adds nothing.
+        corpus._migrate_cases(conn)
+        assert {r["name"] for r in conn.execute("PRAGMA table_info(cases)")} == cols
+        # The back-fill stamps it through its own writer — a single-column
+        # UPDATE, because the row it holds came off an index that may carry no
+        # opinion body and an upsert would re-mirror that absence to the store.
+        corpus.stamp_document_floor_probe(conn, "scotus/24001", date(2026, 9, 1))
+        # A later live poll carrying no probe keeps it: the latch is the only
+        # thing that preserves a stamp no other writer ever repeats.
+
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/24001",
+                    court="scotus",
+                    docket_number="23-101",
+                    last_live_polled=date(2026, 9, 8),
+                )
+            ],
+        )
+        latched = corpus.get_row(conn, "scotus/24001")
+    assert latched is not None
+    assert latched.document_floor_probed_at == date(2026, 9, 1)
+    assert latched.last_live_polled == date(2026, 9, 8)
+
+
 def test_capital_case_migrates_and_max_latches(tmp_path: Path) -> None:
     """A DB written before the column gains it on connect at the not-marked
     default, and the flag then only ever latches on: only one upstream channel

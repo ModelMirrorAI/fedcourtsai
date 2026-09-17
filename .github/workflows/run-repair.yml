@@ -1166,6 +1166,23 @@ jobs:
       # content store rather than the blob, so the pointer commit cannot witness
       # them and an unchanged pointer is reported rather than failed. The
       # witness is the walk-only re-read below.
+      #
+      # An apply writes one thing into the blob itself: the floor probe stamped
+      # on each candidate whose docket posts nothing fetchable behind a kind it
+      # is missing. Neither floor can be recovered, so without the stamp the
+      # class would present the same paced docket GETs to every dispatch and the
+      # candidates behind them would never be reached inside a slice. The stamp
+      # holds a floored case out until its docket is polled again, so the index
+      # DOES move on an applied slice that read any floor, and the pointer
+      # commit below is the ordinary path rather than the reserved one.
+      #
+      # A stamp has no undo on this lane: the column is a fill-in latch, so no
+      # writer clears it, and a docket that has left the live rotation is never
+      # re-polled. The pass itself is what keeps a bad reading from being
+      # banked — a floor its modern-docket alarm fired on is never stamped,
+      # because that reading is about the selector rather than about the docket,
+      # and it is the shape an upstream payload that changed or degraded would
+      # take across a whole slice. Read the alarm before re-dispatching an apply.
       - name: Backfill missing primary documents
         if: ${{ inputs.repair == 'document-backfill' && steps.dedupe-live-rows.outcome == 'success' }}
         # The slice is the expensive half: a candidate is one paced docket GET
@@ -1293,12 +1310,18 @@ jobs:
           #                              — so it is bounded above by the 133-162 s
           #                              that one measures, and this is roughly
           #                              twice that ceiling
-          #   corpus-push          60 s  the blob comes back byte-identical
-          #                              where only documents moved; reserved
-          #                              for a run where it does not
+          #   corpus-push         120 s  the index moves on any applied slice
+          #                              that read a floor — the probe stamps
+          #                              are columns — so this is paid on the
+          #                              ordinary run rather than reserved for
+          #                              an unusual one. Twice the measured
+          #                              digest-and-upload of a blob this size,
+          #                              because the stamps are durable only
+          #                              once it lands: the documents are
+          #                              already banked per case in the content
+          #                              store, the exclusions are not
           #   commit + push        60 s  the pointer commit and its retrying
-          #                              push, reached only where the index
-          #                              itself moved
+          #                              push, reached on the same runs
           #   overshoot           240 s  the deadline is the last moment work may
           #                              BEGIN, and a started candidate can end
           #                              after it: a docket nominating more
@@ -1308,7 +1331,7 @@ jobs:
           #                              times out and takes the client's one
           #                              retry
           #   ------------------------
-          #   reserve             540 s  →  1800 - 540 = 1260
+          #   reserve             600 s  →  1800 - 600 = 1200
           #
           # A candidate is admitted only where what is left holds its whole
           # estimate (65 s: the docket GET plus the filings it is charged for),
@@ -1325,7 +1348,7 @@ jobs:
           # and the ordinary heavy slice off it, is the point of the deadline.
           uv run fedcourts backfill-documents --apply \
             --max-cases "${REPAIR_BOUND}" \
-            --deadline-seconds 1260 > /tmp/document-apply.txt
+            --deadline-seconds 1200 > /tmp/document-apply.txt
           tee -a "$GITHUB_STEP_SUMMARY" < /tmp/document-apply.txt
           # The witness. The apply's ledger states the class it expects to leave
           # behind, and a re-read of the corpus must find exactly that: a
@@ -1334,6 +1357,13 @@ jobs:
           # notice. `--max-cases 0` is the walk-only reading — it takes an empty
           # slice, so it fetches nothing and costs no upstream round trip at
           # all, and what it reports is the class as the corpus now holds it.
+          # `remaining` nets out the floors this slice stamped as well as the
+          # cases it recovered, because both left the class, so the equality
+          # below is exact. It holds only while every stamp reads as standing on
+          # the re-read (the probe date against the row's own live-poll stamp),
+          # so a mismatch here can also be a clock rather than the content-store
+          # failure the error names. `standing_floors` on the re-read is what
+          # says how much of the class is held out rather than gone.
           uv run fedcourts backfill-documents --max-cases 0 > /tmp/document-verify.txt
           tee -a "$GITHUB_STEP_SUMMARY" < /tmp/document-verify.txt
           expected="$(ledger_field /tmp/document-apply.txt remaining)"
@@ -1347,17 +1377,19 @@ jobs:
           # `attempted 0` sits in a summary nobody reads on a green run.
           if [ "$(ledger_field /tmp/document-apply.txt attempted)" = "0" ] \
             && [ "${expected}" != "0" ]; then
-            echo "::warning::the slice deadline started no candidate at all — ${expected} left in the class and nothing recovered. The population walk now takes most of the slice's budget; re-read the deadline arithmetic beside the invocation rather than re-dispatching."
+            echo "::warning::the slice deadline started no candidate at all — ${expected} left addressable in the class, beside whatever a standing floor probe holds out, and nothing recovered. The population walk now takes most of the slice's budget; re-read the deadline arithmetic beside the invocation rather than re-dispatching."
           fi
           if [ "${found}" != "${expected}" ]; then
-            echo "::error::apply did not converge — the re-read finds ${found} case(s) without their primary document where the apply's ledger left ${expected} (a content-store write may have failed; see the warnings above)"
+            echo "::error::apply did not converge — the re-read finds ${found} addressable candidate(s) in the gap class where the apply's ledger left ${expected} (a content-store write may have failed, or a floor probe this slice stamped did not read as standing on the re-read; see the warnings above)"
             exit 1
           fi
           alarm_on_regression /tmp/document-apply.txt
           # Blob before pointer commit, as everywhere. Under the corpus split
-          # the recovered documents land in the content store and the blob may
-          # come back byte-identical, which is why the pointer is not the witness
-          # here and an unchanged one is reported rather than failed.
+          # the recovered documents land in the content store, so the pointer is
+          # not the witness here: a slice that read no floor at all moves nothing
+          # in the index and an unchanged pointer is reported rather than failed.
+          # A slice that read one does move it — the floor probes are index
+          # columns — so this is the path most applies take.
           uv run fedcourts corpus-push
           git add corpus/corpus.db.ref
           if git diff --cached --quiet; then
