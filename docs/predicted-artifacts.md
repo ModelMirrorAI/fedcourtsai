@@ -99,7 +99,18 @@ fields that mean the same thing at every stage:
   whether the cell was stamped, not what it answered. Every figure over the
   score skips a null either way, so neither form moves a denominator; what a
   reader can tell apart is a null **with** a rationale beside it from a null
-  without one.
+  without one — and the rationale survives the stamp, so that reading stays
+  available to anything reading the committed record. Two things take it.
+  `stamp-cell` emits one `::warning::` for a cell that placed no stakes, saying
+  which of the two shapes it was, at the moment the cell's own log is still the
+  place a maintainer is looking; the rationale's own text is not echoed, since
+  an annotation publishes into the run log without passing the secret scan that
+  gates agent free text. `collect` re-derives the same split over the run's
+  records as a per-run census — each predictor's missing count against its own
+  cells, the two shapes apart — on the run PR body and the Actions summary.
+  Something has to: a missing read fails no cell and imputes nothing, it simply
+  takes that `(predictor, case)` point out of the predictor's own `big_case`
+  tau-b, and the cell validates, commits and reads as complete.
 - **`reasoning_doc` / `predicted_reasoning_doc`** — the filenames of the two
   prose documents, beside this file. `validate` resolves both pointers, so a
   named document that is not there fails the cell, as does a name carrying a

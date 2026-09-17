@@ -1901,6 +1901,46 @@ cell while this ratio stayed silent, and only the capture rate climbing back
 toward 1.0 would show it. The ratio is there because this is a standing
 condition rather than a per-run event.
 
+A further note — on **predict** rounds only, since an evaluation carries no
+such field — turns the same lens on the run's **own output**: how many of this
+round's predictions landed with no `big_case_score`, and whose. The stakes read
+is graded by agreement with the evaluators' own reads rather than against a
+ground truth, and no figure *imputes* a null — none of them reads it as a zero.
+What a null does instead is take the `(predictor, case)` point out of that
+predictor's `big_case` tau-b, so its `cases` denominator falls and the
+coefficient is recomputed over a smaller set ([metrics/README.md](../metrics/README.md));
+the replay's big-case coverage figure and the daily digest's per-case line drop
+it the same way, and the **evaluator** panel — which is read from the
+evaluations — is untouched. So a cell that never placed the stakes fails
+nothing, trips no gate, and narrows the population its own predictor is scored
+over, in silence. That is why the note prints each predictor's misses against
+that predictor's own cells rather than a single total: the set each one is
+scored over is *selected*, and two predictors at unequal coverage rank over
+different populations. The denominator is what the run put on the collector —
+every prediction of the run in the collected artifacts, salvage cells included,
+with a cell that produced nothing outside both counts — so it is a within-run
+reading and the note says so. The census counts the two missing shapes apart,
+because they are different answers: an explicit `null` carrying a one-line
+`big_case_rationale` is the prompt's null branch taken as written, while a null
+with no rationale is the contract missed and, on a stamped record,
+indistinguishable from a field the cell never wrote (see
+[predicted-artifacts.md](predicted-artifacts.md)). It is silent on a round where
+every cell answered, and it does not ride the facts-only PR, whose body is
+deliberately free of anything an agent wrote. `stamp-cell` says the same thing
+per cell as it stamps, one `::warning::` in the cell's own log; this is the
+run-level roll-up of it.
+
+Unlike the two retrieval notes above, the census also reaches the collect job's
+Actions summary, because a round that dropped its reads is otherwise legible
+only by opening cells — and it gets there on the **same terms as the flag
+roll-up**, not on weaker ones. Its prose is harness-rendered, but the cells and
+predictors it names are named by the ids their own `prediction.json` carries,
+read before `validate` has held them to the ledger. So it is bounded and escaped
+where it is built, suppressed once anything else has tripped the run's secret
+scan (a withheld branch carried the same bytes in its PR body), and otherwise
+published only once the census text itself scans clean — which is what covers
+the run that opens no PR at all.
+
 The `run-seed` historical walker has its own instance of the latched-issue
 pattern: a `guard`
 job raises one long-lived **pipeline-health** issue if the checkpointed walk is
