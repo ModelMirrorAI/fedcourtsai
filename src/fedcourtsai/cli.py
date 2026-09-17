@@ -6197,14 +6197,137 @@ def _stamped_conditioning(
     if _snapshot_stem(record.input_snapshot) == snapshot.stem:
         return provisioned.model_copy(update={"snapshot_uptake": "read"})
     _flag_unread_snapshot(
-        event_paths.prediction_flags(actor, run_id), snapshot.name, record, actor, run_id
+        event_paths.prediction_flags(actor, run_id),
+        _case_relative(snapshot, case_paths, record.case_id),
+        # The path a cell that mistook `record/` for an event-level directory
+        # would have probed, spelled from the same `record` name provisioning
+        # writes so the note cannot drift from the real one. Nothing creates it.
+        _case_relative(
+            event_paths.base / case_paths.record.name, case_paths, record.case_id, suffix="/"
+        ),
+        record,
+        actor,
+        run_id,
     )
     return provisioned.model_copy(update={"snapshot_uptake": "unread"})
+
+
+#: What the tripwire's note may spend on one quoted path, and on the whole note.
+#: The note is an `AgentFlag.message`, which the schema caps — spelled here so the
+#: budget below is arithmetic rather than hope, and pinned to the field by a test,
+#: because the failure mode if they drift is a `ValidationError` that aborts the
+#: stamp and lands the cell *unstamped*, the one state an agent-authored `context`
+#: block survives.
+_NOTE_PATH_LIMIT = 200
+_FLAG_MESSAGE_LIMIT = 2000
+
+#: The longest run of alphanumerics after a final `.` that still reads as a file
+#: extension rather than as prose that happens to contain a full stop.
+_EXTENSION_LIMIT = 6
+
+#: The tripwire's own opening. Matched as a prefix when deduplicating, so a
+#: re-stamp cannot append a second note merely because the wording behind it
+#: moved between the two runs — a reading aid for a maintainer scanning the
+#: roll-up, never a claim of authorship: nothing stops an agent opening a flag
+#: of its own with these words, and `AgentFlag` carries no author. What the
+#: harness alone can say is stamped where the agent cannot write, which is
+#: `context` on `prediction.json` and nothing else here — the annotation beside
+#: it is unauthenticated stdout, and what it gives is timing rather than
+#: provenance: it is emitted whatever the file already said.
+_TRIPWIRE_PREFIX = "Harness tripwire: this cell recorded input_snapshot"
+
+
+def _one_line(value: str) -> str:
+    """Agent text, collapsed to a single line for a workflow-command annotation.
+
+    ``case_id`` and ``event_id`` are unvalidated agent strings on the record, and
+    ``::warning::`` is line-oriented: a newline inside one would end the
+    annotation and let whatever follows be read as a command of its own — a
+    forged ``::error::``, or a ``::stop-commands::`` that mutes every harness
+    annotation after it. The note's own quotation is already safe, because
+    ``repr`` escapes a newline rather than emitting one; these two are not.
+    """
+    return " ".join(value.split())
+
+
+def _case_relative(path: Path, case_paths: CasePaths, case_id: str, suffix: str = "") -> str:
+    """One of the cell's own paths, spelled from the case directory down.
+
+    The tripwire's note is read off a run PR body by someone who has no runner
+    and no checkout, so a bare basename under-identifies the file and the
+    runner's absolute path over-identifies it. The case id plus the path below
+    the case directory is what both the ledger and `data/cases/` are keyed on,
+    and it is stable across the runner, a developer checkout, and a test root.
+
+    ``path`` is under ``case_paths.base`` by construction, so the relative step
+    cannot raise: the one caller derives both from a single :class:`CasePaths`,
+    and a future caller pairing a path with another case's would turn a
+    diagnostic note into a ``ValueError`` that leaves the cell unstamped — the
+    one state in which an agent-authored ``context`` block survives.
+
+    ``case_id`` is the record's own declaration rather than the coordinates this
+    invocation was given; the two can disagree, and ``validate``'s path-vs-record
+    check is what catches that, after the stamp. Quoting the agent's spelling is
+    deliberate and matches the ``::warning::`` line beside it: the note is about
+    what this artifact says.
+
+    Bounded, and marked where the bound bites, for the same reason the reported
+    string is: the note it goes into is capped, and a stamp must never fail a
+    cell over the length of a path it is quoting. The ellipsis matters — a
+    silently clipped path reads to a maintainer as a complete one — and
+    ``suffix`` (a trailing separator, where the path names a directory) is
+    applied before the cut so it cannot survive it.
+    """
+    spelled = f"{case_id}/{path.relative_to(case_paths.base).as_posix()}{suffix}"
+    if len(spelled) <= _NOTE_PATH_LIMIT:
+        return spelled
+    return spelled[: _NOTE_PATH_LIMIT - 1] + "\u2026"
+
+
+def _names_a_snapshot(value: str) -> bool:
+    """Whether a cell's ``input_snapshot`` names a snapshot file at all.
+
+    The two ways a cell can fail the uptake comparison are different faults, and
+    the tripwire's note is the only place they are ever told apart. A cell naming
+    another day's file opened *something* and mis-stated which. A cell writing a
+    sentinel — ``missing``, ``none``, ``unavailable``, or free prose — is
+    reporting that it found no snapshot, and on a prediction that exists that can
+    only be a lookup at the wrong path: provisioning refuses the cell outright
+    when it writes nothing, and `assert-cell-record` refuses it again when the
+    write did not land complete, both before any engine starts. So a produced
+    prediction always had its record, and the note can say so.
+
+    A value names a file when it carries a path separator, ends in a short
+    alphanumeric extension, or parses as a date — the spellings
+    :func:`_snapshot_stem` already has to absorb, and wider than the
+    ``<day>.json`` the provisioner actually writes. Everything else named none.
+
+    Wide on purpose, in every direction. The extension test is case-insensitive
+    and not pinned to ``.json``, so ``.JSON``, ``.txt`` and a trailing ``.bak``
+    all read as a file; the length bound is what keeps a sentence with a full
+    stop in it from doing the same. The date test takes whatever
+    :func:`date.fromisoformat` takes, basic and week spellings included. Each of
+    those widenings moves a string from the sentinel arm to the weaker one, which
+    is the safe direction: the sentinel arm is the one carrying a claim about
+    *why* the cell missed.
+    """
+    text = value.strip().replace("\\", "/")
+    if "/" in text:
+        return True
+    tail = text[text.rfind(".") :] if "." in text else ""
+    if 1 < len(tail) <= _EXTENSION_LIMIT and tail[1:].isalnum():
+        return True
+    try:
+        date.fromisoformat(_snapshot_stem(value))
+    except ValueError:
+        return False
+    return True
 
 
 def _flag_unread_snapshot(
     flags_path: Path,
     snapshot: str,
+    probed: str,
     record: Prediction,
     actor: str,
     run_id: str,
@@ -6222,8 +6345,14 @@ def _flag_unread_snapshot(
     harness's confirmation belongs beside it rather than over it. A file that
     does not parse is left alone: overwriting it would destroy agent prose to
     add a note, and an unparseable ``flags.json`` fails ``validate`` into the
-    draft PR a maintainer reads anyway. Deduplicated on the message so a
-    re-stamp of the same cell does not grow the list.
+    draft PR a maintainer reads anyway. Deduplicated on the opening, plus the
+    category, severity and event this note is always written with, so a re-stamp
+    of the same cell does not grow the list even where the prose behind that
+    opening moved between the two runs. That match is a convenience, not an
+    authentication — an agent can write those four itself, and suppressing the
+    harness's wording this way only substitutes its own row in the same table,
+    while the annotation below and the stamped ``context`` say the same thing
+    where no agent can reach.
 
     ``warning`` rather than ``blocker``: the cell finished and its artifact is
     usable and fully scoreable — what is wrong is upstream of it, a cell that
@@ -6231,25 +6360,59 @@ def _flag_unread_snapshot(
     It is a **harness-authored** note in a channel that is otherwise the agent's;
     the roll-up counts it with the rest, and the ``Harness tripwire:`` prefix is
     what separates the two by eye.
+
+    The note also says **which** of the two misses this was, because
+    ``snapshot_uptake`` cannot: a cell that named another day's file and a cell
+    that reported no file at all both stamp ``unread``, and only the second is
+    diagnosable from where the reader sits. The provisioned file is named either
+    way; what the second arm adds beside it is the event-level path a cell
+    reaching for ``record/`` one directory too deep would have probed, and the
+    sentence ruling provisioning out — the cell ran, so its record had already
+    landed and been checked. A reader of the run PR body can then rule an outage
+    out without a runner, which leaves a path fault.
+
+    Which arm a cell takes is read off the shape of the string it wrote
+    (:func:`_names_a_snapshot`), not known, so the split errs toward the arm
+    that claims less.
     """
-    # `input_snapshot` is unbounded agent text and the flag message is capped at
-    # 2000 characters, so quote a bounded prefix: a stamp must not fail the cell
-    # over the length of the string it is reporting.
+    if _names_a_snapshot(record.input_snapshot):
+        cause = f"It names a snapshot, but not the provisioned one, {snapshot}."
+    else:
+        cause = (
+            f"It names no snapshot at all, while the provisioned one, {snapshot}, was on disk. "
+            "Provisioning is not the cause: a cell whose record did not land complete is "
+            "refused before any engine starts, so a prediction that exists had its record. "
+            f"The commonest fit is a lookup under the event directory — {probed} — which is "
+            "never provisioned and never exists; record/ is case-level."
+        )
+
+    def compose(reported: str) -> str:
+        return (
+            f"{_TRIPWIRE_PREFIX} {reported}, so it reports not having read the baseline every "
+            f"predictor shares. {cause} The stamped context records snapshot_uptake 'unread'; "
+            "the conditioning beside it is what provisioning wrote, which this cell may not "
+            "have used."
+        )
+
+    # `input_snapshot` is unbounded agent text, so quote a bounded prefix — and
+    # then budget that prefix against the prose it sits in, because a 120-character
+    # slice is not a 120-character quotation: `repr` expands one unprintable
+    # character to ten, and the two paths beside it are variable too. Truncating
+    # once is not enough; the cap has to be arithmetic, because overflowing it
+    # raises out of `AgentFlag` below, aborts the stamp, and leaves the artifact
+    # unstamped over nothing but the length of a string it was reporting.
     reported = repr(record.input_snapshot[:120])
-    message = (
-        f"Harness tripwire: this cell recorded input_snapshot {reported}, which does not name "
-        f"the provisioned snapshot {snapshot}, so it reports not having read the baseline every "
-        "predictor shares. The stamped context records snapshot_uptake 'unread'; the conditioning "
-        "beside it is what provisioning wrote, which this cell may not have used. A cell that "
-        "looked under events/<event_id>/record/ has the wrong path: record/ is case-level."
-    )
+    overflow = len(compose(reported)) - _FLAG_MESSAGE_LIMIT
+    if overflow > 0:
+        reported = reported[: max(len(reported) - overflow - 1, 0)] + "\u2026"
+    message = compose(reported)[:_FLAG_MESSAGE_LIMIT]
     # Echoed before any of the file handling below, and so before the dedupe
     # return: the annotation is about the finding, not about the write. A
     # maintainer re-running the stamp step to reproduce a cell must see the line
     # they are re-running for, whether or not this invocation appends anything.
     typer.echo(
-        f"::warning::stamp: {record.case_id} {record.event_id} {actor} reported "
-        + f"input_snapshot {reported} against provisioned {snapshot}; "
+        f"::warning::stamp: {_one_line(record.case_id)} {_one_line(record.event_id)} {actor} "
+        + f"reported input_snapshot {reported} against provisioned {_one_line(snapshot)}; "
         + "stamped snapshot_uptake 'unread'.",
         err=True,
     )
@@ -6276,7 +6439,15 @@ def _flag_unread_snapshot(
                 err=True,
             )
             return
-        if any(item.message == message for item in existing.flags):
+        if any(
+            item.message.startswith(_TRIPWIRE_PREFIX)
+            # `==`, not `is`: these round-trip through JSON as the enum's own
+            # string value, and a `StrEnum` member compares equal to it either way.
+            and item.category == FlagCategory.data_quality
+            and item.severity == FlagSeverity.warning
+            and item.event_id == record.event_id
+            for item in existing.flags
+        ):
             return
         flags = existing.model_copy(update={"flags": [*existing.flags, flag]})
     write_json(flags_path, flags)
@@ -6321,18 +6492,19 @@ def _warn_on_missing_stakes_read(record: Prediction, actor: str) -> None:
         return
     if (record.big_case_rationale or "").strip():
         typer.echo(
-            f"::warning::stamp: {record.case_id} {record.event_id} {actor} recorded no "
-            + "big_case_score and gave a big_case_rationale for it — the prompt's null "
-            + "branch as written, so a considered no-view; the case still leaves this "
-            + "predictor's big_case tau-b.",
+            f"::warning::stamp: {_one_line(record.case_id)} {_one_line(record.event_id)} "
+            + f"{actor} recorded no big_case_score and gave a big_case_rationale for it — "
+            + "the prompt's null branch as written, so a considered no-view; the case "
+            + "still leaves this predictor's big_case tau-b.",
             err=True,
         )
         return
     typer.echo(
-        f"::warning::stamp: {record.case_id} {record.event_id} {actor} recorded neither a "
-        + "big_case_score nor a big_case_rationale; the prompt contracts a number or an "
-        + "explicit null with a one-line reason, and on the stamped record the two nulls "
-        + "are the same bytes. The case leaves this predictor's big_case tau-b.",
+        f"::warning::stamp: {_one_line(record.case_id)} {_one_line(record.event_id)} "
+        + f"{actor} recorded neither a big_case_score nor a big_case_rationale; the prompt "
+        + "contracts a number or an explicit null with a one-line reason, and on the "
+        + "stamped record the two nulls are the same bytes. The case leaves this "
+        + "predictor's big_case tau-b.",
         err=True,
     )
 
