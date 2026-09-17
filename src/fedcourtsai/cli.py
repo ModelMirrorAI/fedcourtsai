@@ -6221,8 +6221,10 @@ _EXTENSION_LIMIT = 6
 #: moved between the two runs — a reading aid for a maintainer scanning the
 #: roll-up, never a claim of authorship: nothing stops an agent opening a flag
 #: of its own with these words, and `AgentFlag` carries no author. What the
-#: harness alone can say is stamped where the agent cannot write: `context`
-#: on `prediction.json`, and the run's own annotation.
+#: harness alone can say is stamped where the agent cannot write, which is
+#: `context` on `prediction.json` and nothing else here — the annotation beside
+#: it is unauthenticated stdout, and what it gives is timing rather than
+#: provenance: it is emitted whatever the file already said.
 _TRIPWIRE_PREFIX = "Harness tripwire: this cell recorded input_snapshot"
 
 
@@ -6353,11 +6355,16 @@ def _flag_unread_snapshot(
     The note also says **which** of the two misses this was, because
     ``snapshot_uptake`` cannot: a cell that named another day's file and a cell
     that reported no file at all both stamp ``unread``, and only the second is
-    diagnosable from where the reader sits. On that arm the note names the
-    provisioned file and the event-level path a cell reaching for ``record/``
-    one directory too deep would have probed, and rules provisioning out — the
-    cell ran, so its record had already landed and been checked. A reader of the
-    run PR body can then tell a path fault from an outage without a runner.
+    diagnosable from where the reader sits. The provisioned file is named either
+    way; what the second arm adds beside it is the event-level path a cell
+    reaching for ``record/`` one directory too deep would have probed, and the
+    sentence ruling provisioning out — the cell ran, so its record had already
+    landed and been checked. A reader of the run PR body can then rule an outage
+    out without a runner, which leaves a path fault.
+
+    Which arm a cell takes is read off the shape of the string it wrote
+    (:func:`_names_a_snapshot`), not known, so the split errs toward the arm
+    that claims less.
     """
     if _names_a_snapshot(record.input_snapshot):
         cause = f"It names a snapshot, but not the provisioned one, {snapshot}."
@@ -6366,9 +6373,8 @@ def _flag_unread_snapshot(
             f"It names no snapshot at all, while the provisioned one, {snapshot}, was on disk. "
             "Provisioning is not the cause: a cell whose record did not land complete is "
             "refused before any engine starts, so a prediction that exists had its record. "
-            f"The commonest fit, and the one this has had, is a lookup under the event "
-            f"directory — {probed} — which is never provisioned and never exists; record/ is "
-            "case-level."
+            f"The commonest fit is a lookup under the event directory — {probed} — which is "
+            "never provisioned and never exists; record/ is case-level."
         )
 
     def compose(reported: str) -> str:
@@ -6477,18 +6483,19 @@ def _warn_on_missing_stakes_read(record: Prediction, actor: str) -> None:
         return
     if (record.big_case_rationale or "").strip():
         typer.echo(
-            f"::warning::stamp: {record.case_id} {record.event_id} {actor} recorded no "
-            + "big_case_score and gave a big_case_rationale for it — the prompt's null "
-            + "branch as written, so a considered no-view; the case still leaves this "
-            + "predictor's big_case tau-b.",
+            f"::warning::stamp: {_one_line(record.case_id)} {_one_line(record.event_id)} "
+            + f"{actor} recorded no big_case_score and gave a big_case_rationale for it — "
+            + "the prompt's null branch as written, so a considered no-view; the case "
+            + "still leaves this predictor's big_case tau-b.",
             err=True,
         )
         return
     typer.echo(
-        f"::warning::stamp: {record.case_id} {record.event_id} {actor} recorded neither a "
-        + "big_case_score nor a big_case_rationale; the prompt contracts a number or an "
-        + "explicit null with a one-line reason, and on the stamped record the two nulls "
-        + "are the same bytes. The case leaves this predictor's big_case tau-b.",
+        f"::warning::stamp: {_one_line(record.case_id)} {_one_line(record.event_id)} "
+        + f"{actor} recorded neither a big_case_score nor a big_case_rationale; the prompt "
+        + "contracts a number or an explicit null with a one-line reason, and on the "
+        + "stamped record the two nulls are the same bytes. The case leaves this "
+        + "predictor's big_case tau-b.",
         err=True,
     )
 

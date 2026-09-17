@@ -1710,10 +1710,13 @@ withholds the whole flag roll-up. It is a harness-authored note in a channel
 that is otherwise the agent's, and its `Harness tripwire:` prefix is what
 separates the two by eye — a reading aid, not a signature. `flags.json` is the
 cell's own file and a flag carries no author, so an agent can open one with
-those words too. Where the finding is the harness's word and an agent cannot
-reach is the pair the note exists to carry into view: `context.snapshot_uptake`
-on the committed `prediction.json`, and the `::warning::` annotation on the
-run, which is emitted before the note is written and whatever the note says.
+those words too, and the job log is unauthenticated stdout that carries
+whatever a step printed. The one surface here that is the harness's word and
+no agent's is `context.snapshot_uptake` on the committed `prediction.json`,
+which the stamp overwrites from the provisioned file. What the `::warning::`
+annotation adds is not provenance but timing: it is emitted before the note is
+written and whatever the note says, so a cell cannot bury the finding by
+pre-writing a flag that the dedupe then matches.
 
 The note carries the diagnosis the field cannot. `unread` is one value for two
 different faults — a cell that named another day's file, and a cell that named
@@ -1721,10 +1724,11 @@ no file at all — and from a run PR body the second is indistinguishable from t
 provisioning outage that would be a pipeline failure rather than a cell's. It is
 not one: the gate above refuses an unprovisioned cell before any engine starts,
 so a prediction that exists had its record. The note therefore says which miss
-this was, and on the second arm names the provisioned snapshot and the
-event-level `record/` path a cell resolving the record one directory too deep
-would have probed — a path nothing provisions and nothing creates, since
-`record/` is case-level.
+this was — read off the shape of the string the cell wrote, and so erring
+toward the arm that claims less. It names the provisioned snapshot either way;
+what the second arm adds beside it is the event-level `record/` path a cell
+resolving the record one directory too deep would have probed, a path nothing
+provisions and nothing creates, since `record/` is case-level.
 
 Neither alternative earns its cost. Degrading the block — nulling the band, or
 the payload signals — would price a forward cell against the `terminal` basis
