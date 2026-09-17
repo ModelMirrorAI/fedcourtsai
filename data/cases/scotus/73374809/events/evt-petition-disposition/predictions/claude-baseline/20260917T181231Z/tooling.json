@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73374809",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener mcp get_endpoint_item",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The per-Term salience-band table with the bracketed reached figures made the anchor a two-minute computation.",
+    "Provisioned petition text and the extracted QP section were decisive; the docket alone would have left the petition's quality to inference."
+  ],
+  "gaps": [
+    "fedcourts query has no filter for pro se / self-represented petitioners or for state-court origin, so it could not surface comparable priors for a pro se cert petition from a state court; the recency ranking returned emergency applications instead.",
+    "A statpack cut by counsel status (pro se vs counseled) within the paid scored segment would sharpen the baseline-band anchor considerably for cells like this one."
+  ],
+  "notes": "CourtListener's docket record for id 73374809 carried a different caption than the provisioned supremecourt.gov snapshot for the same docket number; the snapshot was treated as authoritative."
+}

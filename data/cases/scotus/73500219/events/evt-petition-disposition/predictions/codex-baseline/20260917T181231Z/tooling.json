@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500219",
+  "gaps": [
+    "Provisioned petition text is truncated",
+    "General web searches returned no usable results"
+  ],
+  "helpful": [
+    "Frozen salience context and exact risk-set counts",
+    "Petition appendix allowed comparison with the advocate's characterization",
+    "Citation-scoped MCP lookup avoided target-case outcome retrieval"
+  ],
+  "notes": "The initial uv invocation failed on a read-only default cache; a writable temporary cache resolved it. CourtListener MCP worked. No corpus query was needed after reading the matched aggregate prior and checking the principal contrasting authority.",
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned record",
+    "committed statpack",
+    "fedcourts paths",
+    "CourtListener search",
+    "CourtListener search_document",
+    "web.run",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73391039",
+  "gaps": [
+    "The petition appendices, including the challenged opinion and complaint, were not provisioned",
+    "Web requests did not return usable text in this session",
+    "The default uv cache location was not writable"
+  ],
+  "helpful": [
+    "Substantive OCR petition and separate questions-presented text",
+    "Frozen sal-v4 context and exact prior-Term reached-band denominators",
+    "CourtListener citation lookup and targeted opinion excerpt"
+  ],
+  "notes": "The missing BIO is consistent with recorded response waivers, not an extraction failure. A temporary cache location allowed CLI execution. No live corpus query or target-outcome retrieval was needed; external legal analysis used a pre-existing Supreme Court precedent through MCP.",
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell input inspection",
+    "fedcourts paths",
+    "committed statpack and jq",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web retrieval attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

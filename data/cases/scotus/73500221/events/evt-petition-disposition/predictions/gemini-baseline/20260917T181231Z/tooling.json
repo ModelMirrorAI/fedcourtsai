@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500221",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "list_directory", "read_file", "run_shell_command"],
+  "helpful": ["metrics/statpack.md provided a very clear baseline for cert predictions."],
+  "gaps": [],
+  "notes": "The respondent waived its right to respond, which significantly drops the grant chance."
+}

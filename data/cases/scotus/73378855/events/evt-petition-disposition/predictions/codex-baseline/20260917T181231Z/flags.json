@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73378855",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned filings contain materially conflicting accounts, not an established provisioning defect: the petition asserts absent meaningful review, while the BIO's December 10, 2024 hearing transcript records guidepost discussion. The remittitur motion and initial hearing argument use $1.3 million punitive/$167,000 compensatory, while the petition, BIO, and correction at the hearing identify $800,000 punitive and additional compensatory damages. Forecast relies on the transcript and corrected award account, not the initial 7.8:1 assertion; see reasoning.md."
+    }
+  ]
+}

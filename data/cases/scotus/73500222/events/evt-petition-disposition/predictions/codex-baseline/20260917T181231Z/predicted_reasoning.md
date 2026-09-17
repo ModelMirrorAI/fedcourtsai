@@ -1,0 +1,11 @@
+# Forecast
+
+The Court will deny this petition for certiorari. The snapshot records one distribution, entered July 1, 2026, for the September 28, 2026 conference, and no CVSG. From that state, the modal forecast is zero additional distributions, no request for the Solicitor General's views, and an unexplained denial in the first order list following that conference, in late September or early October 2026. The timing is a forecast, not a retrieved calendar fact.
+
+The probability of at least one additional distribution is 15%; if that occurs, one further distribution is more likely than a prolonged series. A call for a response following the existing waiver would be the plausible first sign of additional scrutiny. The probability of a new CVSG is 0.5%; the issue concerns general civil-litigation costs rather than a specialized federal program requiring executive-branch views.
+
+If the Court grants plenary review, it will most likely take the first question: whether Rule 54(d)(1) permits a district court to consider the chilling effect of substantial costs on future civil-rights litigants. The likely formulation would address that consideration within the presumption favoring costs, not create a categorical exemption for civil-rights plaintiffs. The second question, concerning appellate factfinding about the plaintiffs' ability to pay, is less likely to receive independent review. The Excessive Fines Clause suggestion is unlikely to become the question accepted.
+
+Conditional on any grant, the probability of disposition in the cert order itself is 12%, leaving plenary briefing and argument the substantially likelier route. No intervening decision identified in the materials supplies a specific GVR rationale. The principal summary alternative would be a narrow corrective disposition concerning the appellate court's treatment of the cost-sharing recommendation and ability to pay, rather than resolution of the full circuit disagreement without argument.
+
+Conditional on denial, the probability of any noted dissent or statement respecting denial is 4%. The modal forecast is no separate writing; I do not forecast a particular Justice's vote or authorship. A denial would leave the costs judgment undisturbed without deciding the merits of the asserted disagreement over Rule 54(d)(1).

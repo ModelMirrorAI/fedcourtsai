@@ -1,0 +1,1 @@
+No corpus lookup via `fedcourts query` succeeded. CourtListener MCP was used to search for "PREP Act vaccine mandate". The statpack was used to look up the base rate.

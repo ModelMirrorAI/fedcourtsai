@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73389781",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned documents (petition, BIO, QP)"],
+  "helpful": [
+    "The BIO's appendix reproducing the appellant's state-court brief, which settled the preservation question directly",
+    "context.json's frozen band plus the sal-v4 segment table, which made the anchor unambiguous",
+    "documents.json's empty_text/truncated flags"
+  ],
+  "gaps": [
+    "fedcourts query has no subject or keyword filter, so it cannot surface topically similar priors (e.g., prior Turner/Bearden contempt petitions and their dispositions) without a known citation",
+    "A per-petition summary of whether the lower court opinion addressed the federal question would save reading appendices",
+    "The statpack's relist cut buckets by terminal count; a forward hazard from 'one distribution, no relist' would anchor relist-increment better"
+  ],
+  "notes": "Forward cell, fresh snapshot (one day old), all three documents extracted cleanly. No MCP calls were needed."
+}

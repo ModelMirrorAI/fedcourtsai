@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500241",
+  "gaps": [
+    "The lower-opinion appendix was linked but not provisioned as text.",
+    "Browser appendix calls returned no usable content; direct public-PDF retrieval succeeded.",
+    "The default uv cache location was read-only; a writable temporary cache was required.",
+    "The consulted statpack fields did not expose corpus-wide freshness."
+  ],
+  "helpful": [
+    "Frozen salience band and exact JSON risk-set rates supported the correct prior-Term anchor.",
+    "The filed lower opinion exposed substantial vehicle barriers not developed in the petition.",
+    "CourtListener's targeted within-opinion excerpts clarified the asserted constitutional split."
+  ],
+  "notes": "No target-outcome retrieval or corpus query. The MCP lower-opinion citation lookup had no result; the already-filed appendix supplied the decision. No code or provisioned inputs were modified.",
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Provisioned snapshot, context, QP, and petition",
+    "Committed statpack markdown and JSON",
+    "CourtListener MCP search and search_document",
+    "Browser open and find attempts",
+    "Public filed appendix retrieval with httpx and in-memory pypdf extraction",
+    "fedcourts paths and validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

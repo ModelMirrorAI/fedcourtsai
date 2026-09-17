@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500220",
+  "gaps": [
+    "Web searches and PDF opens returned no usable content",
+    "Default uv cache location is read-only; a temporary writable cache was required",
+    "Statpack does not expose corpus-wide pull and snapshot freshness stamps"
+  ],
+  "helpful": [
+    "Provisioned appellate appendix exposed independent grounds not apparent from the QP",
+    "Matching sal-v4 risk-set rates with unrounded JSON denominators",
+    "CourtListener literal opinion search verified a general precedent without target-case retrieval"
+  ],
+  "notes": "No BIO was provisioned, consistent with the respondent's waiver. Truncated petition still includes the relevant appellate holdings. No live corpus or target-case outcome retrieval was needed.",
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "fedcourts paths",
+    "CourtListener search",
+    "CourtListener search_document",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

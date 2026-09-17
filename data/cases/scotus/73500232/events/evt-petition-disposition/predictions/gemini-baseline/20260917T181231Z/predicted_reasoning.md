@@ -1,0 +1,5 @@
+Distributed once so far; expect no further relists before a decision on the petition. The petition is brought by pro se litigants regarding a 2-day missed deadline to file a notice of appeal in a foreclosure action and the district court's denial of a Rule 4(a)(5) extension. This is a routine, fact-bound procedural dispute. No CVSG is expected because the federal government is not a party and its interests are not implicated. 
+
+If granted, the Court would likely take the first question as written to resolve the split on the application of equitable factors to late appeals. A summary disposition is unlikely: no intervening decision bears directly on this specific extension dispute. 
+
+Should the Court deny, expect no separate writing or dissent from the denial, as the matter involves a very fact-specific lower court discretionary decision.

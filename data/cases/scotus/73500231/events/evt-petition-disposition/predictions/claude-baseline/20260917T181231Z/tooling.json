@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73500231",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "fedcourts paths", "metrics/statpack.md", "courtlistener MCP search (rate-limited, no results)"],
+  "helpful": [
+    "Provisioned petition text and QP cut: the eight questions and the related-proceedings list carried most of the signal.",
+    "Segment base rate by salience band (sal-v4) table with the bracketed reached figures and per-Term n, which made the pooled anchor a one-line computation.",
+    "context.json band/distribution_count so no band had to be derived."
+  ],
+  "gaps": [
+    "CourtListener MCP returned HTTP 429 on the first call of the cell; a per-cell quota or a cached prior-dockets-by-party lookup would have let me verify the petitioner's earlier cert history.",
+    "fedcourts query has no originating-court, fee-class, pro-se, or response-waived filter, so it cannot pull priors that actually resemble a pro se waiver petition; the ranking also floats 26A applications to the top of a cert-only ask.",
+    "The petition appendix (the D.C. Circuit order below) is on the docket but not provisioned; a short unpublished order would be cheap to fetch and is the one document that would let a predictor check the petition's account of the decision."
+  ],
+  "notes": "Forward cell, no leakage concerns. The anchor and adjustments are all from provisioned inputs plus the statpack; retrieval added little because the live source was throttled."
+}

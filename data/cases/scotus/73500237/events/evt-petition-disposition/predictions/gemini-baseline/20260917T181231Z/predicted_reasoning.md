@@ -1,0 +1,3 @@
+Distributed once so far; expect no further relists before a decision on the petition. The federal respondent has waived the right to respond, indicating the government does not view the alleged conflict with recent precedent as genuine or cert-worthy. The Court will likely deny the petition at its first conference.
+
+If granted, the likeliest route is a summary disposition (GVR) for the Fourth Circuit to reconsider in light of the 2025 decision in *A.J.T. v. Osseo Area Sch.*, rather than plenary review. A CVSG will not occur because the Solicitor General is already representing the respondent. Should it deny, expect no separate writing.

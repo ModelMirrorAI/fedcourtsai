@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500232",
+  "gaps": [
+    "No provisioned appendix or lower-court opinion text; bounded MCP search returned zero results",
+    "Web search/open returned no usable output",
+    "Committed statpack lacks an exposed generation timestamp"
+  ],
+  "helpful": [
+    "Full petition and extracted questions enabled a case-specific vehicle assessment",
+    "Frozen context identified the correct salience risk set and Term",
+    "Rule 58 text permitted checking the separate-document premise"
+  ],
+  "notes": "No BIO was provisioned. The default uv cache was read-only; using a temporary cache recovered CLI access. No outcome material was sought or encountered.",
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned record reads",
+    "committed statpack",
+    "CourtListener MCP search",
+    "web search/open",
+    "curl general rule text",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

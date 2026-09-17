@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500218",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell read-only input inspection",
+    "fedcourts paths",
+    "committed statpack Markdown and JSON",
+    "web open/search/find attempts",
+    "curl official rules-page link extraction",
+    "httpx in-memory official PDF retrieval",
+    "pypdf text extraction",
+    "apply_patch"
+  ],
+  "helpful": [
+    "Frozen context identifies band, Term, and actual distribution count.",
+    "Statpack JSON supplies unrounded risk-set rates and weighted denominators.",
+    "Snapshot provides the exact pre-decision petition URL, avoiding outcome searches."
+  ],
+  "gaps": [
+    "No provisioned petition/QP text; the scanned petition yielded no extractable text.",
+    "A distinct original-mandamus benchmark and event classification would avoid applying a cert population to extraordinary writs.",
+    "Web tool attempts returned no usable content in this run."
+  ],
+  "notes": "The default uv cache location was read-only; a temporary cache location allowed the paths command to run. Direct official-source PDF reads needed no credentials and were not a CourtListener REST fallback. No CourtListener lookup or corpus service query was attempted."
+}

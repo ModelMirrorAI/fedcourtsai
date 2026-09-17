@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500216",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot and document manifest assign April 1, 2026 to the petition filing, but the petition is signed May 22, its document URL is May-dated, and the docketing date is May 28. I did not use the apparent April filing interval as a signal. No BIO is provisioned and no response or waiver appears in the snapshot, so the respondent's cert-stage position is unknown, not assumed waived. Forecast completed without retrieving this petition's live state or outcome."
+    }
+  ]
+}

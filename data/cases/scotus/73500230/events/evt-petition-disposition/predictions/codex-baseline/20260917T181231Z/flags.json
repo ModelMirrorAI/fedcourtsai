@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500230",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The September 17 snapshot records an August 26 opposition and September 11 reply, but provisioned documents contain only the petition and questions presented, fetched July 18. Recovered selected opposition and reply pages from the exact Supreme Court PDF links in the snapshot. Their competing vehicle arguments materially informed the forecast; provisioning current briefing would improve the shared baseline."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The retrieved pre-decision opposition reports a June 15, 2026 denial in the different petition Gopher Media, No. 25-1067; the reply distinguishes its immediate-appealability question. Treated this as limited forward-mode context, not as proof that the present applicability question lacks certworthiness. No disposition of Wealthy, No. 25-1329, was sought, seen, or independently known."
+    }
+  ]
+}

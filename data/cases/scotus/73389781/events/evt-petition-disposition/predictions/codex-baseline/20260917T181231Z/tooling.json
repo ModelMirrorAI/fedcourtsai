@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73389781",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot and filed-text reads", "committed statpack Markdown and JSON", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts"],
+  "helpful": ["BIO appendix enabled checking disputed characterizations against fuller judicial text", "Exact reached-risk-set denominators enabled proper prior-Term pooling", "CourtListener snippets supplied historical primary-source context without querying the target case"],
+  "gaps": ["Web calls returned no usable content", "Default uv cache location was read-only", "Committed statpack lacks an evident build timestamp for freshness disclosure"],
+  "notes": "The paths command worked after redirecting the uv cache to /tmp. Citation-only MCP search was imprecise; a case-name search bounded to historical opinions found Turner. No live corpus query was necessary. Comparison of appended court opinions was more useful than additional case-specific retrieval."
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500222",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local record and document reads", "committed statpack", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts", "fedcourts validate"],
+  "helpful": ["The full petition appendix includes both lower-court decisions, enabling a check against the petition's characterization.", "The frozen band and prior-Term reached table provide the correct risk-set anchor.", "Citation-specific MCP retrieval verified historical costs doctrine without retrieving the target docket."],
+  "gaps": ["Web searches and a PDF open returned no visible content.", "No opposition brief or appellate oral-argument transcript was available in the provisioned record."],
+  "notes": "No corpus-query calls were needed. The default uv cache was read-only; a temporary writable cache allowed the path command to run. The absent opposition is consistent with the docketed waiver, not identified as a provisioning failure. No target outcome was sought or encountered."
+}

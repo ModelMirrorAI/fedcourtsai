@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500238",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "record/documents (petition, questions-presented)", "courtlistener MCP (search, get_endpoint_item, call_endpoint, read_document, search_document)"],
+  "helpful": [
+    "context.json band plus the sal-v4 per-Term band table gave a directly scoreable anchor",
+    "search_document on the Ninth Circuit opinion let me check the petition's characterization of the ruling (plain error applied, duty assumed not found, no dissent, no en banc vote) in a handful of small calls instead of reading 55 pages",
+    "the provisioned petition text made the weakness of the claimed split checkable against the petition's own case descriptions"
+  ],
+  "gaps": [
+    "a statpack cut for petitions where the respondent waived and no response was requested, by time since distribution, would replace the judgment call that dominates this forecast",
+    "fedcourts query cannot filter on respondent identity or on response_filed_at, and that field was null on every granted row returned, so the waiver signal could not be measured from the corpus",
+    "CourtListener's SCOTUS docket index did not return this docket or any Holmes docket, so a companion-petition check was inconclusive; a supremecourt.gov docket search by party name would close that gap"
+  ],
+  "notes": "Corpus transfer lines recorded in retrieval.md. Ten MCP calls, all against the Ninth Circuit opinion or the SCOTUS docket index; none touched this petition's disposition."
+}

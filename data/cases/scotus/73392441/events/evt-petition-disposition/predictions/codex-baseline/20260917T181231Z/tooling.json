@@ -1,0 +1,32 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73392441",
+  "gaps": [
+    "No provisioned appendix or opposition text",
+    "Web tool returned empty responses",
+    "Citation-only MCP search returned an unrelated case before a caption-specific search succeeded"
+  ],
+  "helpful": [
+    "Complete petition and questions presented",
+    "Frozen salience band and distribution count",
+    "Unrounded risk-set counts in statpack.json",
+    "MCP search within an identified precedent"
+  ],
+  "notes": "No case-outcome retrieval. The default uv cache was read-only; a temporary cache resolved that. The installed pypdf reader supported in-memory official PDF extraction after unavailable pdftotext and pymupdf attempts. Tool limitations did not block completion.",
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned documents",
+    "committed statpack",
+    "jq",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web.run attempts",
+    "official rules retrieval with urllib and pypdf",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

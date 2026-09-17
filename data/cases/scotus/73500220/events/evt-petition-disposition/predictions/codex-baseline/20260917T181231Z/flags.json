@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500220",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The petition source is 240 pages and marked truncated, although the QP, petition argument and dispositive appellate analysis are readable. The provisioned docket dates the petition entry April 8, 2026, while its PDF URL embeds May 15, 2026 and docketing is May 28. I made no timeliness or filing-to-decision-duration inference from these inconsistent dates. Forecast rests on the supplied one-distribution state and substantive record. No outcome of this petition was encountered.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500236",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned record and document reads", "committed statpack", "fedcourts paths", "CourtListener search", "CourtListener search_document", "web.run attempted", "fedcourts validate"],
+  "helpful": ["Frozen salience band and distribution count", "Readable petition and extracted questions presented", "Unrounded reached-band rates in statpack.json", "Targeted historical-opinion snippet retrieval"],
+  "gaps": ["No separately provisioned lower opinion or appendix", "Web calls returned no usable visible content", "Default uv cache directory was read-only; temporary cache resolved this"],
+  "notes": "No BIO was present, consistent with the snapshot's two response waivers. No live target-case or outcome search was attempted. The committed statpack supplied the aggregate anchor without individual-case corpus retrieval."
+}

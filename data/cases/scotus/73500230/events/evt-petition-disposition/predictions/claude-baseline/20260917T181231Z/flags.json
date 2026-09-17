@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73500230",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot carries two 'DISTRIBUTED for Conference of 9/28/2026' entries (Jul 15 and Sep 9, 2026) while context.json freezes distribution_count at 1. I read the second as a redistribution to the same conference after the brief in opposition, and forecast the relist-increment claim from the frozen count of 1. If the resolution-time parser counts the two entries separately, that claim would resolve against a different baseline than the one I was shown."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "No brief in opposition was provisioned: documents.json shows the fetch ran on 2026-07-18, before the BIO (Aug 26) and reply (Sep 11) were filed, and the response itself was only requested by the Court on Jul 27. As a forward cell I fetched both from the supremecourt.gov links in the snapshot and read them. A re-provision of this case's documents after the response-requested entry would give every predictor the same BIO."
+    }
+  ]
+}
