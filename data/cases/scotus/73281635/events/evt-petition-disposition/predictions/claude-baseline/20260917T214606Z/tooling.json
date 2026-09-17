@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/73281635",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "courtlistener MCP read_document"
+  ],
+  "helpful": [
+    "Provisioned petition and BIO text with the QP cut out; the BIO's split and vehicle sections drove most of the adjustment.",
+    "The sal-v4 segment table with bracketed reached rates matched the context's salience version, so the anchor was unambiguous.",
+    "MCP read_document on the circuit opinion let me verify how the court below characterized the asserted split."
+  ],
+  "gaps": [
+    "A statpack cut for cert petitions where the Court requested a response after a waiver; that is the strongest signal on this docket and has no published conditional rate.",
+    "A distribution count that distinguishes a call-for-response redistribution from a post-conference relist; the stored count of 2 here overstates relist status.",
+    "fedcourts query has no topical or text filter, so it could not surface priors on the legal question."
+  ],
+  "notes": "The petitioners' reply brief was not provisioned; a reply-brief document kind would help on responded-to petitions."
+}

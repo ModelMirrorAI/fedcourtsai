@@ -1,0 +1,11 @@
+# Retrieval record
+
+- Read the provisioned event, context, September 17, 2026 snapshot, document manifest, questions presented, and substantive sections of the petition and opposition. Did not read any realized outcome, another predictor's output, or labeling-measurement artifact.
+- Read `metrics/statpack.md`: modern-cert disposition and originating-circuit sections, paid-segment relist/CVSG cuts, and the `sal-v4` per-Term band table. Read the corresponding aggregate fields in `metrics/statpack.json`; pooled elevated reached rates for displayed Terms 2017–2024. This was local committed aggregate context, not a corpus-service query.
+- Ran `uv run fedcourts paths --court scotus --docket 73281354 --event evt-petition-disposition --role predictor`. The default cache was read-only; retrying with a temporary writable cache succeeded. No outcome file was opened. No `fedcourts query` or `open-events` call was made; consequently no ranged-corpus-transfer line was emitted.
+- Web search attempted: `site.supremecourt.gov opinions 2018 Apple Pepper 17-204 Illinois Brick`. No usable result was returned.
+- Web open attempted for the official Apple v. Pepper opinion: `https://www.supremecourt.gov/opinions/18pdf/17-204_bq7d.pdf`. No usable document text was returned; this attempt supplied no evidence.
+- CourtListener MCP `search`: opinion citation `155 F.4th 795`, filed before `2026-03-01`, maximum three results. Returned zero matches. This did not establish absence of the authority; the petition and opposition supplied its competing characterizations.
+- CourtListener MCP `search`: opinion citation `587 U.S. 273`, maximum one result. Returned Apple, Inc. v. Pepper, decided May 13, 2019, cluster 4618958, opinion 4396211. Did not paginate.
+- CourtListener MCP `search_document`: opinion 4396211, literal query `unrelated`, context 650 characters. Returned the majority's passage distinguishing multiple liability unrelated to passing an overcharge down a distribution chain. Used only this limited legal proposition, not any case-specific subsequent history.
+- Read local schema and path/serialization definitions for output preparation. No live query about this petition or the companion petition was made. No outcome-revealing material surfaced.

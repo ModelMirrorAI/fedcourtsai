@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500242",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot and document manifest date the petition entry April 13, 2026, but the petition is signed May 26, its PDF filename indicates May 26, and docketing is June 1. April 13 also dates the extension application. This apparent source chronology mismatch was not used to infer untimeliness or filing-to-disposition latency. Forecast proceeds from the supplied one-distribution forward posture; details are in reasoning.md.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0"
+}

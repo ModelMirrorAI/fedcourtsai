@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281354",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Interpretation note, not a claimed parser error: context freezes elevated/sal-v4 and distribution_count=2. The snapshot's three literal distribution notices include an April distribution followed by a response request, and August 5/September 2 notices both naming the future September 28 conference, separated by a rescheduling entry. I retained the authoritative count and band but discounted the inference of repeated completed-conference review. No outcome material was retrieved."
+    }
+  ]
+}

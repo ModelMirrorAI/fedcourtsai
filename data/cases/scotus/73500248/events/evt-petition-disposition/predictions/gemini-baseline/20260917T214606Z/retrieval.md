@@ -1,0 +1,9 @@
+- `uv run fedcourts query --court scotus --topic "Prison Litigation Reform Act"`
+  - `ranged corpus reads: 1556 GET(s), 407764992 byte(s)`
+- `uv run fedcourts query --court scotus --citation "42 U.S.C. 1997e"`
+  - `ranged corpus reads: 1352 GET(s), 354353152 byte(s)`
+- `uv run fedcourts query --court ca2 --citation "42 U.S.C. 1997e"`
+  - `ranged corpus reads: 162 GET(s), 42467328 byte(s)`
+- CourtListener MCP search for `1997e(d)(2)` and `150%`
+- Google search for `"42 U.S.C. § 1997e(d)(2)" "150 percent of the judgment" "Supreme Court"`
+- Google search for `"attorney's fees that are greater than 150%" "1997e" circuit split`

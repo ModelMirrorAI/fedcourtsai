@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281628",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "functions.exec_command",
+    "web.run",
+    "mcp__courtlistener.search",
+    "mcp__courtlistener.search_document",
+    "fedcourts paths",
+    "fedcourts validate",
+    "urllib.request and pypdf for a snapshot-linked pre-decision reply"
+  ],
+  "helpful": [
+    "Complete petition and opposition text revealed that the only requested relief is Munsingwear vacatur.",
+    "Frozen conditioning and the prior-Term reached table supplied a reproducible selected-population anchor.",
+    "The baseline's fixed reply link allowed targeted retrieval without browsing the case's current status.",
+    "CourtListener citation lookup and within-opinion search verified general vacatur doctrine."
+  ],
+  "gaps": [
+    "The filed reply was not provisioned; it answered important objections in the opposition.",
+    "Long terminal outputs were truncated even with larger requested output budgets.",
+    "General web search and PDF open returned no usable content.",
+    "The committed statpack lacked visible corpus-wide freshness metadata."
+  ],
+  "notes": "The default uv cache was read-only; a cache under /tmp resolved the operational issue. No outcome retrieval, corpus pull, direct CourtListener REST access, or writes outside the cell output were needed. The two-distribution baseline is not evidence of two completed conferences because a requested response intervened."
+}

@@ -1,0 +1,3 @@
+- CourtListener MCP search for Fourth Circuit docket 21-2183 (returned cluster 10740455, opinion 11207040).
+- CourtListener MCP document search within opinion 11207040 for "policymaking", "non-delegable", "delegable", and "Monell".
+- No corpus queries used.

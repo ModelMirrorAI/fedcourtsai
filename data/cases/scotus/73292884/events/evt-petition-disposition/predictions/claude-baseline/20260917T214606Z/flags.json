@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292884",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The docket shows a reply brief filed Aug 10, 2026 (Distributed) but record/documents/ carries only the petition, QP and BIO; documents.json lists no reply. Not a defect of the cell contract, but the reply is the filing that answers the BIO's vehicle arguments, and its absence widened my uncertainty on the vehicle discount.",
+      "event_id": "evt-petition-disposition"
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "Comparable-petition context in reasoning.md (the Court's recent denials of post-AFPF disclosure challenges) is from training memory: CourtListener docket searches for those SCOTUS dockets returned nothing. It is pre-snapshot public information, not this case's outcome, and it shaped the number modestly downward.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

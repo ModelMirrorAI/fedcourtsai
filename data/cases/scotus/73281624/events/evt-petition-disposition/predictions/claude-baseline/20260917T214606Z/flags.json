@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281624",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "distribution_count=2 here reflects a call for response after the respondent's waiver (distributed 4/22 for 5/14; response requested 5/11; redistributed 7/29 for 9/28) rather than a relist. The elevated band and its reached rate pool this trajectory with true relists; I adjusted by judgment and note it for the evaluator."
+    }
+  ]
+}

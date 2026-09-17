@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73281376",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2, but the first distribution (Apr 22 2026, for the May 14 conference) was superseded by the Court's call for a response on May 8 2026, and the second (Jul 22 2026, for Sep 28) is the first substantive conference. If sal-v4 or the relist cut reads this as one relist, the elevated band and the relist-increment baseline overstate the petition's trajectory. I forecast the relist-increment from a zero-true-relist state."
+    }
+  ]
+}

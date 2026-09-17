@@ -1,0 +1,4 @@
+- `uv run fedcourts query --court scotus --era 2020s "continuous sexual abuse unanimity Ramos"` (failed with unexpected arguments)
+- `uv run fedcourts query --court scotus --era 2020s "Texas Penal Code 21.02 Ramos unanimity"` (failed with unexpected arguments)
+- `uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 10 "Ramos v. Louisiana"` (failed with unexpected arguments)
+- `mcp_courtlistener_search` for `"continuous sexual abuse" unanimity` on type `o` (Opinions) which returned several recent Texas state court opinions indicating standard application of *Schad* to continuous sexual abuse statutes.

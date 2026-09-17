@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will deny this petition, most likely without a separate writing and without another distribution after the two entries already recorded. My probability of any grant, including a GVR or summary reversal, is 10%.
+
+The snapshot contains two distribution entries: June 17 for the September 28, 2026 conference, and September 16 for the October 9, 2026 conference. Neither conference has occurred as of this forecast. These are not two completed conferences at which the Court considered and held the petition. The Court requested a response on July 31; the opposition and reply are now recorded as filed. Starting from the frozen count of two, I assign a 22% probability to at least one additional distribution. Conditional on an increment, one additional distribution is the likeliest number. My central timing forecast is a disposition in October 2026, after the currently scheduled October 9 conference; a further distribution could push it later in the fall. Timing is context rather than a scored claim.
+
+No CVSG is recorded. I predict none, with a 0.5% probability of a new invitation. The government's participation is not an evident prerequisite to resolving this individual civil-rights dispute.
+
+The principal reason for the forecast of denial is the mismatch between the petition's abstract questions about innocent forensic error and the respondent's account of the summary-judgment posture: a jury could infer deliberate avoidance of genuine verification. The causation issue also arrives through a dispute about the scope of interlocutory appellate review, rather than a final decision eliminating causation as an element. I expect those vehicle problems to outweigh the request to enforce qualified-immunity specificity.
+
+If review is granted, the likeliest focus is a narrowed version of questions 3–5: whether the assumed conduct of this examiner violated sufficiently specific, clearly established law in 2004–2006. I do not expect the Court to take all five questions or announce liability for every inaccurate laboratory conclusion. Conditional on a grant, I assign 55% to disposition in the cert order itself, principally summary correction or remand concerning the immunity analysis, rather than plenary briefing and argument. This is a conditional probability, not a 55% overall chance of summary relief. No particular intervening case is identified here as requiring a GVR.
+
+Conditional on denial, I assign 3.5% to any noted dissent or statement respecting denial. The central forecast is an unexplained denial; I do not predict a particular Justice's vote or authorship. Denial would leave the lower-court proceedings in place without endorsing either party's merits account.

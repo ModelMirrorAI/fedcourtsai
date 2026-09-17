@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281624",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener mcp search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The provisioned petition, BIO, and QP text: the BIO's vehicle arguments (issue not raised below, statute text never quoted, LGAA damages bar) drove most of the downward adjustment.",
+    "The sal-v4 segment table with bracketed reached rates gave a directly usable anchor for the frozen band."
+  ],
+  "gaps": [
+    "A statpack cut that separates call-for-response redistributions from true relists within the elevated band; this docket's two distributions bracket a CFR, and the band pools both trajectories.",
+    "A base rate conditional on 'response requested after waiver' specifically.",
+    "fedcourts query has no subject or text filter on SCOTUS rows, so it cannot surface Parker-immunity priors; the query I ran was generic."
+  ],
+  "notes": "Retrieval kept to one corpus query and two MCP searches; the record was sufficient."
+}

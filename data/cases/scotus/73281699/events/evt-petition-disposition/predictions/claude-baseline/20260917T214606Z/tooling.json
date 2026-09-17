@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281699",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP (call_endpoint dockets, docket-entries; search)"],
+  "helpful": [
+    "Full-text brief in opposition and petition argument under record/documents/",
+    "sal-v4 segment band table with bracketed reached rates per Term",
+    "context.json freezing band, distribution_count, and mode"
+  ],
+  "gaps": [
+    "No way to pull topically similar cert priors: fedcourts query has no text or subject filter for SCOTUS rows and the citation column is almost empty",
+    "The reply brief was on the docket but not provisioned",
+    "The statpack has no cut for petitions where the Court called for a response after a waiver; that signal is unquantified",
+    "The salience band reads a post-response redistribution as a relist; a distribution count that distinguishes reschedules and redistributions from true relists would sharpen the anchor"
+  ],
+  "notes": "CourtListener holds no entry rows for this SCOTUS docket, so the MCP was useful only to confirm the docket had not terminated or moved since the snapshot."
+}

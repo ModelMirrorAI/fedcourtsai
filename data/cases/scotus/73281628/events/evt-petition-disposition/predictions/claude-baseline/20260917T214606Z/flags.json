@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281628",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Band `elevated` here rests on distribution_count=2, but the first distribution (Conference of 5/1/2026) was superseded by a response request on 4/22/2026 and never reached conference; the petition's first actual consideration is the 9/28/2026 long conference. The docket's real signal is a called-for-response after a government waiver, which the scorer does not read, while the relist it does read is the reschedule-before-consideration artifact the statpack's relist caption already names. Not a defect in the cell; noted so the band-vs-trajectory mismatch is visible when this cell is scored against the elevated reached rate."
+    }
+  ]
+}

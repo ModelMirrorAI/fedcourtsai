@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281687",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "distribution_count is 2, but the second DISTRIBUTED entry (Jul 29 2026, for the 9/28 conference) is the ordinary redistribution after the Court's Jun 15 2026 call for a response pre-empted the Jun 18 conference; the petition has not been relisted after conference consideration. The elevated band and relist-1 cut therefore describe a stronger state than this docket's. Forecast made from the record as provisioned; noted for anyone reading band-conditioned skill on this cell."
+    }
+  ]
+}

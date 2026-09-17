@@ -1,0 +1,5 @@
+Distributed once so far. Expect no further relists before a decision on the petition; the petition will likely be denied outright at the September 28, 2026 conference without a request for a response. The questions presented involve a highly fact-bound dispute under ERISA and the Chenery doctrine regarding a QDRO benefit reduction. 
+
+No CVSG is expected because there is no significant federal interest at stake that would warrant the Solicitor General's views, as this is a private benefit dispute. 
+
+If granted, the Court would likely take up the Chenery doctrine application in the ERISA context, rather than the specific plan administrator actions in the second QP. A summary disposition (GVR) is very unlikely as there is no apparent intervening decision bearing on the issues. Should the Court deny the petition, expect no separate writing or dissent from denial, as the case lacks broader doctrinal significance.

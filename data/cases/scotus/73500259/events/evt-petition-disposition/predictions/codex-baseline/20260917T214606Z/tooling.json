@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500259",
+  "gaps": [
+    "The docketed reply and amicus texts were not provisioned.",
+    "Web search and open attempts returned no usable content.",
+    "The committed statpack does not expose a corpus-wide freshness timestamp."
+  ],
+  "helpful": [
+    "Nonempty petition and opposition text enabled comparison of the asserted split and vehicle objections.",
+    "Frozen sal-v4 conditioning and machine-readable prefix rates enabled a matched prior-Term anchor.",
+    "CourtListener searches within the cited precedent checked the disputed split without looking up the target docket."
+  ],
+  "notes": "The initial uv invocation failed because its default cache was read-only; a writable temporary cache resolved this. No corpus-prior query was needed. Two distributions include a response-request interval, so the count was retained but not equated with two substantive considerations.",
+  "role": "predictor",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned-input and committed-statpack reads",
+    "jq: prior-Term weighted-rate calculation",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

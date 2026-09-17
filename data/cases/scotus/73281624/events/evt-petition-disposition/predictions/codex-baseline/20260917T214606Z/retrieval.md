@@ -1,0 +1,8 @@
+# Retrieval log
+
+- Read the provisioned event, September 17, 2026 snapshot, context, document manifest, questions presented, petition and relevant opinion appendix, and brief in opposition. No prior prediction or outcome file was read.
+- Read committed metrics/statpack.md: modern-cert disposition counts, originating-court cuts, paid-segment relist and CVSG cuts, and the sal-v4 per-Term reached-band table. Read metrics/statpack.json to pool the exact elevated risk-set counts for Terms 2017–2024: 484 / 2810. No live corpus query, open-events, or corpus-info call was made; no ranged-transfer line was emitted.
+- web.run open attempted the exact petition URL from the snapshot: `https://www.supremecourt.gov/DocketPDF/25/25-1130/401643/20260323161021806_25-_Petition.pdf`. The tool returned no usable content. No docket search or case-outcome search was made.
+- CourtListener MCP search: type o, citation `568 U.S. 216`, num_results 1. Returned an unrelated 2013 case, Michael S. v. California, rather than Phoebe Putney. Disregarded; did not paginate or read the opinion.
+- CourtListener MCP search: type o, case_name `FTC v. Phoebe Putney`, court scotus, filed_after 2013-01-01, filed_before 2013-12-31, num_results 1. Returned zero results. No general-precedent opinion was retrieved; relied on the provisioned legal materials without claiming independent verification.
+- Read task/schema definitions and path/serialization helpers for output construction. Ran `fedcourts paths --court scotus --docket 73281624 --event evt-petition-disposition --role predictor`. The initial uv invocation could not write its default cache; setting a writable temporary cache allowed it to succeed. These were contract/validation operations, not retrieval of case outcomes.

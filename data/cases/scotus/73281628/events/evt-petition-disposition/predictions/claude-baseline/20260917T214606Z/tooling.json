@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281628",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "CourtListener MCP search", "fedcourts paths"],
+  "helpful": [
+    "Provisioned petition and BIO text — the whole forecast turns on the SG's four equitable arguments, which only the BIO text shows.",
+    "The sal-v4 segment table with bracketed reached rates per Term made the anchor a one-line pooling.",
+    "context.json's band and distribution_count fixed the conditioning state without guesswork."
+  ],
+  "gaps": [
+    "No statpack cut for called-for-response petitions (response requested after a waiver), which is the strongest signal on this docket and unpriced by the band.",
+    "The reply brief was on the docket six weeks before the snapshot but not provisioned; for a Munsingwear petition the reply's answer to the voluntary-action argument is material.",
+    "CourtListener full-text opinion search returned zero results for two reasonable circuit-percolation queries; a cited-by lookup on the decision below would have answered the percolation question directly.",
+    "No committed base rate for Munsingwear (gvr + mootness basis) petitions opposed by the respondent."
+  ],
+  "notes": "Forward cell; roughly 6 retrieval calls (1 corpus query, 5 MCP searches), well under budget. Nothing errored."
+}

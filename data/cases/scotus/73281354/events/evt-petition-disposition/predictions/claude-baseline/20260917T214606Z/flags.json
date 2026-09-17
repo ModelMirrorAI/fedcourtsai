@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73281354",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from public pre-snapshot material: the companion Illinois Brick petition United Biologics v. Amerigroup Tennessee, No. 25-1388 (CA6), was distributed on 2026-09-02 for the same 9/28/2026 conference as this petition (read from the public supremecourt.gov docket page). The BIO in this case names it. It raised my grant number and my hold/GVR path; it is not outcome material for this case, whose conference has not yet occurred."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2, but the docket shows the first DISTRIBUTED (for 5/14/2026) was superseded by the Court's Response Requested order of 4/30/2026, and the second pair (8/05 distributed, 8/25 rescheduled, 9/02 redistributed for the same 9/28 conference) reflects a reschedule before first consideration. The petition has not yet been considered at any conference, so the frozen count overstates true relists (zero); the relist-increment claim is stated from the count as frozen."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500243",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned document set (documents.json, fetched 2026-07-18) carries only the petition and its QP section, while the 2026-09-17 snapshot shows a brief in opposition (Aug 31) and a reply (Sep 10) on the docket after a called-for response. The cell's documents were not refreshed to the snapshot date. In forward mode I fetched both briefs from supremecourt.gov and read them; a predictor that did not would have weighed the petition against no opposition. Also note context.distribution_count=2 counts the pre-CFR distribution plus the post-response redistribution; the petition has not yet been considered at conference, so the true relist count is 0."
+    }
+  ]
+}

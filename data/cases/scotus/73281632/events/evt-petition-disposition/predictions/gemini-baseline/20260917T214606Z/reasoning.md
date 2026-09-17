@@ -1,0 +1,7 @@
+P(grant) 0.03. The petition is in the `elevated` salience band, which carries a "reached" base rate of around 15-18% for the paid scored segment over recent Terms. The Court requested a response after the Solicitor General initially waived, which is a signal of interest (likely from the Justices who dissented in recent agency funding cases). However, the petition is a very weak candidate for plenary review. 
+
+First, there is no circuit split; the petition relies on arguing that the Ninth Circuit's decision conflicts with the logic of *CFPB v. CFSA* (2024) and *FCC v. Consumers' Research* (2025). But as the SG's BIO points out, the Ninth Circuit faithfully applied those two recent precedents, which upheld agency funding mechanisms against Appropriations Clause and nondelegation challenges. The petition relies heavily on arguments adopted only by dissenting Justices in those cases. The Court is unlikely to grant a case to relitigate issues it just settled in 2024 and 2025, especially without a split.
+
+Second, the vehicle is severely flawed. The SG raises strong Article III standing and claim preclusion (res judicata) arguments, noting that petitioners are bringing this challenge collaterally after losing state court quiet-title actions regarding the foreclosures of their properties. 
+
+Given the lack of a split, the recent controlling precedent directly against petitioners, and the vehicle issues, the probability of a grant is very low, far below the band's base rate.

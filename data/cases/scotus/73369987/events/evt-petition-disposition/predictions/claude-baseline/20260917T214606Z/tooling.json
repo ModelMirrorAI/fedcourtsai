@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73369987",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "fedcourts paths", "metrics/statpack.md", "courtlistener MCP search"],
+  "helpful": [
+    "Provisioned petition.txt with clean text extraction",
+    "sal-v4 segment table with bracketed reached rates matching the context band",
+    "context.json distribution_count and band"
+  ],
+  "gaps": [
+    "questions-presented.txt was not provisioned although the petition text extracted cleanly; the QP had to be cut by hand from a pro se petition with a non-standard heading",
+    "fedcourts query has no filter for fee class, pro se status, or originating state court, so the ranked priors were recent emergency applications rather than comparable pro se state-court cert petitions",
+    "CourtListener docket index holds no SCOTUS dockets for the petitioner's earlier petitions (19-356, 23-1244), so prior-history checks on repeat petitioners cannot be confirmed through MCP",
+    "The lower-court opinion (Colorado Court of Appeals, unpublished) was not provisioned; the adequate-state-ground reading rests on the petition's description"
+  ],
+  "notes": "Corpus query cost 9 ranged GETs for no usable prior; for pro se state-court petitions the statpack alone carried the anchor."
+}

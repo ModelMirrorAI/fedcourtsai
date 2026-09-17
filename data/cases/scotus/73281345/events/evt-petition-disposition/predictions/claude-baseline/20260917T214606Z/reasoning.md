@@ -1,0 +1,32 @@
+# Rationale for the numbers
+
+**P(grant) = 0.07; predicted disposition: denied.** Mode `forward`; snapshot `2026-09-17.json` (as-stored, dated today); band `elevated` under `sal-v4`, Term 2025, `distribution_count` 2, no CVSG.
+
+## Anchor
+
+The prompt's anchor for a banded cert cell is the bracketed `reached` rate for my band, pooled over Terms strictly before OT2025, from the statpack's "Segment base rate by salience band (sal-v4)" table. Pooling the eight rendered prior Terms (OT2017 through OT2024) for `elevated` gives about 484 grants over 2,810 petitions that reached the band, roughly **17%**. That is the yardstick this cell is scored against, and I start there. (The relist-count cut's bucket-1 row reads 8.2% granted plus 5.1% GVR on a terminal denominator; the elevated band's terminal rate is 7–13% per Term. All three say the same thing: a once-redistributed paid petition sits well above the 2–3% docket rate but is still usually denied.)
+
+## Why I adjust down, to about 0.07
+
+1. **The band is an artifact of a call for response, not a conference relist.** The petition was distributed for April 17, the Court requested a response on April 13, and it was redistributed on July 29 once briefing closed. It has never been considered and carried over. The `elevated` pool is dominated by petitions relisted after a conference actually looked at them, which is a stronger signal than a call for response. A call for response is a real positive signal (a Justice or the pool wanted the government's answer), but in my experience such petitions are still denied most of the time once the Solicitor General answers. Forecasting from that state rather than from the band's population is the main reason I sit well below 17%.
+2. **The Solicitor General's opposition is strong on both conflict and vehicle.** I read `brief-in-opposition.txt` in full (13 pages, clean text). It shows: (a) every circuit to consider the question, including the Tenth in *Morgan*, treats telephones as instrumentalities of interstate commerce; (b) *Chavarria*, the petition's only contrary holding, is a motor-vehicle kidnapping case that itself concedes per se instrumentalities exist and cites the telegraph as one; (c) the indictment and trial evidence show use of a computer, the internet, e-mail, and a GPS tracker transmitting through out-of-state servers, so alternative jurisdictional hooks would remain even if the phone ground fell. Points (a) and (b) leave no phone-specific split; point (c) is a serious vehicle defect the petition's reply cannot cure from this record.
+3. **The petition's split is one circuit against roughly nine, and not on phones.** From the petition (read in full via a delegated summary of `petition.txt`, 88 pages, clean text): the categorical side is the Fifth, Sixth, Ninth, Fourth, Seventh, First, Second, and Eleventh Circuits; the as-applied side is *Chavarria* alone, plus separate writings by individual circuit judges. The Fifth Circuit's own treatment is two paragraphs applying its 2001 en banc *Marek* decision, so the decision below creates no new law. Preservation and de novo review are clean, which keeps the number off the floor, but the Court has recently denied the closely analogous *Smith* (5th Cir. 2024) and *Stackhouse* (9th Cir. 2024) petitions the BIO cites.
+4. **Unsympathetic facts and a thin bench.** The petitioner was found to be the mastermind of a stalking campaign that ended in the victim's murder and is serving life on the cyberstalking count. Counsel is a Dallas solo practitioner with no Supreme Court practice; one amicus (Texas Criminal Defense Lawyers Association) filed. Neither factor is dispositive, but neither pulls toward the elevated pool's typical grant.
+
+## Why not lower
+
+The Court did call for a response after the government waived, which it does not do for the ordinary paid criminal petition, and a preserved, published, life-sentence Commerce Clause vehicle with a genuine (if shallow) Tenth Circuit decision on the other side is the kind of petition Justice Thomas and perhaps Justice Gorsuch might want to hold for a statement. I keep the number at 7% rather than the 2–4% a first-conference paid petition would carry.
+
+## The other claims
+
+- `relist-increment` 0.22: from the two distributions shown, a third requires either a grant track (which I put near 7% and would almost always run through a relist), a Justice drafting a statement (a few points), or an ordinary long-conference carry-over. The statpack's bucket shape (about a quarter of once-relisted paid petitions relist again) is consistent, but my state is closer to a first-conference petition than to a true relist-1.
+- `cvsg-increment` 0.01: the United States is the respondent; a CVSG is structurally unavailable. I state a small positive number only because the harness resolves it against the record.
+- `summary-disposition-route` 0.05 (conditional on grant): no intervening decision exists and the Court would not summarily reverse against the government on a novel Commerce Clause ground.
+- `dissent-from-denial` 0.08 (conditional on denial): a Thomas statement on the reach of Lopez category 2 is possible but he would have to write against unanimous circuit authority on phones and on very bad facts.
+- `big_case_score` 0.5: a decision on the categorical reach of "instrumentalities of interstate commerce" would matter across many federal criminal statutes, which is why I place it at the midpoint despite the low grant odds; the likeliest merits outcome would confirm the status quo, which caps it.
+
+## Uncertainty and where to discount me
+
+- I cannot see the reply brief's text (not provisioned; it is on the docket dated July 22). If it convincingly answers the alternative-instrumentality vehicle point, I am a few points too low.
+- The `elevated` anchor rests on a distribution count that includes call-for-response redistributions, so the band's pool and my state differ in kind; a reader who believes call-for-response petitions grant at near the band rate should be nearer 0.12–0.15.
+- Retrieval was limited: two `fedcourts query` pulls (recency-ranked, not topical, so they contributed shape rather than comparables), and two CourtListener MCP calls that returned nothing (no Supreme Court docket for *Chavarria* since June 2025 and no docket entries for this docket in CourtListener). Nothing I retrieved postdates or reveals this petition's disposition; the case is pending as of the snapshot.

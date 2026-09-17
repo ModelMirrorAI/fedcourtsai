@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73281628",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "schema_version": "1.0",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "helpful": ["read_file", "run_shell_command", "statpack.md base rates"],
+  "gaps": [],
+  "notes": "Used statpack base rates to estimate likelihood of grant for elevated band petitions. Did not require corpus query since it was a standard cert petition evaluation."
+}
