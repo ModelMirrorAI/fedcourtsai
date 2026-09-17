@@ -30,12 +30,13 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
-from datetime import date
+from dataclasses import dataclass, replace
+from datetime import date, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from .collect import parse_cell_artifact_name
+from .collect import parse_cell_artifact_name, parse_run_branch
 from .finalize import FinalizeRole
 from .ids import case_id, parse_run_id
 from .paths import CasePaths
@@ -322,16 +323,44 @@ def _cell_key(predictor_id: str, court: str, docket: int, event_id: str) -> _Cel
     return (predictor_id, court, docket, event_id)
 
 
+class StrandedReason(StrEnum):
+    """Why one run's cell output is not in committed state yet.
+
+    Three ways a run can spend its tokens and leave the ledger untouched, all
+    of them invisible to the already-predicted gate, which reads `main`:
+
+    * ``UNCOLLECTED`` — `collect` did not conclude success, so the output is
+      still sitting in the cell artifacts. Rerunning `collect` recovers it.
+    * ``UNMERGED_COLLECT_PR`` — `collect` succeeded and opened its PR, which has
+      not merged (auto-merge waiting on checks, or a draft). The output exists,
+      on a branch; merging it is what lands it.
+    * ``WITHHELD_COLLECT`` — `collect` concluded success having pushed no branch
+      at all, which is what the secret scan's withhold looks like from outside.
+      The output exists only as cell artifacts, and only a hand salvage recovers
+      it, so this one names a doctrine rather than a command.
+
+    The distinction is not cosmetic: the three carry different remedies, and the
+    guard's whole value at the hold is telling a maintainer which one to reach
+    for.
+    """
+
+    UNCOLLECTED = "uncollected"
+    UNMERGED_COLLECT_PR = "unmerged_collect_pr"
+    WITHHELD_COLLECT = "withheld_collect"
+
+
 @dataclass(frozen=True)
 class StrandedCell:
-    """One predict cell whose output sits in a run that was never collected.
+    """One predict cell whose output has not reached committed state.
 
     ``run_db_id`` is the GitHub run's database id — the handle
     ``gh run rerun <id> --failed`` takes, and the one the recovery note names.
     The cell's *pipeline* run id (the plan-time UTC stamp) is deliberately
     absent: the cell artifact name does not encode it
     (:func:`fedcourtsai.collect.cell_artifact_name`) and the runs API does not
-    know it, so naming one would mean inventing it.
+    know it, so naming one would mean inventing it. ``collect_pr`` carries the
+    unmerged PR's number where there is one, which is the whole remedy in that
+    case — nothing to rerun, something to merge.
     """
 
     run_db_id: int
@@ -339,11 +368,41 @@ class StrandedCell:
     court: str
     docket: int
     event_id: str
+    reason: StrandedReason = StrandedReason.UNCOLLECTED
+    collect_pr: int | None = None
 
     @property
     def key(self) -> _CellKey:
         """The (predictor, case, event) grain the matrix is deduped at."""
         return _cell_key(self.predictor_id, self.court, self.docket, self.event_id)
+
+
+@dataclass(frozen=True)
+class CensusRun:
+    """One candidate run in the census, as the runs API describes it.
+
+    The window is the run's own — the pipeline run id is minted *inside* the
+    run, by its `plan` job, so a collect branch's stamp necessarily falls
+    between these two. That containment is what lets the guard join a run to
+    its collect PR without downloading an artifact: nothing else the runs API
+    or the artifacts API returns carries the pipeline run id.
+
+    ``started_at`` is the run's **creation**, not the latest attempt's start.
+    The distinction is the difference between working and misfiring on this
+    guard's own remedy: a re-run resets the start, and rerunning `collect` is
+    what recovers an uncollected run, so a window opening at the latest start
+    would begin *after* the first attempt's `plan` job minted the run id — and
+    the recovered run would read as having pushed no branch at all.
+
+    Either bound may be ``None`` when the census could not supply it, which
+    disarms the join for that run — fail open, the direction every degraded
+    reading in this guard takes.
+    """
+
+    run_db_id: int
+    collect_succeeded: bool
+    started_at: datetime | None
+    updated_at: datetime | None
 
 
 @dataclass(frozen=True)
@@ -355,9 +414,49 @@ class StrandedCensus:
     silently discarded: the caller reports them and moves on, because a guessed
     reading would withhold the wrong cell, a worse failure than the re-spend the
     guard exists to prevent.
+
+    ``cells`` is every cell artifact the census listed, *before* the collected/
+    stranded verdict: a run whose `collect` succeeded is in here too, because
+    whether its output actually landed is a question about its collect PR, which
+    :func:`classify_stranded_cells` answers.
     """
 
     cells: tuple[StrandedCell, ...]
+    unparsed: tuple[str, ...]
+    runs: tuple[CensusRun, ...]
+
+
+@dataclass(frozen=True)
+class CollectPr:
+    """One collect PR to `main`, as the pulls API describes it.
+
+    ``minted_at`` is the pipeline run id parsed out of the head ref
+    (:func:`fedcourtsai.collect.parse_run_branch`), which is the only handle a
+    PR carries back to the run that opened it. ``head_repo`` is the repository
+    the head branch lives in: the listing includes fork PRs, whose head ref is
+    the fork's own branch name, so the ref is only this lane's word for a run
+    when the head is this repository's.
+
+    ``merged`` is carried for the record and is deliberately not what the
+    verdict keys on — :func:`_run_verdict` asks whether any match is still
+    *open*, because a PR closed unmerged is an abandoned collect that should
+    release its run rather than hold it.
+    """
+
+    number: int
+    head_ref: str
+    head_repo: str
+    run_id: str
+    minted_at: datetime
+    is_open: bool
+    merged: bool
+
+
+@dataclass(frozen=True)
+class CollectPrCensus:
+    """The parsed collect-PR census, plus the records it could not read."""
+
+    prs: tuple[CollectPr, ...]
     unparsed: tuple[str, ...]
 
 
@@ -375,13 +474,39 @@ class GuardedMatrix:
     withheld: tuple[StrandedCell, ...]
 
 
-def read_stranded_census(path: Path) -> StrandedCensus:
-    """Read the census of cell artifacts left behind by uncollected runs.
+def _census_timestamp(value: object) -> datetime | None:
+    """One ISO-8601 instant off the runs API, or ``None`` if it does not read.
 
-    The file is a JSON list of ``{"run_db_id": <int>, "artifact_name": <str>}``
-    records, written by the plan job's census step from the runs and artifacts
-    APIs. An absent or empty file is an empty census — the guard is simply off,
-    which is what a degraded census step writes.
+    The API spells UTC with a trailing ``Z``, which ``fromisoformat`` accepts
+    from 3.11 on; anything else disarms this run's collect-PR join rather than
+    failing the census, because a misread window would match the wrong PR.
+    """
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
+
+
+def read_stranded_census(path: Path) -> StrandedCensus:
+    """Read the census of cell artifacts left behind by runs not yet collected.
+
+    The file is a JSON list of one record per cell artifact, written by the plan
+    job's census step from the runs and artifacts APIs::
+
+        {"run_db_id": <int>, "artifact_name": <str>, "collect_succeeded": <bool>,
+         "run_started_at": <iso8601>, "run_updated_at": <iso8601>}
+
+    The three run-level fields repeat across a run's records, which is what
+    keeps the file one flat list a `jq -s` assembles; they are folded back into
+    one :class:`CensusRun` per run here. A record without them reads as an
+    uncollected run with no window, which is the conservative reading: the cell
+    is withheld and no PR match can release it.
+
+    An absent or empty file is an empty census — the guard is simply off, which
+    is what a degraded census step writes.
 
     Raises ``ValueError`` if the file is not a JSON list, leaving the caller to
     decide the direction: the CLI fails **open** there, because this guard
@@ -389,15 +514,16 @@ def read_stranded_census(path: Path) -> StrandedCensus:
     reason a legitimate run does not start.
     """
     if not path.exists():
-        return StrandedCensus((), ())
+        return StrandedCensus((), (), ())
     raw = path.read_text().strip()
     if not raw:
-        return StrandedCensus((), ())
+        return StrandedCensus((), (), ())
     records = json.loads(raw)
     if not isinstance(records, list):
         raise ValueError(f"{path}: expected a JSON list of census records, got {type(records)}.")
     cells: list[StrandedCell] = []
     unparsed: list[str] = []
+    runs: dict[int, CensusRun] = {}
     for record in records:
         name = record.get("artifact_name") if isinstance(record, dict) else None
         if not isinstance(name, str):
@@ -412,6 +538,17 @@ def read_stranded_census(path: Path) -> StrandedCensus:
         except (KeyError, TypeError, ValueError):
             unparsed.append(name)
             continue
+        # First record per run wins, so a run described inconsistently across
+        # its own artifacts is read once rather than half each way.
+        runs.setdefault(
+            run_db_id,
+            CensusRun(
+                run_db_id=run_db_id,
+                collect_succeeded=record.get("collect_succeeded") is True,
+                started_at=_census_timestamp(record.get("run_started_at")),
+                updated_at=_census_timestamp(record.get("run_updated_at")),
+            ),
+        )
         cells.append(
             StrandedCell(
                 run_db_id=run_db_id,
@@ -421,21 +558,161 @@ def read_stranded_census(path: Path) -> StrandedCensus:
                 event_id=parsed.event_id,
             )
         )
-    return StrandedCensus(tuple(cells), tuple(unparsed))
+    return StrandedCensus(tuple(cells), tuple(unparsed), tuple(runs.values()))
+
+
+def read_collect_prs(path: Path, *, repo: str | None = None) -> CollectPrCensus | None:
+    """Read the census of this lane's collect PRs to `main`.
+
+    The file is a JSON list of ``{"number": <int>, "head_ref": <str>,
+    "head_repo": <str>, "is_open": <bool>, "merged": <bool>}`` records, written
+    by the plan job's census step from the pulls API. ``None`` — a file that is
+    **absent or empty** — is the arm switched off: the census step deletes it
+    rather than writing an empty list when it could not fetch, because an empty
+    list is a claim (this lane has no collect PR in the window) that would read
+    every collected run as having pushed no branch and withhold every cell it
+    ever produced. The two must not be spelled the same.
+
+    ``repo`` is this repository's ``owner/name``, and a record whose head lives
+    anywhere else is rejected. That matters because the pulls listing includes
+    **fork** PRs, whose ``head_ref`` is the fork's own branch name with no owner
+    in it: on a public repository a branch named ``predict/run-<stamp>`` on
+    anyone's fork would otherwise read as a run's open collect PR and withhold a
+    legitimate round, which is the fail-*closed* direction this guard must never
+    take. Pushing a branch to this repository needs write access, so the
+    same-repo test is what makes a head ref this lane's own word. ``None``
+    disables the test, for a caller outside Actions with no repository to name.
+
+    Raises ``ValueError`` if the file is not a JSON list, which the CLI turns
+    into the same arm-off reading, with a warning.
+    """
+    if not path.exists():
+        return None
+    raw = path.read_text().strip()
+    if not raw:
+        return None
+    records = json.loads(raw)
+    if not isinstance(records, list):
+        raise ValueError(
+            f"{path}: expected a JSON list of collect-PR records, got {type(records)}."
+        )
+    prs: list[CollectPr] = []
+    unparsed: list[str] = []
+    for record in records:
+        head = record.get("head_ref") if isinstance(record, dict) else None
+        if not isinstance(head, str):
+            unparsed.append(repr(record))
+            continue
+        head_repo = record.get("head_repo")
+        if not isinstance(head_repo, str) or (repo is not None and head_repo != repo):
+            unparsed.append(head)
+            continue
+        run_id = parse_run_branch(FinalizeRole.predict, head)
+        if run_id is None:
+            unparsed.append(head)
+            continue
+        try:
+            number = int(record["number"])
+            minted_at = parse_run_id(run_id)
+        except (KeyError, TypeError, ValueError):
+            unparsed.append(head)
+            continue
+        prs.append(
+            CollectPr(
+                number=number,
+                head_ref=head,
+                head_repo=head_repo,
+                run_id=run_id,
+                minted_at=minted_at,
+                is_open=record.get("is_open") is True,
+                merged=record.get("merged") is True,
+            )
+        )
+    return CollectPrCensus(tuple(prs), tuple(unparsed))
+
+
+def _run_verdict(
+    run: CensusRun, collect_prs: Sequence[CollectPr] | None
+) -> tuple[StrandedReason, int | None] | None:
+    """Whether one candidate run's cells are stranded, and why — ``None`` if not.
+
+    A run whose `collect` did not succeed is stranded outright: that is the
+    original guard, and it needs no PR census.
+
+    A run whose `collect` *did* succeed is judged by its collect PR, found by
+    containment — the pipeline run id in the PR's head ref was minted by this
+    run's own `plan` job, so it falls inside the run's window. Containment is
+    sound rather than exact: a run that was queued while another ran has a
+    window wide enough to contain the other's stamp too. Both directions of
+    that ambiguity are resolved the safe way — an extra match that merged
+    releases the run (fail open, as the guard does everywhere), an extra match
+    still open withholds cells for at most the census window, and a run the
+    census could not describe is released untouched.
+
+    The three outcomes for a collected run:
+
+    * **an open PR matches** — the output is on a branch; withhold and name it,
+      so the plan reads as waiting on a merge rather than as drained.
+    * **no PR matches at all** — `collect` succeeded having pushed nothing,
+      which is what a secret-scan withhold looks like from outside. Withhold and
+      let the report name the salvage doctrine.
+    * **every match is settled** — merged, or closed unmerged (abandoned, so
+      re-minting *is* the recovery). Released.
+    """
+    if not run.collect_succeeded:
+        return (StrandedReason.UNCOLLECTED, None)
+    if collect_prs is None or run.started_at is None or run.updated_at is None:
+        return None
+    matches = [pr for pr in collect_prs if run.started_at <= pr.minted_at <= run.updated_at]
+    open_matches = [pr for pr in matches if pr.is_open]
+    if open_matches:
+        return (StrandedReason.UNMERGED_COLLECT_PR, min(pr.number for pr in open_matches))
+    if not matches:
+        return (StrandedReason.WITHHELD_COLLECT, None)
+    return None
+
+
+def classify_stranded_cells(
+    census: StrandedCensus, collect_prs: Sequence[CollectPr] | None
+) -> tuple[StrandedCell, ...]:
+    """The census's cells narrowed to the ones whose run has not landed.
+
+    The already-predicted gate reads committed state on `main`, so every run
+    between "cells spent their tokens" and "the collect PR merged" is invisible
+    to it — whether `collect` failed, whether its PR is still open, or whether
+    it pushed no branch at all. This is the one place those three are told
+    apart, and each surviving cell carries the reason and the PR number its
+    report will name.
+
+    ``collect_prs`` of ``None`` disarms the collected-run arm entirely, leaving
+    the uncollected one: a plan that could not read the PR census guards what it
+    always guarded and re-mints what it cannot check, which is the expensive
+    failure rather than the dangerous one.
+    """
+    verdicts = {run.run_db_id: _run_verdict(run, collect_prs) for run in census.runs}
+    stranded: list[StrandedCell] = []
+    for cell in census.cells:
+        verdict = verdicts.get(cell.run_db_id)
+        if verdict is None:
+            continue
+        reason, pr_number = verdict
+        stranded.append(replace(cell, reason=reason, collect_pr=pr_number))
+    return tuple(stranded)
 
 
 def drop_stranded_cells(
     matrix: dict[str, list[dict[str, Any]]], stranded: Sequence[StrandedCell]
 ) -> GuardedMatrix:
-    """Withhold cells whose output already sits in an uncollected run.
+    """Withhold cells whose output has not reached the ledger yet.
 
     A predict cell spends its tokens *before* the run's single durability step,
     so a `collect` that fails after a full-width fan-out leaves every cell's
     output in an artifact and nothing in the ledger — and the ledger is what the
-    already-predicted gate in :func:`predict_matrix` reads. The next live cycle
-    therefore re-derives the same unpredicted events and re-spends the whole
-    run. This guard closes that loop at the one place the spend can still be
-    withheld: the plan.
+    already-predicted gate in :func:`predict_matrix` reads. The same blindness
+    covers a `collect` that succeeded into a PR still waiting to merge, and one
+    that pushed no branch at all. The next live cycle therefore re-derives the
+    same unpredicted events and re-spends the whole run. This guard closes that
+    loop at the one place the spend can still be withheld: the plan.
 
     The grain is (predictor, case, event), matching the artifact name, so a cell
     the stranded run left no artifact for still runs — an engine whose cells
@@ -449,18 +726,33 @@ def drop_stranded_cells(
       that spent tokens and produced nothing is therefore withheld too, because
       collecting the run is how anyone learns which of the two it was; once
       collect lands, an event with no committed prediction re-queues normally.
-    * **Uncollected runs only.** A run whose `collect` succeeded is not in the
-      census, so an unmerged-but-collected run is outside this guard — that
-      window is still the plan-time-read race :func:`predict_matrix` documents.
+    * **Until the PR merges, not until collect succeeds.** A run leaves the
+      guard when its collect PR lands on `main`, which is when the ledger the
+      already-predicted gate reads actually gains the predictions —
+      :func:`classify_stranded_cells` decides that, and a run it cannot judge is
+      released. What remains outside the guard is the window between that merge
+      and this plan's own read of committed state, which is the plan-time-read
+      race :func:`predict_matrix` documents and the workflow's concurrency group
+      bounds.
     """
     if not stranded:
         return GuardedMatrix(matrix["include"], ())
-    # First wins, because the census is written newest run first: when one cell
-    # is stranded in two uncollected runs, the note should name the newer, which
-    # is the better recovery target (either recovers the cell).
+    # One cell can sit in two unlanded runs, and the report names one of them.
+    # Order by how cheap that run's remedy is rather than by recency: either run
+    # recovers the cell, but "merge PR #N" is a click where "salvage by hand"
+    # is an afternoon, and a note that named the expensive one while a one-click
+    # one existed would be honest and still send a maintainer the wrong way.
+    # Recency breaks ties, the census being written newest run first.
+    remedy_cost = {
+        StrandedReason.UNMERGED_COLLECT_PR: 0,
+        StrandedReason.UNCOLLECTED: 1,
+        StrandedReason.WITHHELD_COLLECT: 2,
+    }
     by_key: dict[_CellKey, StrandedCell] = {}
     for stranded_cell in stranded:
-        by_key.setdefault(stranded_cell.key, stranded_cell)
+        held = by_key.get(stranded_cell.key)
+        if held is None or remedy_cost[stranded_cell.reason] < remedy_cost[held.reason]:
+            by_key[stranded_cell.key] = stranded_cell
     include: list[dict[str, Any]] = []
     withheld: list[StrandedCell] = []
     for cell in matrix["include"]:

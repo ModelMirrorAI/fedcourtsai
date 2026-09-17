@@ -1741,29 +1741,64 @@ Distinguishing refusal kinds in the failure fact so a non-terminal refusal never
 burns the cap is open follow-up work.
 
 On `run-predict`, `plan` also refuses to re-mint a cell that already ran. A cell
-spends its tokens before `collect`, the run's single durability step, so a
-failed collect leaves every prediction in a cell artifact and nothing in the
-ledger the already-predicted gate reads — and the next round re-derives the
-same events and re-spends the whole run. Before building the matrix, `plan`
-lists the cell artifacts of this workflow's completed runs from the last 48
-hours whose `collect` did not conclude success, and **withholds** any cell
-already sitting in one, naming the stranded run and `gh run rerun <id> --failed`
-per cell: the remedy is to recover that run, not to re-run this one (the
-collect-recovery section below carries the order). The match is per predictor ×
-case × event and keys on the artifact's *existence*, not on whether that cell
+spends its tokens before `collect`, the run's single durability step, and the
+already-predicted gate reads *committed* state on `main` — so every run between
+"the cells spent their tokens" and "the collect PR merged" is invisible to that
+gate, and the next round re-derives the same events and re-spends the whole run.
+Three ways a run sits in that gap, each with its own remedy:
+
+| what the run looks like | where its output is | remedy |
+|---|---|---|
+| `collect` did not conclude success | the cell artifacts | `gh run rerun <id> --failed` |
+| `collect` succeeded, its PR is open | the collect branch | merge that PR |
+| `collect` succeeded, no branch pushed | the cell artifacts, for their retention window | salvage by hand (the secret-scan row of the collect-recovery table below) |
+
+Before building the matrix, `plan` lists the cell artifacts of this workflow's
+completed runs from the last 48 hours, together with each run's `collect`
+conclusion and this lane's collect PRs to `main`, and **withholds** any cell
+already sitting in a run that has not landed — naming the run, its PR where
+there is one, and that row's remedy per cell. The match is per predictor × case
+× event and keys on the artifact's *existence*, not on whether that cell
 produced anything — a cell that spent its tokens and delivered nothing is
-withheld too, because collecting the run is how anyone learns which of the two
-it was, and the event re-queues normally once the ledger is honest. A cell with
-no artifact — never queued, or dead before upload — still runs. The census step
-fetches and filters only: every decision is in `fedcourts predict-matrix`
-(`--stranded-file`), and it degrades open at two grains rather than blocking a
-legitimate run, since the failure this guard prevents is expensive rather than
-dangerous — a run it cannot read after three attempts drops out of the census
-with a `::warning::`, and a failure leaving nothing usable empties it
-altogether. The guard also releases itself: a run leaves the census once its
-`collect` concludes success on the latest attempt, and ages out of the window
-regardless. A maintainer who wants a fresh run *sooner* makes that an explicit
-act — delete the stranded run's cell artifacts (`gh
+withheld too, because landing the run is how anyone learns which of the two it
+was, and the event re-queues normally once the ledger is honest. A cell with no
+artifact — never queued, or dead before upload — still runs.
+
+A run is joined to its collect PR by the pipeline run id in the PR's head ref
+(`predict/run-<run_id>`, suffix and hand salvage included): that stamp is minted
+by the run's own `plan` job, so it necessarily falls inside the run's window —
+which opens at the run's *creation*, not at the latest attempt's start, because
+a re-run resets the start and rerunning `collect` is this guard's own remedy.
+Nothing else the runs or artifacts API returns carries that stamp. A head counts
+only from this repository: the pulls listing includes fork PRs, whose head ref
+is the fork's own branch name, and believing one would let an outsider withhold
+a legitimate round.
+
+**Any open match withholds.** A run is released only when every match is
+settled — merged, which is when the ledger gains the predictions, or closed
+unmerged, which abandons them and makes re-minting the recovery. One run can
+hold a merged ready PR beside an open draft, and that run is still waiting.
+The containment is sound rather than exact — a run queued while another ran has
+a window wide enough to hold the other's stamp too — and the inexactness is
+bounded by that rule plus the census window. A *collected* run the census cannot
+describe, having no window to match on, is released untouched; an uncollected
+one is withheld whatever its timestamps say, since no PR can carry output a
+failed collect never pushed.
+
+The census step fetches and filters only: every decision is in `fedcourts
+predict-matrix` (`--stranded-file`, `--collect-prs-file`), and it degrades open
+at three grains rather than blocking a legitimate run, since the failure this
+guard prevents is expensive rather than dangerous — a run it cannot read after
+three attempts drops out of the census with a `::warning::`, a PR listing it
+cannot read (or one that does not reach back past the window) disarms the
+collect-PR half alone and leaves the uncollected half armed, and a failure
+leaving nothing usable empties the census altogether. The collect-PR file's
+*absence* is what disarms that half, never an empty list: an empty list is a
+claim that this lane has no collect PR, and a plan believing it would read every
+collected run as having pushed nothing and withhold every cell it ever produced.
+The guard also releases itself: a run stops being withheld once its collect PR
+settles, and ages out of the census window regardless. A maintainer who wants a fresh run *sooner* makes that
+an explicit act — delete the stranded run's cell artifacts (`gh
 api -X DELETE repos/<owner>/<repo>/actions/artifacts/<artifact_id>`), then
 dispatch a round.
 
@@ -1783,8 +1818,11 @@ any of those from a drained backlog, so it reads the same for all four. On
 run-predict the stranded-run guard is
 the one exception: when it withholds *every* cell, `predict-matrix` writes its
 own note (`--stranded-note-file`) and the summary carries that instead, so a
-fully-superseded run says recover the uncollected run rather than reading as a
-drained backlog. Each surfaces its own escalated `::error::` for correct
+fully-superseded run says land the run it is waiting on — naming that run, its
+PR and the remedy — rather than reading as a drained backlog. Below the
+all-withheld threshold the same facts ride in the plan report the hold is judged
+on, as a *Withheld: waiting on a run to land* section, so a narrowed fan-out is
+never read as a short one. Each surfaces its own escalated `::error::` for correct
 attribution, and ending the round is safe in each case for its own reason: a cap-
 or spend-deferred case stays in its queue and re-derives next cycle, an
 unforecastable event needs something other than another round (a grade for a
@@ -2136,10 +2174,29 @@ remedies are to **salvage by hand** — extract each withheld cell's run-scoped
 output from the artifacts into a data PR before the artifacts' 7-day
 retention lapses (the maintainer merges it, like every non-collect merge to
 `main`) — or to **let a later round re-derive the cells and accept the
-re-spend**. No stranded-run guard covers a withheld run in either role: the
-withhold leaves `collect` concluding success, which the predict census reads as
-collected, so the next round re-spends every cell the withheld run already paid
-for.
+re-spend**. On **predict** the stranded-run guard holds that decision open for
+the case where the withhold left the run with **no branch at all**: matching no
+collect PR is what the guard reads as a withheld collect, so it withholds that
+run's cells for the census window and says so on the plan, naming the run and
+this section. That buys the 48 hours to decide rather than having the next round
+decide by spending.
+
+A **partial** withhold — the scan firing on one branch while another is pushed —
+is outside it, and knowingly so: the run has a matching PR, so the guard reports
+whatever that PR is doing. If it merged, the run is released and the withheld
+cells re-derive and re-spend on a later cycle; if it is open, the plan says to
+merge it, which lands the other branch and then releases the run without ever
+landing the withheld cells. Nothing covers that case, so a partial withhold is a
+decision to make while the artifacts are still there.
+
+To salvage by hand and have the guard notice, push the branch to **this
+repository**, base it on `main`, and name it `predict/run-<run_id>` with any
+suffix (`-salvage` reads fine): the guard matches a head on that shape, so
+merging it releases the run the way a writer's own branch would. A branch named
+anything else still recovers the output — it simply leaves the guard withholding
+until the window ages out. On **evaluate** there is no such guard at all, so a
+withheld collect there is re-spent by the next round that derives the same
+gradings.
 
 None of the three gaps needs anything held open to be recoverable, which is what
 makes an omitted cell safe: an omitted cell is a forecast or a grading still
@@ -2168,15 +2225,15 @@ Three caveats:
   duplicate artifact name within a run, so those re-run cells fail at upload.
   `--failed` is the recovery for a *collect-only* failure; when cells failed
   too, land `collect` first and let the next round pick the rest up.
-- **On run-predict, collect first — another round will not stand in for it.**
-  The stranded-run guard above withholds every cell that uploaded an artifact to
-  an uncollected run, so a round dispatched inside its 48-hour window
-  derives nothing and says so on its step summary. Rerun `collect`,
-  which commits what the cells produced; the guard then releases that run, and
-  any event still holding no prediction — including a cell that ran and
-  delivered nothing — is re-derived on a later cycle. That costs one round trip
-  where dispatching first would cost a whole fan-out's tokens to reach the same
-  ledger.
+- **On run-predict, land the run first — another round will not stand in for
+  it.** The stranded-run guard above withholds every cell that uploaded an
+  artifact to a run that has not landed, so a round dispatched inside its
+  48-hour window derives nothing and says so on its step summary. Rerun
+  `collect` (or merge its PR, or salvage a withheld branch), which commits what
+  the cells produced; the guard then releases that run, and any event still
+  holding no prediction — including a cell that ran and delivered nothing — is
+  re-derived on a later cycle. That costs one round trip where dispatching first
+  would cost a whole fan-out's tokens to reach the same ledger.
 
 A rerun discards hand-edits to an unmerged draft branch — it is rebuilt from the
 artifacts. Finish a draft by merging it, not by editing and then re-running.
@@ -2567,9 +2624,12 @@ deliberate similarity:
   grading.
 
 Because the gate reads *committed* state, it cannot see a round whose collect PR
-has not merged. What keeps a second derivation out of that window is
-`run-evaluate`'s concurrency group, which serializes every round of the workflow
-regardless of trigger — not the gate.
+has not merged. What bounds a second derivation there is `run-evaluate`'s
+concurrency group, which serializes every round of the workflow regardless of
+trigger — not the gate. Note what a group does and does not buy: it keeps two
+rounds from overlapping, but the next round plans the moment it releases, which
+can be well before the previous round's collect PR merges. Predict closes that
+remaining window with its stranded-run guard; evaluate has no equivalent.
 
 The cron's cadence and `backlog_cases_per_cycle` pace re-queuing but have no
 ceiling, so a cell that fails *every* attempt (a persistent quota wall, a
@@ -2635,10 +2695,11 @@ cannot leak spend past the hold, and the fresh plan re-anchors the
 already-predicted gate and the stranded-run guard exactly as the review-hold
 rules above require. Two outcomes of that first round back are the machinery
 working, not the recovery failing: with cells sitting in an uncollected run's
-artifacts, the stranded-run guard withholds them for its 48-hour window and the
-plan says so on its step summary (*Recovering a run whose `collect` failed*,
-above); and an event that resolved during the pause is dropped by the
-forecastability re-check, working across the gap.
+artifacts, or sitting on a collect PR that has not merged, the stranded-run
+guard withholds them for its 48-hour window and the plan says so on its step
+summary (*Recovering a run whose `collect` failed*, above); and an event that
+resolved during the pause is dropped by the forecastability re-check, working
+across the gap.
 
 ## Snapshot sequencing
 

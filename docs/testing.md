@@ -660,8 +660,11 @@ cap the UI enforces silently, the fail-closed shape every input gate must have
 on a scheduled workflow, and the word-for-word pairing between each fail-fast
 validator and the step of record that re-checks it), and the predict plan job's stranded-run
 guard (`test_workflow_plan_census`: the census runs before the matrix step and
-feeds it, degrades open rather than failing the job, and lets a fully-superseded
-run report the recovery note instead of a drained backlog) — so deleting a load-bearing line fails a
+feeds both it and the plan report, degrades open at each of its three grains
+rather than failing the job, holds the job's read-only permission set by exact
+equality, keeps the collect-PR arm's off-switch a deleted file rather than an
+empty list, and lets a fully-superseded run report the recovery note instead of
+a drained backlog) — so deleting a load-bearing line fails a
 named test instead of passing every linter. Two of the family go further and
 *run* what the YAML embeds, because a workflow string is matched against the CLI
 for the first time when the job runs: `test_workflow_repair_cli_parity` reads

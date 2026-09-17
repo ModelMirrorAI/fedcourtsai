@@ -358,6 +358,47 @@ def cell_artifact_name(role: FinalizeRole, cell: ExpectedCell) -> str:
     return f"{role.value}-{cell.actor}-{cell.court}-{cell.docket}-{cell.event_id}"
 
 
+def run_branch(role: FinalizeRole, run_id: str, *, suffix: str = "") -> str:
+    """The branch one of a run's collect PRs is pushed to.
+
+    Run-scoped by construction, so a rerun of `collect` force-pushes over its
+    own previous attempt rather than stacking a second branch. ``suffix``
+    separates the kinds a single run can open — the draft salvage branch and
+    the facts-only one — from the ready branch that carries the run's output.
+
+    Spelled here rather than at each call site because the plan-time
+    stranded-run guard reads the name back (:func:`parse_run_branch`): a guard
+    that parsed a spelling the writer had drifted away from would silently stop
+    matching, which is a re-spend rather than a failure.
+    """
+    return f"{role.value}/run-{run_id}{suffix}"
+
+
+# The inverse of `run_branch`. The run id is a fixed-width UTC stamp
+# (`ids.run_id`), so it anchors the split even though a suffix may follow;
+# any suffix is accepted, including one no writer produces, because a branch a
+# maintainer opened by hand to salvage a withheld run carries the run's output
+# just as the writer's own branch would.
+_RUN_BRANCH_RE = re.compile(
+    r"^(?P<role>[a-z]+)/run-(?P<run_id>\d{8}T\d{6}Z)(?P<suffix>-[A-Za-z0-9._-]+)?$"
+)
+
+
+def parse_run_branch(role: FinalizeRole, ref: str) -> str | None:
+    """Read a run's pipeline run id back out of a collect branch name.
+
+    For the plan-time stranded-run guard, which knows a run's *database* id and
+    must decide whether that run's collect PR has merged: the PR carries the
+    pipeline run id in its head ref and nothing else that ties it to a run.
+    Returns ``None`` for any ref that is not this role's run branch, so an
+    unrelated head is ignored rather than guessed at.
+    """
+    match = _RUN_BRANCH_RE.match(ref)
+    if match is None or match["role"] != role.value:
+        return None
+    return str(match["run_id"])
+
+
 # The inverse split of `cell_artifact_name`. Three anchors make it unambiguous
 # although both the actor id and the event id carry hyphens: an event id always
 # begins `evt-` (`ids.event_id`), a docket is an integer, and a court id carries
@@ -1376,7 +1417,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
             else ""
         )
         ready_plan = PrPlan(
-            branch=f"{role.value}/run-{run_id}",
+            branch=run_branch(role, run_id),
             commit_message=f"{role.value}(run {run_id}): {len(ready)} {noun}(s)",
             title=f"{role.value}: {len(ready)} {noun}(s) (run {run_id})",
             body=(
@@ -1390,7 +1431,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     partial_plan: PrPlan | None = None
     if salvage:
         partial_plan = PrPlan(
-            branch=f"{role.value}/run-{run_id}-partial",
+            branch=run_branch(role, run_id, suffix="-partial"),
             commit_message=f"{role.value}(run {run_id}): {len(salvage)} partial {noun}(s)",
             title=f"{role.value}: {len(salvage)} partial {noun}(s) (run {run_id})",
             body=f"{_PARTIAL_WARNING}\n\n{_table(salvage, with_reason=True)}",
@@ -1508,7 +1549,7 @@ def _facts_only_plan(
         if note:
             body = f"{body}\n\n{note}"
     return PrPlan(
-        branch=f"{role.value}/run-{run_id}-facts",
+        branch=run_branch(role, run_id, suffix="-facts"),
         commit_message=f"{role.value}(run {run_id}): {total} cell-failure fact(s)",
         title=f"{role.value}: {total} cell-failure fact(s) (run {run_id})",
         body=body,
