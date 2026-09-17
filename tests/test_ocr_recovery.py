@@ -1,4 +1,4 @@
-"""The bounded local-OCR recovery pass for scanned petitions.
+"""The bounded local-OCR recovery pass for scanned filings.
 
 No tesseract runs here. The pass takes its OCR call as an injected seam, so its
 logic — the population predicate, the slice, the additive write, the marker, the
@@ -25,25 +25,32 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus, supremecourt
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline.documents import (
+    BIO_URL_JOIN,
+    FETCHED_DOCUMENT_KINDS,
     KIND_BRIEF_IN_OPPOSITION,
+    KIND_MERITS_REPLY_RESPONDENT,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
+    TEXT_COVERAGE_KINDS,
 )
 from fedcourtsai.pipeline.ocr_recovery import (
     DOCUMENT_BUDGET_SECONDS,
     ESTIMATED_CANDIDATE_OVERHEAD_SECONDS,
     ESTIMATED_SECONDS_PER_PAGE,
     MAX_DOCUMENT_BYTES,
+    RECOVERABLE_KINDS,
+    SET_KEYED_EXCLUSION,
     OcrPageFactory,
     OcrRun,
     OcrToolsMissing,
-    ScannedPetition,
+    ScannedDocument,
     estimated_candidate_seconds,
+    exclusion_reason,
     fetchable_document_url,
     missing_ocr_binaries,
     ocr_page_for_pdf,
-    recover_scanned_petitions,
-    scanned_petitions,
+    recover_scanned_documents,
+    scanned_documents,
 )
 from fedcourtsai.supremecourt import SupremeCourtClient
 
@@ -180,14 +187,70 @@ def _documents(db: Path, case_id: str) -> dict[str, corpus.CaseDocument]:
 # --- population ------------------------------------------------------------
 
 
-def test_the_population_is_empty_petitions_that_have_pages(tmp_path: Path) -> None:
-    """Empty-with-pages is in; text, no pages, and other kinds are out.
+def test_the_recoverable_kinds_are_exactly_the_fetched_ones() -> None:
+    """The population is a fact about storage, not a list this pass curates.
 
-    Each exclusion has its own reason and they are not interchangeable: a
-    petition that extracted is not degraded, a zero-page row is a PDF that would
-    not open (not OCR's to repair), and the combined opposition row is out
-    structurally — text recovered there is discarded the next time a
-    co-respondent's brief joins its idempotency key.
+    A kind that is one PDF at one link is recoverable page by page; a derived
+    row — text cut out of another row — is not, having no pages of its own. So
+    the pass takes the fetched set whole, and a kind added to it joins this
+    population the day it is stored. Pinned here so that addition is a decision
+    someone made rather than a side effect nobody saw.
+    """
+    assert RECOVERABLE_KINDS is FETCHED_DOCUMENT_KINDS
+    assert KIND_QUESTIONS_PRESENTED not in RECOVERABLE_KINDS
+    assert set(TEXT_COVERAGE_KINDS) - set(RECOVERABLE_KINDS) == {KIND_QUESTIONS_PRESENTED}
+    # What this cannot catch, and the definition-site comment therefore has to:
+    # a *derived* kind added to the fetched set would pass all three, since the
+    # set difference would still be the questions-presented row alone.
+    assert KIND_BRIEF_IN_OPPOSITION in RECOVERABLE_KINDS
+
+
+def test_a_set_keyed_url_is_refused_at_the_request_too(tmp_path: Path) -> None:
+    """The guard sits beside the GET as well as in the walk.
+
+    The host check does not catch a set key — a pipe-joined pair of Court links
+    parses as a Court URL with a strange path — so a regression in the
+    population predicate would otherwise become a real request for a URL that
+    is an idempotency key, not a document.
+    """
+    joined = (
+        "https://www.supremecourt.gov/a.pdf" + BIO_URL_JOIN + "https://www.supremecourt.gov/b.pdf"
+    )
+    assert supremecourt.is_court_url(joined) is True
+    assert fetchable_document_url(joined) is False
+    assert fetchable_document_url("https://www.supremecourt.gov/a.pdf") is True
+
+
+def test_every_exclusion_names_its_own_reason() -> None:
+    """One predicate, stated as reasons, so the count cannot drift from the test."""
+    assert exclusion_reason(_document("scotus/1")) is None
+    assert exclusion_reason(_document("scotus/1", text="argues X")) == "has-text"
+    assert exclusion_reason(_document("scotus/1", pages=0)) == "no-pages"
+    assert (
+        exclusion_reason(_document("scotus/1", kind=KIND_QUESTIONS_PRESENTED))
+        == "not-a-fetched-kind"
+    )
+    set_keyed = _document(
+        "scotus/1",
+        kind=KIND_BRIEF_IN_OPPOSITION,
+        url="https://www.supremecourt.gov/a.pdf"
+        + BIO_URL_JOIN
+        + "https://www.supremecourt.gov/b.pdf",
+    )
+    assert exclusion_reason(set_keyed) == SET_KEYED_EXCLUSION
+
+
+def test_the_population_is_empty_fetched_rows_that_have_pages(tmp_path: Path) -> None:
+    """Empty-with-pages is in, across every fetched kind; three exclusions are out.
+
+    Each exclusion has its own reason and they are not interchangeable: a filing
+    that extracted is not degraded, a zero-page row is a PDF that would not open
+    (not OCR's to repair, and what the derived questions-presented row also
+    looks like), and a row whose stored URL is a set key rather than one link is
+    one this pass cannot re-fetch the way it fetches the rest.
+
+    The opposition is the case this matters for: a respondent's argument that
+    reads empty is a cell forecasting with one side of the case missing.
     """
     db = _seed(
         tmp_path / "corpus",
@@ -195,29 +258,94 @@ def test_the_population_is_empty_petitions_that_have_pages(tmp_path: Path) -> No
             _document("scotus/1"),  # the class: empty, 12 pages
             _document("scotus/2", text="The petition argues X."),  # extracted
             _document("scotus/3", pages=0),  # would not open
-            _document("scotus/4", kind=KIND_BRIEF_IN_OPPOSITION),  # not a petition
+            _document("scotus/4", kind=KIND_BRIEF_IN_OPPOSITION),  # a scanned opposition
             _document("scotus/5", text="   \n\t "),  # whitespace-only is empty
             _document("scotus/6", kind=KIND_QUESTIONS_PRESENTED, pages=0),  # derived section
+            _document("scotus/7", kind=KIND_MERITS_REPLY_RESPONDENT),  # every fetched kind
+            _document(  # a multi-respondent opposition: a set key, not a link
+                "scotus/8",
+                kind=KIND_BRIEF_IN_OPPOSITION,
+                url=(
+                    "https://www.supremecourt.gov/a.pdf"
+                    + BIO_URL_JOIN
+                    + "https://www.supremecourt.gov/b.pdf"
+                ),
+            ),
         ],
     )
     with corpus.connect(db) as conn:
-        scan = scanned_petitions(conn)
-    assert [c.petition.case_id for c in scan.candidates] == ["scotus/1", "scotus/5"]
-    # The denominator counts every stored petition, in or out of the class: it
-    # is what separates a converged corpus from one whose documents cannot be
-    # read at all.
-    # Four of the six cases hold a petition row at all (scotus/4 holds only an
-    # opposition, scotus/6 only a derived section), and all four count toward
-    # the denominator whether or not they are in the class.
-    assert scan.petitions_seen == 4
+        scan = scanned_documents(conn)
+    assert [(c.document.case_id, c.document.kind) for c in scan.candidates] == [
+        ("scotus/1", KIND_PETITION),
+        ("scotus/4", KIND_BRIEF_IN_OPPOSITION),
+        ("scotus/5", KIND_PETITION),
+        ("scotus/7", KIND_MERITS_REPLY_RESPONDENT),
+    ]
+    # The set-keyed row is reported where it is left out: without that, its
+    # kind's empty count in the coverage report and its candidate count here
+    # differ for no stated reason.
+    assert scan.set_keyed == {KIND_BRIEF_IN_OPPOSITION: 1}
+    # The denominator counts every stored row of a recoverable kind, in or out
+    # of the class: it is what separates a converged corpus from one whose
+    # documents cannot be read at all. Seven of the eight rows are of such a
+    # kind — the derived questions-presented row is not.
+    assert scan.documents_seen == 7
+
+
+def test_a_case_can_hold_a_scanned_petition_and_a_scanned_opposition(tmp_path: Path) -> None:
+    """Both are candidates, and the ledger keys them apart.
+
+    The bug this prevents is a ledger keyed on the case: two recoveries would
+    collapse into one entry, and `recovered` — which counts those entries —
+    would undercount the slice it just spent.
+    """
+    db = _seed(
+        tmp_path / "corpus",
+        [
+            _document("scotus/1", url="https://www.supremecourt.gov/pet.pdf"),
+            _document(
+                "scotus/1",
+                kind=KIND_BRIEF_IN_OPPOSITION,
+                url="https://www.supremecourt.gov/bio.pdf",
+            ),
+        ],
+    )
+    served = {
+        "https://www.supremecourt.gov/pet.pdf": _pdf_pages([""]),
+        "https://www.supremecourt.gov/bio.pdf": _pdf_pages([""]),
+    }
+    with _client(served) as client, corpus.connect(db) as conn:
+        result = recover_scanned_documents(
+            conn,
+            client=client,
+            apply=True,
+            char_cap=10_000,
+            today=_TODAY,
+            max_cases=5,
+            ocr_page_factory=_stub_ocr(),
+        )
+    assert result.recovered == 2 and result.remaining == 0
+    assert sorted(result.recoveries) == [
+        "scotus/1 brief-in-opposition",
+        "scotus/1 petition",
+    ]
+    # The blast radius, per kind — on the class and on what was written.
+    assert result.candidates_by_kind == {KIND_PETITION: 1, KIND_BRIEF_IN_OPPOSITION: 1}
+    assert result.recovered_by_kind == {KIND_BRIEF_IN_OPPOSITION: 1, KIND_PETITION: 1}
+    stored = _documents(db, "scotus/1")
+    assert _OCR_TEXT in stored[KIND_BRIEF_IN_OPPOSITION].text
+    assert stored[KIND_BRIEF_IN_OPPOSITION].ocr_derived is True
+    # The follow-on write is the petition's alone: an opposition carries no
+    # questions-presented section, so recovering one derives nothing.
+    assert result.questions_rederived == 1
 
 
 def test_the_population_is_ordered_so_a_slice_advances(tmp_path: Path) -> None:
     """`case_id` order, which is what makes successive dispatches disjoint."""
     db = _seed(tmp_path / "corpus", [_document(f"scotus/{n}") for n in (3, 1, 2)])
     with corpus.connect(db) as conn:
-        found = scanned_petitions(conn).candidates
-    assert [c.petition.case_id for c in found] == ["scotus/1", "scotus/2", "scotus/3"]
+        found = scanned_documents(conn).candidates
+    assert [c.document.case_id for c in found] == ["scotus/1", "scotus/2", "scotus/3"]
 
 
 # --- dry run ---------------------------------------------------------------
@@ -237,7 +365,7 @@ def test_the_dry_run_probes_the_fetch_path_and_writes_nothing(tmp_path: Path) ->
     served = {documents[0].url: _pdf_pages([""])}
     # The second 403s (the class that would kill an apply), the third is a 404.
     with _client(served, status={documents[1].url: 403}) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=False,
@@ -264,7 +392,7 @@ def test_the_dry_run_probe_can_be_turned_off(tmp_path: Path) -> None:
     witness needs, which must not re-fetch what was just fetched."""
     db = _seed(tmp_path / "corpus", [_document("scotus/1")])
     with _client({}) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn, client=client, apply=False, char_cap=10_000, today=_TODAY, probe_sample=0
         )
     assert result.probes == [] and result.candidates == 1
@@ -281,7 +409,7 @@ def test_the_apply_recovers_marks_and_rederives(tmp_path: Path) -> None:
         _client({petition.url: _pdf_pages(["", ""])}) as client,
         corpus.connect(db) as conn,
     ):
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -292,7 +420,7 @@ def test_the_apply_recovers_marks_and_rederives(tmp_path: Path) -> None:
         )
     assert result.applied and result.recovered == 1 and result.remaining == 0
     assert result.questions_rederived == 1
-    assert "scotus/1" in result.recoveries and result.failures == {}
+    assert "scotus/1 petition" in result.recoveries and result.failures == {}
 
     stored = _documents(db, "scotus/1")
     recovered = stored[KIND_PETITION]
@@ -323,7 +451,7 @@ def test_the_apply_carries_the_truncation_flag_from_the_cap(tmp_path: Path) -> N
         _client({petition.url: _pdf_pages(["", ""])}) as client,
         corpus.connect(db) as conn,
     ):
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -345,7 +473,7 @@ def test_the_apply_is_additive_and_never_overwrites_an_extraction(tmp_path: Path
         _client({_document("scotus/1").url: _pdf_pages([""])}) as client,
         corpus.connect(db) as conn,
     ):
-        recover_scanned_petitions(
+        recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -371,7 +499,7 @@ def test_the_apply_only_ocrs_a_page_that_extracted_nothing(tmp_path: Path) -> No
         _client({petition.url: _pdf_pages(["Digital page text", ""])}) as client,
         corpus.connect(db) as conn,
     ):
-        recover_scanned_petitions(
+        recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -395,7 +523,7 @@ def test_the_slice_bounds_the_run_and_reports_the_backlog(tmp_path: Path) -> Non
     db = _seed(tmp_path / "corpus", documents)
     served = {d.url: _pdf_pages([""]) for d in documents}
     with _client(served) as client, corpus.connect(db) as conn:
-        first = recover_scanned_petitions(
+        first = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -405,9 +533,9 @@ def test_the_slice_bounds_the_run_and_reports_the_backlog(tmp_path: Path) -> Non
             ocr_page_factory=_stub_ocr(),
         )
     assert first.attempted == 2 and first.recovered == 2 and first.remaining == 1
-    assert sorted(first.recoveries) == ["scotus/1", "scotus/2"]
+    assert sorted(first.recoveries) == ["scotus/1 petition", "scotus/2 petition"]
     with _client(served) as client, corpus.connect(db) as conn:
-        second = recover_scanned_petitions(
+        second = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -453,14 +581,14 @@ def _timed_ocr(clock: _Clock, seconds: float) -> OcrPageFactory:
 
 def test_the_candidate_estimate_reads_pages_and_caps_at_the_document_budget() -> None:
     """Page count is known before OCR starts, and no document may outspend its budget."""
-    small = ScannedPetition(petition=_document("scotus/1", pages=10), stored_questions=None)
+    small = ScannedDocument(document=_document("scotus/1", pages=10), stored_questions=None)
     assert estimated_candidate_seconds(small) == pytest.approx(
         ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + 10 * ESTIMATED_SECONDS_PER_PAGE
     )
     # A monster does not cost its page count: `ocr_page_for_pdf` stops the
     # recognition at the document budget and the partial reading is discarded,
     # so charging it more would refuse slices over a filing that cannot spend it.
-    monster = ScannedPetition(petition=_document("scotus/2", pages=4_000), stored_questions=None)
+    monster = ScannedDocument(document=_document("scotus/2", pages=4_000), stored_questions=None)
     assert estimated_candidate_seconds(monster) == pytest.approx(
         ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + DOCUMENT_BUDGET_SECONDS
     )
@@ -481,7 +609,7 @@ def test_the_slice_deadline_declines_a_candidate_before_starting_it(tmp_path: Pa
     # 20 pages estimates 30 + 60 = 90 s; the first document then eats 200 s of a
     # 250 s budget, leaving 50 s — less than the next candidate's estimate.
     with _client(served) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -493,7 +621,7 @@ def test_the_slice_deadline_declines_a_candidate_before_starting_it(tmp_path: Pa
             monotonic=clock,
         )
     assert result.attempted == 1 and result.recovered == 1
-    assert result.unreached == ["scotus/2", "scotus/3"]
+    assert result.unreached == ["scotus/2 petition", "scotus/3 petition"]
     # Unreached is not failed: nothing was fetched or written for them, so
     # neither the failure ledger nor the fetch ledger names them.
     assert result.failures == {} and result.unfetched == {}
@@ -522,7 +650,7 @@ def test_the_decline_ends_the_slice_rather_than_skipping_to_a_cheaper_candidate(
     served = {d.url: _pdf_pages([""]) for d in documents}
     clock = _Clock()
     with _client(served) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -535,7 +663,7 @@ def test_the_decline_ends_the_slice_rather_than_skipping_to_a_cheaper_candidate(
         )
     # 100 s left after the first: the 180-page filing does not fit, and the
     # 5-page one behind it is not promoted over it.
-    assert result.recovered == 1 and result.unreached == ["scotus/2", "scotus/3"]
+    assert result.recovered == 1 and result.unreached == ["scotus/2 petition", "scotus/3 petition"]
     assert _documents(db, "scotus/3")[KIND_PETITION].text == ""
 
 
@@ -554,7 +682,7 @@ def test_a_candidate_already_started_is_finished_not_killed(tmp_path: Path) -> N
     # The first document is admitted with 250 s in hand and then runs 900 s past
     # the deadline. It still writes.
     with _client(served) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -566,7 +694,7 @@ def test_a_candidate_already_started_is_finished_not_killed(tmp_path: Path) -> N
             monotonic=clock,
         )
     assert clock.now > 250.0
-    assert result.recovered == 1 and result.unreached == ["scotus/2"]
+    assert result.recovered == 1 and result.unreached == ["scotus/2 petition"]
     recovered = _documents(db, "scotus/1")[KIND_PETITION]
     assert _OCR_TEXT in recovered.text and recovered.ocr_derived is True
     assert result.questions_rederived == 1
@@ -586,7 +714,7 @@ def test_a_deadline_already_spent_starts_nothing(tmp_path: Path) -> None:
     # Nothing is served: a fetch would be a failure, so an empty failure ledger
     # is what proves no candidate was started.
     with _client({}) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -599,7 +727,7 @@ def test_a_deadline_already_spent_starts_nothing(tmp_path: Path) -> None:
         )
     assert result.applied is True
     assert result.attempted == 0 and result.recovered == 0
-    assert result.unreached == ["scotus/1", "scotus/2"]
+    assert result.unreached == ["scotus/1 petition", "scotus/2 petition"]
     assert result.failures == {} and result.unfetched == {}
     # The witness the workflow re-reads: the class it left behind is the class
     # it found.
@@ -614,7 +742,7 @@ def test_no_deadline_runs_the_whole_slice(tmp_path: Path) -> None:
     served = {d.url: _pdf_pages([""]) for d in documents}
     clock = _Clock()
     with _client(served) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -636,7 +764,7 @@ def test_an_apply_without_its_bound_is_refused(tmp_path: Path) -> None:
         corpus.connect(db) as conn,
         pytest.raises(ValueError, match="slice bound"),
     ):
-        recover_scanned_petitions(conn, client=client, apply=True, char_cap=10_000, today=_TODAY)
+        recover_scanned_documents(conn, client=client, apply=True, char_cap=10_000, today=_TODAY)
 
 
 def test_a_fetch_failure_writes_nothing_and_is_named(tmp_path: Path) -> None:
@@ -651,7 +779,7 @@ def test_a_fetch_failure_writes_nothing_and_is_named(tmp_path: Path) -> None:
         _client({}, status={documents[0].url: 403}) as client,
         corpus.connect(db) as conn,
     ):
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -661,7 +789,7 @@ def test_a_fetch_failure_writes_nothing_and_is_named(tmp_path: Path) -> None:
             ocr_page_factory=_stub_ocr(),
         )
     assert result.recovered == 0 and result.remaining == 2
-    assert result.failures == {"scotus/1": "http-403", "scotus/2": "not-served"}
+    assert result.failures == {"scotus/1 petition": "http-403", "scotus/2 petition": "not-served"}
     assert result.unfetched == {"http-403": 1, "not-served": 1}
     assert _documents(db, "scotus/1")[KIND_PETITION].text == ""
 
@@ -676,7 +804,7 @@ def test_a_scan_ocr_cannot_read_stays_in_the_class(tmp_path: Path) -> None:
         _client({petition.url: _pdf_pages([""])}) as client,
         corpus.connect(db) as conn,
     ):
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -686,7 +814,7 @@ def test_a_scan_ocr_cannot_read_stays_in_the_class(tmp_path: Path) -> None:
             ocr_page_factory=_stub_ocr("   "),
         )
     assert result.empty_after_ocr == 1 and result.recovered == 0 and result.remaining == 1
-    assert result.failures == {"scotus/1": "empty-after-ocr"}
+    assert result.failures == {"scotus/1 petition": "empty-after-ocr"}
     assert _documents(db, "scotus/1")[KIND_PETITION].ocr_derived is False
 
 
@@ -701,7 +829,7 @@ def test_a_recognition_cut_short_is_discarded_rather_than_stored(tmp_path: Path)
     petition = _document("scotus/1")
     db = _seed(tmp_path / "corpus", [petition])
     with _client({petition.url: _pdf_pages([""])}) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -712,7 +840,7 @@ def test_a_recognition_cut_short_is_discarded_rather_than_stored(tmp_path: Path)
             ocr_page_factory=_stub_ocr(budget_spent=True),
         )
     assert result.recovered == 0 and result.remaining == 1
-    assert result.failures == {"scotus/1": "budget-exhausted"}
+    assert result.failures == {"scotus/1 petition": "budget-exhausted"}
     assert result.unfetched == {"budget-exhausted": 1}
     assert _documents(db, "scotus/1")[KIND_PETITION].text == ""
 
@@ -732,7 +860,7 @@ def test_an_apply_with_work_refuses_where_the_binaries_are_absent(
         corpus.connect(db) as conn,
         pytest.raises(OcrToolsMissing, match="pdftoppm and tesseract"),
     ):
-        recover_scanned_petitions(
+        recover_scanned_documents(
             conn, client=client, apply=True, char_cap=10_000, today=_TODAY, max_cases=5
         )
 
@@ -743,7 +871,7 @@ def test_a_converged_population_needs_no_binaries(
     monkeypatch.setenv("PATH", str(tmp_path / "empty"))
     db = _seed(tmp_path / "corpus", [_document("scotus/1", text="extracted")])
     with _client({}) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn, client=client, apply=True, char_cap=10_000, today=_TODAY, max_cases=5
         )
     assert result.candidates == 0 and result.recovered == 0
@@ -789,10 +917,10 @@ def test_a_stored_url_off_the_courts_host_is_refused_before_the_request(tmp_path
         SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None) as client,
         corpus.connect(db) as conn,
     ):
-        dry = recover_scanned_petitions(
+        dry = recover_scanned_documents(
             conn, client=client, apply=False, char_cap=10_000, today=_TODAY
         )
-        applied = recover_scanned_petitions(
+        applied = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -803,7 +931,7 @@ def test_a_stored_url_off_the_courts_host_is_refused_before_the_request(tmp_path
         )
     assert requested == []  # neither mode asked for it
     assert [entry.outcome for entry in dry.probes] == ["unfetchable-url"]
-    assert applied.failures == {"scotus/1": "unfetchable-url"}
+    assert applied.failures == {"scotus/1 petition": "unfetchable-url"}
     assert _documents(db, "scotus/1")[KIND_PETITION].text == ""
 
 
@@ -818,7 +946,7 @@ def test_an_oversized_body_is_refused_rather_than_rasterized(tmp_path: Path) -> 
     db = _seed(tmp_path / "corpus", [petition])
     oversize = b"%PDF-1.4" + b"0" * (MAX_DOCUMENT_BYTES + 1)
     with _client({petition.url: oversize}) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -827,7 +955,7 @@ def test_an_oversized_body_is_refused_rather_than_rasterized(tmp_path: Path) -> 
             max_cases=5,
             ocr_page_factory=_stub_ocr(),
         )
-    assert result.failures == {"scotus/1": "oversized"} and result.recovered == 0
+    assert result.failures == {"scotus/1 petition": "oversized"} and result.recovered == 0
 
 
 def test_a_transport_failure_costs_its_candidate_in_both_modes(tmp_path: Path) -> None:
@@ -843,10 +971,10 @@ def test_a_transport_failure_costs_its_candidate_in_both_modes(tmp_path: Path) -
         SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None) as client,
         corpus.connect(db) as conn,
     ):
-        dry = recover_scanned_petitions(
+        dry = recover_scanned_documents(
             conn, client=client, apply=False, char_cap=10_000, today=_TODAY
         )
-        applied = recover_scanned_petitions(
+        applied = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -856,7 +984,7 @@ def test_a_transport_failure_costs_its_candidate_in_both_modes(tmp_path: Path) -
             ocr_page_factory=_stub_ocr(),
         )
     assert [(entry.outcome, entry.status) for entry in dry.probes] == [("transport-error", None)]
-    assert applied.failures == {"scotus/1": "transport-error"}
+    assert applied.failures == {"scotus/1 petition": "transport-error"}
 
 
 def test_a_stored_question_is_never_emptied_by_a_recovery(tmp_path: Path) -> None:
@@ -877,7 +1005,7 @@ def test_a_stored_question_is_never_emptied_by_a_recovery(tmp_path: Path) -> Non
     db = _seed(tmp_path / "corpus", documents)
     served = {d.url: _pdf_pages([""]) for d in documents}
     with _client(served) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -897,7 +1025,7 @@ def test_ocr_text_with_no_heading_stores_no_questions_row(tmp_path: Path) -> Non
     petition = _document("scotus/1")
     db = _seed(tmp_path / "corpus", [petition])
     with _client({petition.url: _pdf_pages([""])}) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -932,7 +1060,7 @@ def test_each_recovery_is_written_as_it_is_made(tmp_path: Path) -> None:
         corpus.connect(db) as conn,
         pytest.raises(KeyboardInterrupt),
     ):
-        recover_scanned_petitions(
+        recover_scanned_documents(
             conn,
             client=client,
             apply=True,
@@ -945,9 +1073,9 @@ def test_each_recovery_is_written_as_it_is_made(tmp_path: Path) -> None:
     assert _documents(db, "scotus/2")[KIND_PETITION].text == ""
 
 
-def _class_of(db: Path) -> tuple[ScannedPetition, ...]:
+def _class_of(db: Path) -> tuple[ScannedDocument, ...]:
     with corpus.connect(db) as conn:
-        return scanned_petitions(conn).candidates
+        return scanned_documents(conn).candidates
 
 
 def test_the_probe_sample_is_spread_across_the_class(tmp_path: Path) -> None:
@@ -956,12 +1084,12 @@ def test_the_probe_sample_is_spread_across_the_class(tmp_path: Path) -> None:
     documents = [_document(f"scotus/{n}") for n in range(10, 40)]
     db = _seed(tmp_path / "corpus", documents)
     with _client({d.url: b"%PDF" for d in documents}) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn, client=client, apply=False, char_cap=10_000, today=_TODAY
         )
     sampled = [entry.case_id for entry in result.probes]
     assert len(sampled) == 3 and len(set(sampled)) == 3
-    ordered = [candidate.petition.case_id for candidate in _class_of(db)]
+    ordered = [candidate.document.case_id for candidate in _class_of(db)]
     assert [ordered.index(case_id) for case_id in sampled] == [0, 10, 20]
 
 
@@ -970,7 +1098,7 @@ def test_a_dry_run_reports_no_bound_even_when_handed_one(tmp_path: Path) -> None
     slice that attempted none of it."""
     db = _seed(tmp_path / "corpus", [_document("scotus/1")])
     with _client({}) as client, corpus.connect(db) as conn:
-        result = recover_scanned_petitions(
+        result = recover_scanned_documents(
             conn,
             client=client,
             apply=False,
@@ -1119,8 +1247,8 @@ def test_the_cli_dry_run_reports_the_class_and_the_probe(
     monkeypatch.setattr("fedcourtsai.cli.SupremeCourtClient", _Recorder)
     result = runner.invoke(app, ["ocr-recover-petitions"])
     assert result.exit_code == 0, result.output
-    assert "dry-run" in result.output and "1 scanned petition(s) in the class" in result.output
-    assert "probe scotus/1: http-error (status 403" in result.output
+    assert "dry-run" in result.output and "1 scanned filing(s) in the class" in result.output
+    assert "probe scotus/1 petition: http-error (status 403" in result.output
     assert paced == [1.0]
 
 
@@ -1183,8 +1311,8 @@ def test_the_cli_reports_a_spent_deadline_as_a_zero_work_slice(
     assert "recovered 0, 3 left for the next slice" in result.output
     assert "attempted 0 (bound 2)" in result.output
     assert "slice deadline: 2 candidate(s) not started" in result.output
-    assert "scotus/1: NOT STARTED (slice deadline)" in result.output
-    assert '"unreached":["scotus/1","scotus/2"]' in result.output
+    assert "scotus/1 petition: NOT STARTED (slice deadline)" in result.output
+    assert '"unreached":["scotus/1 petition","scotus/2 petition"]' in result.output
 
 
 def test_the_cli_fails_loud_without_a_corpus(tmp_path: Path) -> None:
@@ -1220,7 +1348,7 @@ def test_the_cli_refuses_a_corpus_whose_documents_it_cannot_read(tmp_path: Path)
         )
     result = runner.invoke(app, ["ocr-recover-petitions"], env={"FEDCOURTS_CORPUS_ROOT": str(root)})
     assert result.exit_code == 1
-    assert "no stored petitions" in result.output and "wrong blob" in result.output
+    assert "no stored documents" in result.output and "wrong blob" in result.output
 
 
 def test_the_cli_reports_missing_binaries_as_a_refusal(

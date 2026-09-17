@@ -227,7 +227,7 @@ from .pipeline.ingest import UNSAMPLED_WEIGHT
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
 from .pipeline.ocr_recovery import DEFAULT_PROBE_SAMPLE as DEFAULT_OCR_PROBE_SAMPLE
-from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_petitions
+from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_documents
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
 from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
@@ -1853,6 +1853,13 @@ def _slice_deadline(started: float, seconds: float | None, *, command: str) -> f
     return started + seconds
 
 
+def _echo_by_kind(label: str, counts: Mapping[str, int]) -> None:
+    """One line of per-kind counts, or nothing when there are none to report."""
+    if not counts:
+        return
+    typer.echo(f"  {label}: " + ", ".join(f"{kind} {count}" for kind, count in counts.items()))
+
+
 def _echo_unreached(unreached: Sequence[str]) -> None:
     """Name the candidates the slice deadline declined to start, if any.
 
@@ -1877,7 +1884,7 @@ def ocr_recover_petitions_cmd(
         bool,
         typer.Option(
             "--apply",
-            help="Re-fetch, OCR and write the recovered petitions; omit for a dry-run "
+            help="Re-fetch, OCR and write the recovered filings; omit for a dry-run "
             "that enumerates the class and probes the fetch path.",
         ),
     ] = False,
@@ -1886,7 +1893,7 @@ def ocr_recover_petitions_cmd(
         typer.Option(
             "--max-cases",
             help="Per-dispatch slice size, required with --apply: the number of "
-            "scanned petitions this run re-fetches and OCRs.",
+            "scanned filings this run re-fetches and OCRs.",
         ),
     ] = None,
     probe: Annotated[
@@ -1910,28 +1917,38 @@ def ocr_recover_petitions_cmd(
         ),
     ] = None,
 ) -> None:
-    """Read the scanned petitions off their page images and store what comes back.
+    """Read the scanned filings off their page images and store what comes back.
 
-    A petition filed on paper reaches the corpus with no text layer, so the
-    extractor stored nothing for it and every cell minted over that case reads an
-    empty petition — for as long as the docket keeps serving the same URL, since
-    the poller and the Term walker re-fetch a kind only when its link changes.
+    A filing submitted on paper reaches the corpus with no text layer, so the
+    extractor stored nothing for it and every cell minted over that case reads it
+    empty — for as long as the docket keeps serving the same URL, since the
+    poller and the Term walker re-fetch a kind only when its link changes.
     This is the pass that repairs it, on the terms in *Contract for the recovery
-    pass* (`docs/live-sources.md`): the population is stored **petitions** whose
-    text is empty or whitespace-only and whose page count is above zero (a
-    zero-page row is a PDF the extractor could not open, which is not OCR's to
-    repair, and a case with no petition row at all is a fetch gap); each is
+    pass* (`docs/live-sources.md`): the population is every stored row a cell
+    reads that was fetched as a PDF — the petition, the application, the brief
+    in opposition, the four merits filings — whose text is empty or
+    whitespace-only, whose page count is above zero (a zero-page row is a PDF
+    the extractor could not open, which is not OCR's to repair, and a case with
+    no row of a kind at all is a fetch gap), and whose stored URL is one link.
+    That last condition excludes one shape: a multi-respondent opposition is
+    stored as a single row whose URL is the canonical join of every brief
+    fetched into it — an idempotency key, not something to GET. Such a row also
+    carries its per-brief headings as text, so it is not empty by the coverage
+    report's test and reads there as covered while carrying no argument at all;
+    neither surface sizes that residual, and the ledger's `set_keyed` tally is
+    the guard against a set key that somehow did read empty rather than a count
+    of it. Each candidate is
     re-fetched by its own stored URL on supremecourt.gov, free and
     politeness-capped, so the pass spends none of the CourtListener budget; and
     its pages go through the extractor with the OCR seam supplied, which reads a
     page off its rendered image only where that page's own extraction yielded
     nothing. The same per-document character cap and truncation flag bound the
-    result, so a recovered petition is bounded exactly like a fetched one, and
+    result, so a recovered row is bounded exactly like a fetched one, and
     every recovered row carries `ocr_derived`: OCR output is derived text, and
     must never read as a clean extraction. Additive — text is written only where
-    the stored row held none — and a recovered petition re-derives its
+    the stored row held none — and a recovered **petition** re-derives its
     `questions-presented` row through the ingest path's own deriver, which
-    carries the marker with it.
+    carries the marker with it; no other kind has a follow-on write.
 
     The two modes do different work. The **dry run** enumerates the class, OCRs
     nothing and writes nothing, and re-fetches `--probe` of the population's
@@ -1939,13 +1956,16 @@ def ocr_recover_petitions_cmd(
     lanes use, reporting what each GET came back with — the reading that says
     whether the writer's fetch path is served before an apply spends a slice
     finding out. The **apply** takes the first `--max-cases` candidates in
-    `case_id` order: the bound is a *slice size* rather than a refusal
+    `case_id` order, then kind order within a case — so the bound counts
+    candidates rather than cases, and a case holding both a scanned petition and
+    a scanned opposition spends two of it. The bound is a *slice size* rather than a refusal
     threshold, because each case costs a fetch and a page-by-page recognition
     and runner minutes are the whole cost, so a backlog clears across dispatches
     rather than in one long job. The slice is self-advancing — a recovered
-    petition leaves the class — with one exception the ledger names apart: a
-    petition whose images OCR to nothing stays in the class and re-enters the
-    next slice.
+    row leaves the class — with one exception the ledger names apart: a
+    filing whose images OCR to nothing stays in the class and re-enters the
+    next slice. The ledger cuts both the class and what an apply wrote by kind,
+    so a slice's blast radius is legible before and after it is spent.
 
     `--deadline-seconds` is what keeps an apply inside its caller's wall-clock
     cap, and the bound is a spend cap rather than the safety mechanism because of
@@ -2009,7 +2029,7 @@ def ocr_recover_petitions_cmd(
             corpus.connect(db_path) as conn,
             SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
         ):
-            result = recover_scanned_petitions(
+            result = recover_scanned_documents(
                 conn,
                 client=client,
                 apply=apply,
@@ -2022,14 +2042,14 @@ def ocr_recover_petitions_cmd(
     except OcrToolsMissing as exc:
         typer.echo(f"ocr-recover-petitions: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    if not result.petitions_seen:
+    if not result.documents_seen:
         # Zero candidates has two causes and they are not the same run: a
         # converged class, and a blob whose documents this process cannot read —
         # a split-mode index with no content store configured serves every case
         # an empty document list, which would otherwise report as a clean pass
         # over an empty class. The denominator is what tells them apart.
         typer.echo(
-            f"ocr-recover-petitions: no stored petitions in {db_path} "
+            f"ocr-recover-petitions: no stored documents in {db_path} "
             "— wrong blob for this command?",
             err=True,
         )
@@ -2041,11 +2061,18 @@ def ocr_recover_petitions_cmd(
     counted = result.recovered if apply else result.candidates
     typer.echo(
         f"ocr-recover-petitions ({'applied' if apply else 'dry-run'}): "
-        f"{result.candidates} scanned petition(s) in the class of "
-        f"{result.petitions_seen} stored petition(s) — "
+        f"{result.candidates} scanned filing(s) in the class of "
+        f"{result.documents_seen} stored document(s) — "
         f"{verb} {counted}, {result.remaining} left for the next slice"
     )
+    # The class cut by kind, which is what a bound is drawn against: a slice of
+    # 10 over a class that is nine oppositions and one petition touches a very
+    # different set from one over the reverse, and the total alone hides it.
+    _echo_by_kind("class", result.candidates_by_kind)
+    if result.set_keyed:
+        _echo_by_kind("left out (stored URL is a set key, not one link)", result.set_keyed)
     if apply:
+        _echo_by_kind("recovered", result.recovered_by_kind)
         typer.echo(
             f"  attempted {result.attempted} (bound {result.bound}); "
             f"{result.empty_after_ocr} still empty after OCR; "
@@ -2053,16 +2080,16 @@ def ocr_recover_petitions_cmd(
         )
         losses = ", ".join(f"{reason}: {count}" for reason, count in result.unfetched.items())
         typer.echo(f"  unfetched: {losses or 'none'}")
-    for case_id, detail in result.recoveries.items():
-        typer.echo(f"  {case_id}: {detail}")
-    for case_id, reason in result.failures.items():
-        typer.echo(f"  {case_id}: NOT RECOVERED ({reason})")
+    for key, detail in result.recoveries.items():
+        typer.echo(f"  {key}: {detail}")
+    for key, reason in result.failures.items():
+        typer.echo(f"  {key}: NOT RECOVERED ({reason})")
     _echo_unreached(result.unreached)
     for entry in result.probes:
         # The dry run's second reading: what the writer's own fetch path gets
         # back from supremecourt.gov, before a slice is spent finding out.
         typer.echo(
-            f"  probe {entry.case_id}: {entry.outcome} "
+            f"  probe {entry.case_id} {entry.kind}: {entry.outcome} "
             f"(status {entry.status if entry.status is not None else 'none'}, "
             f"{entry.bytes_fetched} bytes) {entry.url}"
         )

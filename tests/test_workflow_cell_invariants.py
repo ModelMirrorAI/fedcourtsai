@@ -1423,7 +1423,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Re-derive the distribution counts", ()),
     ("repair", "Converge stored docket markings", ()),
     ("repair", "Backfill the dated response signals", ()),
-    ("repair", "Recover scanned petitions by OCR", ("apply did not converge",)),
+    ("repair", "Recover scanned filings by OCR", ("apply did not converge",)),
     ("repair", "Backfill missing primary documents", ("apply did not converge",)),
     ("repair", "Mirror blob-only documents to the content store", ("apply did not converge",)),
     ("repair", "Backfill the interim arrival stamps", ()),
