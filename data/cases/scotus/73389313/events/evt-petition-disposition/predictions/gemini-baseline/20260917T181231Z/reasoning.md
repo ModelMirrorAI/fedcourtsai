@@ -1,0 +1,5 @@
+P(grant) 0.001. The snapshot shows a petition by Joan E. Farr. Although it is docketed as a "Paid" petition, the petitioner is proceeding pro se and all respondents (including the Federal Parties) have filed waivers of right to respond.
+
+The prior-Term pooled salience band bracketed "reached" rate for the "baseline" band is roughly 5% over the 2017-2024 Terms. I adjust down drastically from this base rate because the petition is clearly frivolous. The questions presented assert a 25-year government conspiracy denying civil rights and the right to run for US President pursuant to 42 USC 1985. The petition is distributed for conference (1 distribution so far). Without any respondent being forced to file an opposition, and given the nature of the claims, there is virtually zero chance of a grant.
+
+Vehicle quality is nonexistent. I am extremely confident in this being denied on the first conference.

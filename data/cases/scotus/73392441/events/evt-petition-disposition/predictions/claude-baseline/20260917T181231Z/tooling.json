@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73392441",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md",
+    "CourtListener MCP search (dockets)",
+    "CourtListener MCP call_endpoint (dockets, docket-entries)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt",
+    "Segment base rate by salience band table with bracketed reached figures",
+    "context.json band and distribution_count",
+    "CourtListener dockets endpoint confirming the docket is not terminated"
+  ],
+  "gaps": [
+    "fedcourts query has no originating-court or petitioner-counsel filter, so priors from the same state court or the same repeat filer cannot be pulled",
+    "CourtListener holds no docket entries for supremecourt.gov dockets, so the live-entry check via docket-entries returns empty and only the docket header can be confirmed",
+    "No per-Term statpack cut for petitions that reached conference with no response and no waiver on file"
+  ],
+  "notes": "The corpus query returned recent granted priors that were mostly emergency applications and high-profile petitions, not a useful comparison set for a private state-court petition; it served as a shape check only. Five MCP calls total, well under budget."
+}

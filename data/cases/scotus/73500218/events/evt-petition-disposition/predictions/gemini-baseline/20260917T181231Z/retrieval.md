@@ -1,0 +1,1 @@
+CourtListener MCP lookup: search with `caseName="Joan Farr"` and `type="d"` to check for prior bankruptcy/litigation history of the petitioner. No other retrieval beyond the provisioned inputs and the statpack.

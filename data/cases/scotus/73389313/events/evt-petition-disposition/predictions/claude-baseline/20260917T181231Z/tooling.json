@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73389313",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned petition text and QP cut"],
+  "helpful": [
+    "The frozen band in context.json and the matching sal-v4 band table made the anchor a table read rather than a derivation.",
+    "The provisioned petition text (OCR, 32 pages) was legible enough to judge the questions presented directly.",
+    "documents.json's explicit listing made it clear that no BIO exists rather than that one failed to fetch."
+  ],
+  "gaps": [
+    "A pro se / counseled split on the paid scored segment would let a cell like this anchor on its own population instead of adjusting off a band rate dominated by counseled petitions.",
+    "A per-Term long-conference reschedule rate would pin the relist-increment claim for petitions sitting at one distribution to the September conference."
+  ],
+  "notes": "fedcourts query with --disposition granted in the 2020s era surfaces mostly substantive applications ahead of cert petitions; a --kind petition filter, or excluding applications by default on a cert cell, would make the priors it returns more relevant."
+}

@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73500219",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP was rate-limited (HTTP 429, 300/hour bucket, ~14 minutes to reset) on this cell's first call, so no live CourtListener data informed this prediction; it rests on the provisioned snapshot, the petition text, the statpack and two corpus queries. The related dockets 25-7403 and 25-7477 are inferred to be the co-defendant IFP petitions, not confirmed."
+    }
+  ]
+}

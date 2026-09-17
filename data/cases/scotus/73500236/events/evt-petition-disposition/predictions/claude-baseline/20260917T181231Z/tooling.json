@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/73500236",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "courtlistener MCP search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The provisioned petition text and QP cut were the decisive inputs; the snapshot's waiver entries and single distribution fixed the procedural state cleanly.",
+    "The sal-v4 band table with bracketed reached rates made the anchor unambiguous."
+  ],
+  "gaps": [
+    "fedcourts query has no topical or free-text handle, so it cannot surface similar special-assessment or municipal-bond petitions; the citation lookup returned nothing and cost 1357 ranged GETs (~356 MB) for an empty result.",
+    "No provisioned text of the opinion below; the petition's appendix exhibit PDF is linked in the snapshot but not fetched, so the state court's own statement of its ground had to be taken from the petition's quotations.",
+    "No committed baselines for the cert-order share of grants or for dissent-from-denial frequency on paid petitions; both claims were stated from the per-Term granted/gvr split and general knowledge."
+  ],
+  "notes": "Both respondents waived, so there is no BIO and the document set is petition-only; the cell was not degraded, but the opposing view is inferred."
+}

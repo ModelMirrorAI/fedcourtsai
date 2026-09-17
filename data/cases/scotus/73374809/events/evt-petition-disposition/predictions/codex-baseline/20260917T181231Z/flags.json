@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73374809",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Chronology caveat: the snapshot records filing on February 11, 2025 but docketing on May 22, 2026; the petition describes initial submission and a June 11, 2025 resubmission. These may reflect separate processing milestones. I retained the snapshot's one distribution for September 28, 2026 and did not infer untimeliness or an outcome from the interval. See reasoning.md."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition is readable and untruncated, but no lower-court order or BIO text is supplied. The petition's account of rejection for missing appellate records cannot be independently tested for preservation or state procedural grounds. This is an evidentiary limit, not a claim that a BIO was filed or that provisioning failed; a conservative prediction is complete."
+    }
+  ]
+}

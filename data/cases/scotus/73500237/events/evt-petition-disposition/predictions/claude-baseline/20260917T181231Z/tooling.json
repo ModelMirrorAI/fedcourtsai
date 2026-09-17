@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500237",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "CourtListener MCP search", "metrics/statpack.md"],
+  "helpful": [
+    "Provisioned petition.txt with the Fourth Circuit opinion in the appendix: the alternative qualified-individual holding was the decisive vehicle fact",
+    "Frozen band and matching sal-v4 statpack table made the anchor unambiguous",
+    "Docket snapshot showing the SG waiver and the long-conference distribution"
+  ],
+  "gaps": [
+    "A statpack cut by respondent-waiver status (P(grant) and P(call for response) given the SG waived) would anchor this common shape directly",
+    "CourtListener's SCOTUS docket coverage is thin; the docket-number search returned nothing, so the MCP added little for a supremecourt.gov-only petition",
+    "fedcourts query has no free-text or statute filter, so it cannot pull Rehabilitation Act / ADA cert priors specifically"
+  ],
+  "notes": "Corpus query returned 20 granted 2020s priors in one call at ~12 MB of ranged reads; useful for profile, not for topical matching."
+}

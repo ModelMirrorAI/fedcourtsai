@@ -1,0 +1,7 @@
+Distributed twice so far on the docket, but effectively this is its first substantive conference because the initial distribution was pre-empted by a response request. Expect at least one further relist before a decision on the petition, as the Court typically relists cases it is seriously considering for a grant. The questions presented are clean challenges to a court-drawn remedial map under the Voting Rights Act and the Equal Protection Clause. 
+
+No CVSG is expected; while VRA cases can implicate federal interests, this involves a state legislative map and the issues of standing and strict scrutiny are well-defined for the Court to resolve without the Solicitor General's input.
+
+If granted, the Court would likely take both questions as written to clarify standing to challenge remedial maps and the application of strict scrutiny to race-conscious remedies. A summary disposition (GVR or reversal) is unlikely because the questions warrant full merits briefing and plenary review.
+
+Should it deny, expect a dissent from denial from one or more conservative Justices (e.g., Justice Thomas or Justice Alito), who have consistently expressed skepticism about race-conscious redistricting and might object to the Ninth Circuit's standing and equal protection analysis.

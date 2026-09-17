@@ -1,0 +1,13 @@
+# Forecast: what the Court will do with No. 25-1339, Greene v. Kansas Department of Revenue
+
+**Disposition.** The petition will be denied at or shortly after the September 28, 2026 long conference, without a call for a response and without separate writing.
+
+**Relists.** The docket shows one distribution (entered June 24, 2026, for the 9/28 conference); the petition has never been relisted. Expect no further distribution. The only realistic route to a second one is a call for a response after the respondent's waiver, and I do not expect the Court to make that call: the question presented as framed is not the question the Kansas courts decided, and nothing in the petition would make a Justice want Kansas's answer before voting to deny.
+
+**CVSG.** None. No federal party, no federal statute, and no federal program is implicated; the "illegal exaction" doctrine the petition invokes is a Federal Circuit Tucker Act construct, not something the Solicitor General would be asked about in a suit against a state revenue agency.
+
+**Which question, if any.** If the Court were ever to take up the underlying subject, it would not be on this petition's QP. The live split the petition borrows from Asinor and Honda Lease Trust is whether the *Fourth* Amendment governs continued retention of lawfully seized property. The petitioners pleaded a *Fifth* Amendment takings/due-process theory against a tax levy, the Kansas Court of Appeals rejected it on the ground that a tax assessment is not a taking, and the QP asks a Fifth Amendment question that no circuit on either side of that split has answered the petitioners' way. A grant would require reformulating the question entirely and would still run into the Kansas courts' state-law and procedural grounds. The Court will not do that here.
+
+**Summary disposition.** Conditional on the very unlikely event of a grant, the likelier form is a GVR rather than plenary review, since plenary review of this vehicle is essentially foreclosed by the mismatch above; but I know of no decided or pending case whose judgment would supply the intervening authority for one, so the conditional is a coin flip between an implausible GVR and a still less plausible plenary grant.
+
+**Dissent or statement on denial.** None expected. Justice Gorsuch (and, separately, Justice Sotomayor) has written on retention of seized property in the civil-forfeiture setting, but this case is a damages suit over a tax levy returned three years ago, brought on a theory the petition itself does not connect to the split it cites. It is not the vehicle either would choose to flag the question.

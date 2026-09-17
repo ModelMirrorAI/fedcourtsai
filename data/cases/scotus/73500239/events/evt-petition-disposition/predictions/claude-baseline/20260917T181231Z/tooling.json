@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500239",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "CourtListener MCP search", "metrics/statpack.md"],
+  "helpful": [
+    "Provisioned petition text and QP file",
+    "context.json band + salience-band Term table (direct anchor)",
+    "Relist-count cut for the second-distribution shape"
+  ],
+  "gaps": [
+    "Unpublished circuit opinions are often not in CourtListener; a provisioned lower-court opinion text (from the petition appendix) would let a cell read the decision below rather than the petitioner's account of it",
+    "A conditioned cut for P(response called for | waiver of response, one distribution) would anchor relist-increment on waived petitions",
+    "fedcourts query has no topic filter on SCOTUS rows, so subject-matter priors (e.g. public-employee speech petitions) cannot be pulled"
+  ],
+  "notes": "Corpus query worked on the first call (47 ranged GETs). CourtListener MCP was available; the case's own SCOTUS docket and the Sixth Circuit opinion were simply not indexed."
+}

@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/73500219",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP search"
+  ],
+  "helpful": [
+    "CourtListener MCP provided context on the circuit split and surrounding case law (e.g., Darrell Ewing v. Connie Horton).",
+    "Statpack gave the base rates for the baseline band and relist count."
+  ],
+  "notes": "Attempted to use fedcourts query with free text but was correctly reminded it only accepts structured flags."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73374809",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener docket id 73374809 (docket_number 25-1301, last modified 2026-05-21) carries case_name 'Walter A. Bernard v. Philip Ignelzi', while the provisioned supremecourt.gov snapshot, the petition text, and the PDF URL all identify 25-1301 as Matsumura v. Court of Appeal of California. I predicted on the provisioned snapshot as authoritative and read the CourtListener caption as stale metadata; worth a look if this docket id is joined to CourtListener anywhere downstream."
+    }
+  ]
+}

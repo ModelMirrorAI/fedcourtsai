@@ -1,0 +1,35 @@
+# Rationale for the probabilities
+
+## Record and scope
+
+This is a forward cert-stage prediction of John Rogne v. City of Catoosa, Oklahoma, Supreme Court docket 25-1320. The petition-kind event has no explicit stage and is treated as cert under the prompt. I read the provisioned September 17, 2026 snapshot, context, questions presented, full 37-page petition, and document manifest. The manifest describes untruncated, nonempty petition text fetched July 18, 2026. It contains no brief in opposition; the snapshot instead records the respondent's response waiver. I therefore cannot characterize an opposition brief's arguments.
+
+The frozen context is sal-v4, baseline, Term 2025, one distribution, no CVSG, and observable proceedings. I retain that band even though the conference falls in September 2026 and the respondent is a municipality: the petitioner is a private individual. The record's June 24 distribution schedules the September 28 conference; it does not establish that a conference has already considered the petition. No response request, amicus filing, or later distribution appears in this baseline.
+
+Beyond those inputs, I retrieved selected pages of the petition's already-filed appendix from its exact snapshot-linked Supreme Court PDF. This was review of the pre-petition lower-court record, not retrieval of the Supreme Court disposition or subsequent history. I do not know this petition's disposition and encountered no outcome-revealing material. Failed web requests and an empty, date-bounded CourtListener search supplied no substantive evidence; retrieval.md records them.
+
+## Base-rate anchor
+
+The committed metrics/statpack.md sal-v4 table supplies the matching baseline band's bracketed reached rate. Pooling every rendered Term strictly before the case's own Term means 2017 through 2024, excluding 2025 and 2026. Using the corresponding exact prefix figures in metrics/statpack.json gives 593 estimated grant-family outcomes over 11,580 denial-reweighted resolved petitions, or 5.1209%. These are weighted risk-set counts, not a random sample of 11,580 independent observations. I do not use the leading terminal-baseline rate, which would condition on never advancing to a stronger band.
+
+The same pack's modern-cert disposition and circuit tables establish the broader low-grant setting, but are not substitutes for that selected-population anchor. Its paid-segment relist and CVSG cuts show terminal distributions/status, not the forward hazard from one distribution. They support caution about further attention but do not mechanically yield either increment probability. They also pool Terms and therefore serve only as descriptive shape, not as the strictly-prior scored baseline.
+
+The committed pack does not expose a build timestamp in the material inspected. I did not query or refresh the remote corpus, so these are committed-pack statistics, not a claim about corpus freshness today. Case provenance is the named provisioned snapshot and manifest; the snapshot's own source creation field is June 24, 2026, and no per-case last-pulled timestamp is supplied. I make no claim to have independently refreshed the docket.
+
+## Why 1.2%, below 5.12%
+
+The petition's strongest point is its allegation that the City fenced property for six years without compensation and that subsequent rescission cannot extinguish the compensation claim. The petition invokes Knick, First English, and Cedar Point to frame a substantial federal property-rights concern (petition pp. 2-7, 10-18). That makes the application more serious than an unexplained request to correct local administrative error. The allegations remain the petitioner's account, not independently established findings.
+
+The retrieved lower opinion materially weakens the vehicle. It is expressly nonprecedential and affirms on limitations grounds (appendix pp. 1a-2a). The federal action was late under either proposed accrual date; the contested savings-statute element was whether the earlier action failed otherwise than on the merits (14a-17a). The panel distinguished the moot prospective claim from the damages claim and read the state appellate decision as a merits rejection, not a mootness dismissal of damages (18a-20a). Thus the immediate obstacle is the effect of a completed state adjudication, not merely a fresh requirement to exhaust remedies before bringing a federal takings action.
+
+My inference is that this posture requires the Court to untangle a particular litigation record and a state savings provision before reaching the petition's broader constitutional framing. A contention that the earlier decision was wrong does not, without more, establish that it was nonmerits. The petition's San Remo distinction and tolling discussion (pp. 19-22) address that obstacle but do not demonstrate conflicting appellate holdings on the same question. I found no developed circuit split in the petition. I am not claiming that no split exists anywhere.
+
+The response waiver and absence of any recorded request for a response or other affirmative escalation further favor routine denial. They are modest procedural evidence, not proof the Court has assessed the merits. Conversely, the alleged physical occupation and the distinction between procedural dismissal and substantive loss preserve a small possibility of interest. Balancing those features against the 5.12% prior yields my 1.2% subjective grant probability. The decrease is a judgment about vehicle quality and the particular record, not a fitted adjustment or a measured feature effect.
+
+## Other probabilities and stakes
+
+The 6% further-distribution probability reflects the uncomplicated current procedural posture while allowing a response request or additional consideration to intervene. The 0.2% CVSG probability reflects a private-local dispute centered on state procedural treatment, without an identified special federal institutional interest. Both are subjective forward hazards, not terminal-cut frequencies.
+
+The 25% conditional summary-route probability allows narrow error correction if the Court finds the lower court's treatment plainly incompatible with governing principles. Plenary review remains the likelier grant route because the threshold dispute is not a simple identified companion-case hold. The 2.5% conditional probability of a denial-related writing acknowledges the property-rights issue without predicting individual votes or a known advocate on the Court.
+
+I assign stakes 0.30 independently of grant likelihood. The alleged uncompensated occupation matters greatly to the owner, and the federal-forum implications could matter to other owners, but the vehicle does not presently establish broad national exposure or a clean nationwide conflict. The principal uncertainties are the absence of an opposition brief, my selective rather than complete appendix review, and how strongly the Court might perceive the compensation concern despite the procedural obstacle. The low grant estimate should not be read as agreement that the alleged conduct was constitutional.

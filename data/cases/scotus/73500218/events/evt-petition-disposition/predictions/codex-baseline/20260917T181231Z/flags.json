@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500218",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "scope",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The event defaults to cert-stage prediction, but the provisioned filing entry explicitly says petition for a writ of mandamus (In Re Joan Farr, No. 25-1315). I preserved the required five claims and forecast denial of the writ, adjusting below the ordinary cert baseline for Rule 20's exceptional-relief standard. Please review original-writ classification and the applicability of the cert summary-route claim and benchmark; no event or pipeline files were changed."
+    },
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "No filed-document text or document manifest was provisioned. A fetch of the exact pre-decision petition PDF in the snapshot succeeded, but pypdf extracted zero characters from each of its 22 pages. No OCR or visual review was performed. The prediction uses procedural metadata and generic Rule 20, not substantive petition arguments; big_case_score is null because the stakes cannot be placed. Readable petition/QP text or OCR would materially improve this cell. No case outcome was sought or encountered."
+    }
+  ]
+}

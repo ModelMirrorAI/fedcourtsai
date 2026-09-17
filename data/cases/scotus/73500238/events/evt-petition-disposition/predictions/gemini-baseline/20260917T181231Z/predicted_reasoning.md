@@ -1,0 +1,5 @@
+Distributed once so far, for the September 28, 2026 conference. I expect the petition to be denied outright at this first conference without any further relists. 
+
+The Solicitor General has waived the right to respond on behalf of the United States. Given the fact-bound nature of the questions presented—plain-error review of a Napue violation and a Rule 702 Daubert challenge—the Court is highly unlikely to request a response or grant review. The issues are typical trial disputes that the Ninth Circuit resolved under settled law. 
+
+Because the United States is already a party, the Court will not call for the views of the Solicitor General (no CVSG). If the Court were to grant review, it would likely take the case for plenary argument; a summary disposition route is very unlikely as there are no intervening decisions that bear directly on these specific evidentiary and prosecutorial misconduct claims. Should it deny certiorari, I expect no separate writing or dissent from the denial.

@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/73500219",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "courtlistener MCP search (rate-limited, no data returned)"
+  ],
+  "helpful": [
+    "The provisioned petition text with a separate questions-presented cut; the split and vehicle sections were the core of the forecast.",
+    "The sal-v4 segment table's bracketed reached figures, which made the band anchor a two-line computation."
+  ],
+  "gaps": [
+    "CourtListener MCP returned HTTP 429 (300/hour) on the first call of the cell, so the fan-out appears to share one rate-limit bucket; a per-cell budget or a cached docket read for the case's own live docket would have let me confirm the related-docket identities and check for a post-snapshot response request.",
+    "fedcourts query has no filter that reaches a doctrinal topic on SCOTUS rows (topic is circuit-only), so era/disposition queries return recency-ranked applications rather than comparable cert petitions.",
+    "A pre-computed grant rate for waived-response paid petitions with no response request would be a sharper anchor than the band mean for this very common shape."
+  ],
+  "notes": "The petition is 120 pages and truncated; the appended Sixth Circuit opinion and district court order were only partly readable. One MCP retry after writing the drafts also returned HTTP 429."
+}

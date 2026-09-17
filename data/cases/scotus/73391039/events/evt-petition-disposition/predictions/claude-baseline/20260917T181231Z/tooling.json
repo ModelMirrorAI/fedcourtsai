@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/73391039",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "The sal-v4 band table with bracketed reached rates gave a clean, leakage-safe anchor for a baseline-band cell.",
+    "Provisioned petition text plus documents.json made the pro se, sanctions-below, waiver profile legible without any retrieval."
+  ],
+  "gaps": [
+    "fedcourts query has no filter for fee class, pro se status, or originating court, so it could not return comparable priors for a pro se paid petition; both structured queries came back dominated by recent stay applications.",
+    "No per-fee-class or pro-se grant rate is rendered in statpack.md for the baseline band; the fee-class detail lives only in statpack.json.",
+    "CourtListener's opinion index had no entry for the unreported Eleventh Circuit decision below, so the ruling could only be read through the petition's characterization."
+  ],
+  "notes": "questions-presented.txt carries a stray OCR page-marker line ('il') after the question; harmless but worth a trim in the QP cutter."
+}

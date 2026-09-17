@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500229",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "read_file", "run_shell_command"],
+  "helpful": ["mcp_courtlistener_search", "run_shell_command for quick greps"],
+  "gaps": ["fedcourts query requires a precise date format that I messed up, falling back to mcp_courtlistener_search"],
+  "notes": "The statpack was crucial for getting the correct base rate for the 'baseline' band."
+}

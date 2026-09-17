@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500232",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search (rate-limited, no result)"
+  ],
+  "helpful": [
+    "Frozen band + salience_version in context.json matched the statpack's sal-v4 band table, so the anchor was a mechanical pool over eight prior Terms",
+    "Full extracted petition.txt (34 pages, not truncated) let the split/vehicle assessment rest on the petition's actual citations rather than on the QP alone"
+  ],
+  "gaps": [
+    "The CourtListener MCP sidecar shares an hourly rate budget across cells; this cell's first call hit HTTP 429 with ~5 minutes to reset, so the opinion below could not be read. A per-cell reservation or a retry-after hint in the tool error would help",
+    "No pro se / counsel-status cut in the statpack and no such filter on fedcourts query, although self-representation is this petition's dominant grant-rate feature",
+    "No respondent-waived / no-response cut, which the docket exposes cheaply and which is a strong denial signal"
+  ],
+  "notes": "The generic granted-priors query returns mostly substantive applications and high-profile counseled petitions; a kind or counsel filter would make it useful for a baseline-band cert cell."
+}

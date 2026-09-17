@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500231",
+  "gaps": [
+    "QP extraction silently cuts question 7 and omits question 8; the full petition enabled recovery.",
+    "Lower-court appendix text was not provisioned, limiting independent assessment of preclusion and jurisdiction grounds.",
+    "General web search/open attempts returned no visible content."
+  ],
+  "helpful": [
+    "Frozen sal-v4 context and prior-Term reached-band rates supplied the correct private-petitioner anchor.",
+    "Nonempty full petition preserved all eight questions and the substantive cert arguments.",
+    "CourtListener historical-opinion snippets allowed focused verification of Lawlor and Parr without target-outcome retrieval."
+  ],
+  "notes": "The initial uv command failed because its default cache was read-only; a temporary cache override worked. CourtListener's reporter-citation filter initially returned an unrelated case, so bounded case-name searches were used instead. No live corpus query was needed.",
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "tools_used": ["exec_command", "web.run", "CourtListener search", "CourtListener search_document", "fedcourts paths"],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

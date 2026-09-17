@@ -1,0 +1,3 @@
+- `fedcourts query --court scotus --disposition granted "extraneous information jury deliberation"` (Failed: unsupported free-text search)
+- `fedcourts query --court scotus --disposition denied "extraneous information jury deliberation"` (Failed: unsupported free-text search)
+- CourtListener MCP search query: `("extraneous information" OR "extra-record information") AND jury AND Remmer` (Returned 266 cases, including *Darrell Ewing v. Connie Horton*, 914 F.3d 1027 (6th Cir. 2019))

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500218",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "ambiguous-event",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The filing under this cert-stage event is a Rule 20 petition for an extraordinary writ of mandamus (docket text: 'Petition for a writ of mandamus filed'), not a petition for certiorari. It resolves on the same grant/deny reading, so the cell is predictable, but the salience-band anchor (baseline, sal-v4) is a cert-petition population; the statpack carries no extraordinary-writ stratum, and the true grant rate for pro se mandamus petitions is far below even the baseline band's floor. Worth a docket-text marker (petition_type) so this class can be anchored on its own population."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP returned HTTP 429 (300/hour account rate limit, ~15 min to reset) on the cell's first two search calls; retrieval degraded to the corpus query sidecar and open-web search per the prompt's fallback. If several cells in one fan-out share the CourtListener account, later cells in the same hour will see the same throttle."
+    }
+  ]
+}

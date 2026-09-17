@@ -1,0 +1,10 @@
+# Retrieval log
+
+- Local inputs: `AGENTS.md`, `.github/prompts/predict.md`, prediction/flags/tooling schemas; the named event, context, September 16 snapshot, document manifest, questions presented, petition, and opposition with appended hearing transcript. No other cell outputs or outcome files read.
+- Committed aggregate context: `metrics/statpack.md`, modern-cert disposition, circuit, paid-segment relist/CVSG, and per-Term sal-v4 reached-band tables; `metrics/statpack.json` structure and exact baseline risk-set counts for displayed Terms 2017–2024. Pooled 593 / 11,580 = 0.05120898100172712. This was a local statpack read, not a corpus query.
+- Path utility: `uv run fedcourts paths --court scotus --docket 73378855 --event evt-petition-disposition --role predictor`. Initial call failed because the default uv cache was read-only; rerun with its cache redirected to `/tmp/uv-cache` succeeded. No outcome content was returned or read.
+- Web search queries: `site.loc.gov "509" "443" "TXO" "articulate"` and `site.supremecourt.gov "Rule 10" "judicial discretion" certiorari`. The tool returned no usable result content.
+- Web open attempted for the Library of Congress U.S. Reports TXO PDF, ending in `usrep509/usrep509443/usrep509443.pdf`. The tool returned no usable content. No factual assertion is based on that attempted open.
+- CourtListener MCP `search(type="o", citation="509 U.S. 443", num_results=1)` returned *TXO Production Corp. v. Alliance Resources Corp.*, decided June 25, 1993; cluster 112900 and lead opinion 9432881. Only this unrelated historical precedent was queried.
+- CourtListener MCP `search_document(opinion_id=9432881, query="articulate", snippet_size=800)` returned the passage at 509 U.S. 464–65 about an adequate hearing and the trial judge's failure to articulate reasons. Used as limited precedent context; no additional opinions or citing-case searches performed.
+- No `fedcourts query` or `open-events` calls; no ranged corpus transfer lines to report. No current case docket retrieval, subsequent-history search, or outcome search.

@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73389313",
+  "gaps": [
+    "Independent lower-court opinions and appendix were not provisioned",
+    "Web-tool calls returned no visible content",
+    "pdftotext was unavailable; installed pypdf provided extraction"
+  ],
+  "helpful": [
+    "Frozen sal-v4 band, Term, and distribution count",
+    "Complete OCR petition and separate questions presented",
+    "Unrounded reached-band denominators in the statpack JSON"
+  ],
+  "notes": "No case-specific external retrieval was needed. The official Rule 10 PDF was read in memory for general context. A temporary writable uv cache resolved the default-cache permission failure. Missing opposition text was consistent with the provisioned respondent waivers. No outcome information was encountered.",
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and OCR petition",
+    "committed statpack Markdown and JSON",
+    "jq",
+    "fedcourts paths",
+    "web search/open attempts",
+    "curl",
+    "Python urllib.request and pypdf",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

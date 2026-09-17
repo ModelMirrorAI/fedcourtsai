@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/73378855",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "provisioned record/documents"],
+  "helpful": [
+    "The provisioned BIO with its remittitur-hearing transcript appendix settled the factual dispute over the punitive ratio without any retrieval.",
+    "context.json's frozen band plus the sal-v4 segment table made the anchor a single pooled arithmetic step."
+  ],
+  "gaps": [
+    "No query filter for counsel status (pro se vs counseled) or fee class, so no way to pull comparable pro se paid petitions as priors.",
+    "No query filter on originating state court, so `--disposition granted` returns mostly emergency applications and headline grants rather than comparables.",
+    "A statpack cut of grant rate by pro se status would sharpen the downward adjustment from the band anchor, which here is the whole forecast."
+  ],
+  "notes": "Forward cell, single distribution for the long conference. The query surface was useful only as contrast; the forecast rests on the provisioned documents and the band table."
+}

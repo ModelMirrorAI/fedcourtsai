@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500229",
+  "gaps": [
+    "Provisioned document manifest predates both opposition filings and the reply",
+    "corpus-info cannot expose freshness through this cell's service backend",
+    "Web open returned no PDF content; direct official-site extraction was needed",
+    "Long terminal excerpts were truncated; focused excerpts were used"
+  ],
+  "helpful": [
+    "Frozen conditioning distinguishes same-conference distribution notices from a substantive relist",
+    "Snapshot links allowed targeted retrieval of both sides without searching for outcomes",
+    "Prior-Term reached rates supply the correct band anchor"
+  ],
+  "notes": "No CourtListener MCP or corpus-prior query was needed after reading targeted pre-decision filings. A temporary writable uv cache resolved the default cache permission failure. Reply extraction warned about fontTools, but the relied-on text remained readable.",
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and petition text",
+    "committed statpack",
+    "fedcourts paths",
+    "fedcourts corpus-info (unsuccessful)",
+    "web.run open (empty responses)",
+    "official Supreme Court PDF retrieval with urllib.request and pypdf",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

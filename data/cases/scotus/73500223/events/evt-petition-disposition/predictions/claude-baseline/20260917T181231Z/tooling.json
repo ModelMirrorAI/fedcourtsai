@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500223",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP (attempted, throttled)"],
+  "helpful": [
+    "provisioned petition and BIO text — the whole forecast rests on them",
+    "sal-v4 band segment table with the bracketed reached rates and the frozen band in context.json",
+    "documents.json empty_text/truncated flags"
+  ],
+  "gaps": [
+    "CourtListener MCP shared 300/hour rate limit was already exhausted when this cell ran; a per-cell quota or a harness-side retry-after would have let the live-docket check happen",
+    "fedcourts query --citation on scotus transferred ~356 MB of ranged reads to return nothing; the coverage note should be printed before the scan, or the filter should refuse when the column is that sparse",
+    "no statpack cut conditioned on cert-stage amicus count, which is the strongest signal on this docket",
+    "no cut by originating state intermediate appellate court (California Court of Appeal petitions fall into the '(none)' bucket)"
+  ],
+  "notes": "Forward cell; conference is 11 days after the snapshot. The corpus query surface returned no useful analogue for a PruneYard/takings petition, so priors came from the statpack and the provisioned documents."
+}

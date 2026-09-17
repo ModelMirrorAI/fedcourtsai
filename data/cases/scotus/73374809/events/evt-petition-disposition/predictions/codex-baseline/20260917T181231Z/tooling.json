@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73374809",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "functions.exec_command",
+    "fedcourts paths",
+    "committed statpack markdown and JSON",
+    "jq weighted-pool calculation",
+    "web.run (no usable content returned)",
+    "curl official Supreme Court rules index",
+    "urllib and pypdf official rules extraction",
+    "apply_patch",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "The readable petition and extracted questions permit distinguishing asserted national stakes from the concrete licensing dispute.",
+    "Frozen sal-v4 context plus unrounded reached-band rates permits a correctly weighted prior-Term anchor."
+  ],
+  "gaps": [
+    "Lower-court order text would clarify whether the federal question was reached and the nature of any procedural obstacle.",
+    "Web search/open returned no usable content; direct official-source extraction worked.",
+    "The default uv cache is read-only; a temporary cache override was needed."
+  ],
+  "notes": "No case-specific external retrieval or corpus query was necessary. pdftotext was absent, but the installed pypdf library extracted the general rules without writing a downloaded file. The missing BIO was not treated as evidence that respondents waived a response."
+}
