@@ -24,10 +24,12 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from fedcourtsai.collect import PathChange, parse_name_status
+from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.secretscan import (
     _MAX_SEGMENT,
     Finding,
     _is_own_run_path,
+    is_cell_retrieval_file,
     redact_credentials,
     render_issue_comment,
     render_warnings,
@@ -1048,3 +1050,206 @@ def test_transcript_surface_catches_prefixed_keys_without_the_known_env(
     assert result.exit_code == 1
     assert "model-provider-key" in result.output
     assert "jwt" in result.output
+
+
+# --- a cell's retrieval pair ---
+
+# Two files hold what a cell's tool calls carried: `retrieval_log.json`, which
+# the harness captures, and `retrieval.md`, which the agent writes as its own
+# account of the same calls. Both are scanned by every detector except the
+# generic entropy heuristic, which reads a document URL or a search query as
+# an opaque blob; every other file the cell writes keeps it.
+
+_CELL_RUN_ID = "20260916T201911Z"
+_CELL_CASE = ("scotus", 73274859)
+_CELL_EVENT = "evt-brief-judgment"
+
+# A masked stand-in for the Court's Rules PDF, same host and directory and a
+# filename of the same length. The candidate the heuristic extracts runs from
+# the host's last label to the extension — 42 characters over four character
+# classes, 0.849 normalized entropy against the 0.82 bar, and two slashes, one
+# short of the per-segment branch, so it is judged whole and convicted.
+_COURT_URL = "https://www.supremecourt.gov/filingandrules/2023RulesOfTheCourt_ADA.pdf"
+
+
+def _cell_event(root: Path) -> EventPaths:
+    return CasePaths(root / "data", *_CELL_CASE).event(_CELL_EVENT)
+
+
+def _write_cell_file(root: Path, path: Path, content: str) -> str:
+    """Write one of a cell's files and return its repo-relative path."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content)
+    return path.relative_to(root).as_posix()
+
+
+def _scan_cell_file(root: Path, path: Path, line: str, known: tuple[str, ...] = ()) -> list[str]:
+    """Scan one cell file through ``scan_changes``, which owns the per-file switch."""
+    rel = _write_cell_file(root, path, line + "\n")
+    return [f.rule for f in scan_changes(parse_name_status(f"A\t{rel}\n"), root, known)]
+
+
+def test_the_scoped_surface_is_the_layout_paths_builds(tmp_path: Path) -> None:
+    # Pinned against `fedcourtsai.paths` rather than a literal, so a layout
+    # change cannot silently widen or void the scoping.
+    event = _cell_event(tmp_path)
+    for path in (
+        event.prediction_retrieval("codex-baseline", _CELL_RUN_ID),
+        event.prediction_retrieval_log("codex-baseline", _CELL_RUN_ID),
+        event.evaluation_retrieval("claude-judge", _CELL_RUN_ID),
+        event.evaluation_retrieval_log("claude-judge", _CELL_RUN_ID),
+    ):
+        assert is_cell_retrieval_file(path.relative_to(tmp_path).as_posix())
+    # The same cell's composed surfaces are not the scoped one.
+    for path in (
+        event.reasoning("codex-baseline", _CELL_RUN_ID),
+        event.prediction_flags("codex-baseline", _CELL_RUN_ID),
+        event.evaluation_flags("claude-judge", _CELL_RUN_ID),
+    ):
+        assert not is_cell_retrieval_file(path.relative_to(tmp_path).as_posix())
+    # ...and neither is a file that merely carries the name somewhere else,
+    # nor one reached through a traversal component.
+    assert not is_cell_retrieval_file("data/cases/scotus/73274859/retrieval.md")
+    assert not is_cell_retrieval_file(
+        "data/cases/scotus/../events/evt-brief-judgment/"
+        + "predictions/codex-baseline/20260916T201911Z/retrieval.md"
+    )
+    assert not is_cell_retrieval_file(
+        "data/cases/scotus/73274859/events/evt-brief-judgment/"
+        + "predictions/codex-baseline/notarun/retrieval.md"
+    )
+
+
+def test_the_predict_cells_own_run_path_passes_in_a_retrieval_file(tmp_path: Path) -> None:
+    # The first withheld shape: a logged `mkdir -p predictions/<actor>/<run
+    # id>`, which scores 0.829 whole. The run-id exemption covers it only when
+    # the caller names the run; in a retrieval file it passes either way.
+    line = _own_run_line()
+    event = _cell_event(tmp_path)
+    log = event.prediction_retrieval_log("gemini-baseline", _OWN_RUN_ID)
+    assert _scan_cell_file(tmp_path, log, line, known=(_TOKEN,)) == []
+    prose = event.reasoning("gemini-baseline", _OWN_RUN_ID)
+    assert _scan_cell_file(tmp_path, prose, line, known=(_TOKEN,)) == ["high-entropy"]
+
+
+def test_the_evaluate_cells_relative_output_path_passes_in_a_retrieval_file(
+    tmp_path: Path,
+) -> None:
+    # The second withheld shape: a judge validating its own outputs from
+    # inside `evaluations/<evaluator>/` logs `<predictor>/<run id>/evaluation`,
+    # which scores 0.826 whole.
+    run_id = "20260824T231401Z"
+    line = f'"query": "test -s codex-baseline/{run_id}/evaluation.json"'
+    event = _cell_event(tmp_path)
+    log = event.evaluation_retrieval_log("claude-judge", run_id)
+    assert _scan_cell_file(tmp_path, log, line, known=(_TOKEN,)) == []
+    prose = event.reasoning("gemini-baseline", run_id)
+    assert _scan_cell_file(tmp_path, prose, line, known=(_TOKEN,)) == ["high-entropy"]
+
+
+def test_a_court_document_url_passes_in_both_retrieval_files(tmp_path: Path) -> None:
+    # The third withheld shape, in the two places one round recorded it: the
+    # harness's captured tool call, and the agent's account of the same call.
+    # Released by where the file sits, not by anything about the URL — the
+    # same address in the cell's prose is scored exactly as before.
+    event = _cell_event(tmp_path)
+    logged = f'{{"tool": "fetch", "query": "{_COURT_URL}"}}'
+    narrated = f"I read the Court's Rules for the Rule 10 criteria: <{_COURT_URL}>."
+    assert (
+        _scan_cell_file(
+            tmp_path, event.prediction_retrieval_log("codex-baseline", _CELL_RUN_ID), logged
+        )
+        == []
+    )
+    assert (
+        _scan_cell_file(
+            tmp_path, event.prediction_retrieval("codex-baseline", _CELL_RUN_ID), narrated
+        )
+        == []
+    )
+    assert _scan_cell_file(tmp_path, event.reasoning("codex-baseline", _CELL_RUN_ID), narrated) == [
+        "high-entropy"
+    ]
+
+
+def test_agent_prose_in_the_same_cell_keeps_the_entropy_heuristic(tmp_path: Path) -> None:
+    # The scoping is per file, not per cell: an opaque blob in the reasoning
+    # the predictor composed still withholds the run.
+    blob = base64.urlsafe_b64encode(bytes(range(23, 63))).decode().rstrip("=")
+    event = _cell_event(tmp_path)
+    prose = event.reasoning("codex-baseline", _CELL_RUN_ID)
+    assert _scan_cell_file(tmp_path, prose, f"note: {blob}") == ["high-entropy"]
+
+
+def test_structured_shapes_still_fire_in_a_retrieval_file(tmp_path: Path) -> None:
+    # Only the generic heuristic is off there. Every rule that can name a
+    # credential by its shape still reads the file.
+    event = _cell_event(tmp_path)
+    log = event.prediction_retrieval_log("codex-baseline", _CELL_RUN_ID)
+    assert "jwt" in _scan_cell_file(tmp_path, log, f'{{"seen": "{_JWT}"}}')
+    assert "keyword-assignment" in _scan_cell_file(
+        tmp_path, log, '{"header": "x-api-key: 4f1c8b2e9a7d6035"}'
+    )
+    narrative = event.prediction_retrieval("codex-baseline", _CELL_RUN_ID)
+    assert "aws-key-id" in _scan_cell_file(tmp_path, narrative, "I saw AKIAIOSFODNN7EXAMPLE.")
+
+
+def test_a_fernet_token_leaves_a_retrieval_log_at_capture(tmp_path: Path) -> None:
+    # The one credential shape the scan's structured set does not name is
+    # rewritten a layer earlier, by capture-time redaction, so what reaches
+    # the scanned file carries a marker rather than a token.
+    captured = redact_credentials(f'{{"result": "{_FERNET}"}}')
+    assert _FERNET not in captured
+    assert "[redacted:fernet-token]" in captured
+    event = _cell_event(tmp_path)
+    log = event.prediction_retrieval_log("codex-baseline", _CELL_RUN_ID)
+    assert _scan_cell_file(tmp_path, log, captured) == []
+
+
+def test_a_live_credential_in_a_retrieval_file_still_trips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Containment is what carries the scoped surface: the literal value of a
+    # credential the pipeline holds withholds the run from a retrieval file
+    # exactly as from anywhere else, in any of the cheap encodings.
+    event = _cell_event(tmp_path)
+    rel = _write_cell_file(
+        tmp_path,
+        event.prediction_retrieval_log("codex-baseline", _CELL_RUN_ID),
+        f'{{"query": "curl -H x: {base64.b64encode(_TOKEN.encode()).decode()}"}}\n',
+    )
+    changes = tmp_path / "changes.txt"
+    changes.write_text(f"A\t{rel}\n")
+    monkeypatch.setenv("FEDCOURTS_TEST_TOKEN", _TOKEN)
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(
+        app,
+        [
+            "scan-diff-for-secrets",
+            "--name-status-file",
+            str(changes),
+            "--known-secret-env",
+            "FEDCOURTS_TEST_TOKEN",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "known-token" in result.output
+
+
+def test_the_extra_file_surface_is_scoped_by_the_option_not_the_filename(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The rendered PR body and flag roll-up keep the heuristic wherever they
+    # are written, so a path that happens to look like a retrieval file buys
+    # a `--extra-file` nothing.
+    changes = _write_tree(tmp_path, "clean artifact.\n")
+    blob = base64.urlsafe_b64encode(bytes(range(31, 71))).decode().rstrip("=")
+    body = tmp_path / "retrieval.md"
+    body.write_text(f"flag quoted: {blob}\n")
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(
+        app,
+        ["scan-diff-for-secrets", "--name-status-file", str(changes), "--extra-file", str(body)],
+    )
+    assert result.exit_code == 1
+    assert "high-entropy" in result.output

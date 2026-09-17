@@ -1,26 +1,29 @@
-"""The bounded local-OCR recovery pass for scanned petitions.
+"""The bounded local-OCR recovery pass for scanned filings.
 
-A SCOTUS petition that reached the corpus as a paper scan has no text layer, so
-`pypdf` extracted nothing from it and every cell minted over that case reads an
-empty petition — a degradation that persists for as long as the docket keeps
-serving the same URL, since both the poller and the Term walker re-fetch a kind
-only when its link changes. Nothing in the fetching lanes repairs it. This is
-the pass that does, on the terms recorded in *Contract for the recovery pass*
+A SCOTUS filing that reached the corpus as a paper scan has no text layer, so
+`pypdf` extracted nothing from it and every cell minted over that case reads it
+empty — a degradation that persists for as long as the docket keeps serving the
+same URL, since both the poller and the Term walker re-fetch a kind only when
+its link changes. Nothing in the fetching lanes repairs it. This is the pass
+that does, on the terms recorded in *Contract for the recovery pass*
 (`docs/live-sources.md`):
 
-- **Population.** Stored **petitions** whose text is empty or whitespace-only
-  and whose `pages` is above zero. A zero-page row is a PDF the extractor could
-  not open or a derived section, and neither is OCR's to repair; a case holding
-  no petition row at all is a fetch gap, repaired in the fetch path or not at
-  all. Both stay out.
-- **Re-fetch.** By the row's own stored URL — for a petition the single link
-  that was fetched, on supremecourt.gov — through the same polite client the
-  fetching lanes use, so the pass spends none of the CourtListener budget.
+- **Population.** Stored rows of a :data:`RECOVERABLE_KINDS` kind — every kind
+  a cell reads that was fetched as a PDF — whose text is empty or
+  whitespace-only, whose `pages` is above zero, and whose stored URL is one
+  link. A zero-page row is a PDF the extractor could not open or a derived
+  section, and neither is OCR's to repair; a case holding no row of a kind at
+  all is a fetch gap, repaired in the fetch path or not at all; a row whose URL
+  is a set key rather than one link is one this pass cannot re-fetch the way it
+  fetches the rest. All three stay out.
+- **Re-fetch.** By the row's own stored URL — the single link that was fetched,
+  on supremecourt.gov — through the same polite client the fetching lanes use,
+  so the pass spends none of the CourtListener budget.
 - **OCR.** Page by page through :func:`~fedcourtsai.pipeline.documents.extract_pdf_text`'s
   injected ``ocr_page`` seam, which reads a page off its rendered image *only*
   where that page's own extraction yielded nothing. The extractor applies the
   same character cap and sets the same truncation flag it applies to a fetched
-  document, so a recovered petition is bounded exactly like a fetched one.
+  document, so a recovered row is bounded exactly like a fetched one.
 - **Additive.** Text is written only where the stored row held none, so the
   pass cannot overwrite an extraction, and a write carries the ``ocr_derived``
   marker wherever OCR contributed any of its text: OCR output is derived text,
@@ -35,10 +38,12 @@ the pass that does, on the terms recorded in *Contract for the recovery pass*
   the caller must do after the pass have the room the caller reserved for them.
   A declined candidate is *unreached* rather than failed — untouched, and at the
   head of the next slice.
-- **What follows.** A recovered petition re-derives its ``questions-presented``
-  row through the same deriver the ingest path uses, since such a row is written
-  only where the petition has text; the derived row carries the petition's
-  marker, because text cut out of an OCR reading is an OCR reading.
+- **What follows.** A recovered **petition** re-derives its
+  ``questions-presented`` row through the same deriver the ingest path uses,
+  since such a row is written only where the petition has text; the derived row
+  carries the petition's marker, because text cut out of an OCR reading is an
+  OCR reading. No other kind carries a derived section, so no other kind has a
+  follow-on write.
 
 Two binaries, no new Python dependency: ``pdftoppm`` (poppler-utils) renders a
 page to a PNG and ``tesseract`` reads it. They are installed by the `run-repair`
@@ -55,7 +60,7 @@ import sqlite3
 import subprocess
 import tempfile
 import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from datetime import date
@@ -67,6 +72,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from .. import corpus, supremecourt
 from ..supremecourt import SupremeCourtClient
 from .documents import (
+    BIO_URL_JOIN,
+    FETCHED_DOCUMENT_KINDS,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
     OcrPage,
@@ -78,6 +85,21 @@ from .documents import (
 from .prefetch import prefetch_by_case
 
 logger = logging.getLogger(__name__)
+
+# The stored kinds this pass may recover: the fetched ones
+# (:data:`~fedcourtsai.pipeline.documents.FETCHED_DOCUMENT_KINDS`), named there
+# because being one PDF at one link is a fact about how a kind is stored rather
+# than a choice this pass makes. A derived row — the questions-presented section
+# cut out of the petition's own text — is not among them: it carries the
+# petition's URL but none of its pages, so there is nothing to render, and a
+# recovered petition re-derives it anyway.
+#
+# Taken whole rather than re-listed, so a kind the fetching lanes learn to store
+# is recoverable from the moment it is stored. The kinds differ in what a cell
+# loses when one reads empty — a scanned opposition costs the respondent's whole
+# argument, a scanned merits reply the last word on one — and in nothing this
+# pass does: each is one stored row, one link, one re-fetch, one recognition.
+RECOVERABLE_KINDS: tuple[str, ...] = FETCHED_DOCUMENT_KINDS
 
 # The two binaries the pass shells out to. Names only — resolved on `PATH` by
 # the step that installed them, never a path this repository hard-codes.
@@ -103,7 +125,7 @@ PAGE_TIMEOUT_SECONDS = 120.0
 # Per-document wall-clock ceiling on the whole recognition. The page timeout
 # alone is not a document bound: a scan whose pages OCR to nothing accumulates
 # no characters, so the extractor's cap never fires and a long one can run for
-# the length of the step, discarding the slice's other petitions with it. At the
+# the length of the step, discarding the slice's other candidates with it. At the
 # couple of seconds a rendered page costs, this admits a filing well past the
 # longest petition on the docket and cuts off anything that is no longer reading
 # pages but grinding on them. What it has read by then is a partial reading, so
@@ -132,8 +154,9 @@ DOCUMENT_BUDGET_SECONDS = 600.0
 ESTIMATED_SECONDS_PER_PAGE = 3.0
 
 # The part of a candidate that is not pages: the politeness-throttled re-fetch
-# from supremecourt.gov, the spill to disk, and the upsert of the recovered
-# petition and its re-derived questions row into the content store. Measured at
+# from supremecourt.gov, the spill to disk, and the upsert of the recovered row
+# into the content store — plus, on a petition alone, the questions row
+# re-derived beside it. Measured at
 # a few seconds a case, and held well above that for the same asymmetry. A fixed
 # term rather than a share of the page cost, because none of it scales with
 # pages. Not a ceiling either: a GET that times out and takes the client's one
@@ -154,7 +177,7 @@ DOCUMENT_HOST_SUFFIX = supremecourt.DOCUMENT_HOST_SUFFIX
 
 # A ceiling on one re-fetched filing. `get_document` reads the whole body into
 # memory with no size bound, and this pass then spills it to disk and rasterizes
-# it; the largest stored petition is a few megabytes, so anything past this is
+# it; the largest stored filing is a few megabytes, so anything past this is
 # not a filing. Refused as its own reported reason rather than truncated: half a
 # PDF is not a document.
 MAX_DOCUMENT_BYTES = 64 * 1024 * 1024
@@ -263,7 +286,7 @@ class OcrRun:
     the caller apart a page OCR read as blank from a page it never reached: both
     reach it as ``""``. ``budget_spent`` is that distinction, and the pass needs
     it — a document whose recognition was cut short has a *partial* reading, and
-    storing one as the petition's text would replace a filing that reads as
+    storing one as the row's text would replace a filing that reads as
     empty with a filing that reads as complete and is not. So it is discarded,
     and the case stays in the class.
     """
@@ -284,7 +307,7 @@ def ocr_page_for_pdf(
     """An :class:`OcrRun` over one PDF's bytes.
 
     The bytes are spilled to a temporary file once per document rather than per
-    page, because the renderer takes a path and a petition runs to hundreds of
+    page, because the renderer takes a path and a filing runs to hundreds of
     pages; the directory and everything in it are removed on exit whether or not
     the extraction completed.
 
@@ -292,7 +315,7 @@ def ocr_page_for_pdf(
     page: once it is gone every remaining page reads as nothing and the run says
     so. Cutting one document off is the cheap failure — it stays in the class and
     re-enters a later slice — where letting it run on costs the slice's other
-    petitions their writes.
+    candidates their writes.
 
     The binary requirement is owned here, by the one implementation that has it:
     a caller supplying its own seam has no use for them, and the pass's
@@ -326,7 +349,7 @@ OcrPageFactory = Callable[[bytes], AbstractContextManager[OcrRun]]
 
 
 class OcrFetchProbe(BaseModel):
-    """What the writer's fetch path got back for one sampled petition URL.
+    """What the writer's fetch path got back for one sampled candidate URL.
 
     The dry run's second job. Both planned writer-lane passes over
     supremecourt.gov assume the fetch succeeds, and cell-side reports of 403s
@@ -338,7 +361,8 @@ class OcrFetchProbe(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    case_id: str = Field(description="The case whose stored petition URL was sampled")
+    case_id: str = Field(description="The case whose stored document URL was sampled")
+    kind: str = Field(description="The document kind whose stored URL was sampled")
     url: str = Field(description="The stored URL the probe fetched")
     outcome: str = Field(
         description="`served` (bytes came back), `not-served` (upstream 404), "
@@ -359,17 +383,30 @@ class OcrRecoveryResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     applied: bool = Field(description="Whether the pass wrote the rows or only counted them")
-    petitions_seen: int = Field(
+    documents_seen: int = Field(
         ge=0,
-        description="Stored petitions the walk read at all — the denominator "
-        "under `candidates`. Zero means the documents could not be read rather "
-        "than that the class is empty: a split-mode index with no content store "
+        description="Stored rows of a recoverable kind the walk read at all — the "
+        "denominator under `candidates`. Zero means the documents could not be read "
+        "rather than that the class is empty: a split-mode index with no content store "
         "configured serves every case an empty document list",
     )
     candidates: int = Field(
         ge=0,
-        description="Stored petitions whose text is empty or whitespace-only and "
-        "whose page count is above zero — the whole recoverable class on this corpus",
+        description="Stored rows of a recoverable kind whose text is empty or "
+        "whitespace-only, whose page count is above zero and whose stored URL is one "
+        "link — the whole recoverable class on this corpus",
+    )
+    candidates_by_kind: dict[str, int] = Field(
+        default_factory=dict,
+        description="The class cut by document kind — what an apply's slice is drawn "
+        "from, and what its blast radius is read off",
+    )
+    set_keyed: dict[str, int] = Field(
+        default_factory=dict,
+        description="Empty rows left out of the class because their stored URL is a "
+        "set key rather than one link (a multi-respondent opposition), by kind. "
+        "Expected to be empty: such a row carries its per-brief headings as text, "
+        "so it is not whitespace-empty in the first place",
     )
     bound: int | None = Field(
         default=None,
@@ -384,16 +421,19 @@ class OcrRecoveryResult(BaseModel):
     unreached: list[str] = Field(
         default_factory=list,
         description="Candidates inside the bound the slice deadline declined to "
-        "start, in class order. Unreached, not failed: nothing was fetched, "
+        "start, as `<case_id> <kind>`, in class order. Unreached, not failed: "
+        "nothing was fetched, "
         "recognized or written for them, so they are untouched, keep their place "
         "at the head of the class and head the next slice",
     )
-    recovered: int = Field(
-        ge=0, description="Petitions that came back with text (apply writes these)"
+    recovered: int = Field(ge=0, description="Rows that came back with text (apply writes these)")
+    recovered_by_kind: dict[str, int] = Field(
+        default_factory=dict,
+        description="What an applied run actually wrote, cut by document kind",
     )
     empty_after_ocr: int = Field(
         ge=0,
-        description="Petitions re-fetched and OCR'd that still read empty — an "
+        description="Rows re-fetched and OCR'd that still read empty — an "
         "image OCR could not read; they stay in the class and re-enter the next slice",
     )
     unfetched: dict[str, int] = Field(
@@ -412,11 +452,12 @@ class OcrRecoveryResult(BaseModel):
     )
     recoveries: dict[str, str] = Field(
         default_factory=dict,
-        description="case_id -> what was recovered, untruncated: the record of which "
-        "stored petitions an applied pass replaced",
+        description="`<case_id> <kind>` -> what was recovered, untruncated: the record "
+        "of which stored rows an applied pass replaced",
     )
     failures: dict[str, str] = Field(
-        default_factory=dict, description="case_id -> why this candidate produced no text"
+        default_factory=dict,
+        description="`<case_id> <kind>` -> why this candidate produced no text",
     )
     probes: list[OcrFetchProbe] = Field(
         default_factory=list,
@@ -424,14 +465,51 @@ class OcrRecoveryResult(BaseModel):
     )
 
 
-def _is_scanned_petition(document: corpus.CaseDocument) -> bool:
-    """The population predicate, in one place: an empty petition that has pages.
+def is_set_keyed_url(url: str) -> bool:
+    """Whether a stored URL is a set key rather than one link.
 
-    Whitespace-only counts as empty (it is what the coverage report counts, and
-    what provisioning stamps as ``empty_text``); ``pages > 0`` is what separates
-    a scan from a PDF the extractor could not open, which is not OCR's to repair.
+    One kind can be: a multi-respondent brief in opposition is stored as a
+    single row whose URL is the canonical join of every brief that was fetched
+    into it (:data:`~fedcourtsai.pipeline.documents.BIO_URL_JOIN`), which is an
+    idempotency key and not something to GET. Recovering such a row would mean
+    re-fetching and re-combining a set, which is the fetching lane's work rather
+    than this pass's, so it stays outside the population.
     """
-    return document.kind == KIND_PETITION and not document.text.strip() and document.pages > 0
+    return BIO_URL_JOIN in url
+
+
+#: Why a stored row of a recoverable kind is not a candidate, or ``None`` if it
+#: is one. Only this one is reported: an empty text or a zero page count is the
+#: ordinary shape of a corpus that is mostly fine, while a set key is a row a
+#: reader might expect to see in the class and will not.
+SET_KEYED_EXCLUSION = "set-keyed"
+
+
+def exclusion_reason(document: corpus.CaseDocument) -> str | None:
+    """Why this row is out of the recovery class, or ``None`` if it is in it.
+
+    The population predicate, in one place and stated as reasons rather than a
+    conjunction, so the count of what was excluded cannot drift from the test
+    that excluded it. Whitespace-only counts as empty (it is what the coverage
+    report counts, and what provisioning stamps as ``empty_text``); ``pages > 0``
+    is what separates a scan from a PDF the extractor could not open, which is
+    not OCR's to repair; and the row has to be one this pass can re-fetch by its
+    stored URL.
+    """
+    if document.kind not in RECOVERABLE_KINDS:
+        return "not-a-fetched-kind"
+    if document.text.strip():
+        return "has-text"
+    if document.pages <= 0:
+        return "no-pages"
+    if is_set_keyed_url(document.url):
+        return SET_KEYED_EXCLUSION
+    return None
+
+
+def is_recoverable_scan(document: corpus.CaseDocument) -> bool:
+    """Whether this stored row is in the recovery class (:func:`exclusion_reason`)."""
+    return exclusion_reason(document) is None
 
 
 def fetchable_document_url(url: str) -> bool:
@@ -447,25 +525,43 @@ def fetchable_document_url(url: str) -> bool:
     is where a filing lives; everything else is refused before the request, and
     counted under its own reason so a refused URL reads as a URL problem rather
     than an upstream one.
+
+    A set key is refused here as well as excluded from the population
+    (:func:`is_set_keyed_url`), because the host check does not catch one — a
+    pipe-joined pair of Court links parses as a Court URL with a strange path.
+    The population predicate is where a set-keyed row is *meant* to stop; this
+    is the guard beside the request, so a regression there cannot become a GET.
     """
-    return supremecourt.is_court_url(url)
+    return supremecourt.is_court_url(url) and not is_set_keyed_url(url)
 
 
 @dataclass(frozen=True)
-class ScannedPetition:
+class ScannedDocument:
     """One candidate, with what the pass has to know about its case.
 
     ``stored_questions`` is the case's stored questions-presented text, read in
-    the same walk that found the petition rather than by a second read: the
+    the same walk that found the row rather than by a second read: the
     re-derivation decides against it, and a decision that needed another
     content-store round trip per case would be paid for in the slice's budget.
+    It is carried on a petition candidate alone, because no other kind has a
+    derived section to re-derive.
     """
 
-    petition: corpus.CaseDocument
+    document: corpus.CaseDocument
     stored_questions: str | None
 
+    @property
+    def key(self) -> str:
+        """This candidate's identity in the ledger: its case and its kind.
 
-def estimated_candidate_seconds(candidate: ScannedPetition) -> float:
+        A case can hold a scanned petition *and* a scanned opposition, so the
+        case id does not identify a candidate — keying the ledger on it alone
+        would collapse two recoveries into one entry and undercount the slice.
+        """
+        return f"{self.document.case_id} {self.document.kind}"
+
+
+def estimated_candidate_seconds(candidate: ScannedDocument) -> float:
     """The wall clock the slice deadline admits one candidate on.
 
     Pages times the per-page rate, plus the fixed fetch-and-write overhead, with
@@ -477,33 +573,44 @@ def estimated_candidate_seconds(candidate: ScannedPetition) -> float:
     and charging it the whole page count would decline every slice it heads.
 
     A high estimate of the ordinary cost, not a ceiling on the possible one; see
-    :func:`recover_scanned_petitions` for what a candidate can spend past it and
+    :func:`recover_scanned_documents` for what a candidate can spend past it and
     who carries that.
     """
-    pages = max(candidate.petition.pages, 0)
+    pages = max(candidate.document.pages, 0)
     return ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + min(
         pages * ESTIMATED_SECONDS_PER_PAGE, DOCUMENT_BUDGET_SECONDS
     )
 
 
 @dataclass(frozen=True)
-class ScannedPetitionScan:
+class ScannedDocumentScan:
     """What one walk of the corpus saw.
 
-    ``petitions_seen`` is the denominator, and it is here because zero
+    ``documents_seen`` is the denominator, and it is here because zero
     candidates has two very different causes: a converged corpus, and a blob
     whose documents this process cannot read at all — a split-mode index with no
     content store configured serves every case an empty document list, which
     would otherwise report as a class of nothing and a clean run. The caller
     refuses on the denominator, not on the class.
+
+    ``set_keyed`` is the empty rows left out because their stored URL is a set
+    key rather than a link, per kind. It is expected to read empty, and is the
+    guard rather than the measurement: a combined opposition's per-brief headers
+    are themselves text, so a multi-respondent row of nothing but scans is not
+    whitespace-empty and never reaches this count — it reads as *covered* in the
+    coverage report while carrying no argument at all, and neither surface sizes
+    that residual. What this does report is a set-keyed row that somehow did
+    read empty, which is a corpus shape nobody should have to infer from a
+    candidate count that is one short.
     """
 
-    candidates: tuple[ScannedPetition, ...]
-    petitions_seen: int
+    candidates: tuple[ScannedDocument, ...]
+    documents_seen: int
+    set_keyed: dict[str, int]
 
 
-def scanned_petitions(conn: corpus.ReadConnection) -> ScannedPetitionScan:
-    """Every stored petition in the recovery class, in ``case_id`` order.
+def scanned_documents(conn: corpus.ReadConnection) -> ScannedDocumentScan:
+    """Every stored row in the recovery class, in ``case_id`` then kind order.
 
     The population is walked case by case rather than queried, because under the
     corpus-split mode the document text lives in the per-case content store and
@@ -514,13 +621,16 @@ def scanned_petitions(conn: corpus.ReadConnection) -> ScannedPetitionScan:
     for the same reason the questions-presented sweep is: documents reach the
     corpus on that channel only.
 
-    Ordering is the row order (``case_id``), which is what makes a bounded slice
-    self-advancing: a recovered petition leaves the class, so the next dispatch's
+    Ordering is the row order (``case_id``), then :data:`RECOVERABLE_KINDS`
+    order within a case — which puts the petition, the filing every cert cell
+    reads, at the head of its case. That is what makes a bounded slice
+    self-advancing: a recovered row leaves the class, so the next dispatch's
     slice starts where this one's population ran out.
     """
     case_ids = [row.case_id for row in corpus.iter_rows(conn, court="scotus", live_slice=True)]
-    found: list[ScannedPetition] = []
-    petitions_seen = 0
+    found: list[ScannedDocument] = []
+    documents_seen = 0
+    set_keyed: dict[str, int] = {}
     with prefetch_by_case(
         case_ids,
         lambda case_id: corpus.documents_for_case(conn, case_id),
@@ -528,23 +638,54 @@ def scanned_petitions(conn: corpus.ReadConnection) -> ScannedPetitionScan:
     ) as fetched:
         for _case_id, documents in fetched:
             by_kind = {document.kind: document for document in documents}
-            petition = by_kind.get(KIND_PETITION)
-            if petition is None:
-                continue
-            petitions_seen += 1
-            if not _is_scanned_petition(petition):
-                continue
             questions = by_kind.get(KIND_QUESTIONS_PRESENTED)
-            found.append(
-                ScannedPetition(
-                    petition=petition,
-                    stored_questions=None if questions is None else questions.text,
+            for kind in RECOVERABLE_KINDS:
+                document = by_kind.get(kind)
+                if document is None:
+                    continue
+                documents_seen += 1
+                excluded = exclusion_reason(document)
+                if excluded is not None:
+                    if excluded == SET_KEYED_EXCLUSION:
+                        set_keyed[kind] = set_keyed.get(kind, 0) + 1
+                    continue
+                found.append(
+                    ScannedDocument(
+                        document=document,
+                        stored_questions=(
+                            None if kind != KIND_PETITION or questions is None else questions.text
+                        ),
+                    )
                 )
-            )
-    return ScannedPetitionScan(candidates=tuple(found), petitions_seen=petitions_seen)
+    return ScannedDocumentScan(
+        candidates=tuple(found),
+        documents_seen=documents_seen,
+        set_keyed=_in_kind_order(set_keyed),
+    )
 
 
-def _probe_sample(candidates: Sequence[ScannedPetition], size: int) -> list[ScannedPetition]:
+def _in_kind_order(counts: Mapping[str, int]) -> dict[str, int]:
+    """``counts`` in :data:`RECOVERABLE_KINDS` order, zeros left out.
+
+    One order for every per-kind map the ledger carries, because the class and
+    what an apply wrote are printed on consecutive lines and two orders there
+    read as two different sets. Kinds with no count are dropped rather than
+    carried as zeros: a wall of zeros is what makes the one non-zero line easy
+    to miss.
+    """
+    return {kind: counts[kind] for kind in RECOVERABLE_KINDS if counts.get(kind)}
+
+
+def _count_by_kind(candidates: Sequence[ScannedDocument]) -> dict[str, int]:
+    """The class cut by document kind."""
+    counts: dict[str, int] = {}
+    for candidate in candidates:
+        kind = candidate.document.kind
+        counts[kind] = counts.get(kind, 0) + 1
+    return _in_kind_order(counts)
+
+
+def _probe_sample(candidates: Sequence[ScannedDocument], size: int) -> list[ScannedDocument]:
     """``size`` candidates spread evenly across the class, in class order.
 
     Spread rather than the head, because the head is the same three cases every
@@ -560,7 +701,7 @@ def _probe_sample(candidates: Sequence[ScannedPetition], size: int) -> list[Scan
 
 
 def probe_document_fetch(
-    client: SupremeCourtClient, candidates: Sequence[ScannedPetition], *, sample: int
+    client: SupremeCourtClient, candidates: Sequence[ScannedDocument], *, sample: int
 ) -> list[OcrFetchProbe]:
     """Re-fetch a spread sample of the class and report what came back.
 
@@ -571,10 +712,15 @@ def probe_document_fetch(
     """
     probes: list[OcrFetchProbe] = []
     for candidate in _probe_sample(candidates, sample):
-        document = candidate.petition
+        document = candidate.document
         if not fetchable_document_url(document.url):
             probes.append(
-                OcrFetchProbe(case_id=document.case_id, url=document.url, outcome="unfetchable-url")
+                OcrFetchProbe(
+                    case_id=document.case_id,
+                    kind=document.kind,
+                    url=document.url,
+                    outcome="unfetchable-url",
+                )
             )
             continue
         try:
@@ -584,18 +730,25 @@ def probe_document_fetch(
             # the client refused, and it is the same answer — a URL this pass
             # will not request — so it reads under the same outcome.
             logger.warning(
-                "ocr: probe refused an off-host hop for %s: %s",
+                "ocr: probe refused an off-host hop for %s %s: %s",
                 document.case_id,
+                document.kind,
                 one_log_line(str(exc)),
             )
             probes.append(
-                OcrFetchProbe(case_id=document.case_id, url=document.url, outcome="unfetchable-url")
+                OcrFetchProbe(
+                    case_id=document.case_id,
+                    kind=document.kind,
+                    url=document.url,
+                    outcome="unfetchable-url",
+                )
             )
             continue
         except httpx.HTTPStatusError as exc:
             probes.append(
                 OcrFetchProbe(
                     case_id=document.case_id,
+                    kind=document.kind,
                     url=document.url,
                     outcome="http-error",
                     status=exc.response.status_code,
@@ -604,24 +757,35 @@ def probe_document_fetch(
             continue
         except httpx.HTTPError as exc:
             logger.warning(
-                "ocr: probe transport failure for %s: %s",
+                "ocr: probe transport failure for %s %s: %s",
                 document.case_id,
+                document.kind,
                 one_log_line(str(exc)),
             )
             probes.append(
-                OcrFetchProbe(case_id=document.case_id, url=document.url, outcome="transport-error")
+                OcrFetchProbe(
+                    case_id=document.case_id,
+                    kind=document.kind,
+                    url=document.url,
+                    outcome="transport-error",
+                )
             )
             continue
         if data is None:
             probes.append(
                 OcrFetchProbe(
-                    case_id=document.case_id, url=document.url, outcome="not-served", status=404
+                    case_id=document.case_id,
+                    kind=document.kind,
+                    url=document.url,
+                    outcome="not-served",
+                    status=404,
                 )
             )
             continue
         probes.append(
             OcrFetchProbe(
                 case_id=document.case_id,
+                kind=document.kind,
                 url=document.url,
                 outcome="served",
                 status=200,
@@ -645,7 +809,10 @@ def _refetch_document(
     """
     if not fetchable_document_url(document.url):
         logger.warning(
-            "ocr: refusing to fetch %s for %s", one_log_line(document.url), document.case_id
+            "ocr: refusing to fetch %s for %s %s",
+            one_log_line(document.url),
+            document.case_id,
+            document.kind,
         )
         return None, "unfetchable-url"
     try:
@@ -657,9 +824,10 @@ def _refetch_document(
         # URL this pass will not request — so it reads under the same reason.
         off_host = isinstance(exc, supremecourt.OffHostFetch)
         logger.warning(
-            "ocr: %s for %s: %s",
+            "ocr: %s for %s %s: %s",
             "refused an off-host hop" if off_host else "fetch failed",
             document.case_id,
+            document.kind,
             one_log_line(str(exc)),
         )
         return None, "unfetchable-url" if off_host else "transport-error"
@@ -667,8 +835,9 @@ def _refetch_document(
         return None, "not-served"
     if len(data) > MAX_DOCUMENT_BYTES:
         logger.warning(
-            "ocr: %s served %d bytes, past the %d-byte document ceiling",
+            "ocr: %s %s served %d bytes, past the %d-byte document ceiling",
             document.case_id,
+            document.kind,
             len(data),
             MAX_DOCUMENT_BYTES,
         )
@@ -676,7 +845,30 @@ def _refetch_document(
     return data, None
 
 
-def recover_scanned_petitions(  # noqa: PLR0913 - keyword-only; slice deadline + injected clock over the pass's args
+def _rederived_questions(
+    recovered: corpus.CaseDocument, stored_questions: str | None, *, today: date
+) -> list[corpus.CaseDocument]:
+    """The questions-presented row a recovered **petition** re-derives, if any.
+
+    The pass's one follow-on write, and petitions alone have it: no other
+    recoverable kind carries a questions-presented section to cut a row out of.
+
+    The ingest path's rule (no heading stores no row; a heading with nothing
+    usable under it stores the honest empty row) under one more guard, stated in
+    full on :func:`recover_scanned_documents`: an empty derivation never
+    replaces a *stored* question.
+    """
+    if recovered.kind != KIND_PETITION:
+        return []
+    questions = extract_questions_presented(recovered.text)
+    if questions is None:
+        return []
+    if not questions and (stored_questions or "").strip():
+        return []
+    return [_derived_questions_document(recovered, questions, fetched_at=today)]
+
+
+def recover_scanned_documents(  # noqa: PLR0913 - keyword-only; slice deadline + injected clock over the pass's args
     conn: sqlite3.Connection,
     *,
     client: SupremeCourtClient,
@@ -689,7 +881,7 @@ def recover_scanned_petitions(  # noqa: PLR0913 - keyword-only; slice deadline +
     deadline: float | None = None,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> OcrRecoveryResult:
-    """Re-read the scanned petitions off their page images; write what comes back.
+    """Re-read the scanned filings off their page images; write what comes back.
 
     Dry run unless ``apply``, and the two runs do deliberately different work.
     The **dry run** enumerates the class, OCRs nothing and writes nothing, and
@@ -705,9 +897,9 @@ def recover_scanned_petitions(  # noqa: PLR0913 - keyword-only; slice deadline +
     dispatching — ``deadline`` below is what holds the wall clock, and the bound
     is what holds the spend. The apply re-fetches each candidate by its stored
     URL, walks its pages through the extractor with the OCR seam supplied, and
-    upserts the petitions that came back with text, each carrying
-    ``ocr_derived``, together with the questions-presented row re-derived from
-    the recovered text.
+    upserts the rows that came back with text, each carrying ``ocr_derived``,
+    together with the questions-presented row re-derived from a recovered
+    petition's text — the one follow-on write, and petitions alone have it.
 
     Written per case rather than in one batch at the end, because the step that
     runs this has a wall-clock cap: a batched write turns a cap hit into a slice
@@ -750,7 +942,7 @@ def recover_scanned_petitions(  # noqa: PLR0913 - keyword-only; slice deadline +
     backstop for, and keeping that cap a backstop rather than the routine end of
     a heavy slice is the whole arrangement.
 
-    Additive on the petition. A candidate whose re-fetch fails, or whose pages
+    Additive on the stored row. A candidate whose re-fetch fails, or whose pages
     OCR to nothing, is *counted and named* and nothing is written for it: the
     stored row keeps the empty text it had, stays in the class, and re-enters the
     next slice — which is also the pass's one non-advancing case, and why the
@@ -766,25 +958,28 @@ def recover_scanned_petitions(  # noqa: PLR0913 - keyword-only; slice deadline +
     that sweep's character floor. A question stored beside a scanned petition
     came from a superseded filing, and emptying it is as likely to be this pass
     misjudging as a bad row; the sweep's whole subject is the derived row, while
-    this pass is here for the petition and has no business deciding that one.
+    this pass is here for the filing and has no business deciding that one.
 
     The recovered row's ``fetched_at`` moves to ``today``, unlike the stored-text
     convergence sweeps, because a fetch and a re-read did happen. That is
     visible downstream in one place: provisioning places a document by its entry
     date and falls back to ``fetched_at`` where the entry date is missing, so
-    such a petition can fall outside a replay cell's as-of window it previously
+    such a row can fall outside a replay cell's as-of window it previously
     sat inside. The direction is the conservative one — a cell sees less, never
     more — which is why the honest date is kept.
     """
     if apply and max_cases is None:
         raise ValueError("an apply must carry its slice bound")
-    scan = scanned_petitions(conn)
+    scan = scanned_documents(conn)
     candidates = scan.candidates
+    by_kind = _count_by_kind(candidates)
     if not apply:
         return OcrRecoveryResult(
             applied=False,
-            petitions_seen=scan.petitions_seen,
+            documents_seen=scan.documents_seen,
             candidates=len(candidates),
+            candidates_by_kind=by_kind,
+            set_keyed=scan.set_keyed,
             # A dry run is unbounded whatever it was handed: it writes nothing,
             # and reporting a bound it did not spend would read as a slice that
             # attempted none of it.
@@ -807,13 +1002,14 @@ def recover_scanned_petitions(  # noqa: PLR0913 - keyword-only; slice deadline +
         # the factory itself refuses too, one document later.
         require_ocr_binaries()
     recoveries: dict[str, str] = {}
+    recovered_kinds: dict[str, int] = {}
     failures: dict[str, str] = {}
     unfetched: dict[str, int] = {}
     empty_after_ocr = 0
     questions_rederived = 0
 
-    def lose(case_id: str, reason: str) -> None:
-        failures[case_id] = reason
+    def lose(key: str, reason: str) -> None:
+        failures[key] = reason
         unfetched[reason] = unfetched.get(reason, 0) + 1
 
     unreached: list[str] = []
@@ -825,39 +1021,39 @@ def recover_scanned_petitions(  # noqa: PLR0913 - keyword-only; slice deadline +
                 # The whole tail, not this one candidate: see the docstring —
                 # skipping ahead to a cheaper candidate would defer the
                 # expensive filings forever.
-                unreached = [c.petition.case_id for c in slice_[index:]]
+                unreached = [c.key for c in slice_[index:]]
                 logger.warning(
                     "ocr: slice deadline reached with %.0fs left; "
                     "%d candidate(s) not started, first %s (%d pages, ~%.0fs)",
                     left,
                     len(unreached),
-                    candidate.petition.case_id,
-                    candidate.petition.pages,
+                    candidate.key,
+                    candidate.document.pages,
                     estimate,
                 )
                 break
-        document = candidate.petition
+        document = candidate.document
         data, refused = _refetch_document(client, document)
         if data is None:
-            lose(document.case_id, refused or "not-served")
+            lose(candidate.key, refused or "not-served")
             continue
         with ocr_page_factory(data) as run:
             extracted = extract_pdf_text(data, char_cap=char_cap, ocr_page=run.page)
         if run.budget_spent:
             # A partial reading, and nothing downstream would say so: `truncated`
             # is the character cap's flag, not this one's, so a filing cut off
-            # at page 90 would read as the whole petition. The candidate keeps
+            # at page 90 would read as the whole filing. The candidate keeps
             # its empty text and stays in the class.
-            lose(document.case_id, "budget-exhausted")
+            lose(candidate.key, "budget-exhausted")
             continue
         if not extracted.text.strip():
             # Re-fetched and read, and the images yielded nothing: an unreadable
             # scan, not a fetch gap. Named apart so a slice that cleared its
             # bound without advancing the class says so.
             empty_after_ocr += 1
-            failures[document.case_id] = "empty-after-ocr"
+            failures[candidate.key] = "empty-after-ocr"
             continue
-        petition = document.model_copy(
+        recovered = document.model_copy(
             update={
                 "text": extracted.text,
                 "pages": extracted.pages,
@@ -866,29 +1062,29 @@ def recover_scanned_petitions(  # noqa: PLR0913 - keyword-only; slice deadline +
                 "fetched_at": today,
             }
         )
-        updates = [petition]
-        questions = extract_questions_presented(petition.text)
-        if questions is not None and (questions or not (candidate.stored_questions or "").strip()):
-            # The ingest path's rule — no heading stores no row, a heading with
-            # nothing usable under it stores the honest empty row — with the
-            # convergence sweep's refusal on top: an empty derivation never
-            # replaces a stored question.
-            updates.append(_derived_questions_document(petition, questions, fetched_at=today))
-            questions_rederived += 1
+        updates = [
+            recovered,
+            *_rederived_questions(recovered, candidate.stored_questions, today=today),
+        ]
+        questions_rederived += len(updates) - 1
         corpus.upsert_documents(conn, updates)
-        recoveries[document.case_id] = (
+        recovered_kinds[recovered.kind] = recovered_kinds.get(recovered.kind, 0) + 1
+        recoveries[candidate.key] = (
             f"pages={extracted.pages} chars={len(extracted.text)} "
             f"truncated={str(extracted.truncated).lower()} "
             f"ocr_derived={str(extracted.ocr_derived).lower()}"
         )
     return OcrRecoveryResult(
         applied=True,
-        petitions_seen=scan.petitions_seen,
+        documents_seen=scan.documents_seen,
         candidates=len(candidates),
+        candidates_by_kind=by_kind,
+        set_keyed=scan.set_keyed,
         bound=max_cases,
         attempted=len(slice_) - len(unreached),
         unreached=unreached,
         recovered=len(recoveries),
+        recovered_by_kind=_in_kind_order(recovered_kinds),
         empty_after_ocr=empty_after_ocr,
         unfetched=dict(sorted(unfetched.items())),
         remaining=len(candidates) - len(recoveries),

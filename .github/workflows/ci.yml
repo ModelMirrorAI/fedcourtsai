@@ -67,14 +67,15 @@ jobs:
         run: scripts/gate.sh schemas
 
   paths:
-    # Defense-in-depth path jail for the auto-merged data-production PRs: a
-    # predict/evaluate run branch may only *add* files under data/, so a
-    # PR that auto-merges without a human cannot carry a code, workflow, or
-    # config change. A no-op that passes for every other branch, so it is safe to
-    # make a required status check on all PRs. The jail also runs producer-side in
-    # each collect job; this required check enforces it independently of the
-    # workflow that produced the branch. Logic lives in the tested `assert-paths`
-    # command; this step only runs git.
+    # Defense-in-depth path jail for every auto-merged PR. A predict/evaluate run
+    # branch may only *add* files under data/; the daily big-case-board branch may
+    # only write the board's own two artifacts. Either way a PR that auto-merges
+    # without a human cannot carry a code, workflow, or config change. A no-op
+    # that passes for every other branch, so it is safe to make a required status
+    # check on all PRs. The data jail also runs producer-side in each collect job;
+    # this required check enforces both independently of the workflow that
+    # produced the branch. Logic lives in the tested `assert-paths` /
+    # `assert-board-paths` commands; this step only runs git.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -88,7 +89,7 @@ jobs:
           # origin/<base ref>, which only a non-shallow fetch populates.
           fetch-depth: 0
       - uses: ./.github/actions/setup-python-env
-      - name: Enforce the data/ path jail on data-production branches
+      - name: Enforce the path jail on the auto-merged branches
         # Diff against the live base ref, not the event's pull_request.base.sha:
         # that sha is frozen at PR creation while the checkout is the merge ref
         # (the PR merged into the base's *current* tip), so on a base that has
@@ -103,12 +104,22 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          case "$HEAD_REF" in
-            predict/run-*|evaluate/run-*) ;;
-            *) echo "not a data-production branch; path jail not applicable"; exit 0 ;;
+          # Case-folded, because `main-base`'s allowlist is a GitHub expression
+          # and those compare case-insensitively (its own comment records this).
+          # A head ref spelled `Metrics/big-cases` is inside that allowlist, so a
+          # case-sensitive selector here would route it to `main` past a jail
+          # that never ran — and this jail's non-match path is a pass.
+          case "${HEAD_REF,,}" in
+            predict/run-*|evaluate/run-*) jail=data ;;
+            metrics/big-cases) jail=board ;;
+            *) echo "not an auto-merged branch; path jail not applicable"; exit 0 ;;
           esac
           git diff --name-status "origin/${BASE_REF}...HEAD" > changes.txt
-          uv run fedcourts assert-paths --name-status-file changes.txt
+          if [ "$jail" = board ]; then
+            uv run fedcourts assert-board-paths --name-status-file changes.txt
+          else
+            uv run fedcourts assert-paths --name-status-file changes.txt
+          fi
 
   cleanup-paths:
     # The destructive counterpart of `paths`: a cleanup-sweep branch may only *delete*
@@ -241,10 +252,11 @@ jobs:
 
   main-base:
     # Merge routing, on the `paths` pattern: code reaches `main` only through
-    # the staging→main promotion or a reviewed non-feature lane — the collect
+    # the staging→main promotion or a non-feature lane — the collect
     # run branches, the maintainer's cleanup sweep, the metrics-refresh /
-    # cert-backtest / salience-replay PRs, and the qp-topic labeling run's
-    # labels PR. This job runs (and fails) only on a
+    # cert-backtest / salience-replay PRs, the qp-topic labeling run's
+    # labels PR, and the daily big-case board's. All are reviewed except the
+    # board's, which auto-merges behind the `paths` jail above. This job runs (and fails) only on a
     # PR to `main` from any other head; every legitimate PR skips it, and the
     # skipped run satisfies the requirement. It is among `main`'s required
     # contexts (with `gate`, `paths`, `promotion-gate`): a `pull_request` runs
@@ -268,6 +280,7 @@ jobs:
           startsWith(github.head_ref, 'evaluate/run-') ||
           startsWith(github.head_ref, 'cleanup/') ||
           github.head_ref == 'metrics/refresh' ||
+          github.head_ref == 'metrics/big-cases' ||
           github.head_ref == 'metrics/cert-backtest' ||
           github.head_ref == 'metrics/salience-replay' ||
           github.head_ref == 'qp-topics/refresh'

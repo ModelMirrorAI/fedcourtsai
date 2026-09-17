@@ -35,6 +35,7 @@ from fedcourtsai.store import (
     forecastable_events,
     forward_refusal_reason,
     iter_flags,
+    iter_predictions,
     iter_tooling,
     iter_tracked_cases,
     ledger_cell_counts,
@@ -44,7 +45,7 @@ from fedcourtsai.store import (
     resolved_events,
     unforecastable_listed_events,
 )
-from tests.conftest import frozen_stamp, open_freeze_window, seed_prediction
+from tests.conftest import bless_process, frozen_stamp, open_freeze_window, seed_prediction
 
 
 def _event(event_id: str, *, resolved: bool) -> corpus.CorpusEvent:
@@ -1631,6 +1632,64 @@ def test_a_window_prediction_is_ledgered_but_not_claimable(tmp_path: Path) -> No
     assert not event_has_claimable_prediction(data_root, "scotus", 1, "evt-a")
 
 
+def test_the_claimable_gate_reads_the_instant_and_not_only_membership(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The window predicate on patched constants, where the live ones cannot reach.
+
+    The test above reads the real `[bless, instant)` window and skips where a
+    freeze commit leaves none open — an instant placed at its carrying merge
+    closes it by construction, which is the point of placing it there. What it
+    guards stays live either way: this predicate reads the partition through
+    `is_frozen`, and a membership-only check that dropped the timing limb
+    would keep every digest test above green. So the window is patched in here
+    rather than read off the module, and the same cell is put on both sides of
+    one instant so the refusal is attributable to timing alone.
+    """
+    bless = datetime(2026, 1, 1, tzinfo=UTC)
+    instant = datetime(2026, 2, 1, tzinfo=UTC)
+    bless_process(monkeypatch, "sha256:blessed", since=instant, blessed_at=bless)
+    data_root = tmp_path / "data"
+    event = CasePaths(data_root, "scotus", 1).event("evt-a")
+
+    def write_cell(minted: datetime) -> ProcessVersion:
+        stamp = ProcessVersion(
+            label=process_version.CURRENT_PROCESS_LABEL,
+            digest="sha256:blessed",
+            stamped_at=minted,
+        )
+        run_id = minted.strftime("%Y%m%dT%H%M%SZ")
+        write_json(
+            event.prediction("claude-baseline", run_id),
+            Prediction(
+                case_id="scotus/1",
+                event_id="evt-a",
+                predictor_id="claude-baseline",
+                engine="claude-code",
+                model="claude-fable-5",
+                run_id=run_id,
+                created_at=minted,
+                input_snapshot=f"record/snapshots/{minted.date().isoformat()}.json",
+                granted=0,
+                probability=0.05,
+                predicted_disposition=Disposition.denied,
+                process_version=stamp,
+            ),
+        )
+        return stamp
+
+    # Inside the window: blessed digest, stamp after the bless and before the
+    # instant. An honest ledger cell the tripwire passes and the gate refuses.
+    windowed = write_cell(instant - timedelta(days=1))
+    assert process_version.at_or_after_bless(windowed)
+    assert not event_has_claimable_prediction(data_root, "scotus", 1, "evt-a")
+
+    # The same predictor's later run, stamped at the instant, is claimable —
+    # so the refusal above was the timing limb and not the membership one.
+    write_cell(instant)
+    assert event_has_claimable_prediction(data_root, "scotus", 1, "evt-a")
+
+
 def _usage_record(
     case: str, event: str, role: UsageRole, actor: str, created_at: datetime
 ) -> ModelUsage:
@@ -1755,3 +1814,34 @@ def test_normalized_stage_reads_a_null_petition_stage_as_cert() -> None:
     assert normalized_stage(EventKind.motion, None) is None
     # A recorded stage is never overridden.
     assert normalized_stage(EventKind.petition, Stage.merits) is Stage.merits
+
+
+def test_iter_predictions_reads_every_committed_prediction_in_a_total_order(
+    tmp_path: Path,
+) -> None:
+    """Identity comes off the path, and the order is total, so two readers of one
+    tree collapse the same runs the same way."""
+    for case, event, predictor, run in (
+        ("scotus/2", "evt-petition-disposition", "codex-baseline", "r2"),
+        ("scotus/1", "evt-order-response-requested-disposition", "claude-baseline", "r1"),
+        ("scotus/1", "evt-petition-disposition", "claude-baseline", "r1"),
+        ("scotus/1", "evt-petition-disposition", "claude-baseline", "r0"),
+    ):
+        court, _, docket = case.partition("/")
+        seed_prediction(tmp_path, court, int(docket), event, predictor_id=predictor, run_id=run)
+    rows = iter_predictions(tmp_path)
+    assert [(r.case_id, r.event_id, r.predictor_id, r.run_id) for r in rows] == [
+        ("scotus/1", "evt-order-response-requested-disposition", "claude-baseline", "r1"),
+        ("scotus/1", "evt-petition-disposition", "claude-baseline", "r0"),
+        ("scotus/1", "evt-petition-disposition", "claude-baseline", "r1"),
+        ("scotus/2", "evt-petition-disposition", "codex-baseline", "r2"),
+    ]
+    assert rows[0].court_id == "scotus" and rows[0].docket_id == 1
+    assert rows[0].cell_path.endswith("predictions/claude-baseline/r1")
+    assert rows[0].prediction.case_id == "scotus/1"
+
+
+def test_iter_predictions_on_an_absent_ledger_creates_nothing(tmp_path: Path) -> None:
+    absent = tmp_path / "absent"
+    assert iter_predictions(absent) == []
+    assert not absent.exists()

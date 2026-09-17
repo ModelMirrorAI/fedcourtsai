@@ -6290,6 +6290,326 @@ class DocketPack(_Strict):
     )
 
 
+class BigCaseRead(_Strict):
+    """One predictor's newest prediction on one event, with its stakes read.
+
+    The unit the board is assembled from. It carries the headline forecast
+    beside the stakes score deliberately: the two answer different questions —
+    `probability` is a forecast that resolves against the docket, while
+    `big_case_score` resolves against nothing — and a reader who sees only the
+    stakes number is one step from reading it as an odds number.
+    """
+
+    predictor_id: str
+    run_id: str
+    mode: str | None = Field(
+        default=None,
+        description="The cell's mode (`forward` / `replay`) from its harness-written "
+        "`context` block; None on a cell written before that block existed",
+    )
+    probability: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="The cell's headline forecast, `Prediction.probability`: P(granted) "
+        "on a cert/interim event, P(disturbed) on a merits one. Carried so the stakes "
+        "score is never read alone as though it were an odds number",
+    )
+    predicted_disposition: Disposition
+    granted: int = Field(ge=0, le=1, description="The cell's binary call on the stage's axis")
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The cell's self-reported confidence, where it gave one",
+    )
+    big_case_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The cell's stakes read, 0-1, verbatim from the prediction. None where "
+        "the cell declared no view — never imputed, and excluded from the case mean rather "
+        "than counted as a zero",
+    )
+    big_case_rationale: str | None = Field(
+        default=None,
+        description="The cell's one-line rationale for the score, or for the declared null. "
+        "The only agent prose the board republishes",
+    )
+    cell_path: str = Field(
+        description="Repo-relative path of the run directory the numbers were read from"
+    )
+    cell_url: str | None = Field(
+        default=None,
+        description="`cell_path` under the configured repository URL. None when the command "
+        "was run without one, and also when the data root is absolute — a build machine's "
+        "filesystem path has no business in a published link",
+    )
+    leakage_suspected: bool = Field(
+        default=False,
+        description="Whether any committed grading of this run recorded `leakage_suspected`. "
+        "It matters more here than on a scored board: a stakes read is partly a read of the "
+        "disposition, so a cell that saw its own outcome may have read the stakes off it — and "
+        "here that cell is not one point inside a coefficient, it is the published number",
+    )
+
+
+class BigCaseEvent(_Strict):
+    """One event of a case, with every predictor's newest read of it.
+
+    Present for every event carrying at least one prediction, whether or not any
+    read on it survived the case-level collapse — an earlier moment is history a
+    reader can see, not a number the mean counts twice.
+    """
+
+    event_id: str
+    title: str | None = Field(
+        default=None,
+        description="The event's `event.yaml` title, None where the ledger carries "
+        "predictions under an event whose definition is absent",
+    )
+    actual_disposition: Disposition | None = Field(
+        default=None, description="The realized disposition, present iff the event has resolved"
+    )
+    resolved_at: date | None = Field(
+        default=None, description="When the event resolved; None while it is pending"
+    )
+    reads: list[BigCaseRead] = Field(
+        default_factory=list,
+        description="Each predictor's newest prediction on this event, ordered by predictor id",
+    )
+
+
+class BigCaseCurrentRead(_Strict):
+    """A predictor's current read of a case, and where it came from.
+
+    The collapse the mean is taken over: one read per predictor per case, from
+    the predictor's newest run **across the case's events**. The event and run
+    travel with the number because a case can be read at several moments and
+    "which moment is this" is not recoverable from the score.
+    """
+
+    predictor_id: str
+    event_id: str
+    run_id: str
+    big_case_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The current read, or None where the newest run declared no view — in "
+        "which case the predictor is absent from `n` and from the mean",
+    )
+    big_case_rationale: str | None = Field(
+        default=None,
+        description="The rationale the current read carried. A null score *with* a rationale is "
+        "a declared no view; a null score *without* one predates the prompt amendment that made "
+        "the field required, and pools 'weighed the stakes and could not place them' with 'never "
+        "engaged the question' (`docs/freeze-record.md`)",
+    )
+    leakage_suspected: bool = Field(
+        default=False,
+        description="Whether any committed grading of this run recorded `leakage_suspected`",
+    )
+
+
+class BigCaseRow(_Strict):
+    """One case on the board: the panel's current stakes reads and their mean."""
+
+    case_id: str
+    court_id: str
+    docket_id: int
+    caption: str | None = Field(
+        default=None,
+        description="The case's display name: the `event.yaml` title of the event carrying "
+        "the case's newest current read. There is no docket number in committed data, so "
+        "the caption is the only human handle and `case_id` is the identifier",
+    )
+    caption_event_id: str | None = Field(
+        default=None, description="The event the caption was read from, so the rule is checkable"
+    )
+    status: Literal["pending", "partly_resolved", "resolved"] = Field(
+        description="Resolution state across the case's predicted events, derived from "
+        "`outcome.json` presence: none resolved, some resolved, all resolved"
+    )
+    mean_big_case_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Mean of the current reads that carry a score, rounded to four places. "
+        "A panel opinion about stakes, never a measurement and never a skill figure",
+    )
+    n: int = Field(
+        ge=1,
+        description="How many predictors the mean is over. Always beside the mean: with "
+        "three predictors on the roster a mean over one is a single model's opinion",
+    )
+    score_min: float = Field(ge=0.0, le=1.0, description="Lowest current read on the case")
+    score_max: float = Field(ge=0.0, le=1.0, description="Highest current read on the case")
+    score_range: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="`score_max - score_min`, rounded to four places: panel disagreement, "
+        "shown rather than hidden inside the mean",
+    )
+    leakage_suspected: bool = Field(
+        default=False,
+        description="Whether any of the case's current reads is leakage-flagged. Where it is "
+        "true the mean rests partly on a cell that may have read the stakes off an outcome it "
+        "should not have seen, and the row is not evidence about the case's stakes",
+    )
+    current_reads: list[BigCaseCurrentRead] = Field(
+        default_factory=list,
+        description="Every predictor that read the case, ordered by predictor id — including "
+        "one whose newest run carries no score, which the mean excludes",
+    )
+    events: list[BigCaseEvent] = Field(
+        default_factory=list,
+        description="The case's predicted events, ordered by event id, each with every "
+        "predictor's newest read of it",
+    )
+
+
+class BigCaseCoverage(_Strict):
+    """How many cases the board ranks on `n` reads — the denominator distribution."""
+
+    n: int = Field(ge=0, description="Number of scoring predictors")
+    cases: int = Field(ge=0, description="Cases whose mean is over that many reads")
+
+
+class BigCaseProvenance(_Strict):
+    """The board's reading rules, carried inside the artifact.
+
+    Registered prose rather than a free-text note: the board is published to a
+    public site, where the figure travels without the document that explains it,
+    so the caveats travel inside the artifact instead.
+    """
+
+    reading_rule: str
+    collapse_rule: str
+    leakage_note: str = Field(
+        description="Why a leakage-flagged read is worse here than on a scored board, and "
+        "what the row-level mark means"
+    )
+    leaderboard_divergence: str
+    population: str
+    version_scope: str = Field(
+        description="That the board is version-blind — every process version, shakedown cells "
+        "included — unlike the frozen-scope performance boards"
+    )
+    rank_resolution: str = Field(
+        description="What the `#` column may be read as, given how close adjacent means are "
+        "against the spread inside a single row's own panel"
+    )
+    no_time_series: str
+    caption_rule: str
+    process_label: str = Field(
+        description="The process label in force when the board was built — what a "
+        "prediction minted today stamps, not a scope filter on the rows (see `version_scope`)"
+    )
+
+
+class BigCaseBoard(_Strict):
+    """``metrics/big-cases.json`` — the case-centric big-case board.
+
+    One row per predicted case, carrying each predictor's current stakes read
+    (`Prediction.big_case_score`) and the mean across the predictors that gave
+    one, ranked mean-first. It answers "which cases does the panel think matter,
+    and where do the models disagree" — a question none of the existing
+    big-case surfaces answers, because each of those measures something *about
+    the models* rather than listing the cases.
+
+    **It is not a performance surface, and its numbers are never ranked as
+    skill.** A stakes read is neither scored nor ranked: it resolves against
+    nothing, so no accuracy, calibration or ordering claim can be made from any
+    *stakes* figure here. The per-cell ``probability`` carried beside it is a
+    forecast — the cell's raw value, unstratified, unexcluded and unscored — and
+    it is not a claimable one either; scored forecast performance lives on the
+    leaderboard and nowhere else. The same carve-out is why the board reads the
+    committed ledger directly, applying neither the forward-claim exclusion nor
+    the leakage exclusion, and reading ungraded cells and every process version
+    besides — a wider population than the scored boards, deliberately, and a
+    caveat that has to travel with a quoted number. Where the leakage bit is set
+    on a read, the row carries the mark: a stakes read is partly a read of the
+    disposition, so a contaminated cell is not one point inside a coefficient
+    here, it is the number.
+
+    A pure function of the committed `data/` ledger — no corpus, no credentials,
+    no clock — so reruns over an unchanged ledger reproduce both files byte for
+    byte. That is also why it carries no timestamp and no commit hash: the
+    artifact's vintage is the commit that wrote it.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    cases: int = Field(default=0, ge=0, description="Rows on the board")
+    cases_without_score: int = Field(
+        default=0,
+        ge=0,
+        description="Cases the ledger holds predictions for whose every current read carries no "
+        "score, and which are therefore off the board. Published so `cases` is read against the "
+        "predicted population rather than as the whole of it",
+    )
+    predictors: list[str] = Field(
+        default_factory=list,
+        description="Predictor ids observed in the ledger, sorted — the roster the "
+        "per-case columns are drawn from, read off the cells rather than off config",
+    )
+    current_reads: int = Field(
+        default=0,
+        ge=0,
+        description="Current reads on the board — one per (case, predictor) — scored or not. "
+        "The denominator the three counts below partition",
+    )
+    scored_reads: int = Field(
+        default=0,
+        ge=0,
+        description="Current reads carrying a score; the means are taken over these",
+    )
+    declared_no_view: int = Field(
+        default=0,
+        ge=0,
+        description="Unscored current reads that carry a rationale — a cell that weighed the "
+        "stakes and said it could not place them. Only observable from the prompt amendment "
+        "that made the field required with an explicit null escape onward",
+    )
+    missing_reads: int = Field(
+        default=0,
+        ge=0,
+        description="Unscored current reads with no rationale. Elicited under the earlier prompt, "
+        "where the field was optional and an absent value pooled 'could not place the stakes' "
+        "with 'never engaged the question' — a missing-data figure, and not a declaration "
+        "(`docs/freeze-record.md`)",
+    )
+    rows_with_leakage_flag: int = Field(
+        default=0,
+        ge=0,
+        description="Rows whose mean rests partly on a leakage-flagged read. Not netted against "
+        "anything: it is an audit line about the board's own contents",
+    )
+    median_adjacent_gap: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Median difference in mean between neighbouring rows. Beside "
+        "`median_score_range` it is what says whether the `#` column can be read as an ordering; "
+        "None with fewer than two rows",
+    )
+    median_score_range: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Median `score_range` across the rows — how far a row's own panel typically "
+        "spreads, against which the gap between two ranks should be read; None with no rows",
+    )
+    coverage: list[BigCaseCoverage] = Field(
+        default_factory=list, description="Cases by number of scoring predictors, `n` descending"
+    )
+    rows: list[BigCaseRow] = Field(
+        default_factory=list,
+        description="The board, mean descending, then `n` descending, then `case_id`",
+    )
+    provenance: BigCaseProvenance | None = Field(
+        default=None, description="The reading rules that travel with the figures"
+    )
+
+
 class ScopeReconcileResult(_Strict):
     """``reconcile-scope`` result: what the corpus scope reconcile changed.
 
@@ -7561,6 +7881,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
     "docket": DocketPack,
+    "big_case_board": BigCaseBoard,
     "agent_flags": AgentFlags,
     "agent_tooling": AgentToolingFeedback,
     "cell_failure": CellFailure,

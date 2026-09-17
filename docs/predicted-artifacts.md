@@ -99,7 +99,18 @@ fields that mean the same thing at every stage:
   whether the cell was stamped, not what it answered. Every figure over the
   score skips a null either way, so neither form moves a denominator; what a
   reader can tell apart is a null **with** a rationale beside it from a null
-  without one.
+  without one — and the rationale survives the stamp, so that reading stays
+  available to anything reading the committed record. Two things take it.
+  `stamp-cell` emits one `::warning::` for a cell that placed no stakes, saying
+  which of the two shapes it was, at the moment the cell's own log is still the
+  place a maintainer is looking; the rationale's own text is not echoed, since
+  an annotation publishes into the run log without passing the secret scan that
+  gates agent free text. `collect` re-derives the same split over the run's
+  records as a per-run census — each predictor's missing count against its own
+  cells, the two shapes apart — on the run PR body and the Actions summary.
+  Something has to: a missing read fails no cell and imputes nothing, it simply
+  takes that `(predictor, case)` point out of the predictor's own `big_case`
+  tau-b, and the cell validates, commits and reads as complete.
 - **`reasoning_doc` / `predicted_reasoning_doc`** — the filenames of the two
   prose documents, beside this file. `validate` resolves both pointers, so a
   named document that is not there fails the cell, as does a name carrying a
@@ -593,6 +604,20 @@ directory without knowing which part is which invites trusting the wrong half.
   the disagreement reaches the run PR rather than only the artifact. Null where
   the stamp could not judge: a record written before the comparison existed, or
   a re-stamp away from the runner with no `record/` beside it.
+
+  The field is one value for both of those misses, and deliberately: what it
+  records is that the cell did not report reading the baseline, which is a
+  single fact. The **note** is where they are told apart, because only one of
+  them is diagnosable from a run PR body. A cell that named another day's file
+  opened something and mis-stated which, and the note says no more than that,
+  beside the provisioned file it names either way. A cell that named no file at
+  all is reporting that it found none — and on a prediction that exists that
+  cannot be a provisioning outage, since a cell whose record did not land
+  complete is refused before any engine starts. There the note adds the
+  event-level `record/` path a cell reaching one directory too deep would have
+  probed, spelled from the case down like the file beside it, and rules
+  provisioning out in terms. Which of the two a cell gets is inferred from the
+  shape of the string it wrote, so the split errs toward the weaker reading.
 
   **It reports; it masks nothing.** The conditioning beside it is what
   provisioning derived and offered, and that is a fact about the record whatever

@@ -209,6 +209,29 @@ def test_uncovered_cells_are_warned_in_step_not_only_in_the_pr_body() -> None:
     )
 
 
+def test_the_stakes_census_publishes_on_the_same_terms_as_the_flag_rollup() -> None:
+    """The census names cells and predictors by the ids their own
+    `prediction.json` carries, read before `validate` has held them to the
+    ledger — so "harness-rendered" is true of the prose and not of the
+    identifiers, and the summary is a public surface. It therefore passes the
+    two gates the flag roll-up passes: nothing once a branch has tripped the
+    scan (those bytes rode a PR body that was withheld), and nothing until the
+    census text itself scans clean, since a run that opens no PR at all would
+    otherwise publish it unscanned."""
+    aggregate = next(
+        s for s in _load(COLLECT_ACTION)["runs"]["steps"] if s["name"].startswith("Aggregate")
+    )
+    body = aggregate["run"]
+    assert ".stakes_reads" in body, "the census must reach the step summary, not only the PR body"
+    census = body[body.index("stakes_md=$(jq -r '.stakes_reads'") :]
+    publish = census.index('printf \'\\n%s\\n\' "$stakes_md" >> "$GITHUB_STEP_SUMMARY"')
+    gate = census.index("if [ -s secret-scan-issue.md ]; then")
+    scan = census.index("--extra-file run-stakes.md")
+    assert gate < publish and scan < publish, (
+        "suppress the census on a tripped scan and scan its own text before publishing it"
+    )
+
+
 def test_the_union_is_add_only_never_a_wholesale_copy() -> None:
     """The union must go through `collect-union`, whose add-only contract keeps a
     cell's stale run-start tree from overwriting files the deterministic writers

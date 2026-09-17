@@ -37,7 +37,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-evaluate`   | daily schedule (15:39 UTC), input-less manual dispatch | Claude Code + Codex + Gemini |
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
-| `run-analytics`  | manual dispatch + weekly schedule   | script; the `qp-topic-label` mode runs one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, qp-labeler-smoke one labeling agent over a synthetic extract, and each codex-freeze-probe member one trivial codex turn with the watchdog armed around it |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
@@ -227,19 +227,21 @@ call, no branch write.
 
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
-derived artifact is a mode here (dispatch `mode` input, or the weekly schedule),
+derived artifact is a mode here (dispatch `mode` input, or one of the two
+schedules — the weekly metrics refresh and the daily big-case board, each gated
+on which cron fired rather than on the event class),
 each as its own least-privilege job holding only the credentials its mode needs.
 
 Every environment-binding job resolves its environment from the dispatching
 branch — the branch-resolving tail of `integration-test`'s expression, with
-no override input: a `main`-ref dispatch — and the weekly schedule, which
-runs only there — binds `prod`, while
+no override input: a `main`-ref dispatch — and the schedules, which
+run only there — bind `prod`, while
 `gh workflow run run-analytics.yml --ref staging -f mode=<mode>` binds the
 `staging` environment and reads the staging corpus pair (each corpus job
 forwards the out-of-band index pointer off `main`, since the committed
 pointer names the production blob; any other ref resolves its own name,
 which names no configured environment and binds nothing — fail-closed). The
-two publishing jobs' App-token mint, git-identity and review-PR steps are
+three publishing jobs' App-token mint, git-identity and PR steps are
 fenced to `main`-branch runs, so a staging dispatch is a **rehearsal**: it
 runs a mode as far as the staging pair's contents support — the labeling
 mode's extract enforces its reference-coverage floor against that corpus, so
@@ -307,7 +309,10 @@ queues behind the production run of the same mode. The modes:
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
   committed `metrics/statpack.json`, which its realized-Term skill column is
-  scored against — so it regenerates *after* the pack)
+  scored against — so it regenerates *after* the pack),
+  `metrics/big-cases.{json,md}` (the same ledger again — the daily `big-cases`
+  job below owns it, and the weekly tick regenerates it too so one refresh is a
+  self-consistent tree state),
   and `metrics/backtest.json` / `metrics/statpack.{json,md}` /
   `data/scope/scope.json`
   (input: the corpus) are deterministic stage commands that otherwise change
@@ -316,9 +321,40 @@ queues behind the production run of the same mode. The modes:
   byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
   by the tested `metrics-refresh-plan` command: never a
   direct commit to `main`, never auto-merged. It mints the dev App token to do
-  so; `qp-topic-label` below is the only other job here that does. The branch is fixed
+  so; `big-cases` and `qp-topic-label` below are the only other jobs here that
+  do. The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
-  place by the next tick rather than stacking.
+  place by the next tick rather than stacking. It gates on the weekly cron by
+  name (`github.event.schedule`), not on the event class, because a `schedule`
+  gate is fail-open on every other cron the workflow declares. Because the daily
+  board lane rewrites the same two files, a refresh PR left open across a day the
+  ledger moved goes **un-mergeable** on them — GitHub refuses the conflict rather
+  than taking the older copy; a `mode=metrics-refresh` dispatch re-cuts the branch
+  from the current `main` and clears it without waiting a week.
+- **`big-cases`** (daily schedule 04:36 UTC, or dispatch) regenerates the
+  case-centric big-case board — `metrics/big-cases.{json,md}`, one row per
+  predicted case with each predictor's current `big_case_score` and the mean
+  across the predictors that gave one — and lands any change as a PR to `main`
+  on the fixed, force-pushed `metrics/big-cases` branch. It reads `data/` only,
+  like `tool-usage`: no corpus, no cloud role, no `id-token`, so it waits on no
+  pull window, which is what lets it run daily. Daily rather than weekly because
+  a public site renders this board off `main`, and a weekly cadence publishes a
+  stale one six days in seven. What each figure may and may not be read as is
+  [metrics/README.md](../metrics/README.md)'s section for the board; the short
+  version is that a stakes read is neither scored nor ranked.
+
+  It is the **one PR lane here that auto-merges**, and the argument is about the
+  artifact rather than the cadence. The board is a byte-stable pure function of
+  the committed ledger, so a day that changed nothing opens nothing; a day that
+  changed something re-rolls committed cells by a tested command that the PR's
+  own required checks rerun; and the diff is bounded to the board's two files by
+  the required `paths` check, which runs the tested `assert-board-paths` jail on
+  this branch exactly as it runs the data jail on a run branch. There is no
+  judgement in such a diff for a reviewer to exercise, while a queue of unread
+  daily PRs is how a published surface goes stale. The gate still decides: the
+  dev App is not a branch-protection bypass actor, so auto-merge waits on the
+  same required checks a reviewed PR faces, and where the platform declines to
+  arm it the PR simply stays open for a manual merge.
 - **`tool-usage`** (dispatch) rolls every committed `retrieval_log.json` into an
   **offered-vs-called** report: which configured MCP tools were never called,
   which are used by some engines and not others, and call counts per tool /
@@ -388,8 +424,9 @@ queues behind the production run of the same mode. The modes:
   tested `fedcourts qp-topics` measures the labels against the hand reference
   set and enforces the agreement/coverage gate — below it, nothing is written,
   the measured block still reaches the step summary, and the job fails. The
-  `label_model` dispatch input picks the labeler's model. See
-  [qp-topic.md](qp-topic.md).
+  `label_model` dispatch input picks the labeler's model; a ceiling-sized run
+  overrides the default for `claude-fable-5`, the one tier measured to finish
+  ([budget.md](budget.md)). See [qp-topic.md](qp-topic.md).
 
 ## `integration-test` — the infrastructure preflight
 
@@ -642,11 +679,19 @@ not the `candidates` denominator beside them, which rises with every new cert
 grant that has not yet drawn a respondent brief — so a rise there is the
 ordinary docket rather than a widened predicate.
 
-`ocr-recovery` reads the scanned petitions off their page images. A petition
-filed on paper reaches the corpus with no text layer, so nothing was extracted
-for it and every cell minted over that case reads an empty petition — for as
+`ocr-recovery` reads the scanned filings off their page images. A filing
+submitted on paper reaches the corpus with no text layer, so nothing was
+extracted for it and every cell minted over that case reads it empty — for as
 long as the docket serves the same URL, since the poller and the Term walker
-re-fetch a kind only when its link changes. It is the only pass that installs a
+re-fetch a kind only when its link changes. Its population is every stored kind
+a cell reads that was fetched as a PDF, not the petition alone: a scanned brief
+in opposition costs a cert cell the respondent's whole argument, which is the
+half of the case a forecast is least able to guess. The one shape left out is a
+multi-respondent opposition, stored as a single row whose URL is the canonical
+join of every brief fetched into it — a set key, not a link to re-fetch. Its
+per-brief headings are themselves text, so such a row is not empty by the
+coverage report's test either: it reads as covered while carrying no argument,
+and neither surface sizes it. It is the only pass that installs a
 binary dependency, in its own gated step (`tesseract` and poppler's `pdftoppm`,
 from the runner image's own archive), and one of the three whose bound is a
 **slice size** rather than a refusal threshold: each case costs a re-fetch and a
@@ -655,10 +700,11 @@ bound a *spend* cap, so the step hands the pass a wall-clock deadline as well �
 sized under the step's own cap by everything that must still fit there once the
 pass stops taking work — and the pass stops taking new candidates once what is
 left will not hold the next one's estimated cost, which it reads off the stored
-page count. A recovered
-petition leaves the class, so successive dispatches drain it — but only the
+page count. The ledger cuts the class, and what an apply wrote, by document
+kind, so a slice's blast radius is legible before it is spent and after. A
+recovered row leaves the class, so successive dispatches drain it — but only the
 recovered ones leave, and what a slice could not recover, or never started,
-stays at its head to be retried first, which the ledger names case by case. Its `dry-run`
+stays at its head to be retried first, which the ledger names one by one. Its `dry-run`
 carries a second reading beside the class count — a small sample of the
 population re-fetched through the writer's own fetch path, reporting what
 supremecourt.gov serves a *writer* rather than what a cell's retrieval reported.
@@ -691,10 +737,19 @@ failures reports a converged class as a permanent defect: a docket carrying an
 entry for a missing kind with nothing fetchable behind it, and one carrying no
 such entry at all. A missing kind the selector found no entry for on a *modern*
 docket is not a floor but a selector regression, and those cases are named
-whichever floor their candidate was counted at. Like the OCR recovery it writes documents,
+whichever floor their candidate was counted at. Unlike the OCR recovery, it does
+not re-walk its floors: an apply **stamps** each candidate it reads at one
+(`document_floor_probed_at`), and the class holds a stamped candidate out until
+its docket is next polled, so a floor costs one paced docket GET per docket
+version rather than one per dispatch and a bounded slice reaches the tail of the
+class. `standing_floors` on the ledger is that held-out balance, beside
+`candidates`; a floor the selector-regression alarm fired on is never stamped.
+Like the OCR recovery it writes documents,
 which under the corpus split live in the content store, so the step re-walks the
 class afterwards — an empty slice, which costs no round trip — and requires
-exactly what the apply's ledger said it would leave behind.
+exactly what the apply's ledger said it would leave behind. The stamps are its
+one index write, so an applied slice that read any floor also moves the
+pointer.
 
 `mirror-stored-documents` moves to the content store the document text that
 reached only the blob. Under the corpus split the per-case store is the system
@@ -1286,8 +1341,9 @@ The mechanics:
   **`main-base`**. `main-base` is the merge-routing jail — it runs, and fails,
   only on a PR to `main` whose head is not `staging` or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
-  metrics-refresh, cert-backtest, and salience-replay PRs, and the qp-topic
-  labeling run's `qp-topics/refresh` PR); on those
+  metrics-refresh, cert-backtest, and salience-replay PRs, the qp-topic
+  labeling run's `qp-topics/refresh` PR, and the big-case board's
+  `metrics/big-cases` PR); on those
   legitimate lanes it reports `skipped`, which satisfies the requirement. Its
   definition lives in `main`'s own ci.yml, so the context reports on every
   lane into `main` (docs/security.md inventories this).
@@ -1448,10 +1504,12 @@ procedure writes the pre-registration record into the tag message
 - **`prereg/<label>`** — a pre-registration freeze commit, e.g.
   `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS` and sets
   `FROZEN_SINCE` (docs/process-version.md carries the freeze procedure).
-  One tag deviates: `prereg/proc-v4` sits on the promotion merge that
-  carried its freeze commit rather than on the freeze commit itself — the
-  namespace blocks moving it, and the freeze record in docs/freeze-record.md
-  states the placement and its consequence.
+  Two tags deviate, and the freeze record in docs/freeze-record.md states
+  each placement and its consequence: `prereg/proc-v4` sits on the promotion
+  merge that carried its freeze commit rather than on the freeze commit
+  itself, and `prereg/proc-v8` sits on the step-4 correction commit, because
+  that label has two freeze commits and neither one's tree states the blessed
+  digests and the instant together. The namespace blocks moving either.
 - **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
   `-2` suffix distinguishes a same-day second batch.
 - **`results/<term>-<milestone>`** — the commit carrying a published metrics
@@ -1668,7 +1726,27 @@ into the run PR body, the Actions summary, and the agent-feedback issue rather
 than living only in the artifact — unless the run's secret scan hits, which
 withholds the whole flag roll-up. It is a harness-authored note in a channel
 that is otherwise the agent's, and its `Harness tripwire:` prefix is what
-separates the two by eye.
+separates the two by eye — a reading aid, not a signature. `flags.json` is the
+cell's own file and a flag carries no author, so an agent can open one with
+those words too, and the job log is unauthenticated stdout that carries
+whatever a step printed. The one surface here that is the harness's word and
+no agent's is `context.snapshot_uptake` on the committed `prediction.json`,
+which the stamp overwrites from the provisioned file. What the `::warning::`
+annotation adds is not provenance but timing: it is emitted before the note is
+written and whatever the note says, so a cell cannot bury the finding by
+pre-writing a flag that the dedupe then matches.
+
+The note carries the diagnosis the field cannot. `unread` is one value for two
+different faults — a cell that named another day's file, and a cell that named
+no file at all — and from a run PR body the second is indistinguishable from the
+provisioning outage that would be a pipeline failure rather than a cell's. It is
+not one: the gate above refuses an unprovisioned cell before any engine starts,
+so a prediction that exists had its record. The note therefore says which miss
+this was — read off the shape of the string the cell wrote, and so erring
+toward the arm that claims less. It names the provisioned snapshot either way;
+what the second arm adds beside it is the event-level `record/` path a cell
+resolving the record one directory too deep would have probed, a path nothing
+provisions and nothing creates, since `record/` is case-level.
 
 Neither alternative earns its cost. Degrading the block — nulling the band, or
 the payload signals — would price a forward cell against the `terminal` basis
@@ -1701,29 +1779,64 @@ Distinguishing refusal kinds in the failure fact so a non-terminal refusal never
 burns the cap is open follow-up work.
 
 On `run-predict`, `plan` also refuses to re-mint a cell that already ran. A cell
-spends its tokens before `collect`, the run's single durability step, so a
-failed collect leaves every prediction in a cell artifact and nothing in the
-ledger the already-predicted gate reads — and the next round re-derives the
-same events and re-spends the whole run. Before building the matrix, `plan`
-lists the cell artifacts of this workflow's completed runs from the last 48
-hours whose `collect` did not conclude success, and **withholds** any cell
-already sitting in one, naming the stranded run and `gh run rerun <id> --failed`
-per cell: the remedy is to recover that run, not to re-run this one (the
-collect-recovery section below carries the order). The match is per predictor ×
-case × event and keys on the artifact's *existence*, not on whether that cell
+spends its tokens before `collect`, the run's single durability step, and the
+already-predicted gate reads *committed* state on `main` — so every run between
+"the cells spent their tokens" and "the collect PR merged" is invisible to that
+gate, and the next round re-derives the same events and re-spends the whole run.
+Three ways a run sits in that gap, each with its own remedy:
+
+| what the run looks like | where its output is | remedy |
+|---|---|---|
+| `collect` did not conclude success | the cell artifacts | `gh run rerun <id> --failed` |
+| `collect` succeeded, its PR is open | the collect branch | merge that PR |
+| `collect` succeeded, no branch pushed | the cell artifacts, for their retention window | salvage by hand (the secret-scan row of the collect-recovery table below) |
+
+Before building the matrix, `plan` lists the cell artifacts of this workflow's
+completed runs from the last 48 hours, together with each run's `collect`
+conclusion and this lane's collect PRs to `main`, and **withholds** any cell
+already sitting in a run that has not landed — naming the run, its PR where
+there is one, and that row's remedy per cell. The match is per predictor × case
+× event and keys on the artifact's *existence*, not on whether that cell
 produced anything — a cell that spent its tokens and delivered nothing is
-withheld too, because collecting the run is how anyone learns which of the two
-it was, and the event re-queues normally once the ledger is honest. A cell with
-no artifact — never queued, or dead before upload — still runs. The census step
-fetches and filters only: every decision is in `fedcourts predict-matrix`
-(`--stranded-file`), and it degrades open at two grains rather than blocking a
-legitimate run, since the failure this guard prevents is expensive rather than
-dangerous — a run it cannot read after three attempts drops out of the census
-with a `::warning::`, and a failure leaving nothing usable empties it
-altogether. The guard also releases itself: a run leaves the census once its
-`collect` concludes success on the latest attempt, and ages out of the window
-regardless. A maintainer who wants a fresh run *sooner* makes that an explicit
-act — delete the stranded run's cell artifacts (`gh
+withheld too, because landing the run is how anyone learns which of the two it
+was, and the event re-queues normally once the ledger is honest. A cell with no
+artifact — never queued, or dead before upload — still runs.
+
+A run is joined to its collect PR by the pipeline run id in the PR's head ref
+(`predict/run-<run_id>`, suffix and hand salvage included): that stamp is minted
+by the run's own `plan` job, so it necessarily falls inside the run's window —
+which opens at the run's *creation*, not at the latest attempt's start, because
+a re-run resets the start and rerunning `collect` is this guard's own remedy.
+Nothing else the runs or artifacts API returns carries that stamp. A head counts
+only from this repository: the pulls listing includes fork PRs, whose head ref
+is the fork's own branch name, and believing one would let an outsider withhold
+a legitimate round.
+
+**Any open match withholds.** A run is released only when every match is
+settled — merged, which is when the ledger gains the predictions, or closed
+unmerged, which abandons them and makes re-minting the recovery. One run can
+hold a merged ready PR beside an open draft, and that run is still waiting.
+The containment is sound rather than exact — a run queued while another ran has
+a window wide enough to hold the other's stamp too — and the inexactness is
+bounded by that rule plus the census window. A *collected* run the census cannot
+describe, having no window to match on, is released untouched; an uncollected
+one is withheld whatever its timestamps say, since no PR can carry output a
+failed collect never pushed.
+
+The census step fetches and filters only: every decision is in `fedcourts
+predict-matrix` (`--stranded-file`, `--collect-prs-file`), and it degrades open
+at three grains rather than blocking a legitimate run, since the failure this
+guard prevents is expensive rather than dangerous — a run it cannot read after
+three attempts drops out of the census with a `::warning::`, a PR listing it
+cannot read (or one that does not reach back past the window) disarms the
+collect-PR half alone and leaves the uncollected half armed, and a failure
+leaving nothing usable empties the census altogether. The collect-PR file's
+*absence* is what disarms that half, never an empty list: an empty list is a
+claim that this lane has no collect PR, and a plan believing it would read every
+collected run as having pushed nothing and withhold every cell it ever produced.
+The guard also releases itself: a run stops being withheld once its collect PR
+settles, and ages out of the census window regardless. A maintainer who wants a fresh run *sooner* makes that
+an explicit act — delete the stranded run's cell artifacts (`gh
 api -X DELETE repos/<owner>/<repo>/actions/artifacts/<artifact_id>`), then
 dispatch a round.
 
@@ -1743,8 +1856,11 @@ any of those from a drained backlog, so it reads the same for all four. On
 run-predict the stranded-run guard is
 the one exception: when it withholds *every* cell, `predict-matrix` writes its
 own note (`--stranded-note-file`) and the summary carries that instead, so a
-fully-superseded run says recover the uncollected run rather than reading as a
-drained backlog. Each surfaces its own escalated `::error::` for correct
+fully-superseded run says land the run it is waiting on — naming that run, its
+PR and the remedy — rather than reading as a drained backlog. Below the
+all-withheld threshold the same facts ride in the plan report the hold is judged
+on, as a *Withheld: waiting on a run to land* section, so a narrowed fan-out is
+never read as a short one. Each surfaces its own escalated `::error::` for correct
 attribution, and ending the round is safe in each case for its own reason: a cap-
 or spend-deferred case stays in its queue and re-derives next cycle, an
 unforecastable event needs something other than another round (a grade for a
@@ -1898,6 +2014,46 @@ cell while this ratio stayed silent, and only the capture rate climbing back
 toward 1.0 would show it. The ratio is there because this is a standing
 condition rather than a per-run event.
 
+A further note — on **predict** rounds only, since an evaluation carries no
+such field — turns the same lens on the run's **own output**: how many of this
+round's predictions landed with no `big_case_score`, and whose. The stakes read
+is graded by agreement with the evaluators' own reads rather than against a
+ground truth, and no figure *imputes* a null — none of them reads it as a zero.
+What a null does instead is take the `(predictor, case)` point out of that
+predictor's `big_case` tau-b, so its `cases` denominator falls and the
+coefficient is recomputed over a smaller set ([metrics/README.md](../metrics/README.md));
+the replay's big-case coverage figure and the daily digest's per-case line drop
+it the same way, and the **evaluator** panel — which is read from the
+evaluations — is untouched. So a cell that never placed the stakes fails
+nothing, trips no gate, and narrows the population its own predictor is scored
+over, in silence. That is why the note prints each predictor's misses against
+that predictor's own cells rather than a single total: the set each one is
+scored over is *selected*, and two predictors at unequal coverage rank over
+different populations. The denominator is what the run put on the collector —
+every prediction of the run in the collected artifacts, salvage cells included,
+with a cell that produced nothing outside both counts — so it is a within-run
+reading and the note says so. The census counts the two missing shapes apart,
+because they are different answers: an explicit `null` carrying a one-line
+`big_case_rationale` is the prompt's null branch taken as written, while a null
+with no rationale is the contract missed and, on a stamped record,
+indistinguishable from a field the cell never wrote (see
+[predicted-artifacts.md](predicted-artifacts.md)). It is silent on a round where
+every cell answered, and it does not ride the facts-only PR, whose body is
+deliberately free of anything an agent wrote. `stamp-cell` says the same thing
+per cell as it stamps, one `::warning::` in the cell's own log; this is the
+run-level roll-up of it.
+
+Unlike the two retrieval notes above, the census also reaches the collect job's
+Actions summary, because a round that dropped its reads is otherwise legible
+only by opening cells — and it gets there on the **same terms as the flag
+roll-up**, not on weaker ones. Its prose is harness-rendered, but the cells and
+predictors it names are named by the ids their own `prediction.json` carries,
+read before `validate` has held them to the ledger. So it is bounded and escaped
+where it is built, suppressed once anything else has tripped the run's secret
+scan (a withheld branch carried the same bytes in its PR body), and otherwise
+published only once the census text itself scans clean — which is what covers
+the run that opens no PR at all.
+
 The `run-seed` historical walker has its own instance of the latched-issue
 pattern: a `guard`
 job raises one long-lived **pipeline-health** issue if the checkpointed walk is
@@ -2042,7 +2198,10 @@ need. Locate the flagged content first: the scan runs per PR kind, so a hit
 withholds only the branch it fired on (the ready branch can merge while the
 draft is withheld, or the reverse), and its report names file and line but
 never the match. A finding in a cell's file is reviewable in that cell's
-artifact; a finding in the rendered `pr-body.md` or `run-flags.md` points
+artifact — and one in its `retrieval_log.json` or `retrieval.md` names a
+live credential, a credential shape, or a keyword assignment rather than the
+generic entropy guess, since that heuristic does not read the two files whose
+content is the addresses and queries the cell's tool calls carried; a finding in the rendered `pr-body.md` or `run-flags.md` points
 back at the cells' `flags.json` free text, which the roll-up quotes; and the
 *misconfigured-scan* report is its own case — nothing was judged, so repair
 the configuration rather than reviewing content. Read the reported line
@@ -2056,10 +2215,29 @@ remedies are to **salvage by hand** — extract each withheld cell's run-scoped
 output from the artifacts into a data PR before the artifacts' 7-day
 retention lapses (the maintainer merges it, like every non-collect merge to
 `main`) — or to **let a later round re-derive the cells and accept the
-re-spend**. No stranded-run guard covers a withheld run in either role: the
-withhold leaves `collect` concluding success, which the predict census reads as
-collected, so the next round re-spends every cell the withheld run already paid
-for.
+re-spend**. On **predict** the stranded-run guard holds that decision open for
+the case where the withhold left the run with **no branch at all**: matching no
+collect PR is what the guard reads as a withheld collect, so it withholds that
+run's cells for the census window and says so on the plan, naming the run and
+this section. That buys the 48 hours to decide rather than having the next round
+decide by spending.
+
+A **partial** withhold — the scan firing on one branch while another is pushed —
+is outside it, and knowingly so: the run has a matching PR, so the guard reports
+whatever that PR is doing. If it merged, the run is released and the withheld
+cells re-derive and re-spend on a later cycle; if it is open, the plan says to
+merge it, which lands the other branch and then releases the run without ever
+landing the withheld cells. Nothing covers that case, so a partial withhold is a
+decision to make while the artifacts are still there.
+
+To salvage by hand and have the guard notice, push the branch to **this
+repository**, base it on `main`, and name it `predict/run-<run_id>` with any
+suffix (`-salvage` reads fine): the guard matches a head on that shape, so
+merging it releases the run the way a writer's own branch would. A branch named
+anything else still recovers the output — it simply leaves the guard withholding
+until the window ages out. On **evaluate** there is no such guard at all, so a
+withheld collect there is re-spent by the next round that derives the same
+gradings.
 
 None of the three gaps needs anything held open to be recoverable, which is what
 makes an omitted cell safe: an omitted cell is a forecast or a grading still
@@ -2088,15 +2266,15 @@ Three caveats:
   duplicate artifact name within a run, so those re-run cells fail at upload.
   `--failed` is the recovery for a *collect-only* failure; when cells failed
   too, land `collect` first and let the next round pick the rest up.
-- **On run-predict, collect first — another round will not stand in for it.**
-  The stranded-run guard above withholds every cell that uploaded an artifact to
-  an uncollected run, so a round dispatched inside its 48-hour window
-  derives nothing and says so on its step summary. Rerun `collect`,
-  which commits what the cells produced; the guard then releases that run, and
-  any event still holding no prediction — including a cell that ran and
-  delivered nothing — is re-derived on a later cycle. That costs one round trip
-  where dispatching first would cost a whole fan-out's tokens to reach the same
-  ledger.
+- **On run-predict, land the run first — another round will not stand in for
+  it.** The stranded-run guard above withholds every cell that uploaded an
+  artifact to a run that has not landed, so a round dispatched inside its
+  48-hour window derives nothing and says so on its step summary. Rerun
+  `collect` (or merge its PR, or salvage a withheld branch), which commits what
+  the cells produced; the guard then releases that run, and any event still
+  holding no prediction — including a cell that ran and delivered nothing — is
+  re-derived on a later cycle. That costs one round trip where dispatching first
+  would cost a whole fan-out's tokens to reach the same ledger.
 
 A rerun discards hand-edits to an unmerged draft branch — it is rebuilt from the
 artifacts. Finish a draft by merging it, not by editing and then re-running.
@@ -2487,9 +2665,12 @@ deliberate similarity:
   grading.
 
 Because the gate reads *committed* state, it cannot see a round whose collect PR
-has not merged. What keeps a second derivation out of that window is
-`run-evaluate`'s concurrency group, which serializes every round of the workflow
-regardless of trigger — not the gate.
+has not merged. What bounds a second derivation there is `run-evaluate`'s
+concurrency group, which serializes every round of the workflow regardless of
+trigger — not the gate. Note what a group does and does not buy: it keeps two
+rounds from overlapping, but the next round plans the moment it releases, which
+can be well before the previous round's collect PR merges. Predict closes that
+remaining window with its stranded-run guard; evaluate has no equivalent.
 
 The cron's cadence and `backlog_cases_per_cycle` pace re-queuing but have no
 ceiling, so a cell that fails *every* attempt (a persistent quota wall, a
@@ -2555,10 +2736,11 @@ cannot leak spend past the hold, and the fresh plan re-anchors the
 already-predicted gate and the stranded-run guard exactly as the review-hold
 rules above require. Two outcomes of that first round back are the machinery
 working, not the recovery failing: with cells sitting in an uncollected run's
-artifacts, the stranded-run guard withholds them for its 48-hour window and the
-plan says so on its step summary (*Recovering a run whose `collect` failed*,
-above); and an event that resolved during the pause is dropped by the
-forecastability re-check, working across the gap.
+artifacts, or sitting on a collect PR that has not merged, the stranded-run
+guard withholds them for its 48-hour window and the plan says so on its step
+summary (*Recovering a run whose `collect` failed*, above); and an event that
+resolved during the pause is dropped by the forecastability re-check, working
+across the gap.
 
 ## Snapshot sequencing
 

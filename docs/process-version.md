@@ -421,8 +421,8 @@ evaluation's own harness stamp to be at or after the freeze instant (its
 digest is recorded but not enforced), so a shakedown grading cannot ride a
 frozen re-run of its event into the headline.
 
-Two things stay all-versions on purpose, because they are diagnostics, not the
-headline:
+Three things stay all-versions on purpose, because they are censuses and
+diagnostics rather than the headline:
 
 - The **prediction census** (`ledger_cell_counts` — how many predictions and
   events the funnel has) counts everything committed. A frozen scope showing many
@@ -432,6 +432,14 @@ headline:
   frozen or not. Shakedown contamination is exactly what it exists to surface, so
   scoping it to frozen-only would blank it during the window it matters most —
   the same posture as the flags and tooling digests beside it.
+- The **big-case board** (`metrics/big-cases.{json,md}`) pools every version,
+  unstamped cells included. It publishes what the panel said about a case's
+  stakes, not how well it said it — a stakes read resolves against nothing, so
+  there is no performance claim for a partition to protect, and scoping it would
+  hide most of what the panel has read. Its `process_label` is therefore what a
+  prediction minted today would stamp and is a filter on nothing; the artifact's
+  own `version_scope` provenance string says so, because the surrounding boards'
+  frozen default makes the other reading the available one.
 
 The generic back-test is process-independent (it replays reference baselines, not
 the tournament predictors), so it carries no process version.
@@ -488,7 +496,13 @@ land; recording and tagging that commit complete the procedure:
    the instant lands in the ledger as shakedown, honestly stamped and simply
    uncounted, while an instant before the merge would bless runs made while
    the constant was still editable. The promotion date is a forecast here
-   too — for the instant, guess late.
+   too — for the instant, guess late. Late is safe on retroactivity, which is
+   why it is the direction to guess, but it is not free: a cell minted in that
+   window carries a blessed digest and still fails `is_frozen`'s time limb, so
+   the pre-freeze re-predict rule re-owes its event and the round is paid for
+   twice. Where the merge is known before the instant must be — a correction
+   at step 4, or a freeze whose promotion has already landed — the merge's own
+   instant is the value that satisfies the rule and leaves no window at all.
 3. Commit. Because the digest excludes `pipeline_sha`, the blessed map survives
    unrelated pipeline commits — predict/evaluate can resume at a newer HEAD and
    still match.
@@ -588,11 +602,11 @@ freeze record states the exposure.
 counted cells** is the third supersession shape, and the only one that
 de-counts: the predictor digests are the enforced filter, so replacing them in
 `FROZEN_PROCESS_DIGESTS` removes every cell stamped under the retired digests
-from every frozen-scope artifact at once — and `FROZEN_SINCE` sitting past the
-carrying promotion, the ordinary step-4 rule (the held-instant exception above
-is scoped to byte-identical predictor digests and cannot apply, so the instant
-is either moved there or already sits there, which satisfies the same rule
-without a move), independently
+from every frozen-scope artifact at once — and `FROZEN_SINCE` sitting at or
+after the carrying promotion, the ordinary step-4 rule (the held-instant
+exception above is scoped to byte-identical predictor digests and cannot
+apply, so the instant is either moved there or already sits there, which
+satisfies the same rule without a move), independently
 drops every evaluation stamped before the instant via
 `graded_post_freeze`, blessed evaluator digests or not, so the boundary is
 total in both halves rather than incidental to one. That is a

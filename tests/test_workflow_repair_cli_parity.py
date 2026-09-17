@@ -99,10 +99,10 @@ REMOTE_COMMANDS = frozenset({"corpus-push", "corpus-pull"})
 BENIGN_REFUSALS = {
     "backfill-questions-presented": "no stored petition text",
     # Same fixture, same reason from the other side: the OCR recovery reads the
-    # petition *rows*, and a corpus holding none is the wrong blob rather than a
-    # converged class — the refusal that tells a misconfigured content store
-    # apart from a corpus with nothing left to repair.
-    "ocr-recover-petitions": "no stored petitions",
+    # stored *rows* of every fetched kind, and a corpus holding none is the wrong
+    # blob rather than a converged class — the refusal that tells a misconfigured
+    # content store apart from a corpus with nothing left to repair.
+    "ocr-recover-petitions": "no stored documents",
     # The same refusal a third time, on the population rather than the
     # documents: the fixture holds no row queued for prediction or selected by
     # the salience gate, so the document back-fill has no denominator to walk.
@@ -439,9 +439,14 @@ def test_the_ocr_slice_deadline_keeps_its_reserve_under_the_steps_own_cap() -> N
 #: What the document back-fill's apply holds back between the slice deadline it
 #: passes and its own `timeout-minutes`: the walk-only witness re-read, the blob
 #: push, the pointer commit, and the work a started candidate can run past the
-#: deadline. As with the OCR reserve above, the arithmetic is stated beside the
-#: invocation and repeated here so the two halves cannot move apart.
-DOCUMENT_BACKFILL_DEADLINE_RESERVE_SECONDS = 540
+#: deadline. The push term is double the OCR recovery's, because this pass's
+#: floor probes are index columns: the index moves on any applied slice that
+#: read a floor, so the push is the ordinary path rather than a reserved one,
+#: and the exclusions are durable only once it lands (the documents are already
+#: banked per case in the content store). As with the OCR reserve above, the
+#: arithmetic is stated beside the invocation and repeated here so the two
+#: halves cannot move apart.
+DOCUMENT_BACKFILL_DEADLINE_RESERVE_SECONDS = 600
 
 #: And what its *dry run* holds back, which is smaller because a dry run commits
 #: and pushes nothing: only a started candidate's own docket fetch follows it.

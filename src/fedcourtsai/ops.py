@@ -37,6 +37,7 @@ from .schemas import (
     AgentToolingFeedback,
     Backtest,
     BacktestEntry,
+    BigCaseBoard,
     CertBacktest,
     ClaimScoreBoard,
     CostEstimate,
@@ -649,6 +650,7 @@ class WeeklyAnalytics:
 
     leaderboard: Vintaged[Leaderboard]
     claim_scores: Vintaged[ClaimScoreBoard]
+    big_cases: Vintaged[BigCaseBoard]
     statpack: Vintaged[StatPack]
     backtest: Vintaged[Backtest]
     salience_replay: Vintaged[SalienceReplay]
@@ -797,6 +799,42 @@ def _claim_score_lines(vintaged: Vintaged[ClaimScoreBoard]) -> list[str]:
     ]
 
 
+def _big_case_lines(vintaged: Vintaged[BigCaseBoard]) -> list[str]:
+    """The big-case board's denominators — and the carve-out that keeps them read right.
+
+    No case is named. The digest is the surface most often quoted out of, and a
+    case beside a number reads as a finding about that case, which a stakes read
+    cannot support. The coverage split is the informative part anyway: it says how
+    many of the board's means rest on the full panel.
+    """
+    board = vintaged.value
+    where = _sourced("big-cases.json", vintaged)
+    if board is None:
+        return ["- **Big-case board**: `metrics/big-cases.json` has never landed."]
+    if not board.rows:
+        return [
+            f"- **Big-case board** ({where}): empty — no committed prediction "
+            "carries a stakes read."
+        ]
+    # The coverage distribution rather than a "full panel" count: `predictors` is
+    # read off the cells, so one stray cell from a fourth engine — or a retired
+    # third — would move a derived count and report a coverage collapse that did
+    # not happen. The distribution says the same thing and cannot lie that way.
+    split = ", ".join(f"{entry.n}→{entry.cases}" for entry in board.coverage)
+    leakage = (
+        f" {board.rows_with_leakage_flag} row(s) rest partly on a leakage-flagged read."
+        if board.rows_with_leakage_flag
+        else ""
+    )
+    return [
+        f"- **Big-case board** ({where}): {board.cases} case(s) ranked over "
+        f"{board.scored_reads} scored stakes read(s) of {board.current_reads} from "
+        f"{len(board.predictors)} predictor(s); cases by scoring predictors {split}."
+        f"{leakage} A panel opinion about stakes — neither scored nor ranked, and not a "
+        "statement about cert likelihood."
+    ]
+
+
 def _base_rate_lines(vintaged: Vintaged[StatPack]) -> list[str]:
     """The statpack's two headline rates, each with its own denominator and its limit.
 
@@ -849,6 +887,7 @@ def _render_analytics_state(analytics: WeeklyAnalytics, generated_at: str) -> li
         "",
         *_leaderboard_lines(analytics.leaderboard, generated_at),
         *_claim_score_lines(analytics.claim_scores),
+        *_big_case_lines(analytics.big_cases),
         *_base_rate_lines(analytics.statpack),
     ]
 

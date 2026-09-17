@@ -240,12 +240,17 @@ stored when they were assigned: a run of `fedcourts
 backfill-questions-presented --apply` rewrites some of those texts, so the
 entries whose text it changes are re-read before the set backs another
 measurement — an entry labeled off a fragment is not evidence about a labeler
-that now sees the question. The set is two blocks with different rater
-processes, both disclosed: the **founding block** (189 cases, a single agent
-session, no second pass) and the **stratified supplement** (164 cases,
-labeled by **two independent blind agent raters**, whose 13 primary
-disagreements were adjudicated case by case under this document's rules,
-with the rationale recorded in the introducing change).
+that now sees the question. When a run joins its labels to this set, the
+docket numbers compare with the Court's `*** CAPITAL CASE ***` marking
+removed: the marking is a flag on the case rather than part of its number, the
+extract carries each row's stored spelling (unmarked wherever the row was
+written or refreshed since ingest began stripping it), and a reference row
+recorded with the marking names the same docket. The set is two blocks with
+different rater processes, both disclosed: the **founding block** (189 cases,
+a single agent session, no second pass) and the **stratified supplement** (164
+cases, labeled by **two independent blind agent raters**, whose 13 primary
+disagreements were adjudicated case by case under this document's rules, with
+the rationale recorded in the introducing change).
 
 The supplement's draw is deterministic and its one defect is disclosed
 rather than hidden: an every-k-th systematic sample in `case_id` order per
@@ -658,9 +663,12 @@ exactly the extracts the inner one kills.
 
 `qp-corpus` therefore enforces a ceiling (`LABEL_ROW_CEILING` in
 `fedcourtsai.pipeline.qp_topics`) and sizes each dispatch's extract to it. Its
-value is a **declared budget, not an observed rate**: no labeling dispatch has
-completed, so the pace behind it is unmeasured, and the first finished run is
-what should re-derive it. The labeling prompt states its budget as "whatever the
+value is a **declared budget, checked once against an observed pace**: a
+ceiling-sized extract labeled in full at `claude-fable-5` took 35.7 minutes of
+the labeling step's 40-minute cap over 76 turns (run of 2026-09-16), so the
+ceiling holds with about four minutes of headroom and cannot rise without the
+cap rising first. The default tier is no datum for it: its one run ended after
+200 rows. The labeling prompt states its budget as "whatever the
 extract holds" for the same reason — one number, in one place, and no second copy
 to drift.
 

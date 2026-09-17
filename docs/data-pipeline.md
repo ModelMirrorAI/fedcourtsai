@@ -846,10 +846,14 @@ Interactive data discovery belongs in a codespace, not a workflow. The remote
 serves it in two modes, both strictly **read-only** (see
 [security.md](security.md)): **ranged queries** for quick lookups
 (`--corpus-backend ranged` on `query` / `open-events` / `corpus-info` —
-per-query egress in KBs, with `corpus-info --text-coverage` the one exception —
-that flag walks the documents of every live-slice case, tens of thousands of
+per-query egress in KBs wherever an index serves the filter, which is every
+exact-match filter and, off the partial index over the populated rows,
+`--citation`. Two shapes are not lookups and should not be read as ones.
+`--judge` matches on overlap with no index behind the predicate, so it visits
+every row in the scope and costs it. And `corpus-info --text-coverage` walks
+the documents of every live-slice case, tens of thousands of
 rows, so under the split it is a content-store manifest round trip each plus a
-full text body per stored document, and belongs with the scan-heavy work
+full text body per stored document. Both belong with the scan-heavy work
 rather than with the lookups) and **a deliberate full pull** for scan-heavy
 exploration (`uv run fedcourts corpus-pull`). Default to ranged:
 Codespaces runs on Azure, so every full pull is cross-cloud S3 egress.
@@ -958,6 +962,14 @@ shared with the ledger models.
   (`fedcourts docket` → `metrics/docket.{json,md}`) is the court-facing cut of
   the same machinery — the docket-composition sections plus a paid/IFP split and
   a pooled per-Term census, and no claim about this project's predictions.
+- **Stakes reads** — the **big-case board** (`fedcourts big-cases` →
+  `metrics/big-cases.{json,md}`, refreshed daily by `run-analytics`): the only
+  **case-centric** published roll-up, and one whose whole input is the committed
+  *predictions* ledger, so it reads no corpus at all (`claim-scores.json` reads
+  the evaluations ledger the same way). One row per predicted case, each
+  predictor's current `big_case_score` and the mean over those that gave one. It
+  is a panel opinion about which cases matter, never a forecast or a skill figure
+  ([metrics/README.md](../metrics/README.md)).
 - **Retrieval** — a handful of *relevant* priors at prediction time:
   `fedcourts query` (and `corpus.retrieve_priors`) — exact-match filters on
   court / topic / disposition plus overlap filters on judges and citations,
@@ -1212,8 +1224,8 @@ population and apply against another.
 | `rederive-distribution-parse` | `rederive-distribution-counts` | — (fixed in code) | parse label, **required in both modes** | — |
 | `normalize-docket-markings` | `normalize-docket-markings` | `--max-rewrites` | — | — |
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
-| `ocr-recovery` | `ocr-recover-petitions` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`) | — | — |
-| `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too; the class has two arms, a form-keyed opening document and, on a granted row whose respondent has filed on the merits, each side's merits brief, and the ledger's `merits_candidates` says how the **class** splits between them, which is not the mix a bounded slice takes — the class is in `case_id` order and the arms are not separated in it) | — | — |
+| `ocr-recovery` | `ocr-recover-petitions` (the name is this lane's invocation string; the population is every fetched document kind, not petitions alone) | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds` — and it counts candidates, so a case holding two scanned filings spends two of it); the class is cut per kind in the ledger | — | — |
+| `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too; the class has two arms, a form-keyed opening document and, on a granted row whose respondent has filed on the merits, each side's merits brief, and the ledger's `merits_candidates` says how the **class** splits between them, which is not the mix a bounded slice takes — the class is in `case_id` order and the arms are not separated in it; an apply **stamps** each candidate it reads at a floor, and the class holds a stamped candidate out until its docket is polled again, so a floor costs one paced docket GET per docket version rather than one per dispatch and a bounded slice reaches the tail of the class — `standing_floors` on the ledger is that held-out balance, and `candidates + standing_floors` is the whole gap class this route can address. A floor the modern-docket alarm fired on is never stamped, so a selector regression cannot bank its own exclusions. Because the stamps are index columns, an applied slice that read any floor moves the pointer) | — | — |
 | `mirror-stored-documents` | `mirror-stored-documents` | `--max-cases` (a slice, not a ceiling — **apply only**: the dry run always enumerates the whole population, and the command refuses a bound without `--apply`) | — | — |
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
@@ -1246,8 +1258,9 @@ bound is what is sized against it. The document back-fill takes its bound on `dr
 because its dry run is not free either: running selection over a freshly served
 docket payload is the whole diagnostic, and that payload is a paced round trip
 per candidate. The rest of this paragraph describes the OCR recovery, and the
-document back-fill is built on the same terms except where said. The slice is
-self-advancing — a recovered petition leaves the class — but only the recovered
+document back-fill is built on the same terms except where said — the exception
+that matters here is its floors, which leave the class too (below). The slice is
+self-advancing — a recovered row leaves the class — but only the recovered
 ones do. Anything
 the slice reached and could not recover (a refused URL, a failed fetch, an
 unreadable scan, a recognition cut short) stays, and stays at the *head* in
@@ -1266,9 +1279,9 @@ killed. Those it declines are reported **unreached** — untouched, unwritten, a
 at the head of the next slice — which is a different fact from a failure and is
 named as one, because page counts across the class vary several-fold and no
 fixed bound is both safe against the cap and worth dispatching. Its ledger also
-carries a denominator, the stored petitions the walk read at all, and the pass
-refuses on it: zero candidates out of zero petitions is a blob whose documents
-this process cannot read — a split-mode index with no content store configured
+carries a denominator, the stored rows of a recoverable kind the walk read at
+all, and the pass refuses on it: zero candidates out of zero such rows is a blob
+whose documents this process cannot read — a split-mode index with no content store configured
 serves every case an empty document list — not a converged class, and the two
 must not report the same way.
 
@@ -1281,13 +1294,25 @@ the merits, each side's merits brief. A candidate it cannot recover falls into
 one of two **floors** rather than a failure: a docket carrying an entry for a
 missing kind with nothing fetchable behind it (a Rule 34.6 paper filing the
 Court served nothing for, or a merits kind on a docket whose grant cannot be
-dated), and one carrying no such entry at all. Neither drains, so a slice that
-clears its bound without shrinking the class is the expected reading once the
-recoverable half is gone, and only the floor counts say so. The alarm cuts
+dated), and one carrying no such entry at all. Neither drains, so neither is
+re-walked: an **apply** stamps the candidate it read at a floor
+(`document_floor_probed_at` on the row) and the class holds it out while that
+stamp is no older than `last_live_polled`, the live channel's record of when it
+last read the same docket — so a floor costs one paced docket GET per docket
+version rather than one per dispatch, and a bounded slice reaches the tail of a
+class whose recoverable head has drained. The next poll of the docket releases
+the candidate; a docket that has left the live rotation is never re-polled,
+which is the terminal reading for a closed docket the Court served no PDF on.
+`standing_floors` is the held-out balance, reported beside `candidates` so the
+whole addressable class reads off one ledger, and `floors_stamped` is what the
+slice added to it. The alarm cuts
 across both counts because it is per **kind**: a missing kind the selector found
 no entry for on a docket modern enough to carry links is a filing shape it has
 no arm for rather than a floor, and the ledger **names** those cases whichever
-floor they were counted at. Its ledger
+floor they were counted at — and that is the one floor never stamped, because
+holding a case out on a reading about *this pass* would bank an exclusion over a
+defect on our own side. Widening the selector recovers those candidates; they
+never left the class. Its ledger
 carries two denominators, not one — the predict-relevant rows the walk read at
 all, which the command refuses on, and how many of them served any stored
 document, which is the opposite degradation: a content store the process cannot
@@ -1465,8 +1490,12 @@ gh workflow run run-repair.yml --ref main \
 # The document back-fill's bound is a slice too, and it is the one pass whose
 # `dry-run` takes it as well — the diagnostic is a paced docket fetch per
 # candidate, so an unbounded dry run over a large class is an hour of them.
-# Read the ledger's floor counts before sizing the apply: they say how much of
-# the class no fetch reaches, so a bound above the recoverable half buys nothing.
+# Size the apply off the whole dry-run class rather than off its recoverable
+# half: a floored candidate is stamped and leaves the class, so spending the
+# bound on floors is what advances the walk to the candidates behind them. Read
+# `standing_floors` beside `candidates` — the floors a previous apply already
+# stamped are held out of the walk, so the dry run's `no_link` / `no_entry`
+# counts describe only the floors it actually re-read.
 # Read its arm split too (`merits_candidates` against `candidates`), and read
 # it as a property of the whole class rather than of the next slice: the class
 # is in case-id order and the two arms are not separated in it, so a bound of

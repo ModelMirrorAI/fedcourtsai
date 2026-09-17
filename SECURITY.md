@@ -85,13 +85,29 @@ runbook, [docs/security.md](docs/security.md).
   (`fedcourts scan-diff-for-secrets`) over the run's changed files and the PR
   prose about to be posted: literal containment of the live token in the cheap
   encodings (base64, hex, URL-escaping), credential-shape patterns, and an
-  entropy heuristic — which skips exactly one family: the collected run's own
-  ledger paths (the `predictions/` / `evaluations/` layouts and the
+  entropy heuristic — whose only candidate-level exemption is the collected
+  run's own ledger paths (the `predictions/` / `evaluations/` layouts and the
   cell-relative `<actor>/<run id>[/<file stem>]` /
   `<evaluator>/<predictor>/<run id>` forms), named by `--run-id` with the run
   id segment compared for equality and every free segment pinned lowercase
   and capped far below the heuristic's own minimum, so the skip can hide
-  nothing the heuristic would convict standalone. A hit **withholds the branch** — nothing is pushed and no
+  nothing the heuristic would convict standalone.
+  That heuristic is off entirely, file by file, for the two files holding
+  what a cell's tool calls carried — `retrieval_log.json`, which the harness
+  captures, and `retrieval.md`, which the agent writes as its account of the
+  same calls — because it would convict them wholesale: their content is
+  document addresses, ids and search queries. Containment plus the credential
+  shapes carry those two as they do an engine transcript's below. The residual
+  is stated per file, since the two are not equally guarded. In
+  `retrieval_log.json` it is the 40-63 character window: capture-time
+  redaction (below) reads every byte that file keeps on the way in and
+  rewrites both the shapes it can name and any unknown run of 64 characters
+  or more that scores like credential material, so what passes both layers is
+  an opaque run shorter than that. In `retrieval.md`, free text nothing
+  rewrites, it is everything from 40 characters up that no shape names and no
+  known credential matches. Every other file a cell writes — its reasoning,
+  its evaluation, its flags — and the PR prose scanned beside them keep the
+  heuristic. A hit **withholds the branch** — nothing is pushed and no
   PR opens; a redacted file/rule/line report (never the matched text) lands on
   the run's step summary and the files stay in the run's cell artifacts for
   maintainer review. The scan fails closed: if its token env is missing, the
@@ -154,8 +170,9 @@ runbook, [docs/security.md](docs/security.md).
   credential-shaped runs there are **redacted at capture** — rewritten to a
   `[redacted:…]` marker and the run allowed through, rather than costing a
   whole fan-out's model spend to a withheld branch. Redaction is not a gate:
-  it spares only the shapes it can name, and anything it leaves still meets
-  the scan. The scan is a heuristic and the cell's
+  it spares only the shapes it can name, and what it leaves meets the scan's
+  containment and credential shapes — though not, in that file, its generic
+  entropy heuristic, which is the residual stated above. The scan is a heuristic and the cell's
   uploaded artifacts remain downloadable from the Actions run by logged-in
   users regardless, so the last line stays what it always was: the *reachable*
   secret is not worth stealing — the single-account, **read-only**

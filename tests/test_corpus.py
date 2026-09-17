@@ -2113,6 +2113,60 @@ def test_from_record_tolerates_a_record_without_the_enrich_cursor() -> None:
     assert row == _row()
 
 
+def test_the_document_floor_probe_migrates_and_latches(tmp_path: Path) -> None:
+    """A blob written before the column gains it never-probed, and once stamped
+    the probe survives every writer that does not carry one.
+
+    The latch is what makes the stamp readable at all: it means something only
+    against `last_live_polled`, so a live poll that wiped it would erase the very
+    comparison the document back-fill reads to hold a floored case out.
+    """
+    pre = tmp_path / "pre-change.db"
+    legacy = sqlite3.connect(pre)
+    columns = ",\n".join(
+        f"{name} {ddl}"
+        for name, ddl in corpus._CASES_COLUMN_DDL.items()
+        if name != "document_floor_probed_at"
+    )
+    legacy.executescript(
+        f"CREATE TABLE cases ({columns});\n"
+        "INSERT INTO cases (case_id, court, docket_number) VALUES "
+        "('scotus/24001', 'scotus', '23-101');"
+    )
+    legacy.commit()
+    legacy.close()
+    with corpus.connect(pre) as conn:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(cases)")}
+        assert "document_floor_probed_at" in cols
+        migrated = corpus.get_row(conn, "scotus/24001")
+        assert migrated is not None and migrated.document_floor_probed_at is None
+        # Idempotent: a second connect to the same blob adds nothing.
+        corpus._migrate_cases(conn)
+        assert {r["name"] for r in conn.execute("PRAGMA table_info(cases)")} == cols
+        # The back-fill stamps it through its own writer — a single-column
+        # UPDATE, because the row it holds came off an index that may carry no
+        # opinion body and an upsert would re-mirror that absence to the store.
+        corpus.stamp_document_floor_probe(conn, "scotus/24001", date(2026, 9, 1))
+        # A later live poll carrying no probe keeps it: the latch is the only
+        # thing that preserves a stamp no other writer ever repeats.
+
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/24001",
+                    court="scotus",
+                    docket_number="23-101",
+                    last_live_polled=date(2026, 9, 8),
+                )
+            ],
+        )
+        latched = corpus.get_row(conn, "scotus/24001")
+    assert latched is not None
+    assert latched.document_floor_probed_at == date(2026, 9, 1)
+    assert latched.last_live_polled == date(2026, 9, 8)
+
+
 def test_capital_case_migrates_and_max_latches(tmp_path: Path) -> None:
     """A DB written before the column gains it on connect at the not-marked
     default, and the flag then only ever latches on: only one upstream channel
@@ -2634,6 +2688,138 @@ def test_sparse_filter_coverage_names_the_data_gap(tmp_path: Path) -> None:
     assert "OWN reporter cites" in cites[0]
     assert len(topic) == 1 and "1 of 2 rows in scope (ca9)" in topic[0]
     assert "exact" in topic[0]
+
+
+def _citation_scope(db: Path, *, populated: int, total: int, court: str = "ca9") -> None:
+    """A ``court`` scope of ``total`` rows, ``populated`` of them carrying a cite."""
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id=f"{court}/{i}",
+                    court=court,
+                    citations=["597 U.S. 1"] if i < populated else [],
+                )
+                for i in range(total)
+            ],
+        )
+
+
+def test_the_citation_sentinel_names_the_population_before_the_scan(tmp_path: Path) -> None:
+    """The thin-column branch: say how little the column holds, and where to look.
+
+    The failure this prevents is a cell reading an empty result as "no such
+    case" and retrying the same shape — which is what an unexplained empty
+    result set invites.
+    """
+    db = tmp_path / "corpus.db"
+    _citation_scope(db, populated=1, total=200)
+    with corpus.connect(db) as conn:
+        notice = corpus.sparse_citation_notice(
+            conn, corpus.PriorQuery(court="ca9", citations=["1 U.S. 1"])
+        )
+    assert notice is not None
+    assert "only 1 row(s) in scope (ca9) carry any reporter citation" in notice
+    assert "a column that was never filled than a case that does not exist" in notice
+    assert "CourtListener MCP server" in notice
+
+
+def test_a_populated_citation_column_gets_no_sentinel(tmp_path: Path) -> None:
+    """The other branch: above the floor a miss is a miss, and says nothing."""
+    db = tmp_path / "corpus.db"
+    _citation_scope(db, populated=corpus.SPARSE_CITATION_ROWS, total=corpus.SPARSE_CITATION_ROWS)
+    with corpus.connect(db) as conn:
+        # Exactly at the floor is populated enough — the boundary, pinned.
+        assert corpus.citation_rows(conn, "ca9") == corpus.SPARSE_CITATION_ROWS
+        assert (
+            corpus.sparse_citation_notice(
+                conn, corpus.PriorQuery(court="ca9", citations=["1 U.S. 1"])
+            )
+            is None
+        )
+        # No citation filter, nothing to say — and an unpopulated *scope* is a
+        # different court's story, told against that court's own count.
+        assert corpus.sparse_citation_notice(conn, corpus.PriorQuery(court="ca9")) is None
+        assert (
+            corpus.sparse_citation_notice(
+                conn, corpus.PriorQuery(court="ca1", citations=["1 U.S. 1"])
+            )
+            is not None
+        )
+
+
+def test_citation_rows_counts_court_wide_and_scoped(tmp_path: Path) -> None:
+    """The count is index-served either way, including with no ``--court``.
+
+    The court-less shape is the one a caller types most easily, and the one
+    where the pinned index carries no constraint at all — the shape SQLite can
+    refuse outright with "no query solution" if the pin is wrong.
+    """
+    db = tmp_path / "corpus.db"
+    _citation_scope(db, populated=1, total=3, court="ca9")
+    _citation_scope(db, populated=2, total=4, court="ca1")
+    with corpus.connect(db) as conn:
+        assert corpus.citation_rows(conn, "ca9") == 1
+        assert corpus.citation_rows(conn, "ca1") == 2
+        assert corpus.citation_rows(conn, None) == 3
+        assert (
+            corpus.sparse_citation_notice(conn, corpus.PriorQuery(citations=["1 U.S. 1"]))
+            is not None
+        )
+
+
+def test_the_citation_population_is_unknown_without_its_index(tmp_path: Path) -> None:
+    """Counting without the partial index costs the scan the count saves.
+
+    So a blob that predates the index answers "unknown" and every caller falls
+    back to what it did before, rather than paying the whole transfer to decide.
+    """
+    db = tmp_path / "corpus.db"
+    _citation_scope(db, populated=1, total=200)
+    with corpus.connect(db) as conn:
+        conn.execute(f"DROP INDEX {corpus.CITATIONS_PRESENT_INDEX}")
+        assert corpus.citation_rows(conn, "ca9") is None
+        assert (
+            corpus.sparse_citation_notice(
+                conn, corpus.PriorQuery(court="ca9", citations=["1 U.S. 1"])
+            )
+            is None
+        )
+        # The filter still works — it scans, as it always did.
+        priors = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="ca9", citations=["597 U.S. 1"]), limit=10
+        )
+    assert [row.case_id for row in priors] == ["ca9/0"]
+
+
+def test_a_citation_filter_returns_the_same_rows_off_the_index(tmp_path: Path) -> None:
+    """The pushdown is a narrowing, not a different answer.
+
+    The clause the index path adds drops only rows the Python overlap test
+    drops next, so the two paths must agree row for row — which is what makes
+    the cheap plan safe to pin.
+    """
+    db = tmp_path / "corpus.db"
+    _citation_scope(db, populated=3, total=40)
+    query = corpus.PriorQuery(court="ca9", citations=["597 U.S. 1"])
+    with corpus.connect(db) as conn:
+        indexed = corpus.retrieve_priors(conn, query, limit=10)
+        conn.execute(f"DROP INDEX {corpus.CITATIONS_PRESENT_INDEX}")
+        scanned = corpus.retrieve_priors(conn, query, limit=10)
+    assert [row.case_id for row in indexed] == [row.case_id for row in scanned]
+    assert len(indexed) == 3
+
+
+def test_the_empty_result_note_is_not_said_twice(tmp_path: Path) -> None:
+    """The sentinel and the coverage note are one reading; the caller says it once."""
+    db = tmp_path / "corpus.db"
+    _citation_scope(db, populated=1, total=200)
+    query = corpus.PriorQuery(court="ca9", citations=["1 U.S. 1"])
+    with corpus.connect(db) as conn:
+        assert corpus.sparse_filter_coverage(conn, query, skip_citations=True) == []
+        after = corpus.sparse_filter_coverage(conn, query)
+    assert len(after) == 1 and "1 of 200 rows in scope (ca9)" in after[0]
 
 
 def test_a_docket_annotation_does_not_change_a_docket_number() -> None:

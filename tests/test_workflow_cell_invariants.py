@@ -81,6 +81,7 @@ from fedcourtsai.agent_feedback import (
     _GH_TIMEOUT_SECONDS,
 )
 from fedcourtsai.cli import _echo_text_coverage
+from fedcourtsai.collect import BOARD_ARTIFACTS, BOARD_BRANCH, BOARD_JAIL_PATHS
 from fedcourtsai.config import Settings
 from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
 from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
@@ -1422,7 +1423,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Re-derive the distribution counts", ()),
     ("repair", "Converge stored docket markings", ()),
     ("repair", "Backfill the dated response signals", ()),
-    ("repair", "Recover scanned petitions by OCR", ("apply did not converge",)),
+    ("repair", "Recover scanned filings by OCR", ("apply did not converge",)),
     ("repair", "Backfill missing primary documents", ("apply did not converge",)),
     ("repair", "Mirror blob-only documents to the content store", ("apply did not converge",)),
     ("repair", "Backfill the interim arrival stamps", ()),
@@ -3373,7 +3374,7 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
         for job_id, job in wf["jobs"].items()
         if any("create-github-app-token" in str(s.get("uses") or "") for s in job["steps"])
     }
-    assert set(publishing_jobs) == {"metrics-refresh", "qp-topic-label"}, (
+    assert set(publishing_jobs) == {"metrics-refresh", "big-cases", "qp-topic-label"}, (
         f"the publishing-job set moved: {sorted(publishing_jobs)}"
     )
     for job_id, steps in publishing_jobs.items():
@@ -3396,6 +3397,100 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
         assert rehearsal_notes, (
             f"{job_id}: a rehearsal leaves no summary record that the fence held"
         )
+
+
+def test_every_run_analytics_cron_is_claimed_by_exactly_one_job() -> None:
+    """A `schedule` gate is fail-open on any cron it does not name.
+
+    `run-analytics` carries two crons now — the weekly metrics refresh and the
+    daily big-case board — so a job gating on the event class alone would run on
+    both, which is how a weekly artifact quietly becomes a daily one. Each
+    scheduled job must name its own cron's minute, and every declared cron must
+    be claimed, so neither adding a cron nor renaming a minute can leave a tick
+    that fires nothing or a job that fires on everything."""
+    wf = _load("run-analytics.yml")
+    crons = _schedule("run-analytics.yml")
+    assert len(crons) == len(set(crons)), f"duplicate cron in run-analytics: {crons}"
+    claims = {
+        cron: [
+            job_id
+            for job_id, job in wf["jobs"].items()
+            if f"startsWith(github.event.schedule, '{cron.split()[0]} ')"
+            in str(job.get("if") or "")
+        ]
+        for cron in crons
+    }
+    assert all(len(jobs) == 1 for jobs in claims.values()), f"crons are not claimed 1:1: {claims}"
+    for job_id, job in wf["jobs"].items():
+        condition = str(job.get("if") or "")
+        if "github.event_name == 'schedule'" not in condition:
+            continue
+        assert "github.event.schedule" in condition, (
+            f"{job_id} gates on the event class rather than on which cron fired, "
+            "so it runs on every cron the workflow declares"
+        )
+
+
+def test_every_run_analytics_mode_is_gated_by_a_job_and_every_job_by_a_mode() -> None:
+    """The `mode` choice is the operator's whole surface, so an option that no
+    job gates on is a dispatch that silently does nothing — and a job gating on
+    a string the choice does not offer is unreachable."""
+    wf = _load("run-analytics.yml")
+    triggers = wf.get("on") or wf.get(True) or {}
+    options = set(triggers["workflow_dispatch"]["inputs"]["mode"]["options"])
+    gated = {
+        mode
+        for mode in options
+        for job in wf["jobs"].values()
+        if f"inputs.mode == '{mode}'" in str(job.get("if") or "")
+    }
+    assert gated == options, f"modes offered but never gated: {sorted(options - gated)}"
+    for job_id, job in wf["jobs"].items():
+        condition = str(job.get("if") or "")
+        named = {mode for mode in options if f"inputs.mode == '{mode}'" in condition}
+        assert named or "needs" in job, f"{job_id} gates on no declared mode"
+
+
+def test_the_big_case_board_branch_is_spelled_the_same_in_all_three_places() -> None:
+    """The board branch is three literals across two workflows and one module,
+    and the `paths` jail's non-match path is a **pass** — so a drift between them
+    does not fail, it silently disarms the only thing standing in for a reviewer
+    on a lane that auto-merges into `main`. `collect.BOARD_BRANCH` is the
+    spelling; this asserts the producer's push, the jail's branch selector and
+    `main-base`'s routing allowlist all carry it. The artifact paths get the same
+    treatment, because a CLI default that drifts from the jail's set leaves the
+    producer staging nothing while the jail still passes."""
+    analytics_wf = (WORKFLOWS / "run-analytics.yml").read_text()
+    ci = (WORKFLOWS / "ci.yml").read_text()
+    assert f"BRANCH: {BOARD_BRANCH}" in analytics_wf, "the producer does not push the board branch"
+    assert f"\n            {BOARD_BRANCH}) jail=board ;;" in ci, (
+        "ci.yml's paths jail does not select the board branch"
+    )
+    assert f"github.head_ref == '{BOARD_BRANCH}'" in ci, (
+        "main-base's allowlist does not carry the board branch"
+    )
+    for artifact in BOARD_ARTIFACTS:
+        assert f"metrics/{artifact}" in BOARD_JAIL_PATHS
+        assert f"metrics/{artifact}" in analytics_wf, (
+            f"the board job does not stage metrics/{artifact}"
+        )
+
+
+def test_the_big_case_board_job_reaches_nothing_but_the_ledger_and_its_own_pr() -> None:
+    """The board is ledger-only by contract, and the job is where that is
+    enforceable: it must assume no cloud role, pull no corpus, and hold no
+    `id-token` permission — the whole reason it can run daily and outside the
+    corpus-settled window. The one credential it holds is the PR token, which
+    the fence test above already keeps on `main`-ref runs."""
+    job = _load("run-analytics.yml")["jobs"]["big-cases"]
+    assert job["permissions"] == {"contents": "read"}, (
+        "the board job's job-level permissions widened; the PR write lives on the "
+        "App token, not on GITHUB_TOKEN"
+    )
+    dumped = yaml.safe_dump(job)
+    for reach in ("corpus-readonly", "configure-aws-credentials", "role-to-assume", "id-token"):
+        assert reach not in dumped, f"the ledger-only board job reaches {reach}"
+    assert "uv run fedcourts big-cases" in dumped
 
 
 def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environment() -> None:

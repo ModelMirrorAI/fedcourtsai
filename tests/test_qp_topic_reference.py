@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from fedcourtsai.corpus import strip_docket_annotation
 from fedcourtsai.schemas import QP_TOPIC_LABELS, QpTopicReference, QpTopicReferenceEntry
 from fedcourtsai.serialize import read_model
 
@@ -20,8 +21,11 @@ def test_reference_set_is_valid_and_canonical() -> None:
     ref = read_model(_REFERENCE, QpTopicReference)
     # cases == len(entries) and case_id order/uniqueness are schema-enforced by
     # the model validator; docket_number uniqueness is the docstring's pairing
-    # contract, checked only here.
-    docket_numbers = [entry.docket_number for entry in ref.entries]
+    # contract, checked only here. It is checked on the spelling the join
+    # compares — the Court's capital-case marking removed — because two entries
+    # that differ only by the marking would collapse to one key in the join's
+    # mirror-image lookup and blind it for the other.
+    docket_numbers = [strip_docket_annotation(entry.docket_number) for entry in ref.entries]
     assert len(set(docket_numbers)) == len(docket_numbers)
 
 

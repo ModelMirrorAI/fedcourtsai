@@ -87,6 +87,7 @@ from .cert_backtest import (
 )
 from .claim_metrics import agreement_summary, build_claim_scores
 from .collect import (
+    BOARD_ARTIFACTS,
     CODE_MODE_PARENT_TOOL,
     CellStatus,
     CollectPlan,
@@ -94,7 +95,9 @@ from .collect import (
     PathJailError,
     PriorAvailabilityRollup,
     PrPlan,
+    StakesReadRollup,
     ThrottleRollup,
+    assert_board_within_jail,
     assert_cleanup_within_jail,
     assert_within_jail,
     attempted_corpus_query,
@@ -148,15 +151,19 @@ from .leaderboard import (
 from .matrix import (
     CappedMatrix,
     CaseRequest,
+    CollectPr,
     GuardedMatrix,
     StrandedCell,
+    StrandedReason,
     cap_predict_cells,
+    classify_stranded_cells,
     drop_stranded_cells,
     evaluate_matrix,
     event_has_evaluations,
     event_has_predictions,
     parse_cases,
     predict_matrix,
+    read_collect_prs,
     read_stranded_census,
     reopened_for,
 )
@@ -220,7 +227,7 @@ from .pipeline.ingest import UNSAMPLED_WEIGHT
 from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
 from .pipeline.live import live_poll_all
 from .pipeline.ocr_recovery import DEFAULT_PROBE_SAMPLE as DEFAULT_OCR_PROBE_SAMPLE
-from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_petitions
+from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_documents
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
 from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
@@ -276,6 +283,7 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     Backtest,
+    BigCaseBoard,
     CellFailure,
     CellMode,
     CertBacktest,
@@ -1845,6 +1853,13 @@ def _slice_deadline(started: float, seconds: float | None, *, command: str) -> f
     return started + seconds
 
 
+def _echo_by_kind(label: str, counts: Mapping[str, int]) -> None:
+    """One line of per-kind counts, or nothing when there are none to report."""
+    if not counts:
+        return
+    typer.echo(f"  {label}: " + ", ".join(f"{kind} {count}" for kind, count in counts.items()))
+
+
 def _echo_unreached(unreached: Sequence[str]) -> None:
     """Name the candidates the slice deadline declined to start, if any.
 
@@ -1869,7 +1884,7 @@ def ocr_recover_petitions_cmd(
         bool,
         typer.Option(
             "--apply",
-            help="Re-fetch, OCR and write the recovered petitions; omit for a dry-run "
+            help="Re-fetch, OCR and write the recovered filings; omit for a dry-run "
             "that enumerates the class and probes the fetch path.",
         ),
     ] = False,
@@ -1878,7 +1893,7 @@ def ocr_recover_petitions_cmd(
         typer.Option(
             "--max-cases",
             help="Per-dispatch slice size, required with --apply: the number of "
-            "scanned petitions this run re-fetches and OCRs.",
+            "scanned filings this run re-fetches and OCRs.",
         ),
     ] = None,
     probe: Annotated[
@@ -1902,28 +1917,38 @@ def ocr_recover_petitions_cmd(
         ),
     ] = None,
 ) -> None:
-    """Read the scanned petitions off their page images and store what comes back.
+    """Read the scanned filings off their page images and store what comes back.
 
-    A petition filed on paper reaches the corpus with no text layer, so the
-    extractor stored nothing for it and every cell minted over that case reads an
-    empty petition — for as long as the docket keeps serving the same URL, since
-    the poller and the Term walker re-fetch a kind only when its link changes.
+    A filing submitted on paper reaches the corpus with no text layer, so the
+    extractor stored nothing for it and every cell minted over that case reads it
+    empty — for as long as the docket keeps serving the same URL, since the
+    poller and the Term walker re-fetch a kind only when its link changes.
     This is the pass that repairs it, on the terms in *Contract for the recovery
-    pass* (`docs/live-sources.md`): the population is stored **petitions** whose
-    text is empty or whitespace-only and whose page count is above zero (a
-    zero-page row is a PDF the extractor could not open, which is not OCR's to
-    repair, and a case with no petition row at all is a fetch gap); each is
+    pass* (`docs/live-sources.md`): the population is every stored row a cell
+    reads that was fetched as a PDF — the petition, the application, the brief
+    in opposition, the four merits filings — whose text is empty or
+    whitespace-only, whose page count is above zero (a zero-page row is a PDF
+    the extractor could not open, which is not OCR's to repair, and a case with
+    no row of a kind at all is a fetch gap), and whose stored URL is one link.
+    That last condition excludes one shape: a multi-respondent opposition is
+    stored as a single row whose URL is the canonical join of every brief
+    fetched into it — an idempotency key, not something to GET. Such a row also
+    carries its per-brief headings as text, so it is not empty by the coverage
+    report's test and reads there as covered while carrying no argument at all;
+    neither surface sizes that residual, and the ledger's `set_keyed` tally is
+    the guard against a set key that somehow did read empty rather than a count
+    of it. Each candidate is
     re-fetched by its own stored URL on supremecourt.gov, free and
     politeness-capped, so the pass spends none of the CourtListener budget; and
     its pages go through the extractor with the OCR seam supplied, which reads a
     page off its rendered image only where that page's own extraction yielded
     nothing. The same per-document character cap and truncation flag bound the
-    result, so a recovered petition is bounded exactly like a fetched one, and
+    result, so a recovered row is bounded exactly like a fetched one, and
     every recovered row carries `ocr_derived`: OCR output is derived text, and
     must never read as a clean extraction. Additive — text is written only where
-    the stored row held none — and a recovered petition re-derives its
+    the stored row held none — and a recovered **petition** re-derives its
     `questions-presented` row through the ingest path's own deriver, which
-    carries the marker with it.
+    carries the marker with it; no other kind has a follow-on write.
 
     The two modes do different work. The **dry run** enumerates the class, OCRs
     nothing and writes nothing, and re-fetches `--probe` of the population's
@@ -1931,13 +1956,16 @@ def ocr_recover_petitions_cmd(
     lanes use, reporting what each GET came back with — the reading that says
     whether the writer's fetch path is served before an apply spends a slice
     finding out. The **apply** takes the first `--max-cases` candidates in
-    `case_id` order: the bound is a *slice size* rather than a refusal
+    `case_id` order, then kind order within a case — so the bound counts
+    candidates rather than cases, and a case holding both a scanned petition and
+    a scanned opposition spends two of it. The bound is a *slice size* rather than a refusal
     threshold, because each case costs a fetch and a page-by-page recognition
     and runner minutes are the whole cost, so a backlog clears across dispatches
     rather than in one long job. The slice is self-advancing — a recovered
-    petition leaves the class — with one exception the ledger names apart: a
-    petition whose images OCR to nothing stays in the class and re-enters the
-    next slice.
+    row leaves the class — with one exception the ledger names apart: a
+    filing whose images OCR to nothing stays in the class and re-enters the
+    next slice. The ledger cuts both the class and what an apply wrote by kind,
+    so a slice's blast radius is legible before and after it is spent.
 
     `--deadline-seconds` is what keeps an apply inside its caller's wall-clock
     cap, and the bound is a spend cap rather than the safety mechanism because of
@@ -2001,7 +2029,7 @@ def ocr_recover_petitions_cmd(
             corpus.connect(db_path) as conn,
             SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
         ):
-            result = recover_scanned_petitions(
+            result = recover_scanned_documents(
                 conn,
                 client=client,
                 apply=apply,
@@ -2014,14 +2042,14 @@ def ocr_recover_petitions_cmd(
     except OcrToolsMissing as exc:
         typer.echo(f"ocr-recover-petitions: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    if not result.petitions_seen:
+    if not result.documents_seen:
         # Zero candidates has two causes and they are not the same run: a
         # converged class, and a blob whose documents this process cannot read —
         # a split-mode index with no content store configured serves every case
         # an empty document list, which would otherwise report as a clean pass
         # over an empty class. The denominator is what tells them apart.
         typer.echo(
-            f"ocr-recover-petitions: no stored petitions in {db_path} "
+            f"ocr-recover-petitions: no stored documents in {db_path} "
             "— wrong blob for this command?",
             err=True,
         )
@@ -2033,11 +2061,18 @@ def ocr_recover_petitions_cmd(
     counted = result.recovered if apply else result.candidates
     typer.echo(
         f"ocr-recover-petitions ({'applied' if apply else 'dry-run'}): "
-        f"{result.candidates} scanned petition(s) in the class of "
-        f"{result.petitions_seen} stored petition(s) — "
+        f"{result.candidates} scanned filing(s) in the class of "
+        f"{result.documents_seen} stored document(s) — "
         f"{verb} {counted}, {result.remaining} left for the next slice"
     )
+    # The class cut by kind, which is what a bound is drawn against: a slice of
+    # 10 over a class that is nine oppositions and one petition touches a very
+    # different set from one over the reverse, and the total alone hides it.
+    _echo_by_kind("class", result.candidates_by_kind)
+    if result.set_keyed:
+        _echo_by_kind("left out (stored URL is a set key, not one link)", result.set_keyed)
     if apply:
+        _echo_by_kind("recovered", result.recovered_by_kind)
         typer.echo(
             f"  attempted {result.attempted} (bound {result.bound}); "
             f"{result.empty_after_ocr} still empty after OCR; "
@@ -2045,16 +2080,16 @@ def ocr_recover_petitions_cmd(
         )
         losses = ", ".join(f"{reason}: {count}" for reason, count in result.unfetched.items())
         typer.echo(f"  unfetched: {losses or 'none'}")
-    for case_id, detail in result.recoveries.items():
-        typer.echo(f"  {case_id}: {detail}")
-    for case_id, reason in result.failures.items():
-        typer.echo(f"  {case_id}: NOT RECOVERED ({reason})")
+    for key, detail in result.recoveries.items():
+        typer.echo(f"  {key}: {detail}")
+    for key, reason in result.failures.items():
+        typer.echo(f"  {key}: NOT RECOVERED ({reason})")
     _echo_unreached(result.unreached)
     for entry in result.probes:
         # The dry run's second reading: what the writer's own fetch path gets
         # back from supremecourt.gov, before a slice is spent finding out.
         typer.echo(
-            f"  probe {entry.case_id}: {entry.outcome} "
+            f"  probe {entry.case_id} {entry.kind}: {entry.outcome} "
             f"(status {entry.status if entry.status is not None else 'none'}, "
             f"{entry.bytes_fetched} bytes) {entry.url}"
         )
@@ -3810,6 +3845,15 @@ def backfill_documents_cmd(
         f"  floors: {result.no_link} with no fetchable link behind the entry "
         f"(Rule 34.6 paper filings, or an undatable grant on a merits kind), "
         f"{result.no_entry} with no such entry at all"
+        + (f"; {result.floors_stamped} stamped this slice" if apply else "")
+    )
+    typer.echo(
+        f"  {result.standing_floors} row(s) held out of the class by a standing "
+        "floor probe — a floor already read off a docket the live channel has not "
+        f"re-read since, so the addressable gap class is "
+        f"{result.candidates + result.standing_floors} as this run found it "
+        "(the reading the slice started from: whatever it stamped joins the "
+        "balance on the next walk)"
     )
     typer.echo(
         f"  losses: {result.docket_unserved} docket(s) unserved, "
@@ -5640,6 +5684,64 @@ def docket(
     )
 
 
+@app.command("big-cases")
+def big_cases(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="JSON output path (default: <metrics_root>/big-cases.json)."),
+    ] = None,
+    markdown_out: Annotated[
+        Path | None,
+        typer.Option(help="Markdown output path (default: <metrics_root>/big-cases.md)."),
+    ] = None,
+    repo_url: Annotated[
+        str,
+        typer.Option(
+            "--repo-url",
+            help="Repository tree URL the per-cell links are built under; a run "
+            "directory's repo-relative path is appended to it. Pass an empty string to "
+            "publish paths without links.",
+        ),
+    ] = analytics.DEFAULT_REPO_TREE_URL,
+) -> None:
+    """Roll the committed predictions into the big-case board at ``metrics/big-cases.{json,md}``.
+
+    One row per predicted case, carrying each predictor's current stakes read
+    (`big_case_score`) and the mean across the predictors that gave one, ranked
+    mean-first with `n` beside every mean. It answers which cases the panel
+    thinks matter and where the models disagree — a question no existing
+    big-case surface answers, because each of those measures something about the
+    models rather than listing the cases.
+
+    **Not a performance surface.** A stakes read is neither scored nor ranked: it
+    resolves against nothing, so nothing here is an accuracy, a calibration or an
+    ordering of predictors, and the mean says nothing about how likely a case is
+    to be granted. The same carve-out is why the board reads the ledger directly,
+    applying neither the forward-claim nor the leakage exclusion — a wider
+    population than the scored boards, stated in the artifact's own provenance
+    block.
+
+    Ledger-only and offline: it reads ``data/`` and nothing else — no corpus, no
+    network, no credentials — so reruns over an unchanged ledger reproduce both
+    files byte for byte. It stamps neither a clock nor a commit for that reason;
+    the board's vintage is the commit that wrote it.
+    """
+    settings = get_settings()
+    board = analytics.build_big_case_board(data_root=settings.data_root, repo_url=repo_url)
+    # Resolved from the jail's own constants: the command writes exactly the files
+    # the required `paths` check admits on the board branch, by construction.
+    json_name, md_name = BOARD_ARTIFACTS
+    json_dest = out if out is not None else settings.metrics_root / json_name
+    md_dest = markdown_out if markdown_out is not None else settings.metrics_root / md_name
+    write_json(json_dest, board)
+    write_text(md_dest, analytics.render_big_case_markdown(board))
+    typer.echo(
+        f"big-cases: {board.cases} case(s), {board.scored_reads} scored read(s) of "
+        f"{board.current_reads}, {board.rows_with_leakage_flag} leakage-flagged row(s) "
+        f"-> {json_dest}, {md_dest}"
+    )
+
+
 def _resolve_token_counts(
     explicit: TokenCounts,
     claude_execution_file: Path | None,
@@ -5971,6 +6073,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             cell_update["context"] = _stamped_conditioning(
                 case_paths, event_paths, provisioned, record, actor, run_id
             )
+            _warn_on_missing_stakes_read(record, actor)
         if isinstance(record, Evaluation):
             # The graded-prediction identity is the harness's word like every
             # stamped field: the ordinary stamp resolves it (immediately
@@ -6121,14 +6224,137 @@ def _stamped_conditioning(
     if _snapshot_stem(record.input_snapshot) == snapshot.stem:
         return provisioned.model_copy(update={"snapshot_uptake": "read"})
     _flag_unread_snapshot(
-        event_paths.prediction_flags(actor, run_id), snapshot.name, record, actor, run_id
+        event_paths.prediction_flags(actor, run_id),
+        _case_relative(snapshot, case_paths, record.case_id),
+        # The path a cell that mistook `record/` for an event-level directory
+        # would have probed, spelled from the same `record` name provisioning
+        # writes so the note cannot drift from the real one. Nothing creates it.
+        _case_relative(
+            event_paths.base / case_paths.record.name, case_paths, record.case_id, suffix="/"
+        ),
+        record,
+        actor,
+        run_id,
     )
     return provisioned.model_copy(update={"snapshot_uptake": "unread"})
+
+
+#: What the tripwire's note may spend on one quoted path, and on the whole note.
+#: The note is an `AgentFlag.message`, which the schema caps — spelled here so the
+#: budget below is arithmetic rather than hope, and pinned to the field by a test,
+#: because the failure mode if they drift is a `ValidationError` that aborts the
+#: stamp and lands the cell *unstamped*, the one state an agent-authored `context`
+#: block survives.
+_NOTE_PATH_LIMIT = 200
+_FLAG_MESSAGE_LIMIT = 2000
+
+#: The longest run of alphanumerics after a final `.` that still reads as a file
+#: extension rather than as prose that happens to contain a full stop.
+_EXTENSION_LIMIT = 6
+
+#: The tripwire's own opening. Matched as a prefix when deduplicating, so a
+#: re-stamp cannot append a second note merely because the wording behind it
+#: moved between the two runs — a reading aid for a maintainer scanning the
+#: roll-up, never a claim of authorship: nothing stops an agent opening a flag
+#: of its own with these words, and `AgentFlag` carries no author. What the
+#: harness alone can say is stamped where the agent cannot write, which is
+#: `context` on `prediction.json` and nothing else here — the annotation beside
+#: it is unauthenticated stdout, and what it gives is timing rather than
+#: provenance: it is emitted whatever the file already said.
+_TRIPWIRE_PREFIX = "Harness tripwire: this cell recorded input_snapshot"
+
+
+def _one_line(value: str) -> str:
+    """Agent text, collapsed to a single line for a workflow-command annotation.
+
+    ``case_id`` and ``event_id`` are unvalidated agent strings on the record, and
+    ``::warning::`` is line-oriented: a newline inside one would end the
+    annotation and let whatever follows be read as a command of its own — a
+    forged ``::error::``, or a ``::stop-commands::`` that mutes every harness
+    annotation after it. The note's own quotation is already safe, because
+    ``repr`` escapes a newline rather than emitting one; these two are not.
+    """
+    return " ".join(value.split())
+
+
+def _case_relative(path: Path, case_paths: CasePaths, case_id: str, suffix: str = "") -> str:
+    """One of the cell's own paths, spelled from the case directory down.
+
+    The tripwire's note is read off a run PR body by someone who has no runner
+    and no checkout, so a bare basename under-identifies the file and the
+    runner's absolute path over-identifies it. The case id plus the path below
+    the case directory is what both the ledger and `data/cases/` are keyed on,
+    and it is stable across the runner, a developer checkout, and a test root.
+
+    ``path`` is under ``case_paths.base`` by construction, so the relative step
+    cannot raise: the one caller derives both from a single :class:`CasePaths`,
+    and a future caller pairing a path with another case's would turn a
+    diagnostic note into a ``ValueError`` that leaves the cell unstamped — the
+    one state in which an agent-authored ``context`` block survives.
+
+    ``case_id`` is the record's own declaration rather than the coordinates this
+    invocation was given; the two can disagree, and ``validate``'s path-vs-record
+    check is what catches that, after the stamp. Quoting the agent's spelling is
+    deliberate and matches the ``::warning::`` line beside it: the note is about
+    what this artifact says.
+
+    Bounded, and marked where the bound bites, for the same reason the reported
+    string is: the note it goes into is capped, and a stamp must never fail a
+    cell over the length of a path it is quoting. The ellipsis matters — a
+    silently clipped path reads to a maintainer as a complete one — and
+    ``suffix`` (a trailing separator, where the path names a directory) is
+    applied before the cut so it cannot survive it.
+    """
+    spelled = f"{case_id}/{path.relative_to(case_paths.base).as_posix()}{suffix}"
+    if len(spelled) <= _NOTE_PATH_LIMIT:
+        return spelled
+    return spelled[: _NOTE_PATH_LIMIT - 1] + "\u2026"
+
+
+def _names_a_snapshot(value: str) -> bool:
+    """Whether a cell's ``input_snapshot`` names a snapshot file at all.
+
+    The two ways a cell can fail the uptake comparison are different faults, and
+    the tripwire's note is the only place they are ever told apart. A cell naming
+    another day's file opened *something* and mis-stated which. A cell writing a
+    sentinel — ``missing``, ``none``, ``unavailable``, or free prose — is
+    reporting that it found no snapshot, and on a prediction that exists that can
+    only be a lookup at the wrong path: provisioning refuses the cell outright
+    when it writes nothing, and `assert-cell-record` refuses it again when the
+    write did not land complete, both before any engine starts. So a produced
+    prediction always had its record, and the note can say so.
+
+    A value names a file when it carries a path separator, ends in a short
+    alphanumeric extension, or parses as a date — the spellings
+    :func:`_snapshot_stem` already has to absorb, and wider than the
+    ``<day>.json`` the provisioner actually writes. Everything else named none.
+
+    Wide on purpose, in every direction. The extension test is case-insensitive
+    and not pinned to ``.json``, so ``.JSON``, ``.txt`` and a trailing ``.bak``
+    all read as a file; the length bound is what keeps a sentence with a full
+    stop in it from doing the same. The date test takes whatever
+    :func:`date.fromisoformat` takes, basic and week spellings included. Each of
+    those widenings moves a string from the sentinel arm to the weaker one, which
+    is the safe direction: the sentinel arm is the one carrying a claim about
+    *why* the cell missed.
+    """
+    text = value.strip().replace("\\", "/")
+    if "/" in text:
+        return True
+    tail = text[text.rfind(".") :] if "." in text else ""
+    if 1 < len(tail) <= _EXTENSION_LIMIT and tail[1:].isalnum():
+        return True
+    try:
+        date.fromisoformat(_snapshot_stem(value))
+    except ValueError:
+        return False
+    return True
 
 
 def _flag_unread_snapshot(
     flags_path: Path,
     snapshot: str,
+    probed: str,
     record: Prediction,
     actor: str,
     run_id: str,
@@ -6146,8 +6372,14 @@ def _flag_unread_snapshot(
     harness's confirmation belongs beside it rather than over it. A file that
     does not parse is left alone: overwriting it would destroy agent prose to
     add a note, and an unparseable ``flags.json`` fails ``validate`` into the
-    draft PR a maintainer reads anyway. Deduplicated on the message so a
-    re-stamp of the same cell does not grow the list.
+    draft PR a maintainer reads anyway. Deduplicated on the opening, plus the
+    category, severity and event this note is always written with, so a re-stamp
+    of the same cell does not grow the list even where the prose behind that
+    opening moved between the two runs. That match is a convenience, not an
+    authentication — an agent can write those four itself, and suppressing the
+    harness's wording this way only substitutes its own row in the same table,
+    while the annotation below and the stamped ``context`` say the same thing
+    where no agent can reach.
 
     ``warning`` rather than ``blocker``: the cell finished and its artifact is
     usable and fully scoreable — what is wrong is upstream of it, a cell that
@@ -6155,25 +6387,59 @@ def _flag_unread_snapshot(
     It is a **harness-authored** note in a channel that is otherwise the agent's;
     the roll-up counts it with the rest, and the ``Harness tripwire:`` prefix is
     what separates the two by eye.
+
+    The note also says **which** of the two misses this was, because
+    ``snapshot_uptake`` cannot: a cell that named another day's file and a cell
+    that reported no file at all both stamp ``unread``, and only the second is
+    diagnosable from where the reader sits. The provisioned file is named either
+    way; what the second arm adds beside it is the event-level path a cell
+    reaching for ``record/`` one directory too deep would have probed, and the
+    sentence ruling provisioning out — the cell ran, so its record had already
+    landed and been checked. A reader of the run PR body can then rule an outage
+    out without a runner, which leaves a path fault.
+
+    Which arm a cell takes is read off the shape of the string it wrote
+    (:func:`_names_a_snapshot`), not known, so the split errs toward the arm
+    that claims less.
     """
-    # `input_snapshot` is unbounded agent text and the flag message is capped at
-    # 2000 characters, so quote a bounded prefix: a stamp must not fail the cell
-    # over the length of the string it is reporting.
+    if _names_a_snapshot(record.input_snapshot):
+        cause = f"It names a snapshot, but not the provisioned one, {snapshot}."
+    else:
+        cause = (
+            f"It names no snapshot at all, while the provisioned one, {snapshot}, was on disk. "
+            "Provisioning is not the cause: a cell whose record did not land complete is "
+            "refused before any engine starts, so a prediction that exists had its record. "
+            f"The commonest fit is a lookup under the event directory — {probed} — which is "
+            "never provisioned and never exists; record/ is case-level."
+        )
+
+    def compose(reported: str) -> str:
+        return (
+            f"{_TRIPWIRE_PREFIX} {reported}, so it reports not having read the baseline every "
+            f"predictor shares. {cause} The stamped context records snapshot_uptake 'unread'; "
+            "the conditioning beside it is what provisioning wrote, which this cell may not "
+            "have used."
+        )
+
+    # `input_snapshot` is unbounded agent text, so quote a bounded prefix — and
+    # then budget that prefix against the prose it sits in, because a 120-character
+    # slice is not a 120-character quotation: `repr` expands one unprintable
+    # character to ten, and the two paths beside it are variable too. Truncating
+    # once is not enough; the cap has to be arithmetic, because overflowing it
+    # raises out of `AgentFlag` below, aborts the stamp, and leaves the artifact
+    # unstamped over nothing but the length of a string it was reporting.
     reported = repr(record.input_snapshot[:120])
-    message = (
-        f"Harness tripwire: this cell recorded input_snapshot {reported}, which does not name "
-        f"the provisioned snapshot {snapshot}, so it reports not having read the baseline every "
-        "predictor shares. The stamped context records snapshot_uptake 'unread'; the conditioning "
-        "beside it is what provisioning wrote, which this cell may not have used. A cell that "
-        "looked under events/<event_id>/record/ has the wrong path: record/ is case-level."
-    )
+    overflow = len(compose(reported)) - _FLAG_MESSAGE_LIMIT
+    if overflow > 0:
+        reported = reported[: max(len(reported) - overflow - 1, 0)] + "\u2026"
+    message = compose(reported)[:_FLAG_MESSAGE_LIMIT]
     # Echoed before any of the file handling below, and so before the dedupe
     # return: the annotation is about the finding, not about the write. A
     # maintainer re-running the stamp step to reproduce a cell must see the line
     # they are re-running for, whether or not this invocation appends anything.
     typer.echo(
-        f"::warning::stamp: {record.case_id} {record.event_id} {actor} reported "
-        + f"input_snapshot {reported} against provisioned {snapshot}; "
+        f"::warning::stamp: {_one_line(record.case_id)} {_one_line(record.event_id)} {actor} "
+        + f"reported input_snapshot {reported} against provisioned {_one_line(snapshot)}; "
         + "stamped snapshot_uptake 'unread'.",
         err=True,
     )
@@ -6200,10 +6466,74 @@ def _flag_unread_snapshot(
                 err=True,
             )
             return
-        if any(item.message == message for item in existing.flags):
+        if any(
+            item.message.startswith(_TRIPWIRE_PREFIX)
+            # `==`, not `is`: these round-trip through JSON as the enum's own
+            # string value, and a `StrEnum` member compares equal to it either way.
+            and item.category == FlagCategory.data_quality
+            and item.severity == FlagSeverity.warning
+            and item.event_id == record.event_id
+            for item in existing.flags
+        ):
             return
         flags = existing.model_copy(update={"flags": [*existing.flags, flag]})
     write_json(flags_path, flags)
+
+
+def _warn_on_missing_stakes_read(record: Prediction, actor: str) -> None:
+    """Say when a predictor cell lands without a ``big_case_score``.
+
+    The stamp's second tripwire, and the mirror of ``warn_on_omission`` on the
+    evaluator side (:func:`_warn_on_discarded_number`): a field the prompt
+    requires of every cell, whose omission nothing else reports. Nothing here
+    fails or rewrites anything: the schema keeps the score optional so records
+    written before the field existed still validate, and ``validate`` asks
+    nothing of it. Nor is a null ever *imputed* — no figure reads it as a zero.
+    What it does instead is leave: the ``(predictor, case)`` point drops out of
+    that predictor's ``big_case`` tau-b, so its ``cases`` denominator falls and
+    the coefficient is recomputed over a smaller, self-selected set
+    (:func:`~fedcourtsai.leaderboard.big_case_agreement`). A cell that never
+    placed the stakes therefore finishes, commits and reads as complete while
+    quietly narrowing the population its own predictor is scored over.
+
+    The two shapes are said differently because they are different answers. The
+    prompt contracts a number **or** an explicit null carrying a one-line
+    ``big_case_rationale``, so a null with a reason is the contract taken as
+    written — a considered no-view, reported because the point leaves the board
+    either way, not because the cell misbehaved. A null with no reason
+    is the contract missed, and there the record keeps nothing to recover:
+    ``stamp-cell`` rewrites the artifact through the model, which emits every
+    field at its default, so a score the cell omitted and a score it declared
+    null are the same bytes. The rationale is the only thing that separates
+    them, which is why it is what this reads. It is said *here* because this is
+    where the cell's own log is — ``collect-plan`` re-derives the same reading
+    over the committed records for the run-level census, from the rationale that
+    survives the stamp.
+
+    The rationale's own text is deliberately **not** echoed. It is agent free
+    text, and an annotation is published straight into the run log without
+    passing the secret scan that gates the flag roll-up; the committed
+    ``prediction.json`` carries it for anyone who follows the cell id here.
+    """
+    if record.big_case_score is not None:
+        return
+    if (record.big_case_rationale or "").strip():
+        typer.echo(
+            f"::warning::stamp: {_one_line(record.case_id)} {_one_line(record.event_id)} "
+            + f"{actor} recorded no big_case_score and gave a big_case_rationale for it — "
+            + "the prompt's null branch as written, so a considered no-view; the case "
+            + "still leaves this predictor's big_case tau-b.",
+            err=True,
+        )
+        return
+    typer.echo(
+        f"::warning::stamp: {_one_line(record.case_id)} {_one_line(record.event_id)} "
+        + f"{actor} recorded neither a big_case_score nor a big_case_rationale; the prompt "
+        + "contracts a number or an explicit null with a one-line reason, and on the "
+        + "stamped record the two nulls are the same bytes. The case leaves this "
+        + "predictor's big_case tau-b.",
+        err=True,
+    )
 
 
 def _refuse_unsupported_regrade(role: str, pipeline_sha: str, stamped_at: str) -> None:
@@ -7254,6 +7584,7 @@ def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
     return WeeklyAnalytics(
         leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
         claim_scores=_vintaged(metrics_root / "claim-scores.json", ClaimScoreBoard),
+        big_cases=_vintaged(metrics_root / "big-cases.json", BigCaseBoard),
         statpack=_vintaged(metrics_root / "statpack.json", StatPack),
         backtest=_vintaged(metrics_root / "backtest.json", Backtest),
         salience_replay=_vintaged(metrics_root / "salience-replay.json", SalienceReplay),
@@ -8718,7 +9049,10 @@ The two closed vocabularies:
 
 `--topic`, `--judge` and `--citation` are sparsely populated: a filter on
 one can come back empty because the column is thin, not because no such
-prior exists. Widen rather than retry.
+prior exists. Widen rather than retry. A `--citation` filter is always
+served off the rows that carry a citation at all, and where those are
+few it says how few before it runs — the `note:` line carries the
+count.
 
 Worked example:
   fedcourts query --court scotus --disposition granted --limit 5
@@ -8863,9 +9197,10 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     transport change, not a different surface).
 
     Maintained as-is: cells' open-web retrieval moved to the official
-    CourtListener MCP server, so this surface gets no further feature work —
-    it stays the corpus-priors/base-rates read (the one retrieval a *replay*
-    cell leans on) rather than growing into a bespoke search engine.
+    CourtListener MCP server, so this surface gets no further *retrieval*
+    features — it stays the corpus-priors/base-rates read (the one retrieval a
+    *replay* cell leans on) rather than growing into a bespoke search engine.
+    Defects, and what a filter costs to serve, still get fixed.
     """
     settings = get_settings()
     # The two closed vocabularies are judged before the corpus is looked for:
@@ -8924,9 +9259,15 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
             typer.echo(json.dumps(payload, sort_keys=True, separators=(",", ":")))
         return
     with corpus.connect_readonly(db_path, backend=backend) as conn:
+        # The citation sentinel, said before the scan rather than after it: the
+        # population read is a couple of index pages, and a caller whose filter
+        # does match still learns how little the column holds.
+        notice = corpus.sparse_citation_notice(conn, q) if limit > 0 else None
+        if notice is not None:
+            typer.echo(f"note: {notice}", err=True)
         priors = corpus.retrieve_priors(conn, q, limit=limit)
         if not priors and limit > 0:
-            for note in corpus.sparse_filter_coverage(conn, q):
+            for note in corpus.sparse_filter_coverage(conn, q, skip_citations=notice is not None):
                 typer.echo(f"note: {note}", err=True)
         _echo_read_stats(conn)
     for row in priors:
@@ -11563,7 +11904,8 @@ def _predict_backlog_cases() -> list[CaseRequest]:
     consequences hold: the debounce is one-directional (this lane honours the
     stamp the pull/live lane wrote and leaves none of its own), and the gate
     reads *committed* state, so what bounds a second derivation firing before a
-    collect PR merges is the workflow's concurrency group, not this gate.
+    collect PR merges is the stranded-run guard — the workflow's concurrency
+    group serializes *rounds*, which is a different window — not this gate.
 
     Writing no stamp has a **third** consequence, which belongs to whoever wires
     a workflow to this and is not addressed here: the live channel's relist
@@ -11929,35 +12271,104 @@ _STRANDED_RERUN_CAVEAT = (
     "`collect` job alone instead."
 )
 _STRANDED_OVERRIDE = (
-    "The guard releases itself: a run leaves the census once its `collect` concludes success, "
-    "and ages out of the 48-hour window regardless. To get a fresh round *sooner*, delete the "
-    "stranded run's cell artifacts (`gh api -X DELETE "
-    "repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and let the next derivation mint "
-    "them again — an explicit act rather than a dispatch."
+    "The guard releases itself: a run stops being withheld once its collect PR settles — merged, "
+    "which is when the ledger actually gains the predictions, or closed unmerged, which abandons "
+    "them — and ages out of the 48-hour census window regardless. To get a fresh round *sooner*, "
+    "delete the stranded run's cell artifacts (`gh api -X DELETE "
+    "repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and let the next derivation mint them "
+    "again — an explicit act rather than a dispatch."
 )
+#: The remedy is different for each way a run can hold unlanded output, and
+#: naming the wrong one is worse than naming none: rerunning `collect` on a run
+#: whose PR is merely unmerged does nothing, and waiting for a merge that a
+#: withheld collect will never open wedges the lane. Templated on the run's
+#: database id and keyed here once, so the per-cell warning, the all-withheld
+#: note and the step summary carry the same sentence and cannot drift.
+_STRANDED_REMEDY: dict[StrandedReason, str] = {
+    StrandedReason.UNCOLLECTED: (
+        "its `collect` never succeeded, so the predictions are still cell artifacts — rerun "
+        "the collect job (`gh run rerun {run} --failed`)"
+    ),
+    StrandedReason.UNMERGED_COLLECT_PR: (
+        "its `collect` opened a PR that has not merged, so the predictions are on a branch "
+        "rather than in the ledger — merge that PR"
+    ),
+    StrandedReason.WITHHELD_COLLECT: (
+        "its `collect` concluded success having pushed no branch at all, which is what a "
+        "secret-scan withhold looks like from outside — review the run's withheld content and "
+        "salvage it by hand (pipeline.md -> Recovering a run whose `collect` failed)"
+    ),
+}
 
 
-def _stranded_note(runs: Sequence[int]) -> str:
+def _stranded_remedy(cell: StrandedCell) -> str:
+    """The one sentence saying what lands this cell's run, run id filled in."""
+    return _STRANDED_REMEDY[cell.reason].format(run=cell.run_db_id)
+
+
+def _stranded_where(cell: StrandedCell) -> str:
+    """Where one withheld cell's output actually sits, named for a reader.
+
+    The run is always named — it is the handle every remedy starts from — and
+    the collect PR is named beside it where there is one, because "waiting on
+    collect PR #<n> to merge" is a fact a maintainer can act on in one click,
+    while a bare run id sends them hunting for the PR first.
+    """
+    if cell.collect_pr is not None:
+        return f"run {cell.run_db_id} (collect PR #{cell.collect_pr})"
+    return f"run {cell.run_db_id}"
+
+
+def _stranded_run_lines(cells: Sequence[StrandedCell]) -> list[str]:
+    """One line per withheld run: where its output is, and what to do about it.
+
+    Grouped by run rather than by cell because the remedy is per run — a
+    75-cell fan-out has one PR to merge, not 75 — and ordered by run id so the
+    line order is stable across passes.
+    """
+    by_run: dict[int, StrandedCell] = {}
+    for cell in cells:
+        by_run.setdefault(cell.run_db_id, cell)
+    lines: list[str] = []
+    for run_db_id in sorted(by_run):
+        cell = by_run[run_db_id]
+        count = sum(1 for c in cells if c.run_db_id == run_db_id)
+        lines.append(f"- {count} cell(s) from {_stranded_where(cell)}: {_stranded_remedy(cell)}.")
+    return lines
+
+
+def _stranded_note(cells: Sequence[StrandedCell]) -> str:
     """The recovery note for a round the guard withheld entirely.
 
     Written to ``--stranded-note-file``, and only in that all-withheld case, so
     the file's *presence* is also the marker the plan step branches on: an empty
-    matrix that means "recover that run" and one that means "the backlog is
+    matrix that means "land that run" and one that means "the backlog is
     drained" are identical from the count alone. The surface it is written for
     is the run's own step summary — a schedule-driven round is addressed to
     whoever reads the run, not to a request someone filed — so the note names
     the round rather than an issue, and its closing line is about what the next
     derivation will do rather than about closing anything.
+
+    One line per withheld run, each carrying that run's own remedy, because the
+    three ways output goes unlanded do not share one: an uncollected run is
+    rerun, an unmerged PR is merged, and a withheld collect is salvaged by hand.
     """
-    reruns = "\n".join(f"    gh run rerun {run} --failed" for run in runs)
+    # The caveat rides only where a rerun is actually the remedy: on a note that
+    # is entirely unmerged PRs it would be advice about a command nobody should
+    # run.
+    caveat = (
+        f"\n{_STRANDED_RERUN_CAVEAT}\n"
+        if any(cell.reason is StrandedReason.UNCOLLECTED for cell in cells)
+        else ""
+    )
+    lines = _stranded_run_lines(cells)
+    subject = "that run" if len(lines) == 1 else "those runs"
+    rendered = "\n".join(lines)
     return (
-        "Every cell this round would have minted already ran in a run whose `collect` never "
-        "succeeded — the predictions exist as cell artifacts; what is missing is the step that "
-        f"commits them. Recover {'that run' if len(runs) == 1 else 'those runs'} rather than "
-        "starting another round, which would re-spend the same tokens on the same events — "
-        "rerun the collect job:\n\n"
-        f"{reruns}\n\n"
-        f"{_STRANDED_RERUN_CAVEAT}\n\n"
+        "Every cell this round would have minted already ran in a run whose output has not "
+        "reached the ledger — the predictions exist; what is missing is the step that commits "
+        f"them. Land {subject} rather than starting another round, which would re-spend the "
+        f"same tokens on the same events:\n\n{rendered}\n{caveat}\n"
         "Nothing is lost by leaving this round here: an event with no committed prediction is "
         f"still owed, and the next scheduled round derives it again. {_STRANDED_OVERRIDE}\n"
     )
@@ -11975,11 +12386,22 @@ class _StrandedGuardReport:
     the guard could not read, which leaves it *partly* blind even when active —
     a withheld count that is honest about the records it was able to match, and
     silent about the ones it was not.
+
+    ``collect_pr_arm_off`` is the same honesty for the half of the guard that
+    judges a *collected* run by its collect PR: without the PR census that arm
+    cannot run, so a run whose PR is merely unmerged reads as landed and its
+    cells re-mint. That is the fail-open direction by design, and a plan that
+    did not say so would look exactly like one whose runs had all landed.
+    ``unparsed_collect_prs`` is that arm's partial blindness, reported for the
+    same reason ``unparsed`` is: an arm that ran but could not read some of its
+    rows is not an arm that found nothing.
     """
 
     active: bool = False
     degraded_reason: str | None = None
+    collect_pr_arm_off: str | None = None
     unparsed: tuple[str, ...] = ()
+    unparsed_collect_prs: tuple[str, ...] = ()
     withheld: tuple[StrandedCell, ...] = ()
 
     def as_json(self) -> dict[str, Any]:
@@ -11987,7 +12409,13 @@ class _StrandedGuardReport:
         return {
             "active": self.active,
             "degraded_reason": self.degraded_reason,
+            "collect_pr_arm_off": self.collect_pr_arm_off,
             "unparsed_records": list(self.unparsed),
+            "unparsed_collect_pr_records": list(self.unparsed_collect_prs),
+            "withheld_by_reason": {
+                reason.value: sum(1 for cell in self.withheld if cell.reason is reason)
+                for reason in StrandedReason
+            },
         }
 
 
@@ -11995,21 +12423,46 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
     """The minting path's record of what the stranded-run guard withheld.
 
     Three channels, all of them a run's record rather than a plan's: a
-    ``::warning::`` per withheld cell carrying its own recovery command, the
-    escalated ``::error::`` plus the ``note_file`` recovery note when the guard
-    emptied the matrix (the plan step branches on that file's presence so an
-    empty matrix reads as "recover that run" rather than as a drained backlog),
-    and the Actions step summary. Called only when something was actually
-    withheld.
+    ``::warning::`` per withheld cell carrying its own remedy, the escalated
+    ``::error::`` plus the ``note_file`` recovery note when the guard emptied
+    the matrix (the plan step branches on that file's presence so an empty
+    matrix reads as "land that run" rather than as a drained backlog), and the
+    Actions step summary. Called only when something was actually withheld.
     """
-    runs = sorted({cell.run_db_id for cell in guarded.withheld})
-    run_list = ", ".join(str(run) for run in runs)
+    run_lines = _stranded_run_lines(guarded.withheld)
+    # The rerun caveat is advice about `gh run rerun`, so it rides only where a
+    # rerun is one of the remedies; on a round withheld entirely by unmerged PRs
+    # it would warn about a command nobody should run.
+    caveat = (
+        f"{_STRANDED_RERUN_CAVEAT} "
+        if any(cell.reason is StrandedReason.UNCOLLECTED for cell in guarded.withheld)
+        else ""
+    )
+    withheld_runs = sorted(
+        {
+            cell.run_db_id
+            for cell in guarded.withheld
+            if cell.reason is StrandedReason.WITHHELD_COLLECT
+        }
+    )
+    for run_db_id in withheld_runs:
+        # Its own line, because this one is not self-clearing: no rerun and no
+        # merge lands it, and a maintainer who does not read it loses the run's
+        # whole spend when the artifacts' retention lapses.
+        typer.echo(
+            f"::warning::{stage}: run {run_db_id}'s `collect` concluded success but pushed no "
+            f"branch — the signature of a withheld collect. Its cells' output exists only as "
+            f"that run's artifacts, for their retention window: review the withheld content and "
+            f"salvage it by hand, or accept the re-spend (pipeline.md -> Recovering a run whose "
+            f"`collect` failed).",
+            err=True,
+        )
     for cell in guarded.withheld:
         typer.echo(
             f"::warning::{stage}: withheld {cell.predictor_id} "
-            f"{ids.case_id(cell.court, cell.docket)} {cell.event_id} — its output already "
-            f"sits in uncollected run {cell.run_db_id}; recover it with "
-            f"`gh run rerun {cell.run_db_id} --failed` rather than re-spending the cell",
+            f"{ids.case_id(cell.court, cell.docket)} {cell.event_id} — its output already sits "
+            f"in {_stranded_where(cell)}, where {_stranded_remedy(cell)}, rather than "
+            f"re-spending the cell",
             err=True,
         )
     if not guarded.include:
@@ -12017,31 +12470,32 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
         # indistinguishable from a drained backlog by the count alone. Write the
         # note that says otherwise, and escalate here so the cause is on the
         # record even if the note never reaches a reader.
+        summary = " ".join(line.lstrip("- ") for line in run_lines)
         typer.echo(
             f"::error::{stage}: the stranded-run guard withheld ALL "
             f"{len(guarded.withheld)} cell(s) — every event this round derived already ran in "
-            f"uncollected run(s) {run_list}. Recover rather than re-run: "
-            f"`gh run rerun {runs[0]} --failed`. {_STRANDED_RERUN_CAVEAT} " + _STRANDED_OVERRIDE,
+            f"a run whose output has not reached the ledger. {summary} " + _STRANDED_OVERRIDE,
             err=True,
         )
         if note_file is not None:
             try:
-                note_file.write_text(_stranded_note(runs), encoding="utf-8")
+                note_file.write_text(_stranded_note(guarded.withheld), encoding="utf-8")
             except OSError as exc:
                 # An unwritable note costs the round's summary its honest
                 # explanation, never the run: the ::error:: above is already on
                 # the record, and the guard's own summary section below carries
-                # the run ids and the rerun command.
+                # the runs and their remedies.
                 typer.echo(
                     f"::warning::{stage}: could not write the stranded-run recovery note to "
                     f"{note_file} ({exc}); the empty matrix is left to read as a drained backlog",
                     err=True,
                 )
     else:
+        runs = ", ".join(str(run) for run in sorted({c.run_db_id for c in guarded.withheld}))
         typer.echo(
             f"::warning::{stage}: the stranded-run guard withheld "
-            f"{len(guarded.withheld)} cell(s) whose output sits in uncollected run(s) "
-            f"{run_list}; the remaining {len(guarded.include)} cell(s) are genuinely new",
+            f"{len(guarded.withheld)} cell(s) whose output sits in run(s) {runs} that have not "
+            f"reached the ledger; the remaining {len(guarded.include)} cell(s) are genuinely new",
             err=True,
         )
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -12049,12 +12503,70 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
         with open(summary_path, "a", encoding="utf-8") as fh:
             fh.write(
                 f"## run-predict — stranded-run guard withheld {len(guarded.withheld)} cell(s)\n"
-                f"Their output already sits in uncollected run(s) {run_list}, whose `collect` did "
-                f"not succeed: the tokens are spent and the predictions exist as cell artifacts. "
-                f"Recover with `gh run rerun {runs[0]} --failed` rather than starting another "
-                f"round. {_STRANDED_RERUN_CAVEAT} Kept {len(guarded.include)} genuinely new "
+                f"Their output already exists — the tokens are spent — but has not reached "
+                f"committed state, which is what the already-predicted gate reads. "
+                f"Land {'that run' if len(run_lines) == 1 else 'those runs'} rather than "
+                f"starting another round:\n\n"
+                + "\n".join(run_lines)
+                + f"\n\n{caveat}Kept {len(guarded.include)} genuinely new "
                 f"cell(s). {_STRANDED_OVERRIDE}\n"
             )
+
+
+def _read_collect_prs(
+    collect_prs_file: Path | None, guard: _StrandedGuardReport, *, stage: str, report: bool
+) -> Sequence[CollectPr] | None:
+    """The collect-PR census, or ``None`` with the reason recorded on ``guard``.
+
+    ``None`` disarms the half of the guard that judges a run whose `collect`
+    *succeeded*, leaving the original uncollected-run half armed. Every failure
+    lands there — no file asked for, a census step that could not fetch one
+    (it deletes the file rather than writing an empty list, since an empty list
+    is a claim), or a file that does not parse — because this guard prevents an
+    expensive failure rather than a dangerous one: a census it cannot trust must
+    never be the reason a legitimate round does not start.
+    """
+    if collect_prs_file is None:
+        guard.collect_pr_arm_off = "no collect-PR census was supplied"
+        return None
+    # The repository whose heads this lane's collect branches live in, from the
+    # runner's own ambient variable: the pulls listing includes fork PRs, whose
+    # head ref is the fork's branch name, so a head is only this lane's word for
+    # a run when it lives here. Unset outside Actions, where the file is
+    # hand-built and there is no fork to confuse it with.
+    repo = os.environ.get("GITHUB_REPOSITORY") or None
+    try:
+        census = read_collect_prs(collect_prs_file, repo=repo)
+    except (OSError, ValueError) as exc:
+        guard.collect_pr_arm_off = f"{collect_prs_file} is unreadable ({exc})"
+        if report:
+            typer.echo(
+                f"::warning::{stage}: the stranded-run guard's collect-PR arm is off — "
+                f"{collect_prs_file} is unreadable ({exc}). A run whose collect PR has not "
+                f"merged reads as landed, so its cells may be re-minted.",
+                err=True,
+            )
+        return None
+    if census is None:
+        guard.collect_pr_arm_off = f"{collect_prs_file} is absent; the census step wrote none"
+        if report:
+            typer.echo(
+                f"::warning::{stage}: the stranded-run guard's collect-PR arm is off — "
+                f"{collect_prs_file} is absent. A run whose collect PR has not merged reads as "
+                f"landed, so its cells may be re-minted.",
+                err=True,
+            )
+        return None
+    guard.unparsed_collect_prs = census.unparsed
+    if report:
+        for head in census.unparsed:
+            typer.echo(
+                f"::warning::{stage}: stranded-run guard skipped the collect-PR record {head!r} "
+                "— it is not one of this repository's own branches for this lane, and a guessed "
+                "reading would release or withhold the wrong run",
+                err=True,
+            )
+    return census.prs
 
 
 def _guarded_matrix(
@@ -12064,9 +12576,10 @@ def _guarded_matrix(
     *,
     stage: str,
     report: bool,
+    collect_prs_file: Path | None = None,
     guard_out: _StrandedGuardReport | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Withhold cells whose output sits in an uncollected run, and say so loudly.
+    """Withhold cells whose output has not reached the ledger, and say so loudly.
 
     Fails **open** in every degraded direction — an unreadable census, an
     artifact name that does not parse — because the failure this guard prevents
@@ -12091,12 +12604,12 @@ def _guarded_matrix(
     except (OSError, ValueError) as exc:
         guard.degraded_reason = (
             f"{stranded_file} is unreadable ({exc}); cells already sitting in an "
-            f"uncollected run may be re-minted"
+            f"unlanded run may be re-minted"
         )
         if report:
             typer.echo(
                 f"::warning::{stage}: the stranded-run guard is off — {stranded_file} is "
-                f"unreadable ({exc}). Cells already sitting in an uncollected run may be "
+                f"unreadable ({exc}). Cells already sitting in an unlanded run may be "
                 f"re-minted.",
                 err=True,
             )
@@ -12111,7 +12624,8 @@ def _guarded_matrix(
                 "guessed reading would withhold the wrong cell",
                 err=True,
             )
-    guarded = drop_stranded_cells(matrix, census.cells)
+    collect_prs = _read_collect_prs(collect_prs_file, guard, stage=stage, report=report)
+    guarded = drop_stranded_cells(matrix, classify_stranded_cells(census, collect_prs))
     guard.withheld = guarded.withheld
     if not guarded.withheld:
         return matrix
@@ -12152,6 +12666,7 @@ def _predict_fanout(
     stranded_file: Path | None,
     note_file: Path | None,
     report: bool,
+    collect_prs_file: Path | None = None,
 ) -> _PredictFanout:
     """Run the predict planning pipeline: scope, forecastability, ledger, guard, cap.
 
@@ -12263,12 +12778,13 @@ def _predict_fanout(
         settings.config_root / "predictors.yaml", cases, run_id, data_root=settings.data_root
     )
     # The stranded-run guard, before the volume cap so the cap's budget goes to
-    # genuinely new cells: a cell whose output already sits in a run whose
-    # `collect` never succeeded is withheld rather than re-spent. The ledger gate
-    # above cannot see those predictions — they are cell artifacts, not commits —
-    # which is exactly why a failed collect otherwise re-mints the whole run
-    # every live cycle. Fail-open in every degraded direction; see
-    # `_guarded_matrix` and `drop_stranded_cells`.
+    # genuinely new cells: a cell whose output sits in a run that has not reached
+    # the ledger — `collect` never succeeded, its PR has not merged, or it pushed
+    # no branch at all — is withheld rather than re-spent. The ledger gate above
+    # cannot see any of those predictions: they are cell artifacts or an unmerged
+    # branch, not commits on `main`, which is exactly why an uncollected or
+    # unlanded run otherwise re-mints itself every live cycle. Fail-open in every
+    # degraded direction; see `_guarded_matrix` and `drop_stranded_cells`.
     guard = _StrandedGuardReport()
     matrix = _guarded_matrix(
         matrix,
@@ -12276,6 +12792,7 @@ def _predict_fanout(
         note_file,
         stage=stage,
         report=report,
+        collect_prs_file=collect_prs_file,
         guard_out=guard,
     )
     # Salience-independent volume backstop, after scope filtering: hold the
@@ -12328,8 +12845,17 @@ def predict_matrix_cmd(
     stranded_file: Annotated[
         Path | None,
         typer.Option(
-            help="Census of cell artifacts left by recent runs whose collect did not succeed; "
-            "a cell already sitting in one is not re-minted. Absent or empty = guard off.",
+            help="Census of cell artifacts left by recent runs whose output has not reached "
+            "the ledger; a cell already sitting in one is not re-minted. Absent or empty = "
+            "guard off.",
+        ),
+    ] = None,
+    collect_prs_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="Census of this lane's collect PRs to main, which decides whether a run whose "
+            "collect succeeded actually landed. Absent = that arm off (a run whose PR is "
+            "unmerged reads as landed).",
         ),
     ] = None,
     stranded_note_file: Annotated[
@@ -12359,6 +12885,7 @@ def predict_matrix_cmd(
         run_id,
         stage="predict-matrix",
         stranded_file=stranded_file,
+        collect_prs_file=collect_prs_file,
         note_file=stranded_note_file,
         report=True,
     )
@@ -13079,7 +13606,30 @@ def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = 
     if breach is not None:
         lines.extend(["", f"> {breach}"])
     guard = plan.get("stranded_guard")
-    if guard is not None and (guard["degraded_reason"] or guard["unparsed_records"]):
+    withheld = plan.get("withheld_stranded") or []
+    if withheld:
+        # A quiet plan has two readings — the backlog is drained, or its cells
+        # are waiting on a run to land — and the count alone cannot tell them
+        # apart. Say which, name the run and its PR, and give the remedy, since
+        # this document is the whole of what an approver reads before deciding.
+        by_run: dict[tuple[int, object], list[dict[str, Any]]] = {}
+        for record in withheld:
+            by_run.setdefault((record["run_db_id"], record.get("collect_pr")), []).append(record)
+        lines.extend(["", "### Withheld: waiting on a run to land", ""])
+        for (run_db_id, collect_pr), records in sorted(by_run.items(), key=lambda kv: kv[0][0]):
+            where = f"run `{run_db_id}`" + (f", collect PR #{collect_pr}" if collect_pr else "")
+            lines.append(f"- {len(records)} cell(s) from {where} — {records[0]['remedy']}.")
+        lines.append("")
+        lines.append(
+            "Those cells are not new spend this round would buy: the tokens are already spent "
+            "and the output exists. Landing the run is what commits them."
+        )
+    if guard is not None and (
+        guard["degraded_reason"]
+        or guard["unparsed_records"]
+        or guard.get("unparsed_collect_pr_records")
+        or guard.get("collect_pr_arm_off")
+    ):
         # A withheld count of zero is three states and only one of them is a
         # reason to distrust the plan, so the two degraded ones are named where
         # the decision is made rather than left for the JSON. The reason goes in
@@ -13087,18 +13637,26 @@ def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = 
         # carries a repr like `<class 'dict'>` that GitHub's comment sanitizer
         # eats as a tag — leaving a reader "got ." where the cause should be —
         # and the span neutralizes any other markdown the exception carries.
-        detail = (
-            f"failed open (`{guard['degraded_reason']}`)"
-            if guard["degraded_reason"]
-            else f"ran but could not read {len(guard['unparsed_records'])} census record(s)"
-        )
+        if guard["degraded_reason"]:
+            detail = f"failed open (`{guard['degraded_reason']}`)"
+        elif guard.get("collect_pr_arm_off"):
+            detail = (
+                "ran without its collect-PR arm "
+                f"(`{guard['collect_pr_arm_off']}`), so a run whose collect PR has not merged "
+                "reads as landed"
+            )
+        else:
+            unreadable = len(guard["unparsed_records"]) + len(
+                guard.get("unparsed_collect_pr_records") or []
+            )
+            detail = f"ran but could not read {unreadable} census record(s)"
         lines.extend(
             [
                 "",
                 "### Stranded-run guard",
                 "",
                 f"The stranded-run guard {detail}, so a cell it could not check may re-spend "
-                f"output an uncollected run already produced.",
+                f"output a run has already produced but not landed.",
             ]
         )
     lines.extend(["", "### Would mint", ""])
@@ -13189,7 +13747,7 @@ def _echo_plan(
 
 
 @app.command("predict-plan")
-def predict_plan_cmd(
+def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     body_file: Annotated[
         Path | None,
         typer.Option(
@@ -13210,8 +13768,16 @@ def predict_plan_cmd(
     stranded_file: Annotated[
         Path | None,
         typer.Option(
-            help="Census of cell artifacts left by recent runs whose collect did not succeed, "
-            "as `predict-matrix` takes it; a cell already sitting in one is reported withheld.",
+            help="Census of cell artifacts left by recent runs whose output has not reached "
+            "the ledger, as `predict-matrix` takes it; a cell already sitting in one is "
+            "reported withheld.",
+        ),
+    ] = None,
+    collect_prs_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="Census of this lane's collect PRs to main, as `predict-matrix` takes it. "
+            "Absent = that arm off.",
         ),
     ] = None,
     run_id: Annotated[
@@ -13267,6 +13833,7 @@ def predict_plan_cmd(
         planned_run_id,
         stage="predict-plan",
         stranded_file=stranded_file,
+        collect_prs_file=collect_prs_file,
         # A plan writes nothing: no close note, and no step-summary block.
         note_file=None,
         report=False,
@@ -13345,7 +13912,16 @@ def predict_plan_cmd(
                 "event_id": cell.event_id,
                 "actor_id": cell.predictor_id,
                 "run_db_id": cell.run_db_id,
-                "reason": f"its output already sits in uncollected run {cell.run_db_id}",
+                "collect_pr": cell.collect_pr,
+                "unlanded": cell.reason.value,
+                # The remedy on its own as well as inside the reason sentence:
+                # a renderer that has already named the run needs the second
+                # half without repeating the first.
+                "remedy": _stranded_remedy(cell),
+                "reason": (
+                    f"its output already sits in {_stranded_where(cell)}, where "
+                    f"{_stranded_remedy(cell)}"
+                ),
             }
             for cell in fanout.guard.withheld
         ],
@@ -13643,6 +14219,28 @@ def assert_paths_cmd(
     typer.echo(f"path jail OK ({len(changes)} change(s))")
 
 
+@app.command("assert-board-paths")
+def assert_board_paths_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to check.")
+    ],
+) -> None:
+    """Enforce the big-case board's path jail; exit non-zero on any violation.
+
+    The board PR auto-merges, so what stands in for a reviewer is the bound on
+    its diff: `metrics/big-cases.json` and `metrics/big-cases.md`, written, and
+    nothing else. CI runs this as a required status check on the PR, independently
+    of the workflow that produced the branch.
+    """
+    changes = parse_name_status(name_status_file.read_text())
+    try:
+        assert_board_within_jail(changes)
+    except PathJailError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"board jail OK ({len(changes)} change(s))")
+
+
 @app.command("collect-union")
 def collect_union_cmd(
     source: Annotated[
@@ -13791,8 +14389,14 @@ def scan_diff_for_secrets_cmd(
     too short, a missing ``--extra-file`` or ``--transcript-file``) fails the
     same way rather than silently dropping a detector or a surface. A
     ``--transcript-file`` is scanned without the generic high-entropy
-    heuristic only — see the option's help for why that surface needs it, and
-    ``--run-id`` for the one path shape that heuristic is told to skip.
+    heuristic only — see the option's help for why that surface needs it — as
+    is the change set's own retrieval pair (``retrieval_log.json``, captured
+    by the harness, and ``retrieval.md``, the agent's account of the same
+    calls, under a cell's ``predictions/`` or ``evaluations/`` run directory),
+    which carries the document URLs and search queries its tool calls issued.
+    Every other changed file keeps the heuristic, the cell's reasoning among
+    them, and ``--run-id`` names the one candidate shape it is told to skip
+    where it does run.
     """
     misconfigured = False
     secrets: list[str] = []
@@ -14088,6 +14692,16 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # the tripwire half still prints there, because it reports on what
         # capture could see rather than on what the corpus did.
         "prior_availability": plan.prior_availability_markdown,
+        # The census of this run's own output rather than of what reached it:
+        # how many predictions landed with no `big_case_score`, and whose. It
+        # rides the PR body like the two above, and unlike them the collect
+        # action also echoes it into the Actions summary — on the flag roll-up's
+        # own secret-scan terms, since the ids it names are the cells' own — so
+        # that a run which dropped its reads is legible without opening the
+        # cells. Nothing else reports the omission: it fails no cell and trips
+        # no gate. Empty on a run where every cell placed the stakes, and on an
+        # evaluate run.
+        "stakes_reads": plan.stakes_read_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),
@@ -14335,6 +14949,98 @@ def _load_retrieval_rollups(
     return throttle, priors
 
 
+#: How much of one identifier the stakes census carries into a note. The three
+#: ids it names a cell by are the agent's own ``prediction.json`` fields, read
+#: before ``validate`` has held them to the ledger, and the note they land in is
+#: published to the run's Actions summary — so they are bounded here, per
+#: component, rather than trusted to be short. Long enough for every id the
+#: pipeline mints (``ids.py``). The renderer escapes them and bounds each
+#: rendered id again (``collect._RENDERED_ID_CAP``), so a future builder that
+#: skips this one still cannot print an unbounded id.
+_STAKES_ID_CAP = 60
+
+
+def _bounded_id(value: str) -> str:
+    """One agent-written identifier, collapsed to one line and capped."""
+    return " ".join(value.split())[:_STAKES_ID_CAP]
+
+
+def _add_stakes_cell(rollup: StakesReadRollup, record: Prediction) -> StakesReadRollup:
+    """Fold one of this run's predictions into the stakes-read roll-up.
+
+    Every cell updates ``by_predictor``, the scored ones included: the count a
+    reader needs is this predictor's missing reads *against its own cells*, and
+    a predictor that placed every one of them is exactly the comparison the
+    concentrated case is read against.
+    """
+    predictor = _bounded_id(record.predictor_id)
+    counts = {actor: (missing, cells) for actor, missing, cells in rollup.by_predictor}
+    missing, cells = counts.get(predictor, (0, 0))
+    placed = record.big_case_score is not None
+    counts[predictor] = (missing + (0 if placed else 1), cells + 1)
+    rollup = replace(
+        rollup,
+        cells=rollup.cells + 1,
+        by_predictor=tuple(
+            (actor, missing, cells)
+            for actor, (missing, cells) in sorted(
+                counts.items(), key=lambda item: (-item[1][0], item[0])
+            )
+        ),
+    )
+    if placed:
+        return rollup
+    name = "/".join(
+        _bounded_id(part)
+        for part in (record.case_id, record.event_id, record.predictor_id)
+        if part.strip()
+    )
+    if (record.big_case_rationale or "").strip():
+        return replace(rollup, explained=(*rollup.explained, name))
+    return replace(rollup, silent=(*rollup.silent, name))
+
+
+def _load_stakes_reads(status_dir: Path, run_id: str) -> StakesReadRollup:
+    """Census this run's predictions for the stakes read they were asked for.
+
+    The same walk shape and the same two filters as
+    :func:`_load_retrieval_rollups`, for the same reasons: each cell uploads its
+    whole ``data/`` subtree, so this run's ``prediction.json`` files land
+    wherever their case paths put them, and every artifact also carries every
+    *previously committed* prediction — an earlier round's missing stakes read
+    is not this round's. The identity differs in where it comes from: a
+    prediction records its own case, event and predictor, so unlike a retrieval
+    log it needs nothing off the path. That is the agent's word for all three,
+    which is exactly right for a dedupe key — a cell of this run riding along in
+    a later cell's artifact carries the same three either way — and is why the
+    ids are bounded before they land in the roll-up.
+
+    A record that does not parse is skipped outright rather than counted as
+    blind. The retrieval roll-up keeps a blind counter because a cell whose log
+    is unreadable could still have been throttled and must not read as evidence
+    of a clean run; here there is no such asymmetry — an unparseable prediction
+    has no answer to count in either direction, and ``validate`` already routes
+    it to the draft PR a maintainer reads. Never fatal either way: this is a
+    notification, and it must not take down the aggregation carrying the run's
+    only copy of its output.
+    """
+    seen: set[tuple[str, str, str]] = set()
+    rollup = StakesReadRollup()
+    for path in sorted(status_dir.glob(f"**/{run_id}/prediction.json")):
+        try:
+            record = Prediction.model_validate_json(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if record.run_id != run_id:
+            continue
+        identity = (record.case_id, record.event_id, record.predictor_id)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        rollup = _add_stakes_cell(rollup, record)
+    return rollup
+
+
 @app.command("collect-plan")
 def collect_plan_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
@@ -14375,6 +15081,11 @@ def collect_plan_cmd(
     captured logs and likewise appended to the PR body: what the shared upstream
     quota did to the run, and whether the corpus index served the cells that
     asked it for priors. Both are empty on a run with nothing to report.
+    ``stakes_reads`` is the same shape of note about the run's own output — the
+    predictions that landed with no ``big_case_score``, counted per predictor —
+    which the collect step echoes into the Actions summary beside the flags.
+    Empty on an evaluate run and on a predict run where every cell placed the
+    stakes.
     """
     cells = []
     for status_path in sorted(status_dir.glob("**/status.json")):
@@ -14410,6 +15121,14 @@ def collect_plan_cmd(
         # predicts from whatever else it had — so without a run-level count the
         # only trace is one line in one cell's tooling report.
         prior_availability=priors,
+        # And whether the run's own cells placed the stakes they were asked to.
+        # Predict only: an evaluation carries no `big_case_score`, and an
+        # evaluate run's artifacts hold predictions from *other* runs, which the
+        # run-id filter already excludes — so the walk would be a wide read of
+        # committed history for a census that is empty by construction.
+        stakes_reads=(
+            _load_stakes_reads(status_dir, run_id) if role is FinalizeRole.predict else None
+        ),
     )
     typer.echo(
         json.dumps(_collect_plan_json(plan, role=role, run_id=run_id), separators=(",", ":"))

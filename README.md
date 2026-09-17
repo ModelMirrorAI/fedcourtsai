@@ -48,10 +48,11 @@ Plus `run-ops` (a read-only daily operations report, plus two issues the maintai
 closes once read: a daily prediction-reading digest — one predicted event with
 every predictor side by side — and a Monday performance digest carrying the
 week's cells, spend, board state, and back-test results) and
-`run-analytics` — six dispatch modes: corpus statistics, the
+`run-analytics` — seven dispatch modes: corpus statistics, the
 distribution-parse census, the document text-coverage enumeration, the
-tool-usage roll-up, the metrics refresh, and the qp-topic labeler (the only
-one that runs an agent) — both schedule/dispatch only. The cascade runs
+tool-usage roll-up, the metrics refresh, the daily big-case board, and the
+qp-topic labeler (the only one that runs an agent) — both schedule/dispatch
+only. The cascade runs
 pull/live → corpus → `run-predict`, which on each scheduled wake derives its own
 fan-out from the predict backlog — the arrival-cohort picks, conference
 distributions, and changed open cases the committed record does not yet

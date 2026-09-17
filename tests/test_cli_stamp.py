@@ -16,7 +16,7 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from fedcourtsai import process_version
-from fedcourtsai.cli import app
+from fedcourtsai.cli import _FLAG_MESSAGE_LIMIT, _TRIPWIRE_PREFIX, _names_a_snapshot, app
 from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
@@ -1779,6 +1779,92 @@ def test_stamp_warns_where_the_evaluator_recorded_no_correct(
     assert stamped["correct"] == 1
 
 
+def _seed_stakes_prediction(
+    data_root: Path,
+    docket: int,
+    *,
+    score: float | None = None,
+    rationale: str | None = None,
+) -> None:
+    """One predictor cell whose stakes read is set (or not) exactly as given."""
+    write_json(
+        CasePaths(data_root, "scotus", docket).event("evt-x").prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id=f"scotus/{docket}",
+            event_id="evt-x",
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            run_id="RID",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-01.json",
+            granted=0,
+            probability=0.1,
+            predicted_disposition=Disposition.denied,
+            big_case_score=score,
+            big_case_rationale=rationale,
+        ),
+    )
+
+
+def test_stamp_is_silent_where_the_cell_placed_the_stakes(_data_root: Path) -> None:
+    """A cell that answered says nothing — the note is about the omission.
+
+    Every produced cell passes through this step, so a line on each would be
+    noise a maintainer learns to skip, which is exactly how the missing read
+    gets missed.
+    """
+    _seed_stakes_prediction(_data_root, 30, score=0.4)
+    result = _stamp("predictor", "claude-baseline", 30, "evt-x", "RID")
+    assert result.exit_code == 0, result.output
+    assert "big_case_score" not in result.output
+
+
+def test_stamp_warns_where_the_cell_placed_no_stakes_and_gave_no_reason(
+    _data_root: Path,
+) -> None:
+    """The contract missed, and the last moment it is legible.
+
+    The stamp rewrites the artifact through the model, which emits every field
+    at its default, so from here on a score the cell omitted and a score it
+    declared null are the same bytes. Nothing downstream can raise it either:
+    `validate` asks nothing of the field and every figure over it skips a null,
+    so the cell commits, reads as complete, and quietly costs its case one read
+    of the panel the `big_case` agreement is computed over.
+    """
+    _seed_stakes_prediction(_data_root, 31)
+    result = _stamp("predictor", "claude-baseline", 31, "evt-x", "RID")
+    assert result.exit_code == 0, result.output
+    assert "recorded neither a big_case_score nor a big_case_rationale" in result.output
+    # A warning, never a failure: the cell produced its output and the stamp
+    # landed, which is the same discipline the evaluator-side note keeps.
+    stamped = json.loads(
+        CasePaths(_data_root, "scotus", 31)
+        .event("evt-x")
+        .prediction("claude-baseline", "RID")
+        .read_text()
+    )
+    assert stamped["process_version"]["digest"].startswith("sha256:")
+
+
+def test_stamp_says_a_null_stakes_read_with_a_reason_is_an_answer(_data_root: Path) -> None:
+    """The prompt's null branch taken as written is not a silent omission.
+
+    Still said, because the case is a read short of its panel either way — but
+    said differently, since a considered no-view is the contract honoured and
+    reading it as a miss would put the two engines that behave differently on
+    the same line. The rationale's own text is not echoed: it is agent free
+    text, and an annotation publishes into the run log without passing the
+    secret scan that gates the flag roll-up.
+    """
+    reason = "The QP text was never docketed, so there is nothing to place."
+    _seed_stakes_prediction(_data_root, 32, rationale=reason)
+    result = _stamp("predictor", "claude-baseline", 32, "evt-x", "RID")
+    assert result.exit_code == 0, result.output
+    assert "gave a big_case_rationale" in result.output
+    assert "recorded neither" not in result.output
+    assert reason not in result.output
+
+
 def test_stamp_recomputes_correct_on_an_interim_cell(
     _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2876,3 +2962,260 @@ def test_stamp_leaves_the_conditioning_unjudged_with_no_snapshot_on_disk(
     assert stamped.context is not None
     assert stamped.context.snapshot_uptake is None
     assert not event_paths.prediction_flags("claude-baseline", "RID").is_file()
+
+
+# --- telling the two misses apart ---------------------------------------------
+#
+# `snapshot_uptake` stamps `unread` for both shapes of miss, which is right: the
+# field says the cell did not report reading the baseline, and that is one fact.
+# But only one shape is diagnosable, and the note is where the harness says so —
+# a cell that reported no snapshot at all, on a run that provisioned one and
+# checked it landed, was looking somewhere the record never is.
+
+
+@pytest.mark.parametrize(
+    ("reported", "names_a_file"),
+    [
+        ("missing", False),
+        ("none", False),
+        ("unavailable", False),
+        ("", False),
+        ("no snapshot was provided to this cell", False),
+        ("2026-01-01", True),
+        ("2025-12-24.json", True),
+        # Case and extension are the agent's choice, not the provisioner's: each
+        # of these named a file, so none of them may take the arm that asserts a
+        # path fault.
+        ("2025-12-24.JSON", True),
+        ("snapshot.json.bak", True),
+        ("snapshot.txt", True),
+        ("20251224", True),
+        ("record/snapshots/2026-01-01.json", True),
+        ("data\\cases\\scotus\\40\\record\\snapshots\\2026-01-01.json", True),
+        # A full stop inside prose is not an extension; the length bound is what
+        # keeps this on the sentinel arm.
+        ("no snapshot. the record directory was empty", False),
+    ],
+)
+def test_input_snapshot_is_classified_as_naming_a_file_or_not(
+    reported: str, names_a_file: bool
+) -> None:
+    """A separator, a `.json`, or a bare day names a file; a sentinel names none.
+
+    The classification decides only which prose the tripwire writes, never what
+    is stamped, so it is generous toward "named a file": the sentinel arm is the
+    one carrying a claim about *why* the cell missed.
+    """
+    assert _names_a_snapshot(reported) is names_a_file
+
+
+def test_the_note_names_the_event_level_path_a_cell_that_found_no_snapshot_probed(
+    _data_root: Path,
+) -> None:
+    """The incident's whole diagnosis, written where a reader without a runner is.
+
+    Six committed cells report `input_snapshot: "missing"` because the cell
+    resolved `record/` under the event directory. From the run PR body that read
+    exactly like a provisioning outage, so the note carries the three facts that
+    separate them: the provisioned file, spelled from the case down; the
+    event-level path that is never provisioned; and that the cell having run at
+    all means its record had landed.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 45)
+    event_paths = _seed_unstamped(_data_root, 45, event, "missing")
+
+    result = _stamp("predictor", "claude-baseline", 45, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    flags = read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+    message = flags.flags[0].message
+    assert "scotus/45/record/snapshots/2026-01-01.json" in message
+    assert f"scotus/45/events/{event}/record/" in message
+    assert "Provisioning is not the cause" in message
+    # The cap the note is written under, with the paths inside it.
+    assert len(message) <= 2000
+
+
+def test_the_note_blames_no_path_when_the_cell_named_another_snapshot(
+    _data_root: Path,
+) -> None:
+    """A cell that named a file opened something; the harness must not guess where.
+
+    Same stamp, same `unread`, different fault — so the arm that names the event
+    directory stays off, or the note would attribute a path error to every cell
+    that mis-stated a date.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 47)
+    event_paths = _seed_unstamped(_data_root, 47, event, "2025-12-24.json")
+
+    result = _stamp("predictor", "claude-baseline", 47, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.snapshot_uptake == "unread"
+    message = (
+        read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+        .flags[0]
+        .message
+    )
+    assert "scotus/47/record/snapshots/2026-01-01.json" in message
+    assert f"events/{event}/record/" not in message
+    assert "Provisioning is not the cause" not in message
+
+
+def test_the_note_s_budget_is_pinned_to_the_field_it_is_written_into() -> None:
+    """Two literals that must agree, or the budget below is arithmetic over the
+    wrong number and the overflow it exists to prevent comes back."""
+    (cap,) = [
+        item.max_length
+        for item in AgentFlag.model_fields["message"].metadata
+        if getattr(item, "max_length", None) is not None
+    ]
+    assert cap == _FLAG_MESSAGE_LIMIT
+
+
+def test_the_note_stays_within_its_cap_on_a_hostile_input_snapshot(_data_root: Path) -> None:
+    """A stamp must never fail a cell over the length of a string it is quoting.
+
+    `input_snapshot` is unbounded agent text, and a 120-character slice is not a
+    120-character quotation: `repr` expands one unprintable character to ten, so
+    a slice of these reaches four figures on its own. Overflowing the field's cap
+    would raise out of the flag construction, abort the stamp, and leave the
+    prediction unstamped — the one state in which an agent-authored `context`
+    block survives, which is the opposite of what the tripwire is for.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 48)
+    event_paths = _seed_unstamped(_data_root, 48, event, "\U000e0001" * 200)
+
+    result = _stamp("predictor", "claude-baseline", 48, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.snapshot_uptake == "unread"
+    message = (
+        read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+        .flags[0]
+        .message
+    )
+    assert len(message) <= _FLAG_MESSAGE_LIMIT
+    # The diagnosis survives the budget: what gets cut is the quotation, not the
+    # sentence that tells a maintainer where to look.
+    assert f"events/{event}/record/" in message
+    assert "Provisioning is not the cause" in message
+
+
+def test_a_re_stamp_adds_no_second_note_when_the_wording_behind_it_moved(
+    _data_root: Path,
+) -> None:
+    """Dedupe is on the opening, so the claim survives a change to the prose.
+
+    A cell stamped under one wording and re-stamped under another is the ordinary
+    consequence of editing this note, and matching the whole message would answer
+    that by appending a near-duplicate to an agent-owned file.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 49)
+    event_paths = _seed_unstamped(_data_root, 49, event, "missing")
+    flags_path = event_paths.prediction_flags("claude-baseline", "RID")
+    write_json(
+        flags_path,
+        AgentFlags(
+            case_id="scotus/49",
+            run_id="RID",
+            role=UsageRole.predictor,
+            actor_id="claude-baseline",
+            flags=[
+                AgentFlag(
+                    category=FlagCategory.data_quality,
+                    severity=FlagSeverity.warning,
+                    message=f"{_TRIPWIRE_PREFIX} 'missing', in wording since replaced.",
+                    event_id=event,
+                )
+            ],
+        ),
+    )
+
+    assert _stamp("predictor", "claude-baseline", 49, event, "RID").exit_code == 0
+
+    flags = read_model(flags_path, AgentFlags)
+    assert len(flags.flags) == 1
+    assert "in wording since replaced" in flags.flags[0].message
+
+
+def test_the_diagnosis_survives_the_budget_with_both_paths_at_their_cap(
+    _data_root: Path,
+) -> None:
+    """The budget must spend its last characters on the quotation, not the finding.
+
+    Worst case on every axis at once: an `input_snapshot` whose 120-character
+    slice `repr` expands tenfold, and an event id long enough to drive both
+    quoted paths to their own cap. What has to survive that is the pair of
+    sentences a maintainer acts on — the event-level path, and that provisioning
+    is not the cause. If the path cap were ever raised past what the message cap
+    can hold, this is what would fail, rather than the note quietly losing its
+    diagnosis to the trailing slice.
+    """
+    event = "evt-petition-" + "d" * 160
+    _provision(_data_root, 50)
+    event_paths = _seed_unstamped(_data_root, 50, event, "\U000e0001" * 200)
+
+    result = _stamp("predictor", "claude-baseline", 50, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    message = (
+        read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+        .flags[0]
+        .message
+    )
+    assert len(message) <= _FLAG_MESSAGE_LIMIT
+    # The probed path is quoted up to its own cap and says it was cut there.
+    assert "scotus/50/events/evt-petition-ddd" in message
+    assert "…" in message
+    assert "Provisioning is not the cause" in message
+
+
+def test_an_agent_written_lookalike_does_not_suppress_the_harness_s_own_note(
+    _data_root: Path,
+) -> None:
+    """Dedupe matches the note's shape, not merely its opening words.
+
+    `flags.json` is the cell's own file and a flag carries no author, so the
+    prefix can never authenticate anything. Requiring the category, severity and
+    event the harness always writes raises what a lookalike costs without
+    pretending otherwise — and the annotation and the stamped `context` say the
+    same thing where no agent can write at all.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 51)
+    event_paths = _seed_unstamped(_data_root, 51, event, "missing")
+    flags_path = event_paths.prediction_flags("claude-baseline", "RID")
+    write_json(
+        flags_path,
+        AgentFlags(
+            case_id="scotus/51",
+            run_id="RID",
+            role=UsageRole.predictor,
+            actor_id="claude-baseline",
+            flags=[
+                AgentFlag(
+                    category=FlagCategory.other,
+                    severity=FlagSeverity.info,
+                    message=f"{_TRIPWIRE_PREFIX} 'missing', nothing to see here.",
+                    event_id=event,
+                )
+            ],
+        ),
+    )
+
+    result = _stamp("predictor", "claude-baseline", 51, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    assert "snapshot_uptake 'unread'" in result.output
+    flags = read_model(flags_path, AgentFlags)
+    assert len(flags.flags) == 2
+    assert "Provisioning is not the cause" in flags.flags[1].message

@@ -411,38 +411,41 @@ unexplained remainder — on a modern docket it is a filing shape the selector
 cannot see, which is a defect to fix rather than a floor to accept, and the
 back-fill's own ledger names those cases.
 
-So the scanned-petition class is small on every population, and on this blob it
-is a bounded 270 documents, each named in the report's case-id ledger alongside
-the other kinds' empties. Six of the 271 empty petitions sit on cases queued
-for prediction today; the rest pay off wherever the gate later mints a cell
-over them. And the
-degradation persists where it lands: a petition that reached the corpus as a
-scan is unreadable for every cell minted over that case until the filing is
-re-fetched at a new URL, and no other path repairs it. The decision is
-therefore a **bounded local-OCR recovery pass** over exactly that class,
-contracted below. Local tesseract only — at this share a metered OCR service
+So the scanned class is small on every population, and on this blob it is a
+bounded 270 petitions and 34 briefs in opposition, each named in the report's
+case-id ledger alongside the other kinds' empties. Six of the 271 empty
+petitions sit on cases queued for prediction today; the rest pay off wherever
+the gate later mints a cell over them. And the
+degradation persists where it lands: a filing that reached the corpus as a
+scan is unreadable for every cell minted over that case until it is
+re-fetched at a new URL, and no other path repairs it. What it costs differs by
+kind and the repair does not: an empty opposition leaves a cert cell with the
+respondent's whole argument missing, which is the half of the case a forecast
+is least able to guess, while the fetch and the recognition are the same work
+on either. The decision is therefore a **bounded local-OCR recovery pass** over
+the empty rows of every *fetched* kind, contracted below. Local tesseract only — at this share a metered OCR service
 cannot be justified, and the pass's own cost is held down by the per-dispatch
 bound in the contract rather than by a service bill.
 
-Five residuals stay open by design. The unopenable PDF is not OCR's to repair
-and stays counted as empty. An empty `application` stays out for the reason its
-kind is counted at all — an application filed on paper stores empty exactly as a
-paper petition does — but the pass's population is stored *petitions*, so an
-application that arrives as a scan is measured with no repair path behind it.
-The four merits kinds sit outside that population on identical terms, and
-their exposure is smaller: a merits brief or reply is an e-filed brief rather
-than a paper petition, so the scan it would be recovering from is the rarer
-case.
-The empty briefs in opposition stay out for a
-structural reason rather than their share: a multi-respondent opposition is
-stored as one combined row keyed on the whole set of fetched URLs, so text
-recovered there is discarded the next time any co-respondent's brief is added
-to that set — the recovery would not survive, which is not true of the petition
-row. And recurrence: a scanned filing that arrives after a pass enters the
-class and stays there until the next one. Nothing watches for that on its own —
-the same `corpus-info --text-coverage` read is what sizes it, and the pass is
-re-runnable over whatever it finds — so cadence is a dispatch decision taken
-against a measured share, not a schedule.
+Three residuals stay open by design. The unopenable PDF is not OCR's to repair
+and stays counted as empty. A multi-respondent brief in opposition stays out
+for a structural reason rather than its share: it is stored as one combined row
+whose URL is the canonical join of every brief fetched into it, which is an
+idempotency key and not a link to GET — recovering it would mean re-fetching
+and re-combining a set, which is the fetching lane's work, not this pass's —
+and text recovered there would in any case be discarded the next time a
+co-respondent's brief joined that key. A lone opposition joins to itself, so it
+stores one link and is recovered like any other filing. What that leaves
+unsized is the combined row itself: its per-brief headings are text, so a
+multi-respondent opposition of nothing but scans is not empty by the coverage
+report's test and reads there as *covered* while carrying no argument at all —
+and it is outside this pass on top of that. Neither surface counts it, and the
+pass's `set_keyed` tally is the guard against a set key that somehow did read
+empty rather than a measurement of the residual. And recurrence: a scanned filing
+that arrives after a pass enters the class and stays there until the next one.
+Nothing watches for that on its own — the same `corpus-info --text-coverage`
+read is what sizes it, and the pass is re-runnable over whatever it finds — so
+cadence is a dispatch decision taken against a measured share, not a schedule.
 
 ### Contract for the recovery pass
 
@@ -476,17 +479,23 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   short ones. The estimate is a high reading of the ordinary cost rather than a
   ceiling on the possible one, so the step's cap stays the backstop for what
   runs past it.
-- **What it reads.** Stored **petitions** whose text is empty or
-  whitespace-only and whose page count is above zero. A zero-page row is either
-  a PDF the extractor could not open or a derived section — `pages` carries
-  both — and neither is OCR's to repair; a case holding no petition row is a
-  fetch gap, or on an application docket no gap at all. Both stay out of the
-  population. The coverage report's case-id ledger names the kinds that read
-  back empty but not their page counts, so the pass re-derives that filter
-  itself. The PDF is re-fetched by the row's stored
-  URL, which for a petition is the single link that was fetched:
-  supremecourt.gov, free and politeness-capped, so the pass spends none of the
-  CourtListener budget. The population is walked case by case rather than
+- **What it reads.** Stored rows of a **fetched** kind — every kind a cell
+  reads that arrived as a PDF: the petition, the application, the brief in
+  opposition and the four merits filings, which is the text-coverage set less
+  its one derived member — whose text is empty or whitespace-only, whose page
+  count is above zero, and whose stored URL is one link. A zero-page row is
+  either a PDF the extractor could not open or a derived section — `pages`
+  carries both — and neither is OCR's to repair; a case holding no row of a
+  kind is a fetch gap, or on an application docket no gap at all; a row whose
+  URL is a set key is the multi-respondent opposition above. All three stay out
+  of the population. The kinds differ in what a cell
+  loses when one reads empty and in nothing the pass does: each is one stored
+  row, one link, one re-fetch, one recognition. The coverage report's case-id
+  ledger names the kinds that read back empty but not their page counts, so the
+  pass re-derives that filter itself. The PDF is re-fetched by the row's stored
+  URL — the single link that was fetched: supremecourt.gov, free and
+  politeness-capped, so the pass spends none of the CourtListener budget. The
+  population is walked case by case rather than
   queried, because under the corpus split the document text lives in the content
   store and the blob's `documents` table holds none of it — a SQL predicate over
   that table reports an empty class against the corpus production reads.
@@ -509,12 +518,15 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   caller that supplies one and no fetching lane grows the dependency —
   and the same per-document text cap the fetching lane applies and the same
   truncation flag bound the result, because they are the same code. A recovered
-  petition is bounded exactly like a fetched one. Additive by construction: text
+  row is bounded exactly like a fetched one. Additive by construction: text
   is written only where extraction stored none, so the pass cannot overwrite an
   extraction. Nor is a recovery overwritten later — the row keeps its URL, and
   both the poller and the Term walker re-fetch a kind only when its link
-  changes; a genuinely superseding petition at a new URL is re-fetched and, if
-  it too is a scan, re-enters the class. A candidate whose re-fetch fails, and
+  changes; a genuinely superseding filing at a new URL is re-fetched and, if
+  it too is a scan, re-enters the class. A lone opposition recovered here is
+  re-fetched and re-extracted the day a co-respondent's brief joins its key,
+  which is the same rule reaching the same row: what survives a recovery is
+  what the fetching lane has no reason to re-read. A candidate whose re-fetch fails, and
   one whose pages OCR to nothing, are counted and named and nothing is written
   for either: the stored row keeps its empty text, stays in the class, and
   re-enters the next slice. Neither is the pass going backwards, but neither
@@ -570,8 +582,10 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   escalation ladder off the docket and says nothing about the document. The
   input arrives before the instruction does, which is the argument for pairing
   them on the next bless rather than letting either land alone.
-- **What follows a recovery.** A recovered petition re-derives its
-  questions-presented row through the existing deriver, in the same write rather
+- **What follows a recovery.** A recovered **petition** re-derives its
+  questions-presented row through the existing deriver — the pass's one
+  follow-on write, and petitions alone have it, since no other recoverable kind
+  carries a questions-presented section — in the same write rather
   than a second dispatch — the ingest path derives it inline for the same
   reason, and a row left behind until someone remembers the backfill is a
   petition whose questions read as absent — since such a row is
@@ -585,10 +599,11 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   sweep's character floor. A question stored beside a scanned petition came from
   a superseded filing, and emptying it is as likely to be this pass misjudging
   as a bad row — and unlike the sweep, whose whole subject is the derived row,
-  this pass is here for the petition and has no business deciding that one. The recovered row's fetch date moves to the day it
+  this pass is here for the filing and has no business deciding that one. The
+  recovered row's fetch date moves to the day it
   was re-fetched, because a fetch happened, and that is visible in one place
   downstream — provisioning places a document by its entry date and falls back
-  to the fetch date where there is none, so such a petition can fall outside a
+  to the fetch date where there is none, so such a row can fall outside a
   replay cell's window it previously sat inside. A cell then sees less, never
   more, which is why the honest date is the one kept.
 - **Terms.** Unchanged. These are the Court's own public records, and OCR text
@@ -658,9 +673,15 @@ corpus row rather than off a poll.
   date, so the selector's stage bound places no entry on the merits side of it.
   A docket carrying **no such entry** for any missing kind is a legacy
   proceedings list holding no document links. The two counts are per candidate
-  and partition the floored ones; neither drains, so a slice that clears its
-  bound without shrinking the class is the expected reading once the recoverable
-  half is gone.
+  and partition the floored ones. Neither drains, so neither is re-walked: an
+  **apply** stamps the candidate it read at a floor (`document_floor_probed_at`
+  on the corpus row) and the class holds it out while that stamp is no older
+  than `last_live_polled`, the live channel's own record of when it last read
+  the same docket. A floor is then paid for once per docket version rather than
+  once per dispatch, which is what lets a bounded slice reach the tail of a
+  class whose recoverable head has drained. `standing_floors` on the ledger is
+  the held-out balance, so the whole addressable class is still readable from
+  one run.
 
   The **alarm** cuts across both counts, because it is per *kind*: a missing
   kind the selector found no entry for, on a docket modern enough to carry
@@ -668,16 +689,29 @@ corpus row rather than off a poll.
   exists to stop producing — and those cases are **named** whichever floor they
   were counted at, so a granted case whose merits entries are on the docket and
   whose opening filing is unreadable is not silenced by the kind that matched.
+  A floor the alarm fired on is also the one floor that is **never stamped**: it
+  is a reading about this pass rather than about the docket, so holding the case
+  out would bank an exclusion over a defect on our own side — and it is the
+  shape an upstream payload that changed or degraded would take across a whole
+  slice. Those candidates keep their place, and widening the selector recovers
+  them.
 - **What it writes.** Each case's documents as they are made rather than batched
   at the end, so a step that hits its cap has banked what it recovered — under
   the corpus split the per-case content-store write is itself the durable one.
   Additive by construction: the fetch is idempotent against the stored
   `(kind, url)` mapping, so a case already holding a document at the selected
-  URL is not re-fetched, and a case this pass cannot recover keeps exactly what
-  it had and re-enters the next slice. Because the durable write is the content
-  store's rather than the pointer's, the step re-walks the class afterwards on
-  an **empty slice** — which costs no round trip — and requires exactly what the
-  apply's ledger said it would leave behind.
+  URL is not re-fetched and nothing it touches loses what it had. What re-enters
+  the next slice depends on why a case did not recover: one whose docket or
+  filing the fetch did not return keeps its place at the head of the class,
+  while an applied floor is stamped out of it until its docket is polled again.
+  The stamps are the pass's one **index** write — a column, through a direct
+  `UPDATE`, so a row hydrated from the payload-free index can never re-mirror a
+  body-less `case.json` over a stored opinion — and they are durable only once
+  the lane pushes the blob, where the documents are already banked per case.
+  Because the documents' durable write is the content store's rather than the
+  pointer's, the step re-walks the class afterwards on an **empty slice** —
+  which costs no round trip — and requires exactly what the apply's ledger said
+  it would leave behind.
 - **Terms.** Unchanged. These filings are the Court's own public records, fetched
   from the Court's own host, and their text lands in the access-gated corpus
   under the same no-republication posture as every other extraction

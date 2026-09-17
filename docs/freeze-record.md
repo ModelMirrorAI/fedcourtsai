@@ -4551,3 +4551,105 @@ freeze commit is recorded here.
   stamped after the instant by construction, so each clears `is_frozen`'s time
   limb, and the re-predict cohort's first cells enter the counted record with
   no window behind them.
+
+- **The step-4 entry's evidence, its trade and its tag, stated precisely,
+  2026-09-16.** A refinement of the entry immediately above rather than a
+  revision of it: that entry landed before its review was resolved, and a
+  placeholder is the only editable content an entry ever has, so what the
+  review found is recorded here. Nothing below changes a value, a count or a
+  conclusion above. What changes is what those readings prove, what the choice
+  costs, and two things the tag paragraph left open.
+
+  **The window evidence, re-attributed.** The entry above calls its three
+  readings independent proofs that
+  `[2026-09-16T00:00:00Z, 2026-09-16T00:26:04Z)` is empty. Only one of them
+  proves that. The window is the 26 minutes *before* the carrying merge, and
+  the run list and the `main` tip both speak to the interval *after* it. The
+  reading that empties the window is the ledger grep — over `data/cases` at
+  `545e26e2b`, `"stamped_at": "2026-09-16` returns **0** files, and
+  `"stamped_at"` alone returns **482**, so that date grep counts over every
+  stamped cell rather than missing a key name. The other two establish that
+  the count is **current**: no run started after the merge and `main` carries
+  no commit after it, so nothing has minted or landed since the grep was
+  taken. That is the argument the entry above should be read as making.
+
+  One reading it did not report belongs beside them, because the bless-moment
+  correction reaches further back than the instant does: raising the six
+  moments from `2026-09-15T00:00:00Z` to the merge would fire the
+  retroactivity tripwire on any blessed-digest cell stamped anywhere in
+  `[2026-09-15T00:00:00Z, 2026-09-16T00:26:04Z)`. The same grep for
+  `"stamped_at": "2026-09-15` returns **0** files, so that wider interval is
+  empty too; the newest stamp anywhere in the ledger is 2026-09-14.
+
+  **What equality costs, since the entry above records only what it buys.**
+  The `[bless, instant)` lane exists so a cell can run against a commitment
+  already immutable on `main` and simply not count; closing it removes that
+  landing place. From here a cell carrying a blessed digest with a stamp
+  before the instant fails the ledger tripwire and reddens its data PR, where
+  under a late instant it would have been an honestly ledgered, quietly
+  uncounted cell. That is the trade
+  [process-version.md](process-version.md) describes being taken in the other
+  direction, taken this way here because the population it would protect is
+  empty: a blessed digest cannot be stamped before the carrying merge except
+  on a staging rehearsal, whose publication is fenced to prod-bound runs. The
+  cost is recorded rather than left for a later maintainer to meet as a red
+  data PR with no entry explaining it.
+
+  **The tag candidate the entry above did not close.** Its placement argument
+  shows that neither proc-v8 freeze commit's tree states the blessed digests
+  and the instant together, but it does not reach the commit a reader looks at
+  next. `689e1281f` — the digest recompute — holds the six digests this
+  promotion actually blesses, beside the instant `2026-09-16T00:00:00Z`, which
+  precedes the carrying merge by 26 minutes and so fails the auditor's own
+  comparison: the very defect step 4 corrects. So it is not the tag's commit
+  either, and the step-4 correction commit remains the first tree where
+  **both** pre-registered quantities pass the audit. Two further conditions on
+  the minting, neither of which that paragraph states. The tag must be
+  **annotated**, carrying the pre-registration record in its message as
+  [pipeline.md](pipeline.md) requires of the namespace — the one point on
+  which `prereg/proc-v6` and `prereg/proc-v7` both lapsed into lightweight
+  tags, which is why it is named here rather than assumed. And the deviation
+  is now recorded in *Tags* as well as here: that section enumerated
+  `prereg/proc-v4` as the sole exception, which this placement makes a second,
+  so it names both. The entry above cites that section as asking this of *any*
+  deviation; it enumerates rather than rules, and what it sets is proc-v4's
+  precedent — which this follows.
+
+  **Two claims narrowed.** The step-0 fills in the two clusters above say the
+  three superseded predictor digests "never reached `main`". Since the
+  carrying promotion they are in `main`'s history, inside `09395d931`. What
+  the **0** counts establish is narrower, and is what the grep actually reads:
+  those digests were never a live constant at `main`'s tip and appear on no
+  committed cell, the `data/cases` scope being the whole of it. Separately,
+  the entry above states that the promotion carrying the correction *is* the
+  whole content of that batch. That is a requirement on a batch a maintainer
+  composes, not a fact a record may assert in advance, and it should be read
+  as the requirement. The property that matters is enforced independently:
+  `test_every_enabled_actor_runs_a_blessed_process` fails if the live tree
+  computes a digest the map does not hold, so a ride-along that moved a prompt
+  byte reddens the promotion PR rather than silently invalidating the tag.
+
+  **The coverage the closed window costs, and what replaces it.** Equality
+  makes two live-constants window tests vacuous, and each skips rather than
+  fails because both read the window off the module —
+  `test_the_pending_window_prediction_is_ledgered_but_not_counted` and its
+  store-side twin build a cell stamped inside `[bless, instant)`, and there is
+  no such stamp to build. At the `process_version` layer the loss is nil:
+  `test_a_window_cell_lands_as_shakedown_rather_than_counting` pins the same
+  predicates on patched constants. At the store layer there was no such twin,
+  so with `test_a_window_prediction_is_ledgered_but_not_claimable` dormant a
+  regression replacing `is_frozen` in `event_has_claimable_prediction` with a
+  bare membership check would have kept the suite green. This commit adds
+  `test_the_claimable_gate_reads_the_instant_and_not_only_membership`, which
+  patches its own window and puts one cell on each side of one instant, so the
+  timing limb is pinned whatever the live constants say. Verified by mutation
+  rather than by reading: dropping the timing limb from `is_frozen` reddens
+  exactly that test's first assertion. Both dormant tests re-arm on their own
+  at the next cutover that opens a window.
+
+  The runnable effect check, for the promotion carrying this: `uv run pytest
+  tests/test_store.py -k claimable` green with the added test running rather
+  than skipped, and `uv run fedcourts process-digest --all` still printing
+  `proc-v8` and the same six digests — this commit moves no constant, no
+  prompt byte and no registry field, so a moved digest would mean something
+  else rode along.

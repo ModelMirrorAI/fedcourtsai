@@ -57,10 +57,12 @@ permissions: {}
 # because neither a schedule nor a dispatch carries anything to key on.
 #
 # Serializing is load-bearing, not tidiness: two concurrent rounds would derive
-# overlapping backlogs. The already-predicted gate that makes the fan-out
-# idempotent reads *committed* state, so it cannot see a round whose collect PR
-# has not merged yet, and this group — not that gate — is what keeps a second
-# derivation out of that window.
+# overlapping backlogs. It does not, on its own, cover the window the
+# already-predicted gate is blind to: that gate reads *committed* state, so a
+# round whose collect PR has not merged is invisible to it, and the next round
+# plans the moment this group releases — minutes after the previous one ended,
+# and long before its PR merges. The stranded-run guard below is what covers
+# that window; this group covers the overlapping one.
 #
 # `cancel-in-progress: false` protects the *running* round, not the queue behind
 # it: GitHub holds at most one pending run per group, and a third arrival
@@ -102,6 +104,12 @@ jobs:
       # (repo-wide read of run metadata and artifact *names*; the plan job runs no
       # agent code and downloads no artifact).
       actions: read
+      # The guard's other read: whether this lane's collect PR has merged. Read
+      # of PR metadata — number, head ref, state — and no write, on a job that
+      # runs no agent code and opens, comments on and reviews nothing. It is the
+      # narrowest scope that answers the question, since the merge state of a
+      # branch this job may not fetch is not visible through `contents: read`.
+      pull-requests: read
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
@@ -138,38 +146,62 @@ jobs:
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
 
       # The stranded-run guard's census. A cell spends its tokens *before*
-      # `collect`, the run's single durability step, so a collect that fails
-      # after a full-width fan-out leaves every prediction sitting in a cell
-      # artifact and nothing in the ledger — and the ledger is what the matrix's
-      # already-predicted gate reads, so the next scheduled round re-derives the
-      # same events and re-spends the identical run. This lists the cell
-      # artifacts of recent runs whose `collect` did not conclude success; the
-      # matrix step below withholds those cells and names the recovery instead.
+      # `collect`, the run's single durability step, and the already-predicted
+      # gate reads *committed* state on `main` — so every run between "the cells
+      # spent their tokens" and "the collect PR merged" is invisible to it, and
+      # the next scheduled round re-derives the same events and re-spends the
+      # identical run. Three ways a run sits in that gap: `collect` failed, its
+      # PR is open (auto-merge waiting on checks, or a draft), or it concluded
+      # success having pushed no branch at all, which is what the secret scan's
+      # withhold looks like from outside. This lists recent runs' cell artifacts
+      # with the two facts that tell those apart — whether `collect` succeeded,
+      # and the run's own window — plus this lane's collect PRs; the matrix step
+      # below withholds the cells and names the remedy for each.
+      #
+      # The join between a run and its PR is that window: the pipeline run id in
+      # the PR's head ref (`predict/run-<run_id>`) is minted by the run's own
+      # `plan` job, so it necessarily falls inside the run's window, and nothing
+      # else either API returns carries it. Sound rather than exact — a queued
+      # run's window can contain a neighbour's stamp too — so the decision step
+      # resolves every ambiguity the safe way.
       #
       # Fetch and filter only — the decision lives in the tested `predict-matrix`
-      # command. Fail-open by construction, at two grains (see the shell below):
-      # an unreadable run drops out of the census, and a failure leaving nothing
-      # usable empties it. The failure this guard prevents is expensive, not
-      # dangerous, so it must never be the reason a legitimate run does not
+      # command. Fail-open by construction, at three grains (see the shell
+      # below): an unreadable run drops out of the census, an unreadable PR
+      # listing disarms the collect-PR arm alone, and a failure leaving nothing
+      # usable empties the census. The failure this guard prevents is expensive,
+      # not dangerous, so it must never be the reason a legitimate run does not
       # start.
-      - name: Census the cell artifacts of uncollected recent runs
+      - name: Census the cell artifacts of recent runs that have not landed
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           echo '[]' > stranded-artifacts.json
-          # Two degradation grains. `degraded` is the whole-guard one: nothing
+          rm -f collect-prs.json
+          # Three degradation grains. `degraded` is the whole-guard one: nothing
           # usable was fetched, so withhold nothing. `skipped` loses one run's
           # cells from the census and keeps the rest — a flake on the seventh
           # candidate must not discard the six good ones and re-spend them.
+          # `pr_arm_off` loses only the half that judges a run whose `collect`
+          # succeeded, leaving the uncollected half armed.
           degraded() {
             echo '[]' > stranded-artifacts.json
+            rm -f collect-prs.json
             echo "::warning::stranded-run guard degraded — $1; this plan proceeds unguarded and may re-mint cells that already ran"
             exit 0
           }
           skipped() {
             echo "::warning::stranded-run guard skipped a run — $1; that run's cells may be re-minted"
+          }
+          # The ABSENCE of the file is what disarms that arm, never an empty
+          # list: an empty list is a claim (this lane has no collect PR), and a
+          # plan that believed it would read every collected run as having
+          # pushed nothing and withhold every cell it ever produced.
+          pr_arm_off() {
+            rm -f collect-prs.json
+            echo "::warning::stranded-run guard's collect-PR arm is off — $1; a run whose collect PR has not merged reads as landed, so its cells may be re-minted"
           }
           # One fetch, three attempts, backoff — the shape (and the reason) of
           # the collect action's artifact listing: a single transient 502 here
@@ -191,30 +223,79 @@ jobs:
           # a 48-hour window — the window is the real bound, and the page is sized
           # so a day's predict cycles cannot push a stranded run out of view
           # before the re-queue it must catch. CUTOFF travels as jq's environment
-          # rather than being interpolated into the query program.
+          # rather than being interpolated into the query program. The window's
+          # lower bound is the EARLIER of creation and start: `run_started_at`
+          # resets on a re-run, and rerunning `collect` is this guard's own
+          # remedy, so taking it alone would move the window past the run id its
+          # first attempt already minted — and the recovered run would then read
+          # as having pushed no branch at all, which is the one verdict that
+          # names a hand salvage.
           CUTOFF=$(date -u -d '48 hours ago' +%Y-%m-%dT%H:%M:%SZ) \
             || degraded "could not compute the lookback window"
           export CUTOFF
-          api candidate-runs.txt "repos/${REPO}/actions/workflows/run-predict.yml/runs?status=completed&per_page=50" \
-            --jq '.workflow_runs[] | select(.created_at > env.CUTOFF) | .id' \
+          # This lane's collect PRs to `main`, open and settled alike: a merged
+          # one releases its run, an open one withholds it, and a run with none
+          # at all pushed no branch. The API has no head-prefix filter, so this
+          # asks for one page of PRs to `main`, newest first, and narrows here.
+          #
+          # Two filters, both load-bearing. The head must live in THIS
+          # repository: the listing includes fork PRs, whose `head.ref` is the
+          # fork's own branch name with no owner in it, so on a public repo a
+          # branch named `predict/run-<stamp>` on anyone's fork would otherwise
+          # read as this run's collect PR and withhold a legitimate round —
+          # fail-CLOSED, the one direction this guard must never take. Pushing a
+          # branch to this repository needs write, so the same-repo conjunct is
+          # what makes the head ref trustworthy, exactly as ci.yml's `main-base`
+          # jail requires it of a head before believing its name. Then the head
+          # must be a run branch of this lane.
+          #
+          # Projected to the four fields the decision needs, in the fetch rather
+          # than after it, so the PR *bodies* — which carry rolled-up agent flag
+          # text on this lane — never land in the plan job's workspace at all.
+          # The page is trusted only when its oldest row predates the census
+          # window, since a page that stopped short would report a run's PR as
+          # absent and withhold cells that had in fact landed; that reading is
+          # taken over the whole page, before the narrowing, and as a `min`
+          # rather than off the last row, so it does not rest on the API having
+          # honoured the sort. Both `select`s read through `// ""` so a row the
+          # API returns without the field drops itself rather than raising and
+          # taking the whole arm off.
+          if api collect-prs-raw.json \
+               "repos/${REPO}/pulls?base=main&state=all&sort=created&direction=desc&per_page=100" \
+               --jq '{oldest: (([.[].created_at] | min) // ""), prs: [.[] | select((.head.repo.full_name // "") == env.REPO) | select((.head.ref // "") | startswith("predict/run-")) | {number, head_ref: .head.ref, head_repo: .head.repo.full_name, is_open: (.state == "open"), merged: (.merged_at != null)}]}'; then
+            # `|| true` so a jq failure reads as no coverage rather than tripping
+            # errexit: this whole step must never be the reason a round does not
+            # start, and an assignment is the one context where a failed
+            # substitution would exit under `set -e`.
+            oldest=$(jq -r '.oldest // ""' collect-prs-raw.json || true)
+            if [ -z "$oldest" ] || [[ "$oldest" > "$CUTOFF" ]]; then
+              pr_arm_off "could not establish that the PR listing reaches back past the census window"
+            elif ! jq '.prs' collect-prs-raw.json > collect-prs.json; then
+              pr_arm_off "could not read the PR listing"
+            fi
+          else
+            pr_arm_off "could not list this lane's pull requests"
+          fi
+          api candidate-runs.tsv "repos/${REPO}/actions/workflows/run-predict.yml/runs?status=completed&per_page=50" \
+            --jq '.workflow_runs[] | select(.created_at > env.CUTOFF) | [.id, ([.created_at, (.run_started_at // .created_at)] | min), .updated_at] | @tsv' \
             || degraded "could not list this workflow's recent runs"
           : > census.ndjson
-          while IFS= read -r run; do
+          while IFS=$'\t' read -r run started updated; do
             [ -n "$run" ] || continue
-            # Uncollected: no `collect` job on that run concluded success — it
-            # failed, was cancelled, or never reached the job at all.
-            # `filter=latest` is the default made explicit, and it is what makes
-            # the guard release itself: a run recovered by rerunning `collect`
-            # reads as collected and its events queue normally again. Paginated,
-            # because a full-width run's cell jobs push `collect` off page one.
+            # Did any `collect` job on that run conclude success? `filter=latest`
+            # is the default made explicit, and it is what makes the guard
+            # release itself: a run recovered by rerunning `collect` reads as
+            # collected, and lands once its PR merges. Paginated, because a
+            # full-width run's cell jobs push `collect` off page one.
             if ! api collect-conclusions.txt --paginate \
                  "repos/${REPO}/actions/runs/${run}/jobs?per_page=100&filter=latest" \
                  --jq '.jobs[] | select(.name == "collect") | .conclusion'; then
               skipped "could not read run ${run}'s jobs"
               continue
             fi
+            collected=false
             if grep -qx success collect-conclusions.txt; then
-              continue
+              collected=true
             fi
             if ! api artifact-names.txt --paginate \
                  "repos/${REPO}/actions/runs/${run}/artifacts?per_page=100" \
@@ -222,12 +303,16 @@ jobs:
               skipped "could not list run ${run}'s artifacts"
               continue
             fi
-            jq -R --argjson run "$run" '{run_db_id: $run, artifact_name: .}' artifact-names.txt \
+            jq -R --argjson run "$run" --argjson collected "$collected" \
+               --arg started "$started" --arg updated "$updated" \
+               '{run_db_id: $run, artifact_name: ., collect_succeeded: $collected,
+                 run_started_at: $started, run_updated_at: $updated}' artifact-names.txt \
               >> census.ndjson || degraded "could not record run ${run}'s cell artifacts"
-          done < candidate-runs.txt
+          done < candidate-runs.tsv
           jq -s '.' census.ndjson > stranded-artifacts.json \
             || degraded "could not assemble the census"
-          echo "stranded cell artifact(s): $(jq 'length' stranded-artifacts.json)"
+          echo "candidate cell artifact(s): $(jq 'length' stranded-artifacts.json)"
+          echo "collect PR(s) in view: $(jq 'length' collect-prs.json 2>/dev/null || echo 'arm off')"
 
       - name: Build predictor x case x event matrix
         id: plan
@@ -237,15 +322,19 @@ jobs:
           # No case list is passed, and that is the request: given no --body-file
           # and no --court/--docket, `predict-matrix` derives the cases from the
           # corpus-level predict backlog itself.
-          # --stranded-file: withhold any cell whose output already sits in an
-          # uncollected run (the census above; an empty or absent file is the
-          # guard off). --stranded-note-file: the command writes it only when
+          # --stranded-file: withhold any cell whose output already sits in a
+          # run that has not landed (the census above; an empty or absent file
+          # is the guard off). --collect-prs-file: what tells a collected run
+          # that landed from one whose PR is still open or was never pushed; an
+          # absent file is that arm off, which the census step writes by
+          # deleting it. --stranded-note-file: the command writes it only when
           # that withholds *every* cell, so the file is the marker the summary
           # below branches on — an empty matrix must say "recover that run"
           # rather than read as a drained backlog, and the two are identical
           # from the count alone.
           matrix=$(uv run fedcourts predict-matrix --run-id "$run_id" \
             --stranded-file stranded-artifacts.json \
+            --collect-prs-file collect-prs.json \
             --stranded-note-file stranded-note.md)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           # The report step re-derives the plan under this same id: the run id
@@ -276,7 +365,7 @@ jobs:
                 # guard's own account (the run ids and the remedy), so it is
                 # rendered rather than paraphrased: the annotations name what
                 # the census skipped, but only the note carries the whole story.
-                echo "This matrix is empty because the stranded-run guard withheld every cell, not because the backlog is drained. Those events stay owed until their predictions are committed, so a recovered collect, not another round, is what clears them."
+                echo "This matrix is empty because the stranded-run guard withheld every cell, not because the backlog is drained. Every cell this round would have minted already ran in a run whose output has not reached \`main\` — \`collect\` failed, its PR is still open, or it pushed no branch at all — so the tokens are spent and the predictions exist. Those events stay owed until their predictions are committed, so landing that run, not another round, is what clears them; the note below says which of the three it is and names the run and its PR."
                 echo ""
                 cat stranded-note.md
               else
@@ -316,6 +405,7 @@ jobs:
           # maintainer approves is not the run.
           plan_json=$(uv run fedcourts predict-plan \
             --stranded-file stranded-artifacts.json \
+            --collect-prs-file collect-prs.json \
             --run-id "$PLAN_RUN_ID" \
             --approval-report plan-report.md \
             --approval-report-run-url "$RUN_URL" 2>plan-stderr.txt) \

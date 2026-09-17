@@ -140,6 +140,52 @@ def assert_cleanup_within_jail(changes: Iterable[PathChange]) -> None:
         raise PathJailError("cleanup jail rejected the change set:\n- " + "\n- ".join(violations))
 
 
+#: The fixed branch the big-case-board lane publishes on. Named here rather than
+#: only in the workflow because three surfaces have to agree on it — the
+#: producer's push, the `paths` jail's branch selector, and `main-base`'s routing
+#: allowlist — and the jail's non-match path is a **pass**, so a drift between
+#: them disarms the only thing standing in for a reviewer on an auto-merged lane.
+#: A test asserts the literal in all three places.
+BOARD_BRANCH = "metrics/big-cases"
+
+#: The board's two artifacts as basenames, in publication order (JSON, then its
+#: rendered companion) — the spelling the CLI's `--out` / `--markdown-out`
+#: defaults take, and the one the workflow's `git add` pathspec is asserted
+#: against.
+BOARD_ARTIFACTS = ("big-cases.json", "big-cases.md")
+
+#: The only paths the auto-merged big-case-board PR may carry, as repo-relative
+#: paths. A frozen set rather than a prefix: the lane regenerates exactly two
+#: files, so "under `metrics/`" would be a wider jail than the producer can ever
+#: need. Derived from :data:`BOARD_ARTIFACTS` rather than spelled again, so the
+#: files the command writes and the files the jail admits cannot drift apart.
+BOARD_JAIL_PATHS = frozenset(f"metrics/{name}" for name in BOARD_ARTIFACTS)
+
+
+def assert_board_within_jail(changes: Iterable[PathChange]) -> None:
+    """Raise :class:`PathJailError` unless every change is one of the board's two files.
+
+    The big-case board is the one auto-merged lane that is not a data-production
+    branch: it rewrites two committed artifacts in place rather than adding files
+    under ``data/``, so neither of the jails above describes it. What makes
+    auto-merging it safe is that its diff is mechanically bounded — a
+    regeneration of :data:`BOARD_JAIL_PATHS` and nothing else — and this is where
+    that bound is enforced independently of the workflow that produced the
+    branch, exactly as the data jail is. A delete is a violation too: the board
+    is a committed surface, and the lane has no business removing it.
+    """
+    violations: list[str] = []
+    for change in changes:
+        if change.path not in BOARD_JAIL_PATHS:
+            violations.append(f"{change.path!r} is not one of the big-case board's artifacts")
+        elif change.status not in ("A", "M"):
+            violations.append(
+                f"{change.path!r} has status {change.status!r}; the board PR only writes files"
+            )
+    if violations:
+        raise PathJailError("board jail rejected the change set:\n- " + "\n- ".join(violations))
+
+
 @dataclass(frozen=True)
 class UnionReport:
     """What one cell artifact's add-only union onto the branch checkout did.
@@ -312,6 +358,47 @@ def cell_artifact_name(role: FinalizeRole, cell: ExpectedCell) -> str:
     return f"{role.value}-{cell.actor}-{cell.court}-{cell.docket}-{cell.event_id}"
 
 
+def run_branch(role: FinalizeRole, run_id: str, *, suffix: str = "") -> str:
+    """The branch one of a run's collect PRs is pushed to.
+
+    Run-scoped by construction, so a rerun of `collect` force-pushes over its
+    own previous attempt rather than stacking a second branch. ``suffix``
+    separates the kinds a single run can open — the draft salvage branch and
+    the facts-only one — from the ready branch that carries the run's output.
+
+    Spelled here rather than at each call site because the plan-time
+    stranded-run guard reads the name back (:func:`parse_run_branch`): a guard
+    that parsed a spelling the writer had drifted away from would silently stop
+    matching, which is a re-spend rather than a failure.
+    """
+    return f"{role.value}/run-{run_id}{suffix}"
+
+
+# The inverse of `run_branch`. The run id is a fixed-width UTC stamp
+# (`ids.run_id`), so it anchors the split even though a suffix may follow;
+# any suffix is accepted, including one no writer produces, because a branch a
+# maintainer opened by hand to salvage a withheld run carries the run's output
+# just as the writer's own branch would.
+_RUN_BRANCH_RE = re.compile(
+    r"^(?P<role>[a-z]+)/run-(?P<run_id>\d{8}T\d{6}Z)(?P<suffix>-[A-Za-z0-9._-]+)?$"
+)
+
+
+def parse_run_branch(role: FinalizeRole, ref: str) -> str | None:
+    """Read a run's pipeline run id back out of a collect branch name.
+
+    For the plan-time stranded-run guard, which knows a run's *database* id and
+    must decide whether that run's collect PR has merged: the PR carries the
+    pipeline run id in its head ref and nothing else that ties it to a run.
+    Returns ``None`` for any ref that is not this role's run branch, so an
+    unrelated head is ignored rather than guessed at.
+    """
+    match = _RUN_BRANCH_RE.match(ref)
+    if match is None or match["role"] != role.value:
+        return None
+    return str(match["run_id"])
+
+
 # The inverse split of `cell_artifact_name`. Three anchors make it unambiguous
 # although both the actor id and the event id carry hyphens: an event id always
 # begins `evt-` (`ids.event_id`), a docket is an integer, and a court id carries
@@ -442,6 +529,17 @@ class CollectPlan:
     whichever PR body opens, ``facts_only`` included — and carries the
     code-mode capture tripwire beside it, because that is the blindness bound
     on its own count.
+
+    ``stakes_read_markdown`` asks the same shape of question of the run's *own
+    output* rather than of its inputs: how many of this run's predictions landed
+    without a ``big_case_score``, and whose. It travels the same way, minus the
+    facts-only body — a wholesale-failed run has no predictions to census, and
+    that body's whole property is that it carries no agent-written text. Unlike
+    the two above it is also echoed into the collect job's Actions summary,
+    because nothing else reports a missing stakes read at all: it fails no cell
+    and trips no gate. That echo passes the flag roll-up's secret-scan gates,
+    since the cells and predictors it names are named by the ids their own
+    ``prediction.json`` carries.
     """
 
     ready: PrPlan | None
@@ -450,6 +548,7 @@ class CollectPlan:
     flags_markdown: str = ""
     throttle_markdown: str = ""
     prior_availability_markdown: str = ""
+    stakes_read_markdown: str = ""
     feedback_comment: str = ""
     stalled: bool = False
     dead_actors: tuple[str, ...] = ()
@@ -859,19 +958,37 @@ class PriorAvailabilityRollup:
     lift_blind_cells: int = 0
 
 
+#: Backstop on how much of one identifier any note prints. The stakes census
+#: names cells and predictors by the ids their own ``prediction.json`` carries,
+#: and these notes reach a public Actions summary — so the bound belongs to the
+#: note, not to whichever caller built the roll-up (that caller bounds each
+#: *component* more tightly, which is what shapes the id a reader sees; this is
+#: what holds when a future one forgets to). Well clear of any id the pipeline
+#: mints: a whole ``court/docket/event/actor`` cell name runs to about sixty.
+_RENDERED_ID_CAP = 200
+
+
+def _md_id(value: str) -> str:
+    """One identifier, safe for a code span and bounded: see :data:`_RENDERED_ID_CAP`."""
+    return _md_cell(value).replace("`", "")[:_RENDERED_ID_CAP]
+
+
 def _named_cells(names: Sequence[str]) -> str:
     """Cell ids as an inline code-quoted list, capped at :data:`_NAMED_CELL_CAP`.
 
     Each id is collapsed to one line and stripped of the backtick that would
     otherwise close the code span early — the same defence :func:`_md_cell`
-    gives an agent-authored flag message. Belt and braces here: the ids are
+    gives an agent-authored flag message. What that escape is doing differs by
+    caller. For the retrieval notes it is belt and braces: their ids are
     harness-written (capture stamps the log's ``case_id`` / ``actor_id`` from
     the matrix after the agent has finished, and the event id comes from the
     artifact path), so the no-agent-text property the facts-only PR body relies
-    on holds without this — but the file does sit in the cell's own tree, and
-    the escape costs nothing.
+    on holds without it — the file does sit in the cell's own tree, and the
+    escape costs nothing. For :func:`render_stakes_read_note` it is load-bearing:
+    those ids are the agent's own ``prediction.json`` fields, and its caller caps
+    them before they arrive here.
     """
-    shown = ", ".join(f"`{_md_cell(name).replace('`', '')}`" for name in names[:_NAMED_CELL_CAP])
+    shown = ", ".join(f"`{_md_id(name)}`" for name in names[:_NAMED_CELL_CAP])
     rest = len(names) - _NAMED_CELL_CAP
     return f"{shown}, and {rest} more" if rest > 0 else shown
 
@@ -956,6 +1073,140 @@ def render_prior_availability_note(rollup: PriorAvailabilityRollup | None) -> st
     return "\n\n".join(paragraphs)
 
 
+@dataclass(frozen=True)
+class StakesReadRollup:
+    """Whether this run's predictions carried a stakes read (``big_case_score``).
+
+    The score is the predictor's own pre-registered read of how big the case is
+    if decided, graded by rank-agreement with the evaluators' reads rather than
+    against a ground truth (``docs/salience.md``). A null is never *imputed* —
+    no figure reads it as a zero or a mean — but it is not free either. Three
+    surfaces read the score, and each drops the record rather than the number:
+    the leaderboard's ``big_case`` block, where the ``(predictor, case)`` point
+    leaves the series so ``cases`` falls by one and the tau-b is recomputed over
+    a smaller set (:func:`~fedcourtsai.leaderboard.big_case_agreement`); the
+    replay's ``big_case`` coverage and spread
+    (:func:`~fedcourtsai.cert_backtest._big_case_distribution`); and the daily
+    digest's per-case line, which simply omits the predictor
+    (:mod:`fedcourtsai.ops`). The evaluator panel is untouched by all of it — it
+    is read from the evaluations — so this is a predictor's own coverage, not a
+    thinner panel.
+
+    That is why the per-engine split is the point rather than the total. The set
+    each predictor's tau-b is computed over is **selected, not sampled**, so two
+    predictors at unequal coverage rank over different populations and the board
+    adjusts for none of it (``metrics/README.md``). An omission concentrated in
+    one engine is therefore a comparability problem, and one spread evenly is
+    not.
+
+    The two missing shapes are counted separately because they are different
+    answers, not different amounts of the same one. ``explained`` is the
+    prompt's null branch taken as written — no number, and a one-line
+    ``big_case_rationale`` saying why the cell could not place the stakes, which
+    is a considered no-view. ``silent`` is neither, which on a stamped record is
+    indistinguishable from a field the cell never wrote: ``stamp-cell`` rewrites
+    the artifact through the model and emits every field at its default, so the
+    rationale beside the null is the only thing that can carry the difference.
+    Both cost the predictor the same point, which is why the note counts them
+    together and names them apart.
+
+    ``by_predictor`` carries ``(actor, missing, cells)`` for **every** predictor
+    in the run, the clean ones included, ordered by missing and then by id. The
+    denominator rides with each count because a bare numerator cannot tell "12
+    of 12" from "12 of 200", and the comparison between engines is the whole
+    reading.
+
+    ``cells`` is every legible ``prediction.json`` of this run in the collected
+    artifacts — what the run put on the collector, and the denominator the two
+    lists are subsets of. A **salvage** cell's output counts: a prediction that
+    failed validation is still a prediction this run produced, and its stakes
+    read is as missing as any other. A cell that produced nothing at all is
+    outside *both* counts, which bounds what the fraction can mean — a round
+    that lost an engine wholesale censuses cleaner than one whose engine ran and
+    dropped its reads, so the fraction is a within-run reading and not a series.
+    The note says so. A record that does not parse contributes to nothing here;
+    it has no readable answer to count either way, and ``validate`` already
+    routes it to the draft PR a maintainer reads.
+
+    Every id here — the predictor and the ``case/event/actor`` cell names — is
+    the agent's own ``prediction.json`` field rather than the matrix's word,
+    read before ``validate`` has held either to the ledger. The caller caps and
+    collapses each before it lands in the roll-up and the renderer escapes them
+    again, because this note reaches the run's Actions summary.
+    """
+
+    cells: int = 0
+    explained: tuple[str, ...] = ()
+    silent: tuple[str, ...] = ()
+    by_predictor: tuple[tuple[str, int, int], ...] = ()
+
+
+def render_stakes_read_note(rollup: StakesReadRollup | None) -> str:
+    """The run PR's note on the stakes read, or ``""``.
+
+    Silent on a run where every cell carried a score — the same convention
+    :func:`render_throttle_note` and :func:`render_prior_availability_note`
+    keep, and for the same reason: a standing "0 missing" line on a surface read
+    once per run trains the eye to skip exactly the place the warning will one
+    day appear. The denominators therefore ride inside the warning rather than
+    standing alone as a clean-run line.
+
+    Up to three paragraphs, each printed only where it has something to say. The
+    first counts what is missing, names whose against each predictor's own
+    denominator, and says what the count is taken over. The second is the
+    contract miss — a null with nothing beside it — and prints only where there
+    is one, so a round whose every null carried a reason is never framed as a
+    miss. The third names the cells that took the prompt's null branch **with**
+    a reason: not a contract miss and not to be read as one, but the same point
+    off that predictor's board, so reported rather than forgiven.
+    """
+    if rollup is None or not (rollup.explained or rollup.silent):
+        return ""
+    missing = len(rollup.explained) + len(rollup.silent)
+    split = ", ".join(
+        f"`{_md_id(actor)}` {count} of {total}" for actor, count, total in rollup.by_predictor
+    )
+    paragraphs: list[str] = []
+    paragraphs.append(
+        f"📉 **Stakes read missing**: {missing} of {rollup.cells} prediction(s) this run "
+        + f"carry no `big_case_score` — {split} (count order, not severity). The "
+        + "denominators are what this run put on the collector: every prediction of this "
+        + "run in the collected artifacts, salvage cells included. A cell that produced "
+        + "nothing at all is outside both counts, so this is a within-run reading rather "
+        + "than a series — a round that lost an engine wholesale censuses cleaner than one "
+        + "whose engine ran and dropped its reads."
+    )
+    paragraphs.append(
+        "The read is graded by agreement with the evaluators' own reads, never against a "
+        + "ground truth, and no figure imputes a null — but none of them carries it either. "
+        + "Each missing read takes that `(predictor, case)` point out of **that predictor's** "
+        + "`big_case` tau-b, so its `cases` falls by one and the coefficient is recomputed "
+        + "over a smaller set; the replay's coverage figure and the daily digest's per-case "
+        + "line drop it the same way. The evaluator panel is untouched. The set each "
+        + "predictor is scored over is therefore *selected*, and two predictors at unequal "
+        + "coverage rank over different populations — which is why the split above is the "
+        + "reading, not the total."
+    )
+    if rollup.silent:
+        paragraphs.append(
+            f"🔇 **{len(rollup.silent)} answered nothing at all** — the prompt contracts "
+            + "either a number or an explicit `null` carrying a one-line "
+            + "`big_case_rationale`, and on a stamped record a bare null and a field the "
+            + f"cell never wrote are the same bytes: {_named_cells(rollup.silent)} (walk "
+            + "order, not severity — the cap shows a prefix, and on a concentrated run that "
+            + "prefix is one engine's)."
+        )
+    if rollup.explained:
+        paragraphs.append(
+            f"📝 **A stated reason on {len(rollup.explained)} of them** — the prompt's "
+            + "null branch taken as written, a considered no-view rather than a contract "
+            + f"miss: {_named_cells(rollup.explained)} (walk order, not severity). Read the "
+            + "rationale on the cell before counting it against the predictor; it costs the "
+            + "predictor the same point either way."
+        )
+    return "\n\n".join(paragraphs)
+
+
 def feedback_marker(role: FinalizeRole, run_id: str) -> str:
     """The hidden HTML marker that keys one run's note on the agent-feedback issue.
 
@@ -1014,6 +1265,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     expected: Sequence[ExpectedCell] = (),
     throttle: ThrottleRollup | None = None,
     prior_availability: PriorAvailabilityRollup | None = None,
+    stakes_reads: StakesReadRollup | None = None,
 ) -> CollectPlan:
     """Partition a run's cells into one ready PR, one draft PR, and the skipped.
 
@@ -1078,6 +1330,15 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     where every attempt was served; the code-mode capture tripwire it carries
     beside that warning is not, because it reports on what could be seen rather
     than on what happened.
+
+    ``stakes_reads`` turns the same lens on the run's own output: which of its
+    predictions landed without a ``big_case_score``, split into the prompt's
+    null-with-a-reason branch and outright silence, and counted against each
+    predictor's own cells. It rides the ready and draft bodies — not the
+    facts-only one — and is returned as ``stakes_read_markdown`` for the collect
+    job's Actions summary. Silent on a run where every cell placed the stakes: a
+    missing read fails nothing and is invisible everywhere else, which is the
+    whole reason it is counted here.
     """
     if role not in _JUDGMENT_NOUN:
         raise ValueError(f"collect_plan supports predict/evaluate, not {role.value}")
@@ -1156,7 +1417,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
             else ""
         )
         ready_plan = PrPlan(
-            branch=f"{role.value}/run-{run_id}",
+            branch=run_branch(role, run_id),
             commit_message=f"{role.value}(run {run_id}): {len(ready)} {noun}(s)",
             title=f"{role.value}: {len(ready)} {noun}(s) (run {run_id})",
             body=(
@@ -1170,7 +1431,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     partial_plan: PrPlan | None = None
     if salvage:
         partial_plan = PrPlan(
-            branch=f"{role.value}/run-{run_id}-partial",
+            branch=run_branch(role, run_id, suffix="-partial"),
             commit_message=f"{role.value}(run {run_id}): {len(salvage)} partial {noun}(s)",
             title=f"{role.value}: {len(salvage)} partial {noun}(s) (run {run_id})",
             body=f"{_PARTIAL_WARNING}\n\n{_table(salvage, with_reason=True)}",
@@ -1180,6 +1441,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
 
     throttle_md = render_throttle_note(throttle)
     prior_md = render_prior_availability_note(prior_availability)
+    stakes_md = render_stakes_read_note(stakes_reads)
 
     # A wholesale-failed run — no ready PR and no draft — still has failure facts
     # to persist (skipped/salvage/uncovered), and no other PR to carry them. The
@@ -1196,6 +1458,13 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
             skipped=skipped,
             salvage=tuple(salvage),
             uncovered=uncovered,
+            # Deliberately without the stakes census: the facts-only body's
+            # whole property is that it is deterministic and carries no
+            # agent-written text, so the secret scan cannot withhold the very
+            # facts it exists to persist — and the census names cells by the
+            # ids their own `prediction.json` carries. A wholesale-failed run
+            # has almost nothing to census anyway (no cell produced output), so
+            # the note would buy nothing for that risk.
             notes=(throttle_md, prior_md),
         )
 
@@ -1204,7 +1473,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     # because that is the frame a maintainer needs before reading the agents'
     # own accounts of what they found.
     ready_plan, partial_plan = _append_sections(
-        ready_plan, partial_plan, (throttle_md, prior_md, flags_md)
+        ready_plan, partial_plan, (throttle_md, prior_md, stakes_md, flags_md)
     )
     return CollectPlan(
         ready=ready_plan,
@@ -1213,6 +1482,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
         flags_markdown=flags_md,
         throttle_markdown=throttle_md,
         prior_availability_markdown=prior_md,
+        stakes_read_markdown=stakes_md,
         feedback_comment=render_feedback_comment(role, run_id, flags_md),
         stalled=bool(cells) and not any(c.produced or c.agent_ok for c in cells),
         dead_actors=dead_actors,
@@ -1279,7 +1549,7 @@ def _facts_only_plan(
         if note:
             body = f"{body}\n\n{note}"
     return PrPlan(
-        branch=f"{role.value}/run-{run_id}-facts",
+        branch=run_branch(role, run_id, suffix="-facts"),
         commit_message=f"{role.value}(run {run_id}): {total} cell-failure fact(s)",
         title=f"{role.value}: {total} cell-failure fact(s) (run {run_id})",
         body=body,
@@ -1297,20 +1567,23 @@ def _append_sections(
 ) -> tuple[PrPlan | None, PrPlan | None]:
     """Append the run-level roll-ups to the run's primary PR body (ready, else draft).
 
-    The flag roll-up, the throttle note, and the prior-availability note belong
-    to the run, not a single cell, so they ride the one PR a maintainer reviews
-    — the auto-merging ready PR when there is one, otherwise the draft. Empty
-    sections are dropped, so a run with none leaves the body untouched; with no
-    PR at all each roll-up still travels on the plan (``flags_markdown`` /
-    ``throttle_markdown`` / ``prior_availability_markdown``) and out through
+    The flag roll-up, the throttle note, the prior-availability note, and the
+    stakes-read census belong to the run, not a single cell, so they ride the
+    one PR a maintainer reviews — the auto-merging ready PR when there is one,
+    otherwise the draft. Empty sections are dropped, so a run with none leaves
+    the body untouched; with no PR at all each roll-up still travels on the plan
+    (``flags_markdown`` / ``throttle_markdown`` /
+    ``prior_availability_markdown`` / ``stakes_read_markdown``) and out through
     ``collect-plan``'s JSON.
 
-    They are not equally surfaced. The flag roll-up also reaches the Actions
-    summary and the agent-feedback issue, because the collect action reads it
-    off that JSON and echoes it; the two harness-rendered notes reach the PR
-    body alone until that action is wired to echo them too, which is a change
-    to the permission surface and so a maintainer's to make. All three are on
-    the JSON so the wiring is the only thing missing.
+    They are not equally surfaced. The flag roll-up reaches the Actions summary
+    and the agent-feedback issue, and the stakes census the Actions summary,
+    because the collect action reads those off that JSON and echoes them — both
+    behind the same secret-scan gates, since both name things an agent wrote.
+    The throttle and prior-availability notes reach the PR body alone until that
+    action is wired to echo them too, which is a change to the permission
+    surface and so a maintainer's to make. All four are on the JSON, so for
+    those two the wiring is the only thing missing.
     """
     body = "\n\n".join(section for section in sections if section)
     if not body:

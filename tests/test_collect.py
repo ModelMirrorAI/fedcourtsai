@@ -20,7 +20,9 @@ from fedcourtsai.collect import (
     ExpectedCell,
     PathJailError,
     PriorAvailabilityRollup,
+    StakesReadRollup,
     ThrottleRollup,
+    assert_board_within_jail,
     assert_cleanup_within_jail,
     assert_within_jail,
     attempted_corpus_query,
@@ -31,11 +33,14 @@ from fedcourtsai.collect import (
     feedback_marker,
     parse_cell_artifact_name,
     parse_name_status,
+    parse_run_branch,
     render_feedback_comment,
     render_flags,
     render_prior_availability_note,
+    render_stakes_read_note,
     render_stall_comment,
     render_throttle_note,
+    run_branch,
     union_cell_tree,
 )
 from fedcourtsai.finalize import FinalizeRole
@@ -160,6 +165,30 @@ def test_rename_keys_on_new_path() -> None:
     # R status (a rename is still not a pure addition).
     changes = parse_name_status("R100\tdata/old.json\tsrc/new.py\n")
     assert changes == [type(changes[0])(status="R", path="src/new.py")]
+
+
+# --- big-case board jail ---------------------------------------------------
+
+
+def test_board_writes_of_its_own_two_artifacts_pass() -> None:
+    changes = parse_name_status("M\tmetrics/big-cases.json\nM\tmetrics/big-cases.md\n")
+    assert_board_within_jail(changes)  # does not raise
+    # The first run adds them rather than modifying them.
+    assert_board_within_jail(parse_name_status("A\tmetrics/big-cases.json\n"))
+
+
+def test_board_jail_rejects_any_other_path() -> None:
+    # The lane auto-merges, so the jail is what stands in for a reviewer: a
+    # sibling artifact under the same directory is still outside it.
+    changes = parse_name_status("M\tmetrics/big-cases.json\nM\tmetrics/leaderboard.json\n")
+    with pytest.raises(PathJailError, match="not one of the big-case board's artifacts"):
+        assert_board_within_jail(changes)
+
+
+def test_board_jail_rejects_a_deletion() -> None:
+    # The board is a committed surface; the lane has no business removing it.
+    with pytest.raises(PathJailError, match="the board PR only writes files"):
+        assert_board_within_jail(parse_name_status("D\tmetrics/big-cases.md\n"))
 
 
 # --- add-only union --------------------------------------------------------
@@ -1147,6 +1176,129 @@ def test_the_prior_note_cannot_be_broken_open_by_a_cell_id() -> None:
     assert "\n" not in note.split("\n\n")[0]
 
 
+def test_the_stakes_note_is_silent_where_every_cell_placed_the_stakes() -> None:
+    # A standing "0 missing" line on a surface read once per run trains the eye
+    # to skip exactly the place the warning will one day appear, so a clean run
+    # says nothing at all — the same convention the two retrieval notes keep.
+    assert render_stakes_read_note(None) == ""
+    assert render_stakes_read_note(StakesReadRollup()) == ""
+    assert render_stakes_read_note(StakesReadRollup(cells=3, by_predictor=(("a", 0, 3),))) == ""
+
+
+def test_the_stakes_note_counts_the_two_missing_shapes_apart() -> None:
+    # A null carrying a reason is the prompt's null branch taken as written and
+    # a null with nothing is the contract missed. They cost the case the same
+    # read, which is why both are counted — and they are different answers,
+    # which is why the reasoned ones get their own paragraph rather than being
+    # folded into the warning.
+    note = render_stakes_read_note(
+        StakesReadRollup(
+            cells=6,
+            silent=("scotus/1/evt-x/gemini-baseline", "scotus/2/evt-x/gemini-baseline"),
+            explained=("scotus/3/evt-x/codex-baseline",),
+            by_predictor=(
+                ("gemini-baseline", 2, 2),
+                ("codex-baseline", 1, 2),
+                ("claude-baseline", 0, 2),
+            ),
+        )
+    )
+    assert "3 of 6 prediction(s) this run carry no `big_case_score`" in note
+    # Each count against that predictor's own cells, the clean engine included:
+    # a bare numerator cannot tell "2 of 2" from "2 of 200", and the comparison
+    # between engines is the whole reading.
+    assert "`gemini-baseline` 2 of 2, `codex-baseline` 1 of 2, `claude-baseline` 0 of 2" in note
+    assert "2 answered nothing at all" in note
+    assert "A stated reason on 1 of them" in note
+    assert "`scotus/3/evt-x/codex-baseline`" in note
+    # The selection the coverage gap creates is named, since two predictors at
+    # unequal coverage are ranked over different case sets.
+    assert "rank over different populations" in note
+
+
+def test_the_stakes_note_stays_off_the_miss_line_where_every_null_was_reasoned() -> None:
+    """A round that honoured the contract must not be reported as one that
+    missed it: the silent paragraph is the contract miss, so on a run whose
+    every null carried a reason it does not print at all — a standing "0
+    answered nothing" line would both frame the round wrongly and be the
+    standing zero the renderer's silence convention exists to avoid."""
+    note = render_stakes_read_note(
+        StakesReadRollup(
+            cells=2,
+            explained=("scotus/3/evt-x/codex-baseline",),
+            by_predictor=(("codex-baseline", 1, 2),),
+        )
+    )
+    assert "answered nothing at all" not in note
+    assert "A stated reason on 1 of them" in note
+
+
+def test_the_stakes_note_caps_the_cells_it_names() -> None:
+    # The same cap the prior note keeps: a wide round could drop dozens of
+    # reads, and a PR body that is one paragraph of cell ids stops being read.
+    note = render_stakes_read_note(
+        StakesReadRollup(
+            cells=20,
+            silent=tuple(f"scotus/{n}/evt-x/a" for n in range(20)),
+            by_predictor=(("a", 20, 20),),
+        )
+    )
+    assert "`scotus/7/evt-x/a`" in note
+    assert "`scotus/8/evt-x/a`" not in note
+    assert "and 12 more" in note
+
+
+def test_the_stakes_note_cannot_be_broken_open_by_an_id() -> None:
+    # Every id here is the agent's own `prediction.json` field, read before
+    # `validate` has held it to the ledger, and this note reaches the run's
+    # Actions summary — so it gets the one-line, backtick-free treatment a flag
+    # message gets before it goes into a table.
+    note = render_stakes_read_note(
+        StakesReadRollup(
+            cells=1,
+            silent=("scotus/1/evt-x/`a\nb`",),
+            by_predictor=(("`a\nb`", 1, 1),),
+        )
+    )
+    assert "`scotus/1/evt-x/a b`" in note
+    assert "`a b` 1 of 1" in note
+    assert "\n" not in note.split("\n\n")[0]
+
+
+def test_the_stakes_note_rides_the_run_pr_body() -> None:
+    # The Actions summary expires with the run; the PR body is where the census
+    # is still readable a month later, beside the cells it is about.
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        stakes_reads=StakesReadRollup(
+            cells=1, silent=("scotus/1/evt-x/claude-baseline",), by_predictor=(("a", 1, 1),)
+        ),
+    )
+    assert plan.stakes_read_markdown
+    assert plan.stakes_read_markdown in (plan.ready.body if plan.ready else "")
+
+
+def test_the_stakes_census_stays_off_the_facts_only_body() -> None:
+    """That body's one property is that it carries no agent-written text, so the
+    secret scan can never withhold the very failure facts it exists to persist —
+    and the census names cells by the ids their own `prediction.json` carries. A
+    wholesale-failed run has nothing to census anyway, so the note would buy
+    nothing for that risk."""
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline", produced=False)],
+        stakes_reads=StakesReadRollup(
+            cells=1, silent=("scotus/1/evt-x/claude-baseline",), by_predictor=(("a", 1, 1),)
+        ),
+    )
+    assert plan.ready is None and plan.partial is None
+    assert plan.facts_only is not None
+    assert "Stakes read missing" not in plan.facts_only.body
+
+
 def test_the_lift_blind_tripwire_prints_beside_the_prior_note_and_alone() -> None:
     # The tripwire is the blindness bound on the count above it, so it rides
     # the same note — including on a run where every attempt that COULD be seen
@@ -1298,3 +1450,39 @@ def test_an_absurd_docket_is_unreadable_rather_than_an_exception() -> None:
     # record, not raise through the caller and disable the whole guard.
     name = "predict-claude-baseline-scotus-" + "9" * 5000 + "-evt-petition-cert"
     assert parse_cell_artifact_name(FinalizeRole.predict, name) is None
+
+
+# `parse_run_branch` — the other half of the stranded-run guard's reading. It
+# knows a run's *database* id and has to decide whether that run's collect PR
+# merged; the PR carries the pipeline run id in its head ref and nothing else
+# that ties it to a run, so the guard's join is only as sound as this parse.
+
+
+@pytest.mark.parametrize("suffix", ["", "-partial", "-facts"])
+def test_a_collect_branch_round_trips_through_the_parse(suffix: str) -> None:
+    ref = run_branch(FinalizeRole.predict, "20260916T170237Z", suffix=suffix)
+    assert parse_run_branch(FinalizeRole.predict, ref) == "20260916T170237Z"
+
+
+def test_a_hand_salvage_branch_still_reads_as_its_run() -> None:
+    # A maintainer salvaging a withheld collect opens a branch of their own. It
+    # carries the run's output, so it must release the run exactly as the
+    # writer's branch would — the suffix is not an allowlist.
+    ref = "predict/run-20260916T201911Z-salvage"
+    assert parse_run_branch(FinalizeRole.predict, ref) == "20260916T201911Z"
+
+
+@pytest.mark.parametrize(
+    "ref",
+    [
+        "evaluate/run-20260916T170237Z",  # another role's run branch
+        "fix/stranded-guard",  # an ordinary feature branch
+        "predict/run-not-a-stamp",  # a head that only looks like one
+        "predict/run-20260916T170237",  # no zone marker, so not a run id
+        "predict/20260916T170237Z",  # the prefix without `run-`
+    ],
+)
+def test_an_unrelated_head_is_none_rather_than_a_guess(ref: str) -> None:
+    # A guessed reading would release the wrong run — re-spending a fan-out —
+    # or withhold one that landed. Either is worse than not matching.
+    assert parse_run_branch(FinalizeRole.predict, ref) is None

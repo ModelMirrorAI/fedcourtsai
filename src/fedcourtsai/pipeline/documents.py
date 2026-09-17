@@ -152,6 +152,13 @@ KIND_MERITS_REPLY_PETITIONER = "merits-reply-petitioner"
 KIND_MERITS_REPLY_RESPONDENT = "merits-reply-respondent"
 KIND_QUESTIONS_PRESENTED = "questions-presented"
 
+# The separator the combined brief-in-opposition row joins its constituents'
+# links with. Named because three readers turn on it: the row is rebuilt from
+# the same join to compare against the stored key, the key is written with it,
+# and the OCR recovery pass tests a stored URL for it — a row carrying more
+# than one link is a set key rather than a link, and never a URL to GET back.
+BIO_URL_JOIN = "|"
+
 # The proceedings entry whose link carries the case-opening filing on a
 # cert-form docket, in the Court's own words. Seven entry shapes open one:
 #
@@ -1096,7 +1103,7 @@ def _combine_bio_documents(
     # "missing document is expected" case — leaves the stored key short of the
     # selected set, so the next poll re-fetches and self-heals instead of being
     # skipped forever.
-    if stored_url == "|".join(sorted(ref.url for ref in bio_refs)):
+    if stored_url == BIO_URL_JOIN.join(sorted(ref.url for ref in bio_refs)):
         return None
     single = len(bio_refs) == 1
     fetched_refs: list[DocumentRef] = []
@@ -1151,13 +1158,15 @@ def _combine_bio_documents(
         case_id=case_id,
         kind=KIND_BRIEF_IN_OPPOSITION,
         # The canonical join of the briefs actually FETCHED — the idempotency
-        # key (see above), not a single fetchable URL — the individual
-        # DocumentRef.url values are what fetch here. One reader does GET a
-        # stored `CaseDocument.url` back, the OCR recovery pass, and it is sound
-        # only because its population is petitions, whose stored URL is the one
-        # link that was fetched. Widening that population to this kind would
-        # hand it a pipe-joined set key as a URL.
-        url="|".join(sorted(ref.url for ref in fetched_refs)),
+        # key (see above), which is a single fetchable URL only where one brief
+        # was fetched; the individual DocumentRef.url values are what fetch
+        # here. One reader does GET a stored `CaseDocument.url` back, the OCR
+        # recovery pass, and what keeps that sound is the separator being named
+        # rather than the kind being excluded: that pass takes a row only where
+        # its stored URL carries no join, so a multi-respondent set key is never
+        # handed to it as a URL, while a lone opposition — which joins to itself
+        # — stays as recoverable as a petition.
+        url=BIO_URL_JOIN.join(sorted(ref.url for ref in fetched_refs)),
         # The EARLIEST constituent's date, and of the briefs actually fetched.
         #
         # Earliest, because a combined row is one document from the moment its
@@ -1552,17 +1561,43 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     )
 
 
+# The fetched kinds, in report order: each is a PDF pulled off the docket and
+# extracted, rather than text cut out of another row. That is a fact about how a
+# kind is stored rather than about what a report counts, and it is the property
+# the OCR recovery turns on — its population is exactly these kinds
+# (`pipeline.ocr_recovery.RECOVERABLE_KINDS`), filtered to the rows it can
+# re-fetch, because being one row at one fetchable URL is what makes a row
+# re-readable page by page. The opposition is where the two come apart: a
+# multi-respondent row combines several briefs from several links under the set
+# key above, which is why that pass tests for one rather than trusting the kind.
+# A kind added here joins that pass's fetch population the day it is stored,
+# which is the intent; a *derived* kind — carrying another row's URL but none of
+# its pages — belongs beside the coverage set below instead.
+FETCHED_DOCUMENT_KINDS: tuple[str, ...] = (
+    KIND_PETITION,
+    KIND_APPLICATION,
+    KIND_BRIEF_IN_OPPOSITION,
+    KIND_MERITS_BRIEF_PETITIONER,
+    KIND_MERITS_BRIEF_RESPONDENT,
+    KIND_MERITS_REPLY_PETITIONER,
+    KIND_MERITS_REPLY_RESPONDENT,
+)
+
 # The kinds a text-coverage measurement counts, fetched before derived — every
 # text a cell reads directly. The order matters to how the report reads, because
 # an empty row does not mean the same thing across it. The fetched PDFs take the
 # scanned-filing reading: nothing extracted means no text layer — with one
-# asymmetry the table itself cannot show, since `ocr-recover-petitions`' own
-# population is stored *petitions*, so an empty `application` or merits brief is
-# measured with no repair path behind it. The derived
-# questions-presented row has a second cause — :func:`extract_questions_presented`
-# returns the empty string where the heading is present but no capture under it
-# is vouchable — so its column mixes scans with extraction refusals over
-# petitions that do carry text, and an OCR decision reads the fetched rows.
+# asymmetry the table itself cannot show, and it is the multi-respondent
+# opposition: that row's per-brief headings are themselves text, so a combined
+# row of nothing but scans reads here as *covered* while carrying no argument at
+# all, and it is outside `ocr-recover-petitions`' population too, since its URL
+# is a set key rather than a link. Neither surface sizes that residual.
+#
+# The derived questions-presented row has a second cause —
+# :func:`extract_questions_presented` returns the empty string where the heading
+# is present but no capture under it is vouchable — so its column mixes scans
+# with extraction refusals over petitions that do carry text, and an OCR
+# decision reads the fetched rows.
 #
 # ``application`` is counted for the same reason the other fetched kinds are: it
 # is text a cell reads directly, an application filed on paper stores empty
@@ -1578,16 +1613,7 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
 # row's count is bounded by the cases whose docket carries one at all, and the
 # respondent-side row is bounded again by the postures that give a respondent
 # the last word.
-TEXT_COVERAGE_KINDS: tuple[str, ...] = (
-    KIND_PETITION,
-    KIND_APPLICATION,
-    KIND_BRIEF_IN_OPPOSITION,
-    KIND_MERITS_BRIEF_PETITIONER,
-    KIND_MERITS_BRIEF_RESPONDENT,
-    KIND_MERITS_REPLY_PETITIONER,
-    KIND_MERITS_REPLY_RESPONDENT,
-    KIND_QUESTIONS_PRESENTED,
-)
+TEXT_COVERAGE_KINDS: tuple[str, ...] = (*FETCHED_DOCUMENT_KINDS, KIND_QUESTIONS_PRESENTED)
 
 # The two halves the coverage counts are cut into, in report order.
 SCORED_SEGMENT = "scored"

@@ -6,12 +6,17 @@ in a cell artifact and nothing in the ledger — the ledger being what the
 matrix's already-predicted gate reads. Without a guard the next live cycle
 re-derives the same events and re-spends the identical run.
 
+`collect` concluding success is not the same as the run having landed: its PR
+may still be open, or it may have pushed no branch at all (the secret scan's
+withhold). Both leave the ledger untouched, so the census carries the collect
+PRs as well, and the same decision step tells the three apart.
+
 The guard is split deliberately: a thin census step fetches and filters (the
-runs and artifacts APIs), and the tested `predict-matrix` command decides. These
-pins hold the wiring that no Python test can see — that the census exists, runs
-before the matrix step, reaches the matrix step by filename, degrades open
-rather than failing the job, and that the run's own summary can tell a
-fully-superseded run from a drained backlog.
+runs, artifacts and pulls APIs), and the tested `predict-matrix` command
+decides. These pins hold the wiring that no Python test can see — that the
+census exists, runs before the matrix step, reaches the matrix step by filename,
+degrades open rather than failing the job, and that the run's own summary can
+tell a fully-superseded run from a drained backlog.
 """
 
 from pathlib import Path
@@ -22,6 +27,7 @@ import yaml
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 
 CENSUS_FILE = "stranded-artifacts.json"
+PR_FILE = "collect-prs.json"
 NOTE_FILE = "stranded-note.md"
 
 
@@ -57,6 +63,9 @@ def test_the_plan_job_can_read_run_metadata_and_nothing_more() -> None:
         "id-token": "write",
         # list recent runs and their cell artifacts for the stranded-run guard
         "actions": "read",
+        # read whether this lane's collect PR has merged — metadata only, and
+        # no write: the plan job opens, comments on and reviews nothing.
+        "pull-requests": "read",
     }
 
 
@@ -70,10 +79,17 @@ def test_the_census_runs_before_the_matrix_and_feeds_it() -> None:
 
     census = _joined(_step("Census the cell artifacts"))
     assert f"> {CENSUS_FILE}" in census
+    assert f"> {PR_FILE}" in census
 
     matrix = _joined(_step("Build predictor x case"))
     assert f"--stranded-file {CENSUS_FILE}" in matrix
+    assert f"--collect-prs-file {PR_FILE}" in matrix
     assert f"--stranded-note-file {NOTE_FILE}" in matrix
+    # The plan report the hold is judged on must see the same withholds, or a
+    # maintainer approves a fan-out the matrix step already narrowed.
+    report = _joined(_step("Report the plan"))
+    assert f"--stranded-file {CENSUS_FILE}" in report
+    assert f"--collect-prs-file {PR_FILE}" in report
 
 
 def test_the_census_degrades_open_and_says_so() -> None:
@@ -97,12 +113,22 @@ def test_the_census_degrades_open_and_says_so() -> None:
     fetches = [
         line
         for line in joined.splitlines()
-        if line.strip().startswith(("api ", "if ! api "))  # the retrying fetch helper
+        if line.strip().startswith(("api ", "if ! api ", "if api "))  # the retrying fetch helper
     ]
-    assert len(fetches) == 3, "runs, jobs, artifacts"
-    # Either the whole-guard degrade inline, or the per-run one in the `if` body.
-    assert all(("|| degraded" in line or line.strip().startswith("if ! api")) for line in fetches)
+    assert len(fetches) == 4, "pulls, runs, jobs, artifacts"
+    # Either the whole-guard degrade inline, or a per-grain one in the `if` body.
+    assert all(
+        ("|| degraded" in line or line.strip().startswith(("if ! api", "if api")))
+        for line in fetches
+    )
     assert "for attempt in 1 2 3" in body
+    # The third grain: a PR listing the step could not read disarms only the arm
+    # that judges a collected run, and does it by DELETING the file — an empty
+    # list is a claim (this lane has no collect PR) that would read every
+    # collected run as having pushed nothing and withhold every cell it produced.
+    assert "::warning::stranded-run guard's collect-PR arm is off" in body
+    assert f"rm -f {PR_FILE}" in body
+    assert f"echo '[]' > {PR_FILE}" not in body
 
 
 def test_the_census_is_bounded_and_filters_to_uncollected_cell_artifacts() -> None:
@@ -118,6 +144,38 @@ def test_the_census_is_bounded_and_filters_to_uncollected_cell_artifacts() -> No
     assert 'select(.name == "collect") | .conclusion' in body
     assert "grep -qx success" in body
     assert 'startswith("predict-")' in body
+    # A collected run is no longer skipped: its artifacts are censused too, and
+    # whether it landed is decided from its collect PR. The run's own window
+    # rides along, because that is the only join between a run and the PR its
+    # `plan` job's run id named.
+    assert "collect_succeeded" in body
+    assert "run_started_at" in body
+    assert "run_updated_at" in body
+    # The PR listing: this lane's branches, to `main`, open and settled alike.
+    assert 'startswith("predict/run-")' in body
+    assert "base=main&state=all" in body
+    # Same-repo heads only. The listing includes fork PRs, whose head ref is the
+    # fork's own branch name with no owner in it, so on a public repo a branch
+    # named `predict/run-<stamp>` on anyone's fork would read as a run's open
+    # collect PR and withhold a legitimate round — the one direction this guard
+    # must never take. `ci.yml`'s `main-base` jail requires the same conjunct
+    # before believing a head's name.
+    assert 'select((.head.repo.full_name // "") == env.REPO)' in body
+    # One page of 100 is trusted only when it reaches back past the window: a
+    # page that stopped short would report a censused run's PR as absent and
+    # convict it of a withheld collect. Read as a `min` rather than off the last
+    # row, so it does not rest on the API having honoured the sort.
+    assert "([.[].created_at] | min)" in body
+    assert "could not establish that the PR listing reaches back" in body
+    # The window's lower bound must not move under a re-run: `run_started_at`
+    # resets to the latest attempt, and rerunning `collect` is this guard's own
+    # remedy, so a window opening there would begin after the first attempt's
+    # plan minted the run id — and the recovered run would read as having pushed
+    # no branch at all, the one verdict that sends a maintainer to hand salvage.
+    assert "[.created_at, (.run_started_at // .created_at)] | min" in body
+    # Projected in the fetch, so the PR bodies — which carry rolled-up agent flag
+    # text on this lane — never land in the plan job's workspace.
+    assert "head_repo: .head.repo.full_name" in body
     # Paginated: a full-width run's cell jobs push `collect` off page one.
     assert "--paginate" in body
     # The self-releasing property rests on this, so it is explicit rather than
