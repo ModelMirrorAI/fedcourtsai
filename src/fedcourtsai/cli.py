@@ -6193,7 +6193,9 @@ def _stamped_conditioning(
         # The path a cell that mistook `record/` for an event-level directory
         # would have probed, spelled from the same `record` name provisioning
         # writes so the note cannot drift from the real one. Nothing creates it.
-        _case_relative(event_paths.base / case_paths.record.name, case_paths, record.case_id) + "/",
+        _case_relative(
+            event_paths.base / case_paths.record.name, case_paths, record.case_id, suffix="/"
+        ),
         record,
         actor,
         run_id,
@@ -6201,7 +6203,26 @@ def _stamped_conditioning(
     return provisioned.model_copy(update={"snapshot_uptake": "unread"})
 
 
-def _case_relative(path: Path, case_paths: CasePaths, case_id: str) -> str:
+#: What the tripwire's note may spend on one quoted path, and on the whole note.
+#: The note is an `AgentFlag.message`, which the schema caps — spelled here so the
+#: budget below is arithmetic rather than hope, and pinned to the field by a test,
+#: because the failure mode if they drift is a `ValidationError` that aborts the
+#: stamp and lands the cell *unstamped*, the one state an agent-authored `context`
+#: block survives.
+_NOTE_PATH_LIMIT = 200
+_FLAG_MESSAGE_LIMIT = 2000
+
+#: The longest run of alphanumerics after a final `.` that still reads as a file
+#: extension rather than as prose that happens to contain a full stop.
+_EXTENSION_LIMIT = 6
+
+#: The tripwire's own opening, matched as a prefix when deduplicating so a
+#: re-stamp cannot append a second note merely because the wording behind it
+#: moved between the two runs.
+_TRIPWIRE_PREFIX = "Harness tripwire: this cell recorded input_snapshot"
+
+
+def _case_relative(path: Path, case_paths: CasePaths, case_id: str, suffix: str = "") -> str:
     """One of the cell's own paths, spelled from the case directory down.
 
     The tripwire's note is read off a run PR body by someone who has no runner
@@ -6210,11 +6231,29 @@ def _case_relative(path: Path, case_paths: CasePaths, case_id: str) -> str:
     the case directory is what both the ledger and `data/cases/` are keyed on,
     and it is stable across the runner, a developer checkout, and a test root.
 
-    Bounded for the same reason the reported string is: the note it goes into is
-    capped at 2000 characters, and a stamp must never fail a cell over the length
-    of a path it is quoting.
+    ``path`` is under ``case_paths.base`` by construction, so the relative step
+    cannot raise: the one caller derives both from a single :class:`CasePaths`,
+    and a future caller pairing a path with another case's would turn a
+    diagnostic note into a ``ValueError`` that leaves the cell unstamped — the
+    one state in which an agent-authored ``context`` block survives.
+
+    ``case_id`` is the record's own declaration rather than the coordinates this
+    invocation was given; the two can disagree, and ``validate``'s path-vs-record
+    check is what catches that, after the stamp. Quoting the agent's spelling is
+    deliberate and matches the ``::warning::`` line beside it: the note is about
+    what this artifact says.
+
+    Bounded, and marked where the bound bites, for the same reason the reported
+    string is: the note it goes into is capped, and a stamp must never fail a
+    cell over the length of a path it is quoting. The ellipsis matters — a
+    silently clipped path reads to a maintainer as a complete one — and
+    ``suffix`` (a trailing separator, where the path names a directory) is
+    applied before the cut so it cannot survive it.
     """
-    return f"{case_id}/{path.relative_to(case_paths.base).as_posix()}"[:200]
+    spelled = f"{case_id}/{path.relative_to(case_paths.base).as_posix()}{suffix}"
+    if len(spelled) <= _NOTE_PATH_LIMIT:
+        return spelled
+    return spelled[: _NOTE_PATH_LIMIT - 1] + "\u2026"
 
 
 def _names_a_snapshot(value: str) -> bool:
@@ -6230,15 +6269,25 @@ def _names_a_snapshot(value: str) -> bool:
     write did not land complete, both before any engine starts. So a produced
     prediction always had its record, and the note can say so.
 
-    A value names a file when it carries a path separator, ends in ``.json``, or
-    is the bare day the provisioned file is named for — the spellings
-    :func:`_snapshot_stem` already has to absorb. Everything else named none.
-    Deliberately generous toward "named a file", because the sentinel arm carries
-    the stronger claim about *why* the cell missed, so an ambiguous string takes
-    the weaker one.
+    A value names a file when it carries a path separator, ends in a short
+    alphanumeric extension, or parses as a date — the spellings
+    :func:`_snapshot_stem` already has to absorb, and wider than the
+    ``<day>.json`` the provisioner actually writes. Everything else named none.
+
+    Wide on purpose, in every direction. The extension test is case-insensitive
+    and not pinned to ``.json``, so ``.JSON``, ``.txt`` and a trailing ``.bak``
+    all read as a file; the length bound is what keeps a sentence with a full
+    stop in it from doing the same. The date test takes whatever
+    :func:`date.fromisoformat` takes, basic and week spellings included. Each of
+    those widenings moves a string from the sentinel arm to the weaker one, which
+    is the safe direction: the sentinel arm is the one carrying a claim about
+    *why* the cell missed.
     """
     text = value.strip().replace("\\", "/")
-    if "/" in text or text.endswith(".json"):
+    if "/" in text:
+        return True
+    tail = text[text.rfind(".") :] if "." in text else ""
+    if 1 < len(tail) <= _EXTENSION_LIMIT and tail[1:].isalnum():
         return True
     try:
         date.fromisoformat(_snapshot_stem(value))
@@ -6268,8 +6317,9 @@ def _flag_unread_snapshot(
     harness's confirmation belongs beside it rather than over it. A file that
     does not parse is left alone: overwriting it would destroy agent prose to
     add a note, and an unparseable ``flags.json`` fails ``validate`` into the
-    draft PR a maintainer reads anyway. Deduplicated on the message so a
-    re-stamp of the same cell does not grow the list.
+    draft PR a maintainer reads anyway. Deduplicated on the opening rather than
+    the whole message, so a re-stamp of the same cell does not grow the list even
+    where the prose behind that opening moved between the two runs.
 
     ``warning`` rather than ``blocker``: the cell finished and its artifact is
     usable and fully scoreable — what is wrong is upstream of it, a cell that
@@ -6287,10 +6337,6 @@ def _flag_unread_snapshot(
     cell ran, so its record had already landed and been checked. A reader of the
     run PR body can then tell a path fault from an outage without a runner.
     """
-    # `input_snapshot` is unbounded agent text and the flag message is capped at
-    # 2000 characters, so quote a bounded prefix: a stamp must not fail the cell
-    # over the length of the string it is reporting.
-    reported = repr(record.input_snapshot[:120])
     if _names_a_snapshot(record.input_snapshot):
         cause = f"It names a snapshot, but not the provisioned one, {snapshot}."
     else:
@@ -6298,15 +6344,31 @@ def _flag_unread_snapshot(
             f"It names no snapshot at all, while the provisioned one, {snapshot}, was on disk. "
             "Provisioning is not the cause: a cell whose record did not land complete is "
             "refused before any engine starts, so a prediction that exists had its record. "
-            f"What fits is a lookup under the event directory — {probed} — which is never "
-            "provisioned and never exists; record/ is case-level."
+            f"The commonest fit, and the one this has had, is a lookup under the event "
+            f"directory — {probed} — which is never provisioned and never exists; record/ is "
+            "case-level."
         )
-    message = (
-        f"Harness tripwire: this cell recorded input_snapshot {reported}, so it reports not "
-        f"having read the baseline every predictor shares. {cause} The stamped context records "
-        "snapshot_uptake 'unread'; the conditioning beside it is what provisioning wrote, which "
-        "this cell may not have used."
-    )
+
+    def compose(reported: str) -> str:
+        return (
+            f"{_TRIPWIRE_PREFIX} {reported}, so it reports not having read the baseline every "
+            f"predictor shares. {cause} The stamped context records snapshot_uptake 'unread'; "
+            "the conditioning beside it is what provisioning wrote, which this cell may not "
+            "have used."
+        )
+
+    # `input_snapshot` is unbounded agent text, so quote a bounded prefix — and
+    # then budget that prefix against the prose it sits in, because a 120-character
+    # slice is not a 120-character quotation: `repr` expands one unprintable
+    # character to ten, and the two paths beside it are variable too. Truncating
+    # once is not enough; the cap has to be arithmetic, because overflowing it
+    # raises out of `AgentFlag` below, aborts the stamp, and leaves the artifact
+    # unstamped over nothing but the length of a string it was reporting.
+    reported = repr(record.input_snapshot[:120])
+    overflow = len(compose(reported)) - _FLAG_MESSAGE_LIMIT
+    if overflow > 0:
+        reported = reported[: max(len(reported) - overflow - 1, 0)] + "\u2026"
+    message = compose(reported)[:_FLAG_MESSAGE_LIMIT]
     # Echoed before any of the file handling below, and so before the dedupe
     # return: the annotation is about the finding, not about the write. A
     # maintainer re-running the stamp step to reproduce a cell must see the line
@@ -6340,7 +6402,7 @@ def _flag_unread_snapshot(
                 err=True,
             )
             return
-        if any(item.message == message for item in existing.flags):
+        if any(item.message.startswith(_TRIPWIRE_PREFIX) for item in existing.flags):
             return
         flags = existing.model_copy(update={"flags": [*existing.flags, flag]})
     write_json(flags_path, flags)

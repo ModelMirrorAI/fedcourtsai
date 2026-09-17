@@ -16,7 +16,7 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from fedcourtsai import process_version
-from fedcourtsai.cli import _names_a_snapshot, app
+from fedcourtsai.cli import _FLAG_MESSAGE_LIMIT, _TRIPWIRE_PREFIX, _names_a_snapshot, app
 from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
@@ -2983,8 +2983,18 @@ def test_stamp_leaves_the_conditioning_unjudged_with_no_snapshot_on_disk(
         ("no snapshot was provided to this cell", False),
         ("2026-01-01", True),
         ("2025-12-24.json", True),
+        # Case and extension are the agent's choice, not the provisioner's: each
+        # of these named a file, so none of them may take the arm that asserts a
+        # path fault.
+        ("2025-12-24.JSON", True),
+        ("snapshot.json.bak", True),
+        ("snapshot.txt", True),
+        ("20251224", True),
         ("record/snapshots/2026-01-01.json", True),
         ("data\\cases\\scotus\\40\\record\\snapshots\\2026-01-01.json", True),
+        # A full stop inside prose is not an extension; the length bound is what
+        # keeps this on the sentinel arm.
+        ("no snapshot. the record directory was empty", False),
     ],
 )
 def test_input_snapshot_is_classified_as_naming_a_file_or_not(
@@ -3054,3 +3064,84 @@ def test_the_note_blames_no_path_when_the_cell_named_another_snapshot(
     assert "scotus/47/record/snapshots/2026-01-01.json" in message
     assert f"events/{event}/record/" not in message
     assert "Provisioning is not the cause" not in message
+
+
+def test_the_note_s_budget_is_pinned_to_the_field_it_is_written_into() -> None:
+    """Two literals that must agree, or the budget below is arithmetic over the
+    wrong number and the overflow it exists to prevent comes back."""
+    (cap,) = [
+        item.max_length
+        for item in AgentFlag.model_fields["message"].metadata
+        if getattr(item, "max_length", None) is not None
+    ]
+    assert cap == _FLAG_MESSAGE_LIMIT
+
+
+def test_the_note_stays_within_its_cap_on_a_hostile_input_snapshot(_data_root: Path) -> None:
+    """A stamp must never fail a cell over the length of a string it is quoting.
+
+    `input_snapshot` is unbounded agent text, and a 120-character slice is not a
+    120-character quotation: `repr` expands one unprintable character to ten, so
+    a slice of these reaches four figures on its own. Overflowing the field's cap
+    would raise out of the flag construction, abort the stamp, and leave the
+    prediction unstamped — the one state in which an agent-authored `context`
+    block survives, which is the opposite of what the tripwire is for.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 48)
+    event_paths = _seed_unstamped(_data_root, 48, event, "\U000e0001" * 200)
+
+    result = _stamp("predictor", "claude-baseline", 48, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.snapshot_uptake == "unread"
+    message = (
+        read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+        .flags[0]
+        .message
+    )
+    assert len(message) <= _FLAG_MESSAGE_LIMIT
+    # The diagnosis survives the budget: what gets cut is the quotation, not the
+    # sentence that tells a maintainer where to look.
+    assert f"events/{event}/record/" in message
+    assert "Provisioning is not the cause" in message
+
+
+def test_a_re_stamp_adds_no_second_note_when_the_wording_behind_it_moved(
+    _data_root: Path,
+) -> None:
+    """Dedupe is on the opening, so the claim survives a change to the prose.
+
+    A cell stamped under one wording and re-stamped under another is the ordinary
+    consequence of editing this note, and matching the whole message would answer
+    that by appending a near-duplicate to an agent-owned file.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 49)
+    event_paths = _seed_unstamped(_data_root, 49, event, "missing")
+    flags_path = event_paths.prediction_flags("claude-baseline", "RID")
+    write_json(
+        flags_path,
+        AgentFlags(
+            case_id="scotus/49",
+            run_id="RID",
+            role=UsageRole.predictor,
+            actor_id="claude-baseline",
+            flags=[
+                AgentFlag(
+                    category=FlagCategory.data_quality,
+                    severity=FlagSeverity.warning,
+                    message=f"{_TRIPWIRE_PREFIX} 'missing', in wording since replaced.",
+                    event_id=event,
+                )
+            ],
+        ),
+    )
+
+    assert _stamp("predictor", "claude-baseline", 49, event, "RID").exit_code == 0
+
+    flags = read_model(flags_path, AgentFlags)
+    assert len(flags.flags) == 1
+    assert "in wording since replaced" in flags.flags[0].message
