@@ -1,0 +1,9 @@
+P(grant) 0.25. 
+
+The case is in the `elevated` salience band, which the statpack's modern cert table indicates has a roughly 17% base grant rate for petitions reaching this band (pooling over the prior 10 Terms before 2025). The record shows this petition is sitting at `distribution_count: 2`, but functionally it is at its first conference with full briefing: the Court distributed it for May 28, but then affirmatively requested a response on May 18 (after the respondent originally waived). After the response was filed, it was distributed again for the Long Conference (September 28).
+
+A requested response is a strong, affirmative act of attention by the Court, pushing the likelihood of a grant higher than the base `elevated` rate. Furthermore, the petition squarely presents a claimed circuit split on a high-stakes First Amendment issue (whether the `Fraser` exception for profane speech applies to non-disruptive political speech that is not "plainly" profane but "reasonably understood" as vulgar). The petition is backed by FIRE (a repeat-player advocate) and four amici (including Defending Education and First Amendment Scholars), underscoring the issue's salience. 
+
+I adjust the baseline upward to 25% to account for the requested response, the 4 amicus briefs, and the cleanly presented circuit split on student speech (a subject the Court has recently taken up, e.g., in *Mahanoy*). I do not rate it higher because many cases at the Long Conference are denied, and the Sixth Circuit's split might be viewed as too fact-bound if the lower court simply disagreed on whether the chant was disruptive or vulgar. 
+
+I did not use any external retrieval tools for this cell as the provided record and the statpack were sufficient.

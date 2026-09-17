@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73280426",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned June opposition describes Louisiana v. Callais as decided, unlike the January petition's pending-case description. I used this separate precedent as lawful pre-snapshot context in this forward cell, particularly for the possible GVR route, not as this petition's outcome. The holding was not independently verified; reasoning identifies the brief as the source. No target-case outcome was encountered.",
+      "severity": "info"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "External context retrieval was degraded: CourtListener MCP returned HTTP 429 without results, and web search/open returned no usable content. Forecast completed using provisioned inputs and committed priors. The docketed state response and reply were not provisioned, limiting the assessment of intervening-precedent arguments. No direct REST fallback was attempted.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260916T170237Z",
+  "schema_version": "1.0"
+}

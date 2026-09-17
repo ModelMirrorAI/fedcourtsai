@@ -1,0 +1,8 @@
+# Retrieval log
+
+- Read committed `metrics/statpack.md`: modern discretionary-cert dispositions; paid scored-segment relist and CVSG cuts; sal-v4 per-Term reached-band table. Inspected the top-level keys of `metrics/statpack.json`; no additional quantitative content from that file was used. Calculated the weighted 2017–2024 elevated reached rate locally from the markdown table: approximately 17.24%, n=2,810.
+- Web search attempted two general-precedent queries: `site.supremecourt.gov opinions 2012 Jardines 11-564 implied license purpose` and `site.supremecourt.gov Bovat Vermont 2020 Gorsuch statement 19-1301`. The tool returned no visible results or usable content.
+- Attempted web opens of the Supreme Court's Bovat statement PDF (`https://www.supremecourt.gov/opinions/20pdf/19-1301_5iel.pdf`) and Cornell's Jardines opinion (`https://www.law.cornell.edu/supremecourt/text/11-564`). Both returned no visible content. Neither was treated as a successfully consulted authority.
+- CourtListener MCP `search`: type `o`, query `"Bovat v. Vermont"`, court `scotus`, limit 2. Returned count 0; no document read.
+- No corpus `query` or `open-events` calls; no ranged-corpus transfer lines. No search for this case's disposition, subsequent history, or decision coverage. No outcome files or labeling artifacts consulted.
+- Administrative command: `uv run fedcourts paths --court scotus --docket 73281382 --event evt-petition-disposition --role predictor` initially failed because the default uv cache was read-only; reran successfully offline with the cache directed to `/tmp/uv-cache`. This resolved paths only and retrieved no case facts.

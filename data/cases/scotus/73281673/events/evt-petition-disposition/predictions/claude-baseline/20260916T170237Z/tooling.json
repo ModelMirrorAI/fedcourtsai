@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73281673",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "courtlistener search", "courtlistener get_endpoint_item", "courtlistener read_document"],
+  "helpful": [
+    "Provisioned petition, BIO, and QP text: the BIO's finality argument drove the forecast",
+    "sal-v4 per-Term band table with bracketed reached rates: a direct anchor for the frozen band",
+    "CourtListener opinion search and read_document: surfaced the Seventh Circuit's August 2026 Braun decision, which updated the state of the circuit split"
+  ],
+  "gaps": [
+    "CourtListener docket search (type=d) returned nothing for SCOTUS topical or party-name queries, so I could not check whether a companion petition on the same question is pending; a way to search SCOTUS dockets by QP text or to list pending petitions citing the same lower-court cases would help",
+    "fedcourts query has no topical or text filter, so it cannot retrieve priors on a legal question; a QP-text or citation-based similarity search over the corpus would be the useful prior surface",
+    "The amicus brief on the docket was not provisioned; fetching amicus briefs at the cert stage would help read the stakes and the support",
+    "A per-band conditional cut for the relist-increment (P(further distribution | CFR, long conference)) would replace my rule-of-thumb number"
+  ],
+  "notes": "Distribution count of 2 here reflects a first distribution superseded by a call for a response plus the long-conference redistribution, not a post-conference relist; a reader of the relist cut should know the count overstates relists on CFR dockets."
+}

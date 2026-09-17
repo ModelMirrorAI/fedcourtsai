@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280380",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.json freezes distribution_count=2 and band=elevated, but the docket shows the second distribution (Jul 8 2026, for the 9/28/2026 conference) followed a Response Requested entry (Mar 23 2026) that pulled the petition off its first conference (3/27/2026) before it was considered. The petition has not yet been relisted in the conference-carryover sense; the band was used as instructed, but readers of elevated-band skill should know this cell's count reflects a CFR redistribution rather than a relist."
+    }
+  ]
+}

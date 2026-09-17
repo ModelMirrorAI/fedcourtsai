@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73280426",
+  "gaps": [
+    "CourtListener search was throttled before yielding results",
+    "Web retrieval returned no usable content",
+    "Washington's response and petitioners' reply are docketed but not provisioned",
+    "Committed statpack fields consulted did not state corpus freshness"
+  ],
+  "helpful": [
+    "Complete petition and private opposition with extraction metadata",
+    "Frozen sal-v4 band and distribution count",
+    "Exact per-Term risk-set rates in statpack JSON"
+  ],
+  "notes": "Finished from provisioned briefs and aggregate priors rather than waiting for external retrieval. Writable temporary uv cache resolved the initial cache-permission error. No direct REST fallback, secrets access, or outcome retrieval. Additional briefing would most help assess the Bost/Callais GVR route.",
+  "role": "predictor",
+  "run_id": "20260916T170237Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "committed statpack",
+    "CourtListener MCP search (throttled)",
+    "web search/open (no usable content)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

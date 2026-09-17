@@ -1,0 +1,27 @@
+{
+  "case_id": "scotus/73280426",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "WebSearch",
+    "WebFetch",
+    "pypdf (local text extraction of fetched PDFs)"
+  ],
+  "helpful": [
+    "The provisioned petition, QP, and BIO text were clean and complete.",
+    "The frozen band and the sal-v4 segment table made the anchor unambiguous.",
+    "Forward-mode web access to the docket page exposed the un-provisioned State brief, which carried the decisive signal."
+  ],
+  "gaps": [
+    "The document pipeline fetched only one of two respondent briefs; on a multi-respondent docket the 'Brief of respondent <State>' entry should be provisioned alongside the 'in opposition' brief, and the reply brief too.",
+    "No PDF text extractor is installed in the cell; the fetch tool's model-written PDF summaries were wrong for two of three briefs, so I had to pull pypdf ad hoc.",
+    "No corpus cut for 'respondent requests GVR' or 'response requested after waiver', which were the two signals that mattered most here."
+  ],
+  "notes": "Retrieval: 17 calls (4 web searches, 10 web fetches, 2 corpus queries, 1 MCP search), under the advisory budget of 25."
+}

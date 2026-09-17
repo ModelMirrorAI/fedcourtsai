@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280412",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The State's brief in opposition (docketed Jun 2, 2026, 'Brief of respondent Washington filed') and the petitioner's reply (Jun 10, 2026) were not provisioned under record/documents/ although both were on the docket at snapshot time; documents.json lists only the petition and QP. I fetched both from supremecourt.gov and read them; the BIO's GVR request is central to the forecast."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from public information predating the snapshot: Louisiana v. Callais (decided Apr 29, 2026) and the companion petition Trevino v. Hobbs, No. 25-918 (same counsel, same conference), in which the State of Washington asks for a GVR in light of Callais and asks for the same disposition here. No information about this petition's own disposition was found; the case is pending."
+    }
+  ]
+}

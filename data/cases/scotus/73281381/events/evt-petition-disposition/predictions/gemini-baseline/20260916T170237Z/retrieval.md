@@ -1,0 +1,3 @@
+- `fedcourts query --court scotus --topic "Takings" --limit 3`: returned `ranged corpus reads: 1556 GET(s), 407502848 byte(s)`
+- CourtListener MCP search: `O'Donnell v. City of Chicago` to check for related case context.
+- Read base rate context from `metrics/statpack.md`.

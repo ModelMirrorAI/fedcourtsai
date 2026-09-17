@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281677",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP (search, call_endpoint dockets, docket-entries, get_endpoint_item)"],
+  "helpful": [
+    "Full-text petition and brief in opposition under record/documents; the BIO's account of the companion denials was decisive.",
+    "The sal-v4 per-Term band table with bracketed reached rates, matching the frozen band."
+  ],
+  "gaps": [
+    "CourtListener's search index returns nothing for SCOTUS docket_number filters, and the dockets endpoint leaves date_terminated null for decided SCOTUS petitions, so companion-case status could not be confirmed from it; a provisioned 'companion petitions' cut (same QP, same lower court, this Term) with their dispositions would have been the most useful input.",
+    "The reply brief is on the docket but not provisioned.",
+    "fedcourts query has no originating-court or text filter, so CAAF-specific priors could not be pulled."
+  ],
+  "notes": "Nine retrieval calls in total, well under the advisory budget. The corpus query's ranked rows were mostly OT2025 applications and pending grants, not comparable cert priors; for a cert cell the statpack tables carried the base-rate weight."
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281318",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell read-only record inspection", "jq", "fedcourts paths", "committed statpack", "web search/open attempts", "CourtListener MCP search attempt"],
+  "helpful": ["Both adversarial cert briefs were provisioned with usable text", "The petition appendix included the appellate opinion", "Exact reached-band rates and denominators were available in statpack.json"],
+  "gaps": ["The docketed reply brief was not provisioned", "CourtListener precedent search was throttled with HTTP 429", "Web retrieval returned no usable content"],
+  "notes": "Prediction completed from the supplied record and committed rates, without external case-specific research. The default uv cache was read-only; a temporary writable cache and --no-sync allowed the existing environment to run. Two distributions separated by a response request should not automatically be read as two substantive conference considerations."
+}

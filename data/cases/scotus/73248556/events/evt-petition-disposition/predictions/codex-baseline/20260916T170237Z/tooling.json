@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73248556",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell input reads", "fedcourts paths", "committed statpack", "local rate aggregation", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open", "fedcourts validate"],
+  "helpful": ["The provisioned opposition updates the petition's contingent GVR premise without needing a current target-docket lookup.", "Frozen sal-v4 band and prior-Term reached rates identify the appropriate federal-petitioner anchor."],
+  "gaps": ["CourtListener returned companion-case metadata but no opinion text.", "Web retrieval attempts returned no usable content.", "Default uv cache location was read-only; using a /tmp cache resolved the paths-command failure."],
+  "notes": "No live corpus priors were needed. The forecast distinguishes verified companion metadata from the opposition's substantive characterization and records both in durable prose and flags."
+}

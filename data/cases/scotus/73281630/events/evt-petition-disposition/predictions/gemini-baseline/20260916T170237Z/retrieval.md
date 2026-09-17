@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. (I attempted a corpus query but realized free-text search is not supported by the query tool, so I relied entirely on the provisioned case record and the committed `statpack.md` in the metrics directory).

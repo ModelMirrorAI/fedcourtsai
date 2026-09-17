@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280412",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell provisioned-input reads", "committed statpack", "fedcourts paths", "web.open attempts", "official PDF retrieval with urllib.request and pypdf", "fedcourts validate"],
+  "helpful": ["Exact filing links in the snapshot enabled outcome-safe retrieval of decisive respondent and reply briefs.", "Frozen band and unrounded reached-rate fields made the prior-Term anchor reproducible.", "Installed pypdf enabled in-memory extraction without persisting retrieved documents."],
+  "gaps": ["The document bundle omitted the respondent brief and reply already recorded in the snapshot.", "Browser opens returned no usable text and pdftotext was unavailable.", "The default uv cache location was read-only; a writable temporary cache was required."],
+  "notes": "No corpus query or CourtListener lookup was needed. The three distribution entries were read with their rescheduling and response-request context rather than treated as three completed conferences. No case outcome was retrieved."
+}

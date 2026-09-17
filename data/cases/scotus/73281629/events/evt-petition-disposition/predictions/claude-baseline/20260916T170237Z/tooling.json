@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281629",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener search", "courtlistener call_endpoint (dockets, docket-entries)", "courtlistener read_document", "curl + pypdf for a supremecourt.gov reply brief"],
+  "helpful": ["Provisioned petition, BIO and QP text", "sal-v4 per-Term band table with bracketed reached rates", "CourtListener opinion search and read_document to verify a newly cited circuit decision"],
+  "gaps": ["Reply / supplemental briefs are not provisioned though they carry post-BIO split developments", "No statpack cut for petitions where the Court called for a response after a waiver", "fedcourts query has no subject filter on SCOTUS rows, so ERISA priors cannot be pulled", "The distribution count treats a pre-CFR distribution superseded by a response request as a relist"],
+  "notes": "The corpus query surface returned nothing usable for a subject-specific cert prior; the forecast rested on the statpack band anchor, the provisioned filings, and CourtListener verification of the Fourth Circuit decision the reply relies on."
+}

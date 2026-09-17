@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281386",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned file reads", "committed statpack", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open", "fedcourts validate"],
+  "helpful": ["Petition appendix reproduced the actual earlier Supreme Court and appellate orders.", "Complete extracted BIO made the opposing interpretation and deposition distinction assessable.", "Versioned reached-rate tables supplied an explicit frozen-band anchor."],
+  "gaps": ["Reply brief recorded on the snapshot was not provisioned.", "CourtListener citation search returned an unrelated reporter match; a constrained search found the intended case.", "CourtListener opinion-text lookup was throttled; web attempts supplied no usable text."],
+  "notes": "Preserved the frozen baseline band despite federal-government representation in the record. Temporary uv cache override resolved the read-only default cache without changing pipeline code. Retrieval limitations did not prevent a record-based forecast."
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281647",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell read-only input inspection", "fedcourts paths", "local statpack arithmetic", "web.run (no content returned)", "CourtListener MCP search (throttled)"],
+  "helpful": ["Readable petition and opposition with a completeness manifest", "Frozen conditioning band and distribution count", "Prior-Term reached-band denominators in the committed statpack"],
+  "gaps": ["CourtListener shared rate-limit capacity prevented independent precedent verification", "Reply and amicus texts were not provisioned", "Web attempts returned no usable content"],
+  "notes": "Finished without a live corpus query or current-case docket search. Default uv cache was read-only; a temporary writable cache allowed path resolution and local arithmetic. Provisioned materials were sufficient for a substantive forecast despite degraded external retrieval."
+}

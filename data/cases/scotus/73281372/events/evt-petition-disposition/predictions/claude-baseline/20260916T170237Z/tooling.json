@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281372",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener mcp search",
+    "courtlistener mcp call_endpoint dockets"
+  ],
+  "helpful": [
+    "Provisioned petition and BIO text with the QP cut out \u2014 the BIO's vehicle and no-split sections were the main drivers of the downward adjustment.",
+    "The sal-v4 per-Term band table with bracketed reached rates gave a directly usable anchor."
+  ],
+  "gaps": [
+    "No way to look up prior SCOTUS cert petitions by subject or party through the corpus tooling (query has no caption/keyword filter), and RECAP docket search returns nothing for SCOTUS dockets, so priors like earlier Madoff safe-harbor petitions or the Tribune CVSG history could not be checked against a source.",
+    "The lower-court opinion was not provisioned and the citation lookup found no text; a provisioned decision-below text would help on error-correction-shaped petitions.",
+    "Corpus citation column is sparse (200 of ~590k scotus rows), so --citation lookups of well-known priors mostly fail."
+  ],
+  "notes": "Petition text was truncated at 345 pages but the truncation fell in the appendix; the argument was complete."
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281694",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "provisioned snapshot, context.json, petition.txt, brief-in-opposition.txt, questions-presented.txt",
+    "metrics/statpack.md (modern cert base rate, relist/CVSG cuts, sal-v4 segment table)",
+    "fedcourts query (2 calls)",
+    "CourtListener MCP: search + search_document (Mallory, 600 U.S. 122, footnote 3 and Alito concurrence)",
+    "web fetch: petitioner's reply brief PDF from supremecourt.gov (pypdf text extraction); docket page for No. 25-1046"
+  ],
+  "helpful": [
+    "The provisioned BIO: its waiver / adequate-state-ground argument is the pivot of this cell and is invisible from the docket alone.",
+    "The sal-v4 segment table with bracketed reached rates: a direct, leakage-safe anchor for the band.",
+    "The reply brief (fetched, not provisioned): settled how much of the BIO's vehicle attack survives.",
+    "search_document on the 2023 opinion: confirmed footnote 3's exact wording in one call."
+  ],
+  "gaps": [
+    "No statpack cut for 'Response Requested' after a waiver; a call for a response is the strongest pre-conference signal on this docket and I had to price it from memory.",
+    "distribution_count cannot distinguish a CFR-superseded distribution from a relist; a 'conferences actually considered at' count would be more faithful.",
+    "The petitioner's reply brief is not provisioned even when it is on the docket before the snapshot; for a CFR'd petition it is the document that answers the BIO.",
+    "fedcourts query --citation on the prior Mallory returned nothing (citation coverage is 200 of ~590k scotus rows); the known-case lookup is effectively unavailable for live-channel rows.",
+    "No sibling-petition lookup: finding that Lynn v. BNSF (25-1046) was denied in May required going to supremecourt.gov by hand."
+  ],
+  "notes": "The two fedcourts query calls cost 1357 + 20 ranged GETs (about 360 MB) for one empty citation lookup and one broad granted-2020s list of low relevance; for a forward cell the provisioned briefs plus one MCP opinion read did nearly all the work."
+}

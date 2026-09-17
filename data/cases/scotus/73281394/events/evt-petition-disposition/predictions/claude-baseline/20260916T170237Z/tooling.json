@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281394",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search (dockets, opinions, recap)",
+    "web fetch of the docketed reply brief PDF"
+  ],
+  "helpful": [
+    "The provisioned petition and BIO texts were the decisive inputs; the appendix carrying the full state-court opinion was especially useful.",
+    "context.json's frozen band plus the sal-v4 segment table made the anchor arithmetic mechanical."
+  ],
+  "gaps": [
+    "The reply brief was on the docket (Aug 25 2026) but not provisioned; provisioning reply briefs where filed would remove the need for an out-of-band fetch.",
+    "CourtListener search returned nothing for a SCOTUS docket number or for subject-matter queries scoped to scotus; a way to check for companion petitions on the same question presented would help.",
+    "fedcourts query cannot filter on petitioner class (state / federal / private) or originating state court, so it could not surface comparable state-petitioner priors."
+  ],
+  "notes": "Forward cell; the petition is set for the Sept 28 2026 conference. No outcome material encountered."
+}

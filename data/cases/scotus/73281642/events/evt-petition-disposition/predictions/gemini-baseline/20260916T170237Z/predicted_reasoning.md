@@ -1,0 +1,5 @@
+Distributed once so far; expect at least one further relist before a decision on the petition, as the Court closely considers this Takings Clause circuit split. A CVSG is unlikely, as the dispute involves local police action rather than federal policy or statutes, meaning the Solicitor General's views are not strictly necessary.
+
+If granted, the Court would likely take the questions presented to resolve the circuit split over the police-power exception to the Takings Clause. A summary GVR or reversal is highly unlikely, as this is a deep doctrinal split requiring plenary review and oral argument to resolve. 
+
+Should the Court deny review, there is a reasonable chance of a written dissent from denial (likely from Justice Thomas or Justice Gorsuch), given the conservative Justices' demonstrated interest in clarifying the bounds of the Takings Clause and protecting private property rights against government encroachment without compensation.

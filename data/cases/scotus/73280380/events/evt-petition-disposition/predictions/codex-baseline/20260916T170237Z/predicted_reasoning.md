@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will most likely deny certiorari in this attorney-sanctions appeal. I assign a 28% probability to any grant, including a GVR or summary reversal. The principal obstacle is that the Court can regard the disputed characterization of the complaint and counsel's prefiling investigation as fact-bound sanctions issues, without deciding that politically disfavored or merely novel litigation is sanctionable. This predicts the Court's selection decision, not an explanation that a denial order will necessarily give.
+
+The supplied docket records **two distributions**, on March 11 and July 8, 2026. The first preceded the March 23 request for a response; the second placed the fully opposed petition on the September 28 conference list. I predict no further distribution as the modal path, with **40%** probability of at least one more. If the Court does redistribute it, one or two additional distributions are more likely than a prolonged series. The response request means these two entries do not necessarily represent two completed substantive conferences.
+
+No CVSG appears in the record. I predict none, with **1.5%** probability of a new invitation. The likely resolution window is an order following the September 28 conference or, if further consideration occurs, during October or November 2026. A longer hold remains possible; timing is not a scored claim.
+
+**Conditional on a grant**, I assign **65%** to disposition in the cert order rather than plenary briefing and argument. The leading summary possibility is a GVR for reconsideration in light of Bost's treatment of candidate standing, as described in both supplied briefs. A summary reversal based on the distinction between sanctionable factual assertions and protected legal advocacy is a secondary possibility. Those are different routes: a GVR sends the issue back, whereas summary reversal would decide the sanctions error itself.
+
+If plenary review is granted, I expect a narrowed version of questions 2 and 3: the permissible basis for sanctioning counsel where disputed readings of an election complaint and a debatable standing theory underlie the sanctions. Question 1's political-disfavor formulation is less likely to be adopted verbatim. Question 4's broader invitation to clarify Purcell is less likely to be reached because other asserted grounds for sanctions remain. Any favorable merits ruling would likely focus on the sanctions standard rather than establish a general immunity for election-related litigation.
+
+**Conditional on denial**, I assign **25%** to some Justice issuing a noted dissent or statement respecting denial. My modal forecast remains a denial without separate writing. I do not predict an individual Justice's cert vote.

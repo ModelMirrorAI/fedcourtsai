@@ -1,0 +1,3 @@
+- `uv run fedcourts query --court ca9 --decided-before 2026-09-15 --limit 3` (Errored: Invalid value for '--decided-before': '2026-09-15' is not a valid int.)
+- `uv run fedcourts query --court scotus --decided-before 2026 --limit 2`
+  - `ranged corpus reads: 14 GET(s), 3670016 byte(s)`

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281394",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned document reads", "committed statpack and jq arithmetic", "CourtListener MCP search", "CourtListener MCP search_document", "web search and open attempts", "fedcourts paths", "fedcourts validate data"],
+  "helpful": ["Both parties' cert briefs and the appended lower-court opinion", "Frozen caption-class band and full-precision reached-rate denominators", "Targeted precedent passage retrieval through MCP"],
+  "gaps": ["Provisioned reply-brief text", "Web calls returned no usable content", "Default uv cache location was read-only"],
+  "notes": "Used a writable temporary cache for CLI commands. No live corpus priors were needed after the committed state-class anchor and opposing filings. No direct CourtListener REST calls or target-case outcome searches."
+}

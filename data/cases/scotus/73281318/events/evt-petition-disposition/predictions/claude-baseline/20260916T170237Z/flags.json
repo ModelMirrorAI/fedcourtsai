@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73281318",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward signal disclosure: the forecast uses the outcome of Case v. Montana, No. 24-624 (decided 2026-01-14, unanimous affirmance rejecting a probable-cause gloss on the emergency-aid standard), a different case whose decision predates this snapshot and is cited in both the petition and the BIO. It was retrieved via the CourtListener MCP server and shaped the summary-disposition-route and grant numbers. Nothing about this case's own disposition was sought or seen."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Band semantics: distribution_count=2 and band=elevated here come from a March 4 distribution that a March 16 call for a response pre-empted before conference, plus the June 24 redistribution after briefing. The petition has never been considered at conference, so the 'elevated' band reflects a CFR-driven redistribution rather than a relist. The relist-increment claim is stated from the two-entry state as frozen."
+    }
+  ]
+}

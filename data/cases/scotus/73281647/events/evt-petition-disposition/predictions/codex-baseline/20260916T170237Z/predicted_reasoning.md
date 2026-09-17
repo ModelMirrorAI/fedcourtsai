@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+The most likely disposition is denial of certiorari. I assign a 28% probability to any grant, including a GVR or summary reversal. The Court will most likely leave the judgment below intact without explaining whether the Ninth Circuit's necessity rationale is correct.
+
+The supplied docket records exactly one distribution, entered June 24, 2026, for the September 28, 2026 conference, and no CVSG. It has not yet recorded a relist. I assign 48% to at least one additional distribution. The modal path is no further distribution and a denial in the opening October 2026 orders; if the petition is redistributed, one or two additional distributions are more likely than a long series. A hold related to the companion petition described in the filings is a secondary path, not an observed development.
+
+A CVSG is unlikely: probability 3.5% of a new invitation. This is a constitutional compensation dispute against a city, rather than a case primarily about administering a federal program. Federal law-enforcement exposure gives an invitation some plausibility, but the Court can assess the competing legal frameworks from ordinary briefing. If an invitation occurs, I expect it during the fall 2026 conferences and a substantially longer disposition horizon.
+
+If review is granted, I expect plenary briefing and argument rather than disposition in the cert order: the conditional probability of a summary route is 12%. The central question would be whether reasonable law-enforcement destruction of an innocent third party's property falls outside the Takings Clause under public necessity. I expect the Court to take the first question with the second question's necessity issue incorporated or narrowed to this law-enforcement setting, rather than decide every possible public emergency. A companion-led GVR remains possible if another case supplies the governing rule; no such intervening decision is established in the inputs.
+
+Conditional on plenary review, I expect the dispute to center on the difference between lawful authority to destroy property and the separate obligation to compensate, and on the historically recognized limits of ownership during emergencies. This is conditional merits context, not a prediction that a denial produces an opinion.
+
+Conditional on denial, I assign 24% to at least one noted dissent or statement respecting denial. No separate writing remains the more likely outcome. If one appears, Sotomayor and Gorsuch are the most plausible participants given the earlier Baker statement described in the petition; their prior statement is not evidence that either has voted to grant this petition. I make no per-Justice cert-vote prediction.

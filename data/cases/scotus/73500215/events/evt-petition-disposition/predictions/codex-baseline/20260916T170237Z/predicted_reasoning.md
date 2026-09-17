@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will most likely deny certiorari without a separate writing. I assign a 16% probability to any grant-family disposition. The narrow, unpublished decision and the disputed factual premises will make this a less attractive vehicle than the petition's abstract question about combining precedents suggests.
+
+The baseline shows one distribution, entered June 24 for the September 28, 2026 conference, followed by a response request and the September 14 opposition. I expect one further distribution after the completed opposition briefing is circulated, with a second possible if the Court examines summary correction. P(at least one additional distribution) is 78%. Some additional circulation may be scheduling-related rather than a relist following substantive consideration. The modal timing is disposition during October or November 2026, rather than a lengthy hold into the following year; timing is contextual, not a scored claim.
+
+No CVSG is on the record, and I expect none to be called: P(new CVSG) is 1%. The request for the respondent's opposition is already satisfied by a submission in the snapshot and is not a request for the Solicitor General's views.
+
+If the Court grants, it is more likely to resolve the matter in the cert order than to set it for argument: P(summary disposition route | grant) is 80%. The leading intervention would be a summary reversal directed to the specificity of the clearly-established-law analysis, with a GVR for reconsideration in light of Zorn a secondary possibility. The likely focus would be whether Nelson and Deorle gave sufficiently specific notice for this use of an impact projectile on the plaintiff-favorable record—not a categorical rule that multiple precedents can never jointly establish a right, and not abolition of qualified immunity. If plenary review occurs instead, I expect that same narrower, notice-focused framing rather than the petition's broadest formulation.
+
+Conditional on denial, I assign 6% to any noted dissent or statement respecting denial and expect none. A denial will leave the remand below intact without announcing a merits holding approving either party's account of the encounter.

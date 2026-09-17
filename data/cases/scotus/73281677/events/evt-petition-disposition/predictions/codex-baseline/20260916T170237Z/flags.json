@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281677",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Pre-snapshot outcomes of other petitions materially inform the forecast: the provisioned petition p. 6 n.1 acknowledges Schneider and Dominguez-Garcia denials, and the opposition pp. 3 and 6 describes January 12, 2026 Johnson and Schneider denials on the related military-review issue. These are legitimate forward context, not Myslow's own outcome, and lower the grant forecast. No Myslow Supreme Court disposition was known, sought, or encountered."
+    }
+  ]
+}

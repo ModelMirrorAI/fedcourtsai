@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281382",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "fedcourts paths", "courtlistener search (docket, opinion)", "metrics/statpack.md"],
+  "helpful": [
+    "Full-text petition and brief in opposition provisioned under record/documents/ (the BIO's preservation argument drove the forecast)",
+    "Per-Term salience-band table with bracketed reached rates",
+    "context.json band and distribution_count frozen by the harness"
+  ],
+  "gaps": [
+    "A published grant rate conditional on a call-for-response after waiver; the docket's strongest signal here has no statpack cut",
+    "A distribution count that distinguishes a relist from a redistribution after a call for response",
+    "Text or topic search over corpus priors; fedcourts query cannot find doctrinally similar petitions",
+    "Provisioned cert-stage amicus briefs and the reply brief"
+  ],
+  "notes": "SCOTUS docket coverage in the CourtListener search index is thin enough that a companion-petition check returned nothing; the check cost two calls and yielded no signal."
+}

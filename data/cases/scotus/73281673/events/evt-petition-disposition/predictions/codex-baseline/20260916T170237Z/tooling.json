@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281673",
+  "run_id": "20260916T170237Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: provisioned-file and schema reads",
+    "fedcourts paths",
+    "committed statpack and local weighted calculation",
+    "CourtListener MCP search (throttled)",
+    "web search/open (no usable content)",
+    "apply_patch"
+  ],
+  "helpful": [
+    "Complete BIO identified specific jurisdictional and vehicle obstacles.",
+    "Frozen band and version aligned with the statpack's reached-rate table.",
+    "Document manifest clearly identified petition truncation."
+  ],
+  "gaps": [
+    "Later petition appendix pages were unavailable in provisioned text.",
+    "General-precedent verification was unavailable because MCP was throttled and web calls returned no usable content."
+  ],
+  "notes": "Default uv cache was read-only; setting a temporary writable cache allowed path resolution. No corpus-query sample was needed after the filings and committed anchor established the key forecast considerations."
+}
