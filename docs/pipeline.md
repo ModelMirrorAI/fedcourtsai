@@ -679,11 +679,19 @@ not the `candidates` denominator beside them, which rises with every new cert
 grant that has not yet drawn a respondent brief — so a rise there is the
 ordinary docket rather than a widened predicate.
 
-`ocr-recovery` reads the scanned petitions off their page images. A petition
-filed on paper reaches the corpus with no text layer, so nothing was extracted
-for it and every cell minted over that case reads an empty petition — for as
+`ocr-recovery` reads the scanned filings off their page images. A filing
+submitted on paper reaches the corpus with no text layer, so nothing was
+extracted for it and every cell minted over that case reads it empty — for as
 long as the docket serves the same URL, since the poller and the Term walker
-re-fetch a kind only when its link changes. It is the only pass that installs a
+re-fetch a kind only when its link changes. Its population is every stored kind
+a cell reads that was fetched as a PDF, not the petition alone: a scanned brief
+in opposition costs a cert cell the respondent's whole argument, which is the
+half of the case a forecast is least able to guess. The one shape left out is a
+multi-respondent opposition, stored as a single row whose URL is the canonical
+join of every brief fetched into it — a set key, not a link to re-fetch. Its
+per-brief headings are themselves text, so such a row is not empty by the
+coverage report's test either: it reads as covered while carrying no argument,
+and neither surface sizes it. It is the only pass that installs a
 binary dependency, in its own gated step (`tesseract` and poppler's `pdftoppm`,
 from the runner image's own archive), and one of the three whose bound is a
 **slice size** rather than a refusal threshold: each case costs a re-fetch and a
@@ -692,10 +700,11 @@ bound a *spend* cap, so the step hands the pass a wall-clock deadline as well �
 sized under the step's own cap by everything that must still fit there once the
 pass stops taking work — and the pass stops taking new candidates once what is
 left will not hold the next one's estimated cost, which it reads off the stored
-page count. A recovered
-petition leaves the class, so successive dispatches drain it — but only the
+page count. The ledger cuts the class, and what an apply wrote, by document
+kind, so a slice's blast radius is legible before it is spent and after. A
+recovered row leaves the class, so successive dispatches drain it — but only the
 recovered ones leave, and what a slice could not recover, or never started,
-stays at its head to be retried first, which the ledger names case by case. Its `dry-run`
+stays at its head to be retried first, which the ledger names one by one. Its `dry-run`
 carries a second reading beside the class count — a small sample of the
 population re-fetched through the writer's own fetch path, reporting what
 supremecourt.gov serves a *writer* rather than what a cell's retrieval reported.

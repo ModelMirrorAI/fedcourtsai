@@ -1224,7 +1224,7 @@ population and apply against another.
 | `rederive-distribution-parse` | `rederive-distribution-counts` | — (fixed in code) | parse label, **required in both modes** | — |
 | `normalize-docket-markings` | `normalize-docket-markings` | `--max-rewrites` | — | — |
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
-| `ocr-recovery` | `ocr-recover-petitions` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`) | — | — |
+| `ocr-recovery` | `ocr-recover-petitions` (the name is this lane's invocation string; the population is every fetched document kind, not petitions alone) | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds` — and it counts candidates, so a case holding two scanned filings spends two of it); the class is cut per kind in the ledger | — | — |
 | `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too; the class has two arms, a form-keyed opening document and, on a granted row whose respondent has filed on the merits, each side's merits brief, and the ledger's `merits_candidates` says how the **class** splits between them, which is not the mix a bounded slice takes — the class is in `case_id` order and the arms are not separated in it; an apply **stamps** each candidate it reads at a floor, and the class holds a stamped candidate out until its docket is polled again, so a floor costs one paced docket GET per docket version rather than one per dispatch and a bounded slice reaches the tail of the class — `standing_floors` on the ledger is that held-out balance, and `candidates + standing_floors` is the whole gap class this route can address. A floor the modern-docket alarm fired on is never stamped, so a selector regression cannot bank its own exclusions. Because the stamps are index columns, an applied slice that read any floor moves the pointer) | — | — |
 | `mirror-stored-documents` | `mirror-stored-documents` | `--max-cases` (a slice, not a ceiling — **apply only**: the dry run always enumerates the whole population, and the command refuses a bound without `--apply`) | — | — |
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
@@ -1260,7 +1260,7 @@ docket payload is the whole diagnostic, and that payload is a paced round trip
 per candidate. The rest of this paragraph describes the OCR recovery, and the
 document back-fill is built on the same terms except where said — the exception
 that matters here is its floors, which leave the class too (below). The slice is
-self-advancing — a recovered petition leaves the class — but only the recovered
+self-advancing — a recovered row leaves the class — but only the recovered
 ones do. Anything
 the slice reached and could not recover (a refused URL, a failed fetch, an
 unreadable scan, a recognition cut short) stays, and stays at the *head* in
@@ -1279,9 +1279,9 @@ killed. Those it declines are reported **unreached** — untouched, unwritten, a
 at the head of the next slice — which is a different fact from a failure and is
 named as one, because page counts across the class vary several-fold and no
 fixed bound is both safe against the cap and worth dispatching. Its ledger also
-carries a denominator, the stored petitions the walk read at all, and the pass
-refuses on it: zero candidates out of zero petitions is a blob whose documents
-this process cannot read — a split-mode index with no content store configured
+carries a denominator, the stored rows of a recoverable kind the walk read at
+all, and the pass refuses on it: zero candidates out of zero such rows is a blob
+whose documents this process cannot read — a split-mode index with no content store configured
 serves every case an empty document list — not a converged class, and the two
 must not report the same way.
 
