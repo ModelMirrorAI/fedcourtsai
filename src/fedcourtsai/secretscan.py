@@ -40,13 +40,42 @@ Detectors, strongest first:
   scanning, and every free segment is pinned to lowercase and capped far
   below the floor at which this detector judges a run at all.
 
-One surface opts out of the entropy rule alone: an engine transcript
-(``scan-diff-for-secrets --transcript-file``) carries server-generated tool
-and request ids that are high-entropy by format, so the generic rule convicts
-every real file and the artifact it gates could only ever publish empty.
-There the load is carried by containment plus the structured shapes — which
-is why every prefix-anchored credential format the pipeline could plausibly
-touch belongs in the structured set, not only in redaction.
+Two surfaces opt out of the entropy rule alone, on one reasoning: what they
+carry is addresses, ids, and search strings — high-entropy by format rather
+than by secrecy — so the generic rule convicts every real file.
+
+- An **engine transcript** (``scan-diff-for-secrets --transcript-file``)
+  carries server-generated tool and request ids, and the artifact it gates
+  could only ever publish empty.
+- A cell's **retrieval pair**: ``retrieval_log.json``, which the harness
+  captures from the tool calls, and ``retrieval.md``, which the *agent*
+  writes as its own account of the same calls, quoting the same addresses
+  and queries. One document URL read as a single run scores like a blob — a
+  filing's path segments concatenate to 40-plus mixed-class characters — and
+  a search URL's query string does the same. A hit withholds the branch it
+  fired on, which is a whole round's output. The opt-out is scoped by path
+  (:func:`is_cell_retrieval_file`), so every other file the same cell writes
+  — ``reasoning.md``, ``evaluation.md``, ``flags.json`` — keeps the rule, as
+  does the rendered PR body the collect job scans beside them.
+
+On both, the load is carried by containment plus the structured shapes —
+which is why every prefix-anchored credential format the pipeline could
+plausibly touch belongs in the structured set, not only in redaction. What
+the pair's opt-out gives up, stated per file because the two are not equally
+guarded, and by the floor each layer works to:
+
+- in ``retrieval_log.json``, the 40-63 character window. Capture-time
+  redaction below reads every byte the file keeps on the way in and rewrites
+  both the shapes it can name and, at ``_OPAQUE_MIN_RUN``, any unknown run
+  that scores like credential material — but that floor is 64 characters,
+  against this detector's 40, so a shorter opaque run now passes both;
+- in ``retrieval.md``, everything from 40 characters up that no shape names.
+  It is free text the agent composes and nothing rewrites it, so the
+  structured shapes and containment are the whole of what reads it.
+
+That second line is the narrowest surface on which this gate depends on
+naming a credential rather than noticing one, and the reason every other file
+a cell writes keeps the generic net.
 
 A :class:`Finding` carries the file, rule, and line — never the matched text —
 so the report itself cannot re-leak what it caught.
@@ -346,7 +375,8 @@ def _is_benign_run(run: str) -> bool:
 # The bare form the fan-outs mint (UTC `%Y%m%dT%H%M%SZ`), case-sensitive and
 # unprefixed — stricter than `_RUN_ID_SHAPE`, because this validates the one
 # caller-supplied value that defines the own-run exemption's shape.
-_BARE_RUN_ID = re.compile(r"^20\d{6}T\d{6}Z$")
+_BARE_RUN_ID_SHAPE = r"20\d{6}T\d{6}Z"
+_BARE_RUN_ID = re.compile(rf"^{_BARE_RUN_ID_SHAPE}$")
 
 
 def is_run_id_shaped(value: str) -> bool:
@@ -495,10 +525,15 @@ _CREDENTIAL_ASSIGNMENT = re.compile(
 # discriminator (>= 3 character classes and normalized entropy over the bar),
 # with the same per-segment treatment of path-like runs.
 #
-# The deliberate consequence: an unrecognized opaque run of 40-63 chars — a
-# base64url-encoded 32-byte token is 43 — is left alone here and still
-# withholds the run at the collect scan. Redaction spares the runs it can name;
-# it does not replace the gate.
+# The deliberate consequence, and it lands differently on the two surfaces
+# this reads: an unrecognized opaque run of 40-63 chars — a base64url-encoded
+# 32-byte token is 43 — is left alone here. In an engine transcript, which the
+# scan reads whole, it still withholds the run there. In a
+# `retrieval_log.json`, which the scan reads without the generic heuristic
+# (:func:`is_cell_retrieval_file`), nothing downstream convicts it: that window
+# is the residual the module docstring states, and the reason to widen the
+# *named* shapes rather than to lower this floor, which exists to keep a long
+# docket slug or caption out of the leakage grading's evidence.
 _OPAQUE_MIN_RUN = 64
 _OPAQUE_CANDIDATE = re.compile(rf"[A-Za-z0-9+/=_\-]{{{_OPAQUE_MIN_RUN},}}")
 
@@ -704,11 +739,13 @@ def scan_lines(
 
     ``entropy=False`` skips only the generic high-entropy heuristic — literal
     containment, the structured credential shapes, and the keyword-assignment
-    rule all still run. For an engine transcript, whose format guarantees
-    high-entropy runs as ordinary content (server-generated tool and request
-    ids), the generic heuristic convicts every real file, which turns "scan
-    then publish" into "never publish anything with content"; the detectors
-    that still run are the ones that can actually name a credential there.
+    rule all still run. Two surfaces ask for it: an engine transcript, whose
+    format guarantees high-entropy runs as ordinary content (server-generated
+    tool and request ids), and a cell's two retrieval files, which carry the
+    document URLs and search queries its tool calls issued. On either, the
+    generic heuristic convicts every real file, which turns "scan then
+    publish" into "never publish anything with content"; the detectors that
+    still run are the ones that can actually name a credential there.
 
     ``run_id`` names the run being collected and narrows the high-entropy rule
     alone, exempting that run's own ledger directory where a cell's logged
@@ -751,6 +788,53 @@ def scan_file(
     return scan_lines(rel, text.split("\n"), known_secrets, entropy=entropy, run_id=run_id)
 
 
+# A cell's retrieval pair, at the one layout `fedcourtsai.paths` puts it at:
+# `retrieval_log.json` and `retrieval.md` under a predict cell's
+# `predictions/<predictor>/<run id>/` or an evaluate cell's
+# `evaluations/<evaluator>/<run id>/`. Matched as the whole repo-relative
+# path, not by basename, so a file an agent chose to name `retrieval.md`
+# anywhere else in the tree keeps every detector, and a traversal component is
+# refused outright rather than absorbed by a segment — the layout, not a
+# neighbouring check, is what says which files these are. The segments
+# themselves stay `[^/]+`, because a slug may legitimately carry a `.` and a
+# charset that forbade one would quietly return the whole class of false
+# positive this scoping exists to end.
+#
+# The run-id segment is pinned by shape rather than by equality with the run
+# being collected — the opposite choice from the own-run path exemption above,
+# and deliberately. That exemption reads a *candidate's text*, where an agent
+# chooses every character and shape-matching would exempt any timestamp it
+# invented. This one classifies a *file*, whose address the collect job's own
+# staging decides; and the classification has to be a property of the file
+# rather than of the invocation, or the same bytes would be judged differently
+# by the collect job and by a maintainer reproducing its verdict without
+# `--run-id`.
+_CELL_RETRIEVAL_FILE = re.compile(
+    re.escape(DATA_JAIL)
+    + r"cases/[^/]+/[^/]+/events/[^/]+/"
+    + r"(?:predictions|evaluations)/[^/]+/"
+    + _BARE_RUN_ID_SHAPE
+    + r"/"
+    + r"(?:retrieval\.md|retrieval_log\.json)"
+)
+
+
+def is_cell_retrieval_file(rel: str) -> bool:
+    """Whether ``rel`` is one of a cell's two retrieval files.
+
+    What both hold is the addresses and queries the cell's tool calls carried
+    — `retrieval_log.json` as the harness captured them, `retrieval.md` as the
+    agent recounts them — and a document URL or a search query read as one run
+    scores like an opaque blob. So the generic entropy heuristic is off for
+    these two and on for every other file of the same cell. See the module
+    docstring for what that gives up, and for why the two are not equally
+    guarded once it is off.
+    """
+    if ".." in rel.split("/"):
+        return False
+    return _CELL_RETRIEVAL_FILE.fullmatch(rel) is not None
+
+
 def scan_changes(
     changes: Iterable[PathChange],
     root: Path,
@@ -767,7 +851,10 @@ def scan_changes(
     permits. Paths outside ``data/`` are left to the jail (they are never
     agent output). A listed file missing from disk is skipped (the jail
     check, not this one, owns change-list integrity). ``run_id`` passes
-    through to :func:`scan_lines`.
+    through to :func:`scan_lines`, as does the per-file entropy switch:
+    a cell's two retrieval files (:func:`is_cell_retrieval_file`) are
+    scanned by every detector except the generic heuristic, exactly as an
+    engine transcript is.
     """
     findings: list[Finding] = []
     for change in changes:
@@ -776,7 +863,15 @@ def scan_changes(
         target = root / change.path
         if not target.is_file():
             continue
-        findings.extend(scan_file(target, change.path, known_secrets, run_id=run_id))
+        findings.extend(
+            scan_file(
+                target,
+                change.path,
+                known_secrets,
+                entropy=not is_cell_retrieval_file(change.path),
+                run_id=run_id,
+            )
+        )
     return findings
 
 

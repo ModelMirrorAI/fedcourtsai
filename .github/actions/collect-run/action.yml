@@ -435,7 +435,7 @@ runs:
           # report (file/rule/line, never the matched text) rides to the
           # trigger issue via the next steps, and the flagged files stay
           # reviewable in the run's cell artifacts. The run id keys the
-          # entropy heuristic's one exemption — the collected run's own
+          # entropy heuristic's own-run exemption — the collected run's own
           # ledger directory in the run's own scanned text — equality-pinned, so no
           # other run's (or an invented) path is exempt.
           jq -r '.body' <<<"$pr" > pr-body.md
