@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73500248",
+  "gaps": [
+    "Better search syntax guidance for fedcourts query tool"
+  ],
+  "helpful": [
+    "Google web search effectively surfaced the state of the circuit split and academic commentary on the 'logical fallacy of the inverse'"
+  ],
+  "notes": "Used both the internal corpus and external search.",
+  "role": "predictor",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts_query",
+    "mcp_courtlistener_search",
+    "google_web_search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

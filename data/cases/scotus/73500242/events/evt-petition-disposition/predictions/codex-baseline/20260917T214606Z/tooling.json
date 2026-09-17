@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500242",
+  "gaps": [
+    "No opposition brief or full underlying evidentiary record was provisioned.",
+    "The two general web calls returned no usable text.",
+    "A corpus freshness stamp alongside the committed statpack would clarify its data vintage."
+  ],
+  "helpful": [
+    "The petition appendix supplies the actual lower-court reasoning rather than only advocacy.",
+    "Unrounded risk-set rates and denominators permit the required prior-Term pooling.",
+    "CourtListener snippets distinguish an articulated legal test from its application to the precedent's facts."
+  ],
+  "notes": "The default uv cache was read-only; a temporary writable cache permitted the CLI to run. No credentials were sought and no direct CourtListener REST fallback was used.",
+  "role": "predictor",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "committed statpack Markdown and JSON",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web.run",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

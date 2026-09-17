@@ -1,0 +1,13 @@
+# Forecast: Davie County v. Swink, No. 25-1091 (evt-petition-disposition)
+
+**Disposition.** The Court will most likely deny the petition, probably on the October 5, 2026 order list following the September 28 long conference, or on the order list after one relist. P(any grant) = 0.11.
+
+**Relists.** The docket shows two distribution entries: April 22, 2026 (for the May 14 conference, pre-empted when the Court called for a response on May 8) and July 22, 2026 (for the September 28 conference). Neither is a true relist; the petition is effectively at its first substantive conference with a full set of papers. From that state I expect **at least one further distribution with probability 0.35** — the Court's call for a response after both respondents waived shows a Justice or the pool flagged it, a published 2-1 decision with a Richardson dissent is the kind of petition the Court holds over for a second look or for a possible statement on denial, and the long conference produces a heavy relist batch. If relisted, most likely once, then denied on the following order list.
+
+**CVSG.** No. The question is county liability under 42 U.S.C. § 1983 and Monell for a private jail medical contractor; no federal program, statute the United States administers, or federal party is implicated. P(CVSG after prediction time) = 0.03.
+
+**Which question, if granted.** The Court would not take the petition's two questions as written (the first asks about respondeat superior and a "non-delegable duty" doctrine the Fourth Circuit never invoked). It would reformulate a single question along the lines of whether a municipality that contracts out jail medical care to a private provider is liable under Monell for the provider's policies and customs on the theory that the contract delegated final policymaking authority. Any grant would be a plenary grant set for argument in the January or February 2027 sittings.
+
+**Summary disposition.** Unlikely conditional on a grant: P(cert-order disposition | grant) = 0.12. There is no intervening decision of this Court to GVR against, and the Court rarely summarily reverses on the scope of Monell where the court of appeals applied a delegation theory tied to specific contract terms. The residual mass is a per curiam reversal on the strength of the dissent's respondeat superior framing.
+
+**Dissent from denial.** Conditional on denial, a noted dissent or statement respecting denial from any Justice: 0.08. Justice Thomas or Justice Gorsuch might write on the drift of lower-court Monell delegation doctrine, but the interlocutory posture and the party-presentation problem the brief in opposition raises make this a poor case to write on. Expect a bare denial.

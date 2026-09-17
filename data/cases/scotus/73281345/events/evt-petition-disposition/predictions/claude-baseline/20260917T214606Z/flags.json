@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281345",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen band `elevated` (distribution_count 2) reads a call-for-response redistribution as a relist: the petition was distributed for the 4/17/2026 conference, the Court requested a response on 4/13/2026 before that conference, and it was redistributed on 7/29/2026 for 9/28/2026. It has not yet been considered at any conference, so its state is closer to a first-conference petition with a requested response than to the once-relisted population the elevated risk-set rate describes. Recorded so the evaluator can read the anchor accordingly; I forecast from the call-for-response state and anchored on the band table as instructed."
+    }
+  ]
+}

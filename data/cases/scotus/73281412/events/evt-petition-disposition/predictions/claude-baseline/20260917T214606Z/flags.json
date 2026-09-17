@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281412",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot file is dated 2026-09-17 but its payload's own creation stamp (sJsonCreationDate) is 07/29/2026, and the last entry is the July 29 distribution for the September 28 conference. Either no docket activity (reply brief, amicus) occurred in August-September or the payload was not refreshed; the cell cannot tell which. Forecast written on the assumption that no reply brief was filed."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen 'elevated' band rests on distribution_count 2, but the second distribution followed a call for response after a waiver (the petition was pulled from the May 21 conference), not a relist after consideration. The band anchor therefore overstates the docket signal for this cell; I anchored below the pooled reached rate and said so in reasoning.md."
+    }
+  ]
+}

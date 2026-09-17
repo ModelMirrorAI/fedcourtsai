@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281354",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned filing text", "committed statpack", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts", "local validation"],
+  "helpful": ["Both petition and opposition had nonempty untruncated text", "Frozen band and count prevented reclassification", "Unrounded prior-Term risk-set rates enabled explicit pooling", "Targeted precedent excerpt avoided own-case outcome retrieval"],
+  "gaps": ["No provisioned reply text or lower-court appendix", "Exact reporter search did not locate the recent Sixth Circuit authority", "Web search/open returned no usable content"],
+  "notes": "The snapshot's rescheduling history is important to interpreting the counted distribution signal. A writable temporary cache resolved the CLI startup issue. Prediction proceeded on the briefs, local aggregate baseline, and a limited verified precedent passage."
+}

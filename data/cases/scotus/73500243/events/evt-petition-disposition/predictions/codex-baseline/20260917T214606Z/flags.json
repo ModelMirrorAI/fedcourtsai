@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500243",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Context freezes elevated with distribution_count=2, but the June 17 distribution names September 28, 2026 and the September 16 distribution names October 9, 2026: both conferences are future as of September 17. This appears to be preconference rescheduling after a requested response, not an observed postconference relist. Retained the frozen band/count and adjusted the forecast, rather than treating two entries as two completed conferences."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot records an August 31 opposition and September 10 reply, but the provisioned document manifest contains only petition/QP text fetched July 18, with the petition marked truncated. Retrieved selected opposition pages from its exact official PDF URL; the reply and complete petition appendix were not reviewed. These limitations are reflected in reasoning.md."
+    }
+  ]
+}

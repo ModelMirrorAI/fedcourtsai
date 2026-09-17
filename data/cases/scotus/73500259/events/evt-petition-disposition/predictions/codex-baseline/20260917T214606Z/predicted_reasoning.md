@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will deny certiorari in NHK Spring Co., Ltd. v. Seagate Technology LLC. The probability of any grant, including a summary disposition, is 23%.
+
+The snapshot records **two distributions**: June 9 for the June 25, 2026 conference, and August 5 for the September 28, 2026 conference. The Court requested a response between them. From this recorded count of two, the modal forecast is **zero additional distributions**, followed by a denial associated with the September conference. The probability of at least one additional distribution is 38%; if the petition continues, one or two further distributions are more likely than a long sequence. This forecast does not treat two distribution entries as proof of two completed substantive conference considerations.
+
+No CVSG is recorded. The Court will most likely proceed without one; the probability of a new CVSG is 18%. If it seeks the government's views, the likely occasion is the September conference or an early following conference, delaying final disposition rather than producing an immediate grant.
+
+If review is granted, the Court is likely to reformulate the petition's question around whether U.S.-set contract prices governing foreign affiliates' purchases constitute a domestic effect giving rise to their injuries under the FTAIA. That framing would test the claimed conflict with Motorola without assuming that the Ninth Circuit held the location of negotiations sufficient by itself. Conditional on review, plenary briefing and argument are substantially more likely than a cert-order disposition: the summary-route probability is 6%. No identified intervening decision supplies a specific GVR trigger.
+
+The predicted denial will have no publicly noted dissent or statement respecting denial; the conditional probability of any such writing or notation is 5%. I predict no individual Justice's cert vote. A denial will not resolve the competing interpretations of the FTAIA or endorse the lower court's reasoning. The expected procedural exit leaves further factual and alternative-claim proceedings below rather than selecting this interlocutory record to settle the broader territorial question.

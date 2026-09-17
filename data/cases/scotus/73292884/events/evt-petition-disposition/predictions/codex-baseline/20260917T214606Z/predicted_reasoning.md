@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will most likely deny certiorari without an explanatory opinion, following the September 28, 2026 conference. I expect disposition in early October, with some risk of delay into later autumn. The probability of any grant, including a GVR or summary reversal, is **14%**.
+
+The snapshot records **two distributions**: May 19 for the June 4 conference, and August 12 for the September 28 conference. Between them, the Court requested a response after the respondent's waiver, and opposition and reply briefs arrived. These entries do not establish two completed substantive conference examinations. From the frozen count of two, I assign **28%** to at least one further distribution. Zero additional distributions is the modal forecast; if the petition is redistributed, one or two additional distributions is the likeliest path rather than a prolonged sequence.
+
+No CVSG is recorded. I expect none, assigning **3%** to a new invitation. If one issues, autumn is the likeliest window and disposition would be delayed pending the government's submission. The federal constitutional question is substantial, but the dispute does not depend on specialized federal administration for which the Solicitor General's institutional views appear essential.
+
+If review is granted, I expect a narrowed version of **Question 2**: whether exacting scrutiny permits disclosure of substantial general-fund donors financing election-related communications without donor-specific earmarking, given New Mexico's thresholds, election windows, and opt-out mechanism. That is a more plausible grant than the categorical rejection of an informational interest in Question 1 or the replacement of exacting with strict scrutiny in Question 3. Conditional on review, the strongest reversal ground would be inadequate tailoring between the donors disclosed and the communications being funded, not a blanket constitutional immunity for all issue advocacy.
+
+Conditional on a grant, I assign **8%** to disposition in the cert order itself and **92%** to plenary review. The disagreement concerns how existing doctrine applies to the statute and this vehicle; no identified intervening authority commands a mechanical remand. Summary reversal is possible but is not my expected route.
+
+Conditional on denial, I assign **18%** to a noted dissent or statement respecting denial and **82%** to no such writing. No separate writing is the modal forecast. If one appears, criticism of compelled donor disclosure and the adequacy of tailoring is the likeliest subject. I make no per-Justice vote or authorship prediction.

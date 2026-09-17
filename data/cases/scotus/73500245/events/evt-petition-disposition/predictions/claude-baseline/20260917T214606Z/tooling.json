@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500245",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "metrics/statpack.json", "CourtListener MCP search", "CourtListener MCP call_endpoint (opinions)"],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt — the whole petition fit in one read.",
+    "context.json band plus the sal-v4 segment table gave a single unambiguous anchor.",
+    "CourtListener opinions endpoint returned the full published opinion below in one call, which settled the preservation and alternative-holding questions."
+  ],
+  "gaps": [
+    "No base-rate cut for 'response waived' or 'self-represented attorney' petitions; the baseline band pools those with well-lawyered petitions.",
+    "fedcourts query has no filter for originating state court or subject matter on SCOTUS rows, so it could not surface lawyer-discipline priors.",
+    "documents.json could record that no brief in opposition exists because a waiver was filed, rather than leaving the reader to infer it from the docket."
+  ],
+  "notes": "Forward cell, one corpus query (6 GETs) and four substantive MCP calls. CourtListener does not index the SCOTUS docket for 25-1344."
+}

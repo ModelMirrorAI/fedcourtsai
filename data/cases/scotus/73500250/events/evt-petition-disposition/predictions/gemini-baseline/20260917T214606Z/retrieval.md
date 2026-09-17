@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. Evaluated the provided `questions-presented.txt` and `context.json`. Read base rates from the committed `metrics/statpack.md` in the repository, specifically analyzing the `baseline` salience band rates for modern discretionary-cert petitions and the relist buckets.

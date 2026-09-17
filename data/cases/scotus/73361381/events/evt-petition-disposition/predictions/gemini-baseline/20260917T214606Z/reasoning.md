@@ -1,0 +1,5 @@
+P(grant) 0.005. The case is a paid, but pro se petition challenging an Ohio state court's application of a statute of limitations. The salience band is `baseline`. Based on the `metrics/statpack.md`, the bracketed reached rate for the `baseline` band across recent prior terms averages ~5%. However, the petitioner is pro se, the issue is a fact-bound and state-law heavy procedural issue, and the respondent has apparently waived a response (no BIO on the docket despite being distributed for conference). These factors point strongly to an outright denial at the first conference. I adjust the probability down significantly to 0.5%.
+
+I assign a low big case score (0.05) as this case involves a private individual disputing a mundane state court ruling, lacking any wider impact.
+
+For the increments: The probability of a relist is very low (0.02) because cases with no BIO that aren't called for a response are almost universally denied at the first conference. The chance of a CVSG is essentially zero (0.001) given the purely private nature of the dispute.

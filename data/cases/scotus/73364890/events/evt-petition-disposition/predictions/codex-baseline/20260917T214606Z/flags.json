@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73364890",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned manifest marks the 178-page petition bundle truncated. The questions presented, substantive petition, and pertinent appellate passages were available and supported a complete forecast, but the full appendix was not reviewed. No BIO text is provisioned, consistent with the government's recorded waiver; no opposition arguments were invented.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0"
+}

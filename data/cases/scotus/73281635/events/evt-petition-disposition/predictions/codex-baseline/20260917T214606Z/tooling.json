@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281635",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned text", "committed statpack", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "web search", "jq"],
+  "helpful": ["Petition and BIO text enabled a two-sided split assessment.", "Frozen context and prior-Term reached rates supplied a coherent base-rate anchor.", "CourtListener precedent text distinguished discretion from a categorical prohibition."],
+  "gaps": ["Reply and amicus text were not provisioned.", "No published forward-hazard cut specifically covers redistribution following a requested response.", "General-precedent web searches returned no usable result text."],
+  "notes": "The default uv cache was read-only; a temporary writable cache enabled the CLI. One incorrect reporter lookup returned an unrelated case and was disregarded; the corrected caption search found Gilliam. No live lookup sought the target petition's outcome."
+}

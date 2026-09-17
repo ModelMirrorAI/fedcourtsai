@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500243",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "shell", "jq", "committed statpack", "web open/search (no usable output)", "urllib", "pypdf", "fedcourts validate"],
+  "helpful": ["Frozen context and dated snapshot", "Unrounded reached-risk-set rates in statpack.json", "Exact pre-decision filing URLs in the snapshot", "Installed pypdf for in-memory opposition extraction"],
+  "gaps": ["Filed opposition and reply absent from provisioned document text", "No distinct reached-rate for preconference rescheduling after a response request", "Web tool returned no usable results; pdftotext was unavailable"],
+  "notes": "The default uv cache was read-only; a writable temporary cache allowed the CLI to run. Opposition retrieval succeeded directly from the official filing URL without a docket search. Reply was not retrieved. No corpus or CourtListener lookups were needed. Distribution count remained two even though both named conferences were still future dates."
+}

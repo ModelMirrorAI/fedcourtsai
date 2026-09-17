@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "The questions could affect federal criminal accountability for police use of force, particularly subjective culpability and felony injury thresholds. The individual prosecution and fact-intensive sufficiency posture limit its likely reach absent a broad ruling.",
+  "big_case_score": 0.42,
+  "case_id": "scotus/73500250",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.09
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.85
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.6
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.05
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-17",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-09-17T22:26:26Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-09-17.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.09,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "8742832d659adda216965204e304348f89ab893d",
+    "stamped_at": "2026-09-17T22:29:00.807586Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

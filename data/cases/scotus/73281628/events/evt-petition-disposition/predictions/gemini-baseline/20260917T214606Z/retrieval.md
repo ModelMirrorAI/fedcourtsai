@@ -1,0 +1,1 @@
+I consulted the committed `metrics/statpack.md` to find the base rate for "elevated" band petitions across strictly prior Terms (2017-2024), but no live corpus retrieval tools (`fedcourts query`) or CourtListener MCP lookups were necessary for this prediction.

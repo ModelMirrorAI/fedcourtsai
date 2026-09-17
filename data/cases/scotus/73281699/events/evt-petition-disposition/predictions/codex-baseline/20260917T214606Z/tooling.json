@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281699",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Provisioned docket and filed-document text",
+    "Committed metrics/statpack.md",
+    "CourtListener MCP citation search and opinion snippet search",
+    "Web search for a historical precedent",
+    "Direct web retrieval of the snapshot-linked reply brief",
+    "fedcourts paths",
+    "Local Python baseline arithmetic",
+    "fedcourts validate data"
+  ],
+  "helpful": [
+    "Frozen salience version, band and distribution count made the correct base-rate population explicit.",
+    "A readable BIO exposed concrete vehicle objections that were absent from the petition's framing.",
+    "The exact reply URL in the snapshot allowed retrieval of pre-decision advocacy without searching current case history.",
+    "CourtListener snippet retrieval checked both sides of the key precedent efficiently."
+  ],
+  "gaps": [
+    "The petition source is truncated, leaving an incomplete appendix.",
+    "Provisioning the filed cert reply would avoid an extra external retrieval.",
+    "A displayed pack build timestamp and case last-pulled stamp would clarify freshness.",
+    "Distribution count alone does not distinguish a response-driven redistribution from substantive relisting."
+  ],
+  "notes": "The default uv cache path was read-only; redirecting the cache under /tmp restored the CLI. No live corpus query was needed. No outcome retrieval or degraded CourtListener access occurred."
+}

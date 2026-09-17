@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281699",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen band `elevated` (sal-v4) rests on distribution_count=2, but the two distributions on this docket are the pre-response distribution (conference of 5/21/2026, overtaken by the 5/12/2026 'Response Requested' entry) and the post-BIO redistribution (conference of 9/28/2026). No relist has occurred. The Court's call for a response is a real signal the band does not read; the counted 'relist' is not. I kept the band anchor (~17% pooled reached rate) treating the two as offsetting, and noted the trade in reasoning.md."
+    }
+  ]
+}

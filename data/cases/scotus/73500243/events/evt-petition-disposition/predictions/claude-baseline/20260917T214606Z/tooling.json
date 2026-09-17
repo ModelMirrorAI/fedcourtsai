@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500243",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "WebFetch (supremecourt.gov PDFs)",
+    "pypdf text extraction"
+  ],
+  "helpful": [
+    "The sal-v4 segment table with bracketed reached rates gave a clean, leakage-safe anchor for the elevated band.",
+    "The provisioned petition text and QP cut, plus the appended Eleventh Circuit opinion, were enough to understand the vehicle.",
+    "Forward-mode permission to fetch the BIO and reply materially changed the read of the case."
+  ],
+  "gaps": [
+    "Documents were not refreshed between the 2026-07-18 fetch and the 2026-09-17 snapshot, so the BIO and reply were missing from record/documents/ despite being on the docket.",
+    "WebFetch cannot read PDF text layers; a supremecourt.gov PDF-to-text path in the harness would remove a manual pypdf step.",
+    "fedcourts query has no topic or originating-circuit filter for SCOTUS rows, so it cannot surface qualified-immunity comparables.",
+    "A statpack cut conditioned on a called-for response after waiver would be the most relevant base rate for this docket shape."
+  ],
+  "notes": "One corpus query, one MCP search (zero results on a strict phrase), two web fetches. Well under the retrieval budget."
+}

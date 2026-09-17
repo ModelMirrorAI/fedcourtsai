@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73369987",
+  "gaps": [
+    "No provisioned lower-court appendix or opposition",
+    "Derived QP file absent despite readable Questions to Review section",
+    "Generic web requests returned no usable text"
+  ],
+  "helpful": [
+    "Readable full petition supplied its own questions section",
+    "Frozen sal-v4 conditioning and exact reached-rate denominators",
+    "CourtListener citation lookup and bounded precedent excerpts"
+  ],
+  "notes": "Default uv cache was read-only; a temporary writable cache allowed the CLI to run. No current target-case docket or outcome lookup was attempted. Aggregate statpack arithmetic supplied the prior; no live corpus query was necessary.",
+  "role": "predictor",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell reads",
+    "jq aggregate arithmetic",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web retrieval attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

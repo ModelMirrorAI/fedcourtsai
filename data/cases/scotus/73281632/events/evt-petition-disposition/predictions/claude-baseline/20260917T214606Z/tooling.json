@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281632",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener mcp search", "courtlistener mcp get_endpoint_item", "courtlistener mcp read_document"],
+  "helpful": [
+    "Provisioned brief-in-opposition text with intact extraction; the SG's vehicle and merits points drove most of the adjustment.",
+    "sal-v4 band table with bracketed reached rates and per-Term rows made the pooled anchor a two-minute computation.",
+    "MCP opinion read confirmed panel composition and the absence of a dissent below."
+  ],
+  "gaps": [
+    "fedcourts query has no free-text or subject filter for SCOTUS rows, so a topical prior search (Appropriations Clause, agency funding) is not possible; the one query returned unrelated stay applications and grants.",
+    "No published conditional cut for response-requested petitions; the elevated band pools them with other signals, so the adjustment from the anchor rests on judgment.",
+    "The reply brief is not provisioned; it would have helped weigh the SG's standing and preclusion arguments."
+  ],
+  "notes": "Forward cell, petition pending for the 9/28/2026 long conference. Five MCP calls and one corpus query, well inside the advisory budget."
+}

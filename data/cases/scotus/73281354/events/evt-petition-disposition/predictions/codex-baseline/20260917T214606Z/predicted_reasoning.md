@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will deny certiorari in AstraZeneca Pharmaceuticals LP v. Mosaic Health, Inc. The most likely path is a denial following the September 28, 2026 conference, with no further distribution and no separate writing. The probability of any grant, including a GVR, is 20%.
+
+The frozen context counts two distributions. The snapshot contains three literal distribution entries: April 22 for May 14, followed by a request for a response; August 5 for September 28; and September 2 for that same September 28 conference after an August 25 rescheduling. This is not a sequence of three completed conferences. From the harness's count of two, I assign 35% to at least one additional counted distribution. Zero additional distributions is the modal forecast; if the petition receives further consideration rather than an immediate disposition, one or two additional distributions is the leading alternative, with a longer hold possible for related litigation.
+
+The Court will not call for the Solicitor General's views. I assign 12% to a new CVSG, with the plausible alternative timing being after the September conference or an initial additional conference. The antitrust and federal drug-program interests make consultation plausible, but the expected denial does not require it.
+
+If the Court grants plenary review, the stronger question is the first: whether Illinois Brick bars lost-profit damages for indirect purchasers excluded from a distribution channel without a passed-on overcharge. I expect that issue to be taken in a narrowed formulation distinguishing exclusion from an ordinary overcharge, rather than a broad rule about all lost profits. The second question, framed as whether mere opportunities to conspire establish plausibility, is less likely to be taken because the opposition identifies other alleged indicators of agreement considered below.
+
+Conditional on any grant, plenary review is more likely than disposition in the cert order: 80% plenary versus 20% summary route. A hold followed by a GVR associated with the United Biologics/Amerigroup petition identified in the opposition is the main summary alternative; the provided record supplies no intervening Supreme Court merits decision that would presently compel such a result. A summary reversal on these disputed pleadings is less likely.
+
+Conditional on denial, I assign 8% to a noted dissent or statement respecting denial. The modal forecast is no separate writing; I do not forecast an individual Justice's cert vote. Denial will leave the lower-court proceedings to continue without a Supreme Court merits opinion or an endorsement of the Second Circuit's reasoning.

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281388",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Band semantics note, not a defect: context.json freezes distribution_count=2 / band=elevated, but the first distribution (Conference of 6/11/2026) was superseded by a 'Response Requested' entry on Jun 3 2026 before any conference considered the petition, and the second (Conference of 9/28/2026) is its first real consideration. The dist-v2 count therefore reads a call-for-response redistribution as a relist. If the elevated pool mixes true post-conference relists with CFR redistributions at different grant rates, a cut by how the second distribution arose would sharpen both the anchor and the relist-increment claim. Forecast anchored on the elevated reached rate as instructed."
+    }
+  ]
+}
