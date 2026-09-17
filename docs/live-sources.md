@@ -658,9 +658,15 @@ corpus row rather than off a poll.
   date, so the selector's stage bound places no entry on the merits side of it.
   A docket carrying **no such entry** for any missing kind is a legacy
   proceedings list holding no document links. The two counts are per candidate
-  and partition the floored ones; neither drains, so a slice that clears its
-  bound without shrinking the class is the expected reading once the recoverable
-  half is gone.
+  and partition the floored ones. Neither drains, so neither is re-walked: an
+  **apply** stamps the candidate it read at a floor (`document_floor_probed_at`
+  on the corpus row) and the class holds it out while that stamp is no older
+  than `last_live_polled`, the live channel's own record of when it last read
+  the same docket. A floor is then paid for once per docket version rather than
+  once per dispatch, which is what lets a bounded slice reach the tail of a
+  class whose recoverable head has drained. `standing_floors` on the ledger is
+  the held-out balance, so the whole addressable class is still readable from
+  one run.
 
   The **alarm** cuts across both counts, because it is per *kind*: a missing
   kind the selector found no entry for, on a docket modern enough to carry
@@ -668,16 +674,29 @@ corpus row rather than off a poll.
   exists to stop producing — and those cases are **named** whichever floor they
   were counted at, so a granted case whose merits entries are on the docket and
   whose opening filing is unreadable is not silenced by the kind that matched.
+  A floor the alarm fired on is also the one floor that is **never stamped**: it
+  is a reading about this pass rather than about the docket, so holding the case
+  out would bank an exclusion over a defect on our own side — and it is the
+  shape an upstream payload that changed or degraded would take across a whole
+  slice. Those candidates keep their place, and widening the selector recovers
+  them.
 - **What it writes.** Each case's documents as they are made rather than batched
   at the end, so a step that hits its cap has banked what it recovered — under
   the corpus split the per-case content-store write is itself the durable one.
   Additive by construction: the fetch is idempotent against the stored
   `(kind, url)` mapping, so a case already holding a document at the selected
-  URL is not re-fetched, and a case this pass cannot recover keeps exactly what
-  it had and re-enters the next slice. Because the durable write is the content
-  store's rather than the pointer's, the step re-walks the class afterwards on
-  an **empty slice** — which costs no round trip — and requires exactly what the
-  apply's ledger said it would leave behind.
+  URL is not re-fetched and nothing it touches loses what it had. What re-enters
+  the next slice depends on why a case did not recover: one whose docket or
+  filing the fetch did not return keeps its place at the head of the class,
+  while an applied floor is stamped out of it until its docket is polled again.
+  The stamps are the pass's one **index** write — a column, through a direct
+  `UPDATE`, so a row hydrated from the payload-free index can never re-mirror a
+  body-less `case.json` over a stored opinion — and they are durable only once
+  the lane pushes the blob, where the documents are already banked per case.
+  Because the documents' durable write is the content store's rather than the
+  pointer's, the step re-walks the class afterwards on an **empty slice** —
+  which costs no round trip — and requires exactly what the apply's ledger said
+  it would leave behind.
 - **Terms.** Unchanged. These filings are the Court's own public records, fetched
   from the Court's own host, and their text lands in the access-gated corpus
   under the same no-republication posture as every other extraction

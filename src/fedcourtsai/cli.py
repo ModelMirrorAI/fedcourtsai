@@ -3818,6 +3818,15 @@ def backfill_documents_cmd(
         f"  floors: {result.no_link} with no fetchable link behind the entry "
         f"(Rule 34.6 paper filings, or an undatable grant on a merits kind), "
         f"{result.no_entry} with no such entry at all"
+        + (f"; {result.floors_stamped} stamped this slice" if apply else "")
+    )
+    typer.echo(
+        f"  {result.standing_floors} row(s) held out of the class by a standing "
+        "floor probe — a floor already read off a docket the live channel has not "
+        f"re-read since, so the addressable gap class is "
+        f"{result.candidates + result.standing_floors} as this run found it "
+        "(the reading the slice started from: whatever it stamped joins the "
+        "balance on the next walk)"
     )
     typer.echo(
         f"  losses: {result.docket_unserved} docket(s) unserved, "

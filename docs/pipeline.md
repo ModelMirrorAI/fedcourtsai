@@ -728,10 +728,19 @@ failures reports a converged class as a permanent defect: a docket carrying an
 entry for a missing kind with nothing fetchable behind it, and one carrying no
 such entry at all. A missing kind the selector found no entry for on a *modern*
 docket is not a floor but a selector regression, and those cases are named
-whichever floor their candidate was counted at. Like the OCR recovery it writes documents,
+whichever floor their candidate was counted at. Unlike the OCR recovery, it does
+not re-walk its floors: an apply **stamps** each candidate it reads at one
+(`document_floor_probed_at`), and the class holds a stamped candidate out until
+its docket is next polled, so a floor costs one paced docket GET per docket
+version rather than one per dispatch and a bounded slice reaches the tail of the
+class. `standing_floors` on the ledger is that held-out balance, beside
+`candidates`; a floor the selector-regression alarm fired on is never stamped.
+Like the OCR recovery it writes documents,
 which under the corpus split live in the content store, so the step re-walks the
 class afterwards — an empty slice, which costs no round trip — and requires
-exactly what the apply's ledger said it would leave behind.
+exactly what the apply's ledger said it would leave behind. The stamps are its
+one index write, so an applied slice that read any floor also moves the
+pointer.
 
 `mirror-stored-documents` moves to the content store the document text that
 reached only the blob. Under the corpus split the per-case store is the system

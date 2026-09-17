@@ -306,6 +306,31 @@ class CorpusRow(BaseModel):
         "and a fill-in latch like `last_pulled`, so a channel carrying no stamp "
         "preserves it.",
     )
+    document_floor_probed_at: date | None = Field(
+        default=None,
+        description="Tracking state: date the document back-fill "
+        "(`pipeline/document_backfill.py`) last read this case at one of its "
+        "floors — it fetched the docket and the selector found nothing fetchable "
+        "behind any kind the case is still missing. None until first floored. It "
+        "is that pass's exclusion key rather than a rotation key: a floored "
+        "candidate is held out of the gap class while this stamp is no older than "
+        "`last_live_polled`, because the floor was read off the same "
+        "supremecourt.gov docket that stamp tracks and a re-read would spend a "
+        "paced round trip to learn the same thing. The next poll of the docket "
+        "moves `last_live_polled` past the stamp and the candidate is a candidate "
+        "again — within a cycle for a docket the live rotation still serves, and "
+        "never for one that has left it (decided, or below the rotation's Term "
+        "floor), which is the terminal reading for a closed docket the Court "
+        "served no PDF on. "
+        "Written only by that pass, on an apply, and only at a floor a fetch "
+        "cannot be blamed for — a recovered case leaves the class on its own, "
+        "and a floor on a modern docket the selector could not read is the "
+        "pass's own alarm rather than the docket's word, so it is never "
+        "stamped. Written through `stamp_document_floor_probe` rather than the "
+        "row upsert, and a fill-in latch like `last_pulled` so a channel "
+        "carrying no stamp preserves it — under the split the latch is the only "
+        "thing that does, since the live channel's own upserts carry none.",
+    )
     last_live_polled: date | None = Field(
         default=None,
         description="Tracking state: date the SCOTUS live channel (supremecourt.gov "
@@ -782,7 +807,15 @@ CREATE TABLE IF NOT EXISTS cases (
     -- walk takes never-attempted rows first and then the stalest stamp, so its
     -- permanent residue rotates to the back instead of heading every run.
     -- NULL = never attempted.
-    opinion_enrich_attempted_at TEXT
+    opinion_enrich_attempted_at TEXT,
+    -- The document back-fill's floor probe (see CorpusRow and
+    -- pipeline/document_backfill.py): the date that pass last read this case at
+    -- one of its floors, having fetched the docket and found nothing fetchable
+    -- behind a kind the case is missing. The gap class holds the candidate out
+    -- while the stamp is no older than `last_live_polled`, so a floor costs one
+    -- paced docket GET per poll of that docket rather than one per dispatch.
+    -- NULL = never floored.
+    document_floor_probed_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -937,6 +970,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "merits_terminated": "TEXT",
     "capital_case": "INTEGER NOT NULL DEFAULT 0",
     "opinion_enrich_attempted_at": "TEXT",
+    "document_floor_probed_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1328,6 +1362,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "opinion_enrich_attempted_at": (
             row.opinion_enrich_attempted_at.isoformat() if row.opinion_enrich_attempted_at else None
         ),
+        "document_floor_probed_at": (
+            row.document_floor_probed_at.isoformat() if row.document_floor_probed_at else None
+        ),
         "predict_eligible": int(row.predict_eligible),
         "predict_excluded": int(row.predict_excluded),
         "originating_court": row.originating_court,
@@ -1449,6 +1486,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         summary=record["summary"],
         last_pulled=(date.fromisoformat(record["last_pulled"]) if record["last_pulled"] else None),
         opinion_enrich_attempted_at=_optional_date(record, "opinion_enrich_attempted_at"),
+        document_floor_probed_at=_optional_date(record, "document_floor_probed_at"),
         predict_eligible=bool(record["predict_eligible"]),
         predict_excluded=bool(record["predict_excluded"]),
         originating_court=record["originating_court"],
@@ -1486,7 +1524,8 @@ def _update_clause(column: str) -> str:
 
     Most columns take the incoming value (``excluded``). Five latch families are
     special: channel-supplied facts (``last_pulled``, the opinion-enrichment
-    walk's ``opinion_enrich_attempted_at`` cursor, and the fill-in slice of
+    walk's ``opinion_enrich_attempted_at`` cursor, the document back-fill's
+    ``document_floor_probed_at`` floor probe, and the fill-in slice of
     the live-parsed signals — the conference and CVSG dates, and the dated
     interim/merits signals beside them)
     only ever fill in, so a writer that does not carry the fact keeps what
@@ -1514,6 +1553,7 @@ def _update_clause(column: str) -> str:
     if column in (
         "last_pulled",
         "opinion_enrich_attempted_at",
+        "document_floor_probed_at",
         "last_live_polled",
         "distributed_for_conference",
         "cvsg_date",
@@ -1536,7 +1576,11 @@ def _update_clause(column: str) -> str:
         # `opinion_enrich_attempted_at` takes the same rule from the other side:
         # only the enrichment walk ever carries it, so every other writer's NULL
         # must preserve the cursor, while the walk's own stamp — never NULL —
-        # always wins and so advances the rotation.
+        # always wins and so advances the rotation. `document_floor_probed_at`
+        # is that shape again, and the latch is what makes it readable at all:
+        # the probe means something only when it is compared against
+        # `last_live_polled`, so a live poll that wiped it would destroy the
+        # comparison at exactly the moment it is supposed to settle it.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column in (
         "distribution_count",
@@ -2974,6 +3018,38 @@ def stamp_evaluate_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day
         conn.executemany(
             "UPDATE cases SET evaluate_queued_at = ? WHERE case_id = ?",
             [(day.isoformat(), case_id) for case_id in case_ids],
+        )
+
+
+def stamp_document_floor_probe(conn: sqlite3.Connection, case_id: str, probed_at: date) -> None:
+    """Record the date the document back-fill read this case at a fetch floor.
+
+    That pass's sole writer of ``document_floor_probed_at``, and the reason it
+    is a direct ``UPDATE`` rather than an :func:`upsert_rows` round trip is the
+    corpus split. The pass reads its population off the **index**, where the
+    opinion body is stripped (:func:`upsert_rows` nulls it there and the store's
+    ``case.json`` holds it), so writing such a row back would re-mirror a
+    body-less ``case.json`` over the one the store has — deleting the body in
+    place while ``has_opinion`` stays max-latched ``True``, on a class that is
+    granted and decided and so exactly the class the opinion enrichment lands
+    bodies on. A column write touches the column.
+
+    The cost is the one every direct-``UPDATE`` writer on ``cases`` pays, and
+    :mod:`fedcourtsai.casestore`'s header records this one among them:
+    ``case.json`` lags the index on this column until the case is next
+    re-ingested. That is the right side to be wrong on —
+    the index is the system of record for a tracking column, nothing reads this
+    one out of the store, and a stale stamp there costs a reader nothing, where
+    a lost opinion body costs a case its text.
+
+    Overwrites forward: the stamp is "when this pass last read a floor here",
+    and a later reading of the same floor is the one the exclusion is measured
+    against.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE cases SET document_floor_probed_at = ? WHERE case_id = ?",
+            (probed_at.isoformat(), case_id),
         )
 
 

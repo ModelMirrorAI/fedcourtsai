@@ -439,9 +439,14 @@ def test_the_ocr_slice_deadline_keeps_its_reserve_under_the_steps_own_cap() -> N
 #: What the document back-fill's apply holds back between the slice deadline it
 #: passes and its own `timeout-minutes`: the walk-only witness re-read, the blob
 #: push, the pointer commit, and the work a started candidate can run past the
-#: deadline. As with the OCR reserve above, the arithmetic is stated beside the
-#: invocation and repeated here so the two halves cannot move apart.
-DOCUMENT_BACKFILL_DEADLINE_RESERVE_SECONDS = 540
+#: deadline. The push term is double the OCR recovery's, because this pass's
+#: floor probes are index columns: the index moves on any applied slice that
+#: read a floor, so the push is the ordinary path rather than a reserved one,
+#: and the exclusions are durable only once it lands (the documents are already
+#: banked per case in the content store). As with the OCR reserve above, the
+#: arithmetic is stated beside the invocation and repeated here so the two
+#: halves cannot move apart.
+DOCUMENT_BACKFILL_DEADLINE_RESERVE_SECONDS = 600
 
 #: And what its *dry run* holds back, which is smaller because a dry run commits
 #: and pushes nothing: only a started candidate's own docket fetch follows it.
