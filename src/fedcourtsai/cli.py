@@ -151,15 +151,19 @@ from .leaderboard import (
 from .matrix import (
     CappedMatrix,
     CaseRequest,
+    CollectPr,
     GuardedMatrix,
     StrandedCell,
+    StrandedReason,
     cap_predict_cells,
+    classify_stranded_cells,
     drop_stranded_cells,
     evaluate_matrix,
     event_has_evaluations,
     event_has_predictions,
     parse_cases,
     predict_matrix,
+    read_collect_prs,
     read_stranded_census,
     reopened_for,
 )
@@ -11682,7 +11686,8 @@ def _predict_backlog_cases() -> list[CaseRequest]:
     consequences hold: the debounce is one-directional (this lane honours the
     stamp the pull/live lane wrote and leaves none of its own), and the gate
     reads *committed* state, so what bounds a second derivation firing before a
-    collect PR merges is the workflow's concurrency group, not this gate.
+    collect PR merges is the stranded-run guard — the workflow's concurrency
+    group serializes *rounds*, which is a different window — not this gate.
 
     Writing no stamp has a **third** consequence, which belongs to whoever wires
     a workflow to this and is not addressed here: the live channel's relist
@@ -12048,35 +12053,104 @@ _STRANDED_RERUN_CAVEAT = (
     "`collect` job alone instead."
 )
 _STRANDED_OVERRIDE = (
-    "The guard releases itself: a run leaves the census once its `collect` concludes success, "
-    "and ages out of the 48-hour window regardless. To get a fresh round *sooner*, delete the "
-    "stranded run's cell artifacts (`gh api -X DELETE "
-    "repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and let the next derivation mint "
-    "them again — an explicit act rather than a dispatch."
+    "The guard releases itself: a run stops being withheld once its collect PR settles — merged, "
+    "which is when the ledger actually gains the predictions, or closed unmerged, which abandons "
+    "them — and ages out of the 48-hour census window regardless. To get a fresh round *sooner*, "
+    "delete the stranded run's cell artifacts (`gh api -X DELETE "
+    "repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and let the next derivation mint them "
+    "again — an explicit act rather than a dispatch."
 )
+#: The remedy is different for each way a run can hold unlanded output, and
+#: naming the wrong one is worse than naming none: rerunning `collect` on a run
+#: whose PR is merely unmerged does nothing, and waiting for a merge that a
+#: withheld collect will never open wedges the lane. Templated on the run's
+#: database id and keyed here once, so the per-cell warning, the all-withheld
+#: note and the step summary carry the same sentence and cannot drift.
+_STRANDED_REMEDY: dict[StrandedReason, str] = {
+    StrandedReason.UNCOLLECTED: (
+        "its `collect` never succeeded, so the predictions are still cell artifacts — rerun "
+        "the collect job (`gh run rerun {run} --failed`)"
+    ),
+    StrandedReason.UNMERGED_COLLECT_PR: (
+        "its `collect` opened a PR that has not merged, so the predictions are on a branch "
+        "rather than in the ledger — merge that PR"
+    ),
+    StrandedReason.WITHHELD_COLLECT: (
+        "its `collect` concluded success having pushed no branch at all, which is what a "
+        "secret-scan withhold looks like from outside — review the run's withheld content and "
+        "salvage it by hand (pipeline.md -> Recovering a run whose `collect` failed)"
+    ),
+}
 
 
-def _stranded_note(runs: Sequence[int]) -> str:
+def _stranded_remedy(cell: StrandedCell) -> str:
+    """The one sentence saying what lands this cell's run, run id filled in."""
+    return _STRANDED_REMEDY[cell.reason].format(run=cell.run_db_id)
+
+
+def _stranded_where(cell: StrandedCell) -> str:
+    """Where one withheld cell's output actually sits, named for a reader.
+
+    The run is always named — it is the handle every remedy starts from — and
+    the collect PR is named beside it where there is one, because "waiting on
+    collect PR #<n> to merge" is a fact a maintainer can act on in one click,
+    while a bare run id sends them hunting for the PR first.
+    """
+    if cell.collect_pr is not None:
+        return f"run {cell.run_db_id} (collect PR #{cell.collect_pr})"
+    return f"run {cell.run_db_id}"
+
+
+def _stranded_run_lines(cells: Sequence[StrandedCell]) -> list[str]:
+    """One line per withheld run: where its output is, and what to do about it.
+
+    Grouped by run rather than by cell because the remedy is per run — a
+    75-cell fan-out has one PR to merge, not 75 — and ordered by run id so the
+    line order is stable across passes.
+    """
+    by_run: dict[int, StrandedCell] = {}
+    for cell in cells:
+        by_run.setdefault(cell.run_db_id, cell)
+    lines: list[str] = []
+    for run_db_id in sorted(by_run):
+        cell = by_run[run_db_id]
+        count = sum(1 for c in cells if c.run_db_id == run_db_id)
+        lines.append(f"- {count} cell(s) from {_stranded_where(cell)}: {_stranded_remedy(cell)}.")
+    return lines
+
+
+def _stranded_note(cells: Sequence[StrandedCell]) -> str:
     """The recovery note for a round the guard withheld entirely.
 
     Written to ``--stranded-note-file``, and only in that all-withheld case, so
     the file's *presence* is also the marker the plan step branches on: an empty
-    matrix that means "recover that run" and one that means "the backlog is
+    matrix that means "land that run" and one that means "the backlog is
     drained" are identical from the count alone. The surface it is written for
     is the run's own step summary — a schedule-driven round is addressed to
     whoever reads the run, not to a request someone filed — so the note names
     the round rather than an issue, and its closing line is about what the next
     derivation will do rather than about closing anything.
+
+    One line per withheld run, each carrying that run's own remedy, because the
+    three ways output goes unlanded do not share one: an uncollected run is
+    rerun, an unmerged PR is merged, and a withheld collect is salvaged by hand.
     """
-    reruns = "\n".join(f"    gh run rerun {run} --failed" for run in runs)
+    # The caveat rides only where a rerun is actually the remedy: on a note that
+    # is entirely unmerged PRs it would be advice about a command nobody should
+    # run.
+    caveat = (
+        f"\n{_STRANDED_RERUN_CAVEAT}\n"
+        if any(cell.reason is StrandedReason.UNCOLLECTED for cell in cells)
+        else ""
+    )
+    lines = _stranded_run_lines(cells)
+    subject = "that run" if len(lines) == 1 else "those runs"
+    rendered = "\n".join(lines)
     return (
-        "Every cell this round would have minted already ran in a run whose `collect` never "
-        "succeeded — the predictions exist as cell artifacts; what is missing is the step that "
-        f"commits them. Recover {'that run' if len(runs) == 1 else 'those runs'} rather than "
-        "starting another round, which would re-spend the same tokens on the same events — "
-        "rerun the collect job:\n\n"
-        f"{reruns}\n\n"
-        f"{_STRANDED_RERUN_CAVEAT}\n\n"
+        "Every cell this round would have minted already ran in a run whose output has not "
+        "reached the ledger — the predictions exist; what is missing is the step that commits "
+        f"them. Land {subject} rather than starting another round, which would re-spend the "
+        f"same tokens on the same events:\n\n{rendered}\n{caveat}\n"
         "Nothing is lost by leaving this round here: an event with no committed prediction is "
         f"still owed, and the next scheduled round derives it again. {_STRANDED_OVERRIDE}\n"
     )
@@ -12094,11 +12168,22 @@ class _StrandedGuardReport:
     the guard could not read, which leaves it *partly* blind even when active —
     a withheld count that is honest about the records it was able to match, and
     silent about the ones it was not.
+
+    ``collect_pr_arm_off`` is the same honesty for the half of the guard that
+    judges a *collected* run by its collect PR: without the PR census that arm
+    cannot run, so a run whose PR is merely unmerged reads as landed and its
+    cells re-mint. That is the fail-open direction by design, and a plan that
+    did not say so would look exactly like one whose runs had all landed.
+    ``unparsed_collect_prs`` is that arm's partial blindness, reported for the
+    same reason ``unparsed`` is: an arm that ran but could not read some of its
+    rows is not an arm that found nothing.
     """
 
     active: bool = False
     degraded_reason: str | None = None
+    collect_pr_arm_off: str | None = None
     unparsed: tuple[str, ...] = ()
+    unparsed_collect_prs: tuple[str, ...] = ()
     withheld: tuple[StrandedCell, ...] = ()
 
     def as_json(self) -> dict[str, Any]:
@@ -12106,7 +12191,13 @@ class _StrandedGuardReport:
         return {
             "active": self.active,
             "degraded_reason": self.degraded_reason,
+            "collect_pr_arm_off": self.collect_pr_arm_off,
             "unparsed_records": list(self.unparsed),
+            "unparsed_collect_pr_records": list(self.unparsed_collect_prs),
+            "withheld_by_reason": {
+                reason.value: sum(1 for cell in self.withheld if cell.reason is reason)
+                for reason in StrandedReason
+            },
         }
 
 
@@ -12114,21 +12205,46 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
     """The minting path's record of what the stranded-run guard withheld.
 
     Three channels, all of them a run's record rather than a plan's: a
-    ``::warning::`` per withheld cell carrying its own recovery command, the
-    escalated ``::error::`` plus the ``note_file`` recovery note when the guard
-    emptied the matrix (the plan step branches on that file's presence so an
-    empty matrix reads as "recover that run" rather than as a drained backlog),
-    and the Actions step summary. Called only when something was actually
-    withheld.
+    ``::warning::`` per withheld cell carrying its own remedy, the escalated
+    ``::error::`` plus the ``note_file`` recovery note when the guard emptied
+    the matrix (the plan step branches on that file's presence so an empty
+    matrix reads as "land that run" rather than as a drained backlog), and the
+    Actions step summary. Called only when something was actually withheld.
     """
-    runs = sorted({cell.run_db_id for cell in guarded.withheld})
-    run_list = ", ".join(str(run) for run in runs)
+    run_lines = _stranded_run_lines(guarded.withheld)
+    # The rerun caveat is advice about `gh run rerun`, so it rides only where a
+    # rerun is one of the remedies; on a round withheld entirely by unmerged PRs
+    # it would warn about a command nobody should run.
+    caveat = (
+        f"{_STRANDED_RERUN_CAVEAT} "
+        if any(cell.reason is StrandedReason.UNCOLLECTED for cell in guarded.withheld)
+        else ""
+    )
+    withheld_runs = sorted(
+        {
+            cell.run_db_id
+            for cell in guarded.withheld
+            if cell.reason is StrandedReason.WITHHELD_COLLECT
+        }
+    )
+    for run_db_id in withheld_runs:
+        # Its own line, because this one is not self-clearing: no rerun and no
+        # merge lands it, and a maintainer who does not read it loses the run's
+        # whole spend when the artifacts' retention lapses.
+        typer.echo(
+            f"::warning::{stage}: run {run_db_id}'s `collect` concluded success but pushed no "
+            f"branch — the signature of a withheld collect. Its cells' output exists only as "
+            f"that run's artifacts, for their retention window: review the withheld content and "
+            f"salvage it by hand, or accept the re-spend (pipeline.md -> Recovering a run whose "
+            f"`collect` failed).",
+            err=True,
+        )
     for cell in guarded.withheld:
         typer.echo(
             f"::warning::{stage}: withheld {cell.predictor_id} "
-            f"{ids.case_id(cell.court, cell.docket)} {cell.event_id} — its output already "
-            f"sits in uncollected run {cell.run_db_id}; recover it with "
-            f"`gh run rerun {cell.run_db_id} --failed` rather than re-spending the cell",
+            f"{ids.case_id(cell.court, cell.docket)} {cell.event_id} — its output already sits "
+            f"in {_stranded_where(cell)}, where {_stranded_remedy(cell)}, rather than "
+            f"re-spending the cell",
             err=True,
         )
     if not guarded.include:
@@ -12136,31 +12252,32 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
         # indistinguishable from a drained backlog by the count alone. Write the
         # note that says otherwise, and escalate here so the cause is on the
         # record even if the note never reaches a reader.
+        summary = " ".join(line.lstrip("- ") for line in run_lines)
         typer.echo(
             f"::error::{stage}: the stranded-run guard withheld ALL "
             f"{len(guarded.withheld)} cell(s) — every event this round derived already ran in "
-            f"uncollected run(s) {run_list}. Recover rather than re-run: "
-            f"`gh run rerun {runs[0]} --failed`. {_STRANDED_RERUN_CAVEAT} " + _STRANDED_OVERRIDE,
+            f"a run whose output has not reached the ledger. {summary} " + _STRANDED_OVERRIDE,
             err=True,
         )
         if note_file is not None:
             try:
-                note_file.write_text(_stranded_note(runs), encoding="utf-8")
+                note_file.write_text(_stranded_note(guarded.withheld), encoding="utf-8")
             except OSError as exc:
                 # An unwritable note costs the round's summary its honest
                 # explanation, never the run: the ::error:: above is already on
                 # the record, and the guard's own summary section below carries
-                # the run ids and the rerun command.
+                # the runs and their remedies.
                 typer.echo(
                     f"::warning::{stage}: could not write the stranded-run recovery note to "
                     f"{note_file} ({exc}); the empty matrix is left to read as a drained backlog",
                     err=True,
                 )
     else:
+        runs = ", ".join(str(run) for run in sorted({c.run_db_id for c in guarded.withheld}))
         typer.echo(
             f"::warning::{stage}: the stranded-run guard withheld "
-            f"{len(guarded.withheld)} cell(s) whose output sits in uncollected run(s) "
-            f"{run_list}; the remaining {len(guarded.include)} cell(s) are genuinely new",
+            f"{len(guarded.withheld)} cell(s) whose output sits in run(s) {runs} that have not "
+            f"reached the ledger; the remaining {len(guarded.include)} cell(s) are genuinely new",
             err=True,
         )
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -12168,12 +12285,70 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
         with open(summary_path, "a", encoding="utf-8") as fh:
             fh.write(
                 f"## run-predict — stranded-run guard withheld {len(guarded.withheld)} cell(s)\n"
-                f"Their output already sits in uncollected run(s) {run_list}, whose `collect` did "
-                f"not succeed: the tokens are spent and the predictions exist as cell artifacts. "
-                f"Recover with `gh run rerun {runs[0]} --failed` rather than starting another "
-                f"round. {_STRANDED_RERUN_CAVEAT} Kept {len(guarded.include)} genuinely new "
+                f"Their output already exists — the tokens are spent — but has not reached "
+                f"committed state, which is what the already-predicted gate reads. "
+                f"Land {'that run' if len(run_lines) == 1 else 'those runs'} rather than "
+                f"starting another round:\n\n"
+                + "\n".join(run_lines)
+                + f"\n\n{caveat}Kept {len(guarded.include)} genuinely new "
                 f"cell(s). {_STRANDED_OVERRIDE}\n"
             )
+
+
+def _read_collect_prs(
+    collect_prs_file: Path | None, guard: _StrandedGuardReport, *, stage: str, report: bool
+) -> Sequence[CollectPr] | None:
+    """The collect-PR census, or ``None`` with the reason recorded on ``guard``.
+
+    ``None`` disarms the half of the guard that judges a run whose `collect`
+    *succeeded*, leaving the original uncollected-run half armed. Every failure
+    lands there — no file asked for, a census step that could not fetch one
+    (it deletes the file rather than writing an empty list, since an empty list
+    is a claim), or a file that does not parse — because this guard prevents an
+    expensive failure rather than a dangerous one: a census it cannot trust must
+    never be the reason a legitimate round does not start.
+    """
+    if collect_prs_file is None:
+        guard.collect_pr_arm_off = "no collect-PR census was supplied"
+        return None
+    # The repository whose heads this lane's collect branches live in, from the
+    # runner's own ambient variable: the pulls listing includes fork PRs, whose
+    # head ref is the fork's branch name, so a head is only this lane's word for
+    # a run when it lives here. Unset outside Actions, where the file is
+    # hand-built and there is no fork to confuse it with.
+    repo = os.environ.get("GITHUB_REPOSITORY") or None
+    try:
+        census = read_collect_prs(collect_prs_file, repo=repo)
+    except (OSError, ValueError) as exc:
+        guard.collect_pr_arm_off = f"{collect_prs_file} is unreadable ({exc})"
+        if report:
+            typer.echo(
+                f"::warning::{stage}: the stranded-run guard's collect-PR arm is off — "
+                f"{collect_prs_file} is unreadable ({exc}). A run whose collect PR has not "
+                f"merged reads as landed, so its cells may be re-minted.",
+                err=True,
+            )
+        return None
+    if census is None:
+        guard.collect_pr_arm_off = f"{collect_prs_file} is absent; the census step wrote none"
+        if report:
+            typer.echo(
+                f"::warning::{stage}: the stranded-run guard's collect-PR arm is off — "
+                f"{collect_prs_file} is absent. A run whose collect PR has not merged reads as "
+                f"landed, so its cells may be re-minted.",
+                err=True,
+            )
+        return None
+    guard.unparsed_collect_prs = census.unparsed
+    if report:
+        for head in census.unparsed:
+            typer.echo(
+                f"::warning::{stage}: stranded-run guard skipped the collect-PR record {head!r} "
+                "— it is not one of this repository's own branches for this lane, and a guessed "
+                "reading would release or withhold the wrong run",
+                err=True,
+            )
+    return census.prs
 
 
 def _guarded_matrix(
@@ -12183,9 +12358,10 @@ def _guarded_matrix(
     *,
     stage: str,
     report: bool,
+    collect_prs_file: Path | None = None,
     guard_out: _StrandedGuardReport | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Withhold cells whose output sits in an uncollected run, and say so loudly.
+    """Withhold cells whose output has not reached the ledger, and say so loudly.
 
     Fails **open** in every degraded direction — an unreadable census, an
     artifact name that does not parse — because the failure this guard prevents
@@ -12210,12 +12386,12 @@ def _guarded_matrix(
     except (OSError, ValueError) as exc:
         guard.degraded_reason = (
             f"{stranded_file} is unreadable ({exc}); cells already sitting in an "
-            f"uncollected run may be re-minted"
+            f"unlanded run may be re-minted"
         )
         if report:
             typer.echo(
                 f"::warning::{stage}: the stranded-run guard is off — {stranded_file} is "
-                f"unreadable ({exc}). Cells already sitting in an uncollected run may be "
+                f"unreadable ({exc}). Cells already sitting in an unlanded run may be "
                 f"re-minted.",
                 err=True,
             )
@@ -12230,7 +12406,8 @@ def _guarded_matrix(
                 "guessed reading would withhold the wrong cell",
                 err=True,
             )
-    guarded = drop_stranded_cells(matrix, census.cells)
+    collect_prs = _read_collect_prs(collect_prs_file, guard, stage=stage, report=report)
+    guarded = drop_stranded_cells(matrix, classify_stranded_cells(census, collect_prs))
     guard.withheld = guarded.withheld
     if not guarded.withheld:
         return matrix
@@ -12271,6 +12448,7 @@ def _predict_fanout(
     stranded_file: Path | None,
     note_file: Path | None,
     report: bool,
+    collect_prs_file: Path | None = None,
 ) -> _PredictFanout:
     """Run the predict planning pipeline: scope, forecastability, ledger, guard, cap.
 
@@ -12382,12 +12560,13 @@ def _predict_fanout(
         settings.config_root / "predictors.yaml", cases, run_id, data_root=settings.data_root
     )
     # The stranded-run guard, before the volume cap so the cap's budget goes to
-    # genuinely new cells: a cell whose output already sits in a run whose
-    # `collect` never succeeded is withheld rather than re-spent. The ledger gate
-    # above cannot see those predictions — they are cell artifacts, not commits —
-    # which is exactly why a failed collect otherwise re-mints the whole run
-    # every live cycle. Fail-open in every degraded direction; see
-    # `_guarded_matrix` and `drop_stranded_cells`.
+    # genuinely new cells: a cell whose output sits in a run that has not reached
+    # the ledger — `collect` never succeeded, its PR has not merged, or it pushed
+    # no branch at all — is withheld rather than re-spent. The ledger gate above
+    # cannot see any of those predictions: they are cell artifacts or an unmerged
+    # branch, not commits on `main`, which is exactly why an uncollected or
+    # unlanded run otherwise re-mints itself every live cycle. Fail-open in every
+    # degraded direction; see `_guarded_matrix` and `drop_stranded_cells`.
     guard = _StrandedGuardReport()
     matrix = _guarded_matrix(
         matrix,
@@ -12395,6 +12574,7 @@ def _predict_fanout(
         note_file,
         stage=stage,
         report=report,
+        collect_prs_file=collect_prs_file,
         guard_out=guard,
     )
     # Salience-independent volume backstop, after scope filtering: hold the
@@ -12447,8 +12627,17 @@ def predict_matrix_cmd(
     stranded_file: Annotated[
         Path | None,
         typer.Option(
-            help="Census of cell artifacts left by recent runs whose collect did not succeed; "
-            "a cell already sitting in one is not re-minted. Absent or empty = guard off.",
+            help="Census of cell artifacts left by recent runs whose output has not reached "
+            "the ledger; a cell already sitting in one is not re-minted. Absent or empty = "
+            "guard off.",
+        ),
+    ] = None,
+    collect_prs_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="Census of this lane's collect PRs to main, which decides whether a run whose "
+            "collect succeeded actually landed. Absent = that arm off (a run whose PR is "
+            "unmerged reads as landed).",
         ),
     ] = None,
     stranded_note_file: Annotated[
@@ -12478,6 +12667,7 @@ def predict_matrix_cmd(
         run_id,
         stage="predict-matrix",
         stranded_file=stranded_file,
+        collect_prs_file=collect_prs_file,
         note_file=stranded_note_file,
         report=True,
     )
@@ -13198,7 +13388,30 @@ def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = 
     if breach is not None:
         lines.extend(["", f"> {breach}"])
     guard = plan.get("stranded_guard")
-    if guard is not None and (guard["degraded_reason"] or guard["unparsed_records"]):
+    withheld = plan.get("withheld_stranded") or []
+    if withheld:
+        # A quiet plan has two readings — the backlog is drained, or its cells
+        # are waiting on a run to land — and the count alone cannot tell them
+        # apart. Say which, name the run and its PR, and give the remedy, since
+        # this document is the whole of what an approver reads before deciding.
+        by_run: dict[tuple[int, object], list[dict[str, Any]]] = {}
+        for record in withheld:
+            by_run.setdefault((record["run_db_id"], record.get("collect_pr")), []).append(record)
+        lines.extend(["", "### Withheld: waiting on a run to land", ""])
+        for (run_db_id, collect_pr), records in sorted(by_run.items(), key=lambda kv: kv[0][0]):
+            where = f"run `{run_db_id}`" + (f", collect PR #{collect_pr}" if collect_pr else "")
+            lines.append(f"- {len(records)} cell(s) from {where} — {records[0]['remedy']}.")
+        lines.append("")
+        lines.append(
+            "Those cells are not new spend this round would buy: the tokens are already spent "
+            "and the output exists. Landing the run is what commits them."
+        )
+    if guard is not None and (
+        guard["degraded_reason"]
+        or guard["unparsed_records"]
+        or guard.get("unparsed_collect_pr_records")
+        or guard.get("collect_pr_arm_off")
+    ):
         # A withheld count of zero is three states and only one of them is a
         # reason to distrust the plan, so the two degraded ones are named where
         # the decision is made rather than left for the JSON. The reason goes in
@@ -13206,18 +13419,26 @@ def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = 
         # carries a repr like `<class 'dict'>` that GitHub's comment sanitizer
         # eats as a tag — leaving a reader "got ." where the cause should be —
         # and the span neutralizes any other markdown the exception carries.
-        detail = (
-            f"failed open (`{guard['degraded_reason']}`)"
-            if guard["degraded_reason"]
-            else f"ran but could not read {len(guard['unparsed_records'])} census record(s)"
-        )
+        if guard["degraded_reason"]:
+            detail = f"failed open (`{guard['degraded_reason']}`)"
+        elif guard.get("collect_pr_arm_off"):
+            detail = (
+                "ran without its collect-PR arm "
+                f"(`{guard['collect_pr_arm_off']}`), so a run whose collect PR has not merged "
+                "reads as landed"
+            )
+        else:
+            unreadable = len(guard["unparsed_records"]) + len(
+                guard.get("unparsed_collect_pr_records") or []
+            )
+            detail = f"ran but could not read {unreadable} census record(s)"
         lines.extend(
             [
                 "",
                 "### Stranded-run guard",
                 "",
                 f"The stranded-run guard {detail}, so a cell it could not check may re-spend "
-                f"output an uncollected run already produced.",
+                f"output a run has already produced but not landed.",
             ]
         )
     lines.extend(["", "### Would mint", ""])
@@ -13308,7 +13529,7 @@ def _echo_plan(
 
 
 @app.command("predict-plan")
-def predict_plan_cmd(
+def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     body_file: Annotated[
         Path | None,
         typer.Option(
@@ -13329,8 +13550,16 @@ def predict_plan_cmd(
     stranded_file: Annotated[
         Path | None,
         typer.Option(
-            help="Census of cell artifacts left by recent runs whose collect did not succeed, "
-            "as `predict-matrix` takes it; a cell already sitting in one is reported withheld.",
+            help="Census of cell artifacts left by recent runs whose output has not reached "
+            "the ledger, as `predict-matrix` takes it; a cell already sitting in one is "
+            "reported withheld.",
+        ),
+    ] = None,
+    collect_prs_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="Census of this lane's collect PRs to main, as `predict-matrix` takes it. "
+            "Absent = that arm off.",
         ),
     ] = None,
     run_id: Annotated[
@@ -13386,6 +13615,7 @@ def predict_plan_cmd(
         planned_run_id,
         stage="predict-plan",
         stranded_file=stranded_file,
+        collect_prs_file=collect_prs_file,
         # A plan writes nothing: no close note, and no step-summary block.
         note_file=None,
         report=False,
@@ -13464,7 +13694,16 @@ def predict_plan_cmd(
                 "event_id": cell.event_id,
                 "actor_id": cell.predictor_id,
                 "run_db_id": cell.run_db_id,
-                "reason": f"its output already sits in uncollected run {cell.run_db_id}",
+                "collect_pr": cell.collect_pr,
+                "unlanded": cell.reason.value,
+                # The remedy on its own as well as inside the reason sentence:
+                # a renderer that has already named the run needs the second
+                # half without repeating the first.
+                "remedy": _stranded_remedy(cell),
+                "reason": (
+                    f"its output already sits in {_stranded_where(cell)}, where "
+                    f"{_stranded_remedy(cell)}"
+                ),
             }
             for cell in fanout.guard.withheld
         ],

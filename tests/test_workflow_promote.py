@@ -24,6 +24,7 @@ import pytest
 import yaml
 
 from fedcourtsai import metrics_refresh
+from fedcourtsai.collect import run_branch
 from fedcourtsai.finalize import FinalizeRole
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -930,9 +931,14 @@ def test_main_base_jail_covers_every_legitimate_lane() -> None:
         assert f"startsWith(github.head_ref, '{role.value}/run-')" in condition
     # Pin the other end of the prefix coupling: the collect plan builder must
     # still construct branches under `<role>/run-`, or the jail's allowlist
-    # silently stops matching what collect actually pushes.
+    # silently stops matching what collect actually pushes. The branch name has
+    # one definition, so the pin reads that rather than each call site — and the
+    # real branches are what `run_branch` returns, so it is asserted on directly
+    # as well as in source.
     collect_src = (ROOT / "src" / "fedcourtsai" / "collect.py").read_text()
-    assert 'f"{role.value}/run-{run_id}"' in collect_src
+    assert 'f"{role.value}/run-{run_id}{suffix}"' in collect_src
+    for role in FinalizeRole:
+        assert run_branch(role, "20260916T170237Z").startswith(f"{role.value}/run-")
     assert "startsWith(github.head_ref, 'cleanup/')" in condition
     assert f"github.head_ref == '{metrics_refresh.REFRESH_BRANCH}'" in condition
     assert f"github.head_ref == '{metrics_refresh.BACKTEST_BRANCH}'" in condition

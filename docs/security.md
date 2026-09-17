@@ -342,12 +342,29 @@ The predict/evaluate `plan` job needs **no issue write at all**: a round derives
 its own backlog and holds no request open anywhere, so a matrix the scope gate
 empties strands nothing to close — the plan report on the run is the whole
 record. Its token is `contents: read` plus the `id-token: write` the read-only
-corpus role needs. Predict's `plan` also holds **`actions: read`**, on the same
-ambient token and the same reasoning as `collect`: its stranded-run guard lists
-recent runs and their artifact *names* (it downloads nothing) to avoid re-minting
-cells that already ran, the grant is repo-wide because Actions scopes cannot be
-run-scoped, and `plan` runs no agent code — the census step's only inputs are
-this workflow's own run history.
+corpus role needs. Predict's `plan` also holds **`actions: read`** and
+**`pull-requests: read`**, both on the same ambient token and the same reasoning
+as `collect`'s: its stranded-run guard lists recent runs and their artifact
+*names* (it downloads nothing) and reads whether this lane's collect PR has
+merged, to avoid re-minting cells that already ran. Both grants are repo-wide
+because neither scope can be narrowed to one run or one branch, both are reads
+with no write beside them, and `plan` runs no agent code — it opens, comments on
+and reviews nothing. The PR read is what `contents: read` cannot answer: the
+merge state of a branch this job never fetches.
+
+That read is the census step's one input from outside this workflow's own run
+history, and it is bounded twice. It takes only PR metadata — number, head ref,
+head repository, state, merge stamp — projected in the API call itself, so the
+PR *bodies*, which carry rolled-up agent flag text on this lane, never reach the
+job. And it counts a head only from **this** repository: the pulls listing
+includes fork PRs, whose head ref is the fork's own branch name with no owner in
+it, so on a public repo a branch named `predict/run-<stamp>` on anyone's fork
+would otherwise read as a run's open collect PR and withhold a legitimate round.
+Pushing a branch here needs write access, which is what makes a head ref this
+lane's own word — the same conjunct `ci.yml`'s `main-base` jail requires before
+believing a head's name. The test is applied in the fetch and again in
+`read_collect_prs`, so a row from anywhere else is dropped and reported rather
+than believed.
 
 ## The `prod` environment
 

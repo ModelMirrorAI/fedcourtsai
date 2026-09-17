@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import cli, corpus
 from fedcourtsai.cli import app
-from fedcourtsai.collect import ExpectedCell, cell_artifact_name
+from fedcourtsai.collect import ExpectedCell, cell_artifact_name, run_branch
 from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.pipeline import moments
@@ -243,12 +243,26 @@ def _stranded_census(tmp_path: Path, records: list[dict[str, object]]) -> Path:
     return path
 
 
-def _stranded_cell(run_db_id: int, predictor_id: str) -> dict[str, object]:
+#: The census's run window, as the runs API spells it. The collect branch's
+#: pipeline run id is minted inside it, which is the whole basis of the join.
+_RUN_STARTED = "2026-09-16T17:01:54Z"
+_RUN_UPDATED = "2026-09-16T18:35:03Z"
+_RUN_PLAN_ID = "20260916T170237Z"
+
+
+def _stranded_cell(
+    run_db_id: int, predictor_id: str, *, collected: bool = False
+) -> dict[str, object]:
     """One census record for the shared single-case fixture's event.
 
     The artifact name is built by the production helper the cell workflows'
     upload step mirrors, so a change to the naming convention breaks this test
     rather than silently disarming the guard.
+
+    ``collected`` is whether that run's `collect` job concluded success. False
+    is the original guard's population — a run whose collect failed — and needs
+    no PR census to be withheld; True asks the collect-PR arm whether the run
+    actually landed.
     """
     return {
         "run_db_id": run_db_id,
@@ -256,6 +270,40 @@ def _stranded_cell(run_db_id: int, predictor_id: str) -> dict[str, object]:
             FinalizeRole.predict,
             ExpectedCell(actor=predictor_id, court="scotus", docket=24001, event_id=EVENT),
         ),
+        "collect_succeeded": collected,
+        "run_started_at": _RUN_STARTED,
+        "run_updated_at": _RUN_UPDATED,
+    }
+
+
+def _collect_prs(tmp_path: Path, records: list[dict[str, object]]) -> Path:
+    """Write the plan job's collect-PR census — the other half of its API step."""
+    path = tmp_path / "collect-prs.json"
+    path.write_text(json.dumps(records))
+    return path
+
+
+#: The repository the census step names, and the one the CLI reads back out of
+#: the runner's ambient variable. A head anywhere else is a fork's.
+_REPO = "ModelMirrorAI/fedcourtsai"
+
+
+def _collect_pr(
+    number: int,
+    *,
+    run_id: str = _RUN_PLAN_ID,
+    is_open: bool,
+    merged: bool,
+    suffix: str = "",
+    head_repo: str = _REPO,
+) -> dict[str, object]:
+    """One collect-PR census record, its head ref built by the production helper."""
+    return {
+        "number": number,
+        "head_ref": run_branch(FinalizeRole.predict, run_id, suffix=suffix),
+        "head_repo": head_repo,
+        "is_open": is_open,
+        "merged": merged,
     }
 
 
@@ -287,7 +335,277 @@ def test_predict_matrix_withholds_a_cell_stranded_in_an_uncollected_run(tmp_path
     }
     # The note names the run and the recovery, never a re-queue.
     assert "::warning::" in result.stderr
-    assert "uncollected run 4242" in result.stderr
+    assert "sits in run 4242" in result.stderr
+    assert "`collect` never succeeded" in result.stderr
+    assert "gh run rerun 4242 --failed" in result.stderr
+
+
+def _guard_run(
+    tmp_path: Path,
+    census_records: list[dict[str, object]],
+    pr_records: list[dict[str, object]] | None,
+) -> Any:
+    """One `predict-matrix` pass over the single-case fixture with the guard armed.
+
+    ``pr_records`` of ``None`` points ``--collect-prs-file`` at a file that does
+    not exist, which is the collect-PR arm switched off — exactly what the
+    census step leaves behind when it could not read the pulls API, since it
+    deletes the file rather than writing an empty list.
+    """
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    env["GITHUB_REPOSITORY"] = _REPO
+    args = [
+        "predict-matrix",
+        "--run-id",
+        "RID",
+        "--body-file",
+        str(body),
+        "--stranded-file",
+        str(_stranded_census(tmp_path, census_records)),
+    ]
+    prs = (
+        _collect_prs(tmp_path, pr_records)
+        if pr_records is not None
+        else tmp_path / "collect-prs.json"
+    )
+    args += ["--collect-prs-file", str(prs)]
+    return runner.invoke(app, args, env=env)
+
+
+def test_predict_matrix_withholds_a_cell_whose_collect_pr_has_not_merged(tmp_path: Path) -> None:
+    # The defect this arm exists for: `collect` concluded success, so the run
+    # reads as collected — but its PR is still open, the predictions are on a
+    # branch, and the already-predicted gate reads `main`. Approving this round
+    # would re-mint every cell the open PR already carries.
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline", collected=True)],
+        [_collect_pr(1845, is_open=True, merged=False)],
+    )
+    assert result.exit_code == 0
+    assert {c["predictor_id"] for c in _cells(result.stdout)} == {
+        "codex-baseline",
+        "gemini-baseline",
+    }
+    # The remedy is a merge, not a rerun — naming the wrong one sends a
+    # maintainer to `gh run rerun` on a run that has nothing left to collect.
+    assert "collect PR #1845" in result.stderr
+    assert "merge that PR" in result.stderr
+    assert "gh run rerun" not in result.stderr
+
+
+def test_predict_matrix_releases_a_run_whose_collect_pr_merged(tmp_path: Path) -> None:
+    # The guard's release: once the PR lands, the ledger holds the predictions
+    # and the already-predicted gate — not this guard — is what dedupes them. A
+    # guard that kept withholding here would wedge the lane for its whole window.
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline", collected=True)],
+        [_collect_pr(1845, is_open=False, merged=True)],
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 3
+    assert "stranded" not in result.stderr
+
+
+def test_predict_matrix_withholds_a_run_whose_collect_pushed_no_branch(tmp_path: Path) -> None:
+    # A collect the secret scan withheld concludes success having pushed
+    # nothing, so no PR carries its run's stamp. The output exists only as cell
+    # artifacts, for their retention window, and only a hand salvage recovers it
+    # — so the warning names the doctrine rather than a command that would not
+    # help.
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline", collected=True)],
+        [_collect_pr(1845, run_id="20260101T000000Z", is_open=False, merged=True)],
+    )
+    assert result.exit_code == 0
+    assert {c["predictor_id"] for c in _cells(result.stdout)} == {
+        "codex-baseline",
+        "gemini-baseline",
+    }
+    assert "run 4242's `collect` concluded success but pushed no branch" in result.stderr
+    assert "salvage it by hand" in result.stderr
+
+
+def test_predict_matrix_releases_a_run_whose_collect_pr_was_abandoned(tmp_path: Path) -> None:
+    # Closed unmerged is a decision not to land that output, so re-minting the
+    # cells *is* the recovery. Only an open PR withholds.
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline", collected=True)],
+        [_collect_pr(1845, is_open=False, merged=False)],
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 3
+    assert "stranded" not in result.stderr
+
+
+def test_predict_matrix_matches_a_suffixed_collect_branch(tmp_path: Path) -> None:
+    # A run opens more than one branch (`-partial`, `-facts`) and a maintainer
+    # salvaging one by hand opens another. All of them carry the run's stamp, so
+    # all of them are the run's PRs — and an open one withholds whichever kind it
+    # is, because the run's output is still not on `main`.
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline", collected=True)],
+        [
+            _collect_pr(1846, suffix="-facts", is_open=False, merged=True),
+            _collect_pr(1847, suffix="-partial", is_open=True, merged=False),
+        ],
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 2
+    assert "collect PR #1847" in result.stderr
+
+
+def test_predict_matrix_ignores_a_fork_head_that_names_this_lane(tmp_path: Path) -> None:
+    # The pulls listing carries fork PRs, and a fork's head ref is its own branch
+    # name with no owner in it — so on a public repo anyone can open a PR to
+    # `main` from a branch called `predict/run-<stamp>`. Believing one would
+    # withhold a legitimate round: fail-CLOSED, the direction this guard must
+    # never take. The head must live in this repository, where pushing a branch
+    # needs write access.
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline", collected=True)],
+        [
+            _collect_pr(1845, is_open=False, merged=True),
+            _collect_pr(9999, is_open=True, merged=False, head_repo="outsider/fedcourtsai"),
+        ],
+    )
+    assert result.exit_code == 0
+    # Released by its real, merged PR; the fork's row is dropped and reported.
+    assert len(_cells(result.stdout)) == 3
+    assert "collect PR #9999" not in result.stderr
+    assert "not one of this repository's own branches" in result.stderr
+
+
+def test_predict_matrix_withholds_a_run_whose_window_opens_before_a_rerun(
+    tmp_path: Path,
+) -> None:
+    # `run_started_at` resets to the latest attempt, and rerunning `collect` is
+    # this guard's own remedy — so the window must open at the run's *creation*,
+    # or a recovered run reads as having pushed no branch and the plan sends a
+    # maintainer to hand-salvage a run whose PR is merging. The census supplies
+    # the earlier bound; this pins that the verdict honours it.
+    record = _stranded_cell(4242, "claude-baseline", collected=True)
+    # The run id was minted by attempt 1, well before a re-run's start.
+    record["run_started_at"] = "2026-09-16T17:01:54Z"
+    result = _guard_run(tmp_path, [record], [_collect_pr(1845, is_open=True, merged=False)])
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 2
+    assert "collect PR #1845" in result.stderr
+    assert "pushed no branch" not in result.stderr
+
+
+def test_predict_matrix_an_armed_empty_pr_census_convicts_a_collected_run(
+    tmp_path: Path,
+) -> None:
+    # The distinction the census step spends a `rm -f` on: a present-but-empty
+    # JSON list is the *claim* that this lane has no collect PR, so a collected
+    # run reads as having pushed no branch. An absent file is the arm off. A
+    # refactor that collapsed the two — returning early on an empty list — would
+    # leave every other test green.
+    result = _guard_run(tmp_path, [_stranded_cell(4242, "claude-baseline", collected=True)], [])
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 2
+    assert "pushed no branch" in result.stderr
+
+
+def test_predict_matrix_names_the_cheaper_remedy_across_two_unlanded_runs(
+    tmp_path: Path,
+) -> None:
+    # One cell can sit in two unlanded runs. Either recovers it, but they do not
+    # cost the same: naming the hand salvage while a one-click merge exists is
+    # honest and still sends a maintainer the wrong way.
+    withheld = _stranded_cell(4343, "claude-baseline", collected=True)
+    withheld["run_started_at"] = "2026-09-16T20:18:24Z"
+    withheld["run_updated_at"] = "2026-09-16T21:53:47Z"
+    result = _guard_run(
+        tmp_path,
+        [withheld, _stranded_cell(4242, "claude-baseline", collected=True)],
+        [_collect_pr(1845, is_open=True, merged=False)],
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 2
+    assert "collect PR #1845" in result.stderr
+    assert "merge that PR" in result.stderr
+
+
+def test_predict_matrix_collect_pr_arm_off_mints_the_cells(tmp_path: Path) -> None:
+    # Fail open, at the arm's own grain: with no PR census the guard cannot tell
+    # a landed run from an unmerged one, so it guards what it always guarded and
+    # says what it could not check. A guard that cannot read must never be the
+    # reason a legitimate round does not start.
+    result = _guard_run(tmp_path, [_stranded_cell(4242, "claude-baseline", collected=True)], None)
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 3
+    assert "collect-PR arm is off" in result.stderr
+
+
+def test_predict_matrix_collect_pr_arm_off_when_unreadable(tmp_path: Path) -> None:
+    # Same direction for a census that exists but does not parse.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = _stranded_census(tmp_path, [_stranded_cell(4242, "claude-baseline", collected=True)])
+    prs = tmp_path / "collect-prs.json"
+    prs.write_text('{"not": "a list"}')
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+            "--collect-prs-file",
+            str(prs),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 3
+    assert "collect-PR arm is off" in result.stderr
+    assert "unreadable" in result.stderr
+
+
+def test_predict_matrix_still_withholds_an_uncollected_run_with_the_arm_on(
+    tmp_path: Path,
+) -> None:
+    # The original guard is unchanged by the new arm: a run whose `collect` never
+    # succeeded is withheld whatever the PR census says, because no PR can carry
+    # output a failed collect never pushed.
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline")],
+        [_collect_pr(1845, is_open=False, merged=True)],
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 2
+    assert "gh run rerun 4242 --failed" in result.stderr
+
+
+def test_predict_matrix_reads_a_census_record_without_the_run_fields(tmp_path: Path) -> None:
+    # The census file's older shape carried only the two keys, and only runs
+    # whose collect had failed. A plan that met one mid-rollout must guard
+    # exactly what it always guarded rather than reading the absent flag as
+    # "collected" and releasing the run.
+    record = {
+        "run_db_id": 4242,
+        "artifact_name": cell_artifact_name(
+            FinalizeRole.predict,
+            ExpectedCell(actor="claude-baseline", court="scotus", docket=24001, event_id=EVENT),
+        ),
+    }
+    result = _guard_run(tmp_path, [record], [_collect_pr(1845, is_open=False, merged=True)])
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 2
     assert "gh run rerun 4242 --failed" in result.stderr
 
 
@@ -543,7 +861,7 @@ def test_predict_matrix_all_cells_stranded_signals_recovery_not_requeue(tmp_path
     assert "gh run rerun 4343 --failed" in body_text
     # The override is documented, not built: an explicit deletion, no new trigger.
     assert "gh api -X DELETE" in body_text
-    assert "48-hour window" in body_text
+    assert "48-hour census window" in body_text
 
 
 def test_predict_matrix_writes_no_close_note_when_only_some_cells_are_stranded(
@@ -1739,7 +2057,14 @@ def test_predict_plan_enumerates_exactly_the_cells_predict_matrix_would_mint(
     assert plan["stranded_guard"] == {
         "active": False,
         "degraded_reason": None,
+        "collect_pr_arm_off": None,
         "unparsed_records": [],
+        "unparsed_collect_pr_records": [],
+        "withheld_by_reason": {
+            "uncollected": 0,
+            "unmerged_collect_pr": 0,
+            "withheld_collect": 0,
+        },
     }
     # No ceiling configured: the backstop never read the ledger, so its figures
     # are unmeasured rather than measured-zero.
@@ -2423,6 +2748,47 @@ def test_the_approval_report_carries_a_spend_breach_verbatim(tmp_path: Path) -> 
     assert len(_plan(stdout)["would_mint"]) == 6
 
 
+def test_the_approval_report_says_a_quiet_plan_is_waiting_on_a_merge(tmp_path: Path) -> None:
+    # The whole point of the count: a plan narrowed by the guard and a plan over
+    # a drained backlog look identical from the numbers, and the two ask for
+    # opposite actions. The report names the run, the PR, and the remedy, so an
+    # approver reads "waiting on #1845 to merge" rather than a short fan-out.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = _stranded_census(
+        tmp_path, [_stranded_cell(4242, pid, collected=True) for pid in _PREDICTORS]
+    )
+    prs = _collect_prs(tmp_path, [_collect_pr(1845, is_open=True, merged=False)])
+
+    report, stdout = _report(
+        tmp_path,
+        [
+            "predict-plan",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+            "--collect-prs-file",
+            str(prs),
+        ],
+        env,
+    )
+
+    assert "### Withheld: waiting on a run to land" in report
+    assert "3 cell(s) from run `4242`, collect PR #1845" in report
+    assert "merge that PR" in report
+    # Not new spend a release would buy — the tokens are already gone.
+    assert "the tokens are already spent" in report
+    plan = _plan(stdout)
+    assert plan["counts"]["cell_ledger"]["withheld_stranded_cells"] == 3
+    assert {r["unlanded"] for r in plan["withheld_stranded"]} == {"unmerged_collect_pr"}
+    assert {r["collect_pr"] for r in plan["withheld_stranded"]} == {1845}
+    assert plan["stranded_guard"]["withheld_by_reason"]["unmerged_collect_pr"] == 3
+    assert plan["stranded_guard"]["collect_pr_arm_off"] is None
+    _assert_predict_balances(plan)
+
+
 def test_the_approval_report_names_a_stranded_guard_that_failed_open(tmp_path: Path) -> None:
     # A withheld count of zero is three states, and only the degraded ones are a
     # reason to hesitate before approving — so they are named where the decision
@@ -2440,7 +2806,7 @@ def test_the_approval_report_names_a_stranded_guard_that_failed_open(tmp_path: P
     )
 
     assert "### Stranded-run guard" in report
-    assert "may re-spend output an uncollected run already produced" in report
+    assert "may re-spend output a run has already produced but not landed" in report
     # The reason quotes the underlying exception, and this census's exception
     # carries `<class 'dict'>`. Unspanned, GitHub's comment sanitizer eats that
     # as a tag and the maintainer reads "got ." where the cause should be — so

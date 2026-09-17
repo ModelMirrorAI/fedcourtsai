@@ -33,12 +33,14 @@ from fedcourtsai.collect import (
     feedback_marker,
     parse_cell_artifact_name,
     parse_name_status,
+    parse_run_branch,
     render_feedback_comment,
     render_flags,
     render_prior_availability_note,
     render_stakes_read_note,
     render_stall_comment,
     render_throttle_note,
+    run_branch,
     union_cell_tree,
 )
 from fedcourtsai.finalize import FinalizeRole
@@ -1448,3 +1450,39 @@ def test_an_absurd_docket_is_unreadable_rather_than_an_exception() -> None:
     # record, not raise through the caller and disable the whole guard.
     name = "predict-claude-baseline-scotus-" + "9" * 5000 + "-evt-petition-cert"
     assert parse_cell_artifact_name(FinalizeRole.predict, name) is None
+
+
+# `parse_run_branch` — the other half of the stranded-run guard's reading. It
+# knows a run's *database* id and has to decide whether that run's collect PR
+# merged; the PR carries the pipeline run id in its head ref and nothing else
+# that ties it to a run, so the guard's join is only as sound as this parse.
+
+
+@pytest.mark.parametrize("suffix", ["", "-partial", "-facts"])
+def test_a_collect_branch_round_trips_through_the_parse(suffix: str) -> None:
+    ref = run_branch(FinalizeRole.predict, "20260916T170237Z", suffix=suffix)
+    assert parse_run_branch(FinalizeRole.predict, ref) == "20260916T170237Z"
+
+
+def test_a_hand_salvage_branch_still_reads_as_its_run() -> None:
+    # A maintainer salvaging a withheld collect opens a branch of their own. It
+    # carries the run's output, so it must release the run exactly as the
+    # writer's branch would — the suffix is not an allowlist.
+    ref = "predict/run-20260916T201911Z-salvage"
+    assert parse_run_branch(FinalizeRole.predict, ref) == "20260916T201911Z"
+
+
+@pytest.mark.parametrize(
+    "ref",
+    [
+        "evaluate/run-20260916T170237Z",  # another role's run branch
+        "fix/stranded-guard",  # an ordinary feature branch
+        "predict/run-not-a-stamp",  # a head that only looks like one
+        "predict/run-20260916T170237",  # no zone marker, so not a run id
+        "predict/20260916T170237Z",  # the prefix without `run-`
+    ],
+)
+def test_an_unrelated_head_is_none_rather_than_a_guess(ref: str) -> None:
+    # A guessed reading would release the wrong run — re-spending a fan-out —
+    # or withhold one that landed. Either is worse than not matching.
+    assert parse_run_branch(FinalizeRole.predict, ref) is None
