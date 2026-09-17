@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500241",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search (opinions, dockets, recap)"
+  ],
+  "helpful": [
+    "The provisioned petition text and QP file carried everything the forecast needed; the salience-band table's bracketed reached figures made the anchor arithmetic a one-liner.",
+    "context.json's band/version pair matching the statpack heading removed a whole branch of fallback reasoning."
+  ],
+  "gaps": [
+    "CourtListener holds neither the Kansas Court of Appeals opinion below (576 P.3d 320) nor any SCOTUS docket for the split's lead cases (Asinor, Honda Lease Trust), so no live retrieval added anything; a provisioned lower-court opinion text would have.",
+    "fedcourts query has no topic or text filter on SCOTUS rows, so a disposition/era query returns generic recent grants rather than petitions on a comparable question.",
+    "No published cut for grant rate conditional on a waived response with no call for a response, which is the single strongest signal on this docket."
+  ],
+  "notes": "Nine retrieval calls total (one corpus query, eight MCP searches), well inside budget."
+}

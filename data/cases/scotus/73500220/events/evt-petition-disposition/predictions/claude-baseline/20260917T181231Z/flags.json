@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500220",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP server returned HTTP 429 (rate limit exceeded, 300/hour, retry in ~855s) on the first and only search call in this cell. The prediction was made from the provisioned inputs, the statpack, and general knowledge without verifying the lower-court opinion or the cited circuit cases. No REST fallback was attempted. If many cells in this fan-out share the sidecar's quota, the throttle likely degraded other cells too."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Snapshot dates the 'Petition for a writ of certiorari filed' entry Apr 08 2026, but the extension ran to May 16 2026, the petition PDF is stamped 2026-05-15, and DocketedDate is May 28 2026. Looks like a supremecourt.gov entry-date artifact; did not affect the forecast. documents.json also records petition.txt as truncated (240 pages), so the appended Third Circuit opinion is only partly present."
+    }
+  ]
+}

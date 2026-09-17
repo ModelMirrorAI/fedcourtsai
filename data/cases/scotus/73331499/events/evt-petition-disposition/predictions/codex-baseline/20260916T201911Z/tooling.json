@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73331499",
+  "gaps": [
+    "No provisioned brief in opposition or lower-court appendix/opinion text for adversarial vehicle assessment.",
+    "The second question is incomplete in both provisioned text forms.",
+    "Web searches returned no usable source content; the older Police opinion record lacked text, but an alternate record worked."
+  ],
+  "helpful": [
+    "Frozen band, distribution count, and snapshot date made the conditioning population clear.",
+    "CourtListener document snippets corroborated two asserted warrant-particularity authorities without retrieving this petition's outcome.",
+    "The reached-band table supported an explicit pooled prior-Term anchor."
+  ],
+  "notes": "The default uv cache location was read-only; a writable temporary cache allowed CLI execution. No live corpus query was needed. Retrieval stayed on historical general authorities and did not expose the target petition's outcome.",
+  "role": "predictor",
+  "run_id": "20260916T201911Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-input reads",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search",
+    "fedcourts paths",
+    "schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

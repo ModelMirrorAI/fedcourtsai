@@ -1,0 +1,2 @@
+- Used CourtListener MCP `search` to check for 10th Circuit opinion (court: `ca10`, q: `John Rogne`).
+- Read `metrics/statpack.md` to establish the baseline `P(grant)` for a `baseline` paid petition and evaluated the relist shape.

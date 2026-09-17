@@ -1,0 +1,15 @@
+# Forecast: what the Court will do with No. 25-1254, Harvey v. City of Reno
+
+**Disposition.** The petition will be denied at or shortly after the September 28, 2026 long conference, without comment. P(any grant) = 0.015.
+
+**Relists.** The docket shows exactly **one** distribution (June 24, 2026, for the conference of September 28, 2026); the petition has never been relisted. I expect no further distribution: the most likely path is a denial on the order list following the long conference. P(at least one more distribution) = 0.10. The residual mass covers a routine reschedule or a hold on the long-conference order list rather than any sign of interest; I identify no pending merits case for which this petition would plausibly be held.
+
+**CVSG.** No call for the views of the Solicitor General. No federal party or federal program is implicated: the challenged act is a state transportation agency's auction of surplus state land under a Nevada statute. P(CVSG after prediction time) = 0.01.
+
+**Which question the Court would take, if any (context-only).** The petition presents a single question: whether the Takings Clause requires compensation when a state agency sells the only feasible access to private property. If the Court took anything, it would reformulate rather than take the QP as written, because the QP assumes two contested premises the state courts rejected on state-law grounds: that the parcel is in fact landlocked, and that the Trust held any property interest in the access it lost. A reformulated question would ask whether a state may defeat a takings claim by characterizing long-used access as a non-property interest, the Tyler v. Hennepin County framing. I regard even that as very unlikely; the case would be a poor vehicle for it because an independent statute-of-limitations ruling sits underneath the property-interest holding.
+
+**Summary disposition versus plenary review.** Conditional on any grant, a summary route (GVR) is roughly as likely as plenary review, P = 0.40. Plenary review of an unpublished, pleading-stage state-court order with disputed access facts is implausible; the only realistic grant shape is a GVR in light of some intervening takings decision, and I know of none that bears on this dispute. Both branches are remote, which is why the unconditional grant number is small.
+
+**Dissent or statement respecting denial.** None expected. Takings petitions occasionally draw a separate writing from a Justice sympathetic to property claims, but this petition lacks a clean legal question, a split, or amicus support, and it comes from a solo practitioner on a thin record. P(some Justice writes on denial | denial) = 0.03.
+
+**If granted (conditional only).** The likely ground would be Tyler's principle that state law cannot be the sole source of property definitions where the state uses the characterization to sidestep the Takings Clause, applied to a state's disposal of land it had long allowed an abutter to use for access. Any such holding would probably be narrow and remand for a determination of whether access was in fact eliminated.

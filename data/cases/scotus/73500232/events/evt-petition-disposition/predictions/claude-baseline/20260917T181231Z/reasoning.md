@@ -1,0 +1,35 @@
+# Why 0.006
+
+**Mode and inputs.** Forward cell (`context.json`: `mode: forward`, `cutoff: null`, `signals_observable: true`). I read the provisioned snapshot `record/snapshots/2026-09-17.json`, `record/context.json`, the event definition, `record/documents/documents.json`, `questions-presented.txt`, and the full 34-page `petition.txt` (extracted text, `empty_text: false`, `truncated: false`; the OCR-style artifacts in the text — "out'of'state", "30'day" — mark a scanned filing whose text layer is nonetheless complete). No brief in opposition was provisioned, and the docket shows none filed: the response was due July 1, 2026, and the Clerk distributed the petition on July 15, 2026, so the respondent did not respond (the snapshot shows no explicit waiver entry, but the distribution after the response deadline with no BIO says the same thing).
+
+**Anchor.** `context.json` freezes `band: baseline` under `salience_version: sal-v4`, and the statpack's "Segment base rate by salience band (sal-v4)" table is computed under that same version, so it is the anchor for this band. This is a Term-2025 docket (25-1331), so I pooled the bracketed `reached` figure for `baseline` over the Term rows strictly before 2025 that the table renders (2017–2024, eight Terms):
+
+| pooled Terms | weighted grants | weighted n | pooled reached rate |
+| --- | --: | --: | --: |
+| 2017–2024 | ≈593 | 11,580 | ≈5.1% |
+
+That 5.1% is the rate a paid private petition that reached the baseline band faces, and it is the yardstick the evaluator scores this cell against. The whole-segment cuts agree in shape: paid scored petitions with zero relists grant about 1.2% (plus 0.5% GVR), CA3-originating modern petitions grant 1.5% (plus 0.9% GVR), and no-CVSG paid petitions grant 4.0% (plus 2.3% GVR).
+
+**Adjustments down, and why they are large.** The anchor population is every paid private petition, most of them counseled; this petition sits at the far weak tail of that population on every observable dimension:
+
+- **Pro se petitioners.** The petition is signed by Mark and Lisa Mazza "Pro Se" with no counsel of record. Paid pro se petitions are granted at a small fraction of the counseled paid rate; the statpack publishes no pro se cut, so this adjustment rests on general knowledge of the Court's docket rather than a committed figure — discount me accordingly, but the direction is not in doubt.
+- **Error-correction questions.** All four QPs ask whether the Third Circuit "abused its discretion" on this record (a two-day-late notice of appeal, reliance on a paralegal, a holiday vacation). Rule 10 says a petition is rarely granted for misapplication of a properly stated rule of law, and *Pioneer* already states the rule the petition wants applied.
+- **The asserted split is not one.** QP 3's "circuit split" is built from a district-court decision cited as the Eighth Circuit (*Deloach*, E.D. Mo.), an unpublished 1996 Eleventh Circuit decision, and general language from *American Alliance* (CA2) and *Hogg* (CA10). None of those holds that a court must excuse a two-day delay caused by a paralegal's misreading of Rule 6(d). Every circuit applies *Pioneer*'s four factors; the petition's disagreement is with how they were weighed.
+- **Unpublished, short decision below.** The petition itself says the Third Circuit opinion (No. 24-2794, May 16, 2025) is unpublished (App. 1a–9a). The Court rarely reviews non-precedential dispositions, and the underlying merits are a Rule 60(b) motion in an ejectment action following a 2015 state-court foreclosure judgment.
+- **Rule 58 argument (QP 4) is not a vehicle.** It is pressed as an alternative theory that the appeal was timely because judgment was not set out on a separate document; the petition does not show the argument was raised below or addressed by either court, and the courts below treated the June 4, 2024 order as the appealable judgment.
+- **Docket signals.** One distribution, to the long conference; no response; no amici; no CVSG possible. The docket was opened June 1, 2026 for a petition stamped "filed" March 2, 2026, a three-month gap consistent with the petition having been returned for correction and refiled — another marker of a rough filing, though not itself a scored signal.
+
+Together these move me from the 5.1% anchor to well under 1%. I settle at **0.006**, which is a hair above where I would put a typical paid pro se petition, to leave room for the one thing the record does have going for it: the *Pioneer* framing is a genuine legal rule and a two-day delay with no articulated prejudice is a sympathetic fact pattern, so a corrective summary disposition is not literally impossible.
+
+**Claims.**
+- `disposition` 0.006 — equals `probability`.
+- `relist-increment` 0.08 — from a single distribution to the long conference. The relist-count cut shows roughly a quarter of the paid scored segment carrying at least one additional distribution under the `dist-v2` reading, but that figure includes reschedules and is dominated by counseled petitions the Court takes a second look at; for a pro se error-correction petition with no response the forward hazard is much lower. I allow 8% mostly for a mechanical reschedule or a one-conference hold.
+- `cvsg-increment` 0.002 — private parties, no federal interest, no statute of federal concern.
+- `summary-disposition-route` 0.5 — conditional on any grant. The segment-wide cert-order share of grants is about a third (GVR 2.3% against granted 4.0% among no-CVSG paid petitions). I raise it because this petition is not a plenary vehicle and any grant would most plausibly be corrective, and cap it at even odds because there is no intervening decision to GVR against.
+- `dissent-from-denial` 0.01 — no feature of this case draws a separate writing.
+
+**Big-case score 0.04.** Stakes are confined to one family's home and one unpublished excusable-neglect ruling. Rule 4(a)(5) practice matters to litigants generally, but this case would not change it.
+
+**Retrieval and its limits.** One `fedcourts query` for recent granted SCOTUS priors (2020s era) returned counseled, high-salience matters — substantive applications and Second Amendment and election-law petitions — none comparable to this case, so it informed nothing beyond confirming what the segment's grants look like. The CourtListener MCP server returned HTTP 429 (hourly rate limit exhausted, roughly five minutes to reset) on my one attempt to pull the Third Circuit opinion, so I did not confirm its length or reasoning beyond the petition's own account of it, and I did not retry. Nothing about this petition's disposition was sought or seen: the conference it is distributed for is eleven days in the future.
+
+**Where to discount me.** The size of the pro se adjustment is judgment, not a committed cut. If the Third Circuit opinion in fact contains a candid acknowledgment that it departed from *Pioneer* (the petition's *Ragguette* discussion hints the circuit's own law is favorable), a summary disposition would be somewhat more plausible than I have allowed, but not enough to move the top-line number past about 0.01.

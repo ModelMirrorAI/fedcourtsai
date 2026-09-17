@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73500217",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP returned HTTP 429 (300/hour limit, ~14 min until available) on both search calls this cell made, so the cell ran on the provisioned inputs and the corpus tooling only; the Ninth Circuit memorandum and sibling-petition history were not retrieved. If several cells share one sidecar quota in a fan-out, later cells will hit this deterministically."
+    }
+  ]
+}

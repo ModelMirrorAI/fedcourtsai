@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500223",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP unavailable for this cell: all three search calls returned HTTP 429 (shared 300/hour limit, ~6 minutes to reset), presumably consumed by sibling cells in the same fan-out. Degraded per the prompt to provisioned inputs + statpack + one corpus query; no live-docket check was possible. If several cells in run 20260917T181231Z report the same, the fan-out is over-subscribing the shared key and a per-cell quota or staggered start would fix it."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "fedcourts query --court scotus --citation \"447 U.S. 74\" scanned 1357 ranged GETs / ~356 MB to return zero rows (only 200 of 590919 scotus rows carry citation data). Worth a guard that prints the coverage note or refuses before the scan when the filter is that sparse."
+    }
+  ]
+}

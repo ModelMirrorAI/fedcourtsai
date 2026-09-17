@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73303792",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The petition and QP are usable OCR-derived text, but the separately linked appendix/lower-court opinions were not provisioned. Vehicle analysis therefore relies on petitioner's account of immunity, pleading, amendment, and filing-restriction grounds rather than the opinions themselves. A checked preexisting Sixth Circuit authority also does not support the petition's characterization of that circuit's Rooker-Feldman rule. Prediction completed with these limits; no target outcome was retrieved."
+    }
+  ]
+}

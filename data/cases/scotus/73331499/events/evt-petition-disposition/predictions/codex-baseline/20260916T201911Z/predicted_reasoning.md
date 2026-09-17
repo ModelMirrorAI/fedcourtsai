@@ -1,0 +1,11 @@
+# Forecast
+
+The Court will deny the petition. The snapshot records one distribution, on June 24, 2026, for the September 28, 2026 conference, and no CVSG. I expect no additional distribution and disposition in the first orders following that conference, approximately late September or early October 2026. If the petition receives further consideration, one additional distribution is more likely than a prolonged sequence. The probability of at least one further distribution is 18%.
+
+I do not expect a call for the Solicitor General's views: the probability of a new CVSG is 0.5%. The central disputes concern a state prosecution, warrant particularity, and the treatment of discarded genetic material, rather than a matter on which I expect the Court to solicit the federal government's institutional position before deciding whether to hear it.
+
+Conditional on review, I expect the Court to take the narrower first question: whether a John Doe DNA warrant and its supporting materials sufficiently identify the accused when they refer to an existing crime-scene profile but do not supply that unique profile. The petition's comparison to the Kansas decision in State v. Belt is its clearest asserted conflict. I expect the Court to leave the claimed parental interest in a child's DNA outside any grant. If it instead takes the second question, I expect a reformulation limited to whether extracting an identifying DNA profile from lawfully collected discarded material is a separate Fourth Amendment search; that reformulation is a forecast, not the missing verbatim ending of Question 2.
+
+Conditional on any grant, plenary briefing and argument are likelier than a disposition in the cert order: P(summary route | grant) = 12%. The supplied record identifies no intervening controlling decision that would naturally supply a GVR instruction. A ruling would require addressing the specificity of the warrant or the privacy implications of DNA analysis rather than merely implementing an identified new holding.
+
+Conditional on denial, I expect no noted dissent or statement respecting denial; P(any such writing | denial) = 7%. I make no individual-Justice vote or authorship forecast. A denial would leave the judgment below standing without resolving either constitutional question on the merits.

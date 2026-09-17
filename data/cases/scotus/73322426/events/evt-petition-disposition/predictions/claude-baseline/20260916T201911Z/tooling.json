@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73322426",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot, context.json, petition.txt, questions-presented.txt",
+    "metrics/statpack.md (sal-v4 band table, relist and CVSG cuts)",
+    "fedcourts query (ranged corpus backend)",
+    "courtlistener MCP (search, call_endpoint opinions)",
+    "curl + pypdf on supremecourt.gov PDFs linked from the docket (BIO, reply)"
+  ],
+  "helpful": [
+    "The sal-v4 band table with bracketed reached rates gave a clean, leakage-safe anchor and matched the context's salience_version.",
+    "Full petition text let me weigh the split and vehicle claims directly.",
+    "Docket entries carry the supremecourt.gov PDF URLs, so the BIO and reply could be fetched in forward mode."
+  ],
+  "gaps": [
+    "documents.json was provisioned on 2026-07-17 and so omits the BIO and reply filed in September; a re-fetch at provisioning time would give every predictor the same opposition text.",
+    "No statpack cut for petitions on which the Court requested a response after a waiver; that is the strongest signal on this docket and I had to size it from general knowledge.",
+    "fedcourts query has no topic or text filter for SCOTUS rows, so it cannot surface priors on a doctrinal question (here, Confrontation Clause / remote testimony).",
+    "No PDF text extractor in the cell environment; I installed pypdf into a throwaway uv env to read the fetched briefs."
+  ],
+  "notes": "Forward cell. 1 corpus query, 3 MCP calls, 2 web fetches — well under the retrieval budget. No outcome material encountered."
+}

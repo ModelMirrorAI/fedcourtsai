@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/73331499",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (search, get_endpoint_item, call_endpoint)",
+    "provisioned petition.txt and questions-presented.txt"
+  ],
+  "helpful": [
+    "The sal-v4 segment table's bracketed reached figures per Term made the baseline-class anchor a two-minute pooling exercise.",
+    "The provisioned petition text let me judge vehicle quality (state intermediate court, fact-bound QP1, truncated QP2) directly rather than from the docket line."
+  ],
+  "gaps": [
+    "fedcourts query with --court scotus --disposition X --era 2020s returned recency-ranked stay applications and merits-track grants, not comparable cert petitions; a filter on petition kind, originating court class (state court), or subject would have surfaced usable priors.",
+    "The statpack's originating-court cut has no bucket for Pennsylvania state courts, so no state-court-specific anchor was available.",
+    "No BIO or waiver entry is on the snapshot although the petition was distributed; a provisioned response-status field (waived / not filed / filed) would remove the guesswork."
+  ],
+  "notes": "CourtListener held no docket entries for this docket and no copy of the Superior Court opinion (342 A.3d 742), so the opinion below was read only through the petition's characterization."
+}

@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "The underlying dispute (DeVillier v. Texas, 601 U.S. 285 (2024)) is a nationally known takings case and the forum fight matters to the takings bar, but this Rule 20 mandamus petition against a remand-to-state-court order affects chiefly these landowners; its denial settles no doctrine.",
+  "big_case_score": 0.25,
+  "case_id": "scotus/73299074",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.1
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.75
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.05
+    }
+  ],
+  "confidence": 0.9,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-16",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-09-16T20:49:11Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-09-16.json",
+  "judgment": null,
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.01,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "aadcafcb2c860dfc637387e869cb6651fa3be056",
+    "stamped_at": "2026-09-16T20:52:06.326706Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260916T201911Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

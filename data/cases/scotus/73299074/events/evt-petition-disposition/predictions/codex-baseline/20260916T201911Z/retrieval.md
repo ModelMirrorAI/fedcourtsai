@@ -1,0 +1,9 @@
+# Retrieval record
+
+- Read the provisioned event.yaml, context.json, and snapshots/2026-09-16.json. No filed-document text was provisioned.
+- Read the committed metrics/statpack.md: modern discretionary-cert disposition counts, paid-scored-segment relist/CVSG cuts, and sal-v4 reached-band table. Computed the weighted mean from all displayed Term 2017–2024 baseline reached rows. Checked the statpack file's latest commit date with `git log -1 --format=%cI -- metrics/statpack.md`. A metadata-key search of metrics/statpack.json returned no freshness stamps.
+- Two `web.open` attempts targeted the exact petition PDF already linked in the snapshot. Neither returned usable content. No web search was performed.
+- Retrieved that same PDF via `curl -fsSL --max-time 45` and in-memory `pypdf.PdfReader`; did not save an extra copy. Source: `https://www.supremecourt.gov/DocketPDF/25/25-1252/407818/20260501162835028_25-%20Petition.pdf`.
+- The first shell extraction attempt could not run because `pdftotext` was unavailable. Successful extractions used zero-based PDF page slices `[0:12]`, `[12:19]`, `[30:38]`, `[43:49]`, `[49:55]`, and `[69:72]`. Some terminal outputs were truncated; no claim is made to have read all 263 PDF pages. Consulted the QP, selected petition discussion, adopting order, jurisdictional recommendation, and concluding passages of the earlier Supreme Court opinion. All these materials predate the petition's forecasted disposition.
+- Ran `fedcourts paths` for this cell. Its first invocation failed because the default package-manager cache was read-only; rerunning with a writable temporary cache succeeded. No outcome file was read.
+- No corpus `query` or `open-events` calls and no CourtListener MCP calls. Therefore there are no ranged-corpus transfer lines to report. No current-docket, disposition, subsequent-history, or decision-coverage retrieval was attempted.

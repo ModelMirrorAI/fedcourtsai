@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500216",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "CourtListener MCP (get_endpoint_item, call_endpoint docket-entries, search)", "WebFetch of supremecourt.gov docket page"],
+  "helpful": ["Provisioned petition.txt including the Fifth Circuit opinion as an appendix", "Segment base rate by salience band table with the bracketed reached figures", "context.json band and distribution_count"],
+  "gaps": ["fedcourts query ranks by recency and surfaces applications and unrelated dockets; a text or topic filter for cert petitions (e.g. by QP keyword or habeas posture) would make it useful for case-specific priors", "A CFR (call for response) cut in the statpack: grant rate conditional on no response filed vs response filed vs response requested would sharpen exactly this kind of cell", "CourtListener carries no docket entries for SCOTUS dockets, so the live check had to go to supremecourt.gov"],
+  "notes": "Prediction anchored on the sal-v4 baseline band pooled over OT2017-OT2024 and adjusted down for the AEDPA posture and the absence of any response. The corpus query contributed nothing case-specific."
+}

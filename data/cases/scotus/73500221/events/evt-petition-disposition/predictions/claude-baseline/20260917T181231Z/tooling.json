@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500221",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (attempted, throttled)"
+  ],
+  "helpful": [
+    "The provisioned petition text extracted cleanly; the absence of any claimed split and the state-law framing of the question presented carried most of the signal.",
+    "The sal-v4 segment table matching the frozen band made the anchor a direct pooled read."
+  ],
+  "gaps": [
+    "CourtListener MCP was rate-limited (429) on the first call, so the opinion below and the live docket were unreachable; a per-cell rate budget or a provisioned copy of the lower-court opinion text under record/documents/ would remove that dependency.",
+    "fedcourts query has no similarity or subject filter on SCOTUS rows, so a comparison class such as 'waived-response private takings petitions' cannot be pulled; a waiver-of-response cut in the statpack would sharpen cells like this one."
+  ],
+  "notes": "Forward distribution-moment cell; anchored on the pooled OT2017-OT2024 baseline reached rate and adjusted down on vehicle quality."
+}

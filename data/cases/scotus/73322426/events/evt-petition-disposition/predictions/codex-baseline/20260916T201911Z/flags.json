@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73322426",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The September 16 snapshot lists a September 4 opposition and September 15 reply, but the provisioned document manifest contains only petition/QP text fetched July 17. Recovered the opposition and reply from their fixed snapshot-listed Supreme Court PDF URLs before forecasting. Their preservation and harmlessness arguments materially informed the estimate; refreshing filed-document provisioning would improve the common baseline."
+    }
+  ]
+}

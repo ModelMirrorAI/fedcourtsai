@@ -1,0 +1,232 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a678af9a8d4abad0",
+      "query": "{\"strategic_intent\": \"Read instructions and agent documentation to understand the prediction task.\", \"title\": \"Understanding Prediction Task\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:11:51.262Z",
+      "tool": "update_topic"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:11:53.564Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:11:53.564Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "39020d59c41ebfd2",
+      "query": "{\"file_path\": \"data/cases/scotus/73374809/record/context.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:11:58.070Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3a33831a7b86a265",
+      "query": "{\"file_path\": \"data/cases/scotus/73374809/events/evt-petition-disposition/event.yaml\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:11:58.070Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "07da9d00bf8acd43",
+      "query": "{\"file_path\": \"data/cases/scotus/73374809/record/documents/documents.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:11:58.071Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "89c037f72cdf0cc4",
+      "query": "{\"file_path\": \"data/cases/scotus/73374809/record/snapshots/2026-09-16.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:12:03.590Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6dcc58f195a15d97",
+      "query": "{\"file_path\": \"data/cases/scotus/73374809/record/documents/questions-presented.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:12:03.591Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6be7ebc8e5465b5b",
+      "query": "{\"file_path\": \"data/cases/scotus/73374809/record/documents/petition.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:12:03.591Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:12:07.986Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "dbebeada8829b58e",
+      "query": "mkdir -p data/cases/scotus/73374809/events/evt-petition-disposition/predictions/gemini-baseline/20260917T181231Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:12:21.108Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "489724e1e7461b3f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73374809\\\",\\n  \\\"event_id\\\": \\\"evt-petition-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260917T181231Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-09-17T18:12:31Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-09-16.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.001,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.01,\\n  \\\"claims\\\": [\\n    {\\n      \\\"claim_id\\\": \\\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:12:30.545Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "150d34ec1380340c",
+      "query": "{\"content\": \"P(grant) 0.001. The petition is a pro se filing by a physician whose medical license was revoked by the California Medical Board. The legal arguments attempting to invoke the Commerce Clause and Article III based on theoretical impacts on Indian reservations and Medicare spending are frivolous. The respondent is a state appellate court. The salience band is baseline, and the case sits at its first distribution (relist count 0). The baseline grant rate for such petitions is 1.2%, but",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:12:30.547Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b77682cec65f58cf",
+      "query": "{\"content\": \"Distributed once so far; expect no further relists before a decision on the petition. The petition is a pro se challenge to a state medical board's revocation of a medical license, advancing frivolous legal arguments under the Commerce Clause and Article III. There will be no CVSG, as the federal government has no genuine interest in this state regulatory matter. If granted, the Court would likely summarily reverse or dismiss, but a grant is highly improbable. Should it deny, expect",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:12:30.549Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "82facca3fb786eee",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs.\", \"file_path\": \"data/cases/scotus/73374809/events/evt-petition-disposition/predictions/gemini-baseline/20260917T181231Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:12:30.551Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3b8c2a37bc3e200f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/73374809\\\",\\n  \\\"run_id\\\": \\\"20260917T181231Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true\\n}\", \"file_path\": \"data/cases/scotus/73374809/events/evt-petition-disposition/predictions/gemini-baseline/20260917T181231Z/tooling.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:12:34.152Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:12:57.353Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d6b99434b3f2027d",
+      "query": "{\"strategic_intent\": \"Finish the task.\", \"title\": \"Task Completed\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-17T19:13:01.173Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/73374809",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "throttled_calls": null
+}

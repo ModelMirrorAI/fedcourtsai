@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500221",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP retrieval was unavailable for this cell: both search calls returned HTTP 429 (hourly rate limit exceeded, ~14 minutes to reset). The prediction rests on the provisioned snapshot, the petition text, and the committed statpack; the Tenth Circuit order below was not read directly and the live docket was not checked for entries after the 2026-09-17 snapshot. If several cells share one sidecar token, the fan-out may be exhausting the 300/hour allowance early in the run."
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+- `mcp_courtlistener_search` on `court=["scotus"]`, `q="Bowe v. United States"` to verify the recent SCOTUS decision cited in the petition. Found the January 2026 opinion.

@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will deny the petition for certiorari, most likely in the orders following the scheduled September 28, 2026 conference, in late September or early October. This forecasts the petition's disposition, not a merits judgment endorsing the trial court's treatment of the evidence.
+
+The September 16 snapshot shows exactly one distribution, entered June 17 for the September 28 conference, and no CVSG. I expect zero further distributions and no invitation to the Solicitor General. The probability of at least one additional distribution is 2.5%; if that happens, one additional distribution is more likely than a prolonged sequence. The probability of a new CVSG is 0.1%. The summer interval before the scheduled conference is not itself a relist.
+
+The petition challenges evidentiary exclusions, witness credibility, alleged judicial bias, and municipal responsibility for flooding. The Court will most likely leave this fact-specific dispute undisturbed rather than use it to announce a national rule about civil-trial evidence. If review is granted, the most plausible question is a narrowed Fourteenth Amendment fair-hearing question: whether exclusion of the homeowner's documentary and impeachment evidence denied a meaningful opportunity to present the civil claim. I do not expect adoption of the petition's entire combined question covering municipal negligence, evidentiary rules, confrontation, and alleged bias.
+
+Conditional on any grant, I assign 15% to disposition in the cert order itself and 85% to a proceeding involving further merits briefing and argument. No intervening decision or companion proceeding supporting a GVR is identified in the supplied materials. Any summary route would therefore more plausibly address an unusually clear procedural defect than follow an identified intervening precedent. These are conditional alternatives, not a prediction that relief will issue; P(any grant) is 0.3%.
+
+Conditional on denial, I assign 0.3% to any noted dissent or statement respecting denial. I expect an unexplained denial with no separate writing and do not forecast a particular Justice's vote or authorship. Timing and the conditional formulation of the question presented are contextual forecasts, not additional scored claims.

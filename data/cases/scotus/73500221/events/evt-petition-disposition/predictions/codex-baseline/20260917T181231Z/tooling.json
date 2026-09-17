@@ -1,0 +1,32 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500221",
+  "gaps": [
+    "Web tool returned no usable content for the attempted requests.",
+    "CourtListener search did not locate the dated lower opinion.",
+    "The default uv cache was read-only; a /tmp cache worked.",
+    "pdftotext was unavailable; installed pypdf provided in-memory extraction."
+  ],
+  "helpful": [
+    "Frozen context identifies the correct salience band and Term.",
+    "Provisioned full petition and QP establish the proposed issue.",
+    "Exact appendix link permits outcome-safe access to the lower opinion.",
+    "Statpack JSON permits exact weighted pooling of reached rates."
+  ],
+  "notes": "No opposition brief was provisioned; the snapshot records a response waiver, so this is not treated as a missing extraction. Selected appendix pages materially clarified the vehicle. No outcome material surfaced. No durable intervention request is necessary. The harness owns context, process-version, usage, and machine retrieval stamps.",
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "committed statpack",
+    "web.run",
+    "CourtListener MCP search",
+    "httpx",
+    "pypdf",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

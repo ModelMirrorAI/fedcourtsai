@@ -1,0 +1,1 @@
+Consulted `metrics/statpack.md` for baseline rates by salience band and relist count. No live retrieval tools (MCP or corpus queries) were used.

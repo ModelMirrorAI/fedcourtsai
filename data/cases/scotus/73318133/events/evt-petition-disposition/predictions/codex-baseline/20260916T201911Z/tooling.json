@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73318133",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "committed statpack", "fedcourts paths", "web search/open/find attempts", "curl general Rule 10 retrieval"],
+  "helpful": ["Frozen salience version and distribution count", "Readable petition containing all nine questions", "Prior-Term reached-band denominators"],
+  "gaps": ["Lower-court opinions and appendix text not provisioned", "No BIO text provisioned", "Separate QP file absent despite recoverable opening section", "Web tool returned no usable source content"],
+  "notes": "Recovered QPs from petition text. Used only general legal-rule retrieval outside the committed base-rate pack; no case-outcome lookup. A temporary writable uv cache resolved the default read-only cache error. No pipeline changes were needed."
+}

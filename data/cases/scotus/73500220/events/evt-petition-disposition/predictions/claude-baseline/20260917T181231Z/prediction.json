@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "If decided, a rule on whether the Sixth Amendment reaches non-deportation collateral consequences of a plea would touch every guilty plea; but the concrete stakes here (collateral estoppel in a civil FCA action) are narrow and the case draws little public attention.",
+  "big_case_score": 0.4,
+  "case_id": "scotus/73500220",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.14
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.2
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.03
+    }
+  ],
+  "confidence": 0.8,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-17",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-09-17T18:24:58Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-09-17.json",
+  "judgment": null,
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.02,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "2e395b3f45ef985ccc05c4d9134200ca9bcc01a9",
+    "stamped_at": "2026-09-17T18:27:29.681963Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

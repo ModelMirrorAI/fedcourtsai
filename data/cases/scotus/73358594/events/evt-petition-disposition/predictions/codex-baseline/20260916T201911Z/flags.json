@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73358594",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned document manifest marks the 194-page petition PDF as truncated. The question presented, substantive cert argument, and Appendix A Rule 36 affirmance are readable, but the forecast does not rest on a complete administrative-appendix or preservation audit. No BIO is provisioned, consistent with the government's recorded waiver. Prediction completed on the available record."
+    }
+  ]
+}

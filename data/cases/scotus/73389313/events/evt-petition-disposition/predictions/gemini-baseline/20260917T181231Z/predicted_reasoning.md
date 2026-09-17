@@ -1,0 +1,3 @@
+Distributed once so far; expect zero further relists before a decision on the petition. The case is patently frivolous, asserting a 25-year conspiracy to deny the right to run for President, and all respondents have filed waivers of their right to respond. 
+
+No CVSG is expected, as the federal parties have already waived response and the petition is meritless. If granted, there is no discernable question presented the Court could take, but it would have to deal with the civil rights and jurisdiction claims. A summary disposition is highly unlikely as there is no legal error or intervening decision warranting a GVR. Should it deny, expect no separate writing (no dissent from denial) from any Justice.

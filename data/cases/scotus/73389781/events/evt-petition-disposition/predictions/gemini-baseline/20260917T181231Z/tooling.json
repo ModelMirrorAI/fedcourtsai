@@ -1,0 +1,16 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73389781",
+  "gaps": [],
+  "helpful": [
+    "Provisioned document text, especially the questions presented and the brief in opposition, which were critical for understanding the vehicle issues."
+  ],
+  "notes": "",
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "tools_used": [
+    "read_file"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

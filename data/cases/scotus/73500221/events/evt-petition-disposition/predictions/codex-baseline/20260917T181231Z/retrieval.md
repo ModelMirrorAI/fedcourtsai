@@ -1,0 +1,13 @@
+# Retrieval beyond provisioned inputs
+
+- Read the committed metrics/statpack.md modern-cert disposition, originating-circuit, paid-segment relist/CVSG, and sal-v4 per-Term band sections. Inspected metrics/statpack.json Term-segment fields and computed the baseline reached pool for the rendered 2017-2024 window: 593 / 11,580 = 0.0512089810. No live corpus query or open-events lookup was made, and no ranged-corpus transfer line was produced.
+- web.run search attempted two general, non-case-outcome queries: `site.supremecourt.gov opinions Knick 2019 17-647 state court loses precluded` and `site.supremecourt.gov Rule 10 certiorari erroneous factual findings misapplication properly stated rule`. The tool returned no usable search text or sources.
+- web.run open attempted `https://www.supremecourt.gov/opinions/18pdf/17-647_m648.pdf`. No usable document text was returned; it did not inform the analysis.
+- web.run open attempted the exact appendix PDF linked in the provisioned snapshot: `https://www.supremecourt.gov/DocketPDF/25/25-1320/409199/20260518181812100_Rogne%20Appendix%20EFILE%20May%2018%202026.pdf`. No usable document text was returned through that tool.
+- CourtListener MCP search: type=o, court=ca10, docket_number=25-5039, filed_before=2026-02-18, num_results=3. Result: zero opinions. This was a bounded lookup for the February 17 lower-court judgment, not the Supreme Court petition outcome.
+- Attempted a direct public Supreme Court appendix fetch through curl piped to pdftotext. pdftotext was unavailable, and curl reported a downstream write failure. No text was obtained from that attempt.
+- Retrieved the same exact May 18, 2026 appendix URL using httpx and extracted its PDF text in memory with pypdf. The file has 70 PDF pages. First inspection printed PDF pages 1-4 and 17-22 (table of contents, appendix 1a-3a, and 16a-21a); the displayed output was partially truncated. A second fetch printed PDF pages 15-18 (appendix 14a-17a) to read the limitations and savings-statute analysis without truncation. The analysis relies on the visible lower-court text, particularly appendix 1a-2a, 14a-17a, and 18a-20a. No retrieved PDF was written to disk.
+
+Only the committed base rates and the dated, filed appendix added substantive evidence. No Supreme Court docket refresh, outcome lookup, subsequent-history search, or outcome commentary was retrieved. CourtListener was accessed only via MCP, with no direct REST fallback.
+
+Administrative note: the paths CLI initially failed because the default uv cache was read-only; rerunning with a writable cache under /tmp succeeded. Schema and path-helper inspection and artifact validation were administrative, not case retrieval.

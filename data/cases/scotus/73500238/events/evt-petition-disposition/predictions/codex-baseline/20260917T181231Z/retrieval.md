@@ -1,0 +1,13 @@
+# Retrieval beyond the provisioned inputs
+
+- Read the governing prompt, repository instructions, and prediction/tooling/flags schemas as contract material. No other prediction contents, outcome file, or labeling-measurement artifacts were read.
+- Read the committed `metrics/statpack.md`: modern discretionary-cert dispositions, circuit context, paid-segment relist/CVSG cuts, and sal-v4 reached-band table. Inspected the corresponding aggregate `metrics/statpack.json` fields and computed the baseline pool from Terms 2017–2024 with jq: weighted n=11,580, pooled rate 0.05120898100172712. Inspected the statpack's latest git commit timestamp, September 14, 2026, 11:02 UTC; this is not a corpus freshness stamp.
+- Ran `uv run fedcourts paths --court scotus --docket 73500238 --event evt-petition-disposition --role predictor`. Initial invocation failed because the default cache directory was read-only; retry with a writable temporary cache succeeded. This only resolved paths; it was not a corpus query.
+- Web search attempt, two queries: `site.supremecourt.gov opinions Glossip Oklahoma 2025 23-6210` and `site.uscourts.gov Federal Rules Evidence 702 2023 amendment preponderance`. No visible results were returned and no web material informed the prediction. The first query included an incorrect docket-number search term; the subsequent citation-specific MCP lookup identified Glossip correctly as 22-7466.
+- CourtListener MCP `search`: type=o, case_name=`Glossip v. Oklahoma`, filed_after=2025-02-20, filed_before=2025-03-01, num_results=3. Returned versions of the February 25, 2025 decision, 604 U.S. 226. Used official-report opinion ID 11243457.
+- CourtListener MCP `search_document`: opinion_id=11243457, query=`irrelevant`, snippet_size=1500. Read majority and separately labeled dissent excerpts; relied on the majority's footnote 10, not the dissent.
+- CourtListener MCP `search`: type=o, citation=`846 F.3d 1135`, num_results=1, fields=caseName/dateFiled/opinions/absolute_url. Returned United States v. Mitchell J. Stein, January 18, 2017; used opinion ID 4116439.
+- CourtListener MCP `search_document`: opinion_id=4116439, query=`capitaliz`, snippet_size=800. Checked the disclosure-versus-capitalization distinction and the limits of its application in Stein.
+- CourtListener MCP `search_document`: opinion_id=11243457, query=`Third, even`, snippet_size=450. Narrow check of Glossip's majority footnote concerning defense knowledge and the prosecution's duty.
+
+No `fedcourts query` or `open-events` calls were made, so no ranged-corpus transfer line was produced. No target-case outcome or post-decision history was sought or surfaced.

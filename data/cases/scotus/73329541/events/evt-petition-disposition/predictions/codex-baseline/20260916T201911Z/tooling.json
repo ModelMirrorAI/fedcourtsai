@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73329541",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "committed statpack markdown and JSON", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "web search/open attempts"],
+  "helpful": ["Full petition text and extracted question presented", "Frozen sal-v4 conditioning context", "Exact risk-set counts in statpack JSON", "Citation-targeted MCP retrieval and narrow within-opinion search"],
+  "gaps": ["No provisioned BIO or separate lower-court appendix text", "Web tools returned no visible content", "Default uv cache was read-only; a temporary cache was needed"],
+  "notes": "Completed from the provisioned record, committed base rates and two general precedents. No case-outcome search or direct CourtListener REST access. Statpack build freshness was not exposed in the inspected aggregate fields. CourtListener's full-opinion display truncated, while narrow snippet retrieval was usable."
+}

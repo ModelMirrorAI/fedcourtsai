@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281633",
+  "gaps": [
+    "The filed reply and amicus texts were not provisioned.",
+    "The petition text ends inside the district-court appendix.",
+    "General-law web attempts returned no usable content."
+  ],
+  "helpful": [
+    "The petition appendix allowed checking the BIO's alternative-ground argument against the actual appellate reasoning.",
+    "The matching sal-v4 JSON risk-set counts enabled an exact prior-Term pool.",
+    "The document manifest distinguished a truncated petition from unavailable text."
+  ],
+  "notes": "The default package cache was read-only; a temporary writable cache allowed CLI commands to run. No corpus-prior or CourtListener retrieval was needed for this forecast. The supplied context and snapshot were used without alteration.",
+  "role": "predictor",
+  "run_id": "20260916T201911Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell",
+    "committed statpack",
+    "fedcourts paths",
+    "web search and open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

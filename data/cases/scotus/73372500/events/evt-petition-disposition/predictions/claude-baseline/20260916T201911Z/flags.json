@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73372500",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot shows a petitioner's supplemental brief docketed September 11, 2026 (Rule 15.8, reporting a July 21, 2026 state trial-court order affirming the zoning board) and a June 18, 2026 waiver of response, but documents.json provisioned only the petition and its QP section. I fetched the supplemental brief from its supremecourt.gov link (forward cell); it carries no intervening decision of this Court and did not move the forecast. Consider provisioning Rule 15.8 supplemental briefs alongside the petition and BIO."
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500241",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "questions-presented.txt ends with a stray page-footer token ('ii') carried over from the petition's front matter; the QP text itself cut cleanly. Cosmetic, noted for the QP cutter."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Snapshot LowerCourt reads 'Court of Appeals of Kansas' while the petition cover says 'On Petition for a Writ of Certiorari to the Kansas Supreme Court' (which denied review). The docket's reading is the correct one; this is the petition's own inconsistency, not a provisioning error."
+    }
+  ]
+}

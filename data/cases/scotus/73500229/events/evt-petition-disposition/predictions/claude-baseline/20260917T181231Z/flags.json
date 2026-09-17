@@ -1,0 +1,26 @@
+{
+  "case_id": "scotus/73500229",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from a companion case: the Court denied certiorari in Curtis v. Inslee, No. 25-1119 (June 1, 2026), the published Ninth Circuit decision this unpublished memorandum rests on entirely, with no response requested and no separate writing; the same order list denied the same counsel's Sweeney (25-1055) and Horsley (25-1203). This predates the snapshot and is not this case's outcome, but it is the largest input to my number, so I record it here."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "documents.json shows the petition and QP fetched on 2026-07-18, before the two briefs in opposition (Aug 24) and reply (Sep 14) were filed, so no BIO text was provisioned although the snapshot carries their links. I fetched and read them myself (forward cell). A document refresh when the snapshot is re-provisioned would give every predictor the same opposition text."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot carries two DISTRIBUTED entries (Jul 1 and Sep 9) for the same 9/28/2026 conference; context.distribution_count is 1. I read the second as a redistribution after the Response Requested/BIO cycle, not a relist, and forecast the relist increment from a one-conference state. Noting so the resolution of relist-increment uses the same reading."
+    }
+  ]
+}

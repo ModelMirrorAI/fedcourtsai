@@ -1,0 +1,4 @@
+- Read `metrics/statpack.md` for baseline grant rates (OT 2017 to OT 2024).
+- CourtListener MCP search: `q: "Merit Systems Protection Board" AND "Whistleblower Protection Act"` (0 results).
+- CourtListener MCP search: `q: "Molly Gulland Gaston"` (0 results).
+- Corpus lookup for similar cases (aborted due to missing `fedcourts query` support for free text search, but read 6 GETs, 1572864 bytes).

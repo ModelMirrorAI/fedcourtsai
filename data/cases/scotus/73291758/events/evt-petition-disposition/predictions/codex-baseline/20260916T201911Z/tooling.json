@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73291758",
+  "gaps": [
+    "No lower-court appendix or opposition text was provisioned, limiting verification of findings and preservation.",
+    "Web-tool calls returned no usable content.",
+    "Statpack metadata did not provide a corpus-refresh or generation timestamp."
+  ],
+  "helpful": [
+    "Complete petition text and questions presented exposed the preservation problem.",
+    "Frozen sal-v4 context and unrounded risk-set fields supported the correct prior-Term anchor.",
+    "MCP provided focused excerpts of general precedent without retrieving the target docket."
+  ],
+  "notes": "The default uv cache location was read-only; relocating the cache to /tmp restored CLI access. pdftotext was unavailable, but the installed pypdf extracted the general rules PDF in memory. No target-case retrieval or outcome exposure occurred. Forward prediction proceeded on the supplied record and general legal context.",
+  "role": "predictor",
+  "run_id": "20260916T201911Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "local provisioned document reads",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "urllib and pypdf",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73317900",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The September 16 snapshot records an opposition submitted September 14 and a supplemental brief filed June 16, but the provisioned document manifest contains only the petition and QP extraction, fetched July 17. The forecast therefore lacks both briefs' substance; the missing opposition is material to whether Jules warrants a GVR. This is unavailable text, not an absent response."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Retrieved separate companion precedent Jules v. Andre Balazs Properties, No. 25-83, decided May 14, 2026, through CourtListener opinion 11326163. Its retained-jurisdiction reasoning materially increases the GVR forecast. It predates this forward cell's September 16 snapshot; no disposition of this petition was sought or encountered."
+    }
+  ]
+}

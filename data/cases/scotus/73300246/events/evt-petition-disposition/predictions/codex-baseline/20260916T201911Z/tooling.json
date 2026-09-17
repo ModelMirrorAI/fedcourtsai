@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73300246",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local file reads", "fedcourts paths", "committed statpack", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts"],
+  "helpful": ["Petition appendix exposed the preservation ruling and separate treatment of the access and historic-condemnation claims.", "The complete provisioned opposition allowed a two-sided vehicle assessment.", "The reached-band table supplied an appropriate strictly-prior private-petitioner anchor.", "CourtListener excerpt search verified a limited precedent proposition without retrieving the cell docket."],
+  "gaps": ["The petition appendix is truncated; record maps and permit evidence were not independently verified.", "The docket records a reply but no reply text is provisioned.", "Web calls returned no visible content."],
+  "notes": "No live corpus lookup was necessary. The default uv cache was read-only; a temporary cache permitted operational commands without pipeline changes. Forecasts of relisting, CVSG, and separate writing remain subjective because the published terminal cuts do not estimate forward hazards."
+}

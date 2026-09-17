@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73322426",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "record/documents/ was fetched on 2026-07-17 and carries only the petition and QP; the docket in the 2026-09-16 snapshot also shows a brief in opposition (2026-09-04) and a reply (2026-09-15) that were not provisioned. In forward mode I fetched both from the supremecourt.gov URLs in the docket entries and used them; other predictors in this fan-out may not have, so cross-predictor comparison on this cell is not on a common opposition text. Consider re-fetching documents at provisioning time when the docket shows filings newer than documents.json."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The docket shows the Court requested a response on 2026-07-06 after the State waived, yet the frozen sal-v4 band is `baseline` and the statpack carries no response-requested cut. A call for a response is one of the strongest pre-grant signals on the paid docket; a salience feature or statpack cut for it would let the anchor price what the band currently cannot."
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will deny the petition, most likely without a separate writing on an orders list following the September 28, 2026 conference, in late September or early October. P(any grant), including a GVR or summary reversal, is **3.5%**.
+
+The baseline shows **one distribution**, entered June 17 for the September 28 conference; it shows no previous relist and no CVSG. I predict **zero further distributions**, with a **17%** probability of at least one additional distribution. If the petition survives initial consideration, one further distribution is the likeliest extension, rather than a sustained series of relists. The summer interval before the scheduled conference is not itself evidence of repeated consideration. These starting facts come from the provisioned September 16 snapshot and context.
+
+I predict **no CVSG**, with a **2.5%** probability of a new invitation. If one issues, the likely window is the first several conferences of the coming sitting season. The federal enforcement interest described in the petition makes an invitation conceivable, but I expect the Court to treat the threshold standing issue as insufficient reason to solicit the government's views. This forecast does not equate the petition's description of DOJ enforcement concerns with support from the Solicitor General. See petition pp. 12–14, 20.
+
+If review is granted, I predict a narrowed version of **QP 2**: whether these complainants' deprivation of HAVA's mandatory administrative adjudication establishes concrete Article III injury, including direct impairment of the organization's activities. I do not expect a grant broadly deciding whether every HAVA provision is privately enforceable under section 1983. The decision below is described as a standing dismissal, and the cited HAVA precedents concern distinct statutory protections. See petition pp. 13–19; Sandusky County Democratic Party v. Blackwell, 387 F.3d 565, 572–73 (6th Cir. 2004); Crowley v. Nevada, 678 F.3d 730, 731–32 (9th Cir. 2012), retrieved through CourtListener.
+
+**Conditional on a grant**, the probability of disposition in the cert order itself is **15%**; plenary briefing and argument is the more likely route. The supplemental brief identifies additional circuit decisions, not an intervening Supreme Court holding that dictates a GVR. If the Court intervenes, I expect it to clarify the standing question rather than summarily order a HAVA hearing. See September 15 supplemental brief pp. 1–7.
+
+**Conditional on denial**, the probability of a noted dissent or statement respecting denial is **4%**. I predict no separate writing and do not assign a Justice to one. A denial will supply no majority merits rationale; the proposed legal grounds above are conditional on review.

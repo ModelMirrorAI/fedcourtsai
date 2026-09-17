@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73344703",
+  "gaps": [
+    "No provisioned brief in opposition or lower-court opinion text",
+    "Web tools returned no visible content",
+    "Default uv cache location was read-only; temporary-cache override worked"
+  ],
+  "helpful": [
+    "Frozen sal-v4 band and distribution count",
+    "Complete extracted petition with document manifest",
+    "Prior-Term reached-rate denominators",
+    "Targeted CourtListener precedent snippets avoided subject-case searches"
+  ],
+  "notes": "Predicted from the supplied forward record and general preexisting authority. Missing adversarial and lower-court text limits independent vehicle assessment. No live corpus query or subject-case outcome retrieval was needed.",
+  "role": "predictor",
+  "run_id": "20260916T201911Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and petition text",
+    "committed statpack",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open/find attempts",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

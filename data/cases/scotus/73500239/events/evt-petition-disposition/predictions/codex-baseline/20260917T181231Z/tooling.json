@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500239",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local provisioned-file reads",
+    "committed metrics/statpack.md",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts"
+  ],
+  "helpful": [
+    "The complete extracted petition identified the causation-based vehicle problem.",
+    "Frozen band and distribution count established the correct conditioning state.",
+    "Prior-Term reached-band rates supplied a reproducible anchor.",
+    "CourtListener snippet retrieval verified the academic-speech reservation without retrieving this case."
+  ],
+  "gaps": [
+    "The appendix and underlying opinions were not provisioned; no BIO existed in the supplied waived-response record.",
+    "Web search and open calls returned no usable content.",
+    "The default uv cache path was read-only; a temporary cache with no dependency synchronization worked."
+  ],
+  "notes": "No case-outcome retrieval was attempted. No corpus query was needed for the narrow precedent check. The statpack's terminal relist and CVSG cuts were treated as shape, not forward hazards."
+}

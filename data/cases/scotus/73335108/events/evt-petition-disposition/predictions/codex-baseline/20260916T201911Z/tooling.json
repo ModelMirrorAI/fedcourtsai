@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73335108",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "fedcourts paths", "committed statpack", "local weighted-rate calculation", "web search and source opening"],
+  "helpful": ["Frozen sal-v4 band and distribution count", "Complete extracted petition and questions presented", "Prior-Term reached-rate table", "Document extraction and fetch metadata"],
+  "gaps": ["Referenced appendix and underlying certificate-of-appealability order not provisioned", "No explicit statpack build timestamp in inspected metadata", "Default uv cache is read-only"],
+  "notes": "The case record and general legal standards were sufficient for a conservative forecast. A temporary uv cache restored CLI operation. No live corpus or CourtListener retrieval was needed; no case-outcome search was made. Browser calls returned no usable payload; credential-free shell retrieval of Cornell LII pages supplied general legal context. A PDF extraction attempt failed because pdftotext was unavailable."
+}

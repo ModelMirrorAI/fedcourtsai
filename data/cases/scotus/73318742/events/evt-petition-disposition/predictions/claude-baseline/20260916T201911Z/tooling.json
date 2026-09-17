@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73318742",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md",
+    "provisioned record (snapshot, context.json, petition.txt, brief-in-opposition.txt, questions-presented.txt)",
+    "CourtListener MCP search (2 calls, both empty)"
+  ],
+  "helpful": [
+    "questions-presented.txt and brief-in-opposition.txt: the BIO's preservation and Eleventh Amendment points settled the vehicle question quickly",
+    "context.json band + the sal-v4 segment table: a direct, leakage-safe anchor",
+    "Docket JSON's sJsonCaseType (Paid) and pro se attorney block"
+  ],
+  "gaps": [
+    "fedcourts query has no topical/text filter, so it cannot surface priors on a legal question like judicial immunity; a QP-topic or free-text filter would make it useful for a cert cell",
+    "CourtListener did not index the unpublished Sixth Circuit opinion (No. 25-5722), so the lower-court opinion could only be read through the parties' characterizations",
+    "A per-fee-class and pro se cut of the baseline-band reached rate would sharpen the anchor for petitions like this one"
+  ],
+  "notes": "Attempted one fedcourts query with a --text flag, which the CLI rejects (structured filters only); did not retry since no available filter narrows on the legal question. Two CourtListener MCP searches for the Sixth Circuit opinion returned zero results."
+}

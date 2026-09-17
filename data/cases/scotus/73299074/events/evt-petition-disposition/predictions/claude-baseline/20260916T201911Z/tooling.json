@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/73299074",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query (2 calls, service backend)",
+    "metrics/statpack.md (modern cert base rate, relist/CVSG cuts, sal-v4 band table)",
+    "CourtListener MCP: search (5), get_endpoint_item dockets (1), call_endpoint docket-entries (1), call_endpoint recap-documents (1), read_document (1)",
+    "WebFetch (2: supremecourt.gov docket page succeeded; petition PDF failed on size)"
+  ],
+  "helpful": [
+    "CourtListener docket-entries on the district court docket plus read_document on the magistrate's memorandum and recommendation gave the whole remand posture in two calls.",
+    "The sal-v4 band table with bracketed 'reached' rates made the anchor arithmetic straightforward."
+  ],
+  "gaps": [
+    "fedcourts query has no caption or writ-kind filter; with --include-applications the recency ranking returns hundreds of granted time-extension applications, so no mandamus-petition prior population could be pulled from the corpus.",
+    "The provisioning pipeline fetched no petition text for a Rule 20 mandamus petition, and the supremecourt.gov PDF was over the fetch tool's size limit; a pipeline-side text extraction for extraordinary-writ petitions would have helped.",
+    "CourtListener docket search by docket_number (25-1252) and case_name returned nothing even though get_endpoint_item on the docket id works; RECAP coverage of any Fifth Circuit filing after the April 2026 remand order could not be confirmed."
+  ],
+  "notes": "Cell is a mandamus petition treated as a cert-stage petition-disposition event; see flags.json."
+}

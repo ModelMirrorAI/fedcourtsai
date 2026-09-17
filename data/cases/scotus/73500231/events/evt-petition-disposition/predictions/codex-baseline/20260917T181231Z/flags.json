@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500231",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned questions-presented.txt ends mid-question 7 after '5 U.S.' and omits question 8, although its documents.json entry reports truncated=false and empty_text=false. The full petition.txt contains the completion of question 7 and question 8; both were read there. Prediction completed using the full petition, without treating the QP extract as exhaustive.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260917T181231Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will deny the petition, most likely in the orders following the September 28, 2026 conference, in late September or early October. The forecast is P(any grant) = 1.5%, including plenary grants and grant-bearing summary dispositions. Denial will leave the judgment below standing without endorsing its reasoning.
+
+The provisioned docket records exactly one distribution, entered June 17 for the September 28 conference, and no CVSG. That is a first distribution, not a completed conference or a relist. I predict no further distribution: P(at least one additional distribution) = 8%. On the less likely additional-distribution branch, one additional distribution is more likely than a prolonged sequence. The summer interval before the scheduled conference is not evidence of multiple consideration rounds.
+
+I predict no CVSG: P(a new CVSG) = 0.1%. The Department of Agriculture is already the respondent, and the Solicitor General has waived its response. If the Court wants the government's position, a request for a response is the more natural next step; it is not the CVSG claim.
+
+If the Court grants plenary review, it will take the petition's single question substantially as presented: whether the MSPB must decide both timely raised protected-disclosure categories under 5 U.S.C. § 2302(b)(8)(A), rather than deciding only the alleged violation-of-law category and leaving the gross-mismanagement category unaddressed. I expect any such review to focus on the obligation to address material, preserved grounds, not a general reconsideration of the employee's performance or a finding that every disputed accounting practice is protected whistleblowing.
+
+Conditional on a grant, plenary consideration is more likely than disposition in the cert order: P(summary-disposition route | grant) = 25%. A summary route would most plausibly vacate and remand to obtain consideration of an omitted material claim, rather than itself decide that retaliation occurred. No intervening controlling decision or government concession is identified in the material consulted, so I do not specifically forecast a companion-case GVR.
+
+Conditional on denial, P(a noted dissent or statement respecting denial) = 1.5%. The modal outcome is a routine denial without a separate writing; I do not forecast a particular Justice as its author. The likely selection judgment is that this record-bound challenge to a nonprecedential summary affirmance does not warrant the Court's review, notwithstanding the importance of whistleblower protection. That is an explanation of the forecast, not a prediction that the Court will publish reasons for denying certiorari.

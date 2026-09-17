@@ -1,0 +1,9 @@
+# Forecast
+
+The Court will deny the petition for certiorari. The snapshot records exactly one distribution, entered June 24 for the September 28, 2026 conference; it records no completed relist and no CVSG. I expect denial in the orders following that conference, with zero further distributions, no CVSG, and no noted dissent or statement respecting denial. The probabilities of another distribution and a new CVSG are 2.5% and 0.1%, respectively. Conditional on denial, the probability of any noted dissent or statement is 0.3%; I do not forecast individual cert votes.
+
+The petition's allegations of misconduct, evidentiary exclusion, privacy violations, and inadequate compensation will not persuade the Court to undertake record-specific correction. Its account of an untimely request for lower-court review presents a threshold obstacle to reaching the underlying compensation disputes. Denial will leave the challenged judgment undisturbed without deciding whether the allegations are true or endorsing the reasoning below.
+
+If review is granted, the most plausible focus is a narrowed version of Question I: whether the procedural treatment of the request for review can stand given the asserted circumstances preventing timely review. I do not expect the Court to adopt the questions' allegations as established premises or to take the entirety of Question II's misconduct and records-access assertions as a single merits question.
+
+Conditional on the rare grant, I assign 55% to disposition in the cert order rather than plenary briefing and argument. That is a modest preference for a narrow corrective remand or summary correction if a clear procedural defect is established, not a prediction of a GVR tied to any identified intervening decision. No such decision is identified in the material consulted. The unconditional probability of any grant remains only 0.4%.

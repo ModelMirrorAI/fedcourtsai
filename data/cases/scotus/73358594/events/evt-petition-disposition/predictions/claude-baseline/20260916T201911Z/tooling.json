@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73358594",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "CourtListener MCP search (dockets, opinions)", "fedcourts paths"],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt: the Rule 36 judgment in Appendix A and the reasons-for-granting section settled the vehicle read",
+    "context.json band + sal-v4 band table with bracketed reached rates: a direct, scoreable anchor",
+    "Snapshot proceedings list: the government waiver entry was the single most informative fact"
+  ],
+  "gaps": [
+    "A statpack cut for 'respondent waived response, no response requested' at first conference would sharpen the strongest denial signal on the paid docket",
+    "A caption or subject-text filter on fedcourts query (e.g. MSPB / Federal Circuit petitions) would make corpus priors usable for a case like this; the structural filters alone cannot isolate them",
+    "CourtListener's SCOTUS docket coverage is thin, so the hold-candidate check via docket search is weak; a corpus open-petitions search by statute cited would do that job"
+  ],
+  "notes": "Forward cell, fully provisioned; two MCP calls, well under budget. Petition text was truncated at 194 pages but the petition body and Appendix A were intact."
+}

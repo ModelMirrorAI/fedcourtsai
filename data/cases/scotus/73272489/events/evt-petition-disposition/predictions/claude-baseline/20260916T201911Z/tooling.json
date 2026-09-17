@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73272489",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "courtlistener call_endpoint (docket-entries)", "metrics/statpack.md"],
+  "helpful": [
+    "context.json band + salience_version matching the statpack table, so the anchor was unambiguous",
+    "questions-presented.txt and petition.txt with full text: the QP alone settled the forecast",
+    "statpack originating-court cut for the exact California Court of Appeal district"
+  ],
+  "gaps": [
+    "fedcourts query has no filter for pro se / counsel-of-record status or for originating court, so a same-posture prior pull is not possible",
+    "CourtListener carries no docket entries for supremecourt.gov dockets, so a post-snapshot waiver/response check has no live source in the cell",
+    "a per-fee-class or pro-se cut beside the salience band table would sharpen the baseline-band floor for this very common posture"
+  ],
+  "notes": "Two corpus queries cost about 12 MB of ranged reads for qualitative shape only; a cheaper aggregate cut (e.g. grant rate among paid petitions with no response filed) would have served the same purpose."
+}

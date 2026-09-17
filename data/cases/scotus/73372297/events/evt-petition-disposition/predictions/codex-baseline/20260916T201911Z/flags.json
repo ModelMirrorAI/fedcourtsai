@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73372297",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot links a separate appendix, but provisioned documents contain only the petition and QPs. The apparent late-review vehicle problem is described by the petitioner; without the lower-court decisions I cannot independently verify its exact legal basis or exceptions. This is an input limitation, not a claim that provisioning violated its contract. Prediction completed from the supplied record and prior-Term base rates; no case outcome was retrieved."
+    }
+  ]
+}

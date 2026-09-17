@@ -1,0 +1,33 @@
+# Basis for the prediction
+
+## Record and information boundary
+
+This is a forward cert-stage prediction for Melanie Crites-Bachert v. Providence Health & Services - Oregon, Supreme Court docket 25-1317. The petition-kind event has no explicit stage; I apply the cert contract. I read the case-level `record/snapshots/2026-09-17.json`, `record/context.json`, `event.yaml`, the provisioned questions presented and petition, and `record/documents/documents.json`. Context freezes Term 2025, `baseline` under `sal-v4`, one distribution, and no CVSG. Its cutoff is null, so this is the as-stored snapshot rather than an inferred earlier boundary.
+
+The snapshot records the petition filed May 18, 2026, a June 12 waiver of response, and a June 24 distribution for September 28. The March extension grant concerns time to file, not certiorari. Neither a response request nor an amicus filing appears in the supplied proceedings. The manifest lists a nonempty, untruncated 36-page petition, fetched July 18, and its extracted QP; there is no BIO to weigh against it. That absence is consistent with the waiver, not evidence of failed text extraction. The separate appendix is not provisioned, so my description of the decision below comes from the petition's account and quoted passages, not an independently read lower-court opinion.
+
+I neither knew nor retrieved this petition's Supreme Court disposition. External research was confined to preexisting authorities, not the present docket or its subsequent history. General web calls returned no usable content; CourtListener MCP supplied the primary-source passages discussed below.
+
+## Baseline and adjustments
+
+The appropriate anchor is the bracketed **reached-baseline** rate for private paid petitions under `sal-v4`, not the terminal-baseline rate and not the all-docket rate. The committed `metrics/statpack.md` renders ten Terms. Pooling every displayed Term strictly before this case's Term 2025 gives 2017–2024. Using the corresponding unrounded `prefix_est_grant_rate` and `prefix_weighted_resolved` fields in `metrics/statpack.json` yields **593 weighted grants / 11,580 weighted resolved petitions = 5.1209%**. Terms 2025 and 2026 are excluded. These are the committed pack's estimates, not a newly refreshed census or a separate current-docket observation.
+
+I reduce that anchor to **1.2%**, principally for the absence of a demonstrated like-for-like appellate split, the unpublished disposition below, and the unrequested-response posture. These are judgmental adjustments, not fitted likelihood ratios. The public-health implications prevent treating the petition as entirely routine, but importance alone does not remove the remedy and vehicle obstacles.
+
+The paid-segment relist and CVSG tables provide shape checks, not forward-transition estimates. The no-relist resolved bucket has approximately 1.7% grants including GVRs, against 13.3% with one relist and roughly 37–41% with two or more; these are terminal buckets and cannot replace the reached-band anchor. The CVSG bucket has about 34.9% grants including GVRs, versus 6.3% without one. Neither table measures the chance this once-distributed, response-waived petition will receive another distribution or a CVSG. My increment probabilities, 10% and 0.4%, are forecasts from this record, not numbers read off those terminal cuts.
+
+## The asserted split and the remedy obstacle
+
+The QP asks whether civilians possess the same private action to enforce EUA informed-consent protections that military personnel possess. The petition describes lost operating privileges after refusal of vaccination, rather than forcible administration; its characterization of EUA products and informed-consent rights is advocacy, not a medical finding adopted here. See provisioned petition, pp. 2–5.
+
+The strongest cert argument is the asserted mismatch between civilian cases and military cases, developed at pp. 10–13 and 21–25. But the petition itself acknowledges that civilian cases uniformly reject the proposed remedy. Its favorable examples principally involve the Court of Federal Claims and military-specific law, not a conflicting appellate holding recognizing this civilian cause of action against a private party.
+
+I checked the opening jurisdictional discussion of **Harkins v. United States**, No. 23-1238C (Fed. Cl. Jan. 23, 2025), CourtListener opinion 10787115. The plaintiffs sought reinstatement and constructive back pay under the Military Pay Act; the discussion expressly situated jurisdiction under the Tucker Act and addressed 10 U.S.C. § 1107a. This supports a distinction between an existing military-pay remedial vehicle against the government and the civilian implied remedy sought here. It does not establish that a court accepted the latter. That is my inference from the compared claims, not a finding that every possible conflicting case has been exhaustively surveyed.
+
+The statutory-remedy obstacle also has a concrete doctrinal foundation. **Alexander v. Sandoval**, 532 U.S. 275, 286–87 (2001), requires congressional intent to create a remedy as well as a right; I verified the majority's discussion through CourtListener opinion 9795078. **Buckman Co. v. Plaintiffs' Legal Committee**, 531 U.S. 341, 349 n.4, 352 (2001), relies on § 337(a) for federal enforcement of the medical-device provisions; I checked those passages in opinion 118406. Buckman did not decide this EUA question, so I treat it as an obstacle rather than a holding directly disposing of it. The petition's historical and legislative-purpose account does not itself answer Sandoval's separate-remedy inquiry. Nor does the military presidential-waiver provision necessarily supply a civilian action against a hospital.
+
+The absence of a respondent brief and the unprovided appendix leave uncertainty about preservation, alternative grounds, and the best opposition arguments. I do not invent such defects or treat a waiver as agreement with the petition. My low probability instead rests on identifiable weaknesses in the petition's own cert presentation. The 20% summary-route probability is conditional on a grant; the 2.5% separate-writing probability is conditional on denial. Neither is an unconditional joint probability or a published baseline.
+
+## Stakes
+
+The **0.45** significance score is independent of grant likelihood. A recognized private remedy could affect institutional policies and litigation over future emergency-use products nationwide. The narrower question actually presented, involving statutory enforcement and private hospital privileges, places it below a direct nationwide ruling on constitutional authority over public-health mandates.

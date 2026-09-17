@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500217",
+  "run_id": "20260917T181231Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Local provisioned-file reads",
+    "Committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "CourtListener MCP search and search_document",
+    "web.run search and open attempts",
+    "jq aggregate calculation",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen salience band and exact snapshot basename",
+    "Readable petition and extracted question presented",
+    "Unrounded prior-Term reached-band denominators",
+    "Targeted primary-opinion snippets for the asserted split"
+  ],
+  "gaps": [
+    "The separately linked lower-court appendix was not provisioned.",
+    "Web calls returned no usable content.",
+    "The default uv cache was read-only; a temporary cache path was necessary."
+  ],
+  "notes": "CourtListener worked without REST fallback. A bare citation search returned an unrelated case; narrowing by case name and court located the intended authority. No BIO was provisioned, consistently with the recorded response waiver. No current-case outcome lookup was attempted."
+}
