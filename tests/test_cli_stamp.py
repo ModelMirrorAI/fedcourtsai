@@ -3145,3 +3145,77 @@ def test_a_re_stamp_adds_no_second_note_when_the_wording_behind_it_moved(
     flags = read_model(flags_path, AgentFlags)
     assert len(flags.flags) == 1
     assert "in wording since replaced" in flags.flags[0].message
+
+
+def test_the_diagnosis_survives_the_budget_with_both_paths_at_their_cap(
+    _data_root: Path,
+) -> None:
+    """The budget must spend its last characters on the quotation, not the finding.
+
+    Worst case on every axis at once: an `input_snapshot` whose 120-character
+    slice `repr` expands tenfold, and an event id long enough to drive both
+    quoted paths to their own cap. What has to survive that is the pair of
+    sentences a maintainer acts on — the event-level path, and that provisioning
+    is not the cause. If the path cap were ever raised past what the message cap
+    can hold, this is what would fail, rather than the note quietly losing its
+    diagnosis to the trailing slice.
+    """
+    event = "evt-petition-" + "d" * 160
+    _provision(_data_root, 50)
+    event_paths = _seed_unstamped(_data_root, 50, event, "\U000e0001" * 200)
+
+    result = _stamp("predictor", "claude-baseline", 50, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    message = (
+        read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+        .flags[0]
+        .message
+    )
+    assert len(message) <= _FLAG_MESSAGE_LIMIT
+    # The probed path is quoted up to its own cap and says it was cut there.
+    assert "scotus/50/events/evt-petition-ddd" in message
+    assert "…" in message
+    assert "Provisioning is not the cause" in message
+
+
+def test_an_agent_written_lookalike_does_not_suppress_the_harness_s_own_note(
+    _data_root: Path,
+) -> None:
+    """Dedupe matches the note's shape, not merely its opening words.
+
+    `flags.json` is the cell's own file and a flag carries no author, so the
+    prefix can never authenticate anything. Requiring the category, severity and
+    event the harness always writes raises what a lookalike costs without
+    pretending otherwise — and the annotation and the stamped `context` say the
+    same thing where no agent can write at all.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 51)
+    event_paths = _seed_unstamped(_data_root, 51, event, "missing")
+    flags_path = event_paths.prediction_flags("claude-baseline", "RID")
+    write_json(
+        flags_path,
+        AgentFlags(
+            case_id="scotus/51",
+            run_id="RID",
+            role=UsageRole.predictor,
+            actor_id="claude-baseline",
+            flags=[
+                AgentFlag(
+                    category=FlagCategory.other,
+                    severity=FlagSeverity.info,
+                    message=f"{_TRIPWIRE_PREFIX} 'missing', nothing to see here.",
+                    event_id=event,
+                )
+            ],
+        ),
+    )
+
+    result = _stamp("predictor", "claude-baseline", 51, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    assert "snapshot_uptake 'unread'" in result.output
+    flags = read_model(flags_path, AgentFlags)
+    assert len(flags.flags) == 2
+    assert "Provisioning is not the cause" in flags.flags[1].message

@@ -1708,7 +1708,12 @@ into the run PR body, the Actions summary, and the agent-feedback issue rather
 than living only in the artifact — unless the run's secret scan hits, which
 withholds the whole flag roll-up. It is a harness-authored note in a channel
 that is otherwise the agent's, and its `Harness tripwire:` prefix is what
-separates the two by eye.
+separates the two by eye — a reading aid, not a signature. `flags.json` is the
+cell's own file and a flag carries no author, so an agent can open one with
+those words too. Where the finding is the harness's word and an agent cannot
+reach is the pair the note exists to carry into view: `context.snapshot_uptake`
+on the committed `prediction.json`, and the `::warning::` annotation on the
+run, which is emitted before the note is written and whatever the note says.
 
 The note carries the diagnosis the field cannot. `unread` is one value for two
 different faults — a cell that named another day's file, and a cell that named

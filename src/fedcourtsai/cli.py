@@ -6216,10 +6216,27 @@ _FLAG_MESSAGE_LIMIT = 2000
 #: extension rather than as prose that happens to contain a full stop.
 _EXTENSION_LIMIT = 6
 
-#: The tripwire's own opening, matched as a prefix when deduplicating so a
+#: The tripwire's own opening. Matched as a prefix when deduplicating, so a
 #: re-stamp cannot append a second note merely because the wording behind it
-#: moved between the two runs.
+#: moved between the two runs — a reading aid for a maintainer scanning the
+#: roll-up, never a claim of authorship: nothing stops an agent opening a flag
+#: of its own with these words, and `AgentFlag` carries no author. What the
+#: harness alone can say is stamped where the agent cannot write: `context`
+#: on `prediction.json`, and the run's own annotation.
 _TRIPWIRE_PREFIX = "Harness tripwire: this cell recorded input_snapshot"
+
+
+def _one_line(value: str) -> str:
+    """Agent text, collapsed to a single line for a workflow-command annotation.
+
+    ``case_id`` and ``event_id`` are unvalidated agent strings on the record, and
+    ``::warning::`` is line-oriented: a newline inside one would end the
+    annotation and let whatever follows be read as a command of its own — a
+    forged ``::error::``, or a ``::stop-commands::`` that mutes every harness
+    annotation after it. The note's own quotation is already safe, because
+    ``repr`` escapes a newline rather than emitting one; these two are not.
+    """
+    return " ".join(value.split())
 
 
 def _case_relative(path: Path, case_paths: CasePaths, case_id: str, suffix: str = "") -> str:
@@ -6317,9 +6334,14 @@ def _flag_unread_snapshot(
     harness's confirmation belongs beside it rather than over it. A file that
     does not parse is left alone: overwriting it would destroy agent prose to
     add a note, and an unparseable ``flags.json`` fails ``validate`` into the
-    draft PR a maintainer reads anyway. Deduplicated on the opening rather than
-    the whole message, so a re-stamp of the same cell does not grow the list even
-    where the prose behind that opening moved between the two runs.
+    draft PR a maintainer reads anyway. Deduplicated on the opening, plus the
+    category, severity and event this note is always written with, so a re-stamp
+    of the same cell does not grow the list even where the prose behind that
+    opening moved between the two runs. That match is a convenience, not an
+    authentication — an agent can write those four itself, and suppressing the
+    harness's wording this way only substitutes its own row in the same table,
+    while the annotation below and the stamped ``context`` say the same thing
+    where no agent can reach.
 
     ``warning`` rather than ``blocker``: the cell finished and its artifact is
     usable and fully scoreable — what is wrong is upstream of it, a cell that
@@ -6374,8 +6396,8 @@ def _flag_unread_snapshot(
     # maintainer re-running the stamp step to reproduce a cell must see the line
     # they are re-running for, whether or not this invocation appends anything.
     typer.echo(
-        f"::warning::stamp: {record.case_id} {record.event_id} {actor} reported "
-        + f"input_snapshot {reported} against provisioned {snapshot}; "
+        f"::warning::stamp: {_one_line(record.case_id)} {_one_line(record.event_id)} {actor} "
+        + f"reported input_snapshot {reported} against provisioned {_one_line(snapshot)}; "
         + "stamped snapshot_uptake 'unread'.",
         err=True,
     )
@@ -6402,7 +6424,15 @@ def _flag_unread_snapshot(
                 err=True,
             )
             return
-        if any(item.message.startswith(_TRIPWIRE_PREFIX) for item in existing.flags):
+        if any(
+            item.message.startswith(_TRIPWIRE_PREFIX)
+            # `==`, not `is`: these round-trip through JSON as the enum's own
+            # string value, and a `StrEnum` member compares equal to it either way.
+            and item.category == FlagCategory.data_quality
+            and item.severity == FlagSeverity.warning
+            and item.event_id == record.event_id
+            for item in existing.flags
+        ):
             return
         flags = existing.model_copy(update={"flags": [*existing.flags, flag]})
     write_json(flags_path, flags)
