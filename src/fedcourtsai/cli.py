@@ -6188,14 +6188,69 @@ def _stamped_conditioning(
     if _snapshot_stem(record.input_snapshot) == snapshot.stem:
         return provisioned.model_copy(update={"snapshot_uptake": "read"})
     _flag_unread_snapshot(
-        event_paths.prediction_flags(actor, run_id), snapshot.name, record, actor, run_id
+        event_paths.prediction_flags(actor, run_id),
+        _case_relative(snapshot, case_paths, record.case_id),
+        # The path a cell that mistook `record/` for an event-level directory
+        # would have probed, spelled from the same `record` name provisioning
+        # writes so the note cannot drift from the real one. Nothing creates it.
+        _case_relative(event_paths.base / case_paths.record.name, case_paths, record.case_id) + "/",
+        record,
+        actor,
+        run_id,
     )
     return provisioned.model_copy(update={"snapshot_uptake": "unread"})
+
+
+def _case_relative(path: Path, case_paths: CasePaths, case_id: str) -> str:
+    """One of the cell's own paths, spelled from the case directory down.
+
+    The tripwire's note is read off a run PR body by someone who has no runner
+    and no checkout, so a bare basename under-identifies the file and the
+    runner's absolute path over-identifies it. The case id plus the path below
+    the case directory is what both the ledger and `data/cases/` are keyed on,
+    and it is stable across the runner, a developer checkout, and a test root.
+
+    Bounded for the same reason the reported string is: the note it goes into is
+    capped at 2000 characters, and a stamp must never fail a cell over the length
+    of a path it is quoting.
+    """
+    return f"{case_id}/{path.relative_to(case_paths.base).as_posix()}"[:200]
+
+
+def _names_a_snapshot(value: str) -> bool:
+    """Whether a cell's ``input_snapshot`` names a snapshot file at all.
+
+    The two ways a cell can fail the uptake comparison are different faults, and
+    the tripwire's note is the only place they are ever told apart. A cell naming
+    another day's file opened *something* and mis-stated which. A cell writing a
+    sentinel — ``missing``, ``none``, ``unavailable``, or free prose — is
+    reporting that it found no snapshot, and on a prediction that exists that can
+    only be a lookup at the wrong path: provisioning refuses the cell outright
+    when it writes nothing, and `assert-cell-record` refuses it again when the
+    write did not land complete, both before any engine starts. So a produced
+    prediction always had its record, and the note can say so.
+
+    A value names a file when it carries a path separator, ends in ``.json``, or
+    is the bare day the provisioned file is named for — the spellings
+    :func:`_snapshot_stem` already has to absorb. Everything else named none.
+    Deliberately generous toward "named a file", because the sentinel arm carries
+    the stronger claim about *why* the cell missed, so an ambiguous string takes
+    the weaker one.
+    """
+    text = value.strip().replace("\\", "/")
+    if "/" in text or text.endswith(".json"):
+        return True
+    try:
+        date.fromisoformat(_snapshot_stem(value))
+    except ValueError:
+        return False
+    return True
 
 
 def _flag_unread_snapshot(
     flags_path: Path,
     snapshot: str,
+    probed: str,
     record: Prediction,
     actor: str,
     run_id: str,
@@ -6222,17 +6277,35 @@ def _flag_unread_snapshot(
     It is a **harness-authored** note in a channel that is otherwise the agent's;
     the roll-up counts it with the rest, and the ``Harness tripwire:`` prefix is
     what separates the two by eye.
+
+    The note also says **which** of the two misses this was, because
+    ``snapshot_uptake`` cannot: a cell that named another day's file and a cell
+    that reported no file at all both stamp ``unread``, and only the second is
+    diagnosable from where the reader sits. On that arm the note names the
+    provisioned file and the event-level path a cell reaching for ``record/``
+    one directory too deep would have probed, and rules provisioning out — the
+    cell ran, so its record had already landed and been checked. A reader of the
+    run PR body can then tell a path fault from an outage without a runner.
     """
     # `input_snapshot` is unbounded agent text and the flag message is capped at
     # 2000 characters, so quote a bounded prefix: a stamp must not fail the cell
     # over the length of the string it is reporting.
     reported = repr(record.input_snapshot[:120])
+    if _names_a_snapshot(record.input_snapshot):
+        cause = f"It names a snapshot, but not the provisioned one, {snapshot}."
+    else:
+        cause = (
+            f"It names no snapshot at all, while the provisioned one, {snapshot}, was on disk. "
+            "Provisioning is not the cause: a cell whose record did not land complete is "
+            "refused before any engine starts, so a prediction that exists had its record. "
+            f"What fits is a lookup under the event directory — {probed} — which is never "
+            "provisioned and never exists; record/ is case-level."
+        )
     message = (
-        f"Harness tripwire: this cell recorded input_snapshot {reported}, which does not name "
-        f"the provisioned snapshot {snapshot}, so it reports not having read the baseline every "
-        "predictor shares. The stamped context records snapshot_uptake 'unread'; the conditioning "
-        "beside it is what provisioning wrote, which this cell may not have used. A cell that "
-        "looked under events/<event_id>/record/ has the wrong path: record/ is case-level."
+        f"Harness tripwire: this cell recorded input_snapshot {reported}, so it reports not "
+        f"having read the baseline every predictor shares. {cause} The stamped context records "
+        "snapshot_uptake 'unread'; the conditioning beside it is what provisioning wrote, which "
+        "this cell may not have used."
     )
     # Echoed before any of the file handling below, and so before the dedupe
     # return: the annotation is about the finding, not about the write. A

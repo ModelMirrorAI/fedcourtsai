@@ -605,6 +605,18 @@ directory without knowing which part is which invites trusting the wrong half.
   the stamp could not judge: a record written before the comparison existed, or
   a re-stamp away from the runner with no `record/` beside it.
 
+  The field is one value for both of those misses, and deliberately: what it
+  records is that the cell did not report reading the baseline, which is a
+  single fact. The **note** is where they are told apart, because only one of
+  them is diagnosable from a run PR body. A cell that named another day's file
+  opened something and mis-stated which, and the note says no more than that. A
+  cell that named no file at all is reporting that it found none — and on a
+  prediction that exists that cannot be a provisioning outage, since a cell
+  whose record did not land complete is refused before any engine starts. So the
+  note names the provisioned file and the event-level `record/` path a cell
+  reaching one directory too deep would have probed, spelled from the case down,
+  and rules provisioning out in terms.
+
   **It reports; it masks nothing.** The conditioning beside it is what
   provisioning derived and offered, and that is a fact about the record whatever
   a given cell did with it — so every scoring surface reads the block exactly as

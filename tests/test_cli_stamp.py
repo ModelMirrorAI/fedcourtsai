@@ -16,7 +16,7 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from fedcourtsai import process_version
-from fedcourtsai.cli import app
+from fedcourtsai.cli import _names_a_snapshot, app
 from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
@@ -2962,3 +2962,95 @@ def test_stamp_leaves_the_conditioning_unjudged_with_no_snapshot_on_disk(
     assert stamped.context is not None
     assert stamped.context.snapshot_uptake is None
     assert not event_paths.prediction_flags("claude-baseline", "RID").is_file()
+
+
+# --- telling the two misses apart ---------------------------------------------
+#
+# `snapshot_uptake` stamps `unread` for both shapes of miss, which is right: the
+# field says the cell did not report reading the baseline, and that is one fact.
+# But only one shape is diagnosable, and the note is where the harness says so —
+# a cell that reported no snapshot at all, on a run that provisioned one and
+# checked it landed, was looking somewhere the record never is.
+
+
+@pytest.mark.parametrize(
+    ("reported", "names_a_file"),
+    [
+        ("missing", False),
+        ("none", False),
+        ("unavailable", False),
+        ("", False),
+        ("no snapshot was provided to this cell", False),
+        ("2026-01-01", True),
+        ("2025-12-24.json", True),
+        ("record/snapshots/2026-01-01.json", True),
+        ("data\\cases\\scotus\\40\\record\\snapshots\\2026-01-01.json", True),
+    ],
+)
+def test_input_snapshot_is_classified_as_naming_a_file_or_not(
+    reported: str, names_a_file: bool
+) -> None:
+    """A separator, a `.json`, or a bare day names a file; a sentinel names none.
+
+    The classification decides only which prose the tripwire writes, never what
+    is stamped, so it is generous toward "named a file": the sentinel arm is the
+    one carrying a claim about *why* the cell missed.
+    """
+    assert _names_a_snapshot(reported) is names_a_file
+
+
+def test_the_note_names_the_event_level_path_a_cell_that_found_no_snapshot_probed(
+    _data_root: Path,
+) -> None:
+    """The incident's whole diagnosis, written where a reader without a runner is.
+
+    Six committed cells report `input_snapshot: "missing"` because the cell
+    resolved `record/` under the event directory. From the run PR body that read
+    exactly like a provisioning outage, so the note carries the three facts that
+    separate them: the provisioned file, spelled from the case down; the
+    event-level path that is never provisioned; and that the cell having run at
+    all means its record had landed.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 45)
+    event_paths = _seed_unstamped(_data_root, 45, event, "missing")
+
+    result = _stamp("predictor", "claude-baseline", 45, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    flags = read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+    message = flags.flags[0].message
+    assert "scotus/45/record/snapshots/2026-01-01.json" in message
+    assert f"scotus/45/events/{event}/record/" in message
+    assert "Provisioning is not the cause" in message
+    # The cap the note is written under, with the paths inside it.
+    assert len(message) <= 2000
+
+
+def test_the_note_blames_no_path_when_the_cell_named_another_snapshot(
+    _data_root: Path,
+) -> None:
+    """A cell that named a file opened something; the harness must not guess where.
+
+    Same stamp, same `unread`, different fault — so the arm that names the event
+    directory stays off, or the note would attribute a path error to every cell
+    that mis-stated a date.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 47)
+    event_paths = _seed_unstamped(_data_root, 47, event, "2025-12-24.json")
+
+    result = _stamp("predictor", "claude-baseline", 47, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
+    assert stamped.context is not None
+    assert stamped.context.snapshot_uptake == "unread"
+    message = (
+        read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+        .flags[0]
+        .message
+    )
+    assert "scotus/47/record/snapshots/2026-01-01.json" in message
+    assert f"events/{event}/record/" not in message
+    assert "Provisioning is not the cause" not in message
