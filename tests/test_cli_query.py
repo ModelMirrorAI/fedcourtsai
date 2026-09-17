@@ -361,3 +361,91 @@ def test_query_empty_sparse_filter_prints_coverage_note_on_stderr(
         app, ["query", "--court", "ca9", "--citation", "999 U.S. 999", "--limit", "0"]
     )
     assert "note:" not in capped.stderr
+
+
+# --- the citation-coverage sentinel -------------------------------------------
+
+
+def _flat(text: str) -> str:
+    """stderr flattened for matching: no colour codes, no wrapping artefacts."""
+    return " ".join(re.sub(r"\x1b\[[0-9;]*m", "", text).split())
+
+
+def _citation_less_court(db_path: Path) -> None:
+    """A 200-row court scope whose `citations` column is populated for none of it."""
+    with corpus.connect(db_path) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=f"ca5/{i}",
+                    court="ca5",
+                    docket_number=f"23-{i}",
+                    case_name="Doe v. Roe",
+                    disposition=Disposition.denied,
+                    date_decided=date(2025, 1, 2),
+                )
+                for i in range(200)
+            ],
+        )
+
+
+def test_query_says_how_thin_the_citation_column_is_before_it_scans(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The failure this prevents: a cell reading zero rows as "no such case".
+
+    Said on stderr, never stdout — cells parse stdout as one JSON row per line —
+    and said once, not twice: the empty-result coverage note is the same
+    reading, so the caller that already said it does not repeat it.
+    """
+    _citation_less_court(fixture_corpus.db_path)
+    result = runner.invoke(app, ["query", "--court", "ca5", "--citation", "597 U.S. 1"])
+    assert result.exit_code == 0, result.output
+    assert _rows(result.stdout) == []
+    err = _flat(result.stderr)
+    assert "only 0 row(s) in scope (ca5) carry any reporter citation" in err
+    assert "a column that was never filled than a case that does not exist" in err
+    assert err.count("citations filter:") == 1
+
+
+def test_query_still_serves_a_citation_filter_the_column_can_answer(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """The other branch: a matching cite returns its row, sentinel or not."""
+    result = runner.invoke(app, ["query", "--court", "ca9", "--citation", "410 U.S. 113"])
+    assert result.exit_code == 0, result.output
+    assert _rows(result.stdout), result.output
+
+
+def test_query_service_backend_relays_the_citation_sentinel(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The sidecar is a transport: same reading, same one line.
+
+    It is also where the reading matters most — the sidecar holds the ranged
+    connection, so it is the process whose transfer the narrowed scan saves.
+    """
+    _citation_less_court(fixture_corpus.db_path)
+    server, url = _serve(fixture_corpus.db_path)
+    try:
+        monkeypatch.setenv("FEDCOURTS_CORPUS_SERVICE_URL", url)
+        result = runner.invoke(
+            app,
+            [
+                "query",
+                "--court",
+                "ca5",
+                "--citation",
+                "597 U.S. 1",
+                "--corpus-backend",
+                "service",
+            ],
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert result.exit_code == 0, result.output
+    err = _flat(result.stderr)
+    assert "only 0 row(s) in scope (ca5) carry any reporter citation" in err
+    assert err.count("citations filter:") == 1

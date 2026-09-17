@@ -129,9 +129,11 @@ class QueryResponse(BaseModel):
     schema_version: Literal["1.0"]
     rows: list[dict[str, object]]
     reads: ReadCounters | None
-    # Data-coverage notes for an empty result through a sparsely-populated
-    # filter (`corpus.sparse_filter_coverage`) — the client prints them to
-    # stderr so a cell can tell "no data" from "no match".
+    # Data-coverage notes — the citation sentinel before the scan
+    # (`corpus.sparse_citation_notice`), and the coverage reading on an empty
+    # result through a sparsely-populated filter
+    # (`corpus.sparse_filter_coverage`). The client prints them to stderr so a
+    # cell can tell "no data" from "no match".
     notes: list[str] = Field(default_factory=list)
 
 
@@ -225,12 +227,20 @@ class CorpusService:
 
     def query(self, request: QueryRequest) -> QueryResponse:
         conn, before = self._baseline()
+        # The citation sentinel runs sidecar-side, which is where the ranged
+        # reads it is about are actually spent; it reaches the client as a note
+        # like any other, so the transport stays a transport.
+        notice = corpus.sparse_citation_notice(conn, request.query) if request.limit > 0 else None
         priors = corpus.retrieve_priors(conn, request.query, limit=request.limit)
         rows = [corpus.prior_payload(row, full=request.full) for row in priors]
+        notes = [notice] if notice is not None else []
         # limit=0 legitimately returns nothing scanned — no coverage story to tell.
-        notes = (
-            [] if rows or request.limit <= 0 else corpus.sparse_filter_coverage(conn, request.query)
-        )
+        if not rows and request.limit > 0:
+            notes.extend(
+                corpus.sparse_filter_coverage(
+                    conn, request.query, skip_citations=notice is not None
+                )
+            )
         return QueryResponse(
             schema_version=SCHEMA_VERSION,
             rows=rows,

@@ -291,7 +291,9 @@ def test_client_rejects_limit_past_service_ceiling(fixture_corpus: FixtureCorpus
 
 def test_query_empty_result_carries_coverage_notes(fixture_corpus: FixtureCorpus) -> None:
     # A zero-row result through a sparse filter names the data gap so a cell
-    # can tell "no data" from "no match"; a non-empty result carries no notes.
+    # can tell "no data" from "no match". The matched query filters on `--judge`,
+    # which carries no pre-scan sentinel, so it shows the other half: a note is
+    # a reading about the data, not a fixture of every response.
     with _running_server(fixture_corpus.db_path) as url:
         empty = corpus_service.client_query(
             url,
