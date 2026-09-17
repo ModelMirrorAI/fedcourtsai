@@ -8850,7 +8850,10 @@ The two closed vocabularies:
 
 `--topic`, `--judge` and `--citation` are sparsely populated: a filter on
 one can come back empty because the column is thin, not because no such
-prior exists. Widen rather than retry.
+prior exists. Widen rather than retry. A `--citation` filter is always
+served off the rows that carry a citation at all, and where those are
+few it says how few before it runs — the `note:` line carries the
+count.
 
 Worked example:
   fedcourts query --court scotus --disposition granted --limit 5
@@ -8995,9 +8998,10 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     transport change, not a different surface).
 
     Maintained as-is: cells' open-web retrieval moved to the official
-    CourtListener MCP server, so this surface gets no further feature work —
-    it stays the corpus-priors/base-rates read (the one retrieval a *replay*
-    cell leans on) rather than growing into a bespoke search engine.
+    CourtListener MCP server, so this surface gets no further *retrieval*
+    features — it stays the corpus-priors/base-rates read (the one retrieval a
+    *replay* cell leans on) rather than growing into a bespoke search engine.
+    Defects, and what a filter costs to serve, still get fixed.
     """
     settings = get_settings()
     # The two closed vocabularies are judged before the corpus is looked for:
@@ -9056,9 +9060,15 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
             typer.echo(json.dumps(payload, sort_keys=True, separators=(",", ":")))
         return
     with corpus.connect_readonly(db_path, backend=backend) as conn:
+        # The citation sentinel, said before the scan rather than after it: the
+        # population read is a couple of index pages, and a caller whose filter
+        # does match still learns how little the column holds.
+        notice = corpus.sparse_citation_notice(conn, q) if limit > 0 else None
+        if notice is not None:
+            typer.echo(f"note: {notice}", err=True)
         priors = corpus.retrieve_priors(conn, q, limit=limit)
         if not priors and limit > 0:
-            for note in corpus.sparse_filter_coverage(conn, q):
+            for note in corpus.sparse_filter_coverage(conn, q, skip_citations=notice is not None):
                 typer.echo(f"note: {note}", err=True)
         _echo_read_stats(conn)
     for row in priors:

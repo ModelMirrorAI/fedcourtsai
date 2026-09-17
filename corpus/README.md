@@ -354,5 +354,10 @@ fedcourts query --court ca9 --topic "civil rights" --judge smith --citation "410
 ```
 
 Each given filter must match (the filters AND together); judges/citations rank
-the survivors by how much they share. `opinion_text` is omitted unless `--full`.
+the survivors by how much they share. A `citation` filter is served off the
+partial index over the rows whose `citations` is non-empty — that is the whole
+candidate set, since an empty column cannot overlap a non-empty filter — and
+where that population is small the command says so on stderr before the rows
+come back, so an empty result reads as a thin column rather than a missing case.
+`opinion_text` is omitted unless `--full`.
 Semantic / embedding similarity is a later upgrade on the same query seam.

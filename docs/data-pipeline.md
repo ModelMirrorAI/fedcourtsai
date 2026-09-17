@@ -846,10 +846,14 @@ Interactive data discovery belongs in a codespace, not a workflow. The remote
 serves it in two modes, both strictly **read-only** (see
 [security.md](security.md)): **ranged queries** for quick lookups
 (`--corpus-backend ranged` on `query` / `open-events` / `corpus-info` —
-per-query egress in KBs, with `corpus-info --text-coverage` the one exception —
-that flag walks the documents of every live-slice case, tens of thousands of
+per-query egress in KBs wherever an index serves the filter, which is every
+exact-match filter and, off the partial index over the populated rows,
+`--citation`. Two shapes are not lookups and should not be read as ones.
+`--judge` matches on overlap with no index behind the predicate, so it visits
+every row in the scope and costs it. And `corpus-info --text-coverage` walks
+the documents of every live-slice case, tens of thousands of
 rows, so under the split it is a content-store manifest round trip each plus a
-full text body per stored document, and belongs with the scan-heavy work
+full text body per stored document. Both belong with the scan-heavy work
 rather than with the lookups) and **a deliberate full pull** for scan-heavy
 exploration (`uv run fedcourts corpus-pull`). Default to ranged:
 Codespaces runs on Azure, so every full pull is cross-cloud S3 egress.

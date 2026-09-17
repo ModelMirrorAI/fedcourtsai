@@ -210,6 +210,41 @@ def test_retrieve_priors_filters_are_index_served(tmp_path: Path) -> None:
                 assert "TEMP B-TREE" not in detail.upper(), f"sorter spill: {stmt} => {detail}"
 
 
+def test_the_citation_population_is_counted_off_the_partial_index(tmp_path: Path) -> None:
+    """Reading the population has to be cheap, or the sentinel costs what it saves.
+
+    Counting `citations != '[]'` off the table means visiting every row in the
+    court scope to read one column — the transfer the sentinel is there to
+    explain, spent explaining it. The partial index answers the count without
+    touching the table, with and without a court scope.
+    """
+    db = tmp_path / "corpus.db"
+    _populated(db)
+    with corpus.connect(db) as conn:
+        for court in ("ca9", None):
+            plans = _select_plans(conn, partial(corpus.citation_rows, conn, court))
+            # Not `expect=`: the read opens with a one-page probe of
+            # `sqlite_master` for the index, which no index serves and none needs.
+            _assert_index_served(plans)
+            assert any(corpus.CITATIONS_PRESENT_INDEX in detail for _, detail in plans), plans
+
+
+def test_a_citation_filter_scans_the_partial_index_not_the_scope(tmp_path: Path) -> None:
+    """The overlap path's own read: bounded to the rows that can match.
+
+    A row with no citations cannot overlap a non-empty want-set, so the scan
+    belongs on the partial index rather than on the court slice — over ranged
+    reads, a page against the table.
+    """
+    db = tmp_path / "corpus.db"
+    _populated(db)
+    query = corpus.PriorQuery(court="ca9", citations=["597 U.S. 1"])
+    with corpus.connect(db) as conn:
+        plans = _select_plans(conn, partial(corpus.retrieve_priors, conn, query))
+    _assert_index_served(plans)
+    assert any(corpus.CITATIONS_PRESENT_INDEX in detail for _, detail in plans), plans
+
+
 def test_events_for_case_is_index_served(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _populated(db)

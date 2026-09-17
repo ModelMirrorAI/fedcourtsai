@@ -828,6 +828,21 @@ CREATE INDEX IF NOT EXISTS idx_cases_last_pulled ON cases(last_pulled);
 -- serves the overlap-free ranking is created post-migration — see
 -- `_migrate_cases` — because its expression references migrated columns.)
 CREATE INDEX IF NOT EXISTS idx_cases_topic ON cases(topic);
+-- The rows a `--citation` filter can match, and the count that says how few
+-- they are (`_overlap_scan`, `citation_rows`). `citations` is filled only for
+-- the cert-granted slice the opinion-enrichment walk reaches, so it is
+-- populated for a few hundred rows against the whole table; with no index over
+-- the predicate, both the filter's scan and that count meant visiting every row
+-- in the court scope and pulling its full payload to read one column, which
+-- over ranged reads is the blob rather than a page. This partial index holds
+-- exactly the populated rows — which is the whole candidate set, since an empty
+-- `citations` cannot overlap a non-empty filter. The count is answered from the
+-- index alone; the filter still reads each candidate row in full, so what it
+-- saves is the other rows, not the row reads. Keyed on court, so its entries
+-- run in rowid order within one and those reads walk sequential pages — the
+-- same order the plain court index gives the overlap path otherwise.
+CREATE INDEX IF NOT EXISTS idx_cases_citations_present ON cases(court)
+    WHERE citations != '[]';
 
 -- Predictable event definitions: raw facts, one or more per case.
 CREATE TABLE IF NOT EXISTS events (
@@ -3337,6 +3352,40 @@ def _retrieve_priors_ranked(
     return ranked
 
 
+def _overlap_scan(
+    conn: ReadConnection,
+    query: PriorQuery,
+    clauses: list[str],
+    *,
+    want_citations: bool,
+) -> tuple[str, str]:
+    """The ``FROM`` source and ``WHERE`` the overlap path scans, each pinned.
+
+    A citation filter narrows first where the blob carries the partial index
+    over the populated rows: a row whose ``citations`` is empty cannot overlap a
+    non-empty want-set, so that index holds every row the filter can match — on
+    the SCOTUS scope a couple of hundred full-row reads against the scope's
+    every row. The added clause is row-identical, dropping only rows the Python
+    overlap test drops next.
+
+    Failing that, a court-narrowed scan is pinned to the plain court index: the
+    recency index also carries the court equality and the planner tie-breaks
+    toward it, which turns the table walk from rowid order (sequential pages)
+    into recency order (scattered pages) — same rows, far more ranged reads.
+
+    Pinned rather than left to the planner in both cases, because the table
+    statistics say nothing about how thin the citation column is or how
+    scattered a recency walk is.
+    """
+    if want_citations and _has_index(conn, CITATIONS_PRESENT_INDEX):
+        clauses = [*clauses, "citations != '[]'"]
+        return f"cases INDEXED BY {CITATIONS_PRESENT_INDEX}", f" WHERE {' AND '.join(clauses)}"
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    if query.court is not None:
+        return "cases INDEXED BY idx_cases_court", where
+    return "cases", where
+
+
 def retrieve_priors(
     conn: ReadConnection,
     query: PriorQuery,
@@ -3354,6 +3403,11 @@ def retrieve_priors(
     relevance term is uniformly zero and the whole ranking is served by SQL off
     the recency index — the same ordering, a fraction of the pages — with a
     test pinning the two paths byte-identical.
+
+    A ``citations`` filter narrows in SQL before any of that, where the blob
+    carries the partial index over the populated rows: an empty ``citations``
+    cannot overlap a non-empty want-set, so that index holds every row the
+    filter can match and the scan is bounded to it rather than to the scope.
 
     The derived screens run in Python on either path: ``era`` /
     ``decided_before``, and the ``exclude_non_cert`` default that keeps the
@@ -3395,11 +3449,7 @@ def retrieve_priors(
         return _retrieve_priors_ranked(conn, query, where, params, limit)
 
     scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
-    # Pin the court-narrowed scan to the plain court index: the recency index
-    # also carries the court equality and the planner tie-breaks toward it,
-    # which turns this path's table walk from rowid order (sequential pages)
-    # into recency order (scattered pages) — same rows, far more ranged reads.
-    source = "cases INDEXED BY idx_cases_court" if query.court is not None else "cases"
+    source, where = _overlap_scan(conn, query, clauses, want_citations=bool(want_citations))
     for record in conn.execute(f"SELECT * FROM {source}{where}", params):
         row = _screen_derived(_from_record(record), query)
         if row is None:
@@ -3429,7 +3479,98 @@ def _scope_coverage(
     return populated, total
 
 
-def sparse_filter_coverage(conn: ReadConnection, query: PriorQuery) -> list[str]:
+#: The partial index over the rows whose ``citations`` is non-empty. Named
+#: because two readers pin it: the coverage sentinel counts from it, and the
+#: citation filter scans it instead of the scope. Both first confirm it exists
+#: — a blob written before it carries neither, and falls back to the scan it
+#: always did rather than failing on a pinned index that is not there.
+CITATIONS_PRESENT_INDEX = "idx_cases_citations_present"
+
+#: Below this many rows carrying a reporter citation, a ``--citation`` filter
+#: over that scope is worth a word before it runs: at this order it is a column
+#: that was never filled rather than one whose values missed. Absolute rather
+#: than a share of the scope, so reading it costs one index count however large
+#: the scope is — a share would need the scope counted too, which is the walk
+#: the sentinel is trying not to pay for.
+SPARSE_CITATION_ROWS = 1_000
+
+
+def _has_index(conn: ReadConnection, name: str) -> bool:
+    """Whether this blob carries ``name`` — one page, off the schema table."""
+    return (
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?", (name,)
+        ).fetchone()
+        is not None
+    )
+
+
+def citation_rows(conn: ReadConnection, court: str | None) -> int | None:
+    """How many rows in the court scope carry any reporter citation, or ``None``.
+
+    Index-served off :data:`CITATIONS_PRESENT_INDEX`, the partial index holding
+    exactly the rows whose ``citations`` is non-empty: a few hundred entries on
+    one page, against the visit to every row in scope that reading the column
+    off the table costs. That is what lets a caller read the column's population
+    *before* deciding anything about it, over the ranged backend as over a local
+    file.
+
+    ``None`` means the blob predates the index — a schema every writer open
+    creates, so a transient state of an older published blob rather than a shape
+    to plan around. Counting without it costs the scan the count exists to
+    avoid, so the answer is "unknown" and the caller proceeds as it always did.
+    """
+    if not _has_index(conn, CITATIONS_PRESENT_INDEX):
+        return None
+    where = " WHERE court = ? AND" if court is not None else " WHERE"
+    params: list[object] = [court] if court is not None else []
+    # Pinned rather than left to the planner: the table statistics say nothing
+    # about how thin the column is, so an unpinned plan takes a court index and
+    # pays the row visits this read exists to avoid. Safe because the index was
+    # just confirmed.
+    row = conn.execute(
+        f"SELECT count(*) AS n FROM cases INDEXED BY {CITATIONS_PRESENT_INDEX}"
+        f"{where} citations != '[]'",
+        params,
+    ).fetchone()
+    return int(row["n"])
+
+
+def sparse_citation_notice(conn: ReadConnection, query: PriorQuery) -> str | None:
+    """The word said *before* a ``--citation`` filter runs over a thin column.
+
+    The ``citations`` column is filled only for the cert-granted slice the
+    opinion walk reaches, so on the SCOTUS scope a citation filter is
+    overwhelmingly likely to come back empty — and an empty result set says
+    nothing about why. The coverage note on an empty result
+    (:func:`sparse_filter_coverage`) is the same reading after the fact; saying
+    it first means a caller whose filter *did* match still learns how little
+    the column holds, and a caller whose filter did not is never left reading
+    "no such case" into it.
+
+    ``None`` where there is no citation filter, where the population cannot be
+    read cheaply, or where the column is populated enough that a miss is a miss.
+    """
+    if not query.citations:
+        return None
+    populated = citation_rows(conn, query.court)
+    if populated is None or populated >= SPARSE_CITATION_ROWS:
+        return None
+    scope = query.court if query.court is not None else "any court"
+    return (
+        f"citations filter: only {populated} row(s) in scope ({scope}) carry any reporter "
+        "citation at all, and the column holds a case's OWN parallel cites (not a "
+        "cases-citing-this-authority graph) — the filter is served off those rows alone, "
+        "so an empty result here is far likelier a column that was never filled than a "
+        "case that does not exist. To identify one known case by its cite, use the "
+        "CourtListener MCP server; to retrieve priors here, filter on --court / "
+        "--disposition / --era"
+    )
+
+
+def sparse_filter_coverage(
+    conn: ReadConnection, query: PriorQuery, *, skip_citations: bool = False
+) -> list[str]:
     """Coverage notes for the sparse columns a zero-row query filtered on.
 
     ``citations`` and ``topic`` are sparsely populated — neither the
@@ -3441,13 +3582,29 @@ def sparse_filter_coverage(conn: ReadConnection, query: PriorQuery) -> list[str]
     court scope carry the column at all and render one note; empty when no
     sparse filter is in use. Callers surface the notes only on empty results,
     so the two count queries are paid on the already-wasted path.
+
+    ``skip_citations`` is for the caller that already said it: the citation
+    sentinel (:func:`sparse_citation_notice`) reads the same population before
+    the scan, and printing that reading twice over one result teaches nothing
+    the first line did not.
     """
     notes: list[str] = []
     where = " WHERE court = ?" if query.court is not None else ""
     params: list[object] = [query.court] if query.court is not None else []
     scope = query.court if query.court is not None else "any court"
-    if query.citations:
-        populated, total = _scope_coverage(conn, "citations != '[]'", where, params)
+    if query.citations and not skip_citations:
+        indexed = citation_rows(conn, query.court)
+        if indexed is None:
+            populated, total = _scope_coverage(conn, "citations != '[]'", where, params)
+        else:
+            # The populated half is index-served; the scope total is left, and
+            # is the one scope-sized read on this path — it runs only where the
+            # sentinel said nothing, which is a populated column or a blob with
+            # no index, and only on an already-empty result.
+            populated = indexed
+            total = int(
+                conn.execute(f"SELECT count(*) AS n FROM cases{where}", params).fetchone()["n"]
+            )
         notes.append(
             f"citations filter: {populated} of {total} rows in scope ({scope}) carry "
             "citation data, and the column holds a case's OWN reporter cites (not a "
