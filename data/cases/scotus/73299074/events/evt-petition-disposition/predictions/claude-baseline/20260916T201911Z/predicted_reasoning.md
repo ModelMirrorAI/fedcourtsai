@@ -1,0 +1,15 @@
+# Forecast: In re Richard Devillier, et al., No. 25-1252 (petition for a writ of mandamus)
+
+**Disposition.** The Court will deny the petition for a writ of mandamus, most likely on the October 5, 2026 order list following the September 28 long conference, without calling for a response and without opinion.
+
+**Relists.** The docket shows one distribution (June 24, 2026, for the conference of September 28, 2026) and no relist. I expect no further distribution. The one realistic path to another distribution is a call for a response from the State of Texas, which would push the petition past the long conference and produce a re-distribution; I put that at roughly one in ten. A relist after the long conference without a response request is less likely still.
+
+**CVSG.** None. No federal party or federal program is implicated; the dispute is whether a state-law inverse-condemnation suit against Texas belongs in federal or state court. The Solicitor General's views will not be invited.
+
+**Which question the Court would take, if it acted.** If the Court did anything other than deny, it would act on the petitioners' theory that the district court's remand to state court (S.D. Tex. No. 3:20-cv-00223, order adopting the magistrate's recommendation, April 9, 2026) frustrates this Court's 2024 mandate in DeVillier v. Texas, 601 U.S. 285. It would not take up the merits of the takings claims or the still-open question whether the Takings Clause is self-executing; the writ, if issued, would direct the district court to retain jurisdiction. This item is context-only and unscored.
+
+**Summary route versus plenary review.** Conditional on any grant, the disposition would come in the order itself or a short per curiam directing the district court, not after briefing and argument; mandamus in aid of the Court's mandate is not set for argument in modern practice. About three in four, conditional on a grant.
+
+**Separate writings on denial.** I expect a bare denial. There is a small chance of a statement respecting the denial noting that Texas removed the case to federal court, argued there that no federal cause of action existed, prevailed on a remand back to state court after this Court's ruling, and thereby returned a near-trial-ready case to its starting point. Justice Gorsuch or Justice Thomas would be the plausible authors. I put the existence of any such writing at about one in twenty.
+
+**If the Court were to grant (conditional, unlikely).** The ground would be that the Court's judgment contemplated the petitioners pursuing their Takings Clause claims through the Texas cause of action in the forum where the case then sat, and that a state's removal followed by a jurisdictional remand after losing in this Court is the kind of exceptional circumstance Rule 20.1 reaches. I do not expect the Court to reach that conclusion: the 2024 opinion says only that the landowners "should be permitted to pursue their claims under the Takings Clause through the cause of action available under Texas law," and expressly trusts state courts to enforce the Constitution "according to their regular modes of procedure."

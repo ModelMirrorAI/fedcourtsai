@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73317900",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener.search",
+    "courtlistener.read_document",
+    "WebFetch (supremecourt.gov PDFs) + local pdf text extraction"
+  ],
+  "helpful": [
+    "The provisioned snapshot carried the call for a response and the BIO entry, which drove the forecast.",
+    "CourtListener read_document delivered the lead case (Jules) in full within two calls."
+  ],
+  "gaps": [
+    "The provisioned documents predate the brief in opposition and the supplemental brief; a re-fetch when a BIO lands would put the respondent's arguments in every predictor's baseline.",
+    "The salience band does not register a call for a response after a waiver, so the anchor is far below the state the docket actually shows; a CFR cut in the statpack would help.",
+    "CourtListener's opinion search did not index the Third Circuit opinion under review; I had to extract it from the petition appendix PDF.",
+    "The WebFetch summarizer cannot read PDFs; every supremecourt.gov brief needed a second local extraction step."
+  ],
+  "notes": "Eleven retrieval calls beyond the corpus query (eight CourtListener MCP, three web fetches); well inside the advisory budget."
+}

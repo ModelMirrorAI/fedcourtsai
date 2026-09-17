@@ -1,0 +1,3 @@
+Distributed once so far; expect no further relists before a decision on the petition. The case is a civil rights action against a state court judge challenging a dismissal order, which is squarely barred by absolute judicial immunity. There is no circuit split or novel legal issue presented, and no CVSG is expected. 
+
+If granted, the Court would likely affirm the absolute immunity bar, but a summary disposition (such as a GVR) is unlikely as there are no intervening precedents bearing on the issue. Should the Court deny review, expect no separate writing or dissent from the denial.

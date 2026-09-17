@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73363395",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "CourtListener MCP (search, get_endpoint_item, read_document)"
+  ],
+  "helpful": [
+    "The sal-v4 segment table with frozen band in context.json gave a clean, leakage-safe anchor",
+    "Provisioned petition.txt and questions-presented.txt were complete and readable",
+    "CourtListener read_document on the opinion below settled whether the federal question was addressed"
+  ],
+  "gaps": [
+    "fedcourts query has no subject or free-text filter, so it cannot surface petitions raising a similar question (here, Seventh Amendment jury-right claims from state courts); the structured filters returned interim applications instead",
+    "No pooled baseline-band figure over prior Terms is published; the pooling has to be done by hand from the per-Term table",
+    "Provisioned documents do not include the opinion below even when it is public and short; it had to be fetched via MCP"
+  ],
+  "notes": "Clean forward cell: snapshot current as of today, docket confirmed open via MCP, no flags raised."
+}

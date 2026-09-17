@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73372297",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition.txt for this pseudonymous (Jane Doe) pro se petitioner carries her personal contact email in the caption and signature block and detailed health and military-service history in the statement of the case. The record is a public filing, but the cell's prose outputs land in a public ledger, so I summarized rather than reproduced it and did not copy the contact details. Maintainers may want the document provisioner to scrub personal email addresses from pro se filings before they reach a cell."
+    }
+  ]
+}

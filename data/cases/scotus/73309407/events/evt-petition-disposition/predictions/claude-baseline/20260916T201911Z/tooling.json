@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/73309407",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP call_endpoint (dockets, docket-entries)"
+  ],
+  "helpful": [
+    "The sal-v4 band table with bracketed reached rates gave a direct, pre-registered anchor for a baseline-band petition.",
+    "Full petition text made the interlocutory posture and fact-bound framing visible, which the docket skeleton alone would not have shown.",
+    "The dockets endpoint let a forward cell confirm the petition is still pending without exposing any outcome."
+  ],
+  "gaps": [
+    "fedcourts query has no filter for petition features such as originating state court, interlocutory posture, or fee class, so its ranked priors were dominated by high-profile matters unrelated to this petition.",
+    "The snapshot showed no waiver entry although distribution happened after the response deadline; a stored flag for 'response waived / none filed' would help distinguish a docket gap from a fact about the docket."
+  ],
+  "notes": "The petition docket entry is dated Feb 06 2026 while the petition is signed May 2, 2026; the petition references a Feb 12, 2026 Court letter, so the earlier date is likely the original deficient filing retained by the Clerk."
+}

@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. (Read the committed statpack base rates).

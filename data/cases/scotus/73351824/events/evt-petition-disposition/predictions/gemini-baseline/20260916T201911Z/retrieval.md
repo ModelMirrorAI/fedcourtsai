@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs and the committed `metrics/statpack.md`. An attempt to use `fedcourts query` returned `command not found`, so I relied entirely on the provisioned case snapshot, the documents in the record, and the statpack baseline rates.

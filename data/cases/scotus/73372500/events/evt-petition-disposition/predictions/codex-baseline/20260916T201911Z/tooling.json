@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73372500",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned file reads", "committed statpack", "fedcourts paths", "CourtListener search", "CourtListener read_document", "web search/open attempts"],
+  "helpful": ["Extracted petition exposed preservation and original-jurisdiction issues not apparent from the question presented.", "Frozen sal-v4 band and reached-rate table enabled an appropriate prior-Term anchor.", "CourtListener full opinion read verified the proposed clarification-remand precedent."],
+  "gaps": ["The docketed supplemental brief is not among provisioned documents.", "Web calls returned no usable content.", "Reporter citation search returned an unrelated volume/page match before a court-and-name search located the desired opinion."],
+  "notes": "The default uv cache location was read-only; a temporary cache permitted the paths command to run. No live corpus query or outcome retrieval was needed."
+}

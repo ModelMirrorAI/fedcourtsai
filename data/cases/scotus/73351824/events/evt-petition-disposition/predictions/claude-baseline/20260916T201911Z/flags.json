@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73351824",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The brief in opposition (filed 2026-08-26) and reply (2026-09-04) were not provisioned: documents.json shows the fetch ran 2026-07-17, before either existed, so the cell shipped only the petition and QP text. This is a forward cell, so I fetched both from the supremecourt.gov PDFs linked in the snapshot and extracted the text locally; they materially shaped the forecast (the vehicle and adequate-state-grounds arguments). Consider re-fetching documents when a docket gains a BIO or a redistribution entry after the original fetch."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Two fedcourts query --citation lookups (Brackeen, Adoptive Couple) each transferred ~355 MB over ~1350 ranged GETs and returned no rows because the citation column covers only 200 of ~591k scotus rows. Not a cell problem, but an expensive empty result a maintainer may want the CLI to refuse early."
+    }
+  ]
+}

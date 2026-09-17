@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73363408",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot and document text", "committed statpack", "shell", "fedcourts paths", "web search/open", "fedcourts validate"],
+  "helpful": ["Extracted QPs and petition exposed the actual federal question and vehicle limitations.", "Frozen sal-v4 context and reached-band table supplied a population-matched anchor."],
+  "gaps": ["No standalone appendix or BIO text for an independent account of appellate finality.", "Web searches and the official rules-PDF open returned no usable content."],
+  "notes": "No live corpus or CourtListener request was necessary. A read-only default uv cache initially blocked path resolution; a writable temporary cache resolved it. The forecast distinguishes one scheduled conference distribution from an actual relist and does not infer a companion-case hold from the petition's Hunter analogy."
+}

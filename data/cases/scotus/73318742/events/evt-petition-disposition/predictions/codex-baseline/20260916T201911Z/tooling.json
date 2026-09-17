@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73318742",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned case files", "committed statpack", "fedcourts paths", "local Python arithmetic", "CourtListener search", "CourtListener read_document", "CourtListener search_document", "web search/open attempts"],
+  "helpful": ["Both sides' extracted filings allowed substantive vehicle assessment.", "Frozen sal-v4 band and per-Term reached rates supported a correctly conditioned prior.", "CourtListener case-name search and literal document search supplied the general immunity rule."],
+  "gaps": ["Separate lower-court opinions and the federal complaint were not provisioned, leaving preservation and alternative grounds dependent on advocates' descriptions.", "Web attempts returned no usable content.", "The citation-only CourtListener search returned an unrelated result; case-name and court filters resolved it."],
+  "notes": "The default uv cache was read-only; using a writable temporary cache restored the CLI. No target-case outcome retrieval was attempted. No durable provisioning blocker required a flags file. Base-rate arithmetic uses rounded rendered cells, not exact numerator counts."
+}

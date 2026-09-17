@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281629",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The petition manifest marks truncation at 120 pages. The snapshot lists a September 2, 2026 reply, but no reply text is provisioned; attempted retrieval of that specific predecision filing produced no usable text. The forecast uses the available petition, appellate memorandum, and BIO and may miss the reply's rebuttal of the split and vehicle objections. No target-case outcome was encountered."
+    }
+  ]
+}

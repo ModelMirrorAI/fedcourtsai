@@ -1,0 +1,9 @@
+# Forecast
+
+The Court will deny the petition, most likely in an orders list following the September 28, 2026 conference, around late September or early October. This is a timing forecast, not a verified release schedule. The record shows one distribution, entered June 24 for that conference, and no CVSG. The principal forecast is zero further distributions and no invitation to the Solicitor General. I assign 12% to at least one additional distribution and 0.6% to a new CVSG; if another distribution occurs, one additional conference is the likeliest extension.
+
+The petition's federal takings theory will not overcome the vehicle's disputed property interest, access facts, and preservation obstacles. The denial will not decide whether the alleged loss of feasible access is constitutionally compensable and will not endorse the Nevada court's reasoning.
+
+Conditional on a grant, plenary consideration is more likely than disposition in the cert order: 20% for a summary route and 80% for briefing and argument. No intervening lead decision supporting a routine GVR is identified in the materials consulted. If review is granted, the likely focus is a narrowed version of the question presented: whether loss of the only feasible access to an affected portion of a parcel can be a compensable taking notwithstanding the absence of an easement recognized under state law. Whether this record actually establishes that loss would remain a significant obstacle. A broad ruling treating any government sale of a permissively used access road as a per se taking is less likely.
+
+Conditional on denial, I assign 2.5% to any noted dissent or statement respecting denial. The modal outcome is an unexplained denial without a separate writing. I do not forecast individual cert votes or an opinion author.

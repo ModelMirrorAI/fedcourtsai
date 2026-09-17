@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73372500",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "record/documents (petition, questions-presented)", "WebFetch of a docketed supremecourt.gov PDF", "WebSearch"],
+  "helpful": [
+    "the sal-v4 per-Term band table with the bracketed reached figure gave a directly scoreable anchor for the frozen baseline band",
+    "the full petition text made the jurisdictional and fair-presentation concessions visible rather than inferred",
+    "the snapshot's docket links let me retrieve the unprovisioned supplemental brief"
+  ],
+  "gaps": [
+    "documents.json provisioned only the petition and QP; the September 11 supplemental brief and the June 18 waiver were docketed but not fetched, and a waiver-of-response cut in the statpack would be the single most informative base-rate conditioning for a cell like this",
+    "no originating-court or lower-court-order-type filter on fedcourts query, so priors for state-court original-jurisdiction refusals cannot be pulled",
+    "the petition appendix (the order below) is not provisioned, so the judgment under review is characterized from the petition"
+  ],
+  "notes": "The WebFetch tool could not read the supplemental brief PDF's text but saved the binary; pypdf extraction on the saved file worked. A provisioning step that fetches supplemental briefs filed under Rule 15.8 would remove that detour."
+}

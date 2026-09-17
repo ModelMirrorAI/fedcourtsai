@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292885",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "provisioned petition.txt and questions-presented.txt"],
+  "helpful": [
+    "Segment base rate by salience band table with per-Term bracketed reached figures",
+    "Frozen band and distribution_count in context.json",
+    "Extracted petition text (the QP file alone would have hidden that the petition is pro se and alleges no split)"
+  ],
+  "gaps": [
+    "BIO fetched with empty_text: true; an OCR pass on scanned BIOs would have made the opposition readable",
+    "fedcourts query has no subject, fee-class, or pro-se filter for SCOTUS rows, so it cannot surface comparable priors for a state family-law petition",
+    "A pro-se / counsel-of-record marker in the statpack cuts would give a direct base rate for this petition class"
+  ],
+  "notes": "Corpus query worked through the cell service; the first call cost 28 ranged GETs, the second was served from cache. CourtListener MCP responded but did not index the unpublished Washington opinion."
+}

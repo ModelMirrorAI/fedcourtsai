@@ -1,0 +1,4 @@
+- MCP CourtListener search for `court="ca7"`, `docket_number="24-2498"`, type=Opinion (0 results)
+- MCP CourtListener search for `court="ca7"`, `q="Henry Watson"`, type=Opinion (0 results)
+- MCP CourtListener search for `court="ca7"`, `docket_number="24-2498"`, type=Docket (0 results)
+- Looked up baseline base rates from the provisioned `metrics/statpack.md`.

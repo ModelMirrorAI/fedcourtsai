@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73357827",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: provisioned-input and schema reads",
+    "committed statpack markdown and JSON",
+    "fedcourts paths",
+    "CourtListener MCP search and search_document",
+    "web open/search attempts",
+    "public Supreme Court filing retrieval with urllib and pypdf"
+  ],
+  "helpful": [
+    "Exact reached-rate denominators permit pooling strictly prior Terms without rounding error.",
+    "Snapshot document URLs enabled retrieval of the newly submitted supplemental brief without a current-docket search.",
+    "Primary opinion excerpts helped distinguish the statutory provisions behind the alleged circuit split."
+  ],
+  "gaps": [
+    "The supplemental brief and lower-court opinion were not provisioned alongside the petition.",
+    "Web-tool calls returned no visible results; the lower-court citation search also returned no match.",
+    "Long shell and MCP responses were truncated; smaller targeted excerpts were needed."
+  ],
+  "notes": "The default uv cache was read-only; a temporary cache worked. pdftotext was absent, but the installed pypdf library successfully extracted the exact public supplemental filing in memory. No corpus query or CourtListener REST fallback was used."
+}

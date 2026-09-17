@@ -1,0 +1,5 @@
+Distributed once so far; expect at least one further relist before a decision on the petition given the high-profile constitutional issue (equal protection challenge to ICWA) and the fact that a response was requested. A CVSG is possible (15% chance) as the Court may want the Solicitor General's views on the interplay between the federal ICWA and state MIFPA before taking the case.
+
+If granted, the Court would likely take QP 1 as written to squarely address the equal protection challenge to ICWA that was left open in *Haaland v. Brackeen*. A summary disposition (GVR) is unlikely because this requires plenary review to resolve the constitutional question. 
+
+Should the Court deny review, expect a dissent from denial (or a statement respecting denial) from Justice Thomas or Justice Alito, highlighting the need to eventually resolve the equal protection concerns they raised in their *Brackeen* opinions.

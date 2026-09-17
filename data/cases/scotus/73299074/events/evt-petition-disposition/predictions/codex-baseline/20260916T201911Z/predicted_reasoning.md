@@ -1,0 +1,9 @@
+# Forecast
+
+The Court will deny the petition for a writ of mandamus. The modal path is no further distribution beyond the one already recorded, followed by a short denial order after the September 28, 2026 conference, most likely in late September or early October. I assign a 20% probability to at least one additional distribution; if that happens, one further distribution is the most likely increment. These are forecasts from the September 16 snapshot, not observations of later proceedings.
+
+The Court will not request the Solicitor General's views: probability of a new CVSG is 1%. The dispute concerns the meaning of the Court's own mandate and a state defendant's federal-forum litigation, rather than a question that obviously needs the federal government's policy expertise.
+
+If the Court grants relief, it will most likely address the petition's narrow mandate question: whether the district court's return of these takings actions to state court violates the mandate in DeVillier v. Texas. It will not use this petition to decide ultimate flooding liability or broadly settle whether the Takings Clause always supplies its own cause of action. Conditional on a grant, I assign 85% to disposition in the granting order itself, principally an order requiring the district court to recall its remand and proceed consistently with the prior mandate, rather than plenary briefing and argument. This is an extraordinary-writ route forecast, not a prediction of an intervening-precedent GVR.
+
+Conditional on denial, I assign 8% to a noted dissent or statement respecting denial. The modal denial contains no separate writing; I do not predict a particular Justice's participation or vote. Denial will not adjudicate the correctness of every jurisdictional proposition in the district court's reasoning.

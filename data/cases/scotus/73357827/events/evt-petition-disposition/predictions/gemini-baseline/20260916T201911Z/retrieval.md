@@ -1,0 +1,3 @@
+- CourtListener search for "Wisconsin Voter Alliance" HAVA (returned the 7th Circuit opinion).
+- Read chunk of the 7th Circuit opinion (opinion_id: 11253440) via `mcp_courtlistener_read_document` to confirm the standing holding.
+- Read `metrics/statpack.md` sections for the merits docket and the salience band base rates.

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73317900",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "record/documents/ holds only the petition and QP text (fetched 2026-07-17). The docket now carries a supplemental brief (2026-06-16) and a brief in opposition (2026-09-14) that were not provisioned; I retrieved both from supremecourt.gov. The BIO materially changes the read (it shows the Third Circuit's ground is independent of Jules), so other predictors in this fan-out working from the baseline alone are on a different information set."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.json has band 'baseline' and response_requested null, but the snapshot shows 'Response Requested' on 2026-07-15 after the respondent waived. The sal-v4 band does not register a call for a response, so the scored anchor (~5%) sits well below the state this docket shows; consider whether the CFR should feed the band or a statpack cut."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive public signal predating the snapshot: the lead case petitioners ask to be held for, Jules v. Andre Balazs Properties (No. 25-83), was decided 2026-05-14. I used its holding as forward context; it is not this petition's outcome."
+    }
+  ]
+}

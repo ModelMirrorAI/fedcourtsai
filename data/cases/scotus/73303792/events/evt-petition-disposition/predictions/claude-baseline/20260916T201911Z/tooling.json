@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73303792",
+  "run_id": "20260916T201911Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "record/documents (petition, questions-presented)", "courtlistener MCP search"],
+  "helpful": [
+    "context.json band plus the sal-v4 per-Term band table gave a directly scoreable anchor",
+    "the provisioned petition text made the pro se posture, the waiver, and the prior cert denial verifiable rather than inferred",
+    "documents.json's ocr_derived flag set expectations for the garbled citations"
+  ],
+  "gaps": [
+    "a representation cut (pro se paid vs counseled paid) on the band table would sharpen the largest single adjustment this docket needs",
+    "a response-requested / waiver cut for cert petitions would quantify what is now a judgment call",
+    "the petition appendix (the Sixth Circuit order) was not provisioned and CourtListener did not index the unpublished order, so the judgment below could not be read directly"
+  ],
+  "notes": "Two CourtListener MCP opinion searches (caption and docket number) returned nothing for the Sixth Circuit's unpublished order; the MCP path worked, the order is simply not indexed. The corpus query transfer line was recorded as instructed."
+}
