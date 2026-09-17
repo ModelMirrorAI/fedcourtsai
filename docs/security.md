@@ -162,7 +162,18 @@ pre-registration record's commit ids.
     scan-diff-for-secrets`) over the run's changed files and its PR prose — a hit
     **withholds the branch** (nothing pushed, no PR; a redacted file/rule/line
     report lands on the run's Actions summary) because pushing would itself
-    publish the secret. Earlier still, capture-time redaction rewrites credential-shaped
+    publish the secret. Its generic entropy heuristic is off, file by
+    file, for the two files that hold what a cell's tool calls carried —
+    `retrieval_log.json`, which the harness captures, and `retrieval.md`, which
+    the agent writes as its account of the same calls — where a filed document's
+    address and a search query both score like an opaque blob; containment and
+    the credential shapes still read those two, and every other file the same
+    cell writes keeps the heuristic. The residual is an opaque blob no shape
+    names and no known credential matches: in `retrieval_log.json` that means
+    the 40-63 character window, since capture-time redaction (below) rewrites
+    both the shapes it knows and any unknown run of 64 characters or more that
+    scores like credential material; in `retrieval.md`, which nothing rewrites,
+    it means everything from 40 characters up. Earlier still, capture-time redaction rewrites credential-shaped
     runs in the harness-captured tool-call transcript (`retrieval_log.json`) to
     a `[redacted:…]` marker rather than withholding the run over them: that
     text is whatever a tool call carried, not something the agent chose to
@@ -171,8 +182,8 @@ pre-registration record's commit ids.
     have read had redaction never run and no finding is silenced. What it does
     not get is a backstop. The Fernet-token rule — the one prefix short enough
     to occur inside ordinary agent-authored text — therefore confirms a run's
-    entropy before rewriting, and a run padded below the bar is what the scan's
-    own entropy detector also reads as ordinary. Containment still catches the
+    entropy before rewriting, and a run padded below the bar is what that same
+    discriminator reads as ordinary wherever it is asked. Containment still catches the
     pipeline's own token however it is padded; for a third-party credential
     riding in a payload the confirmation is the only layer that sees it, which
     is why it scores windows and the run as a whole rather than averaging one

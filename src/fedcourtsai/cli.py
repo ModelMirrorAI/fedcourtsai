@@ -13932,8 +13932,14 @@ def scan_diff_for_secrets_cmd(
     too short, a missing ``--extra-file`` or ``--transcript-file``) fails the
     same way rather than silently dropping a detector or a surface. A
     ``--transcript-file`` is scanned without the generic high-entropy
-    heuristic only — see the option's help for why that surface needs it, and
-    ``--run-id`` for the one path shape that heuristic is told to skip.
+    heuristic only — see the option's help for why that surface needs it — as
+    is the change set's own retrieval pair (``retrieval_log.json``, captured
+    by the harness, and ``retrieval.md``, the agent's account of the same
+    calls, under a cell's ``predictions/`` or ``evaluations/`` run directory),
+    which carries the document URLs and search queries its tool calls issued.
+    Every other changed file keeps the heuristic, the cell's reasoning among
+    them, and ``--run-id`` names the one candidate shape it is told to skip
+    where it does run.
     """
     misconfigured = False
     secrets: list[str] = []

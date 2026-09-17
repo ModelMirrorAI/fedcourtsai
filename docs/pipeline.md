@@ -2122,7 +2122,10 @@ need. Locate the flagged content first: the scan runs per PR kind, so a hit
 withholds only the branch it fired on (the ready branch can merge while the
 draft is withheld, or the reverse), and its report names file and line but
 never the match. A finding in a cell's file is reviewable in that cell's
-artifact; a finding in the rendered `pr-body.md` or `run-flags.md` points
+artifact — and one in its `retrieval_log.json` or `retrieval.md` names a
+live credential, a credential shape, or a keyword assignment rather than the
+generic entropy guess, since that heuristic does not read the two files whose
+content is the addresses and queries the cell's tool calls carried; a finding in the rendered `pr-body.md` or `run-flags.md` points
 back at the cells' `flags.json` free text, which the roll-up quotes; and the
 *misconfigured-scan* report is its own case — nothing was judged, so repair
 the configuration rather than reviewing content. Read the reported line
