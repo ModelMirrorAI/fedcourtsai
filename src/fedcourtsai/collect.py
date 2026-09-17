@@ -140,6 +140,52 @@ def assert_cleanup_within_jail(changes: Iterable[PathChange]) -> None:
         raise PathJailError("cleanup jail rejected the change set:\n- " + "\n- ".join(violations))
 
 
+#: The fixed branch the big-case-board lane publishes on. Named here rather than
+#: only in the workflow because three surfaces have to agree on it — the
+#: producer's push, the `paths` jail's branch selector, and `main-base`'s routing
+#: allowlist — and the jail's non-match path is a **pass**, so a drift between
+#: them disarms the only thing standing in for a reviewer on an auto-merged lane.
+#: A test asserts the literal in all three places.
+BOARD_BRANCH = "metrics/big-cases"
+
+#: The board's two artifacts as basenames, in publication order (JSON, then its
+#: rendered companion) — the spelling the CLI's `--out` / `--markdown-out`
+#: defaults take, and the one the workflow's `git add` pathspec is asserted
+#: against.
+BOARD_ARTIFACTS = ("big-cases.json", "big-cases.md")
+
+#: The only paths the auto-merged big-case-board PR may carry, as repo-relative
+#: paths. A frozen set rather than a prefix: the lane regenerates exactly two
+#: files, so "under `metrics/`" would be a wider jail than the producer can ever
+#: need. Derived from :data:`BOARD_ARTIFACTS` rather than spelled again, so the
+#: files the command writes and the files the jail admits cannot drift apart.
+BOARD_JAIL_PATHS = frozenset(f"metrics/{name}" for name in BOARD_ARTIFACTS)
+
+
+def assert_board_within_jail(changes: Iterable[PathChange]) -> None:
+    """Raise :class:`PathJailError` unless every change is one of the board's two files.
+
+    The big-case board is the one auto-merged lane that is not a data-production
+    branch: it rewrites two committed artifacts in place rather than adding files
+    under ``data/``, so neither of the jails above describes it. What makes
+    auto-merging it safe is that its diff is mechanically bounded — a
+    regeneration of :data:`BOARD_JAIL_PATHS` and nothing else — and this is where
+    that bound is enforced independently of the workflow that produced the
+    branch, exactly as the data jail is. A delete is a violation too: the board
+    is a committed surface, and the lane has no business removing it.
+    """
+    violations: list[str] = []
+    for change in changes:
+        if change.path not in BOARD_JAIL_PATHS:
+            violations.append(f"{change.path!r} is not one of the big-case board's artifacts")
+        elif change.status not in ("A", "M"):
+            violations.append(
+                f"{change.path!r} has status {change.status!r}; the board PR only writes files"
+            )
+    if violations:
+        raise PathJailError("board jail rejected the change set:\n- " + "\n- ".join(violations))
+
+
 @dataclass(frozen=True)
 class UnionReport:
     """What one cell artifact's add-only union onto the branch checkout did.

@@ -4,7 +4,7 @@ name: run-analytics
 # same mode at a glance, or a rehearsal reads as production history. Both
 # components are server-validated vocabulary: `mode` is a closed choice, and
 # the environment half is the same branch resolution the jobs bind.
-run-name: "run-analytics: ${{ github.event_name == 'schedule' && 'metrics-refresh (schedule)' || inputs.mode }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (startsWith(github.event.schedule, '41 ') && 'metrics-refresh (schedule)' || 'big-cases (schedule)') }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
 
 # Corpus analysis & derived metrics. One surface for every task that reads the
 # corpus and answers a question or refreshes a derived artifact, selected by
@@ -31,10 +31,18 @@ run-name: "run-analytics: ${{ github.event_name == 'schedule' && 'metrics-refres
 #                      from. Read-only like the census and sized like it: the
 #                      walk is a store round trip per live-slice case.
 #   - metrics-refresh: regenerate the committed deterministic artifacts
-#                      (leaderboard / claim scores / backtest / statpack, plus
-#                      the scope manifest) and land any change as a **reviewed**
-#                      PR — never a direct commit to main, never auto-merged.
-#                      Also the schedule's job (weekly).
+#                      (leaderboard / claim scores / backtest / statpack / the
+#                      big-case board, plus the scope manifest) and land any
+#                      change as a **reviewed** PR — never a direct commit to
+#                      main, never auto-merged. Also the weekly cron's job.
+#   - big-cases:       regenerate the case-centric big-case board alone
+#                      (`fedcourts big-cases`) — which cases the predictors think
+#                      matter, and where they disagree — and land any change as an
+#                      **auto-merging** PR. Reads `data/` only, like tool-usage, so
+#                      it needs no corpus and no cloud credential; it is the daily
+#                      cron's job, because a website renders this board off `main`
+#                      and a weekly cadence would publish a stale one six days in
+#                      seven. The auto-merge is argued at the job.
 #   - tool-usage:      roll the committed retrieval logs into an offered-vs-called
 #                      report (`fedcourts tool-usage`) — which configured MCP
 #                      tools cells actually call. Reads `data/` only, so unlike
@@ -53,16 +61,18 @@ run-name: "run-analytics: ${{ github.event_name == 'schedule' && 'metrics-refres
 # result goes to the Actions step summary and the run log, and the census's machine
 # JSON additionally to a run artifact, because a review of record has to outlive the
 # summary page it is read beside — and text-coverage's ledgers to an artifact for
-# the same reason. The two committing modes write only under their own
-# paths — metrics-refresh under `metrics/` + `data/scope/`, qp-topic-label under
-# `data/qp-topics/` — and land the change as a reviewed PR to `main`.
+# the same reason. The three committing modes write only under their own
+# paths — metrics-refresh under `metrics/` + `data/scope/`, big-cases under
+# `metrics/big-cases.*`, qp-topic-label under `data/qp-topics/` — and land the
+# change as a PR to `main`, reviewed except for the board's (argued at that job).
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
 # corpus-stats, distribution-census, text-coverage and qp-topic-extract hold only the read-only S3
 # role; metrics-refresh holds that role *and* mints the dev App token (contents + PR
-# write) for its review PR; qp-topic-label mints the same token but assumes no role
-# at all, because it is the one job here that runs an agent; and tool-usage binds no
-# environment and assumes no role — there is nothing for it to reach.
+# write) for its review PR; qp-topic-label and big-cases mint the same token but
+# assume no role at all — the first because it is the one job here that runs an
+# agent, the second because it reads nothing but the committed ledger; and
+# tool-usage binds no environment and assumes no role, having no PR to open.
 #
 # Every environment-binding job resolves its environment from the dispatching
 # branch — the resolution integration-test.yml states in full: `main` (and the
@@ -78,7 +88,7 @@ run-name: "run-analytics: ${{ github.event_name == 'schedule' && 'metrics-refres
 # reference-coverage floor, which refuses a slice not carrying the reference
 # texts before the labeler ever starts (and with it, via `needs`, the labeler
 # job), itself a rehearsal observation — and never publication, which is a
-# production act. The two publishing jobs fence their App-token mint,
+# production act. The three publishing jobs fence their App-token mint,
 # git-identity and review-PR steps to runs on the `main` branch ref exactly
 # (`github.ref`, not `github.ref_name`, which a tag named `main` also
 # satisfies — the prod deployment-branch policy is the real gate; the fence
@@ -89,11 +99,20 @@ run-name: "run-analytics: ${{ github.event_name == 'schedule' && 'metrics-refres
 # run belongs on a staging ref.
 on:
   schedule:
+    # Two crons, and every scheduled job gates on **which** one fired
+    # (`github.event.schedule`): an `event_name == 'schedule'` gate is fail-open
+    # on any cron it does not name, so a second entry would otherwise run the
+    # weekly refresh daily. The mode-gated jobs stay skipped either way — a
+    # schedule event carries no inputs.
+    #
     # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-pull's
     # 02:31 historical and 04:47 live windows, before its 07:17 pull window, so
-    # the refresh sees a settled corpus. Runs only the metrics-refresh job (a
-    # schedule event carries no inputs, so the mode-gated jobs stay skipped).
+    # the refresh sees a settled corpus.
     - cron: "41 5 * * 1"
+    # Daily big-case board (04:36 UTC). It reads the committed ledger and no
+    # corpus, so it waits on no pull window; the slot is its own minute on the
+    # repo's schedule grid, which keeps two workflows off one runner queue tick.
+    - cron: "36 4 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -104,6 +123,7 @@ on:
           - census
           - text-coverage
           - metrics-refresh
+          - big-cases
           - tool-usage
           - qp-topic-label
         default: corpus-stats
@@ -548,10 +568,15 @@ jobs:
           retention-days: 1
 
   metrics-refresh:
-    # Runs on the weekly schedule, or on dispatch with mode=metrics-refresh —
-    # both trusted surfaces (dispatch is write-gated by GitHub), so no
-    # authorize-trigger gate is needed here.
-    if: ${{ github.event_name == 'schedule' || inputs.mode == 'metrics-refresh' }}
+    # Runs on the weekly cron, or on dispatch with mode=metrics-refresh — both
+    # trusted surfaces (dispatch is write-gated by GitHub), so no
+    # authorize-trigger gate is needed here. It gates on **which** cron fired
+    # rather than on the event class: a bare `event_name == 'schedule'` is
+    # fail-open on every other entry in the schedule block, which would run this
+    # weekly job on the daily board's tick too.
+    if: >-
+      (github.event_name == 'schedule' && startsWith(github.event.schedule, '41 ')) ||
+      inputs.mode == 'metrics-refresh'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -647,6 +672,17 @@ jobs:
           # the two evaluation-derived artifacts refresh from one tree state.
           uv run fedcourts leaderboard
           uv run fedcourts claim-scores
+          # The big-case board reads only the ledger too. The daily `big-cases`
+          # job below keeps it current between weekly ticks; regenerating it here
+          # as well is what keeps one refresh a self-consistent tree state rather
+          # than one artifact a week behind its siblings. Both lanes rewrite the
+          # same two files, so a refresh PR left open while the daily lane merges
+          # goes un-mergeable on them rather than reverting the newer board —
+          # GitHub refuses the conflict rather than taking the older copy. The
+          # remedy is a `mode=metrics-refresh` dispatch, which force-pushes the
+          # branch from the current `main` and clears it; waiting for the next
+          # weekly tick does the same up to seven days later.
+          uv run fedcourts big-cases
 
       # The branch name and PR prose come from the tested `metrics-refresh-plan`
       # (null pr = nothing changed); this step only runs git and gh, mirroring
@@ -715,6 +751,183 @@ jobs:
               git add -A metrics/ data/scope/
               echo '```'
               git diff --cached --stat -- metrics/ data/scope/
+              echo '```'
+            else
+              echo "The regenerate step did not succeed (outcome: ${REGENERATED}); no diff to report."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  big-cases:
+    # The case-centric big-case board (`fedcourts big-cases`) — which cases the
+    # predictors think matter, and where they disagree, as `metrics/big-cases.{json,md}`.
+    # The website's showcase renders the JSON off `main`, so the board is refreshed
+    # **daily** rather than on the weekly slot: a published surface that lags the
+    # ledger by up to a week is a published surface that is wrong for most of it.
+    #
+    # It reads `data/` only — no corpus, no network, no cloud credential — so it
+    # assumes no role and pulls nothing; the App token below is for the PR and
+    # nothing else. That is also why it can run daily at no cost and outside the
+    # corpus-settled window the weekly refresh waits for.
+    #
+    # It is the one PR lane here that **auto-merges**, and the reason is the
+    # artifact rather than the schedule. The board is a byte-stable pure function
+    # of the committed ledger, so a day that changed nothing opens nothing, and a
+    # day that changed something re-rolls committed cells by a command whose own
+    # tests the required `gate` check re-runs on the PR — there is no judgement in
+    # the diff for a reviewer to exercise, while a queue of unread daily PRs is
+    # exactly how a published surface goes stale. What bounds the diff is the
+    # required `paths` check, which runs the tested `assert-board-paths` jail on
+    # this branch: the board's two files, written, and nothing else. The
+    # gate still decides: the dev App is not a
+    # branch-protection bypass actor, so auto-merge waits on the same required
+    # checks a reviewed PR would. Where the platform refuses to arm it, the PR
+    # stays open for a manual merge rather than failing the run.
+    if: >-
+      (github.event_name == 'schedule' && startsWith(github.event.schedule, '36 ')) ||
+      inputs.mode == 'big-cases'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    concurrency:
+      group: run-analytics-big-cases-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Regenerate the big-case board
+        id: regenerate
+        run: |
+          set -euo pipefail
+          uv run fedcourts big-cases
+
+      # Minted on `main`-ref runs only, on the same terms as the metrics refresh:
+      # the dev App's credentials live on the prod environment alone, and a
+      # rehearsal publishes nothing — it regenerates and reports the diff instead
+      # (the fenced step at the end).
+      - name: Mint app token
+        if: ${{ github.ref == 'refs/heads/main' }}
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Configure git identity
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # Mirrors the metrics-refresh PR step: a fixed, force-pushed branch so an
+      # unmerged board PR updates in place rather than stacking one a day.
+      #
+      # It runs no secret scan, and the reason is not the one the labeling job
+      # gives. That job's argument is that no agent-authored string can reach its
+      # artifact; the board republishes `big_case_rationale`, which is agent
+      # prose, so that test fails here. The argument that does hold is upstream:
+      # the collect jobs scan every changed file under `data/` before the branch
+      # is pushed, and a hit withholds it — so a rationale is scanned before it
+      # can enter the ledger, and by the time this job reads one the bytes are
+      # already public git. This lane copies already-scanned, already-published
+      # bytes and opens no new channel. A new string added to the board has to
+      # re-answer that. The title and body themselves carry only jq-extracted
+      # integers and fixed prose.
+      - name: Open or update the board PR
+        if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: metrics/big-cases
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git add -A metrics/big-cases.json metrics/big-cases.md
+          if git diff --cached --quiet; then
+            echo "Big-case board is current; nothing to publish." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # The same jail the required `paths` check runs on this branch, run here
+          # first. The data lanes hold both halves for the same reason: an
+          # auto-merged PR should be refused by the job that built it, not only by
+          # the check that reads it afterwards.
+          git diff --cached --name-status > board-changes.txt
+          uv run fedcourts assert-board-paths --name-status-file board-changes.txt
+          # `numbers` with `-e` so a shape change exits non-zero rather than
+          # splicing raw JSON into the title and the commit message.
+          cases=$(jq -er '.cases | numbers' metrics/big-cases.json)
+          reads=$(jq -er '.scored_reads | numbers' metrics/big-cases.json)
+          total=$(jq -er '.current_reads | numbers' metrics/big-cases.json)
+          title="metrics: refresh the big-case board (${cases} case(s), ${reads} scored stakes read(s))"
+          # Denominators only, and no case name: a PR title is quoted out of
+          # context more than any other line here, and a case beside a number
+          # reads as a finding about that case — which a stakes read cannot
+          # support. The body says the same in full.
+          {
+            printf '%s\n\n' "Deterministic re-roll of \`metrics/big-cases.{json,md}\` from the committed ledger by \`fedcourts big-cases\`: ${cases} case(s) ranked over ${reads} scored stakes read(s) of ${total}; the rest carry no score and are excluded from every mean rather than imputed."
+            printf '%s\n\n' "**Not a performance surface.** A stakes read is neither scored nor ranked: it resolves against nothing, so no figure in this diff is a forecast, an accuracy or a skill number, and the mean says nothing about how likely a case is to be granted. The board reads the ledger directly and applies neither the forward-claim nor the leakage exclusion — a wider population than the scored boards. The artifact's own provenance block and \`metrics/README.md\` carry the reading rules."
+            printf '%s\n\n' "The board is a byte-stable pure function of \`data/\`, so this PR exists only because the ledger moved; a day that changed nothing opens nothing. Auto-merge is armed on the same required checks a reviewed PR faces."
+            printf '%s\n' "Run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}"
+          } > pr-body.md
+          git checkout -q -b "$BRANCH"
+          git commit -q -m "$title"
+          # Push with the app (write) token; blank any ambient extraheader so it
+          # authenticates. Force: the fixed branch supersedes any unmerged board PR.
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${BRANCH}"
+          # `--base main` as well as `--head`: this lane arms auto-merge on what
+          # it finds, and it has no business adopting a PR from this head into
+          # some other base that it did not open.
+          existing=$(gh pr list --repo "$REPO" --head "$BRANCH" --base main --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --repo "$REPO" --title "$title" --body-file pr-body.md
+            url=$(gh pr view "$existing" --repo "$REPO" --json url --jq '.url')
+            echo "Updated board PR #${existing} in place." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh pr create --base main --head "$BRANCH" \
+              --title "$title" --body-file pr-body.md)
+            echo "Opened board PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          # Best-effort, as the collect action arms it: a refusal (auto-merge
+          # disabled on the repo, or the ruleset declining it) leaves the PR open
+          # for a manual merge rather than failing a run whose artifact is
+          # already pushed.
+          gh pr merge --auto --squash "$url" || {
+            echo "::warning::could not enable auto-merge on ${url}; merge it by hand"
+            # Also to the summary: a refused arm leaves the PR open and the
+            # published board standing still, and an annotation alone expires
+            # with the run that raised it.
+            echo "Auto-merge could not be enabled on ${url}; merge it by hand." \
+              >> "$GITHUB_STEP_SUMMARY"
+          }
+
+      # The rehearsal's boundary, stated where the operator reads, and on every
+      # outcome the runner survives rather than only success.
+      - name: Report the rehearsal record (publish fenced off this ref)
+        if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
+        env:
+          REGENERATED: ${{ steps.regenerate.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### big-cases rehearsal — publish fenced to main-branch runs"
+            echo
+            echo "The board PR mint did not run; nothing published from this dispatch."
+            if [ "$REGENERATED" = "success" ]; then
+              git add -A metrics/big-cases.json metrics/big-cases.md
+              echo '```'
+              git diff --cached --stat -- metrics/
               echo '```'
             else
               echo "The regenerate step did not succeed (outcome: ${REGENERATED}); no diff to report."

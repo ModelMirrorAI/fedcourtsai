@@ -421,8 +421,8 @@ evaluation's own harness stamp to be at or after the freeze instant (its
 digest is recorded but not enforced), so a shakedown grading cannot ride a
 frozen re-run of its event into the headline.
 
-Two things stay all-versions on purpose, because they are diagnostics, not the
-headline:
+Three things stay all-versions on purpose, because they are censuses and
+diagnostics rather than the headline:
 
 - The **prediction census** (`ledger_cell_counts` — how many predictions and
   events the funnel has) counts everything committed. A frozen scope showing many
@@ -432,6 +432,14 @@ headline:
   frozen or not. Shakedown contamination is exactly what it exists to surface, so
   scoping it to frozen-only would blank it during the window it matters most —
   the same posture as the flags and tooling digests beside it.
+- The **big-case board** (`metrics/big-cases.{json,md}`) pools every version,
+  unstamped cells included. It publishes what the panel said about a case's
+  stakes, not how well it said it — a stakes read resolves against nothing, so
+  there is no performance claim for a partition to protect, and scoping it would
+  hide most of what the panel has read. Its `process_label` is therefore what a
+  prediction minted today would stamp and is a filter on nothing; the artifact's
+  own `version_scope` provenance string says so, because the surrounding boards'
+  frozen default makes the other reading the available one.
 
 The generic back-test is process-independent (it replays reference baselines, not
 the tournament predictors), so it carries no process version.

@@ -20,6 +20,9 @@ from fedcourtsai.schemas import (
     BacktestCourtScore,
     BacktestEntry,
     BaseRateBucket,
+    BigCaseBoard,
+    BigCaseCoverage,
+    BigCaseRow,
     CertBacktest,
     ClaimProbability,
     ClaimScoreBoard,
@@ -2477,10 +2480,11 @@ def _empty_report(generated_at: str = "2026-09-02T08:30:00+00:00") -> OpsReport:
     return ops.build_ops_report(generated_at=generated_at, runs=[], usage=[])
 
 
-def _analytics(
+def _analytics(  # noqa: PLR0913 - one keyword per committed board the digest reports
     *,
     leaderboard: Leaderboard | None = None,
     claim_scores: ClaimScoreBoard | None = None,
+    big_cases: BigCaseBoard | None = None,
     statpack: StatPack | None = None,
     backtest: Backtest | None = None,
     salience_replay: SalienceReplay | None = None,
@@ -2492,6 +2496,7 @@ def _analytics(
     return ops.WeeklyAnalytics(
         leaderboard=ops.Vintaged(leaderboard, vintage),
         claim_scores=ops.Vintaged(claim_scores, vintage),
+        big_cases=ops.Vintaged(big_cases, vintage),
         statpack=ops.Vintaged(statpack, vintage),
         backtest=ops.Vintaged(backtest, vintage),
         salience_replay=ops.Vintaged(salience_replay, vintage),
@@ -2553,6 +2558,50 @@ def test_the_weekly_digest_distinguishes_an_absent_board_from_an_empty_one() -> 
     # An artifact that never landed carries no vintage: there is no commit to
     # date, and printing "vintage unknown" beside it would suggest there is.
     assert "leaderboard.json`, vintage" not in md
+
+
+def test_the_weekly_digest_reports_the_big_case_board_without_naming_a_case() -> None:
+    # The digest is quoted out of more than any other surface here, so the line
+    # carries denominators and the carve-out and no case name at all.
+    board = BigCaseBoard(
+        cases=2,
+        predictors=["claude-baseline", "codex-baseline"],
+        current_reads=4,
+        scored_reads=3,
+        missing_reads=1,
+        coverage=[BigCaseCoverage(n=2, cases=1), BigCaseCoverage(n=1, cases=1)],
+        rows=[
+            BigCaseRow(
+                case_id="scotus/1",
+                court_id="scotus",
+                docket_id=1,
+                caption="A famous case",
+                caption_event_id="evt-petition-disposition",
+                status="pending",
+                mean_big_case_score=0.8,
+                n=2,
+                score_min=0.7,
+                score_max=0.9,
+                score_range=0.2,
+            )
+        ],
+    )
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(big_cases=board))
+
+    assert "**Big-case board** (`metrics/big-cases.json`, vintage 2026-08-29)" in md
+    assert "2 case(s) ranked over 3 scored stakes read(s) of 4" in md
+    assert "cases by scoring predictors 2→1, 1→1" in md
+    assert "neither scored nor ranked" in md
+    assert "A famous case" not in md
+
+
+def test_the_weekly_digest_separates_an_absent_board_from_an_empty_one() -> None:
+    assert "**Big-case board**: `metrics/big-cases.json` has never landed." in (
+        ops.render_weekly_digest(_empty_report(), analytics=_analytics())
+    )
+    assert "empty — no committed prediction carries a stakes read" in (
+        ops.render_weekly_digest(_empty_report(), analytics=_analytics(big_cases=BigCaseBoard()))
+    )
 
 
 def test_the_weekly_digest_carries_a_vintage_beside_every_metrics_figure() -> None:

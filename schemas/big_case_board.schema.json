@@ -1,0 +1,599 @@
+{
+  "$defs": {
+    "BigCaseCoverage": {
+      "additionalProperties": false,
+      "description": "How many cases the board ranks on `n` reads \u2014 the denominator distribution.",
+      "properties": {
+        "cases": {
+          "description": "Cases whose mean is over that many reads",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "n": {
+          "description": "Number of scoring predictors",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "n",
+        "cases"
+      ],
+      "title": "BigCaseCoverage",
+      "type": "object"
+    },
+    "BigCaseCurrentRead": {
+      "additionalProperties": false,
+      "description": "A predictor's current read of a case, and where it came from.\n\nThe collapse the mean is taken over: one read per predictor per case, from\nthe predictor's newest run **across the case's events**. The event and run\ntravel with the number because a case can be read at several moments and\n\"which moment is this\" is not recoverable from the score.",
+      "properties": {
+        "big_case_rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The rationale the current read carried. A null score *with* a rationale is a declared no view; a null score *without* one predates the prompt amendment that made the field required, and pools 'weighed the stakes and could not place them' with 'never engaged the question' (`docs/freeze-record.md`)",
+          "title": "Big Case Rationale"
+        },
+        "big_case_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The current read, or None where the newest run declared no view \u2014 in which case the predictor is absent from `n` and from the mean",
+          "title": "Big Case Score"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "leakage_suspected": {
+          "default": false,
+          "description": "Whether any committed grading of this run recorded `leakage_suspected`",
+          "title": "Leakage Suspected",
+          "type": "boolean"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "event_id",
+        "run_id"
+      ],
+      "title": "BigCaseCurrentRead",
+      "type": "object"
+    },
+    "BigCaseEvent": {
+      "additionalProperties": false,
+      "description": "One event of a case, with every predictor's newest read of it.\n\nPresent for every event carrying at least one prediction, whether or not any\nread on it survived the case-level collapse \u2014 an earlier moment is history a\nreader can see, not a number the mean counts twice.",
+      "properties": {
+        "actual_disposition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Disposition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The realized disposition, present iff the event has resolved"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "reads": {
+          "description": "Each predictor's newest prediction on this event, ordered by predictor id",
+          "items": {
+            "$ref": "#/$defs/BigCaseRead"
+          },
+          "title": "Reads",
+          "type": "array"
+        },
+        "resolved_at": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the event resolved; None while it is pending",
+          "title": "Resolved At"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The event's `event.yaml` title, None where the ledger carries predictions under an event whose definition is absent",
+          "title": "Title"
+        }
+      },
+      "required": [
+        "event_id"
+      ],
+      "title": "BigCaseEvent",
+      "type": "object"
+    },
+    "BigCaseProvenance": {
+      "additionalProperties": false,
+      "description": "The board's reading rules, carried inside the artifact.\n\nRegistered prose rather than a free-text note: the board is published to a\npublic site, where the figure travels without the document that explains it,\nso the caveats travel inside the artifact instead.",
+      "properties": {
+        "caption_rule": {
+          "title": "Caption Rule",
+          "type": "string"
+        },
+        "collapse_rule": {
+          "title": "Collapse Rule",
+          "type": "string"
+        },
+        "leaderboard_divergence": {
+          "title": "Leaderboard Divergence",
+          "type": "string"
+        },
+        "leakage_note": {
+          "description": "Why a leakage-flagged read is worse here than on a scored board, and what the row-level mark means",
+          "title": "Leakage Note",
+          "type": "string"
+        },
+        "no_time_series": {
+          "title": "No Time Series",
+          "type": "string"
+        },
+        "population": {
+          "title": "Population",
+          "type": "string"
+        },
+        "process_label": {
+          "description": "The process label in force when the board was built \u2014 what a prediction minted today stamps, not a scope filter on the rows (see `version_scope`)",
+          "title": "Process Label",
+          "type": "string"
+        },
+        "rank_resolution": {
+          "description": "What the `#` column may be read as, given how close adjacent means are against the spread inside a single row's own panel",
+          "title": "Rank Resolution",
+          "type": "string"
+        },
+        "reading_rule": {
+          "title": "Reading Rule",
+          "type": "string"
+        },
+        "version_scope": {
+          "description": "That the board is version-blind \u2014 every process version, shakedown cells included \u2014 unlike the frozen-scope performance boards",
+          "title": "Version Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reading_rule",
+        "collapse_rule",
+        "leakage_note",
+        "leaderboard_divergence",
+        "population",
+        "version_scope",
+        "rank_resolution",
+        "no_time_series",
+        "caption_rule",
+        "process_label"
+      ],
+      "title": "BigCaseProvenance",
+      "type": "object"
+    },
+    "BigCaseRead": {
+      "additionalProperties": false,
+      "description": "One predictor's newest prediction on one event, with its stakes read.\n\nThe unit the board is assembled from. It carries the headline forecast\nbeside the stakes score deliberately: the two answer different questions \u2014\n`probability` is a forecast that resolves against the docket, while\n`big_case_score` resolves against nothing \u2014 and a reader who sees only the\nstakes number is one step from reading it as an odds number.",
+      "properties": {
+        "big_case_rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The cell's one-line rationale for the score, or for the declared null. The only agent prose the board republishes",
+          "title": "Big Case Rationale"
+        },
+        "big_case_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The cell's stakes read, 0-1, verbatim from the prediction. None where the cell declared no view \u2014 never imputed, and excluded from the case mean rather than counted as a zero",
+          "title": "Big Case Score"
+        },
+        "cell_path": {
+          "description": "Repo-relative path of the run directory the numbers were read from",
+          "title": "Cell Path",
+          "type": "string"
+        },
+        "cell_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`cell_path` under the configured repository URL. None when the command was run without one, and also when the data root is absolute \u2014 a build machine's filesystem path has no business in a published link",
+          "title": "Cell Url"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The cell's self-reported confidence, where it gave one",
+          "title": "Confidence"
+        },
+        "granted": {
+          "description": "The cell's binary call on the stage's axis",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Granted",
+          "type": "integer"
+        },
+        "leakage_suspected": {
+          "default": false,
+          "description": "Whether any committed grading of this run recorded `leakage_suspected`. It matters more here than on a scored board: a stakes read is partly a read of the disposition, so a cell that saw its own outcome may have read the stakes off it \u2014 and here that cell is not one point inside a coefficient, it is the published number",
+          "title": "Leakage Suspected",
+          "type": "boolean"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The cell's mode (`forward` / `replay`) from its harness-written `context` block; None on a cell written before that block existed",
+          "title": "Mode"
+        },
+        "predicted_disposition": {
+          "$ref": "#/$defs/Disposition"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "probability": {
+          "description": "The cell's headline forecast, `Prediction.probability`: P(granted) on a cert/interim event, P(disturbed) on a merits one. Carried so the stakes score is never read alone as though it were an odds number",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Probability",
+          "type": "number"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "run_id",
+        "probability",
+        "predicted_disposition",
+        "granted",
+        "cell_path"
+      ],
+      "title": "BigCaseRead",
+      "type": "object"
+    },
+    "BigCaseRow": {
+      "additionalProperties": false,
+      "description": "One case on the board: the panel's current stakes reads and their mean.",
+      "properties": {
+        "caption": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The case's display name: the `event.yaml` title of the event carrying the case's newest current read. There is no docket number in committed data, so the caption is the only human handle and `case_id` is the identifier",
+          "title": "Caption"
+        },
+        "caption_event_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The event the caption was read from, so the rule is checkable",
+          "title": "Caption Event Id"
+        },
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "court_id": {
+          "title": "Court Id",
+          "type": "string"
+        },
+        "current_reads": {
+          "description": "Every predictor that read the case, ordered by predictor id \u2014 including one whose newest run carries no score, which the mean excludes",
+          "items": {
+            "$ref": "#/$defs/BigCaseCurrentRead"
+          },
+          "title": "Current Reads",
+          "type": "array"
+        },
+        "docket_id": {
+          "title": "Docket Id",
+          "type": "integer"
+        },
+        "events": {
+          "description": "The case's predicted events, ordered by event id, each with every predictor's newest read of it",
+          "items": {
+            "$ref": "#/$defs/BigCaseEvent"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "leakage_suspected": {
+          "default": false,
+          "description": "Whether any of the case's current reads is leakage-flagged. Where it is true the mean rests partly on a cell that may have read the stakes off an outcome it should not have seen, and the row is not evidence about the case's stakes",
+          "title": "Leakage Suspected",
+          "type": "boolean"
+        },
+        "mean_big_case_score": {
+          "description": "Mean of the current reads that carry a score, rounded to four places. A panel opinion about stakes, never a measurement and never a skill figure",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Mean Big Case Score",
+          "type": "number"
+        },
+        "n": {
+          "description": "How many predictors the mean is over. Always beside the mean: with three predictors on the roster a mean over one is a single model's opinion",
+          "minimum": 1,
+          "title": "N",
+          "type": "integer"
+        },
+        "score_max": {
+          "description": "Highest current read on the case",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score Max",
+          "type": "number"
+        },
+        "score_min": {
+          "description": "Lowest current read on the case",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score Min",
+          "type": "number"
+        },
+        "score_range": {
+          "description": "`score_max - score_min`, rounded to four places: panel disagreement, shown rather than hidden inside the mean",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score Range",
+          "type": "number"
+        },
+        "status": {
+          "description": "Resolution state across the case's predicted events, derived from `outcome.json` presence: none resolved, some resolved, all resolved",
+          "enum": [
+            "pending",
+            "partly_resolved",
+            "resolved"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "court_id",
+        "docket_id",
+        "status",
+        "mean_big_case_score",
+        "n",
+        "score_min",
+        "score_max",
+        "score_range"
+      ],
+      "title": "BigCaseRow",
+      "type": "object"
+    },
+    "Disposition": {
+      "description": "The realized-outcome vocabulary, with the mapping conventions for\nnon-standard SCOTUS forms. A **grant/vacate/remand** is its own label,\n``gvr`` \u2014 including the Munsingwear vacatur, whose mootness basis is *also*\ncarried by ``Outcome.disposition_basis`` (``gvr`` + ``mootness`` = a\nMunsingwear vacatur, segmented into the procedural stratum; ``gvr`` +\n``standard`` = a merits GVR). ``gvr`` counts as a grant on the **binary axis**\n(it joins the granted set for ``actual_granted``), so ``probability`` /\nBrier stay comparable across the label's introduction; only the\ndisposition-label axis distinguishes it. The label is a **forward-convention**\nchange: historical GVRs recorded as ``granted`` before it existed keep that\nlabel except the identifiable Munsingwear ones (``granted`` + ``mootness``),\nwhich a one-time backfill relabels; a plain-``granted`` merits GVR in history\nis an accepted residual (indistinguishable post-hoc without re-resolving the\nsource, and immaterial on the binary axis). That residual covers a label\nnormalized from the upstream record's own fields, never a resolution the\ndisposition parser itself recorded off order text and got wrong \u2014 those\ndisagree with their own order text and are converged against it. What\nseparates the two is provenance, and the convergence sweep\n(:mod:`fedcourtsai.disposition_convergence`) establishes it two ways: a date\nboundary in code, so that widening snapshot coverage alone cannot reach the\nresidual, and \u2014 where the docket itself shows that the entry a ``granted``\nwas read off no longer parses as a grant at all \u2014 that entry, which dates\nthe parse gap and so needs no calendar. On mandatory-jurisdiction direct\nappeals the resolver latches only the vacatur-remand form (now ``gvr``); the\nother direct-appeal forms (probable jurisdiction noted, summary affirmance,\ndismissal for want of a substantial federal question) are deliberate resolver\nmisses that reach maintainer triage, where the convention is: grant-side for\nprobable jurisdiction, the denied/dismissed side for summary affirmance and\nwant-of-a-question.",
+      "enum": [
+        "granted",
+        "denied",
+        "granted-in-part",
+        "gvr",
+        "summary-reversal",
+        "dismissed",
+        "withdrawn",
+        "other"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/big-cases.json`` \u2014 the case-centric big-case board.\n\nOne row per predicted case, carrying each predictor's current stakes read\n(`Prediction.big_case_score`) and the mean across the predictors that gave\none, ranked mean-first. It answers \"which cases does the panel think matter,\nand where do the models disagree\" \u2014 a question none of the existing\nbig-case surfaces answers, because each of those measures something *about\nthe models* rather than listing the cases.\n\n**It is not a performance surface, and its numbers are never ranked as\nskill.** A stakes read is neither scored nor ranked: it resolves against\nnothing, so no accuracy, calibration or ordering claim can be made from any\n*stakes* figure here. The per-cell ``probability`` carried beside it is a\nforecast \u2014 the cell's raw value, unstratified, unexcluded and unscored \u2014 and\nit is not a claimable one either; scored forecast performance lives on the\nleaderboard and nowhere else. The same carve-out is why the board reads the\ncommitted ledger directly, applying neither the forward-claim exclusion nor\nthe leakage exclusion, and reading ungraded cells and every process version\nbesides \u2014 a wider population than the scored boards, deliberately, and a\ncaveat that has to travel with a quoted number. Where the leakage bit is set\non a read, the row carries the mark: a stakes read is partly a read of the\ndisposition, so a contaminated cell is not one point inside a coefficient\nhere, it is the number.\n\nA pure function of the committed `data/` ledger \u2014 no corpus, no credentials,\nno clock \u2014 so reruns over an unchanged ledger reproduce both files byte for\nbyte. That is also why it carries no timestamp and no commit hash: the\nartifact's vintage is the commit that wrote it.",
+  "properties": {
+    "cases": {
+      "default": 0,
+      "description": "Rows on the board",
+      "minimum": 0,
+      "title": "Cases",
+      "type": "integer"
+    },
+    "cases_without_score": {
+      "default": 0,
+      "description": "Cases the ledger holds predictions for whose every current read carries no score, and which are therefore off the board. Published so `cases` is read against the predicted population rather than as the whole of it",
+      "minimum": 0,
+      "title": "Cases Without Score",
+      "type": "integer"
+    },
+    "coverage": {
+      "description": "Cases by number of scoring predictors, `n` descending",
+      "items": {
+        "$ref": "#/$defs/BigCaseCoverage"
+      },
+      "title": "Coverage",
+      "type": "array"
+    },
+    "current_reads": {
+      "default": 0,
+      "description": "Current reads on the board \u2014 one per (case, predictor) \u2014 scored or not. The denominator the three counts below partition",
+      "minimum": 0,
+      "title": "Current Reads",
+      "type": "integer"
+    },
+    "declared_no_view": {
+      "default": 0,
+      "description": "Unscored current reads that carry a rationale \u2014 a cell that weighed the stakes and said it could not place them. Only observable from the prompt amendment that made the field required with an explicit null escape onward",
+      "minimum": 0,
+      "title": "Declared No View",
+      "type": "integer"
+    },
+    "median_adjacent_gap": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Median difference in mean between neighbouring rows. Beside `median_score_range` it is what says whether the `#` column can be read as an ordering; None with fewer than two rows",
+      "title": "Median Adjacent Gap"
+    },
+    "median_score_range": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Median `score_range` across the rows \u2014 how far a row's own panel typically spreads, against which the gap between two ranks should be read; None with no rows",
+      "title": "Median Score Range"
+    },
+    "missing_reads": {
+      "default": 0,
+      "description": "Unscored current reads with no rationale. Elicited under the earlier prompt, where the field was optional and an absent value pooled 'could not place the stakes' with 'never engaged the question' \u2014 a missing-data figure, and not a declaration (`docs/freeze-record.md`)",
+      "minimum": 0,
+      "title": "Missing Reads",
+      "type": "integer"
+    },
+    "predictors": {
+      "description": "Predictor ids observed in the ledger, sorted \u2014 the roster the per-case columns are drawn from, read off the cells rather than off config",
+      "items": {
+        "type": "string"
+      },
+      "title": "Predictors",
+      "type": "array"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BigCaseProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The reading rules that travel with the figures"
+    },
+    "rows": {
+      "description": "The board, mean descending, then `n` descending, then `case_id`",
+      "items": {
+        "$ref": "#/$defs/BigCaseRow"
+      },
+      "title": "Rows",
+      "type": "array"
+    },
+    "rows_with_leakage_flag": {
+      "default": 0,
+      "description": "Rows whose mean rests partly on a leakage-flagged read. Not netted against anything: it is an audit line about the board's own contents",
+      "minimum": 0,
+      "title": "Rows With Leakage Flag",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scored_reads": {
+      "default": 0,
+      "description": "Current reads carrying a score; the means are taken over these",
+      "minimum": 0,
+      "title": "Scored Reads",
+      "type": "integer"
+    }
+  },
+  "title": "BigCaseBoard",
+  "type": "object"
+}

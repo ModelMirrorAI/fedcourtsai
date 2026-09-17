@@ -87,6 +87,7 @@ from .cert_backtest import (
 )
 from .claim_metrics import agreement_summary, build_claim_scores
 from .collect import (
+    BOARD_ARTIFACTS,
     CODE_MODE_PARENT_TOOL,
     CellStatus,
     CollectPlan,
@@ -96,6 +97,7 @@ from .collect import (
     PrPlan,
     StakesReadRollup,
     ThrottleRollup,
+    assert_board_within_jail,
     assert_cleanup_within_jail,
     assert_within_jail,
     attempted_corpus_query,
@@ -277,6 +279,7 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     Backtest,
+    BigCaseBoard,
     CellFailure,
     CellMode,
     CertBacktest,
@@ -5641,6 +5644,64 @@ def docket(
     )
 
 
+@app.command("big-cases")
+def big_cases(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="JSON output path (default: <metrics_root>/big-cases.json)."),
+    ] = None,
+    markdown_out: Annotated[
+        Path | None,
+        typer.Option(help="Markdown output path (default: <metrics_root>/big-cases.md)."),
+    ] = None,
+    repo_url: Annotated[
+        str,
+        typer.Option(
+            "--repo-url",
+            help="Repository tree URL the per-cell links are built under; a run "
+            "directory's repo-relative path is appended to it. Pass an empty string to "
+            "publish paths without links.",
+        ),
+    ] = analytics.DEFAULT_REPO_TREE_URL,
+) -> None:
+    """Roll the committed predictions into the big-case board at ``metrics/big-cases.{json,md}``.
+
+    One row per predicted case, carrying each predictor's current stakes read
+    (`big_case_score`) and the mean across the predictors that gave one, ranked
+    mean-first with `n` beside every mean. It answers which cases the panel
+    thinks matter and where the models disagree — a question no existing
+    big-case surface answers, because each of those measures something about the
+    models rather than listing the cases.
+
+    **Not a performance surface.** A stakes read is neither scored nor ranked: it
+    resolves against nothing, so nothing here is an accuracy, a calibration or an
+    ordering of predictors, and the mean says nothing about how likely a case is
+    to be granted. The same carve-out is why the board reads the ledger directly,
+    applying neither the forward-claim nor the leakage exclusion — a wider
+    population than the scored boards, stated in the artifact's own provenance
+    block.
+
+    Ledger-only and offline: it reads ``data/`` and nothing else — no corpus, no
+    network, no credentials — so reruns over an unchanged ledger reproduce both
+    files byte for byte. It stamps neither a clock nor a commit for that reason;
+    the board's vintage is the commit that wrote it.
+    """
+    settings = get_settings()
+    board = analytics.build_big_case_board(data_root=settings.data_root, repo_url=repo_url)
+    # Resolved from the jail's own constants: the command writes exactly the files
+    # the required `paths` check admits on the board branch, by construction.
+    json_name, md_name = BOARD_ARTIFACTS
+    json_dest = out if out is not None else settings.metrics_root / json_name
+    md_dest = markdown_out if markdown_out is not None else settings.metrics_root / md_name
+    write_json(json_dest, board)
+    write_text(md_dest, analytics.render_big_case_markdown(board))
+    typer.echo(
+        f"big-cases: {board.cases} case(s), {board.scored_reads} scored read(s) of "
+        f"{board.current_reads}, {board.rows_with_leakage_flag} leakage-flagged row(s) "
+        f"-> {json_dest}, {md_dest}"
+    )
+
+
 def _resolve_token_counts(
     explicit: TokenCounts,
     claude_execution_file: Path | None,
@@ -7311,6 +7372,7 @@ def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
     return WeeklyAnalytics(
         leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
         claim_scores=_vintaged(metrics_root / "claim-scores.json", ClaimScoreBoard),
+        big_cases=_vintaged(metrics_root / "big-cases.json", BigCaseBoard),
         statpack=_vintaged(metrics_root / "statpack.json", StatPack),
         backtest=_vintaged(metrics_root / "backtest.json", Backtest),
         salience_replay=_vintaged(metrics_root / "salience-replay.json", SalienceReplay),
@@ -13698,6 +13760,28 @@ def assert_paths_cmd(
         typer.echo(f"::error::{exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"path jail OK ({len(changes)} change(s))")
+
+
+@app.command("assert-board-paths")
+def assert_board_paths_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to check.")
+    ],
+) -> None:
+    """Enforce the big-case board's path jail; exit non-zero on any violation.
+
+    The board PR auto-merges, so what stands in for a reviewer is the bound on
+    its diff: `metrics/big-cases.json` and `metrics/big-cases.md`, written, and
+    nothing else. CI runs this as a required status check on the PR, independently
+    of the workflow that produced the branch.
+    """
+    changes = parse_name_status(name_status_file.read_text())
+    try:
+        assert_board_within_jail(changes)
+    except PathJailError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"board jail OK ({len(changes)} change(s))")
 
 
 @app.command("collect-union")

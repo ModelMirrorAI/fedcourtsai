@@ -62,7 +62,7 @@ read the diff, run the linters, and report findings with a clear verdict. You do
 - **Secrets.** Never `echo`/print/write a secret or token; `persist-credentials: false`
   on checkout; OIDC roles read-only unless a write is required and justified.
 - **Auto-merge blast radius.** If the PR a job opens auto-merges, confirm the required
-  path-jail check (`assert-paths` / `assert-cleanup-paths`) covers its branch pattern.
+  path-jail check (`assert-paths` / `assert-cleanup-paths` / `assert-board-paths`) covers its branch pattern.
 
 ## Repo-style checklist
 

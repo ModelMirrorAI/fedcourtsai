@@ -22,6 +22,7 @@ from fedcourtsai.collect import (
     PriorAvailabilityRollup,
     StakesReadRollup,
     ThrottleRollup,
+    assert_board_within_jail,
     assert_cleanup_within_jail,
     assert_within_jail,
     attempted_corpus_query,
@@ -162,6 +163,30 @@ def test_rename_keys_on_new_path() -> None:
     # R status (a rename is still not a pure addition).
     changes = parse_name_status("R100\tdata/old.json\tsrc/new.py\n")
     assert changes == [type(changes[0])(status="R", path="src/new.py")]
+
+
+# --- big-case board jail ---------------------------------------------------
+
+
+def test_board_writes_of_its_own_two_artifacts_pass() -> None:
+    changes = parse_name_status("M\tmetrics/big-cases.json\nM\tmetrics/big-cases.md\n")
+    assert_board_within_jail(changes)  # does not raise
+    # The first run adds them rather than modifying them.
+    assert_board_within_jail(parse_name_status("A\tmetrics/big-cases.json\n"))
+
+
+def test_board_jail_rejects_any_other_path() -> None:
+    # The lane auto-merges, so the jail is what stands in for a reviewer: a
+    # sibling artifact under the same directory is still outside it.
+    changes = parse_name_status("M\tmetrics/big-cases.json\nM\tmetrics/leaderboard.json\n")
+    with pytest.raises(PathJailError, match="not one of the big-case board's artifacts"):
+        assert_board_within_jail(changes)
+
+
+def test_board_jail_rejects_a_deletion() -> None:
+    # The board is a committed surface; the lane has no business removing it.
+    with pytest.raises(PathJailError, match="the board PR only writes files"):
+        assert_board_within_jail(parse_name_status("D\tmetrics/big-cases.md\n"))
 
 
 # --- add-only union --------------------------------------------------------

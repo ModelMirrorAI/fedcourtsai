@@ -30,7 +30,9 @@ convention `AGENTS.md` carries, not something identity enforces):
   PR`, so the writers push corpus facts straight to `main`.
 - **dev App** — used by the agent workflows `run-predict` /
   `run-evaluate`, the reviewed-PR openers (`run-backtest`, and
-  `run-analytics`'s metrics-refresh and qp-topic-label jobs), `sync-staging`,
+  `run-analytics`'s metrics-refresh and qp-topic-label jobs),
+  `run-analytics`'s big-cases job (the one PR opener here that auto-merges),
+  `sync-staging`,
   and `integration-test`'s application-repro leg (watchdog telemetry only).
   Its client id
   is the `DEV_APP_CLIENT_ID`
@@ -68,7 +70,8 @@ environment-scoped one correctly resolves empty. Each workflow mints a token sco
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner. The watchdog brackets every engine; this token is minted on codex cells alone |
 | `integration-test` (codex-application-repro leg and the codex-freeze-probe job) | dev on a prod-bound dispatch; staging telemetry App on a staging-bound one | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The credentials select per bound environment, and the arm/disarm steps pass the matching channel, so a staging rehearsal's rows land on the rehearsal channel's own issue under an App whose platform-enforced ceiling is Issues alone; a leg bound to neither environment mints nothing, warns, and degrades to its runner-local account |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
-| `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
+| `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
+| `run-analytics` (big-cases job only) | dev | contents, pull-requests | open the **auto-merging** big-case-board PR — the one PR opener in this repo that is not reviewed by a human, which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
 | `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — and on `main`-branch (prod-bound) runs only, so a rehearsal that reaches the labeler runs the full agent posture and the gate with no App token in the job at all — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
@@ -126,8 +129,10 @@ pre-registration record's commit ids.
     `main-base` (the latter two report `skipped` — satisfying the requirement —
     on every PR they do not gate). `main-base` is the merge-routing jail: it
     runs — and fails — only on a PR to `main` whose head
-    is not a same-repo `staging` or reviewed non-feature lane, so a feature PR
-    cannot ride around the promotion path by mistake. Rulesets cannot constrain
+    is not a same-repo `staging` or non-feature lane, so a feature PR
+    cannot ride around the promotion path by mistake. Those lanes are all
+    reviewed except the big-case board's, which auto-merges behind the `paths`
+    jail below. Rulesets cannot constrain
     a PR's source branch, which is why it is a check rather than a rule. Its
     job definition lives in `main`'s own `ci.yml`, so the context reports on
     every lane into `main`; adding a context like it goes through the *Adding
@@ -143,8 +148,13 @@ pre-registration record's commit ids.
     is bound by these required checks rather than skipping them. `paths` enforces
     that such a PR only *adds* files under `data/` (the tested `fedcourts
     assert-paths`): a change touching code, a workflow, config, or an existing
-    artifact fails the check and cannot auto-merge. It is a no-op that passes on
-    every non-`*/run-*` branch, so requiring it never blocks an ordinary PR. The
+    artifact fails the check and cannot auto-merge. The same check carries the
+    second auto-merged lane's jail: `run-analytics`'s daily `big-cases` job opens
+    its board PR on the `metrics/big-cases` branch, and there `paths` runs
+    `fedcourts assert-board-paths`, which admits writes of
+    `metrics/big-cases.{json,md}` and nothing else — one bounded diff per lane, so
+    neither auto-merge can carry a change a human never read. It is a no-op that
+    passes on every other branch, so requiring it never blocks an ordinary PR. The
     same jail runs producer-side in each collect job; requiring it here enforces
     the guarantee independently of the workflow that produced the branch. Two
     more producer-side gates run beside it there: a schema re-validation
@@ -223,14 +233,14 @@ pre-registration record's commit ids.
 
 ## Repository merge settings
 
-Settings → General → Pull Requests. The predict and evaluate `collect` jobs each
-open one PR per run and ask GitHub to merge it
-when the required checks pass; these settings are what let that happen and keep
-the branch list clean. To reproduce the repo (or use it as a template), set:
+Settings → General → Pull Requests. Two lanes ask GitHub to merge a PR when the
+required checks pass — the predict and evaluate `collect` jobs, one PR per run,
+and `run-analytics`'s daily big-case board; these settings are what let that
+happen and keep the branch list clean. To reproduce the repo (or use it as a template), set:
 
 | Setting | Value | Why |
 |---------|-------|-----|
-| **Allow auto-merge** | **on** | The `collect` job runs `gh pr merge --auto --squash`. With it off that call errors — the job degrades gracefully (logs a warning, leaves the PR open for a manual merge) but nothing auto-merges. |
+| **Allow auto-merge** | **on** | The `collect` job and the `big-cases` job each run `gh pr merge --auto --squash`. With it off that call errors — both degrade gracefully (log a warning, leave the PR open for a manual merge) but nothing auto-merges, and the published board then stops advancing until someone merges by hand. |
 | **Allow squash merging** | **on** | The run PR is squash-merged, so each run lands as one commit. |
 | **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. (It cannot touch `main`: GitHub skips the default branch, and `main: protect history` refuses deletion from anyone.) |
 | **Allow merge commits** | **on** | `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |
@@ -243,8 +253,10 @@ shared history *and* rewriting the pre-registration record's commit ids; no
 lane needs it. Auto-merge does **not** weaken the gate: it is a
 deferred merge that still waits for the required `gate` + `paths` checks, and the
 dev App that opens these PRs is not a branch-protection bypass actor (above), so
-the checks bind. The append-only `data/` jail (`paths`) is what makes
-auto-merging agent output safe.
+the checks bind. A bounded diff is what makes auto-merging safe, and the `paths`
+check carries one per lane: the append-only `data/` jail for agent output, and
+`assert-board-paths` — the board's two files, written, nothing else — for the
+big-case board.
 
 The predict/evaluate `collect` job latches each run's rolled-up agent flags onto
 one long-lived `agent-feedback` tracking issue — the durable, centralized home for
@@ -833,6 +845,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store; the text-coverage mode reads wider on the same terms — a document-manifest round trip per live-slice case plus each stored document's text body |
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
+| `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent. What leaves it is one artifact of invented question texts — the labels the smoke produced — published only past a containment check against the engine key |

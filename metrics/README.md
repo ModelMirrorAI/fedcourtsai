@@ -100,7 +100,8 @@ The offline gate
 `statpack.md` — exist
 and are committed. Others land here without being gate-checked:
 `cert-backtest.json`, which only a released replay writes, `docket.{json,md}`,
-which is regenerated on demand by `fedcourts docket`, and
+which is regenerated on demand by `fedcourts docket`, `big-cases.{json,md}`,
+which the daily `big-cases` lane keeps current on its own cadence, and
 `salience-replay.json`, produced on demand by the free, deterministic
 `fedcourts salience-replay` (locally, or via the `run-backtest` dispatch's
 `replay: salience-gate` mode, landing as a reviewed PR), and
@@ -984,11 +985,14 @@ are never differenced.
 
 The scope is the **stratified scored stream** — the ranked board and its stage
 blocks, `claim-scores.json`, the ops report's substance funnel, and the semantic
-census, all of which read one `store.stratify` pass. Two surfaces read the
+census, all of which read one `store.stratify` pass. Three surfaces read the
 ledger by their own path and so do not apply it, deliberately and for the same
 reason they do not apply the forward-claim exclusion: the board's `big_case` and
 `evaluator_agreement` views measure stakes reads and grader latitude rather than
-scored performance, and the tool-usefulness figures are a declared superset
+scored performance, `big-cases.json` publishes those same stakes reads per case
+(and marks a leakage-flagged read rather than dropping it, since here the
+contaminated cell *is* the published number), and the tool-usefulness figures
+are a declared superset
 (below). A figure there that differs from a board figure is two populations
 rather than an error in either.
 
@@ -1633,8 +1637,74 @@ the rendered table) and
   justice-level statistics, which need a per-justice vote record) so a
   citation is never read as a claim that the figure is zero.
 
+- `big-cases.json` / `big-cases.md` — the **case-centric big-case board**: one
+  row per predicted case, carrying each predictor's current `big_case_score`
+  and the mean across the predictors that gave one, ranked by mean descending,
+  then `n` descending, then `case_id`. It
+  answers which cases the panel thinks matter and where the models disagree —
+  a question none of the other big-case surfaces answers, because each of those
+  measures something about the *models*. It is the board a public site
+  highlights, which is why the JSON carries its reading rules in a `provenance`
+  block rather than leaving them here: a figure travels without the document
+  that explains it. `fedcourts big-cases` produces both files, from `data/`
+  alone.
+
+  **A stakes read is neither scored nor ranked**, so nothing here is a
+  forecast, an accuracy, a calibration or an ordering of predictors, and the
+  mean says nothing about how likely a case is to be granted (a case can be
+  denied yet high-stakes, or granted yet narrow). For the same reason the board
+  reads the ledger directly: neither the forward-claim exclusion nor the
+  leakage exclusion applies, so a leakage-suspected cell the scored boards drop
+  is still a row's read here. That is the same carve-out the leaderboard's
+  `big_case` and `evaluator_agreement` views take, on the same grounds, and it
+  is a caveat that has to travel with any number quoted from the board.
+
+  **The collapse, which differs from the leaderboard's.** A case's read is one
+  per predictor: that predictor's **newest** prediction run across the case's
+  events, newest by the harness-written cell clock (the process stamp, else
+  `created_at`) rather than by directory name, with run id and then event id
+  breaking a tie. An earlier run is listed under its own event as history and
+  is never averaged. The leaderboard's `big_case` block reads a case as the
+  **mean over its moments** before correlating it with the evaluator panel;
+  this board reads it as the newest moment. The two answer different questions
+  over different collapses, so a figure here is never differenced against one
+  there.
+
+  **Denominators.** `n` sits beside every mean and is the count of predictors
+  that gave a number. A newest run declaring **no view** — the prompt asks for
+  a score or an explicit `null` carrying a one-line rationale — leaves that
+  predictor out of `n` and out of the mean; it is never imputed and never
+  counted as a zero, which would fabricate a panel opinion. A row with `n < 3`
+  is ranked with the rest and flagged by its own `n` rather than split into a
+  second table: the flag is the denominator, and a reader who quotes a mean
+  without it has quoted a different number. `score_range` sits beside `n` for
+  the same reason — a mean of 0.5 over two 0.5s and a mean of 0.5 over 0.1 and
+  0.9 are not the same observation.
+
+  **Population.** Every case in the committed ledger carrying at least one
+  current read, pending and decided alike, with a status per row derived from
+  `outcome.json` presence on its predicted events and the realized disposition
+  on each event that has one. The list is the predictions', never the corpus's,
+  so the board describes what the panel was asked about and is **not** a sample
+  of the docket or of any conference. Display is by caption — the `event.yaml`
+  title of the event carrying the case's newest current read — because there is
+  no docket number in committed data; `case_id` is the identifier.
+
+  **No time series.** The predict prompt's amendment making `big_case_score`
+  required with an explicit null escape changed which cells carry a read
+  ([docs/freeze-record.md](../docs/freeze-record.md)), so scores elicited
+  before and after it are two populations. The board therefore publishes no
+  trend and no history, and a movement across that boundary is not a
+  measurement of anything.
+
+  Like the other roll-ups here it is byte-stable and stamps neither a clock nor
+  a commit: the vintage of a board is the commit that wrote it. The daily
+  `big-cases` job of `run-analytics` keeps it current, so an unchanged ledger
+  opens no PR.
+
 These files are deterministic, offline roll-ups that start empty (zero counts)
-until their input lands — the evaluations ledger for the leaderboard, a corpus
+until their input lands — the evaluations ledger for the leaderboard, the
+predictions ledger for the big-case board, a corpus
 with outcome labels for the back-test, statpack, and docket pack. All are small
 and worth reading
 in a diff, so they are git-tracked rather than pushed to the corpus remote like
