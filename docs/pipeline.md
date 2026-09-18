@@ -397,9 +397,15 @@ queues behind the production run of the same mode. The modes:
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
   credential in its environment and no MCP config (the vocabulary is text-only,
-  so the extract is the agent's entire evidentiary input). Its tools are
-  Write, Edit and free reads; the shell, the delegation tools and the web
-  tools are denied by name in the invocation, because a grant list
+  so the extract is the agent's entire evidentiary input). Exactly two things
+  cross the split: that artifact, and the size of the QP-bearing frame the
+  extract cut the batch from — a job output, one integer, which the post-label
+  measure step passes to `qp-topics --frame-rows` so the labels artifact records
+  each batch's frame ([qp-topic.md](qp-topic.md)). The `.batch.json` sidecar it
+  is read from stays on the extract runner: the value is a population count, the
+  file is the shape of the draw. Its tools are Write, Edit and free reads; the
+  shell, the delegation tools and the web tools are denied by name in the
+  invocation, because a grant list
   pre-approves without withholding anything. The labeling run is a single
   headless session, so a delegated subagent would die with it leaving the
   batch part-labeled and the measure step refusing a partial file; labels

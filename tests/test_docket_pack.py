@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from typing import Literal
 
 import pytest
 from typer.testing import CliRunner
@@ -509,12 +510,17 @@ def _qp_labels(
     gate_passed: bool = True,
     reference_cases: frozenset[str] = frozenset(),
     batches: int = 1,
+    frame_rows: int | None = None,
+    frame_batch: int | None = None,
 ) -> Path:
     """Write a labels artifact for ``case_id -> primary``, through the real model.
 
     ``reference_cases`` marks rows published from the hand set rather than by the
     labeler — the split the scope note's over-representation ratio is computed
-    from — and ``batches`` how many runs the file accrued over.
+    from — and ``batches`` how many runs the file accrued over. ``frame_rows`` is
+    the QP-bearing frame the extract counted when that batch was cut, landing on
+    batch ``frame_batch`` (the newest by default) — the figure that turns the
+    labeled share of the frame from a bound into a measurement.
     """
     artifact = QpTopicLabels(
         labeler="stub-labeler",
@@ -542,6 +548,11 @@ def _qp_labels(
                 agree=170,
                 n=189,
                 floor=0.25,
+                frame_rows=(
+                    frame_rows
+                    if number == (batches if frame_batch is None else frame_batch)
+                    else None
+                ),
             )
             for number in range(1, batches + 1)
         ],
@@ -691,8 +702,8 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
     assert (
         "Labeling accrues in batches, so the labeled rows are two populations on different "
         "terms: 1 hand reference-set members, carried in every batch and so included with "
-        "certainty, and 1 drawn by a Term x fee-class-stratified, seeded-hash order from "
-        "the QP-bearing part of the 2 in-scope row(s) outside that block (the 1 still "
+        "certainty, and 1 drawn over this blob by a Term x fee-class-stratified, seeded-hash "
+        "order from the QP-bearing part of the 2 in-scope row(s) outside that block (the 1 still "
         "unlabeled, plus these). Both count once here, so the reference block — "
         "grant-enriched by design and carrying no sampling weights — is over-represented by "
         "at most about 2.0x — an upper bound over the whole of that block-outside count, "
@@ -880,6 +891,235 @@ def test_qp_topic_over_representation_closes_when_the_frame_is_fully_labeled(
         "is over-represented by no factor — every in-scope row is labeled, so both entered "
         "at the same rate" in md
     )
+
+
+def test_qp_topic_cut_measures_the_labeled_share_when_the_batch_carries_its_frame(
+    tmp_path: Path,
+) -> None:
+    """With the frame on the ledger the two caveated figures become measurements.
+
+    The extract job counts the QP-bearing frame it cuts a batch from and passes
+    that count to `qp-topics` as a value, which records it on the batch's ledger
+    entry. The pack then states the labeled share of the frame and the reference
+    block's over-representation instead of bounding them — both as the
+    *artifact's* numbers at that batch's corpus vintage, since the section's own
+    counts come from a later blob.
+    """
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {"scotus/101": "criminal-law", "scotus/103": "unclassifiable"},
+        reference_cases=frozenset({"scotus/101"}),
+        frame_rows=5,
+    )
+    md = analytics.render_docket_markdown(_pack(db, labels))
+    # The gap clause still names both gaps — the frame count sizes the second of
+    # them rather than replacing the distinction.
+    assert (
+        "The 1 unlabeled row(s) span two gaps at once — rows carrying no stored "
+        "questions-presented text, which no labeling batch can reach, and QP-bearing rows "
+        "whose batch has not come up — and batch 1's extract sized the second: it counted "
+        "5 QP-bearing row(s) in the frame it cut from, of which the artifact held 2 labeled "
+        "(40.0%)." in md
+    )
+    # The vintage alone would not do: the frame only grows while the labeled count
+    # waits for the next batch, so the direction the figure errs in travels with
+    # it. A measurement that quietly overstated coverage would be a worse figure
+    # than the bound it replaced.
+    assert (
+        "Both counts are batch 1's, taken at its own corpus vintage rather than this "
+        "pack's: the frame grows with every pull while the labeled count moves only when a "
+        "batch lands, so read that share as a ceiling on the share of the frame as it now "
+        "stands, not as a reading of this blob." in md
+    )
+    # 5 QP-bearing rows less the 1 reference member that rides in every batch is
+    # the pool the draw ran on; 1 of those is labeled, so the factor is 4.0x —
+    # measured over the draw's own denominator rather than over every in-scope
+    # row outside the block, which is what the bound divides by. Both of the
+    # factor's counts are the artifact's and say so, and the table's own drawn
+    # count is marked as this blob's, so the two cannot be divided into each other.
+    assert (
+        "1 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from "
+        "the QP-bearing frame batch 1's extract counted. Both count once here, so the "
+        "reference block — grant-enriched by design and carrying no sampling weights — is "
+        "over-represented by at least about 4.0x — row for row, how much likelier a "
+        "reference row was to be included than a drawn one when batch 1 landed: 1 carried "
+        "in with certainty against 1 drawn from the 4 QP-bearing row(s) outside the block "
+        "that batch's extract counted. Measured against that frame rather than bounded over "
+        "rows no batch could reach — and a floor rather than a ceiling at this pack's "
+        "vintage, since the frame grows with every pull while the drawn count waits for the "
+        "next batch. It closes to 1.0x as the frame is labeled, which a bound over "
+        "unreachable rows never does, and this mix is not the frame's until every "
+        "QP-bearing row is labeled." in md
+    )
+    # The bound's wording is gone with it: two factors in one note would read as
+    # two claims about the same distortion.
+    assert "at most about" not in md
+    assert "is not a number this cut can state" not in md
+    # And the denominator is a field, not only prose, so the share is
+    # recomputable without parsing the note.
+    pack = _pack(db, labels)
+    assert pack.qp_topics is not None
+    assert pack.qp_topics.frame_rows == 5
+
+
+def test_qp_topic_cut_falls_back_to_the_bound_when_the_newest_batch_has_no_frame(
+    tmp_path: Path,
+) -> None:
+    # The frame is read from the *newest* batch, because a frame count is a
+    # measurement at its own batch's corpus vintage and the frame grows with
+    # every pull. An older batch's count is not this batch's, so a note built
+    # from it would pair today's labeled rows with a stale denominator.
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {"scotus/101": "criminal-law", "scotus/103": "unclassifiable"},
+        reference_cases=frozenset({"scotus/101"}),
+        batches=2,
+        frame_rows=5,
+        frame_batch=1,
+    )
+    md = analytics.render_docket_markdown(_pack(db, labels))
+    assert (
+        "the labels artifact records neither size, so what share of the QP-bearing frame is "
+        "labeled is not a number this cut can state." in md
+    )
+    assert "is over-represented by at most about 2.0x" in md
+    assert "measured rather than bounded" not in md
+
+
+def test_qp_topic_a_reference_only_table_stays_unbounded_with_a_frame_on_the_ledger(
+    tmp_path: Path,
+) -> None:
+    """A table of reference rows alone publishes no finite factor, frame or no frame.
+
+    The factor describes *this table's* mix, and no count of the frame makes a
+    table with nothing drawn in it a draw. Here the artifact holds a drawn row
+    (`scotus/999`, which this corpus does not carry) so the frame is usable, but
+    every labeled row that joins the section is a reference member.
+    """
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {"scotus/101": "criminal-law", "scotus/999": "tax"},
+        reference_cases=frozenset({"scotus/101"}),
+        frame_rows=5,
+    )
+    md = analytics.render_docket_markdown(_pack(db, labels))
+    # The frame clause still renders — the frame is known and says so — but the
+    # factor does not round to a finite-looking number.
+    assert "batch 1's extract sized the second: it counted 5 QP-bearing row(s)" in md
+    assert (
+        "is over-represented by an unbounded factor — every labeled row here is a "
+        "reference-set member" in md
+    )
+    assert "at least about" not in md
+
+
+def test_qp_topic_no_factor_needs_the_frame_labeled_out_too(tmp_path: Path) -> None:
+    # "Both entered at the same rate" is a claim about the frame, not only about
+    # this table's rows. A pack computed over a blob smaller than the batch's
+    # extract can hold every in-scope row labeled while most of that batch's
+    # frame was not, and publishing "no factor" there would contradict the frame
+    # clause in the same string.
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {
+            "scotus/101": "criminal-law",
+            "scotus/102": "criminal-law",
+            "scotus/103": "unclassifiable",
+        },
+        reference_cases=frozenset({"scotus/101"}),
+        frame_rows=9,
+    )
+    md = analytics.render_docket_markdown(_pack(db, labels))
+    assert "No in-scope row is unlabeled" in md
+    assert "is over-represented by at least about 4.0x" in md
+    assert "no factor — every in-scope row is labeled" not in md
+    # With the frame labeled out as well, the equal-rate reading is true again.
+    both = _qp_labels(
+        tmp_path / "qp-topics-converged.json",
+        {
+            "scotus/101": "criminal-law",
+            "scotus/102": "criminal-law",
+            "scotus/103": "unclassifiable",
+        },
+        reference_cases=frozenset({"scotus/101"}),
+        frame_rows=3,
+    )
+    assert (
+        "is over-represented by no factor — every in-scope row is labeled"
+        in analytics.render_docket_markdown(_pack(db, both))
+    )
+
+
+def test_qp_frame_declines_an_artifact_its_arithmetic_cannot_rest_on() -> None:
+    """The three states that leave the note on its bound rather than on a ratio.
+
+    Two are shapes a written artifact should never hold — the schema refuses a
+    frame under the batch that measured it — but this reads a file, and a share
+    over a denominator that cannot be right is worse than the bound it replaces.
+    Exercised directly because neither is reachable through the writer.
+    """
+
+    def _labels(
+        frame_rows: int | None, cases: list[tuple[str, Literal["labeler", "reference"]]]
+    ) -> QpTopicLabels:
+        return QpTopicLabels(
+            labeler="stub",
+            cases=len(cases),
+            agreement=QpTopicAgreement(
+                overall_agree=1,
+                overall_n=1,
+                overall_rate=1.0,
+                uncovered=0,
+                gate_passed=True,
+            ),
+            shadow=QpTopicShadow(texts=len(cases), fired=0, disagreements=0),
+            batches=[
+                QpTopicBatchEntry(
+                    batch=1,
+                    labeler="stub",
+                    published=len(cases),
+                    measured=1,
+                    agree=1,
+                    n=1,
+                    frame_rows=frame_rows,
+                )
+            ],
+            entries=[
+                QpTopicPublishedEntry(
+                    case_id=case_id,
+                    docket_number=case_id.removeprefix("scotus/"),
+                    label="tax",
+                    source=source,
+                    batch=1,
+                )
+                for case_id, source in cases
+            ],
+        )
+
+    rows: list[tuple[str, Literal["labeler", "reference"]]] = [
+        ("scotus/101", "labeler"),
+        ("scotus/102", "reference"),
+    ]
+    usable = analytics._qp_frame(_labels(9, rows))
+    assert usable == (1, 9, 2, 1)
+    # No count recorded: the state every artifact written without the flag is in.
+    assert analytics._qp_frame(_labels(None, rows)) is None
+    # A frame smaller than the rows the artifact publishes cannot be the frame
+    # those rows were drawn from.
+    assert analytics._qp_frame(_labels(1, rows)) is None
+    # Nothing drawn at all: the ratio's numerator would be zero rows.
+    reference_only: list[tuple[str, Literal["labeler", "reference"]]] = [
+        ("scotus/102", "reference")
+    ]
+    assert analytics._qp_frame(_labels(9, reference_only)) is None
 
 
 def test_qp_topic_cut_publishes_no_secondary_or_vehicle_facet(tmp_path: Path) -> None:

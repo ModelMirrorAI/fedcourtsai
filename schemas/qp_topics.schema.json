@@ -128,6 +128,20 @@
           "description": "What a constant labeler scores on this batch's compared entries \u2014 the rate is unreadable without it, and only the distance above it is skill",
           "title": "Floor"
         },
+        "frame_rows": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "QP-bearing rows in the labeling frame when this batch was cut, as the extract counted them. The denominator that turns the labeled share of the frame from a bound into a measurement, at this batch's corpus vintage and no other's. None where the extract reported no count",
+          "title": "Frame Rows"
+        },
         "labeler": {
           "description": "Who assigned this batch's labels \u2014 engine and model",
           "minLength": 1,

@@ -5051,6 +5051,27 @@ class QpTopicBatchEntry(_Strict):
         "Only ever rows whose published label became the hand set's: a reference entry "
         "relabeled by hand, or a row the reference set has since taken in",
     )
+    frame_rows: int | None = Field(
+        default=None,
+        ge=1,
+        description="QP-bearing rows in the labeling frame when this batch was cut, as the "
+        "extract counted them. The denominator that turns the labeled share of the frame "
+        "from a bound into a measurement, at this batch's corpus vintage and no other's. "
+        "None where the extract reported no count",
+    )
+
+    @model_validator(mode="after")
+    def _frame_holds_the_batch(self) -> QpTopicBatchEntry:
+        # The batch is cut from the frame, so a frame smaller than the rows the
+        # labeler read is not a thin frame but a wrong number — most likely one
+        # measured against a different scope or a different blob. Refuse it here
+        # rather than let the docket pack divide by it.
+        if self.frame_rows is not None and self.frame_rows < self.measured:
+            raise ValueError(
+                f"frame_rows ({self.frame_rows}) is under the {self.measured} row(s) batch "
+                f"{self.batch} measured; the batch is drawn from the frame"
+            )
+        return self
 
 
 class QpTopicLabelAgreement(_Strict):
@@ -6213,6 +6234,16 @@ class DocketPackQpTopics(_Strict):
         "adjudicated one. They are in **every** batch by construction, so while the frame is "
         "still accruing they enter the table at a far higher inclusion rate than a drawn row "
         "and the mix is not the frame's — the section's scope note states it",
+    )
+    frame_rows: int | None = Field(
+        default=None,
+        ge=1,
+        description="QP-bearing rows in the labeling frame the newest batch was cut from, as "
+        "that batch's extract counted them. The denominator behind the scope note's labeled "
+        "share of the frame, carried as a field so the share is recomputable without parsing "
+        "the prose. At the **batch's** corpus vintage, not this pack's, so it pairs with "
+        "`labeled_cases` and never with `matched_cases`. None where the newest batch recorded "
+        "no count, which is the state the note bounds instead of measuring",
     )
     agree: int = Field(
         ge=0,

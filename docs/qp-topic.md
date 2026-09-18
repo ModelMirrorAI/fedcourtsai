@@ -586,9 +586,11 @@ the corpus is a **document-fetch artifact, not a sample**:
   QP-bearing row in that scope is unlabelable. What the two are not is one
   count: `<N>` in the scope string is the whole in-scope population, while the
   labelable frame is its **QP-bearing** part, which is smaller by a document-fetch
-  gap no committed artifact records. So `<n>` of `<N>` is not the labeled share
-  of the frame, and the scope string says so rather than leaving the two to be
-  read as one. The frame is keyed on the **docket form** (the Term-prefixed
+  gap. So `<n>` of `<N>` is not the labeled share of the frame, and the scope
+  string keeps the two apart rather than leaving them to be read as one — it
+  states the share separately, from the frame count the batch's ledger entry
+  carries, and says the split is unrecorded where that entry has none. The frame
+  is keyed on the **docket form** (the Term-prefixed
   `YY-NNNN` number), not on the writ sought, so it takes in the whole
   case-opening filing family a cert-form docket can be opened by: a mandamus or
   habeas petition, and a direct appeal's statement as to jurisdiction, all of
@@ -641,18 +643,38 @@ things at once — rows with no stored QP text, and QP-bearing rows whose labeli
 batch has not come up yet — and a reader who takes the whole gap for a fetch gap
 reads the labeled subset as whatever the extractor happened to reach, while one
 who takes it for a batching gap reads `<n>` of `<N>` as the labeled share of the
-QP-bearing frame. It is neither, so the first clause **names both gaps and says
-the split between them is unrecorded**: the labels artifact carries no frame
-size, and the place the pipeline does carry one — `qp-corpus`'s `.batch.json`
-sidecar — is deliberately fenced off the labeling job, so the labeled share of
-the QP-bearing frame is not a figure any published cut can compute. A cut does
-not point at the frame figure recorded below either: that one is measured at the
-extract's own corpus vintage against a frame that grows with every pull, so
-dividing a later pack's labeled count by it is arithmetic across two blobs.
-(What would make the share computable is a frame count travelling from the
-extract job to `qp-topics` as a *value* rather than as the sidecar, which would
-put it in the artifact's per-batch ledger, at that batch's vintage, without
-putting the selection rule in front of the labeler.)
+QP-bearing frame. It is neither, so the first clause **names both gaps and sizes
+the second of them**.
+
+Sizing it takes a number neither the pack nor the labels file can derive: how
+many of the in-scope rows carry a labelable questions-presented text — the frame
+`qp-corpus` cuts from, after the rows with no docket number or no stored text are
+skipped. The extract
+job measures exactly that when it cuts a batch, so the count travels from there
+to `qp-topics` as a **value** — a job output, then a `--frame-rows` flag — and
+lands on that batch's ledger entry (`frame_rows`). A plain integer carries none
+of the draw's shape, so the `.batch.json` sidecar it is read from stays on the
+extract runner: what the labeling job must not learn is which of *its* rows are
+which, and a frame size says nothing about any row. The flag is
+optional and the field nullable, because a batch can land without one — the
+artifact's first carries none, and the integration scenario's canned legs cut no
+frame to count. Where the newest batch carries no count the clause falls back to
+saying the split is unrecorded.
+
+What the clause then states is the **artifact's** figure at the **batch's**
+corpus vintage: that batch's frame, and the labeled rows the artifact held once
+it landed. It is deliberately not this pack's labeled count over that frame —
+the frame grows with every pull, so pairing a later pack's numerator with an
+earlier batch's denominator is arithmetic across two blobs, which is what a
+published share must not be. The pack's own `<n>` of `<N>` stays beside it,
+measured over this blob, and the two are not the same ratio.
+
+Stating the vintage is not the whole of it, because the two blobs are ordered:
+the frame grows with every pull while the labeled count moves only when a batch
+lands. So the batch's share is a **ceiling** on the share of the frame as it now
+stands, and the clause says so. A caveat that errs is why the unmeasured form is
+published as a bound at all, and a measurement that quietly errs the other way
+would be the worse figure of the two; the direction travels with the number.
 
 The second clause states **how the labeled subset was drawn, and on
 what unequal terms**. The labeled rows are two populations: the hand reference
@@ -661,18 +683,20 @@ Term × fee-class-stratified, seeded-hash draw of the remainder, included only a
 its batch comes up. Both then count once in the table. Until the frame converges
 the reference block is over-represented by the ratio of those two inclusion
 rates, and it is grant-enriched by design and carries no sampling weights — so
-the clause states both counts and that ratio, **as an upper bound**, since the
-drawn rows' own denominator is the QP-bearing part of the pool they were drawn
-from — the unlabeled rows plus the drawn ones — and only the whole count of that
-pool is on hand: dividing by the larger count
-overstates the factor, which is the direction a caveat may err in, where a
-figure published as a measurement would be arithmetic over a population the draw
-never ran on. It says outright that this mix is
+the clause states both counts and that ratio. The drawn rows' own denominator is
+the QP-bearing part of the pool they were drawn from, which is the same frame
+count the first clause needs: with it the factor is **measured**, over the
+frame's rows outside the reference block, at that batch's vintage; without it,
+only the whole in-scope count outside the block is on hand, and dividing by the
+larger count overstates the factor — the direction a caveat may err in — so it
+publishes **as an upper bound** rather than as arithmetic over a population the
+draw never ran on. Either way it says outright that this mix is
 not the frame's while any of the frame is unlabeled. No reweighting in the pack
 corrects it: the denial reweighting corrects the *walker's* sampling, not the
 force-include. The unlabeled remainder is outstanding rather than excluded, and
-the distortion closes on its own as the frame clears — while the published bound
-does not, since its denominator keeps counting rows no batch could reach.
+the distortion closes on its own as the frame clears. The measured factor closes
+with it, to 1.0x; the bound does not, since its denominator keeps counting rows
+no batch could reach, and a cut publishing the bound says so.
 
 Beside the table, each bucket publishes the **rows on hand** behind it and the
 reference-sourced share of them. Every count in the cut is denial-reweighted, so
@@ -780,7 +804,12 @@ to a `.batch.json` sidecar beside the extract. It is deliberately **not** writte
 into the extract: that file is the labeler's whole evidentiary input, and strata
 counts plus the selection rule are exactly what the labeling prompt forbids
 reasoning from. The run mode uploads the extract by name, so the sidecar does not
-travel to the labeling job either.
+travel to the labeling job either. One number out of it does, and only one: the
+frame size, read in the extract job and declared as a job output the measure step
+passes to `qp-topics` as `--frame-rows`. It is a value rather than the file
+because the file is the draw's shape and the value is a population count — and
+it reaches the deterministic measure step, which runs after the labeler is
+finished, rather than the agent.
 
 **Label once, and what publishes what.** The accumulating artifact is the union
 of the prior artifact and the run's new rows, prior entries carried forward
@@ -798,8 +827,9 @@ unchanged. Two rules make that safe:
 
 Each row carries the `batch` that first published it, and `batches` is a ledger
 of every contributing run — its labeler, what it published, how many of those
-rows were its own calls rather than the hand set's, how many rows it read, and
-its own agreement, floor and shadow figures — so a drifting labeler is readable
+rows were its own calls rather than the hand set's, how many rows it read, its
+own agreement, floor and shadow figures, and the frame it was cut from where the
+extract reported one — so a drifting labeler is readable
 as a series rather than as one current number. Read that series carefully: every
 batch is scored over the *same* reference entries, so the differences between
 rows are one labeler re-labeling identical items, not independent samples. A few

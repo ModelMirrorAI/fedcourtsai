@@ -4357,6 +4357,15 @@ def qp_topics_cmd(
         Path | None,
         typer.Option(help="JSON output path (default: <data_root>/qp-topics/qp-topics.json)."),
     ] = None,
+    frame_rows: Annotated[
+        int | None,
+        typer.Option(
+            "--frame-rows",
+            min=1,
+            help="QP-bearing rows the extract counted in the labeling frame this batch was "
+            "cut from; recorded on the batch's ledger entry.",
+        ),
+    ] = None,
 ) -> None:
     """Measure a topic labeler against the reference set and accrue its labels artifact.
 
@@ -4384,6 +4393,22 @@ def qp_topics_cmd(
     covered, since a high rate over a handful of self-chosen entries measures
     nothing. There is no override flag for either, because the gate is the only
     thing standing between a drifted labeler and a published topic distribution.
+
+    ``--frame-rows`` is the size of the QP-bearing frame this batch was cut from,
+    which the extract job knows and this one does not: the extract is one batch
+    of that frame and the labels artifact is the accrued union of every batch, so
+    neither of this command's inputs counts the frame. Recorded on this batch's
+    ledger entry, it is what lets the docket pack's topic cut publish the labeled
+    share of the frame — and the reference block's over-representation — as
+    measurements at that batch's corpus vintage instead of as bounds over the
+    whole in-scope population (``docs/qp-topic.md``). It arrives as a plain
+    integer rather than through the extract's ``.batch.json`` sidecar, which stays
+    on the extract runner: the sidecar carries the draw's Term x fee-class shape,
+    and the point of fencing it off the labeling job is that the labeler never
+    learns which of its rows are which. Omitted, the ledger entry records no frame
+    and the cut falls back to its bound. A count under the rows this batch labeled
+    is refused — the batch is drawn from the frame, so a smaller frame is a count
+    of something else.
     """
     settings = get_settings()
     reference_path = qp_topics.reference_path(settings.data_root)
@@ -4402,6 +4427,7 @@ def qp_topics_cmd(
             reference=read_model(reference_path, QpTopicReference),
             labeler=labeler,
             prior=prior,
+            frame_rows=frame_rows,
         )
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-topics: {exc}", err=True)
