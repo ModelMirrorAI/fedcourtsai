@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275236",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "Decisive post-baseline public signal, forward mode: the supremecourt.gov docket for No. 25-293 shows a May 18, 2026 letter from petitioners' counsel reporting that respondent voluntarily dismissed her claims against General Dynamics, that the other petitioners have settlements in principle awaiting district-court approval, and asking the Court to hold the petition in abeyance until the case is moot, at which point General Dynamics intends to file a suggestion of mootness and seek a Munsingwear vacatur (GVR). No Solicitor General brief has been filed and no order on the petition has issued as of the check. The forecast is dominated by this development rather than by the CVSG-moment record; the petition is not decided, so the cell is not mis-provisioned, but the evaluator should read the number as a mootness/Munsingwear forecast, not a merits-of-cert forecast."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "The CourtListener MCP docket-entries endpoint returned zero entries for docket 73275236 (SCOTUS dockets carry no RECAP entries there), so current docket state was read from the public supremecourt.gov docket page and the linked letter PDF via web fetch; those calls are listed in retrieval.md."
+    }
+  ]
+}

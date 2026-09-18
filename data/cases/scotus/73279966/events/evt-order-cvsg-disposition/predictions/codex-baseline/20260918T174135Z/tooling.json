@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73279966",
+  "gaps": [
+    "Combining opposition briefs with appendices exhausted the text budget during the second respondent's main argument.",
+    "The reporter-citation lookup missed an opinion that the bounded case-name lookup found.",
+    "Web attempts returned no usable content."
+  ],
+  "helpful": [
+    "Frozen CVSG context and explicit distribution count prevent confusing levels with increments.",
+    "Exact reached-rate fields support weighted pooling over strictly prior Terms.",
+    "The dated CourtListener opinion search and document snippets allow checking a claimed split without retrieving the target petition's disposition."
+  ],
+  "notes": "The default uv cache was read-only; selecting a writable cache allowed the path command to run. No corpus queries, direct REST fallback, or later target-docket retrieval were needed.",
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web.run",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

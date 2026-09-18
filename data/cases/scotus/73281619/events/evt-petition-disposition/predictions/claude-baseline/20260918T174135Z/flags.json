@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281619",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2, but the docket shows a call-for-response cycle rather than a relist: the first distribution (May 12, conference of 5/28) produced 'Response Requested' on May 14, and the second (Sept 2, conference of 9/28) is the first fully briefed consideration. The relist-count cut's bucket 1 therefore over-reads this docket's trajectory; a CFR-after-waiver cut would be the more informative signal and the statpack carries none."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-signal note: Grand v. City of University Heights (No. 25-965, corpus case scotus/73281006) was granted 2026-06-30 and is a related religious land-use case, but its question is ripeness, not RLUIPA's substantive provisions; I treated it as an appetite signal only and not as a hold/GVR route. Anash v. Borough of Kingston (3d Cir. 2026-07-30, published) post-dates the petition and was weighed as a split-sharpening signal. Neither reveals this petition's outcome."
+    }
+  ]
+}

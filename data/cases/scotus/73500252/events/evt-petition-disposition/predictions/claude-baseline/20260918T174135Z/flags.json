@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500252",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned brief-in-opposition was fetched from a PDF whose filename carries docket number 25-1230 (which resolves on CourtListener to Google LLC v. VirtaMove, unrelated). The document's own caption reads No. 25-1350 and its content is the Kivett BIO, so it is the right document; noting only that the filename is a filing artifact, not a companion-docket pointer."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward signal used: the BIO reports that certiorari was denied earlier in 2026 in the sister case Citizens Bank v. Conti, No. 25-1004, with a rehearing petition pending, and that a Cantero-plaintiffs petition from the Second Circuit's May 2026 remand decision is also pending. Both predate the snapshot and were weighed as companion-vehicle context; nothing about this petition's own disposition was retrieved."
+    }
+  ]
+}

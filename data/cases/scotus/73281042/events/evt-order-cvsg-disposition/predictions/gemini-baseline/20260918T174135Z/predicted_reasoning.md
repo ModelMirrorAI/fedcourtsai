@@ -1,0 +1,5 @@
+Distributed twice so far prior to the CVSG order. Expect at least one further distribution after the Solicitor General files their brief before a decision on the petition. The Court has already called for the views of the Solicitor General, so no further CVSG is expected.
+
+If granted, the Court will likely take the single Question Presented as written, which asks whether the First Amendment overrides antidiscrimination laws when the discrimination furthers views about diversity, equity, or inclusion. The Court is unlikely to opt for a summary GVR because there is no intervening decision directly controlling the outcome, and the substantive constitutional question warrants plenary review.
+
+Should the Court deny the petition, expect a dissent from denial (or a statement respecting the denial) by Justice Thomas or Justice Alito expressing concern over the lower court's use of the First Amendment to shield DEI programs from antidiscrimination laws.

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281002",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["exec_command", "apply_patch", "web search/open attempts", "CourtListener search", "CourtListener search_document", "fedcourts paths", "fedcourts validate"],
+  "helpful": ["Frozen moment-specific context supplied the precise distribution count and CVSG date.", "Usable petition and respondent texts allowed assessment of disputed conflicts and the state-law vehicle.", "CourtListener citation search and targeted excerpts verified a specific precedent without looking up the predicted case.", "The version-matched per-Term statpack supplied a leakage-safe band anchor."],
+  "gaps": ["The combined respondent text would be easier to cite if each constituent brief had explicit source boundaries.", "The displayed statpack lacked a build timestamp or corpus-wide pull vintage.", "The web tool returned no usable content on two generic legal-guidance attempts."],
+  "notes": "No target-case disposition or post-baseline docket retrieval. The initial uv cache location was read-only; a /tmp cache resolved it. The missing Solicitor General recommendation is uncertainty at this moment, not a provisioning defect. No separate flags file was needed."
+}

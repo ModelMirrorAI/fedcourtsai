@@ -1,0 +1,9 @@
+P(grant) 0.65. The base rate for petitions with a CVSG in the paid scored segment is approximately 35% (29.4% granted, 5.5% GVR). I adjust this upward significantly due to the subject matter and the political context. The case involves a First Amendment challenge to DEI set-asides by a bar association, a highly salient issue for the Court's conservative majority (following cases like *SFFA* and *303 Creative*). Furthermore, the CVSG was issued in June 2026, meaning the brief expressing the views of the United States will be filed by the SG of the Trump administration. Given the administration's strong opposition to DEI programs, it is highly probable that the SG will agree with the petitioner and recommend a grant. An SG recommendation to grant in a high-salience conservative vehicle strongly elevates the probability of plenary review.
+
+P(relist-increment) 0.95. The docket shows two distributions prior to the CVSG order. Because a CVSG is pending, the petition will inherently be distributed for conference at least once more after the Solicitor General files their brief.
+
+P(cvsg-increment) 0.0. The Court has already called for the views of the Solicitor General on June 22, 2026, so this claim is vacuous from the current vantage point.
+
+P(summary-disposition-route) 0.10. If the Court grants review, it is highly likely to opt for plenary review rather than a summary disposition. The case presents a major substantive question regarding the intersection of the First Amendment and antidiscrimination laws in the context of DEI, which warrants full briefing and argument rather than a GVR.
+
+P(dissent-from-denial) 0.65. If the Court denies certiorari, it is very likely that one or more conservative Justices (such as Justice Thomas or Justice Alito) will author a dissent from the denial of certiorari to express their disagreement with the lower court's ruling that the First Amendment protects DEI set-asides.

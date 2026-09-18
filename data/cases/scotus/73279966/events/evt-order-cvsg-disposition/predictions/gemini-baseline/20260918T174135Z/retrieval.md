@@ -1,0 +1,6 @@
+- `fedcourts query --court scotus --era modern`
+  - `ranged corpus reads: 0 GET(s), 0 byte(s)` (Exit Code 2, invalid era)
+- `cat metrics/statpack.md`
+- `cat data/cases/scotus/73279966/record/documents/questions-presented.txt`
+- Web search: `"GEO Group" Washington minimum wage immigration detainees Northwest ICE Processing Center Supremacy Clause SCOTUS 2026`
+- MCP CourtListener search: `q=GEO Group Menocal`, `type=o`

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73287447",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell: provisioned text and schema reads", "jq: statpack risk-set pooling", "fedcourts paths", "CourtListener search", "CourtListener search_document", "web search/open attempts", "fedcourts validate"],
+  "helpful": ["Both petition and opposition were available as nonempty, untruncated text.", "Frozen salience version and band matched the committed risk-set table.", "CourtListener targeted opinion searches directly checked the alleged circuit conflict."],
+  "gaps": ["The docketed reply was not provisioned; its arguments remain unreviewed.", "Web calls returned no usable content; CourtListener MCP supplied the needed precedent passages.", "The default uv cache directory was read-only; a temporary cache override was required."],
+  "notes": "Two distributions included a response-request-driven return to conference, not proven repeated consideration of a fully briefed petition. Preserved the frozen elevated band and adjusted judgmentally. No case outcome or prior prediction was retrieved. No durable provisioning defect or outcome exposure was identified."
+}

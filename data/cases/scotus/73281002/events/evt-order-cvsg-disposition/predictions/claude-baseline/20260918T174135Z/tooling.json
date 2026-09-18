@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281002",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "CourtListener MCP (get_endpoint_item, call_endpoint docket-entries, search)", "metrics/statpack.md"],
+  "helpful": [
+    "Provisioned petition, QP and combined BIO text with documents.json",
+    "context.json frozen band and distribution count",
+    "Statpack CVSG cut and per-Term band table"
+  ],
+  "gaps": [
+    "CourtListener carries no docket entries for SCOTUS paid dockets, so the forward-mode live check of this docket returned nothing",
+    "No way to check a state supreme court's pending-case status (Pa. Baxter) from the cell",
+    "A CVSG cut conditioned on caption class or on a companion state petition would sharpen the anchor",
+    "The combined BIO file concatenates several respondents' briefs; a per-filing split would help"
+  ],
+  "notes": "fedcourts query has no CVSG filter, so it could not surface CVSG'd priors; the statpack cut carried that signal instead."
+}

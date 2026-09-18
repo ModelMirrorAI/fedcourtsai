@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73279966",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "The manifest marks the petition and combined opposition truncated. The petition's main argument and Washington's main opposition are available, but the second opposition (Nwauzor respondents) ends mid-sentence on printed page 17; later arguments are unavailable. The forecast uses the available text without treating the absent remainder as silence. Consider preserving each respondent's main brief before allocating the text budget to appendices.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0"
+}

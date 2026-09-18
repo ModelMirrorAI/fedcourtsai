@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278467",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "Forward-mode retrieval hygiene note. (1) The live supremecourt.gov docket for No. 25-442, fetched 2026-09-18, shows no entry after the 2026-06-30 CVSG: no Solicitor General brief and no disposition, so the cell is correctly provisioned as pending and nothing outcome-revealing was seen. (2) A decisive related-litigation signal was used: West Virginia v. B.P.J. (No. 24-43, consolidated with Little v. Hecox) was decided 2026-06-30, the same day as this CVSG, upholding the sports laws under intermediate scrutiny without deciding whether transgender status is a quasi-suspect class. This petition had been held for it (distributed 12/12/2025, next distributed 6/29/2026), and the Court chose a CVSG over a GVR or denial; that choice is the main upward adjustment from the CVSG and high-band base rates. (3) The frozen distribution_count of 2 reflects a hold across the B.P.J. pendency, not a conventional relist, so the relist-count cut is a weak analogue for this docket."
+    }
+  ]
+}

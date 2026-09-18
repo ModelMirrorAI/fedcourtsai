@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. I consulted the committed `metrics/statpack.md` to establish the CVSG and salience band base rates.

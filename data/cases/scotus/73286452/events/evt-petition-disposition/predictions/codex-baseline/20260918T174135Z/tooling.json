@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73286452",
+  "gaps": [
+    "Reply text was not provisioned although its filing was recorded.",
+    "Web attempts returned no usable content; MCP provided the needed precedent excerpts."
+  ],
+  "helpful": [
+    "Both petition and opposition were readable and untruncated.",
+    "Frozen salience context and full-precision reached-band rates supported a reproducible prior-Term anchor.",
+    "Dated proceedings distinguished a response-related redistribution from a clear substantive relist.",
+    "Targeted MCP precedent retrieval avoided querying the target case's outcome."
+  ],
+  "notes": "The default uv cache path was read-only; directing the cache to /tmp/uv-cache resolved CLI execution. No raw corpus lookups were needed. Statpack commit vintage is known, but remote-corpus refresh timestamps were not checked.",
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and document text",
+    "committed statpack Markdown and JSON",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "CourtListener MCP read_document",
+    "web search and open attempts",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

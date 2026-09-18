@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281412",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Local provisioned-file and schema reads",
+    "Committed statpack Markdown and JSON with jq pooling",
+    "fedcourts paths",
+    "CourtListener MCP search and read_document",
+    "Web search and open attempts without usable results"
+  ],
+  "helpful": [
+    "Both respondent groups' briefs were available in the combined opposition text.",
+    "Frozen salience context and exact reached-rate denominators supported a matched prior-Term anchor.",
+    "A targeted historical-precedent lookup avoided retrieving this petition's outcome."
+  ],
+  "gaps": [
+    "Web calls returned no usable content.",
+    "The photograph disputed in the briefs was not independently inspected."
+  ],
+  "notes": "The default uv cache was read-only; a writable temporary cache resolved the CLI failure. Distribution dates and the intervening response request were important for avoiding overinterpretation of the count as completed substantive relists."
+}

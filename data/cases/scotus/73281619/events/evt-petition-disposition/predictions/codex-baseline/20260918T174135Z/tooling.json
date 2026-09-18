@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281619",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local provisioned-input reads",
+    "committed statpack markdown and JSON",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts with no visible results"
+  ],
+  "helpful": [
+    "Readable petition and opposition permitted a two-sided assessment of vehicle problems.",
+    "Frozen distribution count and dated entries distinguished a response-driven redistribution from repeated completed conferences.",
+    "Statpack JSON exposed exact reached-risk denominators for the strictly-prior-Term anchor.",
+    "Targeted CourtListener excerpts checked a cited precedent without querying this case's history."
+  ],
+  "gaps": [
+    "The reply was docketed but not provisioned, leaving its answers to vehicle objections unavailable.",
+    "General web requests returned no visible content.",
+    "The default uv cache was read-only; a temporary writable cache was needed."
+  ],
+  "notes": "No outcome material was sought or encountered. Grant probability is 0.30 against a pooled prior-Term elevated reached anchor of approximately 0.17224. Increment forecasts are judgments, not estimated hazards from terminal buckets."
+}

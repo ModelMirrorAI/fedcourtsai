@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "The questions could reshape constitutional review of ordinary election rules nationwide, beyond Pennsylvania's mail-ballot envelope dates. The developed record and competing accounts of disenfranchisement and state regulatory authority make the stakes substantial even if review is denied.",
+  "big_case_score": 0.85,
+  "case_id": "scotus/73281002",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.56
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.0
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.22
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.24
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-06-30",
+    "cvsg_date": "2026-06-29",
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-06-30",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-09-18T18:28:25Z",
+  "engine": "codex",
+  "event_id": "evt-order-cvsg-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-06-30.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.56,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "dcec207cda4182a8b20effbd325bb257485091ff",
+    "stamped_at": "2026-09-18T18:30:33.935527Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

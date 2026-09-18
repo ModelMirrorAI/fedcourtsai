@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281703",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.json reports distribution_count 2, but the docket shows the petition has been considered at zero conferences: it was distributed June 2 for the June 18 conference, a response was requested June 11 (removing it from that conference), and it was redistributed August 26 for September 28 once the BIO and reply were in. The second entry is a post-call-for-response redistribution, not a relist. I anchored on the elevated band's reached rate and did not use the relist-count cut's 1-relist bucket. The relist-increment claim is stated from the frozen count of 2."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The BIO asserts that this Court denied certiorari on June 29, 2026 in No. 25-1028 (Smith v. Michigan Dep't of Corrections, 6th Cir., whether section 504 supplies a private retaliation action). Two CourtListener MCP docket searches returned no rows for that docket, so the assertion is unverified and was weighed as the respondent's claim. Public information predating the snapshot; not outcome material for this case."
+    }
+  ]
+}

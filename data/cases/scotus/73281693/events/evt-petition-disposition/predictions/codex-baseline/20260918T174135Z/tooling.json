@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281693",
+  "gaps": [
+    "Reply brief text was not provisioned",
+    "General-precedent web tools returned no usable content",
+    "Default uv cache was read-only; a temporary cache override was required"
+  ],
+  "helpful": [
+    "Petition and opposition supplied opposing accounts of the claimed split",
+    "Frozen context prevented reclassifying the distribution signal",
+    "Exact JSON risk-set rates enabled a prior-Term weighted anchor"
+  ],
+  "notes": "Used the provided record and committed aggregate context without retrieving current case status. Distinguished two distribution entries from two completed conference examinations. No substantive blockage or known outcome exposure required a flags file.",
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local record and filed-document reads",
+    "committed statpack",
+    "fedcourts paths",
+    "web search and open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

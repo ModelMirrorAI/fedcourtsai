@@ -1,0 +1,1 @@
+Consulted the committed `metrics/statpack.md` for the CVSG base rate. No MCP or corpus query retrieval beyond the provisioned inputs.

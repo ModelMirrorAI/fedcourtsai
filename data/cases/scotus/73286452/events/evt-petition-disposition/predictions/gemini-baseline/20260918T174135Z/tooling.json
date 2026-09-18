@@ -1,0 +1,16 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73286452",
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "used_base_rates": true,
+  "used_corpus_query": true,
+  "tools_used": [
+    "run_shell_command",
+    "read_file"
+  ],
+  "helpful": [
+    "statpack.md base rates by salience band",
+    "docket event parsing"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73278467",
+  "gaps": [
+    "The reply is recorded on the docket but its text was not provisioned.",
+    "The committed statpack does not expose the underlying corpus's newest pull and snapshot timestamps.",
+    "Web search and direct official-opinion open attempts returned no usable content."
+  ],
+  "helpful": [
+    "The opposition supplied concrete preservation and vehicle objections rather than only a docket-level signal.",
+    "Frozen CVSG and distribution context made the increment claims unambiguous.",
+    "Unrounded reached-band fields allowed exact pooling of the strictly prior Terms.",
+    "Opinion snippet search verified a narrow precedent point without fetching current case history."
+  ],
+  "notes": "CourtListener MCP worked. The default uv cache location was read-only; a temporary writable cache allowed the CLI to run. No own-case outcome retrieval was attempted. The government recommendation was not available in the provisioned inputs and was not assumed.",
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed statpack markdown and JSON",
+    "fedcourts paths",
+    "CourtListener MCP search, cluster metadata, and opinion snippet search",
+    "web.run search and open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,12 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73500242",
+  "helpful": [
+    "metrics/statpack.md",
+    "record/documents/petition.txt"
+  ],
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

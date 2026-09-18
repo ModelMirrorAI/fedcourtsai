@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281681",
+  "gaps": [
+    "The reply is docketed but its text is not provisioned; the response to the opposition's vehicle objection remains unavailable.",
+    "General-precedent web attempts returned no usable content; MCP supplied the necessary opinion excerpts."
+  ],
+  "helpful": [
+    "Nonempty petition, opposition, and questions-presented text allowed assessment of both sides' vehicle arguments.",
+    "Frozen context and the matching sal-v4 reached-band table supplied a reproducible prior-Term anchor.",
+    "CourtListener opinion search and targeted snippets verified the cited split and the limits of Sheetz without retrieving this case's outcome."
+  ],
+  "notes": "The default uv cache location was read-only; using a writable temporary cache restored the CLI. Two distributions are recorded, but the intervening response request means they should not be treated as two completed post-briefing conferences. No live corpus pull or target-case lookup was needed.",
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned files",
+    "committed metrics/statpack.md",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web.run attempts",
+    "local weighted-rate calculation",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

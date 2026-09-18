@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274796",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "The provisioned manifest marks the 217-page petition as truncated. Questions presented, core cert arguments, and relevant lower-court opinion excerpts were available, but full appendix review was not possible. The forecast also lacks the docketed reply and amicus text. These limitations are disclosed in reasoning.md; the cell is not blocked."
+    }
+  ]
+}

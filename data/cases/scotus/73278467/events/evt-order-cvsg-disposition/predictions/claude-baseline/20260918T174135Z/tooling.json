@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278467",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "CourtListener MCP (search, call_endpoint, get_endpoint_item, read_document, search_document)",
+    "WebSearch",
+    "WebFetch (supremecourt.gov docket page, Wikipedia, NCLR)"
+  ],
+  "helpful": [
+    "Provisioned petition, BIO and questions-presented text: the party-presentation concession and the 12(b)(6) posture came straight from the BIO",
+    "Statpack CVSG cut and sal-v4 high-band reached rate agreeing at ~35%: a stable anchor",
+    "Live supremecourt.gov docket via WebFetch: confirmed no SG brief and no disposition as of run date",
+    "Public B.P.J. summaries: established what the same-day decision did and did not resolve"
+  ],
+  "gaps": [
+    "fedcourts query has no --cvsg or --band filter, and its ranking returned recent emergency applications rather than comparable CVSG'd cert petitions; a 'CVSG'd petitions from the last N Terms with disposition and SG-recommendation' pull would be the natural prior set for this moment",
+    "CourtListener carries no docket entries for SCOTUS dockets and had no text for the B.P.J. opinion (cluster 10882186), so the merits signal had to come from the open web",
+    "No published cut of grant rate conditional on the SG's eventual recommendation; the relist and CVSG cuts bucket by terminal state, so the forward hazard from a CVSG-just-issued state is inferred rather than read"
+  ],
+  "notes": "Two corpus queries ran (granted / denied, era 2020s); the first reported 47 GETs and ~12.3 MB, the second 0 GETs from the warm cache. Roughly 16 retrieval calls in total, within the advisory budget. The CRS report on B.P.J. returned HTTP 403 to WebFetch; Wikipedia and NCLR pages were used instead."
+}

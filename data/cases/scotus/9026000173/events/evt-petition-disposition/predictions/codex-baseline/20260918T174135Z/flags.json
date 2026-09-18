@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000173",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen distribution_count=2 and sal-v4 elevated band include the May 19 distribution for June 4, which appears connected to the motion to proceed as a veteran denied June 8, before August docketing and the August 26 cert distribution for September 28. Thus two entries may not represent a genuine substantive cert relist. I preserved the supplied conditioning and forecast increments from two, but discounted that signal when adjusting the elevated reached anchor. The June 8 motion denial was not treated as the petition's outcome. No target outcome was sought or encountered.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0"
+}
