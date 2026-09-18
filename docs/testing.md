@@ -210,7 +210,33 @@ service sidecar and the cascade's own provisioning reads pinned to `ranged`
 via `--corpus-backend` — the full production cell posture, including each
 engine's real sandbox semantics, which is exactly the layer an engine-level
 integration break (a sandbox denying localhost, a CLI behavior change) hides
-in. Its codex leg additionally wires the CourtListener MCP sidecar and the
+in. The posture includes the cell's **record**, because a cell's posture is its
+inputs: the cascade provisions the snapshot placed at the event's declared
+moment, the `context.json` freezing the cell's mode, band and cutoff, and the
+documents cut with the snapshot — the same seam `provision-snapshot` writes for a
+live cell, so a regression in the context stamp or the document selector reddens
+this leg instead of surfacing in a paid production cell, and the moment cut with
+them wherever the settled case carries an event that declares a moment (a bare
+cert petition's baseline declares none, so that target takes no cut and the
+cut's own rules are pinned in the unit suite). `--require-record` refuses the one
+case the cascade cannot provision — an estate holding no snapshot for the case
+the plan job settled — before any token is spent, so an unprovisioned run fails
+rather than certifying a posture it never ran in. The leg's evidence for all of
+this is the `CascadeReport` block it appends to the run summary, which carries a
+`provisioned:` line per cell — role, event, mode, provenance, cutoff, document
+count. Per cell rather than per run, because the record on disk at the end is the
+last provisioning's: on a case carrying a resolved event as well as an open one
+the evaluate half re-provisions last, and its uncut record says nothing about how
+the forecasters were placed.
+
+What the leg still does not reach, each covered somewhere else: the **invocation
+block** (`engine-actions-smoke`'s whole subject, below), the **post-agent harness
+steps** — `stamp-cell` and collect, which the local cascade path does not run
+([process-version.md](process-version.md)) — the provisioning command's own
+**forward gate and staleness bound**, which `stub-cascade` exercises directly
+above, and, except on the codex leg, the **CourtListener MCP surface**.
+
+Its codex leg additionally wires the CourtListener MCP sidecar and the
 generated client config the live cells get, and uploads the cell's rollout
 distilled to item shapes alone (`fedcourts codex-item-shapes` — types and key
 names, never a value, with the key screen's residual and the shape cap stated

@@ -739,15 +739,16 @@ jobs:
       # `--mode forward --refuse-terminal` (plus a staleness bound this
       # harness deliberately leaves off — a stored snapshot ages, and the
       # bound would turn the leg red on calendar time alone) but is
-      # continue-on-error there (a
-      # refusal must not burn the whole fan-out), so the guard drifting to
-      # always-refuse — or the flag silently dropping out — fails nothing at
-      # runtime, while local-cascade provisions in-process and never runs this
-      # CLI at all. Here the command must *succeed and write the record* for
-      # the settled case: that case is undisposed — the resolver asks this
-      # very gate, and a pinned one carries the same obligation on the input —
-      # so a refusal is by construction a guard regression. An isolated data
-      # root keeps its writes out of the cascade's tree.
+      # continue-on-error there (a refusal must not burn the whole fan-out),
+      # so the guard drifting to always-refuse — or the flag silently
+      # dropping out — fails nothing at runtime, while local-cascade
+      # provisions in-process: it shares this command's placement and
+      # record-writing seam, but reaches the forward gate through no path at
+      # all. Here the command must *succeed and write the record* for the
+      # settled case: that case is undisposed — the resolver asks this very
+      # gate, and a pinned one carries the same obligation on the input — so a
+      # refusal is by construction a guard regression. An isolated data root
+      # keeps its writes out of the cascade's tree.
       - name: Provision the forward record through the production guard
         if: ${{ matrix.scenario == 'stub-cascade' }}
         env:
@@ -1116,9 +1117,17 @@ jobs:
           # --require-predictions: a real agent that finishes "blocked" exits
           # 0 with a validly-empty ledger; the smoke must fail on that, not
           # report green around an empty cell.
+          # --require-record: this leg's whole claim is the PRODUCTION cell
+          # posture, and a cell's posture is its record — the snapshot placed at
+          # the event's moment, the context.json freezing its mode and band, and
+          # the documents cut with the snapshot. The cascade provisions all three
+          # the way run-predict's steps do; this flag refuses, before any token
+          # is spent, the one case where it cannot — an estate holding no
+          # snapshot for the case the plan job settled — so an unprovisioned run
+          # fails instead of certifying a posture it never ran in.
           uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
             --engine "$ENGINE" --predictor "$predictor" --corpus-backend ranged \
-            --require-predictions \
+            --require-predictions --require-record \
             ${EVENT:+--event "$EVENT"} | tee cascade-output.log
           {
             echo ""

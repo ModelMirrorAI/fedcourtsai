@@ -244,11 +244,18 @@ class CasePaths:
     def docket(self) -> Path:
         return self.record / "docket.json"
 
-    def snapshot(self, day: str) -> Path:
+    @property
+    def snapshots_dir(self) -> Path:
         # Provisioning location for a run's point-in-time snapshot, materialized
         # from the corpus by the predict/evaluate workflow. Gitignored
         # (`record/` is never committed) — the snapshot's home is the corpus.
-        return self.record / "snapshots" / f"{day}.json"
+        # A provisioned cell holds exactly one file here, the one its
+        # `context.json` names, which is why the directory has a name of its own:
+        # the writer clears it before placing that file.
+        return self.record / "snapshots"
+
+    def snapshot(self, day: str) -> Path:
+        return self.snapshots_dir / f"{day}.json"
 
     @property
     def cell_context(self) -> Path:

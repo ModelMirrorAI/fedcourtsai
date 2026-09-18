@@ -10,7 +10,6 @@ from __future__ import annotations
 import itertools
 from datetime import date
 
-from fedcourtsai.cert_backtest import truncate_snapshot
 from fedcourtsai.pipeline.ingest import default_event, from_live_record, map_live_docket
 from fedcourtsai.pipeline.interim_signals import (
     ApplicationKind,
@@ -29,7 +28,7 @@ from fedcourtsai.pipeline.interim_signals import (
     response_requested_date,
 )
 from fedcourtsai.pipeline.live import STREAMS
-from fedcourtsai.provision import moment_cutoff
+from fedcourtsai.provision import moment_cutoff, truncate_snapshot
 from fedcourtsai.schemas import Disposition
 from fedcourtsai.supremecourt import live_application_id, live_docket_id
 
