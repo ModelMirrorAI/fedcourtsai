@@ -304,6 +304,26 @@ def test_the_qp_labels_push_guard_checks_rows_not_ledger_counts() -> None:
     assert "($b | length) > ($a | length)" in guard, (
         "the ledger must strictly extend main's — an equal ledger is a settled rerun"
     )
+    # The prior is read from the fetched ref, not the work tree: `checkout -f`
+    # leaves untracked files in place, so while main does not carry the
+    # artifact a tree read would hand the guard the run's own file as the
+    # prior and refuse the first batch.
+    assert 'git cat-file -e "origin/main:data/qp-topics/qp-topics.json"' in guard
+    assert 'git show "origin/main:data/qp-topics/qp-topics.json"' in guard
+    # Between the branch switch and the copy back into the tree, the only
+    # mentions of the artifact path are the ref-qualified reads and the error
+    # prose — never a bare tree read, under any quoting.
+    switched = guard[
+        guard.index('git checkout -q -f -B "$BRANCH" origin/main') : guard.index(
+            'cp "$RUNNER_TEMP/qp-topics.json" data/qp-topics/qp-topics.json'
+        )
+    ]
+    bare = switched.replace("origin/main:data/qp-topics/qp-topics.json", "").replace(
+        "newest data/qp-topics/qp-topics.json", ""
+    )
+    assert "data/qp-topics/qp-topics.json" not in bare, (
+        "the prior must come from origin/main, never from the checked-out tree"
+    )
 
 
 def _env_mappings(name: str) -> list[tuple[str, dict[str, Any]]]:
