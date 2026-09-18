@@ -405,3 +405,4 @@ task-specific instructions: the prompt file named in your run
 | What does a cell agent have to produce? | `.github/prompts/` |
 | How do I test this, and what does CI run? | `docs/testing.md` |
 | What does a run cost, and where is the project headed? | `docs/budget.md`, `docs/milestones.md` |
+| What must the long-conference release write-up state, and what produces each number? (a skeleton with pre-written disclosure prose; every figure is still a placeholder naming its command) | `docs/release-ot2026-long-conference.md` |
