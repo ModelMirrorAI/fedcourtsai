@@ -5741,13 +5741,14 @@ def big_cases(
         typer.Option(
             "--process-scope",
             help="Which process versions a current read may come from: 'all' (default — "
-            "every committed run, shakedown and unstamped included, which is what a census "
-            "means) or 'frozen' (the comparison build: only runs stamped with a blessed "
-            "digest at or after the freeze instant). Either way the per-event history is "
-            "unfiltered. The frozen build's hold-out is selected, not sampled — a resolved "
-            "case is never re-predicted and the re-predict rule re-owes neither the cert "
-            "arrival moment nor either merits moment — so no count is differenced across a "
-            "scope change.",
+            "every committed run, shakedown, pre-freeze, retired-digest and unstamped "
+            "included, which is what a census means) or 'frozen' (the comparison build: "
+            "only runs stamped with a blessed digest at or after the freeze instant). "
+            "Either way the per-event history is unfiltered. The frozen build's hold-out "
+            "is selected, not sampled — a resolved case is never re-predicted and the "
+            "re-predict rule re-owes neither the cert "
+            "arrival moment nor either merits moment — so no count, mean, rate or spread "
+            "statistic is differenced across a scope change.",
         ),
     ] = "all",
 ) -> None:

@@ -1747,11 +1747,11 @@ the rendered table) and
   is ranked with the rest and flagged by its own `n` rather than split into a
   second table: the flag is the denominator, and a reader who quotes a mean
   without it has quoted a different number — the more so under the moment-first
-  collapse, where a freshly minted moment can leave `n = 1` while the board's
-  own roster (`predictors`, itself scope-dependent) holds more. `score_range` sits beside `n` for
-  the same reason — a mean of 0.5 over two 0.5s and a mean of 0.5 over 0.1 and
-  0.9 are not the same observation. `moment` is the third such flag, and the
-  collapse sharpens rather than settles what it guards: each row is one moment,
+  collapse, where a freshly minted moment can leave `n = 1` while the board's own
+  roster (`predictors`, itself scope-dependent) holds more. `score_range` sits
+  beside `n` for the same reason — a mean of 0.5 over two 0.5s and a mean of 0.5
+  over 0.1 and 0.9 are not the same observation. `moment` is the third such flag,
+  and the collapse sharpens rather than settles what it guards: each row is one moment,
   so a row's mean **is** comparable across its own predictors, but two rows on
   different moments are not comparable to each other and the `#` column orders
   across moments anyway. The panel reads stakes systematically higher at later
@@ -1768,8 +1768,11 @@ the rendered table) and
   still pending. Two counts sit beside `cases` and are never added together:
   `cases_without_score` is the predicted cases whose in-scope reads carry no
   number — a panel that declined — and `cases_out_of_scope` is the cases no run
-  of which is in `process_scope`, which is this build refusing to read them. On
-  the default `all` build the second is zero. The list is the
+  of which is in `process_scope`, which is this build refusing to read them. The
+  test is ordered — out of scope wins where both would hold, since a case with no
+  in-scope run cannot be observed to have declined — so a filtered build's
+  `cases_without_score` counts in-scope decliners alone. On the default `all`
+  build the second count is zero. The list is the
   predictions', never the corpus's, so the board describes what the panel was
   asked about and is **not** a sample of the docket or of any conference.
   Display is by caption — the `event.yaml` title of the case's current moment,
@@ -1795,24 +1798,34 @@ the rendered table) and
 
   **What the frozen build holds out, which is why it is not the default.** It
   does not thin the board evenly. A **resolved** case is never re-predicted, so
-  every resolved case is out of scope; and the re-predict rule
-  (`REPREDICT_MOMENTS` in `pipeline/pull.py`) re-owes only the cert
-  distribution, the CVSG and the three interim moments, so a case sitting at a
-  cert **arrival** moment or at either **merits** moment is never refilled
-  however long it waits. On today's ledger that removes 76 of 193 rows,
-  including the whole of the `all` board's top 20 — the frozen board's rank 1 is
-  the `all` board's rank 21. What is left is a live-cert-and-interim slice of a
-  selected population: a legitimate thing to look at, and the wrong thing to
-  publish as the census. The board states the hold-out in its own `population`
-  and `version_scope` provenance strings and counts it as
-  `cases_out_of_scope`.
+  one whose reads all predate the freeze can never be refilled into scope — a
+  case first predicted after the freeze stays in scope through its own
+  resolution. The re-predict rule (`REPREDICT_MOMENTS` in `pipeline/pull.py`)
+  re-owes only the cert distribution, the CVSG and the three interim moments, so
+  a case sitting at a cert **arrival** moment or at either **merits** moment is
+  never refilled however long it waits. Those are a floor rather than the whole
+  of it: a pending case at a moment the rule does re-owe can still sit outside,
+  because a distribution is re-owed only while a conference is still ahead of it
+  and because a re-owed cell has to be minted and land before it counts.
 
-  **No count is differenced across a scope change.** Every denominator moves at
-  once, so a coverage rate that rises on the frozen build rises by construction
-  — the older cells the rate's numerator was missing are exactly the cells the
-  scope removed (`missing_reads` goes 21 → 0 on today's ledger). That is never
-  the pre-registered coverage rise
-  [docs/freeze-record.md](../docs/freeze-record.md) describes.
+  Measured over the ledger at `64e8568b7`, the frozen build **removes 76 of the
+  193 rows** — including the whole of the `all` board's top 20, since the frozen
+  board's rank 1 is the `all` board's rank 21 — and **`cases_out_of_scope` reads
+  78**, not 76: it also absorbs the two predicted cases that were already off the
+  `all` board for carrying no score, which at `frozen` have no in-scope run at
+  all, so `cases_without_score` there reads 0 rather than 2. What survives
+  carries no merits moment and no cert-arrival moment at all. It is a
+  live-cert-and-interim slice of a selected population: a legitimate thing to
+  look at, and the wrong thing to publish as the census. The board states the
+  hold-out in its own `population` and `version_scope` provenance strings.
+
+  **No count, mean, rate or spread statistic is differenced across a scope
+  change.** A row's own mean and `n` move when one predictor's read falls outside
+  the scope, and every denominator moves at once, so a coverage rate that rises
+  on the frozen build rises by construction — the older cells the rate's
+  numerator was missing are exactly the cells the scope removed (`missing_reads`
+  goes 21 → 0 over the ledger at `64e8568b7`). That is never the pre-registered
+  coverage rise [docs/freeze-record.md](../docs/freeze-record.md) describes.
 
   **No time series.** The predict prompt's amendment making `big_case_score`
   required with an explicit null escape changed which cells carry a read
@@ -1823,10 +1836,10 @@ the rendered table) and
   post-dates that amendment, since the freeze instant does, so there the
   boundary bites on the per-event history rather than on the rows — and no
   trend is published there either, because a read elicited under one ask is not
-  a revision of one elicited under another. Nor is a movement between two consecutive daily
-  builds: a row's mean, `n` and rank also move when its `moment` does, which is
-  the docket advancing and the whole panel switching question at once, not a
-  predictor changing its mind.
+  a revision of one elicited under another. Nor is a movement between two
+  consecutive daily builds: a row's mean, `n` and rank also move when its
+  `moment` does, which is the docket advancing and the whole panel switching
+  question at once, not a predictor changing its mind.
 
   Like the other roll-ups here it is byte-stable and stamps neither a clock nor
   a commit: the vintage of a board is the commit that wrote it. The daily

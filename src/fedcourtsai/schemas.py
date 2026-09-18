@@ -6662,8 +6662,10 @@ class BigCaseBoard(_Strict):
         "`events`, which carries the case's whole history either way: an out-of-scope run "
         "is relegated to history, not hidden. The `frozen` build is **not this board with "
         "fewer rows** — its hold-out is selected, not sampled (`cases_out_of_scope`, and "
-        "the `population` provenance string) — so no count is differenced across a scope "
-        "change",
+        "the `population` provenance string) — so no count, mean, rate or spread statistic "
+        "is differenced across a scope change. A `frozen` board with no rows is the honest "
+        "'no frozen-process stakes reads yet' state and says nothing about the ledger, "
+        "which may hold plenty",
     )
     frozen_process: FrozenProcessRecord | None = Field(
         default=None,
@@ -6686,15 +6688,21 @@ class BigCaseBoard(_Strict):
         description="Cases held off the board because no run of theirs is in "
         "`process_scope` — zero on an `all` build. Kept apart from "
         "`cases_without_score` because the two are different facts: that one is a panel "
-        "that declined to score, this one is a panel this build refused to read. The "
-        "held-out set is selected rather than sampled (a resolved case is never "
-        "re-predicted, and the re-predict rule re-owes neither the cert arrival moment nor "
+        "that declined to score, this one is a panel this build refused to read. The test "
+        "is **ordered**: where both would hold, out of scope wins, since a case with no "
+        "in-scope run cannot be observed to have declined — so a filtered build's "
+        "`cases_without_score` counts in-scope decliners alone and is not comparable to the "
+        "`all` build's. The held-out set is selected rather than sampled (a resolved case "
+        "is never re-predicted, so one whose reads predate the freeze can never be refilled "
+        "into scope; and the re-predict rule re-owes neither the cert arrival moment nor "
         "either merits moment), so it is never read as a random thinning",
     )
     predictors: list[str] = Field(
         default_factory=list,
-        description="Predictor ids observed in the ledger, sorted — the roster the "
-        "per-case columns are drawn from, read off the cells rather than off config",
+        description="Predictor ids with at least one **in-scope** run, sorted — the roster "
+        "the per-case columns are drawn from, read off the cells rather than off config and "
+        "therefore scope-dependent: a predictor whose every run falls outside "
+        "`process_scope` is absent rather than rendering as a column of blanks",
     )
     current_reads: int = Field(
         default=0,
@@ -6717,10 +6725,13 @@ class BigCaseBoard(_Strict):
     missing_reads: int = Field(
         default=0,
         ge=0,
-        description="Unscored current reads with no rationale. Elicited under the earlier prompt, "
-        "where the field was optional and an absent value pooled 'could not place the stakes' "
-        "with 'never engaged the question' — a missing-data figure, and not a declaration "
-        "(`docs/freeze-record.md`)",
+        description="Unscored current reads with no rationale — a missing-data figure, and "
+        "never a declaration. Mostly elicited under the earlier prompt, where the field was "
+        "optional and an absent value pooled 'could not place the stakes' with 'never "
+        "engaged the question' (`docs/freeze-record.md`); a post-amendment cell that simply "
+        "omitted the rationale lands here too and **this count does not separate the two**. "
+        "On a `frozen` build the first cause cannot arise, since every current read there "
+        "post-dates the amendment",
     )
     rows_with_leakage_flag: int = Field(
         default=0,

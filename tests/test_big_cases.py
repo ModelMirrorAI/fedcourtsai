@@ -981,7 +981,11 @@ def test_the_reading_rules_state_the_population_of_the_scope_they_were_built_at(
     assert "and every process version" in every.reading_rule
     assert "version-blind, and that is the default" in every.version_scope
     assert "comparison build" in every.version_scope  # the other scope is named
-    assert "No count is differenced across a scope change" in every.version_scope
+    # The rule has to cover the board's headline figure, which is a mean, not only
+    # its counts: a row's own mean moves when one predictor's read leaves the scope.
+    assert (
+        "No count, mean, rate or spread statistic is differenced across a scope change"
+    ) in every.version_scope
     assert "this build spans it" in every.no_time_series
     # At `all` the frozen partition is an axis that separates this board from the
     # leaderboard; at `frozen` it is one they share, so the clause cannot be fixed.
@@ -993,14 +997,22 @@ def test_the_reading_rules_state_the_population_of_the_scope_they_were_built_at(
     assert "and every process version" not in frozen.reading_rule
     assert "scoped to the frozen partition" in frozen.reading_rule
     assert "the comparison build, not the published" in frozen.version_scope
-    assert "No count is differenced against the `all` build" in frozen.version_scope
+    assert (
+        "No count, mean, rate or spread statistic is differenced against the `all` build"
+    ) in frozen.version_scope
     assert "one further axis" in frozen.leaderboard_divergence
     # The selection effect is stated in the same paragraph as the population,
     # with the count, because a reader quoting a row is reading that paragraph.
     assert "1 case(s) off the board entirely" in frozen.version_scope
     assert "held off the board by" in frozen.population
     assert "selected rather than sampled" in frozen.population
-    assert "resolved" in frozen.population and "never re-predicted" in frozen.population
+    assert "never re-predicted" in frozen.population
+    # Never-re-predicted bounds *refilling*, not current membership: a case first
+    # predicted after the freeze stays in scope through its own resolution.
+    assert "can never be refilled into scope" in frozen.population
+    assert "so every one of them is out of scope" not in frozen.population
+    # And the named mechanisms are a floor, not the whole hold-out.
+    assert "floor rather than the whole" in frozen.population
     assert "cert **arrival** moment or at either **merits** moment" in frozen.population
     assert "live-cert-and-interim slice" in frozen.population
     # And the amendment boundary bites on the other build, not on these rows.
@@ -1122,5 +1134,16 @@ def test_the_refresh_pr_reports_the_board_without_naming_a_case(tmp_path: Path) 
     pr = render_refresh_pr(["metrics/big-cases.json", "metrics/big-cases.md"], tmp_path, run_id="1")
     assert pr is not None
     assert "1 case(s) ranked over 1 scored stakes read(s) of 1" in pr.body
+    # The scope travels with the count on this surface too: two scopes rank
+    # different populations, so a bare count quoted across builds would compare a
+    # selected hold-out against a census. Only the hold-out is suppressed at zero.
+    assert "at `process_scope: all`" in pr.body
+    assert "held off by the scope" not in pr.body
+    frozen = board.model_copy(update={"process_scope": "frozen", "cases_out_of_scope": 4})
+    write_json(tmp_path / "metrics/big-cases.json", frozen)
+    (tmp_path / "metrics/big-cases.md").write_text(analytics.render_big_case_markdown(frozen))
+    held = render_refresh_pr(["metrics/big-cases.json"], tmp_path, run_id="1")
+    assert held is not None
+    assert "at `process_scope: frozen`, 4 held off by the scope" in held.body
     assert "human-readable big-case-board companion" in pr.body
     assert "Test event" not in pr.body
