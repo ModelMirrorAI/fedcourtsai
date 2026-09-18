@@ -843,7 +843,65 @@ def _qp_topic_reference_spec(labels: QpTopicLabels) -> _SectionSpec:
     )
 
 
-def _qp_topic_scope_note(rows: _SectionRows, reference_rows: int) -> str:
+class _QpFrame(NamedTuple):
+    """One labeling batch's own count of the frame it was cut from, and what it held.
+
+    The QP-bearing frame is the population a labeling batch is drawn from, and it
+    is the denominator the labeled share of the frame needs. Nothing the docket
+    pack reads can derive it — the section's own ``scoped`` count is every
+    in-scope row, QP-bearing or not — so it travels in the labels artifact's
+    per-batch ledger, put there by the extract job that measured it
+    (``docs/qp-topic.md``).
+
+    Every field is the **artifact's**, at the newest batch's corpus vintage:
+    ``rows`` as that batch's extract counted the frame, and ``labeled`` /
+    ``reference`` as the accrued artifact stood once that batch landed. They are
+    read together and never mixed with the section's own counts inside one
+    figure, because the pack's scan is a later blob: pairing the two would divide
+    across vintages, which is the arithmetic the bound was published to avoid.
+
+    ``reference`` is every reference-sourced row in the artifact, taken as the
+    part of ``rows`` that rides in with certainty. The two agree while the frame
+    holds every reference member the artifact publishes, which is how the batch
+    is cut; a member that later leaves the frame is still subtracted, which
+    shrinks the drawn pool and so understates the factor — the same direction the
+    published figure already declares itself a floor in.
+    """
+
+    batch: int
+    rows: int
+    labeled: int
+    reference: int
+
+
+def _qp_frame(labels: QpTopicLabels) -> _QpFrame | None:
+    """The newest batch's frame measurement, or ``None`` where it cannot be used.
+
+    ``None`` on three states, each of which leaves the scope note on its bound:
+    a newest batch whose ledger entry carries no frame, a frame that does not
+    contain the rows the artifact
+    publishes, and an artifact whose rows are all reference members. The last two
+    are arithmetic the file should never hold — the schema refuses a frame under
+    the batch it measured — but this reads an external file, and a share over a
+    denominator that cannot be right is worse than the bound it would replace.
+    """
+    newest = labels.batches[-1] if labels.batches else None
+    if newest is None or newest.frame_rows is None:
+        return None
+    reference = sum(1 for entry in labels.entries if entry.source == "reference")
+    if newest.frame_rows < labels.cases or labels.cases - reference <= 0:
+        return None
+    return _QpFrame(
+        batch=newest.batch,
+        rows=newest.frame_rows,
+        labeled=labels.cases,
+        reference=reference,
+    )
+
+
+def _qp_topic_scope_note(
+    rows: _SectionRows, reference_rows: int, frame: _QpFrame | None = None
+) -> str:
     """The coverage caveat ``docs/qp-topic.md`` requires beside every published share.
 
     Carried as a field on the section rather than as prose the renderer emits, so
@@ -869,27 +927,41 @@ def _qp_topic_scope_note(rows: _SectionRows, reference_rows: int) -> str:
     every in-scope ingested row, not every *labelable* one, so the rows outside
     ``kept`` are two populations at once: rows carrying no stored
     questions-presented text, which no batch can reach, and QP-bearing rows whose
-    batch has not come up. Nothing in the labels artifact records where that line
-    falls — the batch sidecar that knows the frame size is deliberately fenced off
-    the labeling job (``docs/qp-topic.md``) — so the labeled share *of the
-    QP-bearing frame* is not a number this cut can state, and it says so rather
-    than letting its own ratio be read as one.
+    batch has not come up. ``frame`` is what tells the two apart: the newest
+    batch's own count of the QP-bearing frame it was cut from
+    (:func:`_qp_frame`), which the extract job measured and passed to
+    ``qp-topics`` as a value. With it the labeled share of the frame is a
+    measurement and the clause states it; without it nothing this cut reads
+    records where the line falls, and the clause says so rather than letting the
+    section's own ratio be read as that share.
 
-    The same unknown bounds the over-representation figure. The labeled subset is
-    two populations, drawn on different terms: the hand reference set, in every
-    batch and so included with certainty, and a stratified draw of the
+    The same unknown decides the over-representation figure. The labeled subset
+    is two populations, drawn on different terms: the hand reference set, in
+    every batch and so included with certainty, and a stratified draw of the
     QP-bearing remainder, included only as its batch comes up. Both then enter
     the table at one row apiece, so until the frame converges the reference block
     — grant-enriched by design and carrying no sampling weights
     (``docs/qp-topic.md``) — is over-represented by the ratio of those two
-    inclusion rates. That ratio publishes as an **upper bound**, because its
-    denominator is the QP-bearing part of the unlabeled rows and only the whole
-    unlabeled count is on hand: dividing by the larger count understates the
-    drawn rows' inclusion rate and so overstates the factor, which is the
-    direction a caveat may err in. Naming it is still the point — this cut's mix
-    is not the frame's while any of the frame is unlabeled, and no reweighting
-    here corrects it — but naming it as a measurement would publish arithmetic
-    over a population the draw never ran on.
+    inclusion rates. Without ``frame`` that ratio publishes as an **upper
+    bound**, because its denominator is the QP-bearing part of the unlabeled rows
+    and only the whole unlabeled count is on hand: dividing by the larger count
+    understates the drawn rows' inclusion rate and so overstates the factor,
+    which is the direction a caveat may err in, where a figure published as a
+    measurement would be arithmetic over a population the draw never ran on. With
+    ``frame`` the denominator is the one the draw did run on, so the factor is
+    measured instead, and converges to 1.0x as the frame clears.
+
+    Both measured figures are the **artifact's**, at the batch's corpus vintage
+    rather than this pack's, and say so where they render: the frame grows with
+    every pull, and the section's counts come from a later blob. That is why they
+    are computed from the ledger and the artifact's own rows rather than by
+    dividing this pack's ``kept`` by the batch's frame, which would be one figure
+    over two blobs. And because the frame only grows while the labeled count
+    waits for the next batch, each states **which way it errs** against the frame
+    as it now stands — the share a ceiling, the factor a floor. That direction is
+    the whole reason the figure it replaces was published as a bound, so dropping
+    the bound without carrying the direction over would trade a caveat that erred
+    safely for a measurement that does not.
     """
     drawn = max(rows.kept - reference_rows, 0)
     unlabeled = max(rows.scoped - rows.kept, 0)
@@ -897,22 +969,84 @@ def _qp_topic_scope_note(rows: _SectionRows, reference_rows: int) -> str:
     # the draw ran over, since an unknown share of it carries no questions-presented
     # text at all and was never eligible.
     pool = drawn + unlabeled
-    gap = (
-        f"The {unlabeled} unlabeled row(s) span two gaps at once — rows carrying no stored "
-        "questions-presented text, which no labeling batch can reach, and QP-bearing rows "
-        "whose batch has not come up — and the labels artifact records neither size, so what "
-        "share of the QP-bearing frame is labeled is not a number this cut can state."
-        if unlabeled
-        else "No in-scope row is unlabeled, so the labeled rows are every row this section's "
-        "scope holds; the QP-bearing frame they were drawn from is a subset of it, of "
-        "unrecorded size."
+    if frame is None:
+        gap = (
+            f"The {unlabeled} unlabeled row(s) span two gaps at once — rows carrying no stored "
+            "questions-presented text, which no labeling batch can reach, and QP-bearing rows "
+            "whose batch has not come up — and the labels artifact records neither size, so "
+            "what share of the QP-bearing frame is labeled is not a number this cut can state."
+            if unlabeled
+            else "No in-scope row is unlabeled, so the labeled rows are every row this "
+            "section's scope holds; the QP-bearing frame they were drawn from is a subset of "
+            "it, of unrecorded size."
+        )
+    else:
+        share = frame.labeled / frame.rows
+        # The vintage is not the whole caveat: the frame grows with every pull
+        # while the labeled count moves only when a batch lands, so the batch's
+        # share is a ceiling on today's. Say which way it errs, since erring
+        # downward is what the bound this replaces was published for.
+        vintage = (
+            f"Both counts are batch {frame.batch}'s, taken at its own corpus vintage rather "
+            "than this pack's: the frame grows with every pull while the labeled count moves "
+            "only when a batch lands, so read that share as a ceiling on the share of the "
+            "frame as it now stands, not as a reading of this blob."
+        )
+        gap = (
+            f"The {unlabeled} unlabeled row(s) span two gaps at once — rows carrying no stored "
+            "questions-presented text, which no labeling batch can reach, and QP-bearing rows "
+            f"whose batch has not come up — and batch {frame.batch}'s extract sized the "
+            f"second: it counted {frame.rows} QP-bearing row(s) in the frame it cut from, of "
+            f"which the artifact held {frame.labeled} labeled ({share:.1%}). {vintage}"
+            if unlabeled
+            else "No in-scope row is unlabeled, so the labeled rows are every row this "
+            "section's scope holds. The QP-bearing frame they were drawn from is a subset of "
+            f"it, and batch {frame.batch}'s extract counted it: {frame.rows} row(s), "
+            f"{frame.labeled} of them labeled ({share:.1%}). {vintage}"
+        )
+    # Where the drawn rows came from, in the only terms a cut with no frame count
+    # can put it: every in-scope row outside the reference block, of which an
+    # unrecorded share carries no questions-presented text and was never
+    # eligible. The measured branch below replaces it with the frame's own pool.
+    source = (
+        f"the QP-bearing part of the {pool} in-scope row(s) outside that block (the "
+        f"{unlabeled} still unlabeled, plus these)"
     )
-    # `unlabeled` decides first: with nothing in scope unlabeled there is no
-    # unknown left to bound, whatever the draw did, and publishing a bound there
-    # would caveat a number the pass can state exactly.
-    if not unlabeled:
+    # "No factor" needs *both* populations complete, not just this table's rows:
+    # a pack computed over a blob smaller than the batch's extract can hold every
+    # in-scope row labeled while the batch's frame was three-quarters unlabeled,
+    # and claiming equal inclusion there contradicts the frame clause above it.
+    frame_complete = frame is None or frame.labeled >= frame.rows
+    if not unlabeled and frame_complete:
         over = "no factor — every in-scope row is labeled, so both entered at the same rate"
-    elif drawn:
+    elif not drawn:
+        # With no drawn rows the factor is unbounded rather than large: the cut is
+        # the reference block alone, which is the strongest form of the caveat and
+        # must not round to a finite-looking number. It outranks a measured frame:
+        # the factor describes the mix of *this table*, and no frame count makes a
+        # table of reference rows a draw.
+        over = "an unbounded factor — every labeled row here is a reference-set member"
+    elif frame is not None:
+        # The denominator the draw actually ran on: the QP-bearing frame the batch
+        # was cut from, less the block that rides in every batch. Its numerator is
+        # the artifact's drawn rows, not this table's, so the clause carries both
+        # of its own counts and says which batch they are from — the table's own
+        # split sits in the sentence before it and is this blob's.
+        frame_pool = frame.rows - frame.reference
+        frame_drawn = frame.labeled - frame.reference
+        over = (
+            f"at least about {frame_pool / frame_drawn:.1f}x — row for row, how much likelier "
+            f"a reference row was to be included than a drawn one when batch {frame.batch} "
+            f"landed: {frame.reference} carried in with certainty against {frame_drawn} drawn "
+            f"from the {frame_pool} QP-bearing row(s) outside the block that batch's extract "
+            "counted. Measured against that frame rather than bounded over rows no batch "
+            "could reach — and a floor rather than a ceiling at this pack's vintage, since "
+            "the frame grows with every pull while the drawn count waits for the next batch. "
+            "It closes to 1.0x as the frame is labeled, which a bound over unreachable rows "
+            "never does"
+        )
+        source = f"the QP-bearing frame batch {frame.batch}'s extract counted"
+    else:
         over = (
             f"at most about {pool / drawn:.1f}x — an upper bound over the whole of that "
             "block-outside count, because how many of those rows carry a questions-presented "
@@ -920,11 +1054,6 @@ def _qp_topic_scope_note(rows: _SectionRows, reference_rows: int) -> str:
             "QP-bearing row is labeled the distortion has closed while this figure, whose "
             "denominator keeps counting rows no batch could reach, still will not read 1.0x"
         )
-    else:
-        # With no drawn rows the factor is unbounded rather than large: the cut is
-        # the reference block alone, which is the strongest form of the caveat and
-        # must not round to a finite-looking number.
-        over = "an unbounded factor — every labeled row here is a reference-set member"
     return (
         f"QP-bearing rows only — {rows.kept} of {rows.scoped} in-scope ingested rows "
         "labeled; "
@@ -937,9 +1066,9 @@ def _qp_topic_scope_note(rows: _SectionRows, reference_rows: int) -> str:
         "batches, "
         f"so the labeled rows are two populations on different terms: {reference_rows} hand "
         f"reference-set members, carried in every batch and so included with certainty, and "
-        f"{drawn} drawn by a Term x fee-class-stratified, seeded-hash order from the "
-        f"QP-bearing part of the {pool} in-scope row(s) outside that block (the {unlabeled} "
-        "still unlabeled, plus these). Both count once here, so the reference block — "
+        f"{drawn} drawn over this blob by a Term x fee-class-stratified, seeded-hash order "
+        "from "
+        f"{source}. Both count once here, so the reference block — "
         "grant-enriched by design and carrying no sampling weights — is over-represented by "
         f"{over}, and this mix is not the frame's until every QP-bearing row is labeled. A "
         "naive share partly counts coordinated filing campaigns rather than subjects; no "
@@ -1850,10 +1979,13 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
                 )
                 if key != _NONE_KEY
             ]
+            frame = _qp_frame(labels)
             qp_topics = DocketPackQpTopics(
                 labeler=labels.labeler,
                 batches=len(labels.batches),
                 reference_rows=reference_rows,
+                # The newest batch's frame, beside the prose that divides by it.
+                frame_rows=frame.rows if frame is not None else None,
                 agree=labels.agreement.overall_agree,
                 n=labels.agreement.overall_n,
                 floor=labels.agreement.floor,
@@ -1871,7 +2003,11 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
                 # numbers are the scan's: how many rows carry a label is not known
                 # until the rows have been walked.
                 section=qp_section.model_copy(
-                    update={"scope_note": _qp_topic_scope_note(rows, reference_rows)}
+                    update={
+                        # With a frame the note measures the labeled share of it,
+                        # without one it bounds it.
+                        "scope_note": _qp_topic_scope_note(rows, reference_rows, frame)
+                    }
                 ),
             )
     census = _census(scan.cursor_rows)

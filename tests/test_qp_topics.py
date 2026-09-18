@@ -15,6 +15,7 @@ about an unseen text (see :mod:`fedcourtsai.pipeline.qp_topics`).
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
@@ -1341,3 +1342,136 @@ def test_cli_accrues_the_committed_artifact_across_two_batches(
         (2, 1, 1),
     ]
     assert {entry.case_id for entry in written.entries} >= {"scotus/900", "scotus/901"}
+
+
+# --- the frame count: a value from the extract job, onto the batch's ledger row ---
+
+
+def test_the_ledger_records_the_frame_the_batch_was_cut_from() -> None:
+    """The one figure neither of this command's inputs holds, carried per batch.
+
+    The extract is one batch of the frame and the artifact is the union of every
+    batch, so nothing here counts the QP-bearing frame — only the extract job
+    that cut the batch does. Recorded per batch rather than at the top level
+    because it is a measurement at *that* batch's corpus vintage, and the frame
+    grows with every pull.
+    """
+    reference = _accrual_reference()
+    first_entries, first_texts = _batch_of(reference, "scotus/900")
+    first = build_labels(
+        entries=first_entries,
+        texts=first_texts,
+        reference=reference,
+        labeler="stub/one",
+        frame_rows=400,
+    )
+    second_entries, second_texts = _batch_of(reference, "scotus/901")
+    second = build_labels(
+        entries=second_entries,
+        texts=second_texts,
+        reference=reference,
+        labeler="stub/two",
+        prior=first,
+        frame_rows=412,
+    )
+
+    assert [(row.batch, row.frame_rows) for row in second.batches] == [(1, 400), (2, 412)]
+    # A batch whose caller passes no count records none, and the artifact still
+    # validates — which is what keeps an artifact written without one readable
+    # rather than needing a backfill.
+    third_entries, third_texts = _batch_of(reference, "scotus/902")
+    third = build_labels(
+        entries=third_entries,
+        texts=third_texts,
+        reference=reference,
+        labeler="stub/three",
+        prior=second,
+    )
+    assert third.batches[-1].frame_rows is None
+    # Round-tripped with the key *absent*, which is the shape a file written
+    # before the field existed has: a `frame_rows: null` payload would not test
+    # that an artifact carrying no such key still validates.
+    payload = json.loads(third.model_dump_json())
+    payload["batches"][-1].pop("frame_rows")
+    assert QpTopicLabels.model_validate(payload) == third
+
+
+def test_a_frame_under_the_rows_the_batch_labeled_stops_the_run() -> None:
+    # The batch is drawn from the frame, so a frame smaller than the batch is not
+    # a thin frame: it is a count taken against another scope or another blob,
+    # and a share computed from it would publish as a measurement.
+    reference = _accrual_reference()
+    entries, texts = _batch_of(reference, "scotus/900")
+    with pytest.raises(QpTopicError, match="is under the 11 row"):
+        build_labels(
+            entries=entries,
+            texts=texts,
+            reference=reference,
+            labeler="stub/one",
+            frame_rows=10,
+        )
+    # And the schema refuses it too, so a hand-edited artifact cannot carry one
+    # past `validate` into the docket pack's arithmetic.
+    with pytest.raises(ValueError, match="frame_rows"):
+        QpTopicBatchEntry(
+            batch=1, labeler="stub", published=11, measured=11, agree=9, n=10, frame_rows=10
+        )
+
+
+def test_cli_lands_the_frame_count_on_the_batch_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The flag is how the extract job's count reaches the artifact: a plain
+    # integer, never the `.batch.json` sidecar, which carries the draw's shape
+    # and stays on the extract runner (docs/qp-topic.md).
+    data_root = tmp_path / "data"
+    reference = _accrual_reference()
+    _install_reference(data_root, reference)
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    rows: list[dict[str, object]] = [
+        {"case_id": entry.case_id, "docket_number": entry.docket_number, "label": "tax"}
+        for entry in reference.entries
+    ]
+    labels, texts = _write_run(
+        tmp_path / "run",
+        [*rows, {"case_id": "scotus/900", "docket_number": "25-900", "label": "tax"}],
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "qp-topics",
+            "--labels",
+            str(labels),
+            "--texts",
+            str(texts),
+            "--labeler",
+            "a",
+            "--frame-rows",
+            "1200",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    written = read_model(qp_topics_module.labels_path(data_root), QpTopicLabels)
+    assert [row.frame_rows for row in written.batches] == [1200]
+
+    refused = CliRunner().invoke(
+        app,
+        [
+            "qp-topics",
+            "--labels",
+            str(labels),
+            "--texts",
+            str(texts),
+            "--labeler",
+            "a",
+            "--frame-rows",
+            "0",
+        ],
+    )
+    # Typer's own range refusal, not a downstream one — CI colorizes, so the
+    # escapes come out and the wrapped message is collapsed before matching.
+    assert refused.exit_code != 0
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", refused.output)
+    assert "--frame-rows" in " ".join(plain.split())

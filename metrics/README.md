@@ -1630,9 +1630,21 @@ the rendered table) and
   rescales a QP-bearing stream rather than estimating a docket population. The
   labeled rows are a **partial frame** — the labeling accrues one batch a run —
   so that scope string also names what the gap between labeled and in-scope rows
-  is made of, and bounds rather than measures the reference block's
-  over-representation: nothing the pack reads records how many unlabeled rows
-  carry a questions-presented text at all. Each bucket also prints the rows on
+  is made of. How many of those rows carry a questions-presented text at all is
+  the count that separates the two halves of that gap, and only the extract that
+  cut a batch can take it: where the newest batch's ledger entry carries it, the
+  string states the labeled share of the QP-bearing frame and measures the
+  reference block's over-representation, both as the labels artifact's own
+  figures at **that batch's** corpus vintage rather than the pack's (the frame
+  grows with every pull, so the two are different ratios and are never divided
+  into one). Because that growth is one-directional while the labeled count moves
+  only when a batch lands, each figure states which way it errs against the frame
+  as it now stands — the share a ceiling, the factor a floor — so neither reads
+  as a measurement of this blob. Where the ledger carries no count, the string
+  says the split is unrecorded and bounds the over-representation from above; and
+  two states of the table itself outrank a frame, since the factor describes the
+  table's mix: no drawn row at all publishes an unbounded factor, and a table
+  whose own rows are all labeled over a frame labeled out publishes no factor. Each bucket also prints the rows on
   hand behind it, and its reference-sourced share of them, because a
   denial-reweighted `est. n=` runs above the rows read and the thinnest buckets
   here rest on a handful. The committed copy of the document names the missing

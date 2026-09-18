@@ -25,6 +25,18 @@ inputs:
   labeler:
     description: Who assigned the labels — engine and model, free-form.
     required: true
+  frame-rows:
+    description: >
+      QP-bearing rows the extract counted in the labeling frame this batch was
+      cut from. The extract job knows it and this one does not, so it travels
+      as a plain integer — never the `.batch.json` sidecar, which carries the
+      draw's Term x fee-class shape and stays on the extract runner. Recorded
+      on the batch's ledger entry, it is what lets the docket pack's topic cut
+      measure the labeled share of the frame instead of bounding it. Empty
+      where the caller cut no frame (the canned integration-test legs), which
+      leaves the ledger entry without one and the cut on its bound.
+    required: false
+    default: ''
   data-root:
     description: >
       Data root holding `qp-topics/qp-topic-reference.json`; the labels
@@ -81,6 +93,7 @@ runs:
         LABELS_OUT: ${{ inputs.labels }}
         TEXTS: ${{ inputs.texts }}
         LABELER: ${{ inputs.labeler }}
+        FRAME_ROWS: ${{ inputs.frame-rows }}
         DATA_ROOT: ${{ inputs.data-root }}
         # The measure command reads the reference set and writes the artifact
         # under the settings data root, while `validate` takes the path as an
@@ -96,10 +109,17 @@ runs:
         # flag). Capture rather than fail fast, because a refusal is a result
         # to report: the measured block reaches the step summary either way.
         status=0
+        # Passed only when the caller has one: the flag is optional, and an
+        # empty string would be a malformed integer rather than "no frame".
+        frame=()
+        if [ -n "$FRAME_ROWS" ]; then
+          frame=(--frame-rows "$FRAME_ROWS")
+        fi
         uv run fedcourts qp-topics \
           --labels "$LABELS_OUT" \
           --texts "$TEXTS" \
-          --labeler "$LABELER" > "$RUNNER_TEMP/measured.txt" 2>&1 || status=$?
+          --labeler "$LABELER" \
+          "${frame[@]+"${frame[@]}"}" > "$RUNNER_TEMP/measured.txt" 2>&1 || status=$?
         cat "$RUNNER_TEMP/measured.txt"
         # On the failure path the command quotes up to 160 characters of the
         # offending labels line into its error, and those bytes are the
