@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73279035",
+  "gaps": [
+    "recap_documents access via CourtListener for SCOTUS dockets was problematic"
+  ],
+  "helpful": [
+    "google_web_search for recent filings not provisioned"
+  ],
+  "notes": "Had to use web search to find SG brief details.",
+  "role": "predictor",
+  "run_id": "20260918T195102Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_search_document",
+    "google_web_search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

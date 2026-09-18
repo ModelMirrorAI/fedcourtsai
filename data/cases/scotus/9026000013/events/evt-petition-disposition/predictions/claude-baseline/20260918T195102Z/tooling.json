@@ -1,0 +1,29 @@
+{
+  "case_id": "scotus/9026000013",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener search",
+    "courtlistener call_endpoint (dockets, docket-entries)",
+    "WebSearch",
+    "WebFetch",
+    "pdftotext"
+  ],
+  "helpful": [
+    "The provisioned BIO and QP text; the BIO's circuit-by-circuit rebuttal was the single most useful input.",
+    "The sal-v4 band table with bracketed reached rates: the anchor was unambiguous to compute.",
+    "The supremecourt.gov docket pages for the companion petition and for confirming no post-snapshot entries."
+  ],
+  "gaps": [
+    "fedcourts query has no free-text or subject filter, so it cannot retrieve priors on a legal question (here, government mandamus / military commissions); it returned mostly emergency applications.",
+    "CourtListener indexes very few current-Term SCOTUS dockets and no entries for the companion petition; supremecourt.gov had to fill the gap.",
+    "The reply brief and the amicus briefs were not provisioned; a provisioned reply.txt would have saved a PDF fetch and local text extraction.",
+    "The petition.txt is truncated at 336 pages of appendices; the argument section was intact, but a provisioned page map would make it easier to know what was cut."
+  ],
+  "notes": "A companion petition (No. 25-1335, bin 'Atash) is on the same conference against the same judgment; the docket's RelatedCaseNumber 'Vide' field carries it, and surfacing companion dockets in context.json would help."
+}

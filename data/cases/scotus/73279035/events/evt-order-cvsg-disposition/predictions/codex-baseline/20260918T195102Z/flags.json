@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73279035",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "The provisioned document manifest marks petition.txt truncated. Its principal argument, conclusion, and relevant Sixth Circuit opinion passages are available and were used, but this is not a full-appendix review. The reply and Bray amicus appear in the frozen docket without provisioned text. The forecast does not assume their contents or a government recommendation; no current-case outcome was retrieved.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260918T195102Z",
+  "schema_version": "1.0"
+}

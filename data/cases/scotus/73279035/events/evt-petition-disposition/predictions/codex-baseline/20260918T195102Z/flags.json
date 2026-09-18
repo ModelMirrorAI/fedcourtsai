@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279035",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot records an August 31, 2026 invited United States brief and September 16 supplemental reply, neither provisioned as text. Retrieved both by their exact official snapshot PDF links. The government's denial recommendation, despite acknowledging a surcharge conflict, materially lowered the grant forecast to 16%; petitioners' vehicle rebuttal was also considered. Both filings predate the September 17 baseline and neither is the Court's disposition. No outcome was sought or encountered."
+    }
+  ]
+}

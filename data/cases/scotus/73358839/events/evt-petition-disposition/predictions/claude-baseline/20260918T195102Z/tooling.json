@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73358839",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts open-events",
+    "fedcourts query",
+    "courtlistener search",
+    "courtlistener call_endpoint",
+    "WebSearch",
+    "WebFetch",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The provisioned petition text: its vehicle section explicitly ties the ask to the companion petition, which reframed the whole forecast.",
+    "The sal-v4 segment band table with bracketed reached rates gave a clean pooled anchor.",
+    "The CourtListener dockets endpoint resolved the companion docket id even where search returned nothing; the supremecourt.gov docket page then supplied the companion's entries."
+  ],
+  "gaps": [
+    "CourtListener carries no docket entries for SCOTUS dockets, so companion-case status had to come from the web; a provisioned 'related dockets' file (companions named in the petition or sharing amicus filings) with their current entries would save several retrieval calls.",
+    "The frozen distribution_count treats a pre-consideration reschedule as a distribution; a separate true-relist count (or the raw entry list with kinds) in context.json would let the relist cut be read directly.",
+    "The corpus query has no caption or free-text filter for SCOTUS rows, so it cannot find a named companion case."
+  ],
+  "notes": "Roughly 14 retrieval calls (5 MCP, 6 web, 3 corpus), within the advisory budget. The SG's brief in opposition in the companion was characterized from a trade-press summary, not read directly."
+}

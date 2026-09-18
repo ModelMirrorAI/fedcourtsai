@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73279035",
+  "gaps": [
+    "No provisioned reply or amicus text; petition extraction is marked truncated.",
+    "Web search/open attempts returned no usable content.",
+    "One CourtListener citation-filter search returned an unrelated case; a case-name and court filter located the intended precedent."
+  ],
+  "helpful": [
+    "Frozen context distinguishes the CVSG moment from current docket state.",
+    "Provisioned petition, opposition, and appellate opinion permit adversarial assessment without querying the case's outcome.",
+    "Statpack JSON supports exact pooling of the matching prior-Term reached-band rates.",
+    "CourtListener opinion snippets verified general precedent without retrieving this case's later history."
+  ],
+  "notes": "Used a temporary uv cache after the default cache proved read-only. No corpus query was needed. General-precedent MCP retrieval succeeded despite empty web responses.",
+  "role": "predictor",
+  "run_id": "20260918T195102Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

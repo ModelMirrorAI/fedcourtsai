@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73298285",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query (service backend)", "CourtListener MCP search", "CourtListener MCP call_endpoint (dockets, docket-entries)", "metrics/statpack.md"],
+  "helpful": ["Full-text petition and brief in opposition, which carried the related-case facts (Nielsen v. Watanabe grant, Mohamud v. Weyker denial) the forecast turns on", "context.json band plus the statpack segment table"],
+  "gaps": ["A statpack cut for call-for-response petitions (response requested after a waiver), which is the real signal on this docket and is not published", "A relist count that distinguishes a pre-conference reschedule from a post-conference relist", "A corpus query by case name or docket number, to check a related SCOTUS docket's status without leaving the corpus", "CourtListener's SCOTUS docket index returned no hits by name and no entries or cert dates for the related dockets"],
+  "notes": "The two corpus queries were structural only (disposition and era filters), since query has no subject or text filter; they contributed nothing case-specific."
+}

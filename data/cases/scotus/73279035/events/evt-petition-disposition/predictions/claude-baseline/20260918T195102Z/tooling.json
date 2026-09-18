@@ -1,0 +1,27 @@
+{
+  "case_id": "scotus/73279035",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "WebFetch",
+    "WebSearch",
+    "pypdf (local PDF text extraction)"
+  ],
+  "helpful": [
+    "The provisioned petition, BIO and QP text \u2014 enough to weigh the split and vehicle arguments without retrieval.",
+    "context.json's frozen band/CVSG/distribution state plus the statpack's sal-v4 band table made the anchor a table lookup.",
+    "Forward-mode web retrieval of the Solicitor General's brief, which was the single most decisive input."
+  ],
+  "gaps": [
+    "The document pipeline does not provision the United States' CVSG brief (or the petitioners' supplemental brief) even though both are on the docket before the snapshot; on a CVSG'd petition the government's recommendation is the dominant signal and had to be fetched and PDF-extracted by hand.",
+    "The statpack's CVSG cut does not split by the SG's recommendation (grant vs deny), so the conditional rate this cell needed came from general knowledge rather than the pack.",
+    "WebFetch could not read supremecourt.gov PDFs; a text-extraction fallback in the fetcher would remove a manual step.",
+    "fedcourts query has no filter for CVSG'd petitions or for a subject like ERISA on SCOTUS rows, so it could not surface comparable priors."
+  ],
+  "notes": "The moment here is unusual: the cell fired after the SG brief and on the day of the third distribution, so the record is far richer than a first-distribution cell's."
+}
