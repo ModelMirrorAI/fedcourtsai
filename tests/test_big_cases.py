@@ -139,7 +139,7 @@ def _board(
     data_root: Path,
     *,
     repo_url: str = analytics.DEFAULT_REPO_TREE_URL,
-    process_scope: Literal["frozen", "all"] = "frozen",
+    process_scope: Literal["frozen", "all"] = "all",
 ) -> BigCaseBoard:
     return analytics.build_big_case_board(
         data_root=data_root, repo_url=repo_url, process_scope=process_scope
@@ -482,7 +482,7 @@ def test_an_out_of_scope_newest_run_is_history_and_the_frozen_run_is_the_current
         stamped_at=datetime(2026, 12, 1, tzinfo=UTC),
         digest=_RETIRED,
     )
-    board = _board(tmp_path)
+    board = _board(tmp_path, process_scope="frozen")
     assert board.process_scope == "frozen"
     (row,) = board.rows
     assert [(read.run_id, read.big_case_score) for read in row.current_reads] == [("r-frozen", 0.4)]
@@ -492,7 +492,7 @@ def test_an_out_of_scope_newest_run_is_history_and_the_frozen_run_is_the_current
     (event,) = row.events
     assert [(read.run_id, read.big_case_score) for read in event.reads] == [("r-retired", 0.9)]
     # And the version-blind reading is still one flag away.
-    blind_board = _board(tmp_path, process_scope="all")
+    blind_board = _board(tmp_path)
     assert blind_board.process_scope == "all"
     (blind,) = blind_board.rows
     assert [(read.run_id, read.big_case_score) for read in blind.current_reads] == [
@@ -504,7 +504,7 @@ def test_a_retired_digest_and_an_unstamped_run_are_both_out_of_scope(tmp_path: P
     _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
     _write_read(tmp_path, "scotus/1", "codex-baseline", "r1", big_case_score=0.9, digest=_RETIRED)
     _write_read(tmp_path, "scotus/1", "gemini-baseline", "r1", big_case_score=0.1, digest=None)
-    board = _board(tmp_path)
+    board = _board(tmp_path, process_scope="frozen")
     (row,) = board.rows
     assert [read.predictor_id for read in row.current_reads] == ["claude-baseline"]
     assert (row.mean_big_case_score, row.n) == (0.5, 1)
@@ -516,15 +516,31 @@ def test_a_retired_digest_and_an_unstamped_run_are_both_out_of_scope(tmp_path: P
         "codex-baseline",
         "gemini-baseline",
     ]
-    assert [r.n for r in _board(tmp_path, process_scope="all").rows] == [3]
+    assert [r.n for r in _board(tmp_path).rows] == [3]
 
 
-def test_a_case_with_no_in_scope_read_is_off_the_board(tmp_path: Path) -> None:
+def test_a_case_out_of_scope_is_counted_apart_from_a_case_that_declined(tmp_path: Path) -> None:
+    # Two off-board reasons, and the board must not pool them: an out-of-scope
+    # case is a panel this build refused to read, a declining case is a panel
+    # that read and gave no number. Pooling them would publish the scope's
+    # hold-out as though the predictors had had nothing to say.
     _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5, digest=None)
-    _write_read(tmp_path, "scotus/2", "claude-baseline", "r1", big_case_score=0.5)
-    board = _board(tmp_path)
-    assert [row.case_id for row in board.rows] == ["scotus/2"]
-    assert board.cases_without_score == 1
+    _write_read(tmp_path, "scotus/2", "claude-baseline", "r1", big_case_score=None)
+    _write_read(tmp_path, "scotus/3", "claude-baseline", "r1", big_case_score=0.5)
+    frozen = _board(tmp_path, process_scope="frozen")
+    assert [row.case_id for row in frozen.rows] == ["scotus/3"]
+    assert (frozen.cases_without_score, frozen.cases_out_of_scope) == (1, 1)
+    # Version-blind, nothing is out of scope: the unstamped case is a row again
+    # and the declining case is the only one off the board — one ledger, two
+    # denominators, never differenced.
+    every = _board(tmp_path)
+    assert sorted(row.case_id for row in every.rows) == ["scotus/1", "scotus/3"]
+    assert (every.cases_without_score, every.cases_out_of_scope) == (1, 0)
+    # The rendered coverage sentence keeps them apart too.
+    rendered = analytics.render_big_case_markdown(frozen)
+    assert "1 predicted case(s) carry no scored read on their current moment" in rendered
+    assert "a further 1 are held off it by `process_scope`" in rendered
+    assert "not the panel declining to score them" in rendered
 
 
 def test_an_out_of_scope_run_cannot_move_the_case_s_moment(tmp_path: Path) -> None:
@@ -551,9 +567,9 @@ def test_an_out_of_scope_run_cannot_move_the_case_s_moment(tmp_path: Path) -> No
         title="Response moment",
         digest=None,
     )
-    (row,) = _board(tmp_path).rows
+    (row,) = _board(tmp_path, process_scope="frozen").rows
     assert (row.moment, row.mean_big_case_score) == ("evt-petition-disposition", 0.4)
-    (blind,) = _board(tmp_path, process_scope="all").rows
+    (blind,) = _board(tmp_path).rows
     assert blind.moment == "evt-order-response-requested-disposition"
 
 
@@ -584,7 +600,7 @@ def test_cli_big_cases_rejects_an_unknown_process_scope(tmp_path: Path) -> None:
     assert result.exit_code != 0
 
 
-def test_cli_big_cases_defaults_to_the_frozen_scope(tmp_path: Path) -> None:
+def test_cli_big_cases_defaults_to_the_version_blind_census(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     _write_read(data_root, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
     _write_read(data_root, "scotus/2", "claude-baseline", "r1", big_case_score=0.5, digest=None)
@@ -598,7 +614,23 @@ def test_cli_big_cases_defaults_to_the_frozen_scope(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     board = BigCaseBoard.model_validate_json((tmp_path / "metrics/big-cases.json").read_text())
-    assert (board.process_scope, [row.case_id for row in board.rows]) == ("frozen", ["scotus/1"])
+    # The unstamped case is on the board: the published default reads every
+    # version, and nothing is held out.
+    assert board.process_scope == "all"
+    assert sorted(row.case_id for row in board.rows) == ["scotus/1", "scotus/2"]
+    assert board.cases_out_of_scope == 0
+    frozen = runner.invoke(
+        app,
+        ["big-cases", "--process-scope", "frozen"],
+        env={
+            "FEDCOURTS_DATA_ROOT": str(data_root),
+            "FEDCOURTS_METRICS_ROOT": str(tmp_path / "metrics"),
+        },
+    )
+    assert frozen.exit_code == 0, frozen.output
+    built = BigCaseBoard.model_validate_json((tmp_path / "metrics/big-cases.json").read_text())
+    assert (built.process_scope, [row.case_id for row in built.rows]) == ("frozen", ["scotus/1"])
+    assert built.cases_out_of_scope == 1
 
 
 def test_a_case_whose_current_moment_carries_no_score_is_off_the_board(tmp_path: Path) -> None:
@@ -917,7 +949,6 @@ def test_the_board_carries_its_reading_rules_and_the_process_label(tmp_path: Pat
     assert "neither the forward-claim exclusion nor the leakage exclusion" in (
         provenance.reading_rule
     )
-    assert "two populations" in provenance.no_time_series
     assert "mean over its moments" in provenance.leaderboard_divergence
     # All three collapses are named, so no reader differences a figure from one
     # against a figure from another, and the retired row rule is gone.
@@ -926,18 +957,54 @@ def test_the_board_carries_its_reading_rules_and_the_process_label(tmp_path: Pat
     assert "arbitrary within the round" not in provenance.collapse_rule
     assert "The scope first, then the moment, then the predictors on it" in provenance.collapse_rule
     assert "small `n`" in provenance.collapse_rule
-    # The three caveats the reviewers' reading turns on, each registered rather
-    # than left to the renderer: the forecast that rides beside the stakes read,
-    # the contamination a ledger-direct read admits, and the version blindness.
+    # Two caveats the reviewers' reading turns on, registered rather than left to
+    # the renderer: the forecast that rides beside the stakes read, and the
+    # contamination a ledger-direct read admits.
     assert "is not a claimable one" in provenance.reading_rule
     assert "partly a read of the disposition" in provenance.leakage_note
-    # The scope is a filter now, so the prose says which one and why — and says
-    # that the version-blind reading is still available under `--process-scope all`.
-    assert "`process_scope` says which process versions" in provenance.version_scope
-    assert "--process-scope all" in provenance.version_scope
-    assert "Version-blind on purpose" not in provenance.version_scope
     assert "coarse band, never an ordering" in provenance.rank_resolution
     assert "salience gate" in provenance.population
+
+
+def test_the_reading_rules_state_the_population_of_the_scope_they_were_built_at(
+    tmp_path: Path,
+) -> None:
+    # Five provenance strings carry a claim about the *population* rather than
+    # the method, so each has to be true of the build it ships on. A board that
+    # asserted version-blindness while filtering, or the frozen hold-out while
+    # filtering nothing, would publish a false caveat inside the artifact.
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    _write_read(tmp_path, "scotus/2", "claude-baseline", "r1", big_case_score=0.5, digest=None)
+
+    every = _board(tmp_path).provenance
+    assert every is not None
+    assert "and every process version" in every.reading_rule
+    assert "version-blind, and that is the default" in every.version_scope
+    assert "comparison build" in every.version_scope  # the other scope is named
+    assert "No count is differenced across a scope change" in every.version_scope
+    assert "this build spans it" in every.no_time_series
+    # At `all` the frozen partition is an axis that separates this board from the
+    # leaderboard; at `frozen` it is one they share, so the clause cannot be fixed.
+    assert "two further axes" in every.leaderboard_divergence
+    assert "held off the board by" not in every.population
+
+    frozen = _board(tmp_path, process_scope="frozen").provenance
+    assert frozen is not None
+    assert "and every process version" not in frozen.reading_rule
+    assert "scoped to the frozen partition" in frozen.reading_rule
+    assert "the comparison build, not the published" in frozen.version_scope
+    assert "No count is differenced against the `all` build" in frozen.version_scope
+    assert "one further axis" in frozen.leaderboard_divergence
+    # The selection effect is stated in the same paragraph as the population,
+    # with the count, because a reader quoting a row is reading that paragraph.
+    assert "1 case(s) off the board entirely" in frozen.version_scope
+    assert "held off the board by" in frozen.population
+    assert "selected rather than sampled" in frozen.population
+    assert "resolved" in frozen.population and "never re-predicted" in frozen.population
+    assert "cert **arrival** moment or at either **merits** moment" in frozen.population
+    assert "live-cert-and-interim slice" in frozen.population
+    # And the amendment boundary bites on the other build, not on these rows.
+    assert "post-dates that amendment" in frozen.no_time_series
 
 
 def test_the_board_stamps_no_clock_and_no_commit(tmp_path: Path) -> None:

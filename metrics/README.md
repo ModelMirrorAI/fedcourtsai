@@ -1734,8 +1734,10 @@ the rendered table) and
   how an earlier moment stays visible as history. Each answers a different
   question over a different population, so a figure from one is never
   differenced against a figure from another — and the leaderboard's is narrower
-  on two further axes this board does not share, being scoped to the frozen
-  partition and to cells a judge has graded.
+  on axes this board does not share: cells a judge has graded on either build,
+  and the frozen partition on the default `all` build, which the `frozen`
+  comparison build shares instead. The artifact's own
+  `leaderboard_divergence` string is worded for the build it ships on.
 
   **Denominators.** `n` sits beside every mean and is the count of predictors
   that gave a number. A newest run declaring **no view** — the prompt asks for
@@ -1745,8 +1747,8 @@ the rendered table) and
   is ranked with the rest and flagged by its own `n` rather than split into a
   second table: the flag is the denominator, and a reader who quotes a mean
   without it has quoted a different number — the more so under the moment-first
-  collapse, where a freshly minted moment can leave `n = 1` on a
-  three-predictor roster. `score_range` sits beside `n` for
+  collapse, where a freshly minted moment can leave `n = 1` while the board's
+  own roster (`predictors`, itself scope-dependent) holds more. `score_range` sits beside `n` for
   the same reason — a mean of 0.5 over two 0.5s and a mean of 0.5 over 0.1 and
   0.9 are not the same observation. `moment` is the third such flag, and the
   collapse sharpens rather than settles what it guards: each row is one moment,
@@ -1757,12 +1759,17 @@ the rendered table) and
   well as how big its case is.
 
   **Population.** Every case in the committed ledger carrying at least one
-  scored read on its current moment, pending and decided alike, with a status
+  **in-scope** scored read on its current moment, pending and decided alike,
+  with a status
   per row derived from `outcome.json` presence on its predicted events and the
   realized disposition on each event that has one. `status` is the **case's**
   grain, not the moment's — the one such figure on an otherwise moment-scoped
   row, so a case can read `resolved` on an earlier event while its `moment` is
-  still pending. The list is the
+  still pending. Two counts sit beside `cases` and are never added together:
+  `cases_without_score` is the predicted cases whose in-scope reads carry no
+  number — a panel that declined — and `cases_out_of_scope` is the cases no run
+  of which is in `process_scope`, which is this build refusing to read them. On
+  the default `all` build the second is zero. The list is the
   predictions', never the corpus's, so the board describes what the panel was
   asked about and is **not** a sample of the docket or of any conference.
   Display is by caption — the `event.yaml` title of the case's current moment,
@@ -1770,29 +1777,53 @@ the rendered table) and
   row — because there is no docket number in committed data; `case_id` is the
   identifier.
 
-  **Process scope.** `process_scope` says which process versions a **current
-  read** may come from, and the default is `frozen`: a run is eligible only
-  where its harness stamp is in the blessed digest set and was written at or
-  after the freeze instant — the same predicate the performance boards scope
-  on — and the freeze record it keyed on is published beside it in
-  `frozen_process`. A pre-freeze, retired-digest, shakedown or unstamped run is
-  **history** under its event, never a current read, never in `n` and never in
-  a mean; the scope is applied before the moment choice, so such a run cannot
-  move a case's moment either. The reason is that this is a census a public
-  site publishes: a panel described under one contract is readable, while one
-  pooling cells elicited under different asks is a mixture whose movements
-  nobody can attribute. The version-blind reading remains available and remains
-  honest for its own question — `fedcourts big-cases --process-scope all`
-  rebuilds over every version, shakedown cells included, and stamps
-  `process_scope: "all"` so the two are never confused. The per-event entries
-  are unfiltered on both settings.
+  **Process scope, and why the default is version-blind.** `process_scope` says
+  which process versions a **current read** may come from. The default is
+  `all`: every committed run is eligible, shakedown, pre-freeze,
+  retired-digest and unstamped cells included, because the board is a census of
+  what the panel said rather than a measurement of how well it said it, and a
+  stakes read resolves against nothing for a partition to protect.
+  `fedcourts big-cases --process-scope frozen` builds the **comparison** board,
+  admitting only runs whose harness stamp is in the blessed digest set and was
+  written at or after the freeze instant — the predicate the performance boards
+  scope on. On that build a pre-freeze, retired-digest, shakedown or unstamped
+  run is **history** under its event, never a current read, never in `n` and
+  never in a mean; the scope is applied before the moment choice, so such a run
+  cannot move a case's moment either. The per-event entries are unfiltered on
+  both settings, and both publish `process_scope` and the `frozen_process`
+  record they key on.
+
+  **What the frozen build holds out, which is why it is not the default.** It
+  does not thin the board evenly. A **resolved** case is never re-predicted, so
+  every resolved case is out of scope; and the re-predict rule
+  (`REPREDICT_MOMENTS` in `pipeline/pull.py`) re-owes only the cert
+  distribution, the CVSG and the three interim moments, so a case sitting at a
+  cert **arrival** moment or at either **merits** moment is never refilled
+  however long it waits. On today's ledger that removes 76 of 193 rows,
+  including the whole of the `all` board's top 20 — the frozen board's rank 1 is
+  the `all` board's rank 21. What is left is a live-cert-and-interim slice of a
+  selected population: a legitimate thing to look at, and the wrong thing to
+  publish as the census. The board states the hold-out in its own `population`
+  and `version_scope` provenance strings and counts it as
+  `cases_out_of_scope`.
+
+  **No count is differenced across a scope change.** Every denominator moves at
+  once, so a coverage rate that rises on the frozen build rises by construction
+  — the older cells the rate's numerator was missing are exactly the cells the
+  scope removed (`missing_reads` goes 21 → 0 on today's ledger). That is never
+  the pre-registered coverage rise
+  [docs/freeze-record.md](../docs/freeze-record.md) describes.
 
   **No time series.** The predict prompt's amendment making `big_case_score`
   required with an explicit null escape changed which cells carry a read
   ([docs/freeze-record.md](../docs/freeze-record.md)), so scores elicited
   before and after it are two populations. The board therefore publishes no
   trend and no history, and a movement across that boundary is not a
-  measurement of anything. Nor is a movement between two consecutive daily
+  measurement of anything. On the `frozen` comparison build every current read
+  post-dates that amendment, since the freeze instant does, so there the
+  boundary bites on the per-event history rather than on the rows — and no
+  trend is published there either, because a read elicited under one ask is not
+  a revision of one elicited under another. Nor is a movement between two consecutive daily
   builds: a row's mean, `n` and rank also move when its `moment` does, which is
   the docket advancing and the whole panel switching question at once, not a
   predictor changing its mind.

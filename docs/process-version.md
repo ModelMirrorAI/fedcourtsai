@@ -421,8 +421,10 @@ evaluation's own harness stamp to be at or after the freeze instant (its
 digest is recorded but not enforced), so a shakedown grading cannot ride a
 frozen re-run of its event into the headline.
 
-Three things stay all-versions on purpose, because they are censuses and
-diagnostics rather than the headline:
+Three things default to all-versions on purpose, because they are censuses and
+diagnostics rather than the headline. The first two admit no other scope; the
+third offers a frozen build alongside, and says why that build is not the one
+published:
 
 - The **prediction census** (`ledger_cell_counts` — how many predictions and
   events the funnel has) counts everything committed. A frozen scope showing many
@@ -432,14 +434,24 @@ diagnostics rather than the headline:
   frozen or not. Shakedown contamination is exactly what it exists to surface, so
   scoping it to frozen-only would blank it during the window it matters most —
   the same posture as the flags and tooling digests beside it.
-- The **big-case board** (`metrics/big-cases.{json,md}`) pools every version,
-  unstamped cells included. It publishes what the panel said about a case's
-  stakes, not how well it said it — a stakes read resolves against nothing, so
-  there is no performance claim for a partition to protect, and scoping it would
-  hide most of what the panel has read. Its `process_label` is therefore what a
-  prediction minted today would stamp and is a filter on nothing; the artifact's
-  own `version_scope` provenance string says so, because the surrounding boards'
-  frozen default makes the other reading the available one.
+- The **big-case board** (`metrics/big-cases.{json,md}`) pools every version by
+  default, unstamped cells included, and carries a `frozen` **comparison scope**
+  beside it (`fedcourts big-cases --process-scope frozen`). It publishes what the
+  panel said about a case's stakes, not how well it said it — a stakes read
+  resolves against nothing, so there is no performance claim for a partition to
+  protect. The default stays all-versions because scoping it does not thin the
+  board evenly: a resolved case is never re-predicted, and the re-predict rule
+  re-owes only the cert distribution, the CVSG and the three interim moments, so
+  a case sitting at a cert arrival moment or at either merits moment is never
+  refilled either. The frozen build is therefore a live-cert-and-interim slice of
+  a selected population rather than a smaller copy of the whole, which is a
+  legitimate thing to look at and the wrong thing to publish as the census. Both
+  builds stamp `process_scope` and the `frozen_process` record they key on, the
+  frozen one publishes its hold-out as `cases_out_of_scope`, and the artifact's
+  own scope-aware `version_scope` and `population` provenance strings say which
+  population the reader has — because the surrounding boards' frozen default
+  makes the other reading the available one. `process_label` on either build is
+  what a prediction minted today would stamp and is a filter on nothing.
 
 The generic back-test is process-independent (it replays reference baselines, not
 the tournament predictors), so it carries no process version.

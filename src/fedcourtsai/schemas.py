@@ -6600,8 +6600,10 @@ class BigCaseProvenance(_Strict):
     )
     population: str
     version_scope: str = Field(
-        description="That the board is version-blind — every process version, shakedown cells "
-        "included — unlike the frozen-scope performance boards"
+        description="What `process_scope` covers on **this** build, and what the other "
+        "scope would cost: version-blind by default, with the `frozen` comparison build's "
+        "selected hold-out stated rather than left to be inferred. Scope-aware prose — a "
+        "build states its own population, never both"
     )
     rank_resolution: str = Field(
         description="What the `#` column may be read as, given how close adjacent means are "
@@ -6633,9 +6635,12 @@ class BigCaseBoard(_Strict):
     it is not a claimable one either; scored forecast performance lives on the
     leaderboard and nowhere else. The same carve-out is why the board reads the
     committed ledger directly, applying neither the forward-claim exclusion nor
-    the leakage exclusion, and reading ungraded cells and every process version
-    besides — a wider population than the scored boards, deliberately, and a
-    caveat that has to travel with a quoted number. Where the leakage bit is set
+    the leakage exclusion and reading ungraded cells besides — a wider population
+    than the scored boards, deliberately, and a caveat that has to travel with a
+    quoted number. How wide depends on ``process_scope``, which the artifact
+    states on itself: ``all``, the default, adds every process version, while the
+    ``frozen`` comparison build narrows current reads to the blessed partition
+    and publishes what that hold-out costs. Where the leakage bit is set
     on a read, the row carries the mark: a stakes read is partly a read of the
     disposition, so a contaminated cell is not one point inside a coefficient
     here, it is the number.
@@ -6648,14 +6653,17 @@ class BigCaseBoard(_Strict):
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
     process_scope: Literal["frozen", "all"] = Field(
-        default="frozen",
-        description="Which process versions a **current read** may come from: `frozen` (the "
-        "default — only runs whose harness stamp is in the blessed digest set and was "
-        "written at or after the freeze instant, the same predicate the performance boards "
-        "scope on) or `all` (every version, shakedown and unstamped runs included). It "
-        "never filters `events`, which carries the case's whole history either way: an "
-        "out-of-scope run is relegated to history, not hidden. A `frozen` board with no "
-        "rows is the honest 'no frozen-process stakes reads yet' state, not a regression",
+        default="all",
+        description="Which process versions a **current read** may come from: `all` (the "
+        "default — every committed run, shakedown, pre-freeze and unstamped included, "
+        "which is what a census means) or `frozen` (the comparison build: only runs whose "
+        "harness stamp is in the blessed digest set and was written at or after the freeze "
+        "instant, the predicate the performance boards scope on). Never a filter on "
+        "`events`, which carries the case's whole history either way: an out-of-scope run "
+        "is relegated to history, not hidden. The `frozen` build is **not this board with "
+        "fewer rows** — its hold-out is selected, not sampled (`cases_out_of_scope`, and "
+        "the `population` provenance string) — so no count is differenced across a scope "
+        "change",
     )
     frozen_process: FrozenProcessRecord | None = Field(
         default=None,
@@ -6667,9 +6675,21 @@ class BigCaseBoard(_Strict):
     cases_without_score: int = Field(
         default=0,
         ge=0,
-        description="Cases the ledger holds predictions for whose every current read carries no "
-        "score, and which are therefore off the board. Published so `cases` is read against the "
-        "predicted population rather than as the whole of it",
+        description="Cases the ledger holds **in-scope** predictions for whose every current "
+        "read carries no score, and which are therefore off the board — a panel that "
+        "declined. Published so `cases` is read against the predicted population rather "
+        "than as the whole of it",
+    )
+    cases_out_of_scope: int = Field(
+        default=0,
+        ge=0,
+        description="Cases held off the board because no run of theirs is in "
+        "`process_scope` — zero on an `all` build. Kept apart from "
+        "`cases_without_score` because the two are different facts: that one is a panel "
+        "that declined to score, this one is a panel this build refused to read. The "
+        "held-out set is selected rather than sampled (a resolved case is never "
+        "re-predicted, and the re-predict rule re-owes neither the cert arrival moment nor "
+        "either merits moment), so it is never read as a random thinning",
     )
     predictors: list[str] = Field(
         default_factory=list,

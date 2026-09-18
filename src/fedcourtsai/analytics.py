@@ -2904,6 +2904,7 @@ def render_markdown(report: AnalyticsReport) -> str:
 #: documents (the two reasoning files, the flags) are the point of following it.
 DEFAULT_REPO_TREE_URL: Final = "https://github.com/ModelMirrorAI/fedcourtsai/tree/main"
 
+
 # The reading rules the big-case board publishes inside itself. Registered prose
 # rather than a renderer's free text: the JSON is read by a public site, where a
 # figure travels without the document that explains it, so the caveats have to
@@ -2911,19 +2912,34 @@ DEFAULT_REPO_TREE_URL: Final = "https://github.com/ModelMirrorAI/fedcourtsai/tre
 # are `metrics/README.md`'s registered carve-out, which is why they read as they
 # do there — a stakes read is outside the scored stream, and the population that
 # follows from that is wider than any board beside it.
-_BIG_CASE_READING_RULE = (
-    "A stakes read is neither scored nor ranked: it resolves against nothing, so no "
-    "**stakes** figure here is an accuracy, a calibration or an ordering of predictors, "
-    "and none may be quoted as one. The per-cell `probability` carried beside it **is** a "
-    "forecast — the cell's raw value, unstratified, unexcluded and unscored — and it is "
-    "not a claimable one either; scored forecast performance lives on the leaderboard and "
-    "nowhere else. Like the leaderboard's big-case views, this board reads the ledger "
-    "directly, so neither the forward-claim exclusion nor the leakage exclusion applies; "
-    "it is wider still than those, since it also reads cells no judge has graded and every "
-    "process version. A wider population than the scored boards, deliberately, and a caveat "
-    "that has to travel with a quoted number. The mean is a panel opinion about which cases "
-    "matter, and it says nothing about how likely any of them is to be granted."
-)
+def _big_case_reading_rule(process_scope: str) -> str:
+    """The registered carve-out, worded for the scope the board was built at.
+
+    Scope-aware because the last clause is a claim about the population: at
+    ``all`` the board genuinely reads every process version, and at ``frozen``
+    it does not, so one sentence cannot serve both without asserting something
+    false on one of them.
+    """
+    versions = (
+        "and every process version"
+        if process_scope == "all"
+        else "though its current reads are scoped to the frozen partition (see *Process scope*)"
+    )
+    return (
+        "A stakes read is neither scored nor ranked: it resolves against nothing, so no "
+        "**stakes** figure here is an accuracy, a calibration or an ordering of predictors, "
+        "and none may be quoted as one. The per-cell `probability` carried beside it **is** a "
+        "forecast — the cell's raw value, unstratified, unexcluded and unscored — and it is "
+        "not a claimable one either; scored forecast performance lives on the leaderboard and "
+        "nowhere else. Like the leaderboard's big-case views, this board reads the ledger "
+        "directly, so neither the forward-claim exclusion nor the leakage exclusion applies; "
+        "it is wider still than those, since it also reads cells no judge has graded "
+        f"{versions}. A wider population than the scored boards, deliberately, and a caveat "
+        "that has to travel with a quoted number. The mean is a panel opinion about which "
+        "cases matter, and it says nothing about how likely any of them is to be granted."
+    )
+
+
 _BIG_CASE_LEAKAGE_NOTE = (
     "A leakage-flagged read is worse here than on a board that drops it. A stakes read is "
     "partly a read of the disposition, so a predictor that saw its own outcome may have read "
@@ -2935,23 +2951,60 @@ _BIG_CASE_LEAKAGE_NOTE = (
     "flagged read on an earlier moment leaves the row unmarked while staying visible, and "
     "marked, under its own event."
 )
-_BIG_CASE_VERSION_SCOPE = (
-    "`process_scope` says which process versions a **current read** may come from, and the "
-    "default is `frozen`: a run is eligible only where its harness stamp is in the blessed "
-    "digest set and was written at or after the freeze instant — the same predicate the "
-    "performance boards scope on, and the record it keyed on travels beside it in "
-    "`frozen_process`. A pre-freeze, retired-digest, shakedown or unstamped run is **history** "
-    "under its event, never a current read, never in `n` and never in a mean. The reason is "
-    "that this is a census a public site publishes: a panel described under one contract is "
-    "readable, and one pooling cells elicited under different asks is a mixture whose "
-    "movements nobody can attribute. The version-blind reading is still available and still "
-    "honest for its own question — `--process-scope all` rebuilds the board over every "
-    'version, shakedown cells included, and stamps `process_scope: "all"` so a reader can '
-    "tell the two apart. Either way `process_label` is what a prediction minted today would "
-    "stamp, and is a label rather than the filter; the filter is `process_scope`. The "
-    "per-event entries are unfiltered on both settings, so the history a scope excludes stays "
-    "visible rather than disappearing."
-)
+
+
+def _big_case_version_scope(process_scope: str, cases_out_of_scope: int) -> str:
+    """What `process_scope` covers, and what the non-default scope costs.
+
+    The selection effect is the substance here, not a footnote: scoping to the
+    frozen partition does not thin the board evenly. It removes every case whose
+    reads all predate the freeze, and the re-predict rule
+    (:data:`fedcourtsai.pipeline.pull.REPREDICT_MOMENTS`) re-owes only the cert
+    distribution, the CVSG and the three interim moments — so a cert *arrival*
+    moment and both *merits* moments are never refilled, and a resolved case
+    never is at all. A reader handed the frozen board without that sentence would
+    read a systematically different population as the same one.
+    """
+    if process_scope == "all":
+        return (
+            '`process_scope: "all"` — **version-blind, and that is the default**: every '
+            "committed run is eligible as a current read, shakedown, pre-freeze, "
+            "retired-digest and unstamped cells included, because the board is a census of "
+            "what the panel said rather than a measurement of how well it said it, and a "
+            "stakes read resolves against nothing for a partition to protect. "
+            "`--process-scope frozen` rebuilds it as the **comparison build**, admitting "
+            "only runs whose harness stamp is in the blessed digest set and was written at "
+            "or after the freeze instant (the predicate the performance boards scope on; "
+            "the record it keys on is published in `frozen_process` on every build, this "
+            "one included). That build is not this board with fewer rows: it holds out a "
+            "systematically different population — see *Population*. `process_label` is "
+            "what a prediction minted today would stamp and is a filter on nothing here; "
+            "`process_scope` is the filter. **No count is differenced across a scope "
+            "change.** Every denominator moves at once, so a coverage rate that rises at "
+            "`frozen` rises by construction — the older cells the rate's numerator was "
+            "missing are the cells the scope removed — and is never the pre-registered "
+            "coverage rise `docs/freeze-record.md` describes."
+        )
+    return (
+        '`process_scope: "frozen"` — **the comparison build, not the published '
+        "default**. A run is eligible as a current read only where its harness stamp is in "
+        "the blessed digest set and was written at or after the freeze instant, the same "
+        "predicate the performance boards scope on; the record it keys on travels beside it "
+        "in `frozen_process`. A pre-freeze, retired-digest, shakedown or unstamped run is "
+        "**history** under its event: never a current read, never in `n`, never in a mean. "
+        "The scope is applied before the moment choice, so such a run cannot move a case's "
+        "moment either, and the per-event entries stay unfiltered so nothing disappears. "
+        f"**What it costs is not spread evenly**: it holds {cases_out_of_scope} case(s) off "
+        "the board entirely (`cases_out_of_scope`), and the held-out set is selected rather "
+        "than sampled — see *Population*. `process_label` is what a prediction minted today "
+        "would stamp and is a filter on nothing; `process_scope` is the filter. **No count "
+        "is differenced against the `all` build.** Every denominator moves at once, so a "
+        "coverage rate that rises here rises by construction — the older cells the rate's "
+        "numerator was missing are exactly the cells this scope removed — and is never the "
+        "pre-registered coverage rise `docs/freeze-record.md` describes."
+    )
+
+
 _BIG_CASE_RANK_RESOLUTION = (
     "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer "
     "together than the predictors inside a single row sit to each other, so the difference "
@@ -2997,42 +3050,102 @@ _BIG_CASE_COLLAPSE_RULE = (
     "docket has left behind. That is the honest reading, and the fuller panel on the previous "
     "moment is in the per-event entries."
 )
-_BIG_CASE_LEADERBOARD_DIVERGENCE = (
-    "Three collapses of a case exist across these artifacts, and a figure from one is "
-    "never differenced against a figure from another. (1) The leaderboard's `big_case` block "
-    "reads a case as the **mean over its moments** before correlating it with the "
-    "evaluator panel — bigness is a property of the case, so its moments are not "
-    "independent observations there. (2) A **row** on this board is one moment — the "
-    "newest moment the panel has been **asked about**, which lags the docket wherever no "
-    "cell has been dispatched on a newer event — and each predictor's newest run on it. "
-    "(3) An **event entry** on this board is each predictor's newest run on **that** "
-    "event, which is how an earlier moment stays visible as history; those reads are "
-    "never averaged into the row. Each answers a different question over a different "
-    "population — and the leaderboard's is narrower on two further axes this board does "
-    "not share, being scoped to the frozen partition and to cells a judge has graded."
-)
-_BIG_CASE_POPULATION = (
-    "Every case in the committed ledger carrying at least one **in-scope** scored read on its "
-    "current moment, pending and decided alike; `cases_without_score` counts the predicted "
-    "cases that carry none and are therefore absent — including a case whose current moment "
-    "drew only declining reads whilst an earlier moment carried scores, and a case whose "
-    "every read falls outside `process_scope`; both are history here and neither is promoted "
-    "back into a row. The list is the predictions', never the corpus's — and the predictions' "
-    "list is the salience gate's deliberately non-representative selection "
-    "(`docs/salience.md`), so the board inherits that gate and is **not** a sample of the "
-    "docket or of any conference. `status` says only whether a committed `outcome.json` sits "
-    "on the case's predicted events: `pending` means the ledger records no outcome, which is "
-    "not a statement about what the Court has done."
-)
-_BIG_CASE_NO_TIME_SERIES = (
-    "The committed ledger spans a boundary at which `big_case_score` became required with "
-    "an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two "
-    "populations — the ask changed, so which cells carry a read changed with it — and the "
-    "board therefore publishes no trend and no history. Nor is a movement between two "
-    "consecutive builds one: a row's mean, `n` and rank also move when its `moment` does, "
-    "which is the **docket** advancing and the whole panel switching question at once, not "
-    "a predictor changing its mind. A movement across either boundary measures nothing."
-)
+
+
+def _big_case_leaderboard_divergence(process_scope: str) -> str:
+    """The three collapses, and how far the leaderboard's population differs.
+
+    The closing clause is scope-aware: the frozen partition is an axis the two
+    boards *share* at ``process_scope: "frozen"`` and one that separates them at
+    ``all``, so stating it unconditionally is wrong on one of the two builds.
+    """
+    narrower = (
+        "narrower on two further axes this board does not share, being scoped to the "
+        "frozen partition and to cells a judge has graded"
+        if process_scope == "all"
+        else "narrower on one further axis this board does not share, being scoped to "
+        "cells a judge has graded; the frozen partition is an axis the two share on this "
+        "build alone"
+    )
+    return (
+        "Three collapses of a case exist across these artifacts, and a figure from one is "
+        "never differenced against a figure from another. (1) The leaderboard's `big_case` "
+        "block reads a case as the **mean over its moments** before correlating it with the "
+        "evaluator panel — bigness is a property of the case, so its moments are not "
+        "independent observations there. (2) A **row** on this board is one moment — the "
+        "newest moment the panel has been **asked about**, which lags the docket wherever "
+        "no cell has been dispatched on a newer event — and each predictor's newest run on "
+        "it. (3) An **event entry** on this board is each predictor's newest run on "
+        "**that** event, which is how an earlier moment stays visible as history; those "
+        "reads are never averaged into the row. Each answers a different question over a "
+        f"different population — and the leaderboard's is {narrower}."
+    )
+
+
+def _big_case_population(process_scope: str, cases_out_of_scope: int) -> str:
+    """Which cases are on the board, and — at ``frozen`` — which are held off it.
+
+    The held-out set is *selected*, not sampled, and this is where that has to be
+    said, because a reader quoting a row is reading this paragraph's population.
+    """
+    scope_clause = (
+        ""
+        if process_scope == "all"
+        else (
+            f" A further {cases_out_of_scope} case(s) are held off the board by "
+            '`process_scope: "frozen"` — no run of theirs is in the frozen partition — '
+            "and they are counted separately in `cases_out_of_scope` **because they are not "
+            "the same fact**: a case with no score is a panel that declined, a case out of "
+            "scope is a panel this build refused to read. That held-out set is selected "
+            "rather than sampled, and the selection is legible: a **resolved** case is "
+            "never re-predicted, so every one of them is out of scope, and the re-predict "
+            "rule (`pipeline/pull.py`) re-owes only the cert distribution, the CVSG and the "
+            "three interim moments — so a case sitting at a cert **arrival** moment or at "
+            "either **merits** moment is never refilled either, however long it waits. The "
+            "frozen board is therefore a live-cert-and-interim slice, not a smaller copy of "
+            "the whole, and no row count, rate or ranking on it is comparable to one on the "
+            "`all` build."
+        )
+    )
+    return (
+        "Every case in the committed ledger carrying at least one **in-scope** scored read "
+        "on its current moment, pending and decided alike. `cases_without_score` counts the "
+        "predicted cases whose in-scope reads carry no number at all and which are "
+        "therefore absent — including a case whose current moment drew only declining "
+        "reads whilst an earlier moment carried scores, which are history here and never "
+        f"promoted back into a row.{scope_clause} The list is the predictions', never the "
+        "corpus's — and the predictions' list is the salience gate's deliberately "
+        "non-representative selection (`docs/salience.md`), so the board inherits that gate "
+        "and is **not** a sample of the docket or of any conference. `status` says only "
+        "whether a committed `outcome.json` sits on the case's predicted events: `pending` "
+        "means the ledger records no outcome, which is not a statement about what the Court "
+        "has done."
+    )
+
+
+def _big_case_no_time_series(process_scope: str) -> str:
+    """Why no movement on this board is a measurement — under either scope."""
+    boundary = (
+        "Cells either side of it are two populations — the ask changed, so which cells "
+        "carry a read changed with it — and **this build spans it**, so the board publishes "
+        "no trend and no history."
+        if process_scope == "all"
+        else "Every current read on **this** build post-dates that amendment, since the "
+        "freeze instant does, so the boundary bites on the `all` build and on the per-event "
+        "history here rather than on these rows — and the board still publishes no trend "
+        "and no history, because a read elicited under one ask is not a revision of one "
+        "elicited under another."
+    )
+    return (
+        "The committed ledger spans a boundary at which `big_case_score` became required "
+        f"with an explicit null escape (`docs/freeze-record.md`). {boundary} Nor is a "
+        "movement between two consecutive builds a measurement: a row's mean, `n` and rank "
+        "also move when its `moment` does, which is the **docket** advancing and the whole "
+        "panel switching question at once, not a predictor changing its mind. A movement "
+        "across any of these boundaries measures nothing."
+    )
+
+
 _BIG_CASE_CAPTION_RULE = (
     "The caption is the `event.yaml` title of the case's **current moment** — the event "
     "`moment` names, which `caption_event_id` repeats so the rule is checkable against "
@@ -3044,17 +3157,26 @@ _BIG_CASE_CAPTION_RULE = (
 )
 
 
-def _big_case_provenance() -> BigCaseProvenance:
-    """The board's registered reading rules, identical on every build."""
+def _big_case_provenance(
+    *, process_scope: str = "all", cases_out_of_scope: int = 0
+) -> BigCaseProvenance:
+    """The board's registered reading rules, worded for the scope it was built at.
+
+    Five of the nine strings are scope-aware, because each carries a claim about
+    the *population* rather than about the method: asserting version-blindness on
+    a frozen build, or the frozen build's selection effect on a version-blind
+    one, would publish a false caveat inside the artifact a public site reads.
+    Deterministic in both arguments, so the board stays byte-stable.
+    """
     return BigCaseProvenance(
-        reading_rule=_BIG_CASE_READING_RULE,
+        reading_rule=_big_case_reading_rule(process_scope),
         collapse_rule=_BIG_CASE_COLLAPSE_RULE,
         leakage_note=_BIG_CASE_LEAKAGE_NOTE,
-        leaderboard_divergence=_BIG_CASE_LEADERBOARD_DIVERGENCE,
-        population=_BIG_CASE_POPULATION,
-        version_scope=_BIG_CASE_VERSION_SCOPE,
+        leaderboard_divergence=_big_case_leaderboard_divergence(process_scope),
+        population=_big_case_population(process_scope, cases_out_of_scope),
+        version_scope=_big_case_version_scope(process_scope, cases_out_of_scope),
         rank_resolution=_BIG_CASE_RANK_RESOLUTION,
-        no_time_series=_BIG_CASE_NO_TIME_SERIES,
+        no_time_series=_big_case_no_time_series(process_scope),
         caption_rule=_BIG_CASE_CAPTION_RULE,
         process_label=CURRENT_PROCESS_LABEL,
     )
@@ -3416,7 +3538,7 @@ def build_big_case_board(
     *,
     data_root: Path,
     repo_url: str = DEFAULT_REPO_TREE_URL,
-    process_scope: Literal["frozen", "all"] = "frozen",
+    process_scope: Literal["frozen", "all"] = "all",
 ) -> BigCaseBoard:
     """Roll the committed predictions into the case-centric big-case board.
 
@@ -3432,11 +3554,16 @@ def build_big_case_board(
     nothing, so the board carries no score, no ranking of predictors, and no
     exclusion borrowed from the scored surfaces.
 
-    ``process_scope`` is the one exclusion it does apply, and only to **current
-    reads**: under the default ``frozen`` a run is eligible as a read of a case
-    only where :func:`fedcourtsai.process_version.is_frozen` admits its harness
-    stamp, so the published panel is described under one contract rather than
-    pooling asks. ``all`` restores the version-blind census. Neither setting
+    ``process_scope`` is the one exclusion it can apply, and only to **current
+    reads**. The default is ``all`` — version-blind, every committed run eligible
+    — because that is what a census means and a stakes read has no performance
+    claim for a partition to protect. ``frozen`` is the **comparison build**:
+    a run is eligible only where :func:`fedcourtsai.process_version.is_frozen`
+    admits its harness stamp. It is not this board with fewer rows. A resolved
+    case is never re-predicted and the re-predict rule re-owes neither the cert
+    arrival moment nor either merits moment, so the frozen build is a
+    live-cert-and-interim slice of a selected population, which is why the
+    artifact states the hold-out beside its own row count. Neither setting
     touches ``events``, which carries every committed run of the case as history
     — an excluded run is relegated, never hidden.
     """
@@ -3468,11 +3595,21 @@ def build_big_case_board(
         is not None
     ]
     rows.sort(key=lambda row: (-row.mean_big_case_score, -row.n, row.case_id))
+    # Two different facts, kept apart: a case whose in-scope reads carry no number
+    # is a panel that declined, and a case with no in-scope run at all is a panel
+    # this build refused to read. Pooling them would publish the scope's hold-out
+    # as though the predictors had had nothing to say.
+    out_of_scope = sum(1 for case_id in by_case if not eligible_by_case[case_id])
+    scored_case_ids = {row.case_id for row in rows}
+    without_score = sum(
+        1 for case_id in by_case if eligible_by_case[case_id] and case_id not in scored_case_ids
+    )
     coverage = Counter(row.n for row in rows)
     unscored = [read for row in rows for read in row.current_reads if read.big_case_score is None]
     return BigCaseBoard(
         cases=len(rows),
-        cases_without_score=len(by_case) - len(rows),
+        cases_without_score=without_score,
+        cases_out_of_scope=out_of_scope,
         predictors=sorted(predictors),
         current_reads=sum(len(row.current_reads) for row in rows),
         scored_reads=sum(row.n for row in rows),
@@ -3493,7 +3630,9 @@ def build_big_case_board(
         rows=rows,
         process_scope=process_scope,
         frozen_process=frozen_process_record(),
-        provenance=_big_case_provenance(),
+        provenance=_big_case_provenance(
+            process_scope=process_scope, cases_out_of_scope=out_of_scope
+        ),
     )
 
 
@@ -3537,7 +3676,9 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         lines.append("_Empty — no committed prediction carries a stakes read yet._")
         return "\n".join(lines) + "\n"
 
-    provenance = board.provenance or _big_case_provenance()
+    provenance = board.provenance or _big_case_provenance(
+        process_scope=board.process_scope, cases_out_of_scope=board.cases_out_of_scope
+    )
     coverage = ", ".join(f"{entry.n} → {entry.cases} case(s)" for entry in board.coverage)
     gap = "—" if board.median_adjacent_gap is None else f"{board.median_adjacent_gap:.3f}"
     spread = "—" if board.median_score_range is None else f"{board.median_score_range:.3f}"
@@ -3561,8 +3702,9 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         "",
         f"**Population.** {provenance.population}",
         "",
-        f"**Process scope.** This board is built at `process_scope: {board.process_scope}`. "
-        f"{provenance.version_scope} The label in force today is `{provenance.process_label}`.",
+        f"**Process scope.** Built at `process_scope: {board.process_scope}`, holding "
+        f"{board.cases_out_of_scope} case(s) off the board. {provenance.version_scope} The "
+        f"label in force today is `{provenance.process_label}`.",
         "",
         f"**No time series.** {provenance.no_time_series}",
         "",
@@ -3575,9 +3717,14 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         "render as an em dash in the predictor columns — **not as a zero**, which would "
         f"fabricate a panel opinion. They split into {board.declared_no_view} declared no "
         "view(s), where the cell weighed the stakes and said it could not place them, and "
-        f"{board.missing_reads} missing read(s) with no rationale, elicited under the earlier "
-        f"prompt where the field was optional. {board.cases_without_score} predicted case(s) "
-        "carry no scored read on their current moment and are off the board. A **blank** "
+        f"{board.missing_reads} missing read(s) with no rationale — on the `all` build, "
+        "elicited under the earlier prompt where the field was optional; on the `frozen` "
+        "build every current read post-dates that amendment, so a non-zero count there is "
+        "a cell that owed a rationale and gave none. "
+        f"{board.cases_without_score} predicted case(s) carry no scored read on their "
+        f"current moment and are off the board, and a further {board.cases_out_of_scope} "
+        "are held off it by `process_scope` — a different fact, and not the panel "
+        "declining to score them. A **blank** "
         "predictor column is different again: that predictor has no run on the case's "
         "current moment, which is a coverage gap on that moment rather than a withheld "
         "view — it may hold a read of an earlier moment, carried in the per-event entries "

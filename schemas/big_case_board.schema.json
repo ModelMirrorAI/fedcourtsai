@@ -190,7 +190,7 @@
           "type": "string"
         },
         "version_scope": {
-          "description": "That the board is version-blind \u2014 every process version, shakedown cells included \u2014 unlike the frozen-scope performance boards",
+          "description": "What `process_scope` covers on **this** build, and what the other scope would cost: version-blind by default, with the `frozen` comparison build's selected hold-out stated rather than left to be inferred. Scope-aware prose \u2014 a build states its own population, never both",
           "title": "Version Scope",
           "type": "string"
         }
@@ -531,7 +531,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/big-cases.json`` \u2014 the case-centric big-case board.\n\nOne row per predicted case, carrying each predictor's current stakes read\n(`Prediction.big_case_score`) and the mean across the predictors that gave\none, ranked mean-first. It answers \"which cases does the panel think matter,\nand where do the models disagree\" \u2014 a question none of the existing\nbig-case surfaces answers, because each of those measures something *about\nthe models* rather than listing the cases.\n\n**It is not a performance surface, and its numbers are never ranked as\nskill.** A stakes read is neither scored nor ranked: it resolves against\nnothing, so no accuracy, calibration or ordering claim can be made from any\n*stakes* figure here. The per-cell ``probability`` carried beside it is a\nforecast \u2014 the cell's raw value, unstratified, unexcluded and unscored \u2014 and\nit is not a claimable one either; scored forecast performance lives on the\nleaderboard and nowhere else. The same carve-out is why the board reads the\ncommitted ledger directly, applying neither the forward-claim exclusion nor\nthe leakage exclusion, and reading ungraded cells and every process version\nbesides \u2014 a wider population than the scored boards, deliberately, and a\ncaveat that has to travel with a quoted number. Where the leakage bit is set\non a read, the row carries the mark: a stakes read is partly a read of the\ndisposition, so a contaminated cell is not one point inside a coefficient\nhere, it is the number.\n\nA pure function of the committed `data/` ledger \u2014 no corpus, no credentials,\nno clock \u2014 so reruns over an unchanged ledger reproduce both files byte for\nbyte. That is also why it carries no timestamp and no commit hash: the\nartifact's vintage is the commit that wrote it.",
+  "description": "``metrics/big-cases.json`` \u2014 the case-centric big-case board.\n\nOne row per predicted case, carrying each predictor's current stakes read\n(`Prediction.big_case_score`) and the mean across the predictors that gave\none, ranked mean-first. It answers \"which cases does the panel think matter,\nand where do the models disagree\" \u2014 a question none of the existing\nbig-case surfaces answers, because each of those measures something *about\nthe models* rather than listing the cases.\n\n**It is not a performance surface, and its numbers are never ranked as\nskill.** A stakes read is neither scored nor ranked: it resolves against\nnothing, so no accuracy, calibration or ordering claim can be made from any\n*stakes* figure here. The per-cell ``probability`` carried beside it is a\nforecast \u2014 the cell's raw value, unstratified, unexcluded and unscored \u2014 and\nit is not a claimable one either; scored forecast performance lives on the\nleaderboard and nowhere else. The same carve-out is why the board reads the\ncommitted ledger directly, applying neither the forward-claim exclusion nor\nthe leakage exclusion and reading ungraded cells besides \u2014 a wider population\nthan the scored boards, deliberately, and a caveat that has to travel with a\nquoted number. How wide depends on ``process_scope``, which the artifact\nstates on itself: ``all``, the default, adds every process version, while the\n``frozen`` comparison build narrows current reads to the blessed partition\nand publishes what that hold-out costs. Where the leakage bit is set\non a read, the row carries the mark: a stakes read is partly a read of the\ndisposition, so a contaminated cell is not one point inside a coefficient\nhere, it is the number.\n\nA pure function of the committed `data/` ledger \u2014 no corpus, no credentials,\nno clock \u2014 so reruns over an unchanged ledger reproduce both files byte for\nbyte. That is also why it carries no timestamp and no commit hash: the\nartifact's vintage is the commit that wrote it.",
   "properties": {
     "cases": {
       "default": 0,
@@ -540,9 +540,16 @@
       "title": "Cases",
       "type": "integer"
     },
+    "cases_out_of_scope": {
+      "default": 0,
+      "description": "Cases held off the board because no run of theirs is in `process_scope` \u2014 zero on an `all` build. Kept apart from `cases_without_score` because the two are different facts: that one is a panel that declined to score, this one is a panel this build refused to read. The held-out set is selected rather than sampled (a resolved case is never re-predicted, and the re-predict rule re-owes neither the cert arrival moment nor either merits moment), so it is never read as a random thinning",
+      "minimum": 0,
+      "title": "Cases Out Of Scope",
+      "type": "integer"
+    },
     "cases_without_score": {
       "default": 0,
-      "description": "Cases the ledger holds predictions for whose every current read carries no score, and which are therefore off the board. Published so `cases` is read against the predicted population rather than as the whole of it",
+      "description": "Cases the ledger holds **in-scope** predictions for whose every current read carries no score, and which are therefore off the board \u2014 a panel that declined. Published so `cases` is read against the predicted population rather than as the whole of it",
       "minimum": 0,
       "title": "Cases Without Score",
       "type": "integer"
@@ -627,8 +634,8 @@
       "type": "array"
     },
     "process_scope": {
-      "default": "frozen",
-      "description": "Which process versions a **current read** may come from: `frozen` (the default \u2014 only runs whose harness stamp is in the blessed digest set and was written at or after the freeze instant, the same predicate the performance boards scope on) or `all` (every version, shakedown and unstamped runs included). It never filters `events`, which carries the case's whole history either way: an out-of-scope run is relegated to history, not hidden. A `frozen` board with no rows is the honest 'no frozen-process stakes reads yet' state, not a regression",
+      "default": "all",
+      "description": "Which process versions a **current read** may come from: `all` (the default \u2014 every committed run, shakedown, pre-freeze and unstamped included, which is what a census means) or `frozen` (the comparison build: only runs whose harness stamp is in the blessed digest set and was written at or after the freeze instant, the predicate the performance boards scope on). Never a filter on `events`, which carries the case's whole history either way: an out-of-scope run is relegated to history, not hidden. The `frozen` build is **not this board with fewer rows** \u2014 its hold-out is selected, not sampled (`cases_out_of_scope`, and the `population` provenance string) \u2014 so no count is differenced across a scope change",
       "enum": [
         "frozen",
         "all"

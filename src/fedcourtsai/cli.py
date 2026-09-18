@@ -5740,12 +5740,16 @@ def big_cases(
         str,
         typer.Option(
             "--process-scope",
-            help="Which process versions a current read may come from: 'frozen' (default — "
-            "only runs stamped with a blessed digest at or after the freeze instant) or "
-            "'all' (every version, shakedown and unstamped runs included). Either way the "
-            "per-event history is unfiltered.",
+            help="Which process versions a current read may come from: 'all' (default — "
+            "every committed run, shakedown and unstamped included, which is what a census "
+            "means) or 'frozen' (the comparison build: only runs stamped with a blessed "
+            "digest at or after the freeze instant). Either way the per-event history is "
+            "unfiltered. The frozen build's hold-out is selected, not sampled — a resolved "
+            "case is never re-predicted and the re-predict rule re-owes neither the cert "
+            "arrival moment nor either merits moment — so no count is differenced across a "
+            "scope change.",
         ),
-    ] = "frozen",
+    ] = "all",
 ) -> None:
     """Roll the committed predictions into the big-case board at ``metrics/big-cases.{json,md}``.
 
@@ -5764,13 +5768,18 @@ def big_cases(
     population than the scored boards, stated in the artifact's own provenance
     block.
 
-    **Scoped to the frozen partition by default.** A current read must come from
-    a run whose harness stamp is blessed and post-freeze; a pre-freeze, retired,
-    shakedown or unstamped run is history under its event and never a current
-    read, never in ``n`` and never in a mean. ``--process-scope all`` restores
-    the version-blind census. The scope and the freeze record it keyed on are
-    published on the artifact, and the per-event history is unfiltered either
-    way.
+    **Version-blind by default.** Every committed run is eligible as a current
+    read, which is what a census means and what the published board wants.
+    ``--process-scope frozen`` builds the **comparison** board instead, admitting
+    only runs whose harness stamp is blessed and post-freeze; a pre-freeze,
+    retired, shakedown or unstamped run is then history under its event, never a
+    current read, never in ``n`` and never in a mean. That build is not this one
+    with fewer rows — a resolved case is never re-predicted and the re-predict
+    rule re-owes neither the cert arrival moment nor either merits moment, so it
+    is a live-cert-and-interim slice, and the artifact states the hold-out
+    (``cases_out_of_scope``) beside its own row count. The scope and the freeze
+    record it keys on are published on the artifact either way, and the per-event
+    history is never filtered.
 
     Ledger-only and offline: it reads ``data/`` and nothing else — no corpus, no
     network, no credentials — so reruns over an unchanged ledger reproduce both
@@ -5782,7 +5791,7 @@ def big_cases(
             f"unknown process scope {process_scope!r}; choose 'frozen' or 'all'",
             param_hint="--process-scope",
         )
-    scope: Literal["frozen", "all"] = "all" if process_scope == "all" else "frozen"
+    scope: Literal["frozen", "all"] = "frozen" if process_scope == "frozen" else "all"
     settings = get_settings()
     board = analytics.build_big_case_board(
         data_root=settings.data_root, repo_url=repo_url, process_scope=scope
