@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73358839",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive public forward signal from outside the provisioned record: FinCEN's final rule of Aug 11, 2026 (effective Aug 14) permanently exempts all domestic entities from CTA reporting, and the Solicitor General's Aug 21, 2026 brief in opposition in the companion petition (No. 25-1201, both distributed for the Sept 28, 2026 conference) urges denial on that basis. This predates the snapshot and is not outcome material; it drove the downward adjustment from the elevated-band anchor."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.json distribution_count is 2, but one of the two entries is a 'Rescheduled' before first consideration (June 5, 2026); the petition has never been relisted. Forecast stated from the frozen count as the contract requires, but the relist-count cut's bucket 2 should not be read as this petition's state."
+    }
+  ]
+}

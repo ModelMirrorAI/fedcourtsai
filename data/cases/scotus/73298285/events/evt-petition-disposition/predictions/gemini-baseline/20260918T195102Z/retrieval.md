@@ -1,0 +1,1 @@
+Read `metrics/statpack.md` from the workspace. No retrieval beyond the provisioned inputs.

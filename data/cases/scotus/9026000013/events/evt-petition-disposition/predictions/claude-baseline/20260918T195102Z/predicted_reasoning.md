@@ -1,0 +1,15 @@
+# Forecast: what the Court will do with No. 26-13
+
+**Disposition.** The Court will deny the petition. The likeliest path is a denial at or shortly after the September 28, 2026 long conference, moving in tandem with the companion petition of co-defendant Walid bin 'Atash (No. 25-1335), which sits on the same conference against the same D.C. Circuit judgment.
+
+**Relists.** The docket shows **one distribution** (September 9, for the September 28 conference) and no relist. I expect a better-than-even chance of no further distribution, but a substantial minority chance (about 45%) of one or two relists: this is a high-profile paid petition with three cert-stage amicus briefs, a full Solicitor General brief in opposition, and a partial dissent below, which is the profile the Court tends to carry over for a conference or two, either to let a Justice write separately on denial or because four votes are in play. If it relists, expect the bin 'Atash petition to relist with it.
+
+**CVSG.** None. The United States is the respondent and has already filed its views in a signed brief in opposition; there is nothing for the Court to call for.
+
+**Which question, if granted.** If the Court takes the case, it takes Question 1 as written or lightly reframed: whether a court of appeals has All Writs Act jurisdiction to issue mandamus in a criminal case where the government has no statutory interlocutory or final-judgment appeal, that is, how far *Will v. United States* reaches. Question 2, the "clear and indisputable" standard, is a fact-bound application dispute the Court would leave behind or fold into Question 1. A grant would most likely be limited to Question 1 and consolidated with No. 25-1335.
+
+**Summary disposition.** Very unlikely. No intervening decision of this Court bears on the mandamus question, so a GVR has nothing to point to, and the government won below on a lengthy published opinion, so a summary reversal in the petitioners' favor is not the Court's practice. Conditional on a grant, plenary review is the route.
+
+**Dissent or statement on denial.** If the Court denies, there is roughly a 30% chance that a Justice writes. The candidates are Justice Sotomayor or Justice Jackson, writing either a dissent from denial on the *Will* jurisdictional point or a statement respecting denial about the two decades of pretrial proceedings and the torture history, possibly joined by Justice Kagan. Justice Gorsuch, who has written separately on All Writs Act and jurisdictional-limit questions, is a less likely but possible author. Justice Kavanaugh took no part in the sealing motion and I expect him to take no part in the petition's disposition either.
+
+**If granted, conditionally.** The Court would likely hold, on a narrow ground, that the All Writs Act does not supply the government a route to review that Congress withheld, vacating the D.C. Circuit's writ, with the merits of the Secretary's withdrawal left for the military courts. But this is conditional content; the forecast is that the case never reaches that stage.

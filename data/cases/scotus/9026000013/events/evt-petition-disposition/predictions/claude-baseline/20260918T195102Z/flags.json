@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000013",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot's supremecourt.gov payload carries bCapitalCase=false, but the petition cover and the questions-presented file are marked CAPITAL CASE (a military-commission capital prosecution). The statpack's capital-case cut keys on the payload flag OR the docket-number annotation, so this petition is probably bucketed as unmarked; a maintainer may want to know the payload flag under-reports on commission dockets."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Justice Kavanaugh took no part in the June 29, 2026 order on the sealing motion. I treated that as a case-wide recusal and shaded the grant probability down for an eight-Justice conference; if the harness ever records participation, this is the assumption to check."
+    }
+  ]
+}

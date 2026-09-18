@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000013",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local provisioned-record and schema reads",
+    "fedcourts paths",
+    "committed statpack Markdown and JSON",
+    "jq risk-set pooling",
+    "CourtListener MCP search and search_document",
+    "web search/open attempts"
+  ],
+  "helpful": [
+    "Both parties' cert briefs permitted an adversarial assessment of the asserted splits.",
+    "Exact JSON risk-set rates avoided pooling rounded percentages or terminal bands.",
+    "CourtListener snippet retrieval verified the disputed reservation in Will without searching the target case."
+  ],
+  "gaps": [
+    "The docketed reply was not provisioned.",
+    "The petition appendix is truncated before the full lower-court record.",
+    "Generic web lookups returned no usable content."
+  ],
+  "notes": "The initial citation-only CourtListener search returned an unrelated case; adding the case name, court, and historical year located the correct opinion. The default uv cache was read-only, so commands used a writable temporary cache. No live corpus query or target-case external retrieval was needed."
+}
