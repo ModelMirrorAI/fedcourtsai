@@ -663,25 +663,48 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
     # counts are ingested rows, which this document distinguishes from walked ones.
     assert (
         "_Scope: scotus, modern discretionary-cert dockets, live/historical slice; "
-        "counts are denial-reweighted estimates. QP-bearing rows only — 2 of 3 ingested "
-        "rows labeled; grant-enriched; primaries only; not docket-representative." in md
+        "counts are denial-reweighted estimates. QP-bearing rows only — 2 of 3 in-scope "
+        "ingested rows labeled; grant-enriched; primaries only; not docket-representative." in md
     )
     assert "no reweighting recovers the docket" in md
     assert "not comparable to the sections above" in md
+    # The gap between the two counts is two gaps at once, and the labels artifact
+    # records neither size: a reader who takes it all for a fetch gap reads the
+    # labeled rows as whatever the extractor reached, and one who takes it all for
+    # a batching gap reads `2 of 3` as the labeled share of the QP-bearing frame.
+    # It is neither, so the string says the share is unstated rather than letting
+    # its own ratio stand in for one.
+    assert (
+        "The 1 unlabeled row(s) span two gaps at once — rows carrying no stored "
+        "questions-presented text, which no labeling batch can reach, and QP-bearing rows "
+        "whose batch has not come up — and the labels artifact records neither size, so "
+        "what share of the QP-bearing frame is labeled is not a number this cut can state." in md
+    )
     # The labeling frame outruns one dispatch, so the labeled rows are two
     # populations drawn on different terms — reference members with certainty,
     # the remainder as its batch comes up — which the caveat has to name with the
     # ratio between them, or the reference block's grant-enriched mix is read as
     # the frame's. Here: 2 labeled of 3, one of them a reference row (scotus/101
-    # is in `_qp_reference`), so 1 drawn of a 2-row remainder = 2.0x.
+    # is in `_qp_reference`), so 1 drawn against a 2-row remainder — an upper
+    # bound at 2.0x, since an unknown share of that remainder carries no QP text
+    # and was never in the draw's pool at all.
     assert (
         "Labeling accrues in batches, so the labeled rows are two populations on different "
         "terms: 1 hand reference-set members, carried in every batch and so included with "
-        "certainty, and 1 drawn from the remaining 2 by a Term x fee-class-stratified, "
-        "seeded-hash order. Both count once here, so the reference block — grant-enriched "
-        "by design and carrying no sampling weights — is over-represented by about 2.0x, "
-        "and this mix is not the frame's until every row is labeled." in md
+        "certainty, and 1 drawn by a Term x fee-class-stratified, seeded-hash order from "
+        "the QP-bearing part of the 2 in-scope row(s) outside that block (the 1 still "
+        "unlabeled, plus these). Both count once here, so the reference block — "
+        "grant-enriched by design and carrying no sampling weights — is over-represented by "
+        "at most about 2.0x — an upper bound over the whole of that block-outside count, "
+        "because how many of those rows carry a questions-presented text is unrecorded. A "
+        "bound taken that way does not converge: when the last QP-bearing row is labeled the "
+        "distortion has closed while this figure, whose denominator keeps counting rows no "
+        "batch could reach, still will not read 1.0x, and this mix is not the frame's until "
+        "every QP-bearing row is labeled" in md
     )
+    # The bound is never published as a measurement: the pool it would be measured
+    # over is the one number this artifact cannot supply.
+    assert "over-represented by about" not in md
     assert (
         "A naive share partly counts coordinated filing campaigns rather than subjects; "
         "no de-duplicated companion is published._" in md
@@ -714,6 +737,149 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
     assert "claim taxonomy" not in md
     assert "Summary reversals" in md
     assert "**The `granted` / `gvr` split is not comparable across Terms.**" in md
+
+
+def test_qp_topic_cut_publishes_the_raw_rows_behind_every_bucket(tmp_path: Path) -> None:
+    # Every count in the table is denial-reweighted, so `est. n=` estimates the
+    # population a bucket's rows stand for and runs above the rows anyone read —
+    # here a single sampled denial at weight 4 renders as four cases. A bucket
+    # whose disposition split rests on one petition must not read as a rate, so
+    # the raw rows are published beside the estimate and the thin buckets are
+    # named. `scotus/101` is the reference-sourced row, so its bracket is 1.
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {"scotus/101": "criminal-law", "scotus/103": "unclassifiable"},
+        reference_cases=frozenset({"scotus/101"}),
+    )
+    pack = _pack(db, labels)
+    assert pack.qp_topics is not None
+    assert [(e.label, e.rows, e.reference_rows) for e in pack.qp_topics.support] == [
+        ("criminal-law", 1, 1),
+        ("unclassifiable", 1, 0),
+    ]
+    md = analytics.render_docket_markdown(pack)
+    assert (
+        "_Rows on hand behind each bucket, reference-sourced in brackets, ordered by rows "
+        "rather than by the table's reweighted count — the raw view the reweighted "
+        "`est. n=` above does not give: `criminal-law` 1 [1], `unclassifiable` 1 [0]." in md
+    )
+    # The reweighted denominator the table prints for that one row, beside it.
+    assert "| unclassifiable | 4 | 4 | 0 | denied 100.0% (est. n=4) |" in md
+    assert (
+        "_Read the disposition split of `criminal-law`, `unclassifiable` as the rows "
+        "themselves, not as a rate: under 10 rows on hand one petition moves it by tens of "
+        "points" in md
+    )
+
+
+def test_qp_topic_support_names_only_the_buckets_under_the_floor(tmp_path: Path) -> None:
+    # The thin-bucket warning is a floor, not a standing line: a bucket with rows
+    # enough to carry a rate is not named, and a cut with no thin bucket renders
+    # the support counts alone.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=f"scotus/{200 + n}",
+                    court="scotus",
+                    docket_number=f"24-{200 + n}",
+                    disposition=Disposition.denied,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=4,
+                    distribution_count=1,
+                )
+                for n in range(12)
+            ],
+        )
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {f"scotus/{200 + n}": "criminal-law" for n in range(12)},
+    )
+    pack = _pack(db, labels)
+    assert pack.qp_topics is not None
+    assert [(e.label, e.rows) for e in pack.qp_topics.support] == [("criminal-law", 12)]
+    md = analytics.render_docket_markdown(pack)
+    assert "`criminal-law` 12 [0]" in md
+    assert "Read the disposition split of" not in md
+
+
+def test_qp_topic_over_representation_is_exact_when_nothing_in_scope_is_unlabeled(
+    tmp_path: Path,
+) -> None:
+    # With drawn rows present but nothing in scope left unlabeled there is no
+    # unknown to bound: both populations entered at the same rate, and publishing
+    # a bound would caveat a figure the pass can state exactly.
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {
+            "scotus/101": "criminal-law",
+            "scotus/102": "criminal-law",
+            "scotus/103": "unclassifiable",
+        },
+        reference_cases=frozenset({"scotus/101"}),
+    )
+    md = analytics.render_docket_markdown(_pack(db, labels))
+    assert (
+        "is over-represented by no factor — every in-scope row is labeled, so both entered "
+        "at the same rate" in md
+    )
+    assert "is over-represented by at most about" not in md
+
+
+def test_qp_topic_over_representation_is_unbounded_with_no_drawn_row(tmp_path: Path) -> None:
+    # A cut made of reference rows alone is the strongest form of the caveat: the
+    # drawn population's inclusion rate is zero, so the factor is unbounded rather
+    # than large and must not round to a finite-looking number.
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {"scotus/101": "criminal-law"},
+        reference_cases=frozenset({"scotus/101"}),
+    )
+    md = analytics.render_docket_markdown(_pack(db, labels))
+    assert (
+        "is over-represented by an unbounded factor — every labeled row here is a "
+        "reference-set member" in md
+    )
+    assert "at most about" not in md
+
+
+def test_qp_topic_over_representation_closes_when_the_frame_is_fully_labeled(
+    tmp_path: Path,
+) -> None:
+    # The distortion the bound describes closes on its own as the frame clears:
+    # with nothing in scope unlabeled there is no remainder to be
+    # over-represented against, and a bound over an empty pool would be a
+    # division the section must never publish.
+    db = tmp_path / "corpus.db"
+    _qp_corpus(db)
+    labels = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {
+            "scotus/101": "criminal-law",
+            "scotus/102": "criminal-law",
+            "scotus/103": "unclassifiable",
+        },
+        reference_cases=frozenset({"scotus/101", "scotus/102", "scotus/103"}),
+    )
+    md = analytics.render_docket_markdown(_pack(db, labels))
+    assert "QP-bearing rows only — 3 of 3 in-scope ingested rows labeled" in md
+    assert (
+        "No in-scope row is unlabeled, so the labeled rows are every row this section's "
+        "scope holds; the QP-bearing frame they were drawn from is a subset of it, of "
+        "unrecorded size." in md
+    )
+    assert (
+        "is over-represented by no factor — every in-scope row is labeled, so both entered "
+        "at the same rate" in md
+    )
 
 
 def test_qp_topic_cut_publishes_no_secondary_or_vehicle_facet(tmp_path: Path) -> None:

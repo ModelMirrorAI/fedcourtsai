@@ -1627,9 +1627,17 @@ the rendered table) and
   **not** accuracy), the labels that vocabulary cannot yet measure, and the inline
   scope string it requires — which says in the same breath that no reweighting
   recovers the docket, so that cut's `est. n=` is the one denominator here that
-  rescales a QP-bearing stream rather than estimating a docket population. No
-  labeler has run, so the document names the missing distribution among its gaps
-  instead. The document names the other statistics it
+  rescales a QP-bearing stream rather than estimating a docket population. The
+  labeled rows are a **partial frame** — the labeling accrues one batch a run —
+  so that scope string also names what the gap between labeled and in-scope rows
+  is made of, and bounds rather than measures the reference block's
+  over-representation: nothing the pack reads records how many unlabeled rows
+  carry a questions-presented text at all. Each bucket also prints the rows on
+  hand behind it, and its reference-sourced share of them, because a
+  denial-reweighted `est. n=` runs above the rows read and the thinnest buckets
+  here rest on a handful. The committed copy of the document names the missing
+  distribution among its gaps until someone runs `fedcourts docket` where the
+  corpus is pulled — it is on demand, on no schedule. The document names the other statistics it
   cannot yet compute the same way (summary reversals, which have a disposition
   label no resolver mints — `Outcome.disposition_route` marks the class on a
   resolving grant, but that marker feeds no published cut, so the pack's
@@ -1723,7 +1731,7 @@ court below — the parsed merits judgments carry no cut by originating court).
 **What may be claimed from an agreement rate.** A `qp-topic-v0` labeling run
 (`data/qp-topics/qp-topics.json`, `docs/qp-topic.md`) produces one instrument
 this document does not otherwise carry, and it is not a skill number: it is
-**agreement with a single agent reference rater, never accuracy**. Reference
+**agreement with the v0 reference raters, never accuracy**. Reference
 error and labeler error cannot be separated — least of all on the boundary
 labels, which is where the disagreement lives — and the reference rater was
 itself an agent session, so agreement with a labeler of the same model family
@@ -1735,14 +1743,18 @@ rate alone is unreadable, and only the distance
 above the floor is anything a labeler did. **Per-label rates only at or above
 the support floor** — five of the sixteen labels have fewer than 10 reference
 examples, and under the floor a label is published as a raw count, not a rate.
-**Nothing transfers to a topic cut yet**: the founding reference block
-contains every QP-bearing grant and 40 of 855 denials, so its rate certifies
-the grant stream only. The **stratified supplement** (164 texts — adding 100
+**A pooled rate is not a per-stream one**: the founding reference block
+contains every QP-bearing grant and 40 of 855 denials, so that block's rate
+certifies the grant stream only. The **stratified supplement** (164 texts — adding 100
 of the remaining 815 QP-bearing denials, which brings the set to 140 of 855,
 plus 44 of 87 GVR and 20 of 83 dismissed) is the block a denial-heavy cut's
-quality is conditioned on, and it exists but is not yet measured — no labeler
-has been scored against it — so the denial/IFP stream that dominates any
-reweighted cut stays unmeasured until the first labeler run is scored. The deterministic shadow rules'
+quality is conditioned on, and every batch **covers** it: the first cleared all
+353 entries of both blocks with none uncovered, which is the coverage condition
+a published cut waited on. It is not a rate for the supplement — a pooled figure
+is the same however the disagreements fall between the blocks — so the pooled
+rate still certifies the grant stream, and the denial/IFP stream that dominates
+any reweighted cut is measured at review rather than by the artifact, which
+carries the pooled figure only. The deterministic shadow rules'
 disagreement count is a regression trip-wire on one labeler's movement between
 runs, not a second measurement — its *level* is uninterpretable off the
 reference set. **The artifact accrues and the headline rate does not**: the
