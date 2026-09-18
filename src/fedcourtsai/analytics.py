@@ -31,6 +31,7 @@ from .config import StatpackConfig
 from .corpus import CorpusRow, strip_docket_annotation
 from .integrity import cell_clock, leakage_excluded
 from .paths import CasePaths
+from .pipeline import moments as moment_registry
 from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
 from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from .pipeline.interim_signals import ApplicationKind
@@ -73,11 +74,13 @@ from .schemas import (
     FeeClass,
     GroupBy,
     Judgment,
+    Moment,
     Outcome,
     PredictableEvent,
     QpTopicLabel,
     QpTopicLabels,
     QpTopicSupport,
+    Stage,
     StatPack,
     StatPackCoverage,
     StatPackInterim,
@@ -2927,7 +2930,10 @@ _BIG_CASE_LEAKAGE_NOTE = (
     "the stakes off it too — and on this board that cell is not one point inside a "
     "coefficient, it is the published number. Every read and every row carries "
     "`leakage_suspected`, set where any committed grading of that run recorded the bit. Read a "
-    "marked row as evidence about the cell, not about the case."
+    "marked row as evidence about the cell, not about the case. The **row** mark is "
+    "moment-scoped like every other row figure: it covers the reads the row publishes, so a "
+    "flagged read on an earlier moment leaves the row unmarked while staying visible, and "
+    "marked, under its own event."
 )
 _BIG_CASE_VERSION_SCOPE = (
     "Version-blind on purpose: the board pools every process version, shakedown cells and "
@@ -2941,31 +2947,65 @@ _BIG_CASE_RANK_RESOLUTION = (
     "together than the predictors inside a single row sit to each other, so the difference "
     "between two adjacent ranks is smaller than the disagreement the ranks are built from. "
     "`median_adjacent_gap` and `median_score_range` are published beside each other so that "
-    "comparison can be made rather than assumed."
+    "comparison can be made rather than assumed. The moment-first collapse sharpens this "
+    "rather than settling it: each row is one moment, so a row's mean **is** comparable "
+    "across its own predictors, but two rows on different moments are not comparable to "
+    "each other and the `#` column orders across moments anyway. The panel reads stakes "
+    "systematically higher at later moments, so a row's position reflects which question "
+    "its panel answered as well as how big its case is."
 )
 _BIG_CASE_COLLAPSE_RULE = (
-    "One read per predictor per case: the predictor's newest prediction run across the "
-    "case's events, newest by the harness-written cell clock (the process stamp, else "
-    "`created_at`) rather than by directory name, ties broken by run id then event id. "
-    "An earlier run is listed under its event as history and is never averaged in. A "
-    "newest run carrying no score is excluded from the mean and from `n` — never imputed, "
-    "never counted as a zero. **Where a case's moments were predicted in the same round, "
-    "'newest' is a harness completion-time artifact and not a later information set**: the "
-    "two cells ran minutes apart on the same dispatch, so which one wins is arbitrary within "
-    "the round, and the mean can pool one predictor's read of one moment with another's read "
-    "of another. The per-event entries are there so that is visible rather than inferred."
+    "The moment first, then the predictors on it, so the reads a row averages are answers "
+    "to the same question. The case's current moment (`moment`, with "
+    "`moment_opened_at` beside it) is chosen from the **docket** rather than from run "
+    "times — with the one fallback named below, where the docket gives no date at all: "
+    "the newest **predicted** event by its `opened_at`, which lags the docket wherever no "
+    "cell has been dispatched on a newer event; ties broken by the docket's stage "
+    "progression — the petition's arrival, then its distribution, then the interim "
+    "application's arrival, the response requested on it and the response filed, then the "
+    "CVSG, then the merits moments — and then by event id, so a date collision never "
+    "inverts the order a case is actually walked in. An event whose definition records no "
+    "`opened_at` is ordered by the **day** of its first prediction's harness clock, which "
+    "therefore falls through to the same tie-break. One exception the pre-registration "
+    "records (`docs/freeze-record.md`): the cert petition baseline's `opened_at` is "
+    "**docketing**, while the moment it declares is the distribution, so on those rows "
+    "`moment_opened_at` is the day the petition reached the docket rather than the day its "
+    "moment arrived. It is used as an ordering key regardless, because it is still the "
+    "docket's own date and still moves only when the docket does. A re-predict of an older "
+    "moment cannot move the case's moment; only a newly predicted moment can. Each predictor's "
+    "read is then its newest run **on that moment**, newest by the harness-written cell "
+    "clock (the process stamp, else `created_at`) rather than by directory name, ties "
+    "broken by run id. A predictor with no run on that moment is excluded from `n` and "
+    "from the mean exactly as a declared no view is — never carried over from an older "
+    "moment, never imputed, never counted as a zero; its earlier read is history, listed "
+    "under its own event and never averaged in. **The coverage consequence to read for**: "
+    "where a fresh moment has been minted for some predictors and not others, the row "
+    "shows the newest moment at a small `n` rather than a fuller `n` on a stage the "
+    "docket has left behind. That is the honest reading, and the fuller panel on the "
+    "previous moment is in the per-event entries."
 )
 _BIG_CASE_LEADERBOARD_DIVERGENCE = (
-    "This is not the leaderboard's big-case block. That block reads a case as the "
-    "**mean over its moments** before correlating it with the evaluator panel; this "
-    "board reads a case as its **newest** moment. The two answer different questions "
-    "over different collapses, so a figure here is never differenced against one there."
+    "Three collapses of a case exist across these artifacts, and a figure from one is "
+    "never differenced against a figure from another. (1) The leaderboard's `big_case` block "
+    "reads a case as the **mean over its moments** before correlating it with the "
+    "evaluator panel — bigness is a property of the case, so its moments are not "
+    "independent observations there. (2) A **row** on this board is one moment — the "
+    "newest moment the panel has been **asked about**, which lags the docket wherever no "
+    "cell has been dispatched on a newer event — and each predictor's newest run on it. "
+    "(3) An **event entry** on this board is each predictor's newest run on **that** "
+    "event, which is how an earlier moment stays visible as history; those reads are "
+    "never averaged into the row. Each answers a different question over a different "
+    "population — and the leaderboard's is narrower on two further axes this board does "
+    "not share, being scoped to the frozen partition and to cells a judge has graded."
 )
 _BIG_CASE_POPULATION = (
-    "Every case in the committed ledger carrying at least one scored current read, pending "
-    "and decided alike; `cases_without_score` counts the predicted cases that carry none and "
-    "are therefore absent. The list is the predictions', never the corpus's — and the "
-    "predictions' list is the salience gate's deliberately non-representative selection "
+    "Every case in the committed ledger carrying at least one scored read **on its current "
+    "moment**, pending and decided alike; `cases_without_score` counts the predicted cases "
+    "that carry none and are therefore absent — including a case whose current moment drew "
+    "only declining reads whilst an earlier moment carried scores, which are history here "
+    "and never promoted back into a row. The list is the predictions', never the corpus's "
+    "— and the predictions' list is the salience gate's deliberately non-representative "
+    "selection "
     "(`docs/salience.md`), so the board inherits that gate and is **not** a sample of the "
     "docket or of any conference. `status` says only whether a committed `outcome.json` sits "
     "on the case's predicted events: `pending` means the ledger records no outcome, which is "
@@ -2975,15 +3015,19 @@ _BIG_CASE_NO_TIME_SERIES = (
     "The committed ledger spans a boundary at which `big_case_score` became required with "
     "an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two "
     "populations — the ask changed, so which cells carry a read changed with it — and the "
-    "board therefore publishes no trend and no history. A movement across that boundary "
-    "measures nothing."
+    "board therefore publishes no trend and no history. Nor is a movement between two "
+    "consecutive builds one: a row's mean, `n` and rank also move when its `moment` does, "
+    "which is the **docket** advancing and the whole panel switching question at once, not "
+    "a predictor changing its mind. A movement across either boundary measures nothing."
 )
 _BIG_CASE_CAPTION_RULE = (
-    "The caption is the `event.yaml` title of the event carrying the case's newest "
-    "**scoring** current read, so a case read at two moments displays under the moment a "
-    "number actually came from and a declining read never decides the caption. Ties run "
-    "run id, then event id, then predictor id. There is no docket number in committed "
-    "data; `case_id` is the identifier and the caption is the human handle."
+    "The caption is the `event.yaml` title of the case's **current moment** — the event "
+    "`moment` names, which `caption_event_id` repeats so the rule is checkable against "
+    "the row without a join. A case read at two moments therefore displays under the one "
+    "its panel was collapsed to, and a row is on the board at all only where that moment "
+    "carries a score, so the caption never advertises a moment no number came from. A "
+    "case whose event definition is absent displays no caption. There is no docket number "
+    "in committed data; `case_id` is the identifier and the caption is the human handle."
 )
 
 
@@ -3089,6 +3133,107 @@ def _is_leakage_flagged(row: LedgerPrediction, leakage: _Leakage) -> bool:
     return key in leakage.run_blind and leakage.newest.get(key) == row.run_id
 
 
+#: The declared forecast moments in **docket order** — the tie-break when two of a
+#: case's events carry the same `opened_at`, so a stage progression never inverts on
+#: a date collision. Flat rather than stage-major: an interim response comes earlier
+#: in a docket's life than a cert CVSG, and the order a reader checks the rule
+#: against is the order the docket walks. It is not
+#: :data:`fedcourtsai.pipeline.moments.DECLARED_MOMENTS`' own ordering, which is
+#: registry order (the cert arrival moment carries the last cert ordinal while
+#: preceding every distribution) — a test pins the two against each other, so a newly
+#: registered moment cannot arrive without a position here.
+_BIG_CASE_MOMENT_ORDER: Final[tuple[tuple[Stage, Moment], ...]] = (
+    (Stage.cert, Moment.arrival),
+    (Stage.cert, Moment.distribution),
+    (Stage.interim, Moment.arrival),
+    (Stage.interim, Moment.response_requested),
+    (Stage.interim, Moment.response_filed),
+    (Stage.cert, Moment.cvsg),
+    (Stage.merits, Moment.grant),
+    (Stage.merits, Moment.briefed),
+)
+
+_BIG_CASE_MOMENT_RANK: Final[dict[tuple[Stage, Moment], int]] = {
+    pair: rank for rank, pair in enumerate(_BIG_CASE_MOMENT_ORDER)
+}
+
+
+def _moment_rank(event_id: str) -> int:
+    """Where ``event_id`` sits in the docket's stage progression.
+
+    ``-1`` for an event the moment registry does not declare — an entry-pinned
+    event, or an id written before that table existed. Sorting those *below*
+    every declared moment is the conservative direction for a tie-break that
+    decides which moment a case is collapsed to: an id whose stage cannot be
+    stated never displaces a moment whose stage can. The final tie-break is the
+    event id, so the order stays total either way.
+    """
+    spec = moment_registry.spec_for(event_id)
+    if spec is None:
+        return -1
+    return _BIG_CASE_MOMENT_RANK.get((spec.stage, spec.moment), -1)
+
+
+def _event_definitions(
+    rows: list[LedgerPrediction], *, data_root: Path
+) -> dict[str, PredictableEvent | None]:
+    """Each predicted event's ``event.yaml``, read once for the whole row.
+
+    ``None`` where the ledger carries predictions under an event whose definition
+    is absent — which `validate` refuses but the board reports rather than fails
+    on. Read once because two readers need it: the moment choice needs
+    ``opened_at``, and the per-event history needs the title.
+    """
+    paths = CasePaths(data_root, rows[0].court_id, rows[0].docket_id)
+    definitions: dict[str, PredictableEvent | None] = {}
+    for event_id in sorted({row.event_id for row in rows}):
+        event_file = paths.event(event_id).event_file
+        definitions[event_id] = (
+            read_model(event_file, PredictableEvent) if event_file.is_file() else None
+        )
+    return definitions
+
+
+def _moment_key(
+    event_id: str, rows: list[LedgerPrediction], definition: PredictableEvent | None
+) -> tuple[date, int, str]:
+    """The docket-order key one predicted event is chosen on.
+
+    ``opened_at`` first — the docket's own date, which is why a re-predict cannot
+    move a case's moment — then the stage progression, then the event id so the
+    order is total.
+
+    ``opened_at`` is the *event's* date, which for the cert petition baseline is
+    docketing rather than the distribution it declares
+    (``opened_at_is_the_moment=False`` in :mod:`fedcourtsai.pipeline.moments`).
+    It is ordered on anyway: the distribution has no date in committed data, and
+    docketing is still a docket fact that moves only when the docket does, which
+    is the property the choice rests on. The registered prose names the exception
+    so a published ``moment_opened_at`` is not read as the moment's own day.
+
+    An event whose definition records no ``opened_at`` (or carries
+    no definition at all) falls back to the day of its **first** prediction's
+    harness clock: the earliest run is the one that dates the moment, since a
+    later re-predict of the same moment must not make it look newer than a moment
+    minted after it.
+    """
+    opened_at = definition.opened_at if definition is not None else None
+    if opened_at is None:
+        opened_at = min(cell_clock(row.prediction) for row in rows).date()
+    return (opened_at, _moment_rank(event_id), event_id)
+
+
+def _case_moment(
+    by_event: dict[str, list[LedgerPrediction]],
+    definitions: dict[str, PredictableEvent | None],
+) -> str:
+    """The case's current moment: the newest predicted event, chosen from the docket."""
+    return max(
+        by_event,
+        key=lambda event_id: _moment_key(event_id, by_event[event_id], definitions[event_id]),
+    )
+
+
 def _big_case_read(row: LedgerPrediction, *, repo_url: str, leakage: _Leakage) -> BigCaseRead:
     """One collapsed run rendered as a board entry.
 
@@ -3115,9 +3260,19 @@ def _big_case_read(row: LedgerPrediction, *, repo_url: str, leakage: _Leakage) -
 
 
 def _big_case_events(
-    rows: list[LedgerPrediction], *, data_root: Path, repo_url: str, leakage: _Leakage
+    rows: list[LedgerPrediction],
+    *,
+    definitions: dict[str, PredictableEvent | None],
+    data_root: Path,
+    repo_url: str,
+    leakage: _Leakage,
 ) -> list[BigCaseEvent]:
     """One case's predicted events, each with every predictor's newest read of it.
+
+    The board's **history** collapse, and a different one from the row's: here a
+    read is a predictor's newest run on *that* event, so a predictor's read of an
+    earlier moment stays visible rather than being averaged into a row that
+    collapsed the case to a later one.
 
     The outcome is read from the event's own ``outcome.json`` rather than from
     the corpus: the board is ledger-only by contract, and a committed outcome is
@@ -3129,11 +3284,7 @@ def _big_case_events(
     events: list[BigCaseEvent] = []
     for event_id in sorted(by_event):
         event_paths = CasePaths(data_root, rows[0].court_id, rows[0].docket_id).event(event_id)
-        definition = (
-            read_model(event_paths.event_file, PredictableEvent)
-            if event_paths.event_file.is_file()
-            else None
-        )
+        definition = definitions[event_id]
         outcome = (
             read_model(event_paths.outcome, Outcome) if event_paths.outcome.is_file() else None
         )
@@ -3171,12 +3322,20 @@ def _big_case_row(
 ) -> BigCaseRow | None:
     """One case's board row, or ``None`` where no predictor holds a current score.
 
-    The population filter lives here rather than in the caller because it is the
-    same computation: a case is on the board iff the collapse leaves at least one
-    number to average.
+    The moment is chosen first and the panel is read off it, so the reads the mean
+    pools are answers to the same question: a predictor whose newest run sits on an
+    older moment is absent from the row rather than pooled into it, and its read
+    stays under its own event as history. The population filter lives here rather
+    than in the caller because it is the same computation: a case is on the board
+    iff the collapse leaves at least one number to average.
     """
-    by_predictor: dict[str, list[LedgerPrediction]] = defaultdict(list)
+    by_event: dict[str, list[LedgerPrediction]] = defaultdict(list)
     for row in case_rows:
+        by_event[row.event_id].append(row)
+    definitions = _event_definitions(case_rows, data_root=data_root)
+    moment = _case_moment(by_event, definitions)
+    by_predictor: dict[str, list[LedgerPrediction]] = defaultdict(list)
+    for row in by_event[moment]:
         by_predictor[row.predictor_id].append(row)
     current = {
         predictor_id: _newest_run(runs) for predictor_id, runs in sorted(by_predictor.items())
@@ -3188,25 +3347,23 @@ def _big_case_row(
     ]
     if not scores:
         return None
-    # The caption displays the moment the case's number came from, so it is taken
-    # from the newest read that actually carries a score — a declining read has no
-    # moment to display. `_newest_run`'s tie-break reaches event id; a full tie
-    # between two predictors is resolved by predictor id, which `current` is
-    # already ordered on.
-    caption_row = _newest_run(
-        [row for row in current.values() if row.prediction.big_case_score is not None]
+    events = _big_case_events(
+        case_rows,
+        definitions=definitions,
+        data_root=data_root,
+        repo_url=repo_url,
+        leakage=leakage,
     )
-    events = _big_case_events(case_rows, data_root=data_root, repo_url=repo_url, leakage=leakage)
-    caption = next(
-        (event.title for event in events if event.event_id == caption_row.event_id), None
-    )
+    moment_definition = definitions[moment]
     first = case_rows[0]
     return BigCaseRow(
         case_id=first.case_id,
         court_id=first.court_id,
         docket_id=first.docket_id,
-        caption=caption,
-        caption_event_id=caption_row.event_id,
+        moment=moment,
+        moment_opened_at=moment_definition.opened_at if moment_definition is not None else None,
+        caption=moment_definition.title if moment_definition is not None else None,
+        caption_event_id=moment,
         status=_big_case_status(events),
         mean_big_case_score=round(sum(scores) / len(scores), 4),
         n=len(scores),
@@ -3304,8 +3461,10 @@ def _big_case_score_cell(read: BigCaseCurrentRead | None) -> str:
 
     The three are different facts and the table has to keep them apart. A score
     is a number. An em dash is a read that carries none — never a zero, which
-    would fabricate a panel opinion. A blank is a predictor that did not read
-    this case at all, which is a coverage gap rather than a withheld view.
+    would fabricate a panel opinion. A blank is a predictor with no run on the
+    case's current moment, which is a coverage gap on that moment rather than a
+    withheld view — it may hold a read of an earlier one, which the per-event
+    entries carry as history.
     """
     if read is None:
         return ""
@@ -3347,7 +3506,7 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         "",
         f"**The collapse.** {provenance.collapse_rule}",
         "",
-        f"**Against the leaderboard.** {provenance.leaderboard_divergence}",
+        f"**Against the other collapses.** {provenance.leaderboard_divergence}",
         "",
         f"**Population.** {provenance.population}",
         "",
@@ -3367,14 +3526,20 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         "view(s), where the cell weighed the stakes and said it could not place them, and "
         f"{board.missing_reads} missing read(s) with no rationale, elicited under the earlier "
         f"prompt where the field was optional. {board.cases_without_score} predicted case(s) "
-        "carry no scored read at all and are off the board. A **blank** predictor column is "
-        "different again: that predictor did not read the case, which is a coverage gap "
-        f"rather than a withheld view. Cases by scoring predictors: {coverage}.",
+        "carry no scored read on their current moment and are off the board. A **blank** "
+        "predictor column is different again: that predictor has no run on the case's "
+        "current moment, which is a coverage gap on that moment rather than a withheld "
+        "view — it may hold a read of an earlier moment, carried in the per-event entries "
+        f"as history. Cases by scoring predictors: {coverage}.",
         "",
-        "| # | case | caption | mean | n | range | "
+        # The moment gets its own column because the caption cannot carry it: a
+        # party caption is the same string at every moment of a case, so a row
+        # whose mean and `n` moved because its moment moved would otherwise show
+        # no cause in the diff this document is reviewed as.
+        "| # | case | caption | moment | mean | n | range | "
         + " | ".join(board.predictors)
         + " | status | leak |",
-        "| --: | --- | --- | --: | --: | --: | "
+        "| --: | --- | --- | --- | --: | --: | --: | "
         + " | ".join("--:" for _ in board.predictors)
         + " | --- | --- |",
     ]
@@ -3385,6 +3550,7 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         )
         lines.append(
             f"| {rank} | `{row.case_id}` | {_md_cell(row.caption or '—')} | "
+            f"{f'`{row.moment}`' if row.moment else '—'} | "
             f"{row.mean_big_case_score:.3f} | {row.n} | {row.score_range:.3f} | {cells} | "
             f"{row.status} | {'yes' if row.leakage_suspected else '—'} |"
         )
@@ -3394,6 +3560,9 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         + "reads of 0.5 and 0.5 is a panel that agrees, and one over 0.1 and 0.9 is a panel "
         + "that does not. A `yes` in `leak` means at least one of the row's reads sits on a "
         + "cell a judge flagged as having seen its own outcome; that row is evidence about "
-        + "the cell, not about the case.",
+        + "the cell, not about the case. Read `moment` before comparing two rows: each row "
+        + "is one moment, so its mean is comparable across its own predictors, but two rows "
+        + "on different moments answer different questions and the `#` column orders across "
+        + "them regardless.",
     ]
     return "\n".join(lines) + "\n"

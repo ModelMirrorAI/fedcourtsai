@@ -6419,9 +6419,11 @@ class BigCaseRead(_Strict):
 class BigCaseEvent(_Strict):
     """One event of a case, with every predictor's newest read of it.
 
-    Present for every event carrying at least one prediction, whether or not any
-    read on it survived the case-level collapse — an earlier moment is history a
-    reader can see, not a number the mean counts twice.
+    Present for every event carrying at least one prediction, whether or not it
+    is the case's current moment — an earlier moment is history a reader can see,
+    not a number the row's mean counts. A distinct collapse from the row's, and
+    the two are never differenced: this one is newest-run-per-predictor **on this
+    event**, and it is where a predictor lagging the case's moment keeps its read.
     """
 
     event_id: str
@@ -6445,10 +6447,12 @@ class BigCaseEvent(_Strict):
 class BigCaseCurrentRead(_Strict):
     """A predictor's current read of a case, and where it came from.
 
-    The collapse the mean is taken over: one read per predictor per case, from
-    the predictor's newest run **across the case's events**. The event and run
-    travel with the number because a case can be read at several moments and
-    "which moment is this" is not recoverable from the score.
+    The collapse the mean is taken over: one read per predictor, from that
+    predictor's newest run on the **case's current moment** (`BigCaseRow.moment`)
+    — never carried over from an older moment, which is history under its own
+    event. The event and run travel with the number anyway, because a case can be
+    read at several moments and "which moment is this" is not recoverable from
+    the score; on a published row the event is always the row's `moment`.
     """
 
     predictor_id: str
@@ -6475,23 +6479,54 @@ class BigCaseCurrentRead(_Strict):
 
 
 class BigCaseRow(_Strict):
-    """One case on the board: the panel's current stakes reads and their mean."""
+    """One case on the board: the panel's current stakes reads and their mean.
+
+    One **moment** per row, and every read on it: the case is collapsed to the
+    newest moment its docket has reached (`moment`), and each predictor's read is
+    its newest run on that moment. A predictor with no run there is absent from
+    the row rather than pooled into it from an older moment, so the reads the
+    mean is taken over are answers to the same question — at the cost of a
+    smaller `n` where a fresh moment has been minted for only some of the panel.
+    """
 
     case_id: str
     court_id: str
     docket_id: int
+    moment: str | None = Field(
+        default=None,
+        description="The event id of the case's current moment — the moment every read on "
+        "this row sits on. Chosen from the docket rather than from run times: the newest "
+        "predicted event by `opened_at`, ties broken by the stage progression then by event "
+        "id, so a re-predict of an older moment cannot move it. None only on a row written "
+        "before the field existed",
+    )
+    moment_opened_at: date | None = Field(
+        default=None,
+        description="`moment`'s `opened_at` — the docket date the row was collapsed on, "
+        "which is the *event's* date and not always the day the moment it declares "
+        "arrived: on a cert petition baseline it is docketing, while the moment is the "
+        "distribution (`docs/freeze-record.md`). None where the event definition records "
+        "no date, and None where the ledger carries no definition for that event at all "
+        "(as `caption` then is); in either case the moment was ordered by the day of its "
+        "first prediction's harness clock instead",
+    )
     caption: str | None = Field(
         default=None,
-        description="The case's display name: the `event.yaml` title of the event carrying "
-        "the case's newest current read. There is no docket number in committed data, so "
-        "the caption is the only human handle and `case_id` is the identifier",
+        description="The case's display name: the `event.yaml` title of `moment`. There is "
+        "no docket number in committed data, so the caption is the only human handle and "
+        "`case_id` is the identifier",
     )
     caption_event_id: str | None = Field(
-        default=None, description="The event the caption was read from, so the rule is checkable"
+        default=None,
+        description="The event the caption was read from — `moment`, repeated here so the "
+        "rule is checkable against the row without a join",
     )
     status: Literal["pending", "partly_resolved", "resolved"] = Field(
-        description="Resolution state across the case's predicted events, derived from "
-        "`outcome.json` presence: none resolved, some resolved, all resolved"
+        description="Resolution state across **all** the case's predicted events, derived "
+        "from `outcome.json` presence: none resolved, some resolved, all resolved. The one "
+        "case-grain figure on an otherwise moment-scoped row — a case can read `resolved` "
+        "on an earlier event while `moment` is still pending, so it is never read as the "
+        "moment's own state"
     )
     mean_big_case_score: float = Field(
         ge=0.0,
@@ -6504,8 +6539,12 @@ class BigCaseRow(_Strict):
         description="How many predictors the mean is over. Always beside the mean: with "
         "three predictors on the roster a mean over one is a single model's opinion",
     )
-    score_min: float = Field(ge=0.0, le=1.0, description="Lowest current read on the case")
-    score_max: float = Field(ge=0.0, le=1.0, description="Highest current read on the case")
+    score_min: float = Field(
+        ge=0.0, le=1.0, description="Lowest current read on the case's current moment"
+    )
+    score_max: float = Field(
+        ge=0.0, le=1.0, description="Highest current read on the case's current moment"
+    )
     score_range: float = Field(
         ge=0.0,
         le=1.0,
@@ -6520,8 +6559,10 @@ class BigCaseRow(_Strict):
     )
     current_reads: list[BigCaseCurrentRead] = Field(
         default_factory=list,
-        description="Every predictor that read the case, ordered by predictor id — including "
-        "one whose newest run carries no score, which the mean excludes",
+        description="Every predictor with a run on the case's current moment, ordered by "
+        "predictor id — including one whose newest run there carries no score, which the "
+        "mean excludes. A predictor that read only an earlier moment is absent: its read is "
+        "history, under that event in `events`",
     )
     events: list[BigCaseEvent] = Field(
         default_factory=list,
@@ -6551,7 +6592,12 @@ class BigCaseProvenance(_Strict):
         description="Why a leakage-flagged read is worse here than on a scored board, and "
         "what the row-level mark means"
     )
-    leaderboard_divergence: str
+    leaderboard_divergence: str = Field(
+        description="The three collapses of a case these artifacts take — the leaderboard's "
+        "`big_case` mean over a case's moments, this board's row, and this board's per-event "
+        "history — and that no figure from one is differenced against a figure from another. "
+        "The key keeps its name because it is published: renaming it breaks a reader"
+    )
     population: str
     version_scope: str = Field(
         description="That the board is version-blind — every process version, shakedown cells "

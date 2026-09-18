@@ -16,6 +16,7 @@ from fedcourtsai import analytics
 from fedcourtsai.cli import app
 from fedcourtsai.metrics_refresh import render_refresh_pr
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.moments import DECLARED_MOMENTS
 from fedcourtsai.process_version import CURRENT_PROCESS_LABEL
 from fedcourtsai.schemas import (
     BigCaseBoard,
@@ -53,6 +54,7 @@ def _write_read(  # noqa: PLR0913 - one keyword per artifact field a test varies
     created_at: datetime = datetime(2026, 6, 20, tzinfo=UTC),
     stamped_at: datetime | None = None,
     title: str | None = "Test event",
+    opened_at: date | None = None,
     resolved_at: date | None = None,
     mode: str | None = "forward",
     probability: float = 0.7,
@@ -68,6 +70,7 @@ def _write_read(  # noqa: PLR0913 - one keyword per artifact field a test varies
                 case_id=case_id,
                 kind=EventKind.petition,
                 title=title,
+                opened_at=opened_at,
                 resolved=resolved_at is not None,
             ),
         )
@@ -191,7 +194,7 @@ def test_the_collapse_takes_the_newest_run_by_cell_clock_not_by_directory_name(
     assert len(event.reads) == 1  # one read per predictor per event, also collapsed
 
 
-def test_the_collapse_crosses_events_so_a_later_moment_supersedes_an_earlier_one(
+def test_the_case_collapses_to_the_newest_moment_its_docket_has_reached(
     tmp_path: Path,
 ) -> None:
     _write_read(
@@ -201,6 +204,7 @@ def test_the_collapse_crosses_events_so_a_later_moment_supersedes_an_earlier_one
         "r1",
         event_id="evt-petition-disposition",
         big_case_score=0.4,
+        opened_at=date(2026, 4, 1),
         stamped_at=datetime(2026, 5, 1, tzinfo=UTC),
         title="Petition moment",
     )
@@ -211,15 +215,17 @@ def test_the_collapse_crosses_events_so_a_later_moment_supersedes_an_earlier_one
         "r2",
         event_id="evt-order-response-requested-disposition",
         big_case_score=0.9,
+        opened_at=date(2026, 5, 20),
         stamped_at=datetime(2026, 6, 1, tzinfo=UTC),
         title="Response moment",
     )
     (row,) = _board(tmp_path).rows
-    (current,) = row.current_reads
-    assert (current.event_id, current.big_case_score) == (
+    assert (row.moment, row.moment_opened_at) == (
         "evt-order-response-requested-disposition",
-        0.9,
+        date(2026, 5, 20),
     )
+    (current,) = row.current_reads
+    assert (current.event_id, current.big_case_score) == (row.moment, 0.9)
     assert row.mean_big_case_score == 0.9  # the earlier moment is not averaged in
     # Both events are listed, each with the predictor's newest read of it.
     assert [(event.event_id, event.reads[0].big_case_score) for event in row.events] == [
@@ -228,7 +234,222 @@ def test_the_collapse_crosses_events_so_a_later_moment_supersedes_an_earlier_one
     ]
 
 
-def test_the_caption_comes_from_the_event_the_newest_current_read_sits_on(
+def test_the_panel_is_read_off_the_moment_so_a_lagging_predictor_is_excluded(
+    tmp_path: Path,
+) -> None:
+    # Three predictors, two moments: two have reached the response moment and one
+    # has not. The row is the response moment's panel — `n = 2`, not a mean that
+    # pools one predictor's read of one moment with another's read of another.
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "gemini-baseline",
+        "r3",
+        event_id="evt-petition-disposition",
+        big_case_score=0.1,
+        opened_at=date(2026, 4, 1),
+        # The *newest* run of the three by the harness clock, and still history:
+        # a re-predict of an older moment cannot move the case's moment.
+        stamped_at=datetime(2026, 7, 1, tzinfo=UTC),
+        title="Petition moment",
+    )
+    for predictor, score in (("claude-baseline", 0.8), ("codex-baseline", 0.6)):
+        _write_read(
+            tmp_path,
+            "scotus/1",
+            predictor,
+            "r1",
+            event_id="evt-order-response-requested-disposition",
+            big_case_score=score,
+            opened_at=date(2026, 5, 20),
+            stamped_at=datetime(2026, 6, 1, tzinfo=UTC),
+            title="Response moment",
+        )
+    (row,) = _board(tmp_path).rows
+    assert row.moment == "evt-order-response-requested-disposition"
+    # Every read on the row names the chosen moment — that is what makes the mean
+    # apples-to-apples — and the lagging predictor is absent rather than carried over.
+    assert {read.event_id for read in row.current_reads} == {row.moment}
+    assert [read.predictor_id for read in row.current_reads] == [
+        "claude-baseline",
+        "codex-baseline",
+    ]
+    assert (row.mean_big_case_score, row.n) == (0.7, 2)
+    # Its read is history, under its own event, and never averaged in.
+    petition = next(event for event in row.events if event.event_id == "evt-petition-disposition")
+    assert [(read.predictor_id, read.big_case_score) for read in petition.reads] == [
+        ("gemini-baseline", 0.1)
+    ]
+    # The links a site follows: a row carries no URL, so a read is resolved by
+    # joining `moment` into `events`. That join is only sound while the row's
+    # panel and the moment entry's reads are the same runs, which is pinned here
+    # rather than left true by construction.
+    moment_entry = next(event for event in row.events if event.event_id == row.moment)
+    assert {(read.predictor_id, read.run_id) for read in row.current_reads} == {
+        (read.predictor_id, read.run_id) for read in moment_entry.reads
+    }
+
+
+def test_a_moment_with_no_opened_at_is_ordered_by_its_first_prediction(tmp_path: Path) -> None:
+    # Neither event's definition records a docket date, so each is dated by the
+    # day of its FIRST prediction's harness clock — the earliest run is what dates
+    # a moment, so a later re-predict of the petition cannot make it look newer.
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        event_id="evt-order-response-requested-disposition",
+        big_case_score=0.9,
+        stamped_at=datetime(2026, 6, 1, tzinfo=UTC),
+        title="Response moment",
+    )
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r0",
+        event_id="evt-petition-disposition",
+        big_case_score=0.4,
+        stamped_at=datetime(2026, 5, 1, tzinfo=UTC),
+        title="Petition moment",
+    )
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r2",
+        event_id="evt-petition-disposition",
+        big_case_score=0.3,
+        stamped_at=datetime(2026, 7, 1, tzinfo=UTC),
+        title="Petition moment",
+    )
+    (row,) = _board(tmp_path).rows
+    assert (row.moment, row.moment_opened_at) == (
+        "evt-order-response-requested-disposition",
+        None,
+    )
+    assert [(read.run_id, read.big_case_score) for read in row.current_reads] == [("r1", 0.9)]
+
+
+def test_two_moments_opened_the_same_day_break_on_the_stage_progression(tmp_path: Path) -> None:
+    # A date collision must never invert the docket's order: the CVSG moment is
+    # later in the case's life than the petition's own, whatever the clocks say.
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r2",
+        event_id="evt-order-cvsg-disposition",
+        big_case_score=0.9,
+        opened_at=date(2026, 5, 20),
+        # The OLDER harness stamp of the two, so a run-time collapse would pick
+        # the petition moment and the tie-break is doing the work.
+        stamped_at=datetime(2026, 6, 1, tzinfo=UTC),
+        title="CVSG moment",
+    )
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        event_id="evt-petition-disposition",
+        big_case_score=0.4,
+        opened_at=date(2026, 5, 20),
+        stamped_at=datetime(2026, 6, 2, tzinfo=UTC),
+        title="Petition moment",
+    )
+    (row,) = _board(tmp_path).rows
+    assert (row.moment, row.caption) == ("evt-order-cvsg-disposition", "CVSG moment")
+    assert [read.big_case_score for read in row.current_reads] == [0.9]
+
+
+def test_every_declared_moment_has_a_position_in_the_stage_progression() -> None:
+    # The tie-break is a total order over the registry, not a subset of it: a
+    # newly declared moment must not silently fall back to the unranked bucket.
+    assert {(spec.stage, spec.moment) for spec in DECLARED_MOMENTS} == set(
+        analytics._BIG_CASE_MOMENT_ORDER
+    )
+    # Sets alone would pass a registry row that reused an existing (stage, moment)
+    # pair, which would silently share a rank; the lengths close that.
+    assert len(analytics._BIG_CASE_MOMENT_ORDER) == len(set(analytics._BIG_CASE_MOMENT_ORDER))
+    assert len(DECLARED_MOMENTS) == len(analytics._BIG_CASE_MOMENT_ORDER)
+
+
+def test_an_undeclared_event_never_displaces_a_declared_moment_on_a_tie(tmp_path: Path) -> None:
+    # An entry-pinned event declares no stage, so it cannot be shown to be later
+    # than a declared moment: on a shared `opened_at` it sorts below one. The
+    # event id remains the final tie-break, so the order is total either way.
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        event_id="evt-motion-construe-the-application-for-a-stay",
+        big_case_score=0.2,
+        opened_at=date(2026, 5, 20),
+        title="Entry-pinned event",
+    )
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r2",
+        event_id="evt-petition-disposition",
+        big_case_score=0.7,
+        opened_at=date(2026, 5, 20),
+        title="Petition moment",
+    )
+    (row,) = _board(tmp_path).rows
+    assert (row.moment, row.mean_big_case_score) == ("evt-petition-disposition", 0.7)
+
+
+def test_two_undeclared_events_still_order_totally_by_event_id(tmp_path: Path) -> None:
+    for event_id, score in (("evt-motion-a-stay", 0.2), ("evt-motion-b-stay", 0.7)):
+        _write_read(
+            tmp_path,
+            "scotus/1",
+            "claude-baseline",
+            "r1",
+            event_id=event_id,
+            big_case_score=score,
+            opened_at=date(2026, 5, 20),
+            title=event_id,
+        )
+    (row,) = _board(tmp_path).rows
+    assert (row.moment, row.mean_big_case_score) == ("evt-motion-b-stay", 0.7)
+
+
+def test_a_case_whose_current_moment_carries_no_score_is_off_the_board(tmp_path: Path) -> None:
+    # The moment is chosen from the docket first, so a fresher moment that drew
+    # only declining reads takes the case off the board rather than promoting an
+    # earlier moment's scores back into a current read.
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        event_id="evt-petition-disposition",
+        big_case_score=0.8,
+        opened_at=date(2026, 4, 1),
+        title="Petition moment",
+    )
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r2",
+        event_id="evt-order-response-requested-disposition",
+        big_case_score=None,
+        big_case_rationale="no view: the stakes turn on facts the snapshot does not carry",
+        opened_at=date(2026, 5, 20),
+        title="Response moment",
+    )
+    board = _board(tmp_path)
+    assert (board.rows, board.cases_without_score) == ([], 1)
+
+
+def test_the_caption_is_the_title_of_the_case_s_current_moment(
     tmp_path: Path,
 ) -> None:
     _write_read(
@@ -238,7 +459,7 @@ def test_the_caption_comes_from_the_event_the_newest_current_read_sits_on(
         "r1",
         event_id="evt-petition-disposition",
         big_case_score=0.4,
-        stamped_at=datetime(2026, 5, 1, tzinfo=UTC),
+        opened_at=date(2026, 4, 1),
         title="Petition moment",
     )
     _write_read(
@@ -248,12 +469,13 @@ def test_the_caption_comes_from_the_event_the_newest_current_read_sits_on(
         "r2",
         event_id="evt-order-response-requested-disposition",
         big_case_score=0.6,
-        stamped_at=datetime(2026, 6, 1, tzinfo=UTC),
+        opened_at=date(2026, 5, 20),
         title="Response moment",
     )
     (row,) = _board(tmp_path).rows
-    assert (row.caption, row.caption_event_id) == (
+    assert (row.caption, row.caption_event_id, row.moment) == (
         "Response moment",
+        "evt-order-response-requested-disposition",
         "evt-order-response-requested-disposition",
     )
 
@@ -264,6 +486,9 @@ def test_a_case_whose_event_definition_is_absent_reports_no_caption(tmp_path: Pa
     _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5, title=None)
     (row,) = _board(tmp_path).rows
     assert (row.caption, row.caption_event_id) == (None, _EVENT)
+    # The moment is still named — it is the event the reads sit on — and its
+    # docket date is simply unknown rather than guessed.
+    assert (row.moment, row.moment_opened_at) == (_EVENT, None)
 
 
 def test_rows_sort_by_mean_then_by_n_then_by_case_id(tmp_path: Path) -> None:
@@ -513,6 +738,13 @@ def test_the_board_carries_its_reading_rules_and_the_process_label(tmp_path: Pat
     )
     assert "two populations" in provenance.no_time_series
     assert "mean over its moments" in provenance.leaderboard_divergence
+    # All three collapses are named, so no reader differences a figure from one
+    # against a figure from another, and the retired row rule is gone.
+    assert "Three collapses" in provenance.leaderboard_divergence
+    assert "newest run across" not in provenance.collapse_rule
+    assert "arbitrary within the round" not in provenance.collapse_rule
+    assert "The moment first, then the predictors on it" in provenance.collapse_rule
+    assert "small `n`" in provenance.collapse_rule
     # The three caveats the reviewers' reading turns on, each registered rather
     # than left to the renderer: the forecast that rides beside the stakes read,
     # the contamination a ledger-direct read admits, and the version blindness.
@@ -557,7 +789,10 @@ def test_the_markdown_leads_with_the_reading_rules_and_marks_a_null_as_no_view(
     assert "neither scored nor ranked" in head  # the caveat is above the numbers, not below
     assert "says nothing about how likely any of them is to be granted" in head
     # The declining predictor's column is an em dash, and the footer says why.
-    assert "| 1 | `scotus/1` | Test event | 0.500 | 1 | 0.000 | 0.50 | — | pending | — |" in table
+    assert (
+        "| 1 | `scotus/1` | Test event | `evt-petition-disposition` | 0.500 | 1 | 0.000 "
+        "| 0.50 | — | pending | — |"
+    ) in table
     assert "**not as a zero**" in head
 
 

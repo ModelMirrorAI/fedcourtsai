@@ -1679,16 +1679,63 @@ the rendered table) and
   `big_case` and `evaluator_agreement` views take, on the same grounds, and it
   is a caveat that has to travel with any number quoted from the board.
 
-  **The collapse, which differs from the leaderboard's.** A case's read is one
-  per predictor: that predictor's **newest** prediction run across the case's
-  events, newest by the harness-written cell clock (the process stamp, else
-  `created_at`) rather than by directory name, with run id and then event id
-  breaking a tie. An earlier run is listed under its own event as history and
-  is never averaged. The leaderboard's `big_case` block reads a case as the
-  **mean over its moments** before correlating it with the evaluator panel;
-  this board reads it as the newest moment. The two answer different questions
-  over different collapses, so a figure here is never differenced against one
-  there.
+  **The collapse: the moment first, then the predictors on it.** A row is one
+  **moment** of a case and every predictor's read of that moment, so the reads
+  the mean pools are answers to the same question. The case's current moment
+  (`moment` on the row, with `moment_opened_at` beside it) is chosen from the
+  **docket** rather than from run times — with the one fallback below, where the
+  docket gives no date at all: the newest **predicted** event by its
+  `opened_at`, ties broken by the docket's stage progression — the petition's
+  arrival, then its distribution, then the interim application's arrival, the
+  response requested on it and the response filed, then the CVSG, then the
+  merits moments — and then by event id, so a date collision never inverts the
+  order a case is actually walked in; an event whose definition records no
+  `opened_at` is ordered by the **day** of its first prediction's harness clock,
+  which therefore falls through to the same tie-break. One exception the
+  pre-registration records
+  ([docs/freeze-record.md](../docs/freeze-record.md)): the cert petition
+  baseline's `opened_at` is **docketing**, while the moment it declares is the
+  distribution, so on those rows `moment_opened_at` is the day the petition
+  reached the docket rather than the day its moment arrived — it is ordered on
+  anyway, because the distribution has no date in committed data and docketing
+  is still a docket fact that moves only when the docket does. A re-predict of
+  an older moment therefore cannot move a case's moment, and only a newly
+  predicted moment can. "Newest" is over the events the panel was **asked**
+  about, so a row lags the docket wherever no cell has been dispatched on a
+  newer event. Each predictor's
+  read is then its **newest run on that moment**, newest by the harness-written
+  cell clock (the process stamp, else `created_at`) rather than by directory
+  name, with run id breaking a tie. A predictor with no run on that moment is
+  excluded from `n` and from the mean exactly as a declared no view is — never
+  carried over from an older moment — and its earlier read stays under its own
+  event as history, never averaged.
+
+  **The coverage consequence, which is the price of the collapse.** Where a
+  fresh moment has been minted for some predictors and not others — an engine
+  losing cells to capacity, or a forward cell refused because its provisioned
+  snapshot exceeded the predict lane's staleness bound — the row shows the
+  newest moment at a
+  **small `n`** rather than a fuller `n` on a stage the docket has left behind.
+  That is the honest reading: the alternative, "the moment most predictors have
+  reached", shows a stale stage to keep `n` high and moves when coverage
+  changes rather than when the docket does. The previous moment's fuller panel
+  is in the row's per-event entries, which a site can render as history. A case
+  whose current moment drew only declining reads is off the board entirely,
+  counted in `cases_without_score`, rather than having an earlier moment's
+  scores promoted back into a current read.
+
+  **Three collapses, never differenced.** (1) The leaderboard's `big_case`
+  block reads a case as the **mean over its moments** before correlating it
+  with the evaluator panel — bigness is a property of the case, so its moments
+  are not independent observations there. (2) A **row** here is the newest
+  moment the panel has been asked about, and each predictor's newest run on it.
+  (3) An
+  **event entry** here is each predictor's newest run on *that* event, which is
+  how an earlier moment stays visible as history. Each answers a different
+  question over a different population, so a figure from one is never
+  differenced against a figure from another — and the leaderboard's is narrower
+  on two further axes this board does not share, being scoped to the frozen
+  partition and to cells a judge has graded.
 
   **Denominators.** `n` sits beside every mean and is the count of predictors
   that gave a number. A newest run declaring **no view** — the prompt asks for
@@ -1697,25 +1744,41 @@ the rendered table) and
   counted as a zero, which would fabricate a panel opinion. A row with `n < 3`
   is ranked with the rest and flagged by its own `n` rather than split into a
   second table: the flag is the denominator, and a reader who quotes a mean
-  without it has quoted a different number. `score_range` sits beside `n` for
+  without it has quoted a different number — the more so under the moment-first
+  collapse, where a freshly minted moment can leave `n = 1` on a
+  three-predictor roster. `score_range` sits beside `n` for
   the same reason — a mean of 0.5 over two 0.5s and a mean of 0.5 over 0.1 and
-  0.9 are not the same observation.
+  0.9 are not the same observation. `moment` is the third such flag, and the
+  collapse sharpens rather than settles what it guards: each row is one moment,
+  so a row's mean **is** comparable across its own predictors, but two rows on
+  different moments are not comparable to each other and the `#` column orders
+  across moments anyway. The panel reads stakes systematically higher at later
+  moments, so a row's position reflects which question its panel answered as
+  well as how big its case is.
 
   **Population.** Every case in the committed ledger carrying at least one
-  current read, pending and decided alike, with a status per row derived from
-  `outcome.json` presence on its predicted events and the realized disposition
-  on each event that has one. The list is the predictions', never the corpus's,
-  so the board describes what the panel was asked about and is **not** a sample
-  of the docket or of any conference. Display is by caption — the `event.yaml`
-  title of the event carrying the case's newest current read — because there is
-  no docket number in committed data; `case_id` is the identifier.
+  scored read on its current moment, pending and decided alike, with a status
+  per row derived from `outcome.json` presence on its predicted events and the
+  realized disposition on each event that has one. `status` is the **case's**
+  grain, not the moment's — the one such figure on an otherwise moment-scoped
+  row, so a case can read `resolved` on an earlier event while its `moment` is
+  still pending. The list is the
+  predictions', never the corpus's, so the board describes what the panel was
+  asked about and is **not** a sample of the docket or of any conference.
+  Display is by caption — the `event.yaml` title of the case's current moment,
+  whose event id `caption_event_id` repeats so the rule is checkable against the
+  row — because there is no docket number in committed data; `case_id` is the
+  identifier.
 
   **No time series.** The predict prompt's amendment making `big_case_score`
   required with an explicit null escape changed which cells carry a read
   ([docs/freeze-record.md](../docs/freeze-record.md)), so scores elicited
   before and after it are two populations. The board therefore publishes no
   trend and no history, and a movement across that boundary is not a
-  measurement of anything.
+  measurement of anything. Nor is a movement between two consecutive daily
+  builds: a row's mean, `n` and rank also move when its `moment` does, which is
+  the docket advancing and the whole panel switching question at once, not a
+  predictor changing its mind.
 
   Like the other roll-ups here it is byte-stable and stamps neither a clock nor
   a commit: the vintage of a board is the commit that wrote it. The daily
