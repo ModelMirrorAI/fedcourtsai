@@ -1,0 +1,3 @@
+- CourtListener MCP search for lower court opinions on "Winnemucca" "United States"
+- CourtListener MCP read_document for Federal Circuit unpublished opinion ID 11171627
+- CourtListener MCP search_document for "Navajo" inside opinion ID 11171627

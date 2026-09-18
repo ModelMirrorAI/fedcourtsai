@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "record/documents/questions-presented.txt is mis-cut: it contains the petition's Part III.A heading 'The Questions Presented In This Case Are Exceptionally Important' and the following argument text, not the QP page. The QP cutter appears to have matched the later heading that begins with 'The Questions Presented'. The petition's own QP page (petition.txt, immediately after the cover) is intact and the BIO restates the two questions verbatim, so the cell was not blocked; the prediction used those."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73287447",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2, but the first distribution (Jun 09 2026, for the 6/25 conference) was superseded by the Court's Jun 23 'Response Requested' order before the petition was considered, and the second (Sep 09, for the 9/28 long conference) is the first distribution with full briefing. The petition has therefore never been relisted in the classic sense; a reader of the relist-count cut should treat this docket as a response-requested, first-consideration petition rather than a once-relisted one. My relist-increment claim is stated from the frozen count of 2 as the contract requires."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward cell; no outcome exists (conference is 9/28/2026). Live CourtListener docket entries for this docket returned zero rows (SCOTUS dockets carry no RECAP entries), so the supremecourt.gov snapshot was the only docket source. A web search surfaced only pre-snapshot news coverage of the petition and BIO, no disposition."
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73286452",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "courtlistener-mcp call_endpoint / get_endpoint_item",
+    "courtlistener-mcp search_document"
+  ],
+  "helpful": [
+    "Full-text petition and brief in opposition were both provisioned, so the split and vehicle assessment rests on the actual briefs",
+    "The frozen band plus the sal-v4 per-Term reached table made the anchor mechanical",
+    "search_document on the Ninth Circuit opinion recovered the panel composition in one call where the cluster metadata carried none"
+  ],
+  "gaps": [
+    "No corpus cut or query filter conditions on a call for response after a waiver, which is the strongest signal on this docket",
+    "No cut conditions on cert-stage amicus count or on a dissent from denial of rehearing en banc below",
+    "fedcourts query ranks by recency and has no subject or kind filter, so a cert cell cannot pull doctrinally similar priors; the default query returned mostly interim applications"
+  ],
+  "notes": "The elevated band here encodes only the routine post-response redistribution (distribution count 2), not a discretionary relist; a context field distinguishing a call-for-response redistribution from a relist would let a cert cell read the band correctly without inferring it from the docket text."
+}

@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281401",
+  "gaps": [
+    "Web opens and searches returned no usable content; MCP supplied the required opinions.",
+    "The cited video and reported amended complaint/order were not provisioned.",
+    "The default uv cache was read-only; redirecting it to /tmp/uv-cache worked."
+  ],
+  "helpful": [
+    "The complete petition and opposition exposed concrete vehicle objections.",
+    "MCP provided the lower opinion's alternative rationale and an independently verifiable Eleventh Circuit precedent.",
+    "Statpack JSON enabled exact pooling of the prior-Term reached-band rates."
+  ],
+  "notes": "No live corpus query or current Supreme Court docket lookup was needed. The distribution chronology was important: two recorded distributions did not establish two completed post-opposition conferences. No outcome material was encountered.",
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and document text",
+    "committed statpack markdown and JSON",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "CourtListener MCP read_document",
+    "web open and search attempts",
+    "fedcourts paths",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

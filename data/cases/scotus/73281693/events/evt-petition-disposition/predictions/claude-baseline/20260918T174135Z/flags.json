@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73281693",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2, but the docket shows a June 2 distribution immediately followed by a call for response and an Aug 19 redistribution for the Sept 28 long conference; the petition has not yet been considered at a conference. I forecast from that state and did not treat it as a relist. Not a defect in my inputs, but the relist-count cut's bucket 2 does not describe this petition."
+    }
+  ]
+}

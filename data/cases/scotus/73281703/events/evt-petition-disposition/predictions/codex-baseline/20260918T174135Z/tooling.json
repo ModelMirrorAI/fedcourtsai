@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281703",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Provisioned snapshot and filed-document text",
+    "Committed statpack and local weighted-rate calculation",
+    "CourtListener MCP search and search_document",
+    "Web search and open attempts",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "The petition and opposition exposed a real split and concrete vehicle objections.",
+    "Frozen salience context and reached-rate denominators supported a reproducible anchor.",
+    "Historical-opinion snippets helped test the opposition's description of Redd."
+  ],
+  "gaps": [
+    "The docketed reply and separate lower-court appendix were not provisioned.",
+    "Web attempts returned no usable content.",
+    "The inspected statpack metadata did not provide a corpus-vintage timestamp."
+  ],
+  "notes": "The default uv cache was read-only; a temporary cache and the existing environment worked. Citation-only search for Redd first returned a reversed-volume/page near-match, so a case-name search was needed. No target-case outcome retrieval was attempted."
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274796",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "Decisive post-snapshot forward signal (forward cell, snapshot 2025-10-15, run 2026-09-18): the Solicitor General's CVSG response (filed 2026-05-26) recommends holding the petition pending St. Mary Catholic Parish v. Roy, No. 25-581 (cert. granted 2026-04-20, Tenth Circuit, same general-applicability question) and denying the preemption question; the petition was distributed for the 2026-06-25 Conference and shows no entry since, consistent with a hold. No disposition of this petition was surfaced anywhere, so this is forward signal, not leakage. It moved the forecast from the ~0.35 CVSG/high-band anchor to 0.70 with `gvr` as the modal disposition."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "The CourtListener MCP could not serve this docket's current state: `docket-entries` for docket 73274796 returned 0 rows and opinion search found no Tenth Circuit opinion for 23-2123. The post-snapshot docket (SG brief, supplemental brief, June 2026 distribution) came from the public supremecourt.gov docket page and its PDFs, whose text I extracted locally with an ephemeral pypdf install because the runner has no PDF text tooling (no poppler, no pypdf/pdfminer in the env)."
+    }
+  ]
+}

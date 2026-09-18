@@ -1,0 +1,30 @@
+{
+  "case_id": "scotus/73281681",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "courtlistener MCP call_endpoint",
+    "courtlistener MCP get_endpoint_item",
+    "WebFetch (supremecourt.gov docket JSON and reply PDF)",
+    "pypdf (local text extraction of the fetched reply)"
+  ],
+  "helpful": [
+    "Provisioned petition, BIO, and QP text with documents.json \u2014 the core of the forecast",
+    "sal-v4 band table with bracketed reached rates per Term \u2014 a clean, leakage-safe anchor",
+    "supremecourt.gov docket JSON for the companion petition's status"
+  ],
+  "gaps": [
+    "No statpack cut for 'response requested after waiver' \u2014 the strongest signal on this docket has no published conditional rate",
+    "The reply brief is not provisioned even though it is on the docket before the redistribution; a cert cell routinely wants it",
+    "fedcourts query has no caption/topic filter for SCOTUS rows, so it cannot retrieve doctrinally similar petitions; its --citation filter is served off ~200 rows",
+    "CourtListener holds no docket entries for SCOTUS paid petitions here (0 for 25-958), so companion-petition status had to come from supremecourt.gov",
+    "Amicus briefs are listed on the docket but not provisioned; an amicus count feature is deferred in salience"
+  ],
+  "notes": "The 'distributed twice' state here is a CFR redistribution, not a post-conference relist; a CFR flag in context.json would let predictors condition on it directly."
+}

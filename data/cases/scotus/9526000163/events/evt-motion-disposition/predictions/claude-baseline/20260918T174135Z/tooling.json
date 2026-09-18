@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000163",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener mcp search",
+    "courtlistener mcp call_endpoint docket-entries"
+  ],
+  "helpful": [
+    "The CourtListener docket-entries endpoint on the court-of-appeals docket showed the whole procedural history of the appeal, which was the decisive input for an interim cell whose snapshot is a single line.",
+    "The statpack's interim section with per-Term resolved/granted counts made the pooled strictly-prior baseline a two-line computation."
+  ],
+  "gaps": [
+    "fedcourts query cannot filter to substantive applications or to an applicant class (pro se / individual vs institutional); I had to over-fetch 300 recency-ranked rows and filter locally.",
+    "No provisioned application text for interim cells; the ask had to be inferred from the lower-court docket.",
+    "A statpack cut of interim grant rate by applicant class (government / institutional / individual) would replace most of the judgement in the adjustment step."
+  ],
+  "notes": "The lower-court docket number in the snapshot (26-30022) resolved directly on CourtListener; keeping that field in the snapshot is what made retrieval cheap."
+}

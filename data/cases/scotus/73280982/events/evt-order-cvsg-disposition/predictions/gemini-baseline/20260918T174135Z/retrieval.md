@@ -1,0 +1,3 @@
+- Read the provisioned `context.json`, `snapshots/2026-06-02.json`, and `documents.json`.
+- Read the provisioned `petition.txt`, `questions-presented.txt`, and `brief-in-opposition.txt` to identify the core legal arguments and posture.
+- Read `metrics/statpack.md` to get the base rates for CVSG petitions.

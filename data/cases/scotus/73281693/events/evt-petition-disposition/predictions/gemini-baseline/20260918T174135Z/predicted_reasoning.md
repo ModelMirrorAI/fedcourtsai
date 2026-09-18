@@ -1,0 +1,5 @@
+Distributed for its first conference (9/28/2026). I expect the Court to deny the petition, but it will likely be relisted at least once before a decision is issued, as the strong amicus support (22 states and numerous organizations) will draw the Justices' attention and may prompt a dissent from denial. 
+
+A CVSG is unlikely because the federal government is not a party and the Court does not need the SG's views to deny a case arising from a local COVID-19 mandate. A summary GVR is also unlikely as there is no intervening decision. 
+
+If granted, the Court would likely take the first question presented to resolve the 3-3 circuit split on the standard for undue hardship under Title VII post-*Groff*, leaving aside the evidentiary issues. Should the Court deny, as expected, there is a substantial chance of a dissent from denial (or a statement respecting the denial) by Justices Thomas or Alito, emphasizing the importance of protecting religious liberties and clarifying *Groff*, which would necessitate the expected relist(s).

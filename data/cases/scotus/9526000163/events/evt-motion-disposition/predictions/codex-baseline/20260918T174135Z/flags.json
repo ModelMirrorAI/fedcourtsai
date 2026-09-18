@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000163",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "Arrival timing is inconsistent: the sole application-submission entry is dated July 22, 2026; context.cutoff and snapshot_date are July 23, 2026; event.opened_at and snapshot DocketedDate are August 5, 2026. Forecast uses the actual entry-limited snapshot and its authoritative basename, not an inferred later docket state. Please check arrival-event dating and cutoff alignment; the mismatch particularly limits the timing forecast. No case outcome was sought or observed."
+    }
+  ]
+}

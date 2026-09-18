@@ -1,0 +1,2 @@
+- CourtListener MCP lookup: `mcp_courtlistener_search` for `q="Nollan" AND "Dolan" AND "Koontz"` to identify recent Takings precedent (`Sheetz v. El Dorado County`, `Cedar Point Nursery v. Hassid`).
+- Local corpus lookup: Attempted to run `fedcourts query --court scotus --decided-before 2026-09-17 "Takings Nollan Dolan Koontz"` but it failed due to invalid arguments (no free-text search). Did not rerun.

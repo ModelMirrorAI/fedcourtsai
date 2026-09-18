@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500252",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell read-only inspection", "fedcourts paths", "jq", "CourtListener search", "CourtListener search_document", "web search/open", "fedcourts validate"],
+  "helpful": ["Provisioned opposition acknowledges the split while developing the regulatory-change objection.", "Frozen distribution count prevents treating a duplicate conference listing as a third conference.", "Unrounded statpack JSON supports an exact prior-Term weighted risk-set anchor.", "Citation- and date-constrained CourtListener retrieval verified the earlier precedent without seeking the target outcome."],
+  "gaps": ["Petition appendix is truncated; reply and amicus text are not provisioned.", "Web search and open returned no content.", "The inspected statpack does not include a corpus-wide freshness timestamp."],
+  "notes": "The default uv cache was read-only; a temporary cache location allowed the CLI to run. Prediction relies on the provisioned forward record, committed prior-Term rates, and the earlier Cantero precedent. No live target docket refresh or corpus-prior query was needed."
+}

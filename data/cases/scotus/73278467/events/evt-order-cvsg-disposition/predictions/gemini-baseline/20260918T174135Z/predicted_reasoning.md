@@ -1,0 +1,5 @@
+Distributed twice so far. The Court has called for the Solicitor General's views (CVSG) on June 30, 2026. Therefore, the petition will be distributed at least once more after the SG files their brief, and likely relisted at least once thereafter as the Court deliberates on granting review.
+
+If granted, the Court is likely to take up both questions presented, as QP1 addresses the fundamental standard of scrutiny and QP2 addresses its specific application to cross-gender strip searches. Plenary review is highly likely; a summary disposition (GVR) is less probable because it would not definitively resolve the entrenched circuit split on this constitutional issue.
+
+Should the Court deny review, expect a dissent from denial from Justices Thomas and/or Alito, given the high-profile nature of the issue, the clear circuit split, and the significant state interest demonstrated by the 23 state amici.

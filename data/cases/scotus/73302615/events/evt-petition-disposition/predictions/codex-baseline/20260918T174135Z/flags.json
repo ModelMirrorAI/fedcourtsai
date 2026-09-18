@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73302615",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Material pre-decision retrieval: the August 26, 2026 counsel letter already linked in the snapshot states that counsel was no longer authorized to act for PDVSA and did not know whether replacement counsel would appear. I retrieved that fixed Supreme Court PDF and modestly reduced grant prospects for representation uncertainty. This is counsel withdrawal, not petition withdrawal, settlement, mootness, or a disposition. The letter predates the September 18 snapshot; no target-event outcome was sought or encountered."
+    }
+  ]
+}

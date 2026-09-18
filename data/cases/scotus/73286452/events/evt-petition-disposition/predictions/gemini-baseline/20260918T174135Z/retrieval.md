@@ -1,0 +1,3 @@
+- `uv run fedcourts query --court scotus --era 2020s --disposition granted --limit 5` (ranged corpus reads: 12 GET(s), 3145728 byte(s))
+- `uv run fedcourts query --court scotus --era 2020s --disposition denied --limit 5` (ranged corpus reads: 0 GET(s))
+- Consulted `metrics/statpack.md` for cert petitions by relist count, CVSG status, and segment base rate by salience band.

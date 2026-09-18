@@ -1,0 +1,5 @@
+The petition has been distributed twice and the Court has called for the views of the Solicitor General (CVSG). Once the SG files their brief, expect the petition to be distributed again and relisted at least once or twice as the Court considers the SG's recommendation. 
+
+If granted, the Court is likely to take up both questions presented to address the bounds of compelled commercial disclosures under the First Amendment (Question 1) and whether heavily regulated industries retain reasonable investment-backed expectations in trade secrets under the Takings Clause (Question 2). The Court would likely focus on the Ninth Circuit's application of intermediate scrutiny to product-specific reporting requirements. A summary GVR is unlikely unless the SG points to a specific intervening decision.
+
+If the Court denies review—perhaps due to vehicle issues or deference to the SG recommending a denial based on state regulatory interests—expect a written dissent from denial from one or more of the conservative Justices, given the significant First Amendment and property rights issues involved.

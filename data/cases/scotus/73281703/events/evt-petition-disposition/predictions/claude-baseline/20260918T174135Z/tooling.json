@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281703",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "CourtListener MCP search", "CourtListener MCP call_endpoint (docket-entries)", "WebFetch (supremecourt.gov reply brief PDF)", "provisioned documents (petition, BIO, QP)"],
+  "helpful": [
+    "Provisioned petition and BIO text: the whole forecast turns on the vehicle argument in the BIO, which the docket alone would not show.",
+    "The sal-v4 band table with bracketed reached rates: a direct, leakage-safe anchor for the band in context.json.",
+    "The reply brief, once its text was extracted: it concedes the QP mismatch, which is the largest single adjustment."
+  ],
+  "gaps": [
+    "The reply brief is on the docket before the snapshot date but is not provisioned; a `reply.txt` beside the BIO would save a web fetch and a PDF extraction step.",
+    "A call-for-response flag in context.json (or a statpack cut by CFR status) would let a cell separate a post-CFR redistribution from a true relist; distribution_count=2 here reads as one relist when the petition has been considered at zero conferences.",
+    "CourtListener MCP docket search by SCOTUS docket number returned nothing for a known 2026 docket; a supremecourt.gov docket lookup tool would be more reliable for cross-checking related petitions.",
+    "fedcourts query has no subject-matter filter for SCOTUS rows, so it cannot surface priors on the same statute."
+  ],
+  "notes": "WebFetch's built-in summary of the reply PDF was generic and admitted it could not extract quotes; the raw PDF it saved was readable with a local PDF text extractor. Cells should not rely on the fetch summary for filings."
+}

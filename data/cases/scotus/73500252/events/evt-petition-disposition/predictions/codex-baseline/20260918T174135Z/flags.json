@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500252",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned opposition reports the earlier denial of the separate Conti petition and pending rehearing, and discusses the pending companion Cantero petition. I used that pre-snapshot companion history as forward context, not as the target outcome. I neither knew nor retrieved the disposition of this Flagstar petition. External case retrieval was limited to the May 30, 2024 Cantero precedent."
+    }
+  ]
+}

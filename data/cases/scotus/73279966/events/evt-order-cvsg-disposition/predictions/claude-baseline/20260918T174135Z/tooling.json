@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279966",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP call_endpoint (docket-entries)", "WebSearch", "WebFetch", "curl + pypdf for supremecourt.gov PDFs", "summarizing subagents for petition and BIO text"],
+  "helpful": [
+    "Provisioned petition, BIO, and QP text: the split and vehicle arguments were readable without any network",
+    "Statpack CVSG cut and sal-v4 band table: gave a clear scored anchor",
+    "Supreme Court docket page via web fetch: surfaced the post-snapshot SG brief, the single most informative fact"
+  ],
+  "gaps": [
+    "CourtListener MCP docket-entries returned no entries for this SCOTUS docket, so the MCP path could not show post-snapshot activity; a provisioned 'latest docket entries as of run time' file for forward cells would remove the need for a web fetch",
+    "No conditioned base rate for post-CVSG petitions split by the SG's recommendation (grant vs deny); that split is the number this cell actually needed",
+    "No pdftotext on the runner; PDF extraction needed pypdf from the project environment"
+  ],
+  "notes": "The two BIO texts are concatenated in one provisioned file and the private respondents' brief is truncated mid-argument; the petition is truncated as well. Both were still sufficient for the cert-stage arguments."
+}

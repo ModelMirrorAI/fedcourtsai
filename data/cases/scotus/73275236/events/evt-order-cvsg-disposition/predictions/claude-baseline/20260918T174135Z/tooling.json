@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73275236",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (call_endpoint docket-entries, get_endpoint_item dockets)",
+    "WebFetch (supremecourt.gov docket page and letter PDF, two news pages)",
+    "WebSearch"
+  ],
+  "helpful": [
+    "Provisioned petition, BIO and QP text (full, non-truncated) made the split/vehicle read cheap.",
+    "The statpack's CVSG cut and the sal-v4 band table gave a clean leakage-safe anchor.",
+    "Web fetch of the supremecourt.gov docket surfaced the post-CVSG abeyance letter that changed the forecast."
+  ],
+  "gaps": [
+    "A provisioned 'current docket delta' for forward cells (entries after the snapshot cutoff) would have saved four retrieval calls and would be more reliable than a web fetch.",
+    "CourtListener MCP carries no proceedings entries for SCOTUS dockets, so it could not answer whether the SG had filed.",
+    "fedcourts query has no cvsg or band filter, so priors matching this moment could not be pulled by structured filter.",
+    "The statpack publishes no cut for mootness/Munsingwear dispositions or for Rule 46 dismissals, which is the shape this cell needed."
+  ],
+  "notes": "The corpus query returned recent OT2025 rows dominated by interim applications despite the cert scope; the 2020s-era grants list was of limited use as priors for this posture."
+}
