@@ -6,8 +6,9 @@ outcome) under the canonical case tree. The board is ledger-only, so a ledger is
 the whole input: no corpus, no config, no clock.
 """
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from typing import Literal
 
 import pytest
 from typer.testing import CliRunner
@@ -17,7 +18,11 @@ from fedcourtsai.cli import app
 from fedcourtsai.metrics_refresh import render_refresh_pr
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.moments import DECLARED_MOMENTS
-from fedcourtsai.process_version import CURRENT_PROCESS_LABEL
+from fedcourtsai.process_version import (
+    CURRENT_PROCESS_LABEL,
+    FROZEN_PROCESS_DIGESTS,
+    FROZEN_SINCE,
+)
 from fedcourtsai.schemas import (
     BigCaseBoard,
     Disposition,
@@ -36,10 +41,20 @@ runner = CliRunner()
 
 _EVENT = "evt-petition-disposition"
 
+#: A blessed digest, so a fixture's run is in the frozen partition by default —
+#: the board's default `process_scope`. Read off the registry rather than spelled
+#: out, so a re-bless does not silently push every fixture out of scope.
+_BLESSED = sorted(FROZEN_PROCESS_DIGESTS)[0]
+#: A digest no freeze commit blessed: a stamped run that is still out of scope.
+_RETIRED = "sha256:" + "0" * 64
+#: The default harness clock, after the freeze instant so the default fixture is
+#: eligible. Every explicit clock a test passes sits in the same era.
+_CLOCK = datetime(2026, 11, 20, tzinfo=UTC)
 
-def _stamp(when: datetime) -> ProcessVersion:
-    """A harness stamp at ``when`` — what the collapse orders on."""
-    return ProcessVersion(label="proc-test", digest="sha256:" + "0" * 64, stamped_at=when)
+
+def _stamp(when: datetime, *, digest: str = _BLESSED) -> ProcessVersion:
+    """A harness stamp at ``when`` — what the collapse orders on, and scopes on."""
+    return ProcessVersion(label="proc-test", digest=digest, stamped_at=when)
 
 
 def _write_read(  # noqa: PLR0913 - one keyword per artifact field a test varies
@@ -51,8 +66,9 @@ def _write_read(  # noqa: PLR0913 - one keyword per artifact field a test varies
     event_id: str = _EVENT,
     big_case_score: float | None = None,
     big_case_rationale: str | None = None,
-    created_at: datetime = datetime(2026, 6, 20, tzinfo=UTC),
+    created_at: datetime = _CLOCK,
     stamped_at: datetime | None = None,
+    digest: str | None = _BLESSED,
     title: str | None = "Test event",
     opened_at: date | None = None,
     resolved_at: date | None = None,
@@ -90,7 +106,13 @@ def _write_read(  # noqa: PLR0913 - one keyword per artifact field a test varies
             confidence=0.6,
             big_case_score=big_case_score,
             big_case_rationale=big_case_rationale,
-            process_version=_stamp(stamped_at) if stamped_at is not None else None,
+            # Stamped by default and with a blessed digest, because the board's
+            # default scope is the frozen partition: an unstamped fixture would
+            # be history rather than a current read. `digest=None` writes the
+            # unstamped cell a scope test needs.
+            process_version=(
+                _stamp(stamped_at or created_at, digest=digest) if digest is not None else None
+            ),
             context=(
                 PredictionContext(
                     mode=mode, snapshot_date=date(2026, 6, 1), signals_observable=True
@@ -113,8 +135,15 @@ def _write_read(  # noqa: PLR0913 - one keyword per artifact field a test varies
         )
 
 
-def _board(data_root: Path, *, repo_url: str = analytics.DEFAULT_REPO_TREE_URL) -> BigCaseBoard:
-    return analytics.build_big_case_board(data_root=data_root, repo_url=repo_url)
+def _board(
+    data_root: Path,
+    *,
+    repo_url: str = analytics.DEFAULT_REPO_TREE_URL,
+    process_scope: Literal["frozen", "all"] = "frozen",
+) -> BigCaseBoard:
+    return analytics.build_big_case_board(
+        data_root=data_root, repo_url=repo_url, process_scope=process_scope
+    )
 
 
 def test_the_case_mean_is_taken_over_the_predictors_that_scored_it(tmp_path: Path) -> None:
@@ -175,7 +204,7 @@ def test_the_collapse_takes_the_newest_run_by_cell_clock_not_by_directory_name(
         "claude-baseline",
         "20260101T000000Z",
         big_case_score=0.9,
-        stamped_at=datetime(2026, 6, 20, tzinfo=UTC),
+        stamped_at=datetime(2026, 11, 20, tzinfo=UTC),
     )
     _write_read(
         tmp_path,
@@ -183,7 +212,7 @@ def test_the_collapse_takes_the_newest_run_by_cell_clock_not_by_directory_name(
         "claude-baseline",
         "20260202T000000Z",
         big_case_score=0.1,
-        stamped_at=datetime(2026, 5, 1, tzinfo=UTC),
+        stamped_at=datetime(2026, 10, 1, tzinfo=UTC),
     )
     (row,) = _board(tmp_path).rows
     (current,) = row.current_reads
@@ -205,7 +234,7 @@ def test_the_case_collapses_to_the_newest_moment_its_docket_has_reached(
         event_id="evt-petition-disposition",
         big_case_score=0.4,
         opened_at=date(2026, 4, 1),
-        stamped_at=datetime(2026, 5, 1, tzinfo=UTC),
+        stamped_at=datetime(2026, 10, 1, tzinfo=UTC),
         title="Petition moment",
     )
     _write_read(
@@ -216,7 +245,7 @@ def test_the_case_collapses_to_the_newest_moment_its_docket_has_reached(
         event_id="evt-order-response-requested-disposition",
         big_case_score=0.9,
         opened_at=date(2026, 5, 20),
-        stamped_at=datetime(2026, 6, 1, tzinfo=UTC),
+        stamped_at=datetime(2026, 11, 1, tzinfo=UTC),
         title="Response moment",
     )
     (row,) = _board(tmp_path).rows
@@ -250,7 +279,7 @@ def test_the_panel_is_read_off_the_moment_so_a_lagging_predictor_is_excluded(
         opened_at=date(2026, 4, 1),
         # The *newest* run of the three by the harness clock, and still history:
         # a re-predict of an older moment cannot move the case's moment.
-        stamped_at=datetime(2026, 7, 1, tzinfo=UTC),
+        stamped_at=datetime(2026, 12, 1, tzinfo=UTC),
         title="Petition moment",
     )
     for predictor, score in (("claude-baseline", 0.8), ("codex-baseline", 0.6)):
@@ -262,7 +291,7 @@ def test_the_panel_is_read_off_the_moment_so_a_lagging_predictor_is_excluded(
             event_id="evt-order-response-requested-disposition",
             big_case_score=score,
             opened_at=date(2026, 5, 20),
-            stamped_at=datetime(2026, 6, 1, tzinfo=UTC),
+            stamped_at=datetime(2026, 11, 1, tzinfo=UTC),
             title="Response moment",
         )
     (row,) = _board(tmp_path).rows
@@ -301,7 +330,7 @@ def test_a_moment_with_no_opened_at_is_ordered_by_its_first_prediction(tmp_path:
         "r1",
         event_id="evt-order-response-requested-disposition",
         big_case_score=0.9,
-        stamped_at=datetime(2026, 6, 1, tzinfo=UTC),
+        stamped_at=datetime(2026, 11, 1, tzinfo=UTC),
         title="Response moment",
     )
     _write_read(
@@ -311,7 +340,7 @@ def test_a_moment_with_no_opened_at_is_ordered_by_its_first_prediction(tmp_path:
         "r0",
         event_id="evt-petition-disposition",
         big_case_score=0.4,
-        stamped_at=datetime(2026, 5, 1, tzinfo=UTC),
+        stamped_at=datetime(2026, 10, 1, tzinfo=UTC),
         title="Petition moment",
     )
     _write_read(
@@ -321,7 +350,7 @@ def test_a_moment_with_no_opened_at_is_ordered_by_its_first_prediction(tmp_path:
         "r2",
         event_id="evt-petition-disposition",
         big_case_score=0.3,
-        stamped_at=datetime(2026, 7, 1, tzinfo=UTC),
+        stamped_at=datetime(2026, 12, 1, tzinfo=UTC),
         title="Petition moment",
     )
     (row,) = _board(tmp_path).rows
@@ -345,7 +374,7 @@ def test_two_moments_opened_the_same_day_break_on_the_stage_progression(tmp_path
         opened_at=date(2026, 5, 20),
         # The OLDER harness stamp of the two, so a run-time collapse would pick
         # the petition moment and the tie-break is doing the work.
-        stamped_at=datetime(2026, 6, 1, tzinfo=UTC),
+        stamped_at=datetime(2026, 11, 1, tzinfo=UTC),
         title="CVSG moment",
     )
     _write_read(
@@ -356,7 +385,7 @@ def test_two_moments_opened_the_same_day_break_on_the_stage_progression(tmp_path
         event_id="evt-petition-disposition",
         big_case_score=0.4,
         opened_at=date(2026, 5, 20),
-        stamped_at=datetime(2026, 6, 2, tzinfo=UTC),
+        stamped_at=datetime(2026, 11, 2, tzinfo=UTC),
         title="Petition moment",
     )
     (row,) = _board(tmp_path).rows
@@ -418,6 +447,158 @@ def test_two_undeclared_events_still_order_totally_by_event_id(tmp_path: Path) -
         )
     (row,) = _board(tmp_path).rows
     assert (row.moment, row.mean_big_case_score) == ("evt-motion-b-stay", 0.7)
+
+
+def test_an_out_of_scope_newest_run_is_history_and_the_frozen_run_is_the_current_read(
+    tmp_path: Path,
+) -> None:
+    # Three runs of one predictor on one moment. The newest by the harness clock
+    # carries a digest no freeze commit blessed; an older one ran before the
+    # freeze instant on a blessed digest — a shakedown cell. Neither is a current
+    # read: the read is the frozen run between them, and both excluded runs stay
+    # visible as history under the event.
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r-shakedown",
+        big_case_score=0.2,
+        stamped_at=(FROZEN_SINCE or _CLOCK) - timedelta(days=1),
+    )
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r-frozen",
+        big_case_score=0.4,
+        stamped_at=datetime(2026, 11, 1, tzinfo=UTC),
+    )
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r-retired",
+        big_case_score=0.9,
+        stamped_at=datetime(2026, 12, 1, tzinfo=UTC),
+        digest=_RETIRED,
+    )
+    board = _board(tmp_path)
+    assert board.process_scope == "frozen"
+    (row,) = board.rows
+    assert [(read.run_id, read.big_case_score) for read in row.current_reads] == [("r-frozen", 0.4)]
+    assert (row.mean_big_case_score, row.n) == (0.4, 1)
+    # Relegated, not hidden: the per-event history is unfiltered on either scope,
+    # and it collapses to the newest run of the predictor whatever its scope.
+    (event,) = row.events
+    assert [(read.run_id, read.big_case_score) for read in event.reads] == [("r-retired", 0.9)]
+    # And the version-blind reading is still one flag away.
+    blind_board = _board(tmp_path, process_scope="all")
+    assert blind_board.process_scope == "all"
+    (blind,) = blind_board.rows
+    assert [(read.run_id, read.big_case_score) for read in blind.current_reads] == [
+        ("r-retired", 0.9)
+    ]
+
+
+def test_a_retired_digest_and_an_unstamped_run_are_both_out_of_scope(tmp_path: Path) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    _write_read(tmp_path, "scotus/1", "codex-baseline", "r1", big_case_score=0.9, digest=_RETIRED)
+    _write_read(tmp_path, "scotus/1", "gemini-baseline", "r1", big_case_score=0.1, digest=None)
+    board = _board(tmp_path)
+    (row,) = board.rows
+    assert [read.predictor_id for read in row.current_reads] == ["claude-baseline"]
+    assert (row.mean_big_case_score, row.n) == (0.5, 1)
+    # The roster is what the board can publish, so a predictor with no in-scope
+    # run is not a column of blanks on every row.
+    assert board.predictors == ["claude-baseline"]
+    assert sorted(read.predictor_id for read in row.events[0].reads) == [
+        "claude-baseline",
+        "codex-baseline",
+        "gemini-baseline",
+    ]
+    assert [r.n for r in _board(tmp_path, process_scope="all").rows] == [3]
+
+
+def test_a_case_with_no_in_scope_read_is_off_the_board(tmp_path: Path) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5, digest=None)
+    _write_read(tmp_path, "scotus/2", "claude-baseline", "r1", big_case_score=0.5)
+    board = _board(tmp_path)
+    assert [row.case_id for row in board.rows] == ["scotus/2"]
+    assert board.cases_without_score == 1
+
+
+def test_an_out_of_scope_run_cannot_move_the_case_s_moment(tmp_path: Path) -> None:
+    # The scope is applied BEFORE the moment choice, so an unstamped run on a
+    # newer moment does not drag the row onto a moment nobody eligible read.
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        event_id="evt-petition-disposition",
+        big_case_score=0.4,
+        opened_at=date(2026, 4, 1),
+        title="Petition moment",
+    )
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r2",
+        event_id="evt-order-response-requested-disposition",
+        big_case_score=0.9,
+        opened_at=date(2026, 5, 20),
+        title="Response moment",
+        digest=None,
+    )
+    (row,) = _board(tmp_path).rows
+    assert (row.moment, row.mean_big_case_score) == ("evt-petition-disposition", 0.4)
+    (blind,) = _board(tmp_path, process_scope="all").rows
+    assert blind.moment == "evt-order-response-requested-disposition"
+
+
+def test_the_board_publishes_its_scope_and_the_freeze_record_it_keyed_on(tmp_path: Path) -> None:
+    # The partition's membership lives in code, so the artifact records what
+    # "frozen" meant at build time — on an `all` build too, as a definition.
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    scopes: tuple[Literal["frozen", "all"], ...] = ("frozen", "all")
+    for scope in scopes:
+        board = _board(tmp_path, process_scope=scope)
+        assert board.process_scope == scope
+        assert board.frozen_process is not None
+        assert board.frozen_process.since == FROZEN_SINCE
+        assert board.frozen_process.digests == sorted(FROZEN_PROCESS_DIGESTS)
+
+
+def test_cli_big_cases_rejects_an_unknown_process_scope(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_read(data_root, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    result = runner.invoke(
+        app,
+        ["big-cases", "--process-scope", "blessed"],
+        env={
+            "FEDCOURTS_DATA_ROOT": str(data_root),
+            "FEDCOURTS_METRICS_ROOT": str(tmp_path / "metrics"),
+        },
+    )
+    assert result.exit_code != 0
+
+
+def test_cli_big_cases_defaults_to_the_frozen_scope(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_read(data_root, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    _write_read(data_root, "scotus/2", "claude-baseline", "r1", big_case_score=0.5, digest=None)
+    result = runner.invoke(
+        app,
+        ["big-cases"],
+        env={
+            "FEDCOURTS_DATA_ROOT": str(data_root),
+            "FEDCOURTS_METRICS_ROOT": str(tmp_path / "metrics"),
+        },
+    )
+    assert result.exit_code == 0, result.output
+    board = BigCaseBoard.model_validate_json((tmp_path / "metrics/big-cases.json").read_text())
+    assert (board.process_scope, [row.case_id for row in board.rows]) == ("frozen", ["scotus/1"])
 
 
 def test_a_case_whose_current_moment_carries_no_score_is_off_the_board(tmp_path: Path) -> None:
@@ -631,7 +812,7 @@ def _write_grading(
             evaluator_id=evaluator_id,
             engine=Engine.claude_code,
             run_id="e1",
-            created_at=datetime(2026, 6, 24, tzinfo=UTC),
+            created_at=datetime(2026, 11, 24, tzinfo=UTC),
             correct=1,
             prediction_run_id=prediction_run_id,
             leakage_suspected=leakage_suspected,
@@ -743,14 +924,18 @@ def test_the_board_carries_its_reading_rules_and_the_process_label(tmp_path: Pat
     assert "Three collapses" in provenance.leaderboard_divergence
     assert "newest run across" not in provenance.collapse_rule
     assert "arbitrary within the round" not in provenance.collapse_rule
-    assert "The moment first, then the predictors on it" in provenance.collapse_rule
+    assert "The scope first, then the moment, then the predictors on it" in provenance.collapse_rule
     assert "small `n`" in provenance.collapse_rule
     # The three caveats the reviewers' reading turns on, each registered rather
     # than left to the renderer: the forecast that rides beside the stakes read,
     # the contamination a ledger-direct read admits, and the version blindness.
     assert "is not a claimable one" in provenance.reading_rule
     assert "partly a read of the disposition" in provenance.leakage_note
-    assert "Version-blind on purpose" in provenance.version_scope
+    # The scope is a filter now, so the prose says which one and why — and says
+    # that the version-blind reading is still available under `--process-scope all`.
+    assert "`process_scope` says which process versions" in provenance.version_scope
+    assert "--process-scope all" in provenance.version_scope
+    assert "Version-blind on purpose" not in provenance.version_scope
     assert "coarse band, never an ordering" in provenance.rank_resolution
     assert "salience gate" in provenance.population
 

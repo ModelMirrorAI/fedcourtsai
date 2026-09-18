@@ -495,6 +495,39 @@
       ],
       "title": "Disposition",
       "type": "string"
+    },
+    "FrozenProcessRecord": {
+      "additionalProperties": false,
+      "description": "The freeze constants in force when a board was built.\n\n``process_scope: \"frozen\"`` names a partition whose membership lives in\ncode (:mod:`fedcourtsai.process_version`), so without this block a reader\nwould have to resolve the build's commit back to the source to see *which*\ndigests were blessed and from which instant. Recording them on the board\nitself, the way ``salience_versions`` names the gate, states what was\nblessed at build time \u2014 on every build, an ``all``-scope one included, as\nthe partition's definition and never a claim it was applied. It records the\n*blessed* set, not the *filter*: only the predictor subset is the enforced\nmembership test (``process_version.is_frozen``), while the evaluator\ndigests are record-only (timing alone enforced), and this flat list does\nnot distinguish the two \u2014 that mapping lives in ``process_version``.",
+      "properties": {
+        "digests": {
+          "description": "The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted \u2014 predictors and evaluators together, exactly as the freeze commit blessed them. Not a filter: the enforced membership test is the predictor subset alone, which this pooled list does not distinguish (see `process_version`)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Digests",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The freeze instant (`FROZEN_SINCE`); null while no freeze is in force",
+          "title": "Since"
+        }
+      },
+      "required": [
+        "digests",
+        "since"
+      ],
+      "title": "FrozenProcessRecord",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -535,6 +568,18 @@
       "minimum": 0,
       "title": "Declared No View",
       "type": "integer"
+    },
+    "frozen_process": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FrozenProcessRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The freeze constants in force at build time, recorded on every build (an `all`-scope one included) so `process_scope` is answerable from the artifact alone rather than by resolving the build commit back to the source"
     },
     "median_adjacent_gap": {
       "anyOf": [
@@ -580,6 +625,16 @@
       },
       "title": "Predictors",
       "type": "array"
+    },
+    "process_scope": {
+      "default": "frozen",
+      "description": "Which process versions a **current read** may come from: `frozen` (the default \u2014 only runs whose harness stamp is in the blessed digest set and was written at or after the freeze instant, the same predicate the performance boards scope on) or `all` (every version, shakedown and unstamped runs included). It never filters `events`, which carries the case's whole history either way: an out-of-scope run is relegated to history, not hidden. A `frozen` board with no rows is the honest 'no frozen-process stakes reads yet' state, not a regression",
+      "enum": [
+        "frozen",
+        "all"
+      ],
+      "title": "Process Scope",
+      "type": "string"
     },
     "provenance": {
       "anyOf": [

@@ -5736,6 +5736,16 @@ def big_cases(
             "publish paths without links.",
         ),
     ] = analytics.DEFAULT_REPO_TREE_URL,
+    process_scope: Annotated[
+        str,
+        typer.Option(
+            "--process-scope",
+            help="Which process versions a current read may come from: 'frozen' (default — "
+            "only runs stamped with a blessed digest at or after the freeze instant) or "
+            "'all' (every version, shakedown and unstamped runs included). Either way the "
+            "per-event history is unfiltered.",
+        ),
+    ] = "frozen",
 ) -> None:
     """Roll the committed predictions into the big-case board at ``metrics/big-cases.{json,md}``.
 
@@ -5754,13 +5764,29 @@ def big_cases(
     population than the scored boards, stated in the artifact's own provenance
     block.
 
+    **Scoped to the frozen partition by default.** A current read must come from
+    a run whose harness stamp is blessed and post-freeze; a pre-freeze, retired,
+    shakedown or unstamped run is history under its event and never a current
+    read, never in ``n`` and never in a mean. ``--process-scope all`` restores
+    the version-blind census. The scope and the freeze record it keyed on are
+    published on the artifact, and the per-event history is unfiltered either
+    way.
+
     Ledger-only and offline: it reads ``data/`` and nothing else — no corpus, no
     network, no credentials — so reruns over an unchanged ledger reproduce both
     files byte for byte. It stamps neither a clock nor a commit for that reason;
     the board's vintage is the commit that wrote it.
     """
+    if process_scope not in {"frozen", "all"}:
+        raise typer.BadParameter(
+            f"unknown process scope {process_scope!r}; choose 'frozen' or 'all'",
+            param_hint="--process-scope",
+        )
+    scope: Literal["frozen", "all"] = "all" if process_scope == "all" else "frozen"
     settings = get_settings()
-    board = analytics.build_big_case_board(data_root=settings.data_root, repo_url=repo_url)
+    board = analytics.build_big_case_board(
+        data_root=settings.data_root, repo_url=repo_url, process_scope=scope
+    )
     # Resolved from the jail's own constants: the command writes exactly the files
     # the required `paths` check admits on the board branch, by construction.
     json_name, md_name = BOARD_ARTIFACTS

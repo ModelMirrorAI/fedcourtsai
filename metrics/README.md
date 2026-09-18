@@ -1770,6 +1770,23 @@ the rendered table) and
   row — because there is no docket number in committed data; `case_id` is the
   identifier.
 
+  **Process scope.** `process_scope` says which process versions a **current
+  read** may come from, and the default is `frozen`: a run is eligible only
+  where its harness stamp is in the blessed digest set and was written at or
+  after the freeze instant — the same predicate the performance boards scope
+  on — and the freeze record it keyed on is published beside it in
+  `frozen_process`. A pre-freeze, retired-digest, shakedown or unstamped run is
+  **history** under its event, never a current read, never in `n` and never in
+  a mean; the scope is applied before the moment choice, so such a run cannot
+  move a case's moment either. The reason is that this is a census a public
+  site publishes: a panel described under one contract is readable, while one
+  pooling cells elicited under different asks is a mixture whose movements
+  nobody can attribute. The version-blind reading remains available and remains
+  honest for its own question — `fedcourts big-cases --process-scope all`
+  rebuilds over every version, shakedown cells included, and stamps
+  `process_scope: "all"` so the two are never confused. The per-event entries
+  are unfiltered on both settings.
+
   **No time series.** The predict prompt's amendment making `big_case_score`
   required with an explicit null escape changed which cells carry a read
   ([docs/freeze-record.md](../docs/freeze-record.md)), so scores elicited

@@ -54,7 +54,7 @@ from .pipeline.salience import (
     salience_bands,
     scorer,
 )
-from .process_version import CURRENT_PROCESS_LABEL
+from .process_version import CURRENT_PROCESS_LABEL, frozen_process_record, is_frozen
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     AnalyticsReport,
@@ -2936,11 +2936,21 @@ _BIG_CASE_LEAKAGE_NOTE = (
     "marked, under its own event."
 )
 _BIG_CASE_VERSION_SCOPE = (
-    "Version-blind on purpose: the board pools every process version, shakedown cells and "
-    "unstamped cells included, because it is a census of what the panel said rather than a "
-    "measurement of how well it said it. That is the opposite default from the performance "
-    "boards, which are scoped to the frozen partition — so `process_label` here is only what a "
-    "prediction minted today would stamp, and is not a filter on any row."
+    "`process_scope` says which process versions a **current read** may come from, and the "
+    "default is `frozen`: a run is eligible only where its harness stamp is in the blessed "
+    "digest set and was written at or after the freeze instant — the same predicate the "
+    "performance boards scope on, and the record it keyed on travels beside it in "
+    "`frozen_process`. A pre-freeze, retired-digest, shakedown or unstamped run is **history** "
+    "under its event, never a current read, never in `n` and never in a mean. The reason is "
+    "that this is a census a public site publishes: a panel described under one contract is "
+    "readable, and one pooling cells elicited under different asks is a mixture whose "
+    "movements nobody can attribute. The version-blind reading is still available and still "
+    "honest for its own question — `--process-scope all` rebuilds the board over every "
+    'version, shakedown cells included, and stamps `process_scope: "all"` so a reader can '
+    "tell the two apart. Either way `process_label` is what a prediction minted today would "
+    "stamp, and is a label rather than the filter; the filter is `process_scope`. The "
+    "per-event entries are unfiltered on both settings, so the history a scope excludes stays "
+    "visible rather than disappearing."
 )
 _BIG_CASE_RANK_RESOLUTION = (
     "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer "
@@ -2955,34 +2965,37 @@ _BIG_CASE_RANK_RESOLUTION = (
     "its panel answered as well as how big its case is."
 )
 _BIG_CASE_COLLAPSE_RULE = (
-    "The moment first, then the predictors on it, so the reads a row averages are answers "
-    "to the same question. The case's current moment (`moment`, with "
-    "`moment_opened_at` beside it) is chosen from the **docket** rather than from run "
-    "times — with the one fallback named below, where the docket gives no date at all: "
-    "the newest **predicted** event by its `opened_at`, which lags the docket wherever no "
-    "cell has been dispatched on a newer event; ties broken by the docket's stage "
-    "progression — the petition's arrival, then its distribution, then the interim "
-    "application's arrival, the response requested on it and the response filed, then the "
-    "CVSG, then the merits moments — and then by event id, so a date collision never "
-    "inverts the order a case is actually walked in. An event whose definition records no "
-    "`opened_at` is ordered by the **day** of its first prediction's harness clock, which "
-    "therefore falls through to the same tie-break. One exception the pre-registration "
-    "records (`docs/freeze-record.md`): the cert petition baseline's `opened_at` is "
-    "**docketing**, while the moment it declares is the distribution, so on those rows "
-    "`moment_opened_at` is the day the petition reached the docket rather than the day its "
-    "moment arrived. It is used as an ordering key regardless, because it is still the "
-    "docket's own date and still moves only when the docket does. A re-predict of an older "
-    "moment cannot move the case's moment; only a newly predicted moment can. Each predictor's "
-    "read is then its newest run **on that moment**, newest by the harness-written cell "
-    "clock (the process stamp, else `created_at`) rather than by directory name, ties "
-    "broken by run id. A predictor with no run on that moment is excluded from `n` and "
-    "from the mean exactly as a declared no view is — never carried over from an older "
-    "moment, never imputed, never counted as a zero; its earlier read is history, listed "
-    "under its own event and never averaged in. **The coverage consequence to read for**: "
-    "where a fresh moment has been minted for some predictors and not others, the row "
-    "shows the newest moment at a small `n` rather than a fuller `n` on a stage the "
-    "docket has left behind. That is the honest reading, and the fuller panel on the "
-    "previous moment is in the per-event entries."
+    "The scope first, then the moment, then the predictors on it, so the reads a row averages "
+    "are answers to the same question asked under the same contract. Eligibility comes first "
+    "and everything below is over the eligible runs only: a run counts as a current read only "
+    "where it is in `process_scope` (see *Process scope*), so a case's moment is the newest "
+    "event carrying at least one eligible run, and an out-of-scope run can neither become a "
+    "current read nor move the moment. The case's current moment (`moment`, with "
+    "`moment_opened_at` beside it) is chosen from the **docket** rather than from run times — "
+    "with the one fallback named below, where the docket gives no date at all: the newest "
+    "**predicted** event by its `opened_at`, which lags the docket wherever no cell has been "
+    "dispatched on a newer event; ties broken by the docket's stage progression — the "
+    "petition's arrival, then its distribution, then the interim application's arrival, the "
+    "response requested on it and the response filed, then the CVSG, then the merits moments "
+    "— and then by event id, so a date collision never inverts the order a case is actually "
+    "walked in. An event whose definition records no `opened_at` is ordered by the **day** of "
+    "its first prediction's harness clock, which therefore falls through to the same "
+    "tie-break. One exception the pre-registration records (`docs/freeze-record.md`): the "
+    "cert petition baseline's `opened_at` is **docketing**, while the moment it declares is "
+    "the distribution, so on those rows `moment_opened_at` is the day the petition reached "
+    "the docket rather than the day its moment arrived. It is used as an ordering key "
+    "regardless, because it is still the docket's own date and still moves only when the "
+    "docket does. A re-predict of an older moment cannot move the case's moment; only a newly "
+    "predicted moment can. Each predictor's read is then its newest run **on that moment**, "
+    "newest by the harness-written cell clock (the process stamp, else `created_at`) rather "
+    "than by directory name, ties broken by run id. A predictor with no run on that moment is "
+    "excluded from `n` and from the mean exactly as a declared no view is — never carried "
+    "over from an older moment, never imputed, never counted as a zero; its earlier read is "
+    "history, listed under its own event and never averaged in. **The coverage consequence to "
+    "read for**: where a fresh moment has been minted for some predictors and not others, the "
+    "row shows the newest moment at a small `n` rather than a fuller `n` on a stage the "
+    "docket has left behind. That is the honest reading, and the fuller panel on the previous "
+    "moment is in the per-event entries."
 )
 _BIG_CASE_LEADERBOARD_DIVERGENCE = (
     "Three collapses of a case exist across these artifacts, and a figure from one is "
@@ -2999,13 +3012,13 @@ _BIG_CASE_LEADERBOARD_DIVERGENCE = (
     "not share, being scoped to the frozen partition and to cells a judge has graded."
 )
 _BIG_CASE_POPULATION = (
-    "Every case in the committed ledger carrying at least one scored read **on its current "
-    "moment**, pending and decided alike; `cases_without_score` counts the predicted cases "
-    "that carry none and are therefore absent — including a case whose current moment drew "
-    "only declining reads whilst an earlier moment carried scores, which are history here "
-    "and never promoted back into a row. The list is the predictions', never the corpus's "
-    "— and the predictions' list is the salience gate's deliberately non-representative "
-    "selection "
+    "Every case in the committed ledger carrying at least one **in-scope** scored read on its "
+    "current moment, pending and decided alike; `cases_without_score` counts the predicted "
+    "cases that carry none and are therefore absent — including a case whose current moment "
+    "drew only declining reads whilst an earlier moment carried scores, and a case whose "
+    "every read falls outside `process_scope`; both are history here and neither is promoted "
+    "back into a row. The list is the predictions', never the corpus's — and the predictions' "
+    "list is the salience gate's deliberately non-representative selection "
     "(`docs/salience.md`), so the board inherits that gate and is **not** a sample of the "
     "docket or of any conference. `status` says only whether a committed `outcome.json` sits "
     "on the case's predicted events: `pending` means the ledger records no outcome, which is "
@@ -3318,7 +3331,12 @@ def _big_case_status(
 
 
 def _big_case_row(
-    case_rows: list[LedgerPrediction], *, data_root: Path, repo_url: str, leakage: _Leakage
+    case_rows: list[LedgerPrediction],
+    *,
+    eligible: list[LedgerPrediction],
+    data_root: Path,
+    repo_url: str,
+    leakage: _Leakage,
 ) -> BigCaseRow | None:
     """One case's board row, or ``None`` where no predictor holds a current score.
 
@@ -3328,9 +3346,17 @@ def _big_case_row(
     stays under its own event as history. The population filter lives here rather
     than in the caller because it is the same computation: a case is on the board
     iff the collapse leaves at least one number to average.
+
+    ``eligible`` is ``case_rows`` filtered to the runs ``process_scope`` admits,
+    and it is what every row-level figure is computed from — the moment included,
+    so an out-of-scope run cannot move a case's moment any more than it can be
+    its read. ``case_rows`` stays whole and feeds only ``events``, which is where
+    the excluded runs remain visible as history.
     """
+    if not eligible:
+        return None
     by_event: dict[str, list[LedgerPrediction]] = defaultdict(list)
-    for row in case_rows:
+    for row in eligible:
         by_event[row.event_id].append(row)
     definitions = _event_definitions(case_rows, data_root=data_root)
     moment = _case_moment(by_event, definitions)
@@ -3386,7 +3412,12 @@ def _big_case_row(
     )
 
 
-def build_big_case_board(*, data_root: Path, repo_url: str = DEFAULT_REPO_TREE_URL) -> BigCaseBoard:
+def build_big_case_board(
+    *,
+    data_root: Path,
+    repo_url: str = DEFAULT_REPO_TREE_URL,
+    process_scope: Literal["frozen", "all"] = "frozen",
+) -> BigCaseBoard:
     """Roll the committed predictions into the case-centric big-case board.
 
     Ledger-only: it reads ``data/`` and nothing else — no corpus, no network, no
@@ -3400,20 +3431,38 @@ def build_big_case_board(*, data_root: Path, repo_url: str = DEFAULT_REPO_TREE_U
     is anything about how good those reads are — a stakes read resolves against
     nothing, so the board carries no score, no ranking of predictors, and no
     exclusion borrowed from the scored surfaces.
+
+    ``process_scope`` is the one exclusion it does apply, and only to **current
+    reads**: under the default ``frozen`` a run is eligible as a read of a case
+    only where :func:`fedcourtsai.process_version.is_frozen` admits its harness
+    stamp, so the published panel is described under one contract rather than
+    pooling asks. ``all`` restores the version-blind census. Neither setting
+    touches ``events``, which carries every committed run of the case as history
+    — an excluded run is relegated, never hidden.
     """
     predictions = store.iter_predictions(data_root)
     by_case: dict[str, list[LedgerPrediction]] = defaultdict(list)
+    eligible_by_case: dict[str, list[LedgerPrediction]] = defaultdict(list)
     predictors: set[str] = set()
     for row in predictions:
         by_case[row.case_id].append(row)
-        predictors.add(row.predictor_id)
+        if process_scope == "all" or is_frozen(row.prediction.process_version):
+            eligible_by_case[row.case_id].append(row)
+            # The roster is the predictors the board can *publish*, so it is the
+            # in-scope one: a predictor whose every run is out of scope would
+            # otherwise render as a column of blanks on every row.
+            predictors.add(row.predictor_id)
     leakage = _leakage_index(data_root, predictions)
     rows = [
         board_row
         for case_id in sorted(by_case)
         if (
             board_row := _big_case_row(
-                by_case[case_id], data_root=data_root, repo_url=repo_url, leakage=leakage
+                by_case[case_id],
+                eligible=eligible_by_case[case_id],
+                data_root=data_root,
+                repo_url=repo_url,
+                leakage=leakage,
             )
         )
         is not None
@@ -3442,6 +3491,8 @@ def build_big_case_board(*, data_root: Path, repo_url: str = DEFAULT_REPO_TREE_U
         median_score_range=_median([row.score_range for row in rows]),
         coverage=[BigCaseCoverage(n=n, cases=coverage[n]) for n in sorted(coverage, reverse=True)],
         rows=rows,
+        process_scope=process_scope,
+        frozen_process=frozen_process_record(),
         provenance=_big_case_provenance(),
     )
 
@@ -3510,8 +3561,8 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         "",
         f"**Population.** {provenance.population}",
         "",
-        f"**Process scope.** {provenance.version_scope} The label in force today is "
-        f"`{provenance.process_label}`.",
+        f"**Process scope.** This board is built at `process_scope: {board.process_scope}`. "
+        f"{provenance.version_scope} The label in force today is `{provenance.process_label}`.",
         "",
         f"**No time series.** {provenance.no_time_series}",
         "",

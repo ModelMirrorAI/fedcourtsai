@@ -6647,6 +6647,22 @@ class BigCaseBoard(_Strict):
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
+    process_scope: Literal["frozen", "all"] = Field(
+        default="frozen",
+        description="Which process versions a **current read** may come from: `frozen` (the "
+        "default — only runs whose harness stamp is in the blessed digest set and was "
+        "written at or after the freeze instant, the same predicate the performance boards "
+        "scope on) or `all` (every version, shakedown and unstamped runs included). It "
+        "never filters `events`, which carries the case's whole history either way: an "
+        "out-of-scope run is relegated to history, not hidden. A `frozen` board with no "
+        "rows is the honest 'no frozen-process stakes reads yet' state, not a regression",
+    )
+    frozen_process: FrozenProcessRecord | None = Field(
+        default=None,
+        description="The freeze constants in force at build time, recorded on every build "
+        "(an `all`-scope one included) so `process_scope` is answerable from the artifact "
+        "alone rather than by resolving the build commit back to the source",
+    )
     cases: int = Field(default=0, ge=0, description="Rows on the board")
     cases_without_score: int = Field(
         default=0,
