@@ -215,10 +215,17 @@ from .pipeline.distribution_rederive import rederive_distribution_counts
 from .pipeline.document_backfill import backfill_documents
 from .pipeline.document_mirror import mirror_stored_documents
 from .pipeline.documents import (
+    FETCH_LOSS_BIO_EMPTY,
+    FETCH_LOSS_BIO_PARTIAL,
+    FETCH_LOSS_HTTP_ERROR,
+    FETCH_LOSS_NOT_SELECTED,
+    FETCH_LOSS_OFF_HOST,
+    FETCH_LOSS_UNAVAILABLE,
     KIND_PETITION,
     QpExtractRow,
     TextCoverage,
     backfill_questions_presented,
+    document_fetch_losses,
     document_text_coverage,
     questions_presented_extract,
 )
@@ -11074,6 +11081,115 @@ def _format_refresh_failures(failed: list[dict[str, object]]) -> str:
     return f" ({len(failed)} failed: {cases})"
 
 
+#: What each fetch-loss reason means to someone reading a window summary, and —
+#: where it differs — what to do about it. Keyed by the reason string the record
+#: itself uses (`DocumentFetchLosses.by_reason`), so a reason that reaches the
+#: block with no gloss here is rendered bare rather than mislabelled.
+_FETCH_LOSS_GLOSS: dict[str, str] = {
+    FETCH_LOSS_HTTP_ERROR: "a transport failure the client's own retry did not clear; "
+    + "the same URL is worth re-attempting, and the case's next provisioning fetch does",
+    FETCH_LOSS_UNAVAILABLE: "a link the upstream did not serve (404) — the expected "
+    + "rolling-window miss on an older docket, and a defect on a recent one",
+    FETCH_LOSS_OFF_HOST: "a link that was not HTTPS on the Court's own host, refused "
+    + "before the request; no re-attempt repairs it and a single occurrence is worth reading",
+    FETCH_LOSS_BIO_EMPTY: "every selected opposition brief failed, so no "
+    + "`brief-in-opposition` row is written this pass, and a case that never held one ends "
+    + "the window with none",
+    FETCH_LOSS_BIO_PARTIAL: "some but not all of a case's selected opposition briefs "
+    + "fetched, so a `brief-in-opposition` row WAS stored carrying less than the docket's "
+    + "opposition. It heals at the case's next provisioning fetch — its next distribution "
+    + "transition, or a sweep pass while some enabled predictor is still owed a cell. A case "
+    + "that takes neither again keeps the short row, and that is what every later cell reads",
+    FETCH_LOSS_NOT_SELECTED: "the docket JSON nominated no document at all: an upstream "
+    + "that posts no PDF (a Rule 34.6 paper filing), or a filing shape the selector has no "
+    + "arm for",
+}
+
+
+def _report_document_fetch_losses(lane: str) -> None:
+    """Surface this process's document-fetch losses by reason, on two channels.
+
+    A lane that fetches documents has to report what it lost, because the record
+    the fetch itself leaves — a process counter and one ``logger.warning`` —
+    dies with the runner. The ordinary provisioning fetch runs in the live
+    poller, so that is the lane most of these losses are incurred in and the one
+    this reports for; the document back-fill prints the same reason set on its
+    own ledger.
+
+    Two channels, both from here so no workflow change is needed, the way
+    :func:`_report_predict_cap` does it: the counted line goes to **stdout**
+    unconditionally, since a zero line is itself the window's reading and a lane
+    that prints nothing cannot be told from a lane that lost nothing; and when
+    anything was lost, a ``::warning::`` annotation plus — inside Actions, where
+    ``$GITHUB_STEP_SUMMARY`` is set — a Markdown block on the window's summary,
+    which is the surface that outlives the run log.
+
+    **Any** nonzero record escalates, routine ones included, and that is the
+    deliberate reading rather than an uncalibrated one: the annotation says a
+    window lost something, and the block beside it is what separates the
+    expected rolling-window 404 from the reasons that want a maintainer. Muting
+    the routine reasons would mean the escalation could no longer be read as
+    "this window's losses are all here", which is the property a reader needs
+    from it. Whether the routine rate makes the annotation constant in practice
+    is a question only a live window answers; nothing here is calibrated against
+    one yet.
+
+    ``lane`` heads both, and it names the **surface** rather than the command —
+    the caller passes the workflow job a reader would go looking in, so an
+    annotation and a summary heading point at the same place. A dev-checkout run
+    therefore prints its workflow's name, which is the right trade: the label
+    exists for the runner's reader.
+
+    The per-document detail (which case, which URL, and for ``bio-partial`` how
+    many briefs were selected against how many fetched) stays in the
+    ``documents:`` warnings the fetch itself writes; this carries the count, the
+    gloss, and where to find that detail.
+    """
+    losses = document_fetch_losses()
+    counts = losses.by_reason
+    typer.echo(
+        f"Document fetch losses ({losses.records} record(s)): "
+        + ", ".join(f"{reason}: {count}" for reason, count in counts.items())
+        + "."
+    )
+    if not losses.records:
+        return
+    lost = {reason: count for reason, count in counts.items() if count}
+    typer.echo(
+        f"::warning::{lane}: {losses.records} document-fetch loss record(s) this window — "
+        + ", ".join(f"{reason}: {count}" for reason, count in lost.items())
+        + "; the `documents:` warnings above name the case and the link for each",
+        err=True,
+    )
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    rows = "".join(
+        f"| `{reason}` | {count} | {_FETCH_LOSS_GLOSS.get(reason, '')} |\n"
+        for reason, count in counts.items()
+    )
+    try:
+        with open(summary_path, "a", encoding="utf-8") as fh:
+            fh.write(
+                f"\n## {lane} — document fetch losses\n\n"
+                f"{losses.records} loss record(s) this window. Each one is also a `documents:` "
+                "warning in the step log, naming the case and the link.\n\n"
+                "| Reason | Count | What it means |\n|---|---:|---|\n" + rows
+            )
+    except OSError as exc:
+        # Reporting must never cost the window its work. This runs in the poll
+        # step, which precedes the corpus push and the commit and which every
+        # later step is gated on (`if: success()` by default) — so a summary
+        # file that cannot be written would otherwise throw away a whole window
+        # of already-fetched corpus state. The counts are on stdout and the
+        # annotation regardless; only the durable copy is lost.
+        typer.echo(
+            f"::warning::{lane}: could not write the fetch-loss block to the step summary "
+            f"({exc}); the counts above are this window's only record of them",
+            err=True,
+        )
+
+
 @app.command("pull-all")
 def pull_all(
     out: Annotated[Path, typer.Option(help="Write the predict queue JSON here.")] = Path(
@@ -11338,6 +11454,11 @@ def live_poll(
             "Skipped forward prediction for "
             f"{skipped['court']}/{skipped['docket']} — {skipped['reason']}"
         )
+    # The window's document-fetch ledger. Last, after the queue counts, because
+    # it reports on what provisioning did for the cases those counts name — and
+    # unconditionally, because a window that lost nothing and a window that never
+    # said are the same silence otherwise.
+    _report_document_fetch_losses("run-pull (live)")
 
 
 @app.command("conference-set")
