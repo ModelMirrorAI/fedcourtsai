@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279035",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local provisioned files and schemas",
+    "committed statpack markdown and JSON",
+    "fedcourts paths",
+    "web.run direct PDF open attempts",
+    "httpx and pypdf in-memory official PDF retrieval"
+  ],
+  "helpful": [
+    "Frozen band, salience version, distribution count, and CVSG date",
+    "Exact official document links in the snapshot",
+    "Paired petition and opposition text",
+    "Unrounded reached-band counts in statpack JSON"
+  ],
+  "gaps": [
+    "Provision invited Solicitor General and supplemental reply text when present; both materially affected this forecast",
+    "A writable default uv cache would avoid the initial path-command failure",
+    "Web direct-open returned no usable content; installed pypdf provided a workable alternative"
+  ],
+  "notes": "Read-only prediction run. Retrieved only two pre-snapshot official filings by exact snapshot links. No case-outcome search, live docket lookup, or corpus query was needed. Petition extraction is marked truncated; the available QP and opposition were usable. Tool calls did not write downloaded PDFs. The CVSG increment was already vacuous."
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73275236",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "mcp_courtlistener_call_endpoint", "mcp_courtlistener_read_document"],
+  "helpful": ["mcp_courtlistener_read_document for accessing the lower court opinion when no documents were provisioned"],
+  "gaps": [],
+  "notes": "The CourtListener MCP server is very useful for reading the text of the lower court opinion when provisioned documents are not available."
+}

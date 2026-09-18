@@ -1,0 +1,29 @@
+{
+  "case_id": "scotus/73279035",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (service backend)",
+    "metrics/statpack.md",
+    "courtlistener MCP (dockets, docket-entries)",
+    "WebSearch",
+    "WebFetch",
+    "pypdf (local PDF text extraction)"
+  ],
+  "helpful": [
+    "Provisioned petition/BIO/QP text",
+    "Segment base rate by salience band (sal-v4) with the bracketed reached figures",
+    "CVSG-status cut",
+    "Public supremecourt.gov docket page via WebFetch"
+  ],
+  "gaps": [
+    "A statpack cut conditioned on the Solicitor General's CVSG recommendation (grant vs deny) \u2014 the single most informative variable on a cvsg-moment cell has no committed base rate",
+    "fedcourts query has no --cvsg filter, so isolating CVSG priors needs a wide pull and local filtering",
+    "WebFetch cannot read PDFs directly; the SG brief needed a local pypdf pass",
+    "CourtListener carries no docket entries for SCOTUS dockets, so live docket state had to come from supremecourt.gov"
+  ],
+  "notes": "On a forward cvsg-moment cell whose SG brief has already been filed, provisioning the SG brief into record/documents/ would give every predictor the same decisive input."
+}

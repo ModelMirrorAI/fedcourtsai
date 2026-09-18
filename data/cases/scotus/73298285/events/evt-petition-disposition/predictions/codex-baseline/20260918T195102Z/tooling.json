@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73298285",
+  "gaps": [
+    "The default uv cache was read-only; a temporary writable cache resolved this.",
+    "General web retrieval returned no usable content.",
+    "No published increment hazard table conditions on response-request redistribution."
+  ],
+  "helpful": [
+    "Both petition and opposition were available with readable text and provenance.",
+    "The frozen band and risk-set table supported an explicit prior-Term anchor.",
+    "Dated docket entries distinguished requested-response redistribution from a substantive relist.",
+    "CourtListener supplied targeted primary-source precedent excerpts."
+  ],
+  "notes": "No own-case live retrieval or outcome search. Related-case context came only from the provisioned opposition. No substantive blocker or leakage incident was encountered.",
+  "role": "predictor",
+  "run_id": "20260918T195102Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned documents",
+    "metrics/statpack.md",
+    "fedcourts paths",
+    "CourtListener search",
+    "CourtListener search_document",
+    "web search and open (no usable results)",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

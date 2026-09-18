@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73358839",
+  "gaps": [
+    "General-law web search and official-PDF open returned no usable content",
+    "Published band percentages are rounded rather than exact grant numerators"
+  ],
+  "helpful": [
+    "Full petition and extracted questions presented",
+    "Frozen salience band and distribution count",
+    "Snapshot distinguishes rescheduling from conference consideration",
+    "Reached-band denominators allow strictly-prior pooling"
+  ],
+  "notes": "No live case retrieval was needed. There was no provisioned BIO, consistent with the recorded response waiver. The default uv cache was read-only; a temporary writable cache allowed the CLI to run. No harness-owned context, process-version, usage, or retrieval-log fields were written.",
+  "role": "predictor",
+  "run_id": "20260918T195102Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "committed statpack",
+    "fedcourts paths",
+    "web.run (no usable results)",
+    "local weighted-rate calculation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

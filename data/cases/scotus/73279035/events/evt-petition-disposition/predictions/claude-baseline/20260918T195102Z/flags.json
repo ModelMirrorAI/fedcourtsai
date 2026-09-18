@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73279035",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal retrieved beyond the provisioned inputs: the Solicitor General's CVSG brief (filed Aug 31, 2026, on the docket before the 2026-09-17 snapshot) recommends denial on vehicle grounds while conceding the circuit split and the Sixth Circuit's error. The snapshot records the filing but not its content, and the document pipeline did not provision it; I fetched it from supremecourt.gov and it moved my number well below the CVSG/band anchors. No disposition of this petition surfaced anywhere; the case is pending for the 10/9/2026 conference."
+    }
+  ]
+}

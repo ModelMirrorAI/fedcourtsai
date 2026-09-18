@@ -1,0 +1,5 @@
+Distributed twice so far (including one reschedule). I expect the Court will likely deny the petition because it seeks certiorari before judgment. The Court generally prefers to allow the courts of appeals to rule in the first instance, especially since a parallel case in the Eleventh Circuit has already produced an appellate judgment that could serve as a more conventional vehicle for resolving the circuit split. 
+
+No CVSG is expected, because the federal government is already a party to the case. The Court may, however, request a response from the Solicitor General before denying the petition, which would result in additional distributions. 
+
+If granted, the Court would likely take up both questions presented to resolve the Commerce Clause and Fourth Amendment challenges to the Corporate Transparency Act comprehensively. A summary disposition is unlikely given the complexity and national importance of the constitutional questions. Should it deny, a dissenting statement from a justice emphasizing the importance of the issue is possible but not strongly expected.

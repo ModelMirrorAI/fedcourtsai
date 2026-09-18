@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000013",
+  "run_id": "20260918T195102Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "Capital-status metadata discrepancy: the September 18 snapshot has bCapitalCase=false, but the petition and questions-presented text expressly say CAPITAL CASE, and both sides describe plea agreements determining capital exposure. Retained the harness-frozen baseline sal-v4 band without alteration; assessed stakes from the filings. An unmarked source field should not be treated as affirmative noncapital status."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Document coverage limits: the manifest marks the 336-page petition truncated; the substantive cert argument is present, but the available appendix stops partway through page 44a and does not supply the complete lower-court record. The 24-page BIO is complete. A September 8 reply is docketed but its text is not provisioned or retrieved. Forecast completed with these limits, particularly on the disputed performance facts and responses to vehicle objections."
+    }
+  ]
+}
