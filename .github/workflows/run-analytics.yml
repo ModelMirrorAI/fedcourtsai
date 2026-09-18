@@ -1844,11 +1844,17 @@ jobs:
           # is containment: every labeler-sourced row main publishes must
           # appear byte-identically in the incoming file, and the ledger must
           # extend main's.
-          if [ -f data/qp-topics/qp-topics.json ]; then
+          # Main's copy is read from the fetched ref, never from the work tree:
+          # `checkout -f` replaces tracked files only, so while main does not
+          # yet carry the artifact the run's own untracked file survives the
+          # switch, and a tree read would compare the artifact against itself
+          # and refuse the one batch that has no prior at all.
+          if git cat-file -e "origin/main:data/qp-topics/qp-topics.json" 2>/dev/null; then
+            git show "origin/main:data/qp-topics/qp-topics.json" > "$RUNNER_TEMP/landed.json"
             landed=$(jq -cS '[.batches[] | {batch, labeler, published}]' \
-              data/qp-topics/qp-topics.json)
+              "$RUNNER_TEMP/landed.json")
             landed_rows=$(jq -cS '[.entries[] | select(.source == "labeler")]' \
-              data/qp-topics/qp-topics.json)
+              "$RUNNER_TEMP/landed.json")
           else
             landed='[]'
             landed_rows='[]'
