@@ -5736,6 +5736,21 @@ def big_cases(
             "publish paths without links.",
         ),
     ] = analytics.DEFAULT_REPO_TREE_URL,
+    process_scope: Annotated[
+        str,
+        typer.Option(
+            "--process-scope",
+            help="Which process versions a current read may come from: 'all' (default — "
+            "every committed run, shakedown, pre-freeze, retired-digest and unstamped "
+            "included, which is what a census means) or 'frozen' (the comparison build: "
+            "only runs stamped with a blessed digest at or after the freeze instant). "
+            "Either way the per-event history is unfiltered. The frozen build's hold-out "
+            "is selected, not sampled — a resolved case is never re-predicted and the "
+            "re-predict rule re-owes neither the cert "
+            "arrival moment nor either merits moment — so no count, mean, rate or spread "
+            "statistic is differenced across a scope change.",
+        ),
+    ] = "all",
 ) -> None:
     """Roll the committed predictions into the big-case board at ``metrics/big-cases.{json,md}``.
 
@@ -5754,13 +5769,34 @@ def big_cases(
     population than the scored boards, stated in the artifact's own provenance
     block.
 
+    **Version-blind by default.** Every committed run is eligible as a current
+    read, which is what a census means and what the published board wants.
+    ``--process-scope frozen`` builds the **comparison** board instead, admitting
+    only runs whose harness stamp is blessed and post-freeze; a pre-freeze,
+    retired, shakedown or unstamped run is then history under its event, never a
+    current read, never in ``n`` and never in a mean. That build is not this one
+    with fewer rows — a resolved case is never re-predicted and the re-predict
+    rule re-owes neither the cert arrival moment nor either merits moment, so it
+    is a live-cert-and-interim slice, and the artifact states the hold-out
+    (``cases_out_of_scope``) beside its own row count. The scope and the freeze
+    record it keys on are published on the artifact either way, and the per-event
+    history is never filtered.
+
     Ledger-only and offline: it reads ``data/`` and nothing else — no corpus, no
     network, no credentials — so reruns over an unchanged ledger reproduce both
     files byte for byte. It stamps neither a clock nor a commit for that reason;
     the board's vintage is the commit that wrote it.
     """
+    if process_scope not in {"frozen", "all"}:
+        raise typer.BadParameter(
+            f"unknown process scope {process_scope!r}; choose 'frozen' or 'all'",
+            param_hint="--process-scope",
+        )
+    scope: Literal["frozen", "all"] = "frozen" if process_scope == "frozen" else "all"
     settings = get_settings()
-    board = analytics.build_big_case_board(data_root=settings.data_root, repo_url=repo_url)
+    board = analytics.build_big_case_board(
+        data_root=settings.data_root, repo_url=repo_url, process_scope=scope
+    )
     # Resolved from the jail's own constants: the command writes exactly the files
     # the required `paths` check admits on the board branch, by construction.
     json_name, md_name = BOARD_ARTIFACTS

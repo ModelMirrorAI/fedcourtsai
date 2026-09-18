@@ -2588,11 +2588,24 @@ def test_the_weekly_digest_reports_the_big_case_board_without_naming_a_case() ->
     )
     md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(big_cases=board))
 
-    assert "**Big-case board** (`metrics/big-cases.json`, vintage 2026-08-29)" in md
+    assert (
+        "**Big-case board** (`metrics/big-cases.json`, vintage 2026-08-29, `process_scope: all`)"
+    ) in md
     assert "2 case(s) ranked over 3 scored stakes read(s) of 4" in md
     assert "cases by scoring predictors 2→1, 1→1" in md
     assert "neither scored nor ranked" in md
     assert "A famous case" not in md
+    # The scope travels with the count, and a frozen build says what it held out
+    # — two scopes rank different populations, so a bare count read across builds
+    # would compare a selected hold-out against a census.
+    frozen = ops.render_weekly_digest(
+        _empty_report(),
+        analytics=_analytics(
+            big_cases=board.model_copy(update={"process_scope": "frozen", "cases_out_of_scope": 7})
+        ),
+    )
+    assert "`process_scope: frozen`" in frozen
+    assert "7 case(s) held off by the scope." in frozen
 
 
 def test_the_weekly_digest_separates_an_absent_board_from_an_empty_one() -> None:
@@ -2602,6 +2615,14 @@ def test_the_weekly_digest_separates_an_absent_board_from_an_empty_one() -> None
     assert "empty — no committed prediction carries a stakes read" in (
         ops.render_weekly_digest(_empty_report(), analytics=_analytics(big_cases=BigCaseBoard()))
     )
+    # An empty frozen build says something different and must not be read as the
+    # first: the ledger may hold plenty of stakes reads, none of them blessed yet.
+    frozen = ops.render_weekly_digest(
+        _empty_report(),
+        analytics=_analytics(big_cases=BigCaseBoard(process_scope="frozen")),
+    )
+    assert "no frozen-process stakes reads yet" in frozen
+    assert "no committed prediction carries a stakes read" not in frozen
 
 
 def test_the_weekly_digest_carries_a_vintage_beside_every_metrics_figure() -> None:

@@ -812,9 +812,19 @@ def _big_case_lines(vintaged: Vintaged[BigCaseBoard]) -> list[str]:
     if board is None:
         return ["- **Big-case board**: `metrics/big-cases.json` has never landed."]
     if not board.rows:
+        # What "empty" means depends on the scope the board was built at, and the
+        # two are not the same report: version-blind it says the ledger carries no
+        # stakes read at all, while at `frozen` it is the honest "no
+        # frozen-process stakes reads yet" state and says nothing about the ledger.
+        reason = (
+            "no committed prediction carries a stakes read"
+            if board.process_scope == "all"
+            else "no frozen-process stakes reads yet — the ledger may hold plenty, and "
+            "`--process-scope all` is the census"
+        )
         return [
-            f"- **Big-case board** ({where}): empty — no committed prediction "
-            "carries a stakes read."
+            f"- **Big-case board** ({where}, `process_scope: {board.process_scope}`): "
+            f"empty — {reason}."
         ]
     # The coverage distribution rather than a "full panel" count: `predictors` is
     # read off the cells, so one stray cell from a fourth engine — or a retired
@@ -826,12 +836,21 @@ def _big_case_lines(vintaged: Vintaged[BigCaseBoard]) -> list[str]:
         if board.rows_with_leakage_flag
         else ""
     )
+    # The scope travels with the count because the two scopes rank different
+    # populations: a reader comparing this line across builds without it would
+    # read a selected hold-out as cases the panel stopped caring about.
+    held = (
+        f" {board.cases_out_of_scope} case(s) held off by the scope."
+        if board.cases_out_of_scope
+        else ""
+    )
     return [
-        f"- **Big-case board** ({where}): {board.cases} case(s) ranked over "
+        f"- **Big-case board** ({where}, `process_scope: {board.process_scope}`): "
+        f"{board.cases} case(s) ranked over "
         f"{board.scored_reads} scored stakes read(s) of {board.current_reads} from "
         f"{len(board.predictors)} predictor(s); cases by scoring predictors {split}."
-        f"{leakage} A panel opinion about stakes — neither scored nor ranked, and not a "
-        "statement about cert likelihood."
+        f"{held}{leakage} A panel opinion about stakes — neither scored nor ranked, and "
+        "not a statement about cert likelihood."
     ]
 
 
