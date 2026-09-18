@@ -1,0 +1,7 @@
+P(grant) 0.07. 
+
+The context assigns this case an `elevated` salience band, and the statpack's pooled base rate for `elevated` petitions that have reached this band over the prior 8 Terms is approximately 17.5%. I adjust downward significantly from this baseline because the petition is a poor vehicle for the question presented. 
+
+Although the petitioners present a clean Title VII *Groff* circuit split (3-3) on whether reasonable belief of undue hardship is sufficient, this case arises from a COVID-19 vaccine mandate for firefighters. The Court has consistently denied cert in COVID-19 mandate cases since the pandemic ended, likely viewing the context—a once-in-a-century pandemic with unique, emergency health risks—as unrepresentative of the mine-run of religious accommodation claims and ill-suited for establishing general Title VII standards. Furthermore, the respondent points out that much of the petitioners' evidence below was inadmissible under Rule 56, presenting additional vehicle issues that complicate review. 
+
+Despite the strong amicus support (including 22 states and multiple religious liberty organizations) which successfully elevated its salience band, the COVID-19 context and evidentiary problems make a grant unlikely.

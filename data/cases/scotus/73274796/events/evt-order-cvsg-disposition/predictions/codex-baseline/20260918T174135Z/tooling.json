@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274796",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned document text", "committed statpack Markdown and JSON", "fedcourts paths", "CourtListener search", "CourtListener read_document", "web search", "fedcourts validate data"],
+  "helpful": ["Frozen CVSG context distinguishes observed signals from increments.", "Both adversarial briefs and lower-court opinion excerpts support a vehicle assessment.", "Exact JSON risk-set rates permit weighted pooling of all displayed prior Terms."],
+  "gaps": ["The petition extraction is truncated, limiting appendix coverage.", "The docketed reply and amicus brief text are not provisioned.", "Web searches returned no usable results."],
+  "notes": "CourtListener successfully supplied a pre-snapshot general precedent. No live target-case lookup was needed. The default uv cache was read-only; a temporary writable cache allowed the CLI to run."
+}

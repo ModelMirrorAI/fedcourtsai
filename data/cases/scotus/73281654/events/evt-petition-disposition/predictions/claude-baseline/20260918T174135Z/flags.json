@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281654",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Frozen context reads distribution_count=2 and band=elevated, but the two DISTRIBUTED entries (5/12 for the 5/28 conference; 9/9 for the 9/28 conference) bracket a 5/27 'Response Requested' order that pulled the petition off the first conference after the SG waived. The petition has not yet been considered at any conference, so this is a call-for-response redistribution, not a post-conference relist; the elevated band's 17% reached-rate anchor overstates the signal for this docket shape. I anchored on it as instructed and adjusted down; noting so the band/relist construct can be read with that in mind."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The United States (Solicitor General) is the respondent, so a CVSG cannot issue; cvsg-increment is structurally near-zero on this cell rather than a forecast."
+    }
+  ]
+}

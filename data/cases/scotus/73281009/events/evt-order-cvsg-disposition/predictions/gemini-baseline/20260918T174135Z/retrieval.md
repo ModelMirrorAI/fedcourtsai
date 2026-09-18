@@ -1,0 +1,3 @@
+- `fedcourts query` (failed syntax, no data retrieved)
+- `cat metrics/statpack.md | grep -A 20 "by CVSG status"`
+- MCP CourtListener search for "Bette Eakin" (returned docket 25-1644 from the Third Circuit)

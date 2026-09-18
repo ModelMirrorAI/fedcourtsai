@@ -1,0 +1,3 @@
+- Used CourtListener MCP tool (mcp_courtlistener_search) to find the Second Circuit opinion for Nexstar v. DirecTV (found docket 24-981, opinion ID 11225706).
+- Used CourtListener MCP tool (mcp_courtlistener_search_document) to query "standing" in the opinion text, confirming the nature of the circuit split and Judge Sullivan's dissent below.
+- Consulted the provisioned statpack (metrics/statpack.md) for base rates and the relist counts. No fedcourts query corpus lookups were performed.

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000163",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local file reads", "fedcourts paths", "jq", "git log for statpack vintage", "web search/open attempts", "CourtListener MCP search attempt"],
+  "helpful": ["Frozen interim escalation state and entry-limited snapshot", "Per-application-Term substantive grant and resolution counts"],
+  "gaps": ["No application or lower-court opinion text provisioned", "CourtListener generic precedent lookup failed with connection reset", "Web tools returned no usable historical precedent content", "Arrival dates disagree across the entry, cutoff, and event metadata"],
+  "notes": "Forecast completed from the provisioned record and committed interim base rate. No case-specific external retrieval, outcome lookup, or REST fallback. The unwritable default uv cache was bypassed with a temporary cache. No merits facts were inferred from missing documents."
+}

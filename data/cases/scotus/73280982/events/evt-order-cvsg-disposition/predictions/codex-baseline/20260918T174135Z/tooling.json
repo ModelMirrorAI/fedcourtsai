@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73280982",
+  "gaps": [
+    "The QP extractor selected an importance section despite labeling the result usable; matching the opening questions against petition page I would catch this defect.",
+    "The petition package is truncated and no SG recommendation is provisioned, leaving incomplete appendix coverage and a major conditional uncertainty."
+  ],
+  "helpful": [
+    "Readable petition and opposition permit comparison of the alleged conflict with the asserted vehicle defects.",
+    "The included lower-court opinion provides a direct check on the parties' competing characterizations.",
+    "Exact reached-band denominators in statpack.json support prior-Term pooling without rounding error."
+  ],
+  "notes": "The default uv cache was read-only; a temporary writable cache restored the CLI without modifying pipeline files. No live corpus or CourtListener lookup was necessary.",
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Provisioned snapshot, context and filed-document text",
+    "Committed statpack Markdown and JSON",
+    "Official Supreme Court precedent via web search and PDF open",
+    "fedcourts paths and repository path helpers",
+    "Local schema and artifact validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

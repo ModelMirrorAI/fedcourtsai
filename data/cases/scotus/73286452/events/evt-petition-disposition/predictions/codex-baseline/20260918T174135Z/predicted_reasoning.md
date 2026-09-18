@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+The Court will most likely **deny certiorari**. The forecast probability of any grant, including a GVR or summary reversal, is **38%**. A denial will leave the judgment below standing without adopting its government-speech rationale.
+
+The record already contains **two distributions**, for the June 25 and September 28, 2026 conferences. A response request intervened after the first distribution, so that history does not establish two completed merits-of-cert deliberations. From this state, I expect **one further distribution** before disposition, with a **55%** probability of at least one additional distribution and two or more less likely. The central timing forecast is an order in October or November 2026; timing is context, not a scored claim.
+
+The Court will probably **not call for the Solicitor General's views**. The probability of a new CVSG is **2%**. This petition centers on the First Amendment classification of a state educational requirement rather than a federal administrative regime requiring the government's operational expertise.
+
+**If review is granted**, the Court will likely address the petition's single question through the narrower setting of privately produced California CME instruction: whether the state's licensing-linked accreditation and curricular requirements make that instruction government speech. The likely focus is the boundary between regulatory control and governmental authorship or adoption of a message, not whether implicit-bias training is scientifically effective. If the Court reaches that question, I expect it to reject treating regulation alone as enough, while leaving the validity of particular educational standards under the appropriate First Amendment test for further proceedings.
+
+**Conditional on a grant**, plenary briefing and argument are more likely than disposition in the cert order: **70% plenary, 30% summary**. The principal summary possibility is a GVR for consideration of Chiles, which postdates the proceedings below. The distinction between professional-speech regulation and government-speech classification makes automatic correction less likely than full review if the Court takes the issue.
+
+**Conditional on denial**, I expect no separate writing, with a **22%** probability that some Justice nevertheless records a dissent or statement respecting denial. Such a writing would most likely object to insulating private professional instruction from First Amendment review. This predicts only the existence and possible subject of a public writing, not an unobservable vote count or a particular Justice's vote.

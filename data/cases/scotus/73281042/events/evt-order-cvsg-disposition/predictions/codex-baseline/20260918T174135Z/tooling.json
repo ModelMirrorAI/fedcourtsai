@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281042",
+  "gaps": [
+    "The petitioner's reply is listed on the docket but its text was not provisioned; it could materially clarify standing.",
+    "General official-source web attempts returned no usable content."
+  ],
+  "helpful": [
+    "The full opposition exposed a concrete standing dispute absent from the short questions-presented extract.",
+    "The frozen CVSG date and distribution count identified the correct forecasting moment.",
+    "Unrounded statpack rates supported a properly denominator-weighted prior-Term anchor."
+  ],
+  "notes": "No live case lookup was needed. No SG brief was part of the frozen baseline, and no current SG recommendation was assumed. Redirecting uv's cache to a writable temporary directory resolved the initial CLI startup failure.",
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "fedcourts paths",
+    "jq statpack pooling",
+    "web search/open attempts (no usable response)",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

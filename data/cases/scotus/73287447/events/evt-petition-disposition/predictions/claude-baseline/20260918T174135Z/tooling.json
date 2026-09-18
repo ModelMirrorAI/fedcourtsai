@@ -1,0 +1,27 @@
+{
+  "case_id": "scotus/73287447",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (call_endpoint docket-entries, get_endpoint_item dockets, search)",
+    "WebSearch",
+    "WebFetch"
+  ],
+  "helpful": [
+    "Provisioned petition, BIO and QP text with documents.json metadata \u2014 the BIO text was decisive for judging the split's cleanliness.",
+    "Segment base rate by salience band (sal-v4) table with bracketed reached figures \u2014 a clean anchor for the frozen band.",
+    "context.json's frozen band and distribution_count."
+  ],
+  "gaps": [
+    "fedcourts query has no subject/keyword filter for SCOTUS rows (--topic is circuit-only), so pulling doctrinally similar cert priors (antitrust standing, CA2 split-panel reversals) is not possible; the priors it returned were not comparable to this petition.",
+    "No statpack cut for 'response requested after waiver' \u2014 the signal on this docket \u2014 nor for interlocutory posture or amicus count at cert.",
+    "CourtListener carries no docket entries for SCOTUS dockets, so the live-docket check contributes nothing beyond the snapshot.",
+    "WebFetch returns raw PDF bytes for supremecourt.gov/justice.gov PDFs; extracting text required a local pdftotext pass."
+  ],
+  "notes": "The two other predictor directories under predictions/ were not read. The CLI rejected an initial `fedcourts query --text` attempt; the surface takes structured filters only."
+}

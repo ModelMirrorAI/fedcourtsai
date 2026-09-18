@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281693",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "courtlistener MCP get_endpoint_item"],
+  "tool_manifest": ["courtlistener"],
+  "helpful": [
+    "Provisioned petition, BIO and QP text: the BIO's characterization of the opinion below drove the main downward adjustment",
+    "Salience-band table with bracketed reached rates: a direct anchor for the elevated band",
+    "Docket snapshot showing the response request after a waiver"
+  ],
+  "gaps": [
+    "No topical or subject filter for SCOTUS rows in fedcourts query, so priors on the same legal question could not be pulled",
+    "CourtListener RECAP has little SCOTUS docket coverage, so companion or related petitions on the same question could not be found",
+    "A statpack cut conditioned on a call for response after waiver would be the most useful base rate for this cell",
+    "The lower-court opinion text was not provisioned; reading it directly would have let me assess the BIO's vehicle argument first-hand"
+  ],
+  "notes": "distribution_count of 2 counts a redistribution after a response request as a second distribution; a flag distinguishing that from a true relist would keep the relist-count cut from being misread."
+}

@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "High-stakes constitutional challenge to state compelled disclosure of pharmaceutical trade secrets, implicating First Amendment and Takings Clause protections.",
+  "big_case_score": 0.75,
+  "case_id": "scotus/73281057",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.4
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.45
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.35
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-06-23",
+    "cvsg_date": "2026-06-22",
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-06-23",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-09-18T17:41:35Z",
+  "engine": "gemini",
+  "event_id": "evt-order-cvsg-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-06-23.json",
+  "judgment": null,
+  "model": "gemini-3.1-pro-preview",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.4,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
+    "label": "proc-v8",
+    "pipeline_sha": "dcec207cda4182a8b20effbd325bb257485091ff",
+    "stamped_at": "2026-09-18T18:50:59.941221Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

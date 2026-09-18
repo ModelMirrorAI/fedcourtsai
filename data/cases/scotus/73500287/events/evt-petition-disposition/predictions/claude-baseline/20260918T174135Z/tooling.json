@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500287",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "courtlistener search",
+    "courtlistener read_document",
+    "courtlistener get_endpoint_item",
+    "courtlistener call_endpoint docket-entries",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The provisioned petition text and QP file made the vehicle analysis possible without any fetch.",
+    "The sal-v4 band table with bracketed reached rates gave a directly usable anchor.",
+    "CourtListener read_document on the Fifth Circuit opinion surfaced the forfeiture footnote that the petition does not mention."
+  ],
+  "gaps": [
+    "fedcourts query ranked by recency returns emergency applications first for a 2020s SCOTUS sweep; a filter on originating court, fee class, or a text match on the QP would make it useful for cert priors.",
+    "No conditioned cut for waiver-of-response petitions with no call for a response; that state drove most of this forecast and had to be estimated by hand.",
+    "CourtListener carries no docket entries for SCOTUS dockets, so the live docket check is limited to the docket-level date fields."
+  ],
+  "notes": "Roughly six retrieval calls in total, well under the advisory budget."
+}

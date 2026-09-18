@@ -1,0 +1,5 @@
+Distributed twice before the CVSG. The Court has called for the Solicitor General's views, meaning the petition is currently in abeyance pending the SG's brief. Once the SG files, the petition will be redistributed for conference. Therefore, expect at least one more relist. The docket already shows a CVSG.
+
+If granted, the Court will likely address the First and Fourteenth Amendment challenges to Pennsylvania's mail-in ballot date requirement as presented in the QP. A summary disposition (GVR) is a strong possibility here, given the intervening Pennsylvania Supreme Court decision (*Center for Coalfield Justice*) which may have altered the state-law baseline relied upon by the Third Circuit. 
+
+If the Court denies review, there is a moderate chance of a dissent from denial (e.g., from Justices Alito, Thomas, or Gorsuch) highlighting the federalism and Anderson-Burdick split concerns raised by the petition.

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73286452",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Context band 'elevated' (sal-v4, distribution_count 2) reflects the routine redistribution to the 9/28/2026 conference after the Court called for a response over the State's waiver, not a discretionary relist. The response-requested signal itself is not carried on a cert cell's context (response_requested is null), so a reader of the band alone would over-read the relist trajectory and under-read the call for response. Forecast anchored on the elevated reached rate as instructed and adjusted upward for the call for response, six cert-stage amici, and the en banc dissent."
+    }
+  ]
+}

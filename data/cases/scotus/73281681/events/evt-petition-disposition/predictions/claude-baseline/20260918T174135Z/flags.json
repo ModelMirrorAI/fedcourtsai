@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73281681",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward signal used: the companion Sheetz remand petition, No. 25-958 (same Koontz 'in lieu' question), had a response requested after waiver and was DENIED on June 15, 2026 with no noted writing, thirteen days after the Court called for a response in this case. Public information predating the 2026-09-17 snapshot; read as the Court preferring this vehicle, and weighed modestly upward. Retrieved from the supremecourt.gov public docket JSON, not CourtListener (CourtListener holds no entries for that docket)."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.json distribution_count=2 and band=elevated derive from a first distribution (May 26 for 6/11) that was superseded by the June 2 'Response Requested' before conference, plus the Aug 19 redistribution for 9/28. Under the relist = count-1 rule this reads as one relist, but the petition has not yet been considered at any conference with full briefing. Not an error in the parse (the statpack caption acknowledges the count is an upper bound), but the elevated band's population mixes true post-conference relists with CFR redistributions like this one; a CFR feature would separate them."
+    }
+  ]
+}

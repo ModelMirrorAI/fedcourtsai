@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/73279966",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "google_web_search", "fedcourts query", "read_file"],
+  "helpful": ["google_web_search was extremely helpful in identifying the related Menocal case", "mcp_courtlistener_search found the exact Menocal opinion text"],
+  "gaps": []
+}

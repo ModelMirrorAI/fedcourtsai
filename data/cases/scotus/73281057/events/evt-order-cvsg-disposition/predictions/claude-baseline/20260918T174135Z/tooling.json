@@ -1,0 +1,26 @@
+{
+  "case_id": "scotus/73281057",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (docket-entries, dockets)",
+    "WebFetch (supremecourt.gov docket page)"
+  ],
+  "helpful": [
+    "Full-text petition and BIO under record/documents/ — the vehicle arguments drove most of the adjustment from the anchor",
+    "statpack sal-v4 band table with bracketed reached rates per Term, and the CVSG cut beside it",
+    "context.json band/salience_version letting me confirm the table matched before anchoring"
+  ],
+  "gaps": [
+    "fedcourts query has no filter for CVSG status or distribution count, so it could not surface comparable CVSG'd cert petitions; with --disposition set, the returned rows were dominated by 26A-series emergency applications despite the documented screen",
+    "No committed cut for the SG's recommendation in past CVSG'd cases (recommend grant vs deny) and the Court's follow rate — the single most decision-relevant conditional for a cvsg-moment cell",
+    "CourtListener carries no docket entries for SCOTUS dockets, so a live post-snapshot check required fetching the supremecourt.gov page directly"
+  ],
+  "notes": "The corpus query rows for OT2025 returned term=null and salience_band=null, so even the cert rows could not be read against the band table."
+}

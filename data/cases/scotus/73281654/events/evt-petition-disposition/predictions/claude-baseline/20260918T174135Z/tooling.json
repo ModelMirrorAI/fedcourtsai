@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281654",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (call_endpoint dockets, docket-entries; search opinions, dockets)"
+  ],
+  "helpful": [
+    "Provisioned petition, BIO and QP text were complete and non-empty; the BIO alone settled most of the vehicle analysis.",
+    "Segment base rate by salience band table with the bracketed reached figure made the evaluator's yardstick unambiguous."
+  ],
+  "gaps": [
+    "No statpack cut conditioned on a call for response after a waiver (the CFR signal), which is the dominant docket signal on this cell and distinct from a relist.",
+    "fedcourts query has no subject/keyword filter for SCOTUS rows, so Indian-law or Tucker Act priors cannot be retrieved from the corpus; --citation coverage is 200 rows and returned nothing.",
+    "CourtListener RECAP docket search returns no SCOTUS dockets and the docket-entries endpoint is empty for this docket; only the docket header (open, not terminated) was retrievable."
+  ],
+  "notes": "7 retrieval calls total (2 corpus queries, 5 MCP calls), well under budget."
+}

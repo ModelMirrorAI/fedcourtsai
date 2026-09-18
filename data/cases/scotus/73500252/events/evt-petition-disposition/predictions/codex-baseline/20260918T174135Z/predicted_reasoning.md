@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+The Court will grant certiorari to address whether the National Bank Act preempts state interest-on-escrow requirements such as California Civil Code section 2954.8(a). The principal reason for review will be the persisting post-Cantero conflict over materially similar escrow requirements, rather than a general endorsement of the bank's merits position.
+
+The prediction-time state is **two counted distributions and no CVSG**. The snapshot's repeat listing for the same September 28, 2026 conference is a rescheduling, not proof of another substantive conference. I expect **one or two additional distributions** beyond the frozen count before an action selecting this petition for review; P(at least one further distribution) is **0.65**. My central timing forecast is an autumn 2026 grant following the September conference, not a merits judgment at that time.
+
+I expect **no new CVSG**, while assigning **0.22** to one. If the Court does request federal views, an autumn invitation and several months of additional delay are more likely than an immediate final disposition. A response requested from the private respondents is not such an invitation.
+
+If this petition is selected for plenary review, the Court will take the escrow-preemption question substantially as presented, focusing on how Cantero's significant-interference analysis applies to California's requirement. It need not resolve every category of state banking regulation or adjudicate the validity of the new OCC rule to answer that question. Any merits forecast is conditional: the likely ground of decision would concern the comparative interference analysis and the weight of the actual banking effects, not a categorical proposition that all state regulation of national banks is forbidden.
+
+**P(any grant) is 0.64. Conditional on a grant, P(summary disposition in the cert order) is 0.38**, leaving plenary review the leading route. The principal alternative is a hold while another escrow petition is heard, followed by a GVR here in light of that decision. That path could postpone this petition's disposition until spring or summer 2027. An immediate summary reversal is less likely than either plenary consideration or a companion-driven GVR because the proper application of the comparative standard is contested and the supplied opinion did undertake a comparison.
+
+If the Court instead denies certiorari, I expect an unexplained order without a dissent or statement. **P(a noted dissent or statement | denial) is 0.10.** I do not forecast any particular Justice as its author or infer a private vote lineup.

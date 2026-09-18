@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281042",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "courtlistener MCP get_endpoint_item (dockets)",
+    "courtlistener MCP call_endpoint (docket-entries)",
+    "web search"
+  ],
+  "helpful": [
+    "Full-text petition and brief in opposition under record/documents; the BIO's vehicle and standing sections drove most of the downward adjustment.",
+    "The sal-v4 band table with bracketed reached rates gave a directly usable anchor that agreed with the CVSG cut."
+  ],
+  "gaps": [
+    "fedcourts query has no topical or free-text filter, so it cannot surface doctrinally similar priors (here: expressive-association or antidiscrimination cert petitions); the priors it returned were unrelated recent grants and denials.",
+    "No conditional cut for CVSG outcomes by SG recommendation (grant vs deny), which is the single variable this cell turns on.",
+    "The reply brief and amicus briefs were on the docket before the cutoff but not provisioned.",
+    "CourtListener's SCOTUS docket-entry coverage lags the supremecourt.gov docket, so a forward check for post-snapshot entries returns nothing informative."
+  ],
+  "notes": "Forward CVSG cell; no outcome or SG filing surfaced in retrieval. Roughly 6 retrieval calls in total."
+}

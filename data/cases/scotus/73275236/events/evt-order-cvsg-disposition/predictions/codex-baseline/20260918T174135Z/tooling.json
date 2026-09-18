@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73275236",
+  "gaps": [
+    "General web tools returned no usable content.",
+    "The provisioned text does not include the lower-court opinion as a separate document.",
+    "The committed statpack lacks an explicit corpus-wide freshness stamp in its top-level metadata."
+  ],
+  "helpful": [
+    "Both sides' usable brief text exposed the dispute over the question presented and vehicle.",
+    "Exact prior-Term reached counts permitted a matching sal-v4 anchor.",
+    "A targeted historical-opinion snippet checked a claimed conflict without searching the target case."
+  ],
+  "notes": "No live target-docket lookup or outcome retrieval. The unknown SG recommendation is an evidence limitation of this CVSG-moment forecast, not an assumed missing filing. The read-only default uv cache was worked around by using /tmp/uv-cache.",
+  "role": "predictor",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed statpack markdown and JSON",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts without usable results",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

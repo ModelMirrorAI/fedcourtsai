@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will most likely deny the petition. P(any grant), including a GVR or summary reversal, is **0.32**. The principal obstacle to review is the respondent's contention that the judgment rests independently on the limited property rights attached to artist-restricted lofts, rather than solely on the monetary-exaction rule challenged in the question presented. The likely denial would leave that dispute unresolved without endorsing the reasoning below.
+
+The provisioned docket records **two distributions**: May 26 for the June 11, 2026 conference, and August 19 for the September 28, 2026 conference. A response request intervened on June 2. These are not evidence of two completed merits considerations: the second distribution followed the requested opposition. From this two-distribution baseline, I assign **0.46** to at least one additional distribution. The modal path is no further distribution and an unelaborated denial in the orders following the September 28 conference, around early October 2026. If the petition is redistributed, one or two additional conferences in October or November are more likely than a prolonged hold.
+
+No CVSG is recorded. I assign **0.04** to a new invitation to the Solicitor General and predict none. If one issues, it would most plausibly follow the September conference or an autumn relist and substantially delay disposition. This is primarily a state/local permitting controversy, not a dispute requiring clarification of a federal agency's position.
+
+If review is granted, the Court will most likely take the single question substantially as framed: whether monetary conditions tied to land-use permits can trigger Takings Clause unconstitutional-conditions scrutiny even when not substitutes for a real-property dedication. The property-interest issue would remain a threshold question, rather than an invitation to decide every aspect of New York's artist-housing restrictions. Conditional on review, the likelier legal direction is rejection of a categorical in-lieu-only limitation, leaving application of the exactions standard and unresolved property-interest questions for further proceedings.
+
+Conditional on a grant, **0.16** goes to disposition in the cert order itself and **0.84** to plenary briefing and argument. A summary correction is possible, but the competing threshold theories make plenary review more likely. The provisioned record identifies no new intervening ruling that would make a routine GVR the natural route.
+
+Conditional on denial, **0.18** goes to at least one noted dissent or statement respecting denial. I predict no separate writing as the modal outcome and make no individual cert-vote or authorship prediction.

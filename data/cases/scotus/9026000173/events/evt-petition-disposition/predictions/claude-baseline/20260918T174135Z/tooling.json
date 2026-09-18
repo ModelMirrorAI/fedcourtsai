@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000173",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "courtlistener MCP search", "metrics/statpack.md", "provisioned petition.txt and questions-presented.txt"],
+  "helpful": [
+    "Full petition text: made the pro se, error-correction character of the filing obvious",
+    "Statpack per-Term band table with bracketed reached rates",
+    "Snapshot's 'Linked with 25M81' and the motion-denied entry, which explained the two distributions"
+  ],
+  "gaps": [
+    "A distribution count that distinguishes the petition's own distributions from those of a linked motion; the frozen count of 2 (and the elevated band) here reflects one motion distribution plus one petition distribution",
+    "A per-fee-class / pro se cut in the statpack for paid petitions (pro se paid filings grant far below the paid segment average)",
+    "A conditional cut for waived-response petitions versus response-requested ones",
+    "fedcourts query has no text or topic filter usable on SCOTUS rows, so finding analogous APA / pro se priors is not possible through it"
+  ],
+  "notes": "The Fourth Circuit opinion (No. 24-1166, unpublished) is not indexed on CourtListener, so the decision below could only be characterized from the petition."
+}

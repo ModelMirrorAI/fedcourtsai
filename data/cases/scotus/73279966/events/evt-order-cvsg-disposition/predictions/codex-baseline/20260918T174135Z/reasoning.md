@@ -1,0 +1,35 @@
+# Basis for the probability
+
+## Information set and scope
+
+This is the cert-stage CVSG moment for **The GEO Group, Inc. v. Nwauzor**, Supreme Court docket 25-828. I read the event definition, `record/snapshots/2026-05-19.json`, `record/context.json`, the questions presented, the petition's main arguments, and both respondents' available opposition arguments. The authoritative context is forward mode, Term 2025, `high` under `sal-v4`, one distribution, and a May 18, 2026 CVSG. GEO is a private petitioner; Washington's participation as a respondent does not make this a state-petitioner forecast.
+
+The snapshot is explicitly truncated at the May 19 baseline boundary. Although this prediction is written on September 18, I did not retrieve the target petition's later docket, disposition, or subsequent history. I have no known outcome to disclose. The only retrieved opinion is a different case decided July 22, 2025, before this petition was filed; its discussion of Nwauzor concerns the already-provisioned lower-court decision, not the Supreme Court petition's outcome.
+
+## Empirical anchor
+
+The committed `metrics/statpack.md` salience table matches `sal-v4`. Pooling **every rendered Term strictly before 2025**, namely 2017–2024, gives **314 weighted grants / 898 weighted resolved petitions = 0.3496659243** for the `high` band's bracketed reached rate. I used the corresponding exact `prefix_est_grant_rate` and `prefix_weighted_resolved` fields in `metrics/statpack.json`, not an unweighted average of rounded percentages. The 2025 and 2026 rows are excluded. These are the committed pack's estimates, not a newly refreshed corpus measurement; I did not query a live corpus or establish a newer corpus-wide vintage.
+
+The paid-segment CVSG cut provides a useful descriptive cross-check: among 163 weighted resolved CVSG petitions, 29.4% are labeled granted and 5.5% GVR, approximately **34.9% any grant**. That cut pools Terms and terminal status, so it is not substituted for the strictly-prior anchor and is not a new independent boost on top of the high band. The paid-segment relist cuts likewise describe terminal distributions, not the forward hazard from this petition's CVSG state. Their roughly 1.7%, 13.3%, 40.9%, and 36.8% any-grant rates for zero, one, two, and three-plus relists are not probabilities of the next redistribution.
+
+## Why 0.58 rather than the roughly 0.35 anchor
+
+**Reasons to move upward.** The petition presents an important federal-state boundary involving a federally directed detention work program, not simply a disputed damages calculation. The supplied petition describes a roughly $37 million judgment, suspension of the local voluntary work program, federal support across three administrations, and seven judges dissenting from denial of rehearing en banc. These are representations and descriptions in the pre-decision materials, not independently verified current conditions. A final judgment and developed appellate disagreement make this a more concrete vehicle than an interlocutory or speculative dispute. The actual CVSG makes the federal government's assessment unusually consequential. The described history of federal support makes a recommendation favoring review more plausible than it would be in an ordinary CVSG case, although no Solicitor General recommendation is present in the supplied record.
+
+**Reasons to restrain that increase.** Both opposition briefs make a serious distinction between a state preventing federal contracting and a neutral wage law that increases a private contractor's costs. Washington emphasizes that GEO's contract requires compliance with state labor law, that the statute treats state and federal private contractors alike, and that a federal reimbursement limit is not a legal ceiling on what GEO may pay detainees. The detainees' brief argues that the single broadly framed question combines three settled doctrinal issues and identifies no preemption split. These points undermine the petition's portrayal of a clean three-circuit conflict and make denial after the CVSG entirely plausible.
+
+I checked the most recent claimed conflict against **CoreCivic Inc. v. Governor of New Jersey**, Third Circuit No. 23-2598, July 22, 2025, slip opinion pp. 24–25 (CourtListener opinion 11105256). The majority confines its holding to a contracting ban and expressly leaves open materially different regulation of contractors, citing the Ninth Circuit's Nwauzor decision as an example. This does not adjudicate this petition or establish that the Ninth Circuit necessarily reached the right answer. It does mean that I cannot treat CoreCivic as a square holding against application of minimum-wage law. The petition's split account and the opposition's claim of complete agreement both require more nuance than their advocacy suggests.
+
+The resulting **0.58** is a judgmental upward adjustment for programmatic importance, a developed vehicle, and likely federal support, moderated substantially by the disputed split and contract-specific defenses. It is not a fitted estimate or a claim that CVSG alone predicts a grant. The biggest unresolved input is the Solicitor General's eventual recommendation and treatment of those defenses.
+
+## Other forecasts and stakes
+
+The **0.96** redistribution probability follows from the need to return the petition to conference after the invited submission, not from terminal relist frequencies. The existing CVSG makes its increment vacuous; I record **0.00** for a new invitation and leave masking to the harness. The **0.10** summary-route probability is conditional on a grant: neither the record nor my retrieval identifies an intervening decision that would make a GVR the natural route, and the disagreement is not obviously appropriate for summary merits correction. The **0.20** denial-writing probability is conditional on denial and reflects the competing considerations of visible federal stakes and the possibility of an ordinary vehicle-based denial.
+
+The **0.70** significance score measures the potential reach to detention labor, federal contractors, and federal-state authority, not the likelihood of review. The one-state statute and particular contract keep it below the highest-stakes category.
+
+## Limits
+
+`documents.json` marks both the petition and the combined opposition as truncated, although neither is empty or OCR-derived. The petition's main argument and conclusion are available, but its appendices are incomplete. Washington's main opposition is available; the detainees' opposition ends partway through its printed page 17, leaving later arguments unavailable. I used its introduction and available split discussion, not an assumed complete reading. This asymmetric truncation is recorded in `flags.json`.
+
+A general web search for the Court's certiorari rule and an attempted rules-PDF open returned no usable content. A CourtListener reporter-citation search returned no match, but a bounded case-name search successfully located the pre-petition CoreCivic opinion. No conclusion rests on the unsuccessful lookups, and no direct CourtListener REST fallback was attempted.

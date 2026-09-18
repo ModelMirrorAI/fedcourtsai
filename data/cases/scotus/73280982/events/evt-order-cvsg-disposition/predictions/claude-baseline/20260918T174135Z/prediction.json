@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "A Section 11 / Item 303 ruling on whether IPO issuers must disclose intra-quarter financial data would reshape offering-disclosure practice and the pleading of Securities Act class actions in the circuit that hears most of them; large for securities law and issuers, modest for the general public.",
+  "big_case_score": 0.6,
+  "case_id": "scotus/73280982",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.52
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.15
+    }
+  ],
+  "confidence": 0.45,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-06-02",
+    "cvsg_date": "2026-06-01",
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-06-02",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-09-18T17:58:30Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-cvsg-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-06-02.json",
+  "judgment": null,
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.52,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "dcec207cda4182a8b20effbd325bb257485091ff",
+    "stamped_at": "2026-09-18T17:59:49.000609Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

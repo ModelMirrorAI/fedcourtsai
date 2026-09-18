@@ -1,0 +1,5 @@
+The petition is currently distributed once and a CVSG was issued. The petition will certainly be distributed at least once more after the Solicitor General files their brief. A CVSG is already on the docket. 
+
+If the Court grants review, it will likely take up both questions presented to resolve the circuit splits regarding Section 11(a) and Item 303 liability for interim financial data, and whether the Ninth Circuit's approach contravenes *Macquarie*. A plenary grant is much more likely than a summary disposition, as the Ninth Circuit already considered the issues post-*Macquarie* and a full merits decision is needed to clarify the bounds of periodic reporting versus continuous disclosure. 
+
+If the Court denies review, a dissent from denial is a reasonable possibility given the divided Ninth Circuit panel and strong amicus interest from the business community.

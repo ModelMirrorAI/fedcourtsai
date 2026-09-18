@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed statpack (salience-band table, CVSG cut)",
+    "fedcourts query",
+    "CourtListener MCP get_endpoint_item / call_endpoint / search"
+  ],
+  "helpful": [
+    "Provisioned petition and brief in opposition text; the BIO's vehicle section was the main counterweight",
+    "Frozen band and CVSG date in context.json, and the sal-v4 band table's bracketed reached rates"
+  ],
+  "gaps": [
+    "CourtListener's docket-entries endpoint returns no entries for SCOTUS dockets, so whether the invited SG brief has been filed since the baseline could not be checked",
+    "fedcourts query has no CVSG or subject filter for SCOTUS rows, so a 'CVSG'd securities petitions' prior set could not be pulled",
+    "questions-presented.txt cut matched the wrong heading; the QP had to be read from petition.txt"
+  ],
+  "notes": "Forward cell three and a half months past its baseline; the SG's brief is the single most informative future input and was unavailable through every sanctioned path."
+}

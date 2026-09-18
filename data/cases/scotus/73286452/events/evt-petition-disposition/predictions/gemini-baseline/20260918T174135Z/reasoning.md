@@ -1,0 +1,7 @@
+P(grant) 0.65. The prior-Term (2024-2017) salience band baseline for an `elevated` petition that reached that band is around 17.5%. I adjust this significantly upward because the qualitative signals are exceptionally strong. 
+
+First, the petition presents a significant First Amendment issue (compelled speech vs. government speech in professional CME) that the Court has shown interest in policing (e.g., *NIFLA*, *Shurtleff*). Second, there is a strong 3-judge dissent from the denial of rehearing en banc in the Ninth Circuit, authored by Judge VanDyke, explicitly framing the panel decision as a split from Supreme Court precedent and sister circuits. Third, the docket shows intense amicus interest at the cert stage with six briefs filed (including from Cato, Judicial Watch, and a coalition of states). Finally, the Court affirmatively requested a response after the respondents initially waived, which is a classic precursor to a grant.
+
+My main uncertainty is vehicle quality and whether the Court might want to wait for further percolation on this specific application of the government speech doctrine, but the compelling facts and strong dissent below make it a prime candidate.
+
+`relist-increment` is 0.70, reflecting the likelihood of a relist given it is currently distributed for its first conference post-response. `cvsg-increment` is 0.05 as no federal interest is directly implicated. `summary-disposition-route` is 0.05 because plenary review is appropriate for a novel application of the doctrine.

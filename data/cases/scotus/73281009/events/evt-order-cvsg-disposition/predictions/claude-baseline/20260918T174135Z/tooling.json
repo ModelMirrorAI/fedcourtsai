@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281009",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "CourtListener MCP search",
+    "WebSearch / WebFetch (forward mode)",
+    "provisioned documents (petition, brief-in-opposition, questions-presented)"
+  ],
+  "helpful": [
+    "The sal-v4 band table matching the context's salience_version made the scored anchor unambiguous",
+    "The CVSG cut is exactly the conditioning a cvsg-moment cell needs",
+    "Full-text petition and the concatenated respondent briefs made the GVR-versus-plenary and vehicle assessment possible offline",
+    "Forward-mode web access let me verify the petition is still pending and the SG has not filed, and rule out a same-week Supreme Court mail-voting headline as this case"
+  ],
+  "gaps": [
+    "fedcourts corpus-info is not runnable in the cell, so the corpus-vintage golden rule cannot be met except by inference",
+    "fedcourts query has no CVSG, band or petitioner-class filter, so a cohort of CVSG'd state-petitioner priors cannot be pulled",
+    "No statpack cut conditions the CVSG bucket on the SG's eventual recommendation or on petitioner class, which is the main case-specific adjustment a CVSG cell makes unaided",
+    "The companion docket 25-962 is not in CourtListener's index and not provisioned; a vided-companion pointer in context.json would help"
+  ],
+  "notes": "Forward cell run about 11 weeks after the CVSG; the SG brief is months away, so the forecast turns on the SG's likely position and on a pending state-court case (Baxter) neither of which the tooling can observe."
+}

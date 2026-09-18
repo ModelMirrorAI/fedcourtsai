@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274796",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (CVSG cut, relist cut, sal-v4 band table)",
+    "fedcourts query",
+    "courtlistener-mcp (dockets, docket-entries, opinion search)",
+    "web fetch (supremecourt.gov docket page and PDFs, SCOTUSblog, certpool)",
+    "web search",
+    "subagent digest of provisioned petition and BIO text"
+  ],
+  "helpful": [
+    "The sal-v4 band table matching context.salience_version gave an unambiguous pooled anchor for a `high` band CVSG cell.",
+    "Provisioned petition and BIO text allowed the vehicle read (Gospel Light not a petitioner, PI posture, pending state appeal) without any fetching, and the SG brief later confirmed those points.",
+    "Forward-mode permission to read this docket's own post-baseline entries was the whole forecast here: the SG's hold recommendation is not inferable from an eleven-month-old snapshot."
+  ],
+  "gaps": [
+    "No PDF text extraction on the runner: WebFetch returns raw PDF bytes for supremecourt.gov filings and the Read tool needs poppler. I had to `uv run --with pypdf` to read the SG brief. A provisioned `sg-brief.txt` for CVSG cells whose SG brief has been filed, or a PDF-to-text helper, would remove this.",
+    "The CourtListener MCP carries no docket entries for SCOTUS dockets, so the sanctioned live path cannot answer 'what has happened on this docket since the snapshot' for a forward cell.",
+    "The statpack has no cut for CVSG petitions by SG recommendation (grant / deny / hold) or for held petitions' eventual disposition; both P(hold) and P(GVR | lead case reverses) had to be judgment.",
+    "`fedcourts query` has no filter for CVSG status or relist count, so it could not return comparable priors for this cell; its default ranking put interim applications first."
+  ],
+  "notes": "About 16 retrieval calls, under budget. The snapshot for a `moment: cvsg` cell is fixed at the CVSG date by design, so on a run eleven months later the provisioned baseline and the live docket diverge sharply; the reasoning states which is which."
+}

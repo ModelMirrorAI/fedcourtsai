@@ -1,0 +1,7 @@
+P(grant) 0.65. The Third Circuit panel struck down a state election statute (handwritten date requirement on mail-in ballots) over two forceful dissents from the denial of en banc rehearing. The petition points out an intervening state supreme court decision that undercut the panel's rationale, and alleges a circuit split on the application of the *Anderson-Burdick* test. The Court requested a response, distributed it twice, and has now CVSG'd. A CVSG in a case involving a state petitioner defending its election laws signals strong interest from the Court. The statpack shows the baseline grant rate with a CVSG is ~35% overall (including GVR). Given the state petitioner, the high salience (election law in a battleground state), and the intervening state supreme court decision, I adjust the probability up significantly to 65%. 
+
+The chance of a summary disposition (GVR) is substantial (40%) because the intervening state supreme court ruling in *Center for Coalfield Justice* provides a textbook reason to GVR to the Third Circuit. 
+
+The `relist-increment` is near certain (95%) because the petition will need to be redistributed for conference after the SG's brief is filed. The `cvsg-increment` is nominal (1%) since the CVSG is already on the docket. 
+
+My main uncertainty is whether the SG might recommend denial due to vehicle issues or other prudential reasons, which the Court usually defers to, though in high-profile election cases the Court sometimes grants anyway.

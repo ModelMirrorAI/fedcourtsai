@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will grant certiorari, most likely for plenary briefing and argument. My probability of any grant, including a GVR or summary disposition, is **56%**. The competing outcome is denial; this is a close selection forecast, not a prediction that petitioners necessarily prevail on the merits.
+
+The baseline contains **two distributions**, on March 25 and June 9, 2026, and the **June 29, 2026 CVSG**. The first distribution preceded the request for a response, so these entries do not necessarily represent two completed substantive conferences. From that state, I forecast at least one additional distribution with probability **97%**, with one to three additional distributions the central expectation. The Court will obtain the Solicitor General's views and consider the petition again rather than dispose of it immediately on the existing papers. Redistributing after the invited brief counts toward this claim even if it is not a substantive relist in ordinary usage.
+
+The CVSG has already occurred. The required prospective CVSG-increment probability is **0%**, not a forecast that the Court will decline to seek views: the invitation is settled baseline history and this claim is vacuous for this moment. The likely next substantive federal-government filing is the response to that invitation, not another invitation. I expect disposition after that filing and responsive papers, with late 2026 through the first half of 2027 a broad central window; an extended hold remains possible.
+
+If review is granted for argument, the Court will most likely focus on the third question: the scrutiny applicable to minimally burdensome election rules and how their burdens are measured. It may combine that issue with the first question's treatment of ordinary, nondiscriminatory voting requirements. I do not expect a categorical ruling that the availability of in-person voting exempts every mail-voting regulation from meaningful constitutional scrutiny to be the sole question selected.
+
+Conditional on a grant, the probability of disposition in the cert order itself is **22%**; plenary review is the likelier route. A state-law development eliminating the controversy could produce a vacatur-and-remand request rather than plenary adjudication. That is a meaningful alternative, not a prediction that such a development has occurred. A summary merits reversal is less likely than argument on these disputed, broadly consequential standards.
+
+Conditional on denial, the probability of any noted dissent or statement respecting denial is **24%**. The modal denial therefore has no separate writing. I do not forecast an individual Justice's cert vote or identify an author.

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279966",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "Forward-mode retrieval of this docket's own post-baseline entries was decisive: the Supreme Court docket page shows the United States' CVSG brief filed 2026-09-15, and the brief recommends that the petition be granted. The provisioned snapshot (2026-05-19) predates it, as expected for a forward cell. The petition itself remains pending and undistributed as of 2026-09-18, so no outcome was seen. Flagged so the evaluator can see that the forecast conditions on the SG's recommendation rather than on the snapshot alone."
+    }
+  ]
+}

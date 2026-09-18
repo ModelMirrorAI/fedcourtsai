@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000163",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Decisive forward signal came from the Fifth Circuit docket (No. 26-30022) retrieved via CourtListener: appeal dismissed on appellee's motion 2026-02-26, rehearing en banc denied 2026-03-31, two motions to stay the mandate denied 2026-05-07. All entries predate the 2026-07-23 snapshot; the Supreme Court docket 26A163 itself was not searched and no disposition of this application was seen."
+    }
+  ]
+}

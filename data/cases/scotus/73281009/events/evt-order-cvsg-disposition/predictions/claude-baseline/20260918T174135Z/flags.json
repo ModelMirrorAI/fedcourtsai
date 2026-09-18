@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281009",
+  "run_id": "20260918T174135Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "Forward-mode check on 2026-09-18: supremecourt.gov docket 25-967 shows no entry after the 2026-06-29 CVSG; the SG has not filed and the petition is undecided, so the cell is not mis-provisioned. Public pre-snapshot context that materially shaped the forecast: the petition is vided with No. 25-962 (RNC v. Eakin), CVSG'd the same day, and the Pennsylvania Supreme Court's state-constitutional challenge to the same requirement (Baxter v. Philadelphia Bd. of Elections, argued 2025-09-10) was still undecided as far as retrieval could establish; a Baxter ruling against the date requirement before the Court acts would likely moot this petition and is priced into the number."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "The provisioned brief-in-opposition.txt is a concatenation of five respondent filings (Luzerne County, Eakin et al., Lehigh, Bedford et al., York); documents.json lists it as one 94-page BIO with five URLs. Usable, but a reader of documents.json alone would not know only one of them is the principal opposition. The companion docket 25-962 is neither provisioned nor indexed on CourtListener, though the two petitions will be disposed of together."
+    }
+  ]
+}
