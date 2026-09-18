@@ -1023,12 +1023,11 @@ def _store_case(
 
 
 def _loss_counts() -> dict[str, int]:
-    """This pass's document-fetch losses, zero-filled and in a stable order."""
-    losses = document_fetch_losses()
-    return {
-        "http-error": losses.http_error,
-        "unavailable": losses.unavailable,
-        "off-host": losses.off_host,
-        "bio-empty": losses.bio_empty,
-        "not-selected": losses.not_selected,
-    }
+    """This pass's document-fetch losses, zero-filled and in a stable order.
+
+    The keying and the order are the record's own
+    (:attr:`~fedcourtsai.pipeline.documents.DocumentFetchLosses.by_reason`)
+    rather than restated here, so this ledger and the live window's loss block
+    name the same reasons.
+    """
+    return document_fetch_losses().by_reason

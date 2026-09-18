@@ -22,7 +22,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from itertools import pairwise
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple
+from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -31,6 +31,7 @@ from .config import StatpackConfig
 from .corpus import CorpusRow, strip_docket_annotation
 from .integrity import cell_clock, leakage_excluded
 from .paths import CasePaths
+from .pipeline import moments as moment_registry
 from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
 from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from .pipeline.interim_signals import ApplicationKind
@@ -40,6 +41,12 @@ from .pipeline.judgment import (
     judgment_rode_the_grant_order,
 )
 from .pipeline.outcome import granted_flag, is_machine_readable
+
+# The reference set's per-label support floor, read here for a second job the docket
+# pack states out loud: below it a published bucket's disposition split is reported as
+# rows rather than as a rate. One number because the reason is one reason — under ten
+# rows a single petition moves a ratio by tens of points — so moving it moves both.
+from .pipeline.qp_topics import SUPPORT_FLOOR as _QP_REFERENCE_SUPPORT_FLOOR
 from .pipeline.salience import (
     SALIENCE_VERSION,
     registered_versions,
@@ -47,7 +54,7 @@ from .pipeline.salience import (
     salience_bands,
     scorer,
 )
-from .process_version import CURRENT_PROCESS_LABEL
+from .process_version import CURRENT_PROCESS_LABEL, frozen_process_record, is_frozen
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     AnalyticsReport,
@@ -67,9 +74,13 @@ from .schemas import (
     FeeClass,
     GroupBy,
     Judgment,
+    Moment,
     Outcome,
     PredictableEvent,
+    QpTopicLabel,
     QpTopicLabels,
+    QpTopicSupport,
+    Stage,
     StatPack,
     StatPackCoverage,
     StatPackInterim,
@@ -807,15 +818,22 @@ def _qp_topic_spec(labels: QpTopicLabels) -> _SectionSpec:
 def _qp_topic_reference_spec(labels: QpTopicLabels) -> _SectionSpec:
     """The topic cut narrowed to the rows published from the hand reference set.
 
-    Never rendered: its only output is ``kept`` — how many reference-sourced rows
-    the topic section itself matched — which the scope note's over-representation
-    ratio divides by. Counted in the same streamed pass as the cut it describes,
-    because the two counts have to be over the same rows: an artifact-level
-    reference tally would be a count of a different population than the one the
-    published table sums, and the ratio between them is the number the caveat
-    exists to state.
+    Never rendered as a section: what is read off it is ``kept`` — how many
+    reference-sourced rows the topic section itself matched, which the scope
+    note's over-representation bound divides by — and its per-label buckets,
+    which give each published bucket its reference share. Counted in the same
+    streamed pass as the cut it describes, because the counts have to be over the
+    same rows: an artifact-level reference tally would count a different
+    population than the one the published table sums.
+
+    Buckets on the same primary label as the cut, so a bucket's reference share
+    is a share of the rows that bucket published. That share is not uniform —
+    the reference set holds every QP-bearing grant it could reach, so the
+    grant-heavy topics are the ones it inflates most — which is why one pooled
+    factor cannot de-bias a row and each bucket carries its own count.
     """
     members = {entry.case_id for entry in labels.entries if entry.source == "reference"}
+    primaries = {entry.case_id: entry.label for entry in labels.entries}
     return _SectionSpec(
         _QP_TOPIC_TITLE,
         "scotus",
@@ -823,14 +841,70 @@ def _qp_topic_reference_spec(labels: QpTopicLabels) -> _SectionSpec:
         True,
         True,
         GroupBy.qp_topic,
-        # One bucket, because only `kept` is read: bucketing on the case id would
-        # build a per-row slice for a section that is discarded.
-        key_fn=lambda row: "reference",
+        key_fn=lambda row: primaries.get(row.case_id),
         row_filter=lambda row: row.case_id in members,
     )
 
 
-def _qp_topic_scope_note(rows: _SectionRows, reference_rows: int) -> str:
+class _QpFrame(NamedTuple):
+    """One labeling batch's own count of the frame it was cut from, and what it held.
+
+    The QP-bearing frame is the population a labeling batch is drawn from, and it
+    is the denominator the labeled share of the frame needs. Nothing the docket
+    pack reads can derive it — the section's own ``scoped`` count is every
+    in-scope row, QP-bearing or not — so it travels in the labels artifact's
+    per-batch ledger, put there by the extract job that measured it
+    (``docs/qp-topic.md``).
+
+    Every field is the **artifact's**, at the newest batch's corpus vintage:
+    ``rows`` as that batch's extract counted the frame, and ``labeled`` /
+    ``reference`` as the accrued artifact stood once that batch landed. They are
+    read together and never mixed with the section's own counts inside one
+    figure, because the pack's scan is a later blob: pairing the two would divide
+    across vintages, which is the arithmetic the bound was published to avoid.
+
+    ``reference`` is every reference-sourced row in the artifact, taken as the
+    part of ``rows`` that rides in with certainty. The two agree while the frame
+    holds every reference member the artifact publishes, which is how the batch
+    is cut; a member that later leaves the frame is still subtracted, which
+    shrinks the drawn pool and so understates the factor — the same direction the
+    published figure already declares itself a floor in.
+    """
+
+    batch: int
+    rows: int
+    labeled: int
+    reference: int
+
+
+def _qp_frame(labels: QpTopicLabels) -> _QpFrame | None:
+    """The newest batch's frame measurement, or ``None`` where it cannot be used.
+
+    ``None`` on three states, each of which leaves the scope note on its bound:
+    a newest batch whose ledger entry carries no frame, a frame that does not
+    contain the rows the artifact
+    publishes, and an artifact whose rows are all reference members. The last two
+    are arithmetic the file should never hold — the schema refuses a frame under
+    the batch it measured — but this reads an external file, and a share over a
+    denominator that cannot be right is worse than the bound it would replace.
+    """
+    newest = labels.batches[-1] if labels.batches else None
+    if newest is None or newest.frame_rows is None:
+        return None
+    reference = sum(1 for entry in labels.entries if entry.source == "reference")
+    if newest.frame_rows < labels.cases or labels.cases - reference <= 0:
+        return None
+    return _QpFrame(
+        batch=newest.batch,
+        rows=newest.frame_rows,
+        labeled=labels.cases,
+        reference=reference,
+    )
+
+
+def _qp_topic_scope_note(
+    rows: _SectionRows, reference_rows: int, frame: _QpFrame | None = None
+) -> str:
     """The coverage caveat ``docs/qp-topic.md`` requires beside every published share.
 
     Carried as a field on the section rather than as prose the renderer emits, so
@@ -838,53 +912,170 @@ def _qp_topic_scope_note(rows: _SectionRows, reference_rows: int) -> str:
     numbers rather than as a standing sentence.
 
     The mandated string leads and stays contiguous, so it is quotable whole. Its
-    two counts are the **labeled coverage** of the cut's own frame, in ingested
-    rows — rows on hand — not walked serials: this document reserves *walked* for
-    the discovery cursors' census, which runs several-fold above the ingested
-    count because the historical walk samples denials.
+    two counts are labeled rows over the section's whole in-scope population, in
+    ingested rows — rows on hand — not walked serials: this document reserves
+    *walked* for the discovery cursors' census, which runs several-fold above the
+    ingested count because the historical walk samples denials. That ratio is not
+    the labeled share of the *labelable* frame, and the gap clause below is what
+    keeps it from being read as one.
 
     The clauses after it carry what the flags and that string leave unsaid: which
     counts are raw and which reweighted, that reweighting does not recover the
     docket, that a grant-enriched population makes this section's base-rate
-    column incomparable to the cuts above it, and **how the labeled subset was
-    chosen** — which the batching makes a claim of its own rather than a
-    footnote. The labeled subset is two populations, drawn on different terms:
-    the hand reference set, in every batch and so included with certainty, and a
-    stratified draw of the remainder, included only as its batch comes up. Both
-    then enter the table at one row apiece, so until the frame converges the
-    reference block is over-represented by the ratio of those two rates — and it
-    is grant-enriched by design and carries no sampling weights
-    (``docs/qp-topic.md``). Naming the ratio is the whole point: this cut's mix is
-    not the frame's while any of the frame is unlabeled, and no reweighting here
-    corrects it.
+    column incomparable to the cuts above it, **what the gap between the two
+    counts is made of**, and **how the labeled subset was chosen** — which the
+    batching makes a claim of its own rather than a footnote.
+
+    The gap clause is the one a partial frame makes load-bearing. ``scoped`` is
+    every in-scope ingested row, not every *labelable* one, so the rows outside
+    ``kept`` are two populations at once: rows carrying no stored
+    questions-presented text, which no batch can reach, and QP-bearing rows whose
+    batch has not come up. ``frame`` is what tells the two apart: the newest
+    batch's own count of the QP-bearing frame it was cut from
+    (:func:`_qp_frame`), which the extract job measured and passed to
+    ``qp-topics`` as a value. With it the labeled share of the frame is a
+    measurement and the clause states it; without it nothing this cut reads
+    records where the line falls, and the clause says so rather than letting the
+    section's own ratio be read as that share.
+
+    The same unknown decides the over-representation figure. The labeled subset
+    is two populations, drawn on different terms: the hand reference set, in
+    every batch and so included with certainty, and a stratified draw of the
+    QP-bearing remainder, included only as its batch comes up. Both then enter
+    the table at one row apiece, so until the frame converges the reference block
+    — grant-enriched by design and carrying no sampling weights
+    (``docs/qp-topic.md``) — is over-represented by the ratio of those two
+    inclusion rates. Without ``frame`` that ratio publishes as an **upper
+    bound**, because its denominator is the QP-bearing part of the unlabeled rows
+    and only the whole unlabeled count is on hand: dividing by the larger count
+    understates the drawn rows' inclusion rate and so overstates the factor,
+    which is the direction a caveat may err in, where a figure published as a
+    measurement would be arithmetic over a population the draw never ran on. With
+    ``frame`` the denominator is the one the draw did run on, so the factor is
+    measured instead, and converges to 1.0x as the frame clears.
+
+    Both measured figures are the **artifact's**, at the batch's corpus vintage
+    rather than this pack's, and say so where they render: the frame grows with
+    every pull, and the section's counts come from a later blob. That is why they
+    are computed from the ledger and the artifact's own rows rather than by
+    dividing this pack's ``kept`` by the batch's frame, which would be one figure
+    over two blobs. And because the frame only grows while the labeled count
+    waits for the next batch, each states **which way it errs** against the frame
+    as it now stands — the share a ceiling, the factor a floor. That direction is
+    the whole reason the figure it replaces was published as a bound, so dropping
+    the bound without carrying the direction over would trade a caveat that erred
+    safely for a measurement that does not.
     """
     drawn = max(rows.kept - reference_rows, 0)
     unlabeled = max(rows.scoped - rows.kept, 0)
-    # The remainder's inclusion rate, against the frame outside the reference
-    # block — the denominator a drawn row was actually drawn from.
+    # Every unlabeled in-scope row plus the drawn ones: an upper bound on the pool
+    # the draw ran over, since an unknown share of it carries no questions-presented
+    # text at all and was never eligible.
     pool = drawn + unlabeled
-    # With no drawn rows the ratio is unbounded rather than large: the cut would
-    # be the reference block alone, which is the strongest form of the caveat and
-    # must not round to a finite-looking number.
-    over = (
-        f"{pool / drawn:.1f}x" if drawn else "an unbounded factor — every labeled row here is one"
+    if frame is None:
+        gap = (
+            f"The {unlabeled} unlabeled row(s) span two gaps at once — rows carrying no stored "
+            "questions-presented text, which no labeling batch can reach, and QP-bearing rows "
+            "whose batch has not come up — and the labels artifact records neither size, so "
+            "what share of the QP-bearing frame is labeled is not a number this cut can state."
+            if unlabeled
+            else "No in-scope row is unlabeled, so the labeled rows are every row this "
+            "section's scope holds; the QP-bearing frame they were drawn from is a subset of "
+            "it, of unrecorded size."
+        )
+    else:
+        share = frame.labeled / frame.rows
+        # The vintage is not the whole caveat: the frame grows with every pull
+        # while the labeled count moves only when a batch lands, so the batch's
+        # share is a ceiling on today's. Say which way it errs, since erring
+        # downward is what the bound this replaces was published for.
+        vintage = (
+            f"Both counts are batch {frame.batch}'s, taken at its own corpus vintage rather "
+            "than this pack's: the frame grows with every pull while the labeled count moves "
+            "only when a batch lands, so read that share as a ceiling on the share of the "
+            "frame as it now stands, not as a reading of this blob."
+        )
+        gap = (
+            f"The {unlabeled} unlabeled row(s) span two gaps at once — rows carrying no stored "
+            "questions-presented text, which no labeling batch can reach, and QP-bearing rows "
+            f"whose batch has not come up — and batch {frame.batch}'s extract sized the "
+            f"second: it counted {frame.rows} QP-bearing row(s) in the frame it cut from, of "
+            f"which the artifact held {frame.labeled} labeled ({share:.1%}). {vintage}"
+            if unlabeled
+            else "No in-scope row is unlabeled, so the labeled rows are every row this "
+            "section's scope holds. The QP-bearing frame they were drawn from is a subset of "
+            f"it, and batch {frame.batch}'s extract counted it: {frame.rows} row(s), "
+            f"{frame.labeled} of them labeled ({share:.1%}). {vintage}"
+        )
+    # Where the drawn rows came from, in the only terms a cut with no frame count
+    # can put it: every in-scope row outside the reference block, of which an
+    # unrecorded share carries no questions-presented text and was never
+    # eligible. The measured branch below replaces it with the frame's own pool.
+    source = (
+        f"the QP-bearing part of the {pool} in-scope row(s) outside that block (the "
+        f"{unlabeled} still unlabeled, plus these)"
     )
+    # "No factor" needs *both* populations complete, not just this table's rows:
+    # a pack computed over a blob smaller than the batch's extract can hold every
+    # in-scope row labeled while the batch's frame was three-quarters unlabeled,
+    # and claiming equal inclusion there contradicts the frame clause above it.
+    frame_complete = frame is None or frame.labeled >= frame.rows
+    if not unlabeled and frame_complete:
+        over = "no factor — every in-scope row is labeled, so both entered at the same rate"
+    elif not drawn:
+        # With no drawn rows the factor is unbounded rather than large: the cut is
+        # the reference block alone, which is the strongest form of the caveat and
+        # must not round to a finite-looking number. It outranks a measured frame:
+        # the factor describes the mix of *this table*, and no frame count makes a
+        # table of reference rows a draw.
+        over = "an unbounded factor — every labeled row here is a reference-set member"
+    elif frame is not None:
+        # The denominator the draw actually ran on: the QP-bearing frame the batch
+        # was cut from, less the block that rides in every batch. Its numerator is
+        # the artifact's drawn rows, not this table's, so the clause carries both
+        # of its own counts and says which batch they are from — the table's own
+        # split sits in the sentence before it and is this blob's.
+        frame_pool = frame.rows - frame.reference
+        frame_drawn = frame.labeled - frame.reference
+        over = (
+            f"at least about {frame_pool / frame_drawn:.1f}x — row for row, how much likelier "
+            f"a reference row was to be included than a drawn one when batch {frame.batch} "
+            f"landed: {frame.reference} carried in with certainty against {frame_drawn} drawn "
+            f"from the {frame_pool} QP-bearing row(s) outside the block that batch's extract "
+            "counted. Measured against that frame rather than bounded over rows no batch "
+            "could reach — and a floor rather than a ceiling at this pack's vintage, since "
+            "the frame grows with every pull while the drawn count waits for the next batch. "
+            "It closes to 1.0x as the frame is labeled, which a bound over unreachable rows "
+            "never does"
+        )
+        source = f"the QP-bearing frame batch {frame.batch}'s extract counted"
+    else:
+        over = (
+            f"at most about {pool / drawn:.1f}x — an upper bound over the whole of that "
+            "block-outside count, because how many of those rows carry a questions-presented "
+            "text is unrecorded. A bound taken that way does not converge: when the last "
+            "QP-bearing row is labeled the distortion has closed while this figure, whose "
+            "denominator keeps counting rows no batch could reach, still will not read 1.0x"
+        )
     return (
-        f"QP-bearing rows only — {rows.kept} of {rows.scoped} ingested rows labeled; "
+        f"QP-bearing rows only — {rows.kept} of {rows.scoped} in-scope ingested rows "
+        "labeled; "
         "grant-enriched; primaries only; not docket-representative. Those two counts are raw "
         "rows; the bucket counts are denial-reweighted, and no reweighting recovers the "
         "docket — QP presence is itself outcome- and stream-correlated, so this stays a share "
         "of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, "
         "so the mix is not the whole slice's; the base-rate column is over a grant-enriched "
-        "population and is not comparable to the sections above. Labeling accrues in batches, "
+        f"population and is not comparable to the sections above. {gap} Labeling accrues in "
+        "batches, "
         f"so the labeled rows are two populations on different terms: {reference_rows} hand "
         f"reference-set members, carried in every batch and so included with certainty, and "
-        f"{drawn} drawn from the remaining {pool} by a Term x fee-class-stratified, "
-        "seeded-hash order. Both count once here, so the reference block — grant-enriched by "
-        f"design and carrying no sampling weights — is over-represented by about {over}, and "
-        "this mix is not the frame's until every row is labeled. A naive share partly counts "
-        "coordinated filing campaigns rather than subjects; no de-duplicated companion is "
-        "published."
+        f"{drawn} drawn over this blob by a Term x fee-class-stratified, seeded-hash order "
+        "from "
+        f"{source}. Both count once here, so the reference block — "
+        "grant-enriched by design and carrying no sampling weights — is over-represented by "
+        f"{over}, and this mix is not the frame's until every QP-bearing row is labeled. A "
+        "naive share partly counts coordinated filing campaigns rather than subjects; no "
+        "de-duplicated companion is published."
     )
 
 
@@ -1726,7 +1917,7 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
 
     ``qp_topics_path`` names a ``qp-topic-v0`` labels artifact. A gate-passing one
     adds the question-presented topic cut, carrying that run's labeler and measured
-    agreement; absent — no labeler has run — the pack omits the cut and the
+    agreement; absent, or below the gate, the pack omits the cut and the
     rendered document names it among the gaps instead. ``gate_passed`` is re-read
     here rather than assumed from the file's existence: ``fedcourts qp-topics``
     declines to *write* a failing run, but the artifact records the flag either
@@ -1734,8 +1925,10 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
 
     One further condition ``docs/qp-topic.md`` sets on publication is **not**
     enforced here and cannot be: no cut may publish until the reference set's
-    denial- and GVR-stratified supplement block exists and is measured, which is a
-    property of the reference set that nothing in the labels artifact records. The
+    denial- and GVR-stratified supplement block exists and has been covered by a
+    scored labeling run, which is a property of the reference set that nothing in
+    the labels artifact records — a run's ``uncovered`` count is over whatever
+    reference set it was handed, not over a named block. The
     cell workflows also delete ``data/qp-topics/`` before an agent starts, so a
     pack regenerated inside a cell's checkout omits the cut by construction rather
     than by regression.
@@ -1772,10 +1965,30 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
         # drop the gap bullet, which is the one state a reader most needs it in.
         if rows.kept:
             reference_rows = scan.section_rows[-1].kept
+            # Raw rows per bucket, from the same pass: the reweighted `est. n=`
+            # the table prints is a population estimate, and on a bucket built
+            # from a handful of sampled denials the two differ by an order of
+            # magnitude. The reference-sourced share rides along per bucket
+            # because it is not uniform across them.
+            reference_slices = scan.sections[-1]
+            support = [
+                QpTopicSupport(
+                    label=cast(QpTopicLabel, key),
+                    rows=entry.cases,
+                    reference_rows=(reference_slices[key].cases if key in reference_slices else 0),
+                )
+                for key, entry in sorted(
+                    scan.sections[-2].items(), key=lambda item: (-item[1].cases, item[0])
+                )
+                if key != _NONE_KEY
+            ]
+            frame = _qp_frame(labels)
             qp_topics = DocketPackQpTopics(
                 labeler=labels.labeler,
                 batches=len(labels.batches),
                 reference_rows=reference_rows,
+                # The newest batch's frame, beside the prose that divides by it.
+                frame_rows=frame.rows if frame is not None else None,
                 agree=labels.agreement.overall_agree,
                 n=labels.agreement.overall_n,
                 floor=labels.agreement.floor,
@@ -1788,11 +2001,16 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
                 unmeasured_labels=[
                     row.label for row in labels.agreement.per_label if row.rate is None
                 ],
+                support=support,
                 # The scope note is set here rather than on the spec because its
                 # numbers are the scan's: how many rows carry a label is not known
                 # until the rows have been walked.
                 section=qp_section.model_copy(
-                    update={"scope_note": _qp_topic_scope_note(rows, reference_rows)}
+                    update={
+                        # With a frame the note measures the labeled share of it,
+                        # without one it bounds it.
+                        "scope_note": _qp_topic_scope_note(rows, reference_rows, frame)
+                    }
                 ),
             )
     census = _census(scan.cursor_rows)
@@ -2318,9 +2536,9 @@ _GVR_SPLIT_CAVEAT = (
 # the renderer drops this bullet when the pack carries one.
 _QP_TOPIC_GAP = (
     "**What the petitions are about.** The claim taxonomy for this cut exists — "
-    "the `qp-topic-v0` vocabulary (`docs/qp-topic.md`) — but no labeler has run "
-    "over the stored questions-presented texts, so the distribution is not yet "
-    "computed. When it is, it carries that vocabulary's coverage caveat: QP "
+    "the `qp-topic-v0` vocabulary (`docs/qp-topic.md`) — but no gate-passing labels "
+    "artifact was on disk when this pack was built, so the distribution is not "
+    "computed here. Where one is, it carries that vocabulary's coverage caveat: QP "
     "presence is a document-fetch artifact, not a sample of the docket."
 )
 
@@ -2347,7 +2565,7 @@ _DOCKET_GAPS = (
 def _qp_topic_provenance(topics: DocketPackQpTopics) -> list[str]:
     """The lines that make the topic table's numbers readable, under the table.
 
-    Four claims a share cannot be quoted without. The agreement figure never
+    The claims a share cannot be quoted without. The agreement figure never
     appears without its ``n``, without the rate a **constant** labeler scores on
     the same entries — on a sixteen-label vocabulary most of any rate is that
     floor, and only the distance from it is skill — or without the word
@@ -2372,8 +2590,9 @@ def _qp_topic_provenance(topics: DocketPackQpTopics) -> list[str]:
         f"_Accrued over {spans}. The most recent was labeled by {topics.labeler}, whose "
         + f"primaries matched the `qp-topic-v0` reference rater on {topics.agree} of "
         + f"{topics.n} reference case(s) ({rate}), against the {floor} a constant labeler "
-        + "scores on the same entries — **agreement, not accuracy**: with a single hand "
-        + "rater, rater error and labeler error cannot be separated, and the reference frame "
+        + "scores on the same entries — **agreement, not accuracy**: the reference raters "
+        + "were agent sessions too, so rater error and labeler error cannot be separated, "
+        + "and the reference frame "
         + "is grant-enriched, so the figure certifies the grant stream only. That rate "
         + "certifies the batch that produced it, not every row in the table above; the "
         + f"per-batch figures are in the labels artifact. {topics.uncovered} reference "
@@ -2390,6 +2609,53 @@ def _qp_topic_provenance(topics: DocketPackQpTopics) -> list[str]:
             + " — fewer reference examples than the support floor, where one entry moves the "
             + "ratio by tens of points. The figure above certifies none of those rows._",
         ]
+    lines += _qp_topic_support_lines(topics)
+    return lines
+
+
+def _qp_topic_support_lines(topics: DocketPackQpTopics) -> list[str]:
+    """The raw view a denial-reweighted bucket does not otherwise publish.
+
+    Every count in the table is reweighted, so `est. n=` is a population estimate
+    and a bucket's real support is smaller — by up to the denial sampling
+    weight, which is where a two-row bucket renders a two-figure denominator. The
+    counts are printed rather than the shares suppressed because suppression
+    would need the shared bucket renderer to know about this section; naming the
+    rows beside the estimate answers the same question and leaves the table's
+    machinery alone.
+
+    The thin buckets are then named outright, on the same floor the reference set
+    uses per label: under it one row moves a disposition split by tens of points,
+    and what the cell reports is the rows themselves rather than a rate. The
+    reference-sourced count rides beside each bucket because the block is
+    over-represented while the frame accrues and unevenly so — it holds every
+    QP-bearing grant it could reach, so it inflates the grant-heavy topics most,
+    and one pooled factor cannot de-bias a row.
+    """
+    if not topics.support:
+        return []
+    counts = ", ".join(
+        f"`{entry.label}` {entry.rows} [{entry.reference_rows}]" for entry in topics.support
+    )
+    lines = [
+        "",
+        "_Rows on hand behind each bucket, reference-sourced in brackets, ordered by rows "
+        + "rather than by the table's reweighted count — the raw view the reweighted "
+        + f"`est. n=` above does not give: {counts}. A bucket's `est. n=` is an "
+        + "estimate of the population its rows stand for, so it runs above the rows read; the "
+        + "reference share is not uniform across buckets, and the block holds every QP-bearing "
+        + "grant it could reach, so it inflates the grant-heavy topics most._",
+    ]
+    thin = [entry.label for entry in topics.support if entry.rows < _QP_REFERENCE_SUPPORT_FLOOR]
+    if thin:
+        lines += [
+            "",
+            "_Read the disposition split of "
+            + ", ".join(f"`{label}`" for label in thin)
+            + f" as the rows themselves, not as a rate: under {_QP_REFERENCE_SUPPORT_FLOOR} rows "
+            + "on hand one petition moves it by tens of points, and the `est. n=` beside it is "
+            + "what those rows stand for rather than what was read._",
+        ]
     return lines
 
 
@@ -2405,8 +2671,8 @@ def render_docket_markdown(pack: DocketPack) -> str:
     Deterministic; safe on the empty pack (renders a one-line note).
 
     The topic cut and the gap bullet naming its absence are mutually exclusive:
-    the bullet says no labeler has run, which stops being true exactly when the
-    cut renders.
+    the bullet reports that no gate-passing labels artifact backed this build,
+    which stops being true exactly when the cut renders.
 
     Every Term is rendered rather than capped. The statpack's cap bounds what the
     predict/evaluate prompts point agents at; this document is not that surface,
@@ -2638,6 +2904,7 @@ def render_markdown(report: AnalyticsReport) -> str:
 #: documents (the two reasoning files, the flags) are the point of following it.
 DEFAULT_REPO_TREE_URL: Final = "https://github.com/ModelMirrorAI/fedcourtsai/tree/main"
 
+
 # The reading rules the big-case board publishes inside itself. Registered prose
 # rather than a renderer's free text: the JSON is read by a public site, where a
 # figure travels without the document that explains it, so the caveats have to
@@ -2645,96 +2912,287 @@ DEFAULT_REPO_TREE_URL: Final = "https://github.com/ModelMirrorAI/fedcourtsai/tre
 # are `metrics/README.md`'s registered carve-out, which is why they read as they
 # do there — a stakes read is outside the scored stream, and the population that
 # follows from that is wider than any board beside it.
-_BIG_CASE_READING_RULE = (
-    "A stakes read is neither scored nor ranked: it resolves against nothing, so no "
-    "**stakes** figure here is an accuracy, a calibration or an ordering of predictors, "
-    "and none may be quoted as one. The per-cell `probability` carried beside it **is** a "
-    "forecast — the cell's raw value, unstratified, unexcluded and unscored — and it is "
-    "not a claimable one either; scored forecast performance lives on the leaderboard and "
-    "nowhere else. Like the leaderboard's big-case views, this board reads the ledger "
-    "directly, so neither the forward-claim exclusion nor the leakage exclusion applies; "
-    "it is wider still than those, since it also reads cells no judge has graded and every "
-    "process version. A wider population than the scored boards, deliberately, and a caveat "
-    "that has to travel with a quoted number. The mean is a panel opinion about which cases "
-    "matter, and it says nothing about how likely any of them is to be granted."
-)
+def _big_case_reading_rule(process_scope: str) -> str:
+    """The registered carve-out, worded for the scope the board was built at.
+
+    Scope-aware because the last clause is a claim about the population: at
+    ``all`` the board genuinely reads every process version, and at ``frozen``
+    it does not, so one sentence cannot serve both without asserting something
+    false on one of them.
+    """
+    versions = (
+        "and every process version"
+        if process_scope == "all"
+        else "though its current reads are scoped to the frozen partition (see *Process scope*, "
+        "the `version_scope` field)"
+    )
+    return (
+        "A stakes read is neither scored nor ranked: it resolves against nothing, so no "
+        "**stakes** figure here is an accuracy, a calibration or an ordering of predictors, "
+        "and none may be quoted as one. The per-cell `probability` carried beside it **is** a "
+        "forecast — the cell's raw value, unstratified, unexcluded and unscored — and it is "
+        "not a claimable one either; scored forecast performance lives on the leaderboard and "
+        "nowhere else. Like the leaderboard's big-case views, this board reads the ledger "
+        "directly, so neither the forward-claim exclusion nor the leakage exclusion applies; "
+        "it is wider still than those, since it also reads cells no judge has graded "
+        f"{versions}. A wider population than the scored boards, deliberately, and a caveat "
+        "that has to travel with a quoted number. The mean is a panel opinion about which "
+        "cases matter, and it says nothing about how likely any of them is to be granted."
+    )
+
+
 _BIG_CASE_LEAKAGE_NOTE = (
     "A leakage-flagged read is worse here than on a board that drops it. A stakes read is "
     "partly a read of the disposition, so a predictor that saw its own outcome may have read "
     "the stakes off it too — and on this board that cell is not one point inside a "
     "coefficient, it is the published number. Every read and every row carries "
     "`leakage_suspected`, set where any committed grading of that run recorded the bit. Read a "
-    "marked row as evidence about the cell, not about the case."
+    "marked row as evidence about the cell, not about the case. The **row** mark is "
+    "moment-scoped like every other row figure: it covers the reads the row publishes, so a "
+    "flagged read on an earlier moment leaves the row unmarked while staying visible, and "
+    "marked, under its own event."
 )
-_BIG_CASE_VERSION_SCOPE = (
-    "Version-blind on purpose: the board pools every process version, shakedown cells and "
-    "unstamped cells included, because it is a census of what the panel said rather than a "
-    "measurement of how well it said it. That is the opposite default from the performance "
-    "boards, which are scoped to the frozen partition — so `process_label` here is only what a "
-    "prediction minted today would stamp, and is not a filter on any row."
-)
+
+
+def _big_case_version_scope(process_scope: str, cases_out_of_scope: int) -> str:
+    """What `process_scope` covers, and what the non-default scope costs.
+
+    The selection effect is the substance here, not a footnote: scoping to the
+    frozen partition does not thin the board evenly. It removes every case whose
+    reads all predate the freeze, and the re-predict rule
+    (:data:`fedcourtsai.pipeline.pull.REPREDICT_MOMENTS`) re-owes only the cert
+    distribution, the CVSG and the three interim moments — so a cert *arrival*
+    moment and both *merits* moments are never refilled, and a resolved case
+    never is at all. A reader handed the frozen board without that sentence would
+    read a systematically different population as the same one.
+    """
+    if process_scope == "all":
+        return (
+            '`process_scope: "all"` — **version-blind, and that is the default**: every '
+            "committed run is eligible as a current read, shakedown, pre-freeze, "
+            "retired-digest and unstamped cells included, because the board is a census of "
+            "what the panel said rather than a measurement of how well it said it, and a "
+            "stakes read resolves against nothing for a partition to protect. "
+            "`--process-scope frozen` rebuilds it as the **comparison build**, admitting "
+            "only runs whose harness stamp is in the blessed digest set and was written at "
+            "or after the freeze instant (the predicate the performance boards scope on; "
+            "the record it keys on is published in `frozen_process` on every build, this "
+            "one included). That build is not this board with fewer rows: it holds out a "
+            "systematically different population — see *Population*, the `population` field. "
+            "`process_label` is "
+            "what a prediction minted today would stamp and is a filter on nothing here; "
+            "`process_scope` is the filter. **No count, mean, rate or spread statistic is "
+            "differenced across a scope change.** A row's own mean and `n` move when a "
+            "predictor's read falls outside the scope, and every denominator moves at once, "
+            "so a coverage rate that rises at "
+            "`frozen` rises by construction — the older cells the rate's numerator was "
+            "missing are the cells the scope removed — and is never the pre-registered "
+            "coverage rise `docs/freeze-record.md` describes."
+        )
+    return (
+        '`process_scope: "frozen"` — **the comparison build, not the published '
+        "default**. A run is eligible as a current read only where its harness stamp is in "
+        "the blessed digest set and was written at or after the freeze instant, the same "
+        "predicate the performance boards scope on; the record it keys on travels beside it "
+        "in `frozen_process`. A pre-freeze, retired-digest, shakedown or unstamped run is "
+        "**history** under its event: never a current read, never in `n`, never in a mean. "
+        "The scope is applied before the moment choice, so such a run cannot move a case's "
+        "moment either, and the per-event entries stay unfiltered so nothing disappears. "
+        f"**What it costs is not spread evenly**: it holds {cases_out_of_scope} case(s) off "
+        "the board entirely (`cases_out_of_scope`), and the held-out set is selected rather "
+        "than sampled — see *Population*. `process_label` is what a prediction minted today "
+        "would stamp and is a filter on nothing; `process_scope` is the filter. **No count, "
+        "mean, rate or spread statistic is differenced against the `all` build.** A row's "
+        "own mean and `n` move when a predictor's read falls outside the scope, and every "
+        "denominator moves at once, so a coverage rate that rises here rises by "
+        "construction — the older cells the rate's numerator was missing are exactly the "
+        "cells this scope removed — and is never the "
+        "pre-registered coverage rise `docs/freeze-record.md` describes."
+    )
+
+
 _BIG_CASE_RANK_RESOLUTION = (
     "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer "
     "together than the predictors inside a single row sit to each other, so the difference "
     "between two adjacent ranks is smaller than the disagreement the ranks are built from. "
     "`median_adjacent_gap` and `median_score_range` are published beside each other so that "
-    "comparison can be made rather than assumed."
+    "comparison can be made rather than assumed. The moment-first collapse sharpens this "
+    "rather than settling it: each row is one moment, so a row's mean **is** comparable "
+    "across its own predictors, but two rows on different moments are not comparable to "
+    "each other and the `#` column orders across moments anyway. The panel reads stakes "
+    "systematically higher at later moments, so a row's position reflects which question "
+    "its panel answered as well as how big its case is."
 )
 _BIG_CASE_COLLAPSE_RULE = (
-    "One read per predictor per case: the predictor's newest prediction run across the "
-    "case's events, newest by the harness-written cell clock (the process stamp, else "
-    "`created_at`) rather than by directory name, ties broken by run id then event id. "
-    "An earlier run is listed under its event as history and is never averaged in. A "
-    "newest run carrying no score is excluded from the mean and from `n` — never imputed, "
-    "never counted as a zero. **Where a case's moments were predicted in the same round, "
-    "'newest' is a harness completion-time artifact and not a later information set**: the "
-    "two cells ran minutes apart on the same dispatch, so which one wins is arbitrary within "
-    "the round, and the mean can pool one predictor's read of one moment with another's read "
-    "of another. The per-event entries are there so that is visible rather than inferred."
+    "The scope first, then the moment, then the predictors on it, so the reads a row averages "
+    "are answers to the same question asked under the same contract. Eligibility comes first "
+    "and everything below is over the eligible runs only: a run counts as a current read only "
+    "where it is in `process_scope` (see *Process scope*), so a case's moment is the newest "
+    "event carrying at least one eligible run, and an out-of-scope run can neither become a "
+    "current read nor move the moment. The case's current moment (`moment`, with "
+    "`moment_opened_at` beside it) is chosen from the **docket** rather than from run times — "
+    "with the one fallback named below, where the docket gives no date at all: the newest "
+    "**predicted** event by its `opened_at`, which lags the docket wherever no cell has been "
+    "dispatched on a newer event; ties broken by the docket's stage progression — the "
+    "petition's arrival, then its distribution, then the interim application's arrival, the "
+    "response requested on it and the response filed, then the CVSG, then the merits moments "
+    "— and then by event id, so a date collision never inverts the order a case is actually "
+    "walked in. An event whose definition records no `opened_at` is ordered by the **day** of "
+    "its first prediction's harness clock, which therefore falls through to the same "
+    "tie-break. One exception the pre-registration records (`docs/freeze-record.md`): the "
+    "cert petition baseline's `opened_at` is **docketing**, while the moment it declares is "
+    "the distribution, so on those rows `moment_opened_at` is the day the petition reached "
+    "the docket rather than the day its moment arrived. It is used as an ordering key "
+    "regardless, because it is still the docket's own date and still moves only when the "
+    "docket does. A re-predict of an older moment cannot move the case's moment; only a newly "
+    "predicted moment can. Each predictor's read is then its newest run **on that moment**, "
+    "newest by the harness-written cell clock (the process stamp, else `created_at`) rather "
+    "than by directory name, ties broken by run id. A predictor with no run on that moment is "
+    "excluded from `n` and from the mean exactly as a declared no view is — never carried "
+    "over from an older moment, never imputed, never counted as a zero; its earlier read is "
+    "history, listed under its own event and never averaged in. **The coverage consequence to "
+    "read for**: where a fresh moment has been minted for some predictors and not others, the "
+    "row shows the newest moment at a small `n` rather than a fuller `n` on a stage the "
+    "docket has left behind. That is the honest reading, and the fuller panel on the previous "
+    "moment is in the per-event entries."
 )
-_BIG_CASE_LEADERBOARD_DIVERGENCE = (
-    "This is not the leaderboard's big-case block. That block reads a case as the "
-    "**mean over its moments** before correlating it with the evaluator panel; this "
-    "board reads a case as its **newest** moment. The two answer different questions "
-    "over different collapses, so a figure here is never differenced against one there."
-)
-_BIG_CASE_POPULATION = (
-    "Every case in the committed ledger carrying at least one scored current read, pending "
-    "and decided alike; `cases_without_score` counts the predicted cases that carry none and "
-    "are therefore absent. The list is the predictions', never the corpus's — and the "
-    "predictions' list is the salience gate's deliberately non-representative selection "
-    "(`docs/salience.md`), so the board inherits that gate and is **not** a sample of the "
-    "docket or of any conference. `status` says only whether a committed `outcome.json` sits "
-    "on the case's predicted events: `pending` means the ledger records no outcome, which is "
-    "not a statement about what the Court has done."
-)
-_BIG_CASE_NO_TIME_SERIES = (
-    "The committed ledger spans a boundary at which `big_case_score` became required with "
-    "an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two "
-    "populations — the ask changed, so which cells carry a read changed with it — and the "
-    "board therefore publishes no trend and no history. A movement across that boundary "
-    "measures nothing."
-)
+
+
+def _big_case_leaderboard_divergence(process_scope: str) -> str:
+    """The three collapses, and how far the leaderboard's population differs.
+
+    The closing clause is scope-aware: the frozen partition is an axis the two
+    boards *share* at ``process_scope: "frozen"`` and one that separates them at
+    ``all``, so stating it unconditionally is wrong on one of the two builds.
+    """
+    narrower = (
+        "narrower on two further axes this board does not share, being scoped to the "
+        "frozen partition and to cells a judge has graded"
+        if process_scope == "all"
+        else "narrower on one further axis this board does not share, being scoped to cells "
+        "a judge has graded post-freeze; the frozen partition is an axis the two very nearly "
+        "share on this build, though the leaderboard additionally gates the *evaluation*'s "
+        "own stamp and this board has no analogue of that"
+    )
+    return (
+        "Three collapses of a case exist across these artifacts, and a figure from one is "
+        "never differenced against a figure from another. (1) The leaderboard's `big_case` "
+        "block reads a case as the **mean over its moments** before correlating it with the "
+        "evaluator panel — bigness is a property of the case, so its moments are not "
+        "independent observations there. (2) A **row** on this board is one moment — the "
+        "newest moment the panel has been **asked about**, which lags the docket wherever "
+        "no cell has been dispatched on a newer event — and each predictor's newest run on "
+        "it. (3) An **event entry** on this board is each predictor's newest run on "
+        "**that** event, which is how an earlier moment stays visible as history; those "
+        "reads are never averaged into the row. Each answers a different question over a "
+        f"different population — and the leaderboard's is {narrower}."
+    )
+
+
+def _big_case_population(process_scope: str, cases_out_of_scope: int) -> str:
+    """Which cases are on the board, and — at ``frozen`` — which are held off it.
+
+    The held-out set is *selected*, not sampled, and this is where that has to be
+    said, because a reader quoting a row is reading this paragraph's population.
+    """
+    scope_clause = (
+        ""
+        if process_scope == "all"
+        else (
+            f" A further {cases_out_of_scope} case(s) are held off the board by "
+            '`process_scope: "frozen"` — no run of theirs is in the frozen partition — '
+            "and they are counted separately in `cases_out_of_scope` **because they are not "
+            "the same fact**: a case with no score is a panel that declined, a case out of "
+            "scope is a panel this build refused to read. The test is **ordered**, and has "
+            "to be — a case with no in-scope run cannot be observed to have declined — so "
+            "where both would hold the case counts as out of scope only, and this build's "
+            "`cases_without_score` counts in-scope decliners alone and is not comparable to "
+            "the `all` build's. That held-out set is selected "
+            "rather than sampled, and the selection is legible: a **resolved** case is "
+            "never re-predicted, so one whose reads predate the freeze can never be "
+            "refilled into scope, and the re-predict "
+            "rule (`pipeline/pull.py`) re-owes only the cert distribution, the CVSG and the "
+            "three interim moments — so a case sitting at a cert **arrival** moment or at "
+            "either **merits** moment is never refilled either, however long it waits. "
+            "Those are a floor rather than the whole of it: a **pending** case at a moment "
+            "the rule does re-owe can still sit outside, because a distribution is re-owed "
+            "only while a conference is still ahead of it, and because a re-owed cell has "
+            "to be minted and land before it counts. The "
+            "frozen board is therefore a live-cert-and-interim slice, not a smaller copy of "
+            "the whole, and no row count, rate or ranking on it is comparable to one on the "
+            "`all` build."
+        )
+    )
+    return (
+        "Every case in the committed ledger carrying at least one **in-scope** scored read "
+        "on its current moment, pending and decided alike. `cases_without_score` counts the "
+        "predicted cases whose in-scope reads carry no number at all and which are "
+        "therefore absent — including a case whose current moment drew only declining "
+        "reads whilst an earlier moment carried scores, which are history here and never "
+        f"promoted back into a row.{scope_clause} The list is the predictions', never the "
+        "corpus's — and the predictions' list is the salience gate's deliberately "
+        "non-representative selection (`docs/salience.md`), so the board inherits that gate "
+        "and is **not** a sample of the docket or of any conference. `status` says only "
+        "whether a committed `outcome.json` sits on the case's predicted events: `pending` "
+        "means the ledger records no outcome, which is not a statement about what the Court "
+        "has done."
+    )
+
+
+def _big_case_no_time_series(process_scope: str) -> str:
+    """Why no movement on this board is a measurement — under either scope."""
+    boundary = (
+        "Cells either side of it are two populations — the ask changed, so which cells "
+        "carry a read changed with it — and **this build spans it**, so the board publishes "
+        "no trend and no history."
+        if process_scope == "all"
+        else "Every current read on **this** build post-dates that amendment, since the "
+        "freeze instant does, so the boundary bites on the `all` build and on the per-event "
+        "history here rather than on these rows — and the board still publishes no trend "
+        "and no history, because a read elicited under one ask is not a revision of one "
+        "elicited under another."
+    )
+    return (
+        "The committed ledger spans a boundary at which `big_case_score` became required "
+        f"with an explicit null escape (`docs/freeze-record.md`). {boundary} Nor is a "
+        "movement between two consecutive builds a measurement: a row's mean, `n` and rank "
+        "also move when its `moment` does, which is the **docket** advancing and the whole "
+        "panel switching question at once, not a predictor changing its mind. A movement "
+        "across any of these boundaries measures nothing."
+    )
+
+
 _BIG_CASE_CAPTION_RULE = (
-    "The caption is the `event.yaml` title of the event carrying the case's newest "
-    "**scoring** current read, so a case read at two moments displays under the moment a "
-    "number actually came from and a declining read never decides the caption. Ties run "
-    "run id, then event id, then predictor id. There is no docket number in committed "
-    "data; `case_id` is the identifier and the caption is the human handle."
+    "The caption is the `event.yaml` title of the case's **current moment** — the event "
+    "`moment` names, which `caption_event_id` repeats so the rule is checkable against "
+    "the row without a join. A case read at two moments therefore displays under the one "
+    "its panel was collapsed to, and a row is on the board at all only where that moment "
+    "carries a score, so the caption never advertises a moment no number came from. A "
+    "case whose event definition is absent displays no caption. There is no docket number "
+    "in committed data; `case_id` is the identifier and the caption is the human handle."
 )
 
 
-def _big_case_provenance() -> BigCaseProvenance:
-    """The board's registered reading rules, identical on every build."""
+def _big_case_provenance(
+    *, process_scope: str = "all", cases_out_of_scope: int = 0
+) -> BigCaseProvenance:
+    """The board's registered reading rules, worded for the scope it was built at.
+
+    Five of the nine strings are scope-aware, because each carries a claim about
+    the *population* rather than about the method: asserting version-blindness on
+    a frozen build, or the frozen build's selection effect on a version-blind
+    one, would publish a false caveat inside the artifact a public site reads.
+    Deterministic in both arguments, so the board stays byte-stable.
+    """
     return BigCaseProvenance(
-        reading_rule=_BIG_CASE_READING_RULE,
+        reading_rule=_big_case_reading_rule(process_scope),
         collapse_rule=_BIG_CASE_COLLAPSE_RULE,
         leakage_note=_BIG_CASE_LEAKAGE_NOTE,
-        leaderboard_divergence=_BIG_CASE_LEADERBOARD_DIVERGENCE,
-        population=_BIG_CASE_POPULATION,
-        version_scope=_BIG_CASE_VERSION_SCOPE,
+        leaderboard_divergence=_big_case_leaderboard_divergence(process_scope),
+        population=_big_case_population(process_scope, cases_out_of_scope),
+        version_scope=_big_case_version_scope(process_scope, cases_out_of_scope),
         rank_resolution=_BIG_CASE_RANK_RESOLUTION,
-        no_time_series=_BIG_CASE_NO_TIME_SERIES,
+        no_time_series=_big_case_no_time_series(process_scope),
         caption_rule=_BIG_CASE_CAPTION_RULE,
         process_label=CURRENT_PROCESS_LABEL,
     )
@@ -2826,6 +3284,107 @@ def _is_leakage_flagged(row: LedgerPrediction, leakage: _Leakage) -> bool:
     return key in leakage.run_blind and leakage.newest.get(key) == row.run_id
 
 
+#: The declared forecast moments in **docket order** — the tie-break when two of a
+#: case's events carry the same `opened_at`, so a stage progression never inverts on
+#: a date collision. Flat rather than stage-major: an interim response comes earlier
+#: in a docket's life than a cert CVSG, and the order a reader checks the rule
+#: against is the order the docket walks. It is not
+#: :data:`fedcourtsai.pipeline.moments.DECLARED_MOMENTS`' own ordering, which is
+#: registry order (the cert arrival moment carries the last cert ordinal while
+#: preceding every distribution) — a test pins the two against each other, so a newly
+#: registered moment cannot arrive without a position here.
+_BIG_CASE_MOMENT_ORDER: Final[tuple[tuple[Stage, Moment], ...]] = (
+    (Stage.cert, Moment.arrival),
+    (Stage.cert, Moment.distribution),
+    (Stage.interim, Moment.arrival),
+    (Stage.interim, Moment.response_requested),
+    (Stage.interim, Moment.response_filed),
+    (Stage.cert, Moment.cvsg),
+    (Stage.merits, Moment.grant),
+    (Stage.merits, Moment.briefed),
+)
+
+_BIG_CASE_MOMENT_RANK: Final[dict[tuple[Stage, Moment], int]] = {
+    pair: rank for rank, pair in enumerate(_BIG_CASE_MOMENT_ORDER)
+}
+
+
+def _moment_rank(event_id: str) -> int:
+    """Where ``event_id`` sits in the docket's stage progression.
+
+    ``-1`` for an event the moment registry does not declare — an entry-pinned
+    event, or an id written before that table existed. Sorting those *below*
+    every declared moment is the conservative direction for a tie-break that
+    decides which moment a case is collapsed to: an id whose stage cannot be
+    stated never displaces a moment whose stage can. The final tie-break is the
+    event id, so the order stays total either way.
+    """
+    spec = moment_registry.spec_for(event_id)
+    if spec is None:
+        return -1
+    return _BIG_CASE_MOMENT_RANK.get((spec.stage, spec.moment), -1)
+
+
+def _event_definitions(
+    rows: list[LedgerPrediction], *, data_root: Path
+) -> dict[str, PredictableEvent | None]:
+    """Each predicted event's ``event.yaml``, read once for the whole row.
+
+    ``None`` where the ledger carries predictions under an event whose definition
+    is absent — which `validate` refuses but the board reports rather than fails
+    on. Read once because two readers need it: the moment choice needs
+    ``opened_at``, and the per-event history needs the title.
+    """
+    paths = CasePaths(data_root, rows[0].court_id, rows[0].docket_id)
+    definitions: dict[str, PredictableEvent | None] = {}
+    for event_id in sorted({row.event_id for row in rows}):
+        event_file = paths.event(event_id).event_file
+        definitions[event_id] = (
+            read_model(event_file, PredictableEvent) if event_file.is_file() else None
+        )
+    return definitions
+
+
+def _moment_key(
+    event_id: str, rows: list[LedgerPrediction], definition: PredictableEvent | None
+) -> tuple[date, int, str]:
+    """The docket-order key one predicted event is chosen on.
+
+    ``opened_at`` first — the docket's own date, which is why a re-predict cannot
+    move a case's moment — then the stage progression, then the event id so the
+    order is total.
+
+    ``opened_at`` is the *event's* date, which for the cert petition baseline is
+    docketing rather than the distribution it declares
+    (``opened_at_is_the_moment=False`` in :mod:`fedcourtsai.pipeline.moments`).
+    It is ordered on anyway: the distribution has no date in committed data, and
+    docketing is still a docket fact that moves only when the docket does, which
+    is the property the choice rests on. The registered prose names the exception
+    so a published ``moment_opened_at`` is not read as the moment's own day.
+
+    An event whose definition records no ``opened_at`` (or carries
+    no definition at all) falls back to the day of its **first** prediction's
+    harness clock: the earliest run is the one that dates the moment, since a
+    later re-predict of the same moment must not make it look newer than a moment
+    minted after it.
+    """
+    opened_at = definition.opened_at if definition is not None else None
+    if opened_at is None:
+        opened_at = min(cell_clock(row.prediction) for row in rows).date()
+    return (opened_at, _moment_rank(event_id), event_id)
+
+
+def _case_moment(
+    by_event: dict[str, list[LedgerPrediction]],
+    definitions: dict[str, PredictableEvent | None],
+) -> str:
+    """The case's current moment: the newest predicted event, chosen from the docket."""
+    return max(
+        by_event,
+        key=lambda event_id: _moment_key(event_id, by_event[event_id], definitions[event_id]),
+    )
+
+
 def _big_case_read(row: LedgerPrediction, *, repo_url: str, leakage: _Leakage) -> BigCaseRead:
     """One collapsed run rendered as a board entry.
 
@@ -2852,9 +3411,19 @@ def _big_case_read(row: LedgerPrediction, *, repo_url: str, leakage: _Leakage) -
 
 
 def _big_case_events(
-    rows: list[LedgerPrediction], *, data_root: Path, repo_url: str, leakage: _Leakage
+    rows: list[LedgerPrediction],
+    *,
+    definitions: dict[str, PredictableEvent | None],
+    data_root: Path,
+    repo_url: str,
+    leakage: _Leakage,
 ) -> list[BigCaseEvent]:
     """One case's predicted events, each with every predictor's newest read of it.
+
+    The board's **history** collapse, and a different one from the row's: here a
+    read is a predictor's newest run on *that* event, so a predictor's read of an
+    earlier moment stays visible rather than being averaged into a row that
+    collapsed the case to a later one.
 
     The outcome is read from the event's own ``outcome.json`` rather than from
     the corpus: the board is ledger-only by contract, and a committed outcome is
@@ -2866,11 +3435,7 @@ def _big_case_events(
     events: list[BigCaseEvent] = []
     for event_id in sorted(by_event):
         event_paths = CasePaths(data_root, rows[0].court_id, rows[0].docket_id).event(event_id)
-        definition = (
-            read_model(event_paths.event_file, PredictableEvent)
-            if event_paths.event_file.is_file()
-            else None
-        )
+        definition = definitions[event_id]
         outcome = (
             read_model(event_paths.outcome, Outcome) if event_paths.outcome.is_file() else None
         )
@@ -2904,16 +3469,37 @@ def _big_case_status(
 
 
 def _big_case_row(
-    case_rows: list[LedgerPrediction], *, data_root: Path, repo_url: str, leakage: _Leakage
+    case_rows: list[LedgerPrediction],
+    *,
+    eligible: list[LedgerPrediction],
+    data_root: Path,
+    repo_url: str,
+    leakage: _Leakage,
 ) -> BigCaseRow | None:
     """One case's board row, or ``None`` where no predictor holds a current score.
 
-    The population filter lives here rather than in the caller because it is the
-    same computation: a case is on the board iff the collapse leaves at least one
-    number to average.
+    The moment is chosen first and the panel is read off it, so the reads the mean
+    pools are answers to the same question: a predictor whose newest run sits on an
+    older moment is absent from the row rather than pooled into it, and its read
+    stays under its own event as history. The population filter lives here rather
+    than in the caller because it is the same computation: a case is on the board
+    iff the collapse leaves at least one number to average.
+
+    ``eligible`` is ``case_rows`` filtered to the runs ``process_scope`` admits,
+    and it is what every row-level figure is computed from — the moment included,
+    so an out-of-scope run cannot move a case's moment any more than it can be
+    its read. ``case_rows`` stays whole and feeds only ``events``, which is where
+    the excluded runs remain visible as history.
     """
+    if not eligible:
+        return None
+    by_event: dict[str, list[LedgerPrediction]] = defaultdict(list)
+    for row in eligible:
+        by_event[row.event_id].append(row)
+    definitions = _event_definitions(case_rows, data_root=data_root)
+    moment = _case_moment(by_event, definitions)
     by_predictor: dict[str, list[LedgerPrediction]] = defaultdict(list)
-    for row in case_rows:
+    for row in by_event[moment]:
         by_predictor[row.predictor_id].append(row)
     current = {
         predictor_id: _newest_run(runs) for predictor_id, runs in sorted(by_predictor.items())
@@ -2925,25 +3511,23 @@ def _big_case_row(
     ]
     if not scores:
         return None
-    # The caption displays the moment the case's number came from, so it is taken
-    # from the newest read that actually carries a score — a declining read has no
-    # moment to display. `_newest_run`'s tie-break reaches event id; a full tie
-    # between two predictors is resolved by predictor id, which `current` is
-    # already ordered on.
-    caption_row = _newest_run(
-        [row for row in current.values() if row.prediction.big_case_score is not None]
+    events = _big_case_events(
+        case_rows,
+        definitions=definitions,
+        data_root=data_root,
+        repo_url=repo_url,
+        leakage=leakage,
     )
-    events = _big_case_events(case_rows, data_root=data_root, repo_url=repo_url, leakage=leakage)
-    caption = next(
-        (event.title for event in events if event.event_id == caption_row.event_id), None
-    )
+    moment_definition = definitions[moment]
     first = case_rows[0]
     return BigCaseRow(
         case_id=first.case_id,
         court_id=first.court_id,
         docket_id=first.docket_id,
-        caption=caption,
-        caption_event_id=caption_row.event_id,
+        moment=moment,
+        moment_opened_at=moment_definition.opened_at if moment_definition is not None else None,
+        caption=moment_definition.title if moment_definition is not None else None,
+        caption_event_id=moment,
         status=_big_case_status(events),
         mean_big_case_score=round(sum(scores) / len(scores), 4),
         n=len(scores),
@@ -2966,7 +3550,12 @@ def _big_case_row(
     )
 
 
-def build_big_case_board(*, data_root: Path, repo_url: str = DEFAULT_REPO_TREE_URL) -> BigCaseBoard:
+def build_big_case_board(
+    *,
+    data_root: Path,
+    repo_url: str = DEFAULT_REPO_TREE_URL,
+    process_scope: Literal["frozen", "all"] = "all",
+) -> BigCaseBoard:
     """Roll the committed predictions into the case-centric big-case board.
 
     Ledger-only: it reads ``data/`` and nothing else — no corpus, no network, no
@@ -2980,30 +3569,63 @@ def build_big_case_board(*, data_root: Path, repo_url: str = DEFAULT_REPO_TREE_U
     is anything about how good those reads are — a stakes read resolves against
     nothing, so the board carries no score, no ranking of predictors, and no
     exclusion borrowed from the scored surfaces.
+
+    ``process_scope`` is the one exclusion it can apply, and only to **current
+    reads**. The default is ``all`` — version-blind, every committed run eligible
+    — because that is what a census means and a stakes read has no performance
+    claim for a partition to protect. ``frozen`` is the **comparison build**:
+    a run is eligible only where :func:`fedcourtsai.process_version.is_frozen`
+    admits its harness stamp. It is not this board with fewer rows. A resolved
+    case is never re-predicted and the re-predict rule re-owes neither the cert
+    arrival moment nor either merits moment, so the frozen build is a
+    live-cert-and-interim slice of a selected population, which is why the
+    artifact states the hold-out beside its own row count. Neither setting
+    touches ``events``, which carries every committed run of the case as history
+    — an excluded run is relegated, never hidden.
     """
     predictions = store.iter_predictions(data_root)
     by_case: dict[str, list[LedgerPrediction]] = defaultdict(list)
+    eligible_by_case: dict[str, list[LedgerPrediction]] = defaultdict(list)
     predictors: set[str] = set()
     for row in predictions:
         by_case[row.case_id].append(row)
-        predictors.add(row.predictor_id)
+        if process_scope == "all" or is_frozen(row.prediction.process_version):
+            eligible_by_case[row.case_id].append(row)
+            # The roster is the predictors the board can *publish*, so it is the
+            # in-scope one: a predictor whose every run is out of scope would
+            # otherwise render as a column of blanks on every row.
+            predictors.add(row.predictor_id)
     leakage = _leakage_index(data_root, predictions)
     rows = [
         board_row
         for case_id in sorted(by_case)
         if (
             board_row := _big_case_row(
-                by_case[case_id], data_root=data_root, repo_url=repo_url, leakage=leakage
+                by_case[case_id],
+                eligible=eligible_by_case[case_id],
+                data_root=data_root,
+                repo_url=repo_url,
+                leakage=leakage,
             )
         )
         is not None
     ]
     rows.sort(key=lambda row: (-row.mean_big_case_score, -row.n, row.case_id))
+    # Two different facts, kept apart: a case whose in-scope reads carry no number
+    # is a panel that declined, and a case with no in-scope run at all is a panel
+    # this build refused to read. Pooling them would publish the scope's hold-out
+    # as though the predictors had had nothing to say.
+    out_of_scope = sum(1 for case_id in by_case if not eligible_by_case[case_id])
+    scored_case_ids = {row.case_id for row in rows}
+    without_score = sum(
+        1 for case_id in by_case if eligible_by_case[case_id] and case_id not in scored_case_ids
+    )
     coverage = Counter(row.n for row in rows)
     unscored = [read for row in rows for read in row.current_reads if read.big_case_score is None]
     return BigCaseBoard(
         cases=len(rows),
-        cases_without_score=len(by_case) - len(rows),
+        cases_without_score=without_score,
+        cases_out_of_scope=out_of_scope,
         predictors=sorted(predictors),
         current_reads=sum(len(row.current_reads) for row in rows),
         scored_reads=sum(row.n for row in rows),
@@ -3022,7 +3644,11 @@ def build_big_case_board(*, data_root: Path, repo_url: str = DEFAULT_REPO_TREE_U
         median_score_range=_median([row.score_range for row in rows]),
         coverage=[BigCaseCoverage(n=n, cases=coverage[n]) for n in sorted(coverage, reverse=True)],
         rows=rows,
-        provenance=_big_case_provenance(),
+        process_scope=process_scope,
+        frozen_process=frozen_process_record(),
+        provenance=_big_case_provenance(
+            process_scope=process_scope, cases_out_of_scope=out_of_scope
+        ),
     )
 
 
@@ -3041,8 +3667,10 @@ def _big_case_score_cell(read: BigCaseCurrentRead | None) -> str:
 
     The three are different facts and the table has to keep them apart. A score
     is a number. An em dash is a read that carries none — never a zero, which
-    would fabricate a panel opinion. A blank is a predictor that did not read
-    this case at all, which is a coverage gap rather than a withheld view.
+    would fabricate a panel opinion. A blank is a predictor with no run on the
+    case's current moment, which is a coverage gap on that moment rather than a
+    withheld view — it may hold a read of an earlier one, which the per-event
+    entries carry as history.
     """
     if read is None:
         return ""
@@ -3061,10 +3689,17 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
     """
     lines = ["# Big-case board", ""]
     if not board.rows:
-        lines.append("_Empty — no committed prediction carries a stakes read yet._")
+        lines.append(
+            "_Empty — no committed prediction carries a stakes read yet._"
+            if board.process_scope == "all"
+            else "_Empty — no **frozen-process** stakes read yet. The ledger may hold "
+            "plenty; `--process-scope all` is the census._"
+        )
         return "\n".join(lines) + "\n"
 
-    provenance = board.provenance or _big_case_provenance()
+    provenance = board.provenance or _big_case_provenance(
+        process_scope=board.process_scope, cases_out_of_scope=board.cases_out_of_scope
+    )
     coverage = ", ".join(f"{entry.n} → {entry.cases} case(s)" for entry in board.coverage)
     gap = "—" if board.median_adjacent_gap is None else f"{board.median_adjacent_gap:.3f}"
     spread = "—" if board.median_score_range is None else f"{board.median_score_range:.3f}"
@@ -3084,12 +3719,18 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         "",
         f"**The collapse.** {provenance.collapse_rule}",
         "",
-        f"**Against the leaderboard.** {provenance.leaderboard_divergence}",
+        f"**Against the other collapses.** {provenance.leaderboard_divergence}",
         "",
         f"**Population.** {provenance.population}",
         "",
-        f"**Process scope.** {provenance.version_scope} The label in force today is "
-        f"`{provenance.process_label}`.",
+        f"**Process scope.** Built at `process_scope: {board.process_scope}`"
+        + (
+            f", holding {board.cases_out_of_scope} case(s) off the board"
+            if board.cases_out_of_scope
+            else ""
+        )
+        + f". {provenance.version_scope} The label in force today is "
+        + f"`{provenance.process_label}`.",
         "",
         f"**No time series.** {provenance.no_time_series}",
         "",
@@ -3102,16 +3743,39 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         "render as an em dash in the predictor columns — **not as a zero**, which would "
         f"fabricate a panel opinion. They split into {board.declared_no_view} declared no "
         "view(s), where the cell weighed the stakes and said it could not place them, and "
-        f"{board.missing_reads} missing read(s) with no rationale, elicited under the earlier "
-        f"prompt where the field was optional. {board.cases_without_score} predicted case(s) "
-        "carry no scored read at all and are off the board. A **blank** predictor column is "
-        "different again: that predictor did not read the case, which is a coverage gap "
-        f"rather than a withheld view. Cases by scoring predictors: {coverage}.",
+        f"{board.missing_reads} missing read(s) with no rationale — "
+        + (
+            "mostly elicited under the earlier prompt, where the field was optional, "
+            "since this build reads cells either side of that amendment — but a "
+            "post-amendment cell that simply omitted the rationale lands here too, and "
+            "this count does not separate them"
+            if board.process_scope == "all"
+            else "and on this build that is not the earlier prompt's doing: every current "
+            "read here post-dates the amendment that made the field required, so each is "
+            "a cell that owed a rationale and gave none"
+        )
+        + f". {board.cases_without_score} predicted case(s) carry no scored read on their "
+        "current moment and are off the board"
+        + (
+            f", and a further {board.cases_out_of_scope} are held off it by "
+            "`process_scope` — a different fact, and not the panel declining to score them"
+            if board.cases_out_of_scope
+            else ""
+        )
+        + ". A **blank** "
+        "predictor column is different again: that predictor has no run on the case's "
+        "current moment, which is a coverage gap on that moment rather than a withheld "
+        "view — it may hold a read of an earlier moment, carried in the per-event entries "
+        f"as history. Cases by scoring predictors: {coverage}.",
         "",
-        "| # | case | caption | mean | n | range | "
+        # The moment gets its own column because the caption cannot carry it: a
+        # party caption is the same string at every moment of a case, so a row
+        # whose mean and `n` moved because its moment moved would otherwise show
+        # no cause in the diff this document is reviewed as.
+        "| # | case | caption | moment | mean | n | range | "
         + " | ".join(board.predictors)
         + " | status | leak |",
-        "| --: | --- | --- | --: | --: | --: | "
+        "| --: | --- | --- | --- | --: | --: | --: | "
         + " | ".join("--:" for _ in board.predictors)
         + " | --- | --- |",
     ]
@@ -3122,6 +3786,7 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         )
         lines.append(
             f"| {rank} | `{row.case_id}` | {_md_cell(row.caption or '—')} | "
+            f"{f'`{row.moment}`' if row.moment else '—'} | "
             f"{row.mean_big_case_score:.3f} | {row.n} | {row.score_range:.3f} | {cells} | "
             f"{row.status} | {'yes' if row.leakage_suspected else '—'} |"
         )
@@ -3131,6 +3796,9 @@ def render_big_case_markdown(board: BigCaseBoard) -> str:
         + "reads of 0.5 and 0.5 is a panel that agrees, and one over 0.1 and 0.9 is a panel "
         + "that does not. A `yes` in `leak` means at least one of the row's reads sits on a "
         + "cell a judge flagged as having seen its own outcome; that row is evidence about "
-        + "the cell, not about the case.",
+        + "the cell, not about the case. Read `moment` before comparing two rows: each row "
+        + "is one moment, so its mean is comparable across its own predictors, but two rows "
+        + "on different moments answer different questions and the `#` column orders across "
+        + "them regardless.",
     ]
     return "\n".join(lines) + "\n"

@@ -252,10 +252,14 @@ def _big_case_headline(path: Path) -> str:
         if board.rows_with_leakage_flag
         else ""
     )
+    # The scope is part of the headline, not a detail: `frozen` and `all` rank
+    # different populations, so a bare case count read across two builds would
+    # compare a selected hold-out against a census.
+    held = f", {board.cases_out_of_scope} held off by the scope" if board.cases_out_of_scope else ""
     return (
         f"{board.cases} case(s) ranked over {board.scored_reads} scored stakes read(s) of "
-        f"{board.current_reads} from {len(board.predictors)} predictor(s) "
-        f"(never scored, never ranked){leakage}"
+        f"{board.current_reads} from {len(board.predictors)} predictor(s) at "
+        f"`process_scope: {board.process_scope}`{held} (never scored, never ranked){leakage}"
     )
 
 

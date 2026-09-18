@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import threading
@@ -12,6 +13,7 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
+from fedcourtsai import cli as cli_module
 from fedcourtsai import corpus, supremecourt
 from fedcourtsai.cert_backtest import redact_snapshot
 from fedcourtsai.cli import app
@@ -19,6 +21,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.documents import (
     _QP_END_RE,
     _QP_MIN_CHARS,
+    BIO_URL_JOIN,
     KIND_APPLICATION,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_MERITS_BRIEF_PETITIONER,
@@ -27,6 +30,7 @@ from fedcourtsai.pipeline.documents import (
     KIND_MERITS_REPLY_RESPONDENT,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
+    DocumentFetchLosses,
     _qp_stored_is_fragment,
     backfill_questions_presented,
     document_fetch_losses,
@@ -39,6 +43,8 @@ from fedcourtsai.pipeline.documents import (
     reset_document_fetch_losses,
     select_documents,
 )
+from fedcourtsai.pipeline.live import LiveDiscovery
+from fedcourtsai.pipeline.pull import PullQueues
 from fedcourtsai.provision import documents_before
 from fedcourtsai.supremecourt import SupremeCourtClient
 from tests.conftest import FixtureCorpus, seed_prediction
@@ -433,7 +439,7 @@ def test_select_documents_excludes_non_opposition_briefs(entry_text: str) -> Non
 def test_select_documents_returns_every_distinct_bio() -> None:
     # A multi-respondent petition draws a BIO from each respondent; all distinct
     # ones are returned (deduped by URL), in docket order — taking only the last
-    # silently dropped the lead respondent's brief (issue #732, scotus/73281002).
+    # silently dropped the lead respondent's brief (scotus/73281002).
     payload = {
         "ProceedingsandOrder": [
             {
@@ -544,6 +550,148 @@ def test_fetch_case_documents_combines_multiple_bios() -> None:
             today=date(2026, 7, 10),
         )
     assert [d.kind for d in again] == []  # nothing changed → nothing re-fetched
+
+
+# The two same-day opposition shapes the live docket actually files, verbatim
+# from the proceedings of scotus/73280426 (25-918) and scotus/73281674
+# (25-1192). Each pair lands on a single day, so docket order is the only thing
+# separating the lead brief from the second and no date can be read as a tie-
+# break. The two pairs exercise different vocabulary, which is why both are
+# here: 25-918 pairs a bare respondent's brief (no "in opposition" words, the
+# form the Court's call for a response draws) with an explicit one, while
+# 25-1192's federal brief spells "Brief of **Federal** respondent" — a shape
+# `_BIO_RESPONDENT_BRIEF_RE` does not reach at all, since the word between "of"
+# and "respondent" breaks its anchor, so that entry rides on the "in
+# opposition" arm alone.
+#
+# "Brief of respondent Washington filed." is the same string on 25-918 and on
+# its companion 25-901 (scotus/73280412), which files it as its only
+# opposition.
+_SAME_DAY_BIO_ENTRIES: tuple[tuple[str, str, str], ...] = (
+    (
+        "Jun 02 2026",
+        "Brief of respondent Washington filed.",
+        "https://www.supremecourt.gov/StateBOR.pdf",
+    ),
+    (
+        "Jun 02 2026",
+        "Brief of respondents Susan Soto Palmer, et al. in opposition filed.",
+        "https://www.supremecourt.gov/palmer-bio.pdf",
+    ),
+)
+_FEDERAL_BIO_ENTRIES: tuple[tuple[str, str, str], ...] = (
+    (
+        "Jun 17 2026",
+        "Brief of Federal respondent in opposition filed.",
+        "https://www.supremecourt.gov/federal-opp.pdf",
+    ),
+    (
+        "Jun 17 2026",
+        "Brief of respondent Newspaper Guild of Pittsburgh/CWA Local 38061 in opposition filed.",
+        "https://www.supremecourt.gov/guild-bio.pdf",
+    ),
+)
+
+
+def _same_day_bio_payload(entries: tuple[tuple[str, str, str], ...]) -> dict[str, object]:
+    """A petition plus ``entries``, each a same-day opposition with one link."""
+    return {
+        "ProceedingsandOrder": [
+            _PAYLOAD["ProceedingsandOrder"][0],  # petition
+            *(
+                {
+                    "Date": entry_date,
+                    "Text": text,
+                    "Links": [{"Description": "Main Document", "DocumentUrl": url}],
+                }
+                for entry_date, text, url in entries
+            ),
+        ]
+    }
+
+
+@pytest.mark.parametrize("entries", [_SAME_DAY_BIO_ENTRIES, _FEDERAL_BIO_ENTRIES])
+def test_select_documents_takes_both_same_day_oppositions(
+    entries: tuple[tuple[str, str, str], ...],
+) -> None:
+    # Two oppositions filed the same day, in the vocabularies the live docket
+    # mixes: neither arm of `_is_bio_entry` may take one of a pair and leave the
+    # other, or a multi-respondent cell reads half its opposition and cannot
+    # tell that it did.
+    refs = select_documents(_same_day_bio_payload(entries))
+    assert [(r.kind, r.url) for r in refs] == [
+        (KIND_PETITION, "https://www.supremecourt.gov/petition.pdf"),
+        *((KIND_BRIEF_IN_OPPOSITION, url) for _date, _text, url in entries),
+    ]
+
+
+@pytest.mark.parametrize("entries", [_SAME_DAY_BIO_ENTRIES, _FEDERAL_BIO_ENTRIES])
+def test_same_day_oppositions_both_reach_the_stored_record(
+    entries: tuple[tuple[str, str, str], ...],
+) -> None:
+    # Selection is only half of it: both briefs have to survive the combination
+    # into the one stored row, each under a header naming its filer, and the row
+    # has to survive the moment cut that places it. Run on both pairs because
+    # the entry text is what heads each block, so each pair pins its own
+    # respondent naming.
+    served = {
+        "https://www.supremecourt.gov/petition.pdf": _pdf(
+            "QUESTION PRESENTED Whether X. PARTIES TO THE Acme."
+        ),
+        **{
+            url: _pdf(f"Brief number {index} says deny.")
+            for index, (_d, _t, url) in enumerate(entries)
+        },
+    }
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            _same_day_bio_payload(entries),
+            stored_urls={},
+            char_cap=150_000,
+            today=date(2026, 7, 10),
+        )
+    bio = next(d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION)
+    assert bio.url == BIO_URL_JOIN.join(sorted(url for _d, _t, url in entries))
+    assert bio.entry_date == entries[0][0]  # the earliest, and both share it
+    assert bio.truncated is False
+    assert bio.text.count("=== ") == len(entries)
+    for index, (_date, text, _url) in enumerate(entries):
+        assert f"Brief number {index} says deny." in bio.text
+        assert text in bio.text  # the entry text heads the block, naming the filer
+    # The whole row survives the cut a cell placed after the filing day makes.
+    assert documents_before([bio], date(2026, 7, 1)) == [bio]
+
+
+def test_a_capped_combined_opposition_loses_its_tail_and_says_so() -> None:
+    # Which end the shared cap cuts, and what it leaves behind — the pair of
+    # facts that tell a capped row apart from one that lost a fetch. The join is
+    # in docket order, so the cap takes the LATER brief; and the row comes back
+    # `truncated`, which reaches the cell through `documents.json`. A row
+    # missing its LEAD brief and reading untruncated was not cut by the cap.
+    entries = _SAME_DAY_BIO_ENTRIES
+    served = {
+        "https://www.supremecourt.gov/petition.pdf": _pdf("QUESTION PRESENTED Whether X."),
+        entries[0][2]: _pdf("Lead " + "brief " * 200),
+        entries[1][2]: _pdf("Second respondent says deny."),
+    }
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            _same_day_bio_payload(entries),
+            stored_urls={},
+            char_cap=300,
+            today=date(2026, 7, 10),
+        )
+    bio = next(d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION)
+    assert bio.truncated is True
+    assert entries[0][1] in bio.text  # the lead brief's header survives
+    assert "Second respondent says deny." not in bio.text  # the tail is what goes
+    # Both briefs were fetched, so the key still records the whole set: the cap
+    # is a content loss, not a fetch loss, and nothing will re-fetch for it.
+    assert bio.url == BIO_URL_JOIN.join(sorted(url for _d, _t, url in entries))
 
 
 def _two_bio_payload(second_date: str) -> dict[str, object]:
@@ -1505,6 +1653,242 @@ def _failing_doc_client(*, unserved: set[str], raising: set[str]) -> SupremeCour
         headers={"User-Agent": supremecourt.BROWSER_USER_AGENT},
     )
     return SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None)
+
+
+def test_a_lost_lead_opposition_leaves_one_header_where_two_were_selected(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # The partial loss the all-failed case above does not reach: some selected
+    # briefs fetch and some do not, so a row is written that is short of the
+    # opposition the docket lists. Three things about it.
+    #
+    # It is counted twice over, and the two readings are different: the lost
+    # brief is one `unavailable` document, and the case is one `bio-partial` —
+    # the outcome reason, which is what a reader of a window summary wants, the
+    # way `bio-empty` is for the all-failed case. The per-document count alone
+    # cannot say a row was stored anyway.
+    #
+    # The stored row does carry one trace, and it is the only one: `single` is
+    # read off the SELECTED refs before the fetch loop, so a 2-selected /
+    # 1-fetched row keeps its per-brief header while a genuine lone opposition
+    # is stored raw. Exactly one `=== ` block therefore means "more than one
+    # brief was selected and one of them was lost" — the invariant pinned here,
+    # because computing `single` off `fetched_refs` instead would erase it.
+    #
+    # The idempotency key records the set actually fetched, so the short key
+    # differs from the selected set and the next fetch for this case re-tries
+    # the missing brief — for as long as some lane still fetches for the case.
+    entries = _SAME_DAY_BIO_ENTRIES
+    lead_url = entries[0][2]
+    reset_document_fetch_losses()
+    client = _failing_doc_client(unserved={lead_url}, raising=set())
+    with client, caplog.at_level(logging.WARNING, logger="fedcourtsai.pipeline.documents"):
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            _same_day_bio_payload(entries),
+            stored_urls={},
+            char_cap=150_000,
+            today=date(2026, 7, 10),
+        )
+    bio = next(d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION)
+    assert bio.url == entries[1][2]  # the short key, so the next fetch re-tries
+    assert bio.truncated is False  # not a cap cut, and nothing else says so
+    assert bio.text.startswith("=== ")
+    assert bio.text.count("=== ") == 1  # the one trace a partial row carries
+    assert entries[0][1] not in bio.text  # the lead respondent is not named
+    assert entries[1][1] in bio.text
+    losses = document_fetch_losses()
+    assert losses.unavailable == 1
+    assert losses.bio_partial == 1  # the outcome: a row stored, short of the docket
+    assert losses.bio_empty == 0  # not empty — the two name opposite sides of one test
+    assert losses.records == 2
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert lead_url in logged
+    # The shortfall, in the run log, sized: without the two counts the line says
+    # only that something was lost on this case.
+    assert "bio-partial" in logged
+    assert "2 selected brief(s), 1 fetched" in logged
+    assert logged.count("scotus/9025000100") == 2  # the document and the case
+    reset_document_fetch_losses()
+
+
+def test_a_lone_opposition_is_stored_without_a_header() -> None:
+    # The other half of the invariant above: one selected brief is stored raw,
+    # so no `=== ` block means one brief was ever selected. Without this the
+    # header test pins nothing — a row with one header would be ambiguous.
+    #
+    # And nothing is lost, so nothing is counted: a case with one respondent is
+    # not a case that lost a brief, and `bio-partial` must not read it as one.
+    entries = _SAME_DAY_BIO_ENTRIES[:1]
+    served = {
+        "https://www.supremecourt.gov/petition.pdf": _pdf("QUESTION PRESENTED Whether X."),
+        entries[0][2]: _pdf("Only respondent says deny."),
+    }
+    reset_document_fetch_losses()
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            _same_day_bio_payload(entries),
+            stored_urls={},
+            char_cap=150_000,
+            today=date(2026, 7, 10),
+        )
+    bio = next(d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION)
+    assert bio.text == "Only respondent says deny."
+    assert "=== " not in bio.text
+    assert document_fetch_losses().records == 0
+    reset_document_fetch_losses()
+
+
+def test_a_fully_fetched_opposition_pair_records_no_partial_loss() -> None:
+    # The upper bound on the reason: every selected brief fetched, so the stored
+    # row IS the docket's opposition and nothing was lost. A `bio-partial` fired
+    # on the ordinary multi-respondent case would make the count an alarm that
+    # is always on, which is the same as no alarm.
+    entries = _SAME_DAY_BIO_ENTRIES
+    served = {
+        "https://www.supremecourt.gov/petition.pdf": _pdf("QUESTION PRESENTED Whether X."),
+        **{url: _pdf(f"Brief {index} says deny.") for index, (_d, _t, url) in enumerate(entries)},
+    }
+    reset_document_fetch_losses()
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000100",
+            _same_day_bio_payload(entries),
+            stored_urls={},
+            char_cap=150_000,
+            today=date(2026, 7, 10),
+        )
+    bio = next(d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION)
+    assert bio.text.count("=== ") == 2  # both briefs, each under its own header
+    losses = document_fetch_losses()
+    assert losses.bio_partial == 0
+    assert losses.records == 0
+    reset_document_fetch_losses()
+
+
+def test_fetch_losses_render_one_reason_set_for_every_lane() -> None:
+    # The reasons are rendered once, on the record itself, because two lanes
+    # report them — the document back-fill's ledger and the live window's loss
+    # block — and a reason listed by one and not the other is a loss that is
+    # durable in one lane and silent in the other. Keys are the reason strings
+    # the fetch path records under, so the rendering cannot drift from them.
+    losses = DocumentFetchLosses(unavailable=2, bio_partial=1)
+    assert losses.by_reason == {
+        "http-error": 0,
+        "unavailable": 2,
+        "off-host": 0,
+        "bio-empty": 0,
+        "bio-partial": 1,
+        "not-selected": 0,
+    }
+    # Zero-filled and always present: an unlisted reason reads as an omitted one.
+    assert set(DocumentFetchLosses().by_reason) == set(losses.by_reason)
+    # And the drift the rendering forbids, pinned rather than described: a field
+    # added to the record but forgotten in `by_reason` — or in `records` — is the
+    # one way a reason can reach one surface and not the other. Distinct powers
+    # of two, so the sum identifies WHICH field went missing, not merely that one
+    # did. The literal dict above is the naming; this is the coverage.
+    every = {
+        field.name: 1 << index
+        for index, field in enumerate(dataclasses.fields(DocumentFetchLosses))
+    }
+    full = DocumentFetchLosses(**every)
+    assert len(full.by_reason) == len(every)
+    assert sum(full.by_reason.values()) == sum(every.values()) == full.records
+    # The gloss the step-summary block renders covers every reason, so no row on
+    # the durable surface loses its "What it means" cell to a rename.
+    assert set(cli_module._FETCH_LOSS_GLOSS) == set(full.by_reason)
+
+
+def test_live_poll_reports_the_window_s_fetch_losses(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The lane where these losses are incurred has to report them: the live
+    # poller runs the ordinary provisioning fetch, and the record the fetch
+    # itself leaves — a process counter and one warning — dies with the runner,
+    # so a window that does not print the counts is a window whose losses leave
+    # nothing.
+    #
+    # Driven through the real fetch path rather than by seeding the counter: what
+    # is being pinned is that a partial opposition incurred inside the poll
+    # reaches the window's durable surface, and a seeded count would pass over a
+    # recorder that never fired.
+    entries = _SAME_DAY_BIO_ENTRIES
+    lead_url = entries[0][2]
+
+    def _fake_poll(*args: object, **kwargs: object) -> tuple[PullQueues, LiveDiscovery]:
+        with _failing_doc_client(unserved={lead_url}, raising=set()) as client:
+            fetch_case_documents(
+                client,
+                "scotus/9025000100",
+                _same_day_bio_payload(entries),
+                stored_urls={},
+                char_cap=150_000,
+                today=date(2026, 7, 10),
+            )
+        return PullQueues(), LiveDiscovery()
+
+    summary = tmp_path / "step-summary.md"
+    summary.write_text("")
+    monkeypatch.setattr(cli_module, "live_poll_all", _fake_poll)
+    monkeypatch.setattr(cli_module, "evaluate_backlog", lambda *a, **k: None)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    result = runner.invoke(
+        app,
+        [
+            "live-poll",
+            *("--out", str(tmp_path / "p.json")),
+            *("--evaluate-out", str(tmp_path / "e.json")),
+            *("--unrecorded-out", str(tmp_path / "u.json")),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    # Every reason, zero-filled, so an unlisted one is never an omitted one.
+    for reason in ("http-error", "unavailable", "off-host", "bio-empty", "not-selected"):
+        assert reason in result.output
+    assert "bio-partial: 1" in result.output
+    # And the durable half: the step summary outlives the run log.
+    rolled = summary.read_text()
+    assert "document fetch losses" in rolled
+    assert "| `bio-partial` | 1 |" in rolled
+    assert "| `unavailable` | 1 |" in rolled
+    assert "| `bio-empty` | 0 |" in rolled
+
+
+def test_live_poll_reports_a_clean_window_without_touching_the_summary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # A window that lost nothing still says so on stdout — silence would be the
+    # same reading as a lane that never reported — but it writes no summary
+    # block, so the surface a maintainer scans carries losses and nothing else.
+    def _fake_poll(*args: object, **kwargs: object) -> tuple[PullQueues, LiveDiscovery]:
+        return PullQueues(), LiveDiscovery()
+
+    summary = tmp_path / "step-summary.md"
+    summary.write_text("")
+    monkeypatch.setattr(cli_module, "live_poll_all", _fake_poll)
+    monkeypatch.setattr(cli_module, "evaluate_backlog", lambda *a, **k: None)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    result = runner.invoke(
+        app,
+        [
+            "live-poll",
+            *("--out", str(tmp_path / "p.json")),
+            *("--evaluate-out", str(tmp_path / "e.json")),
+            *("--unrecorded-out", str(tmp_path / "u.json")),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Document fetch losses (0 record(s))" in result.output
+    assert summary.read_text() == ""
 
 
 def test_fetch_case_documents_records_every_dropped_document(

@@ -91,7 +91,10 @@ from ..supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
 AGREEMENT_GATE: Final = 0.80
 
 # Per-label support floor. Under it a label's agreement is reported as a raw
-# count and never as a rate — one entry moves the ratio by tens of points.
+# count and never as a rate — one entry moves the ratio by tens of points. The
+# docket pack reads it for the same reason on its own published buckets (a
+# disposition split over fewer rows than this is reported as rows), so a change
+# here moves a court-facing document's caveats as well as the agreement table's.
 SUPPORT_FLOOR: Final = 10
 
 # The share of the reference set a run must cover for its rate to be a
@@ -221,7 +224,7 @@ def labels_path(data_root: Path) -> Path:
 
     One definition because the writer and every reader must agree on it: a
     docket-pack build that looked one directory away from where ``qp-topics``
-    wrote would omit the topic cut and report it as "no labeler has run".
+    wrote would omit the topic cut and report it as an absent labels artifact.
     """
     return data_root / "qp-topics" / "qp-topics.json"
 
@@ -710,6 +713,7 @@ def build_labels(
     reference: QpTopicReference,
     labeler: str,
     prior: QpTopicLabels | None = None,
+    frame_rows: int | None = None,
 ) -> QpTopicLabels:
     """Assemble the labels artifact: this batch's measurement over the accumulated union.
 
@@ -719,6 +723,17 @@ def build_labels(
     reproduce the artifact byte for byte. The gate is *measured* here and
     enforced by the caller — the artifact records ``gate_passed`` either way, and
     it is the writer that refuses to put a failing run on disk.
+
+    ``frame_rows`` is the QP-bearing frame this batch was cut from, counted by the
+    extract that cut it and handed here as a **value**. It is the one number that
+    turns the docket pack's labeled share of the frame from a bound into a
+    measurement, and it travels this way rather than through the extract's
+    ``.batch.json`` sidecar for the reason :func:`batch_metadata` gives: the
+    sidecar carries the shape of the draw, and the labeling job never sees it. A
+    single integer carries no such shape, and it reaches this function after the
+    labeler has finished either way. ``None`` where the caller has no count: a
+    batch whose ledger entry records none, and the integration scenario's canned
+    legs, which cut no frame to count.
 
     Two publication rules, and they are the point of the design rather than
     bookkeeping:
@@ -739,6 +754,14 @@ def build_labels(
     label was assigned from — supersedes by rewriting the artifact under its own
     reviewed diff, not by a labeler quietly disagreeing with an earlier one.
     """
+    if frame_rows is not None and frame_rows < len(entries):
+        # The batch is a subset of the frame it was cut from, so this is not a
+        # thin frame but a count taken against some other scope or blob — and a
+        # share computed from it would read as a measurement.
+        raise QpTopicError(
+            f"frame of {frame_rows} row(s) is under the {len(entries)} row(s) this batch "
+            "labeled; the batch is drawn from the frame, so the count is not this frame's"
+        )
     seen = Counter(entry.case_id for entry in entries)
     duplicates = sorted(case_id for case_id, count in seen.items() if count > 1)
     if duplicates:
@@ -820,6 +843,7 @@ def build_labels(
             fired=fired,
             disagreements=disagreements,
             superseded=superseded,
+            frame_rows=frame_rows,
         )
     )
     return QpTopicLabels(

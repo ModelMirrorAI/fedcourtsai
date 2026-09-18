@@ -8,6 +8,11 @@ of them while every gate stays green:
   checkout deletes the directory first (the labeler in `run-analytics` instead
   moves it aside and restores from the commit, because its measure step needs
   the reference set back);
+* the **qp frame count** — the size of the labeling frame crosses from the
+  extract job to the measure step as a job output, one integer, while the
+  `.batch.json` sidecar it is read from stays on the extract runner: the count
+  is what lets the docket pack measure the labeled share of the frame, the
+  sidecar is the draw's shape the labeler is fenced from;
 * the **committed-record bracket** — the evaluate cell hides the committed
   `predictions/`/`evaluations/` trees from its judge and restores them the
   moment the agent stops, and both ends are step *order*: a hide before the
@@ -303,6 +308,26 @@ def test_the_qp_labels_push_guard_checks_rows_not_ledger_counts() -> None:
     assert "($a - $b) | length == 0" in guard, "row containment, not counts, is the check"
     assert "($b | length) > ($a | length)" in guard, (
         "the ledger must strictly extend main's — an equal ledger is a settled rerun"
+    )
+    # The prior is read from the fetched ref, not the work tree: `checkout -f`
+    # leaves untracked files in place, so while main does not carry the
+    # artifact a tree read would hand the guard the run's own file as the
+    # prior and refuse the first batch.
+    assert 'git cat-file -e "origin/main:data/qp-topics/qp-topics.json"' in guard
+    assert 'git show "origin/main:data/qp-topics/qp-topics.json"' in guard
+    # Between the branch switch and the copy back into the tree, the only
+    # mentions of the artifact path are the ref-qualified reads and the error
+    # prose — never a bare tree read, under any quoting.
+    switched = guard[
+        guard.index('git checkout -q -f -B "$BRANCH" origin/main') : guard.index(
+            'cp "$RUNNER_TEMP/qp-topics.json" data/qp-topics/qp-topics.json'
+        )
+    ]
+    bare = switched.replace("origin/main:data/qp-topics/qp-topics.json", "").replace(
+        "newest data/qp-topics/qp-topics.json", ""
+    )
+    assert "data/qp-topics/qp-topics.json" not in bare, (
+        "the prior must come from origin/main, never from the checked-out tree"
     )
 
 
@@ -1167,6 +1192,57 @@ def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() 
     assert scan["env"]["SCANNER"].endswith(".transcript-scanner/.venv/bin/python")
     assert scan["working-directory"].endswith("/.transcript-scanner")
     assert "-E -s -P -m fedcourtsai.cli" in install["run"]
+
+
+def test_the_qp_frame_count_crosses_as_a_value_and_the_sidecar_stays_behind() -> None:
+    """The frame size travels between the two labeling jobs, the draw's shape does not.
+
+    The extract job is the only one that can count the QP-bearing frame, and the
+    docket pack needs that count to measure the labeled share of the frame rather
+    than bound it (docs/qp-topic.md). It crosses as a **job output** — one
+    integer — read out of the `.batch.json` sidecar inside the job that wrote it.
+    The sidecar itself must not cross: it carries the Term x fee-class shape of
+    the draw and which rows are the measurement, which is exactly what the
+    labeling job is fenced off. Both halves are YAML-only, so nothing at runtime
+    notices if the value becomes a file.
+    """
+    wf = _load("run-analytics.yml")
+    extract = wf["jobs"]["qp-topic-extract"]
+    label = wf["jobs"]["qp-topic-label"]
+
+    assert extract["outputs"]["frame-rows"] == "${{ steps.extract.outputs.frame-rows }}"
+    step = next(s for s in extract["steps"] if s.get("id") == "extract")
+    # Read from the sidecar in the job that wrote it, and emitted as a bare
+    # integer — the digit check is what keeps a malformed file out of the output.
+    assert "qp-texts.batch.json" in step["run"]
+    assert "*[!0-9]*)" in step["run"]
+    assert 'echo "frame-rows=$frame" >> "$GITHUB_OUTPUT"' in step["run"]
+
+    # One file crosses the job boundary, and it is the extract.
+    uploads = [s for s in extract["steps"] if "upload-artifact" in str(s.get("uses") or "")]
+    assert [u["with"]["path"] for u in uploads] == ["${{ runner.temp }}/qp-texts.json"], (
+        "only the extract may leave the extract job: a second upload is how the batch "
+        "sidecar reaches the labeler"
+    )
+    assert "batch.json" not in json.dumps(label), (
+        "the labeling job must never name the batch sidecar: it is the draw's shape"
+    )
+
+    # The value reaches the deterministic measure step, by the declared output.
+    measure = next(
+        s for s in label["steps"] if s.get("uses") == "./.github/actions/qp-topic-measure"
+    )
+    assert measure["with"]["frame-rows"] == "${{ needs.qp-topic-extract.outputs.frame-rows }}"
+    action = yaml.safe_load((ACTIONS / "qp-topic-measure" / "action.yml").read_text())
+    # Optional, so the scenario's canned legs — which cut no frame — still run
+    # the same composite, and an absent count leaves the cut on its bound.
+    assert action["inputs"]["frame-rows"]["required"] is False
+    assert action["inputs"]["frame-rows"]["default"] == ""
+    run = next(s for s in action["runs"]["steps"] if s.get("id") == "measure")["run"]
+    assert 'frame=(--frame-rows "$FRAME_ROWS")' in run
+    assert '"${frame[@]+"${frame[@]}"}"' in run, (
+        "an empty frame must expand to no argument, not to an empty one"
+    )
 
 
 def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -> None:

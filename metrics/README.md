@@ -1627,9 +1627,29 @@ the rendered table) and
   **not** accuracy), the labels that vocabulary cannot yet measure, and the inline
   scope string it requires — which says in the same breath that no reweighting
   recovers the docket, so that cut's `est. n=` is the one denominator here that
-  rescales a QP-bearing stream rather than estimating a docket population. No
-  labeler has run, so the document names the missing distribution among its gaps
-  instead. The document names the other statistics it
+  rescales a QP-bearing stream rather than estimating a docket population. The
+  labeled rows are a **partial frame** — the labeling accrues one batch a run —
+  so that scope string also names what the gap between labeled and in-scope rows
+  is made of. How many of those rows carry a questions-presented text at all is
+  the count that separates the two halves of that gap, and only the extract that
+  cut a batch can take it: where the newest batch's ledger entry carries it, the
+  string states the labeled share of the QP-bearing frame and measures the
+  reference block's over-representation, both as the labels artifact's own
+  figures at **that batch's** corpus vintage rather than the pack's (the frame
+  grows with every pull, so the two are different ratios and are never divided
+  into one). Because that growth is one-directional while the labeled count moves
+  only when a batch lands, each figure states which way it errs against the frame
+  as it now stands — the share a ceiling, the factor a floor — so neither reads
+  as a measurement of this blob. Where the ledger carries no count, the string
+  says the split is unrecorded and bounds the over-representation from above; and
+  two states of the table itself outrank a frame, since the factor describes the
+  table's mix: no drawn row at all publishes an unbounded factor, and a table
+  whose own rows are all labeled over a frame labeled out publishes no factor. Each bucket also prints the rows on
+  hand behind it, and its reference-sourced share of them, because a
+  denial-reweighted `est. n=` runs above the rows read and the thinnest buckets
+  here rest on a handful. The committed copy of the document names the missing
+  distribution among its gaps until someone runs `fedcourts docket` where the
+  corpus is pulled — it is on demand, on no schedule. The document names the other statistics it
   cannot yet compute the same way (summary reversals, which have a disposition
   label no resolver mints — `Outcome.disposition_route` marks the class on a
   resolving grant, but that marker feeds no published cut, so the pack's
@@ -1659,16 +1679,65 @@ the rendered table) and
   `big_case` and `evaluator_agreement` views take, on the same grounds, and it
   is a caveat that has to travel with any number quoted from the board.
 
-  **The collapse, which differs from the leaderboard's.** A case's read is one
-  per predictor: that predictor's **newest** prediction run across the case's
-  events, newest by the harness-written cell clock (the process stamp, else
-  `created_at`) rather than by directory name, with run id and then event id
-  breaking a tie. An earlier run is listed under its own event as history and
-  is never averaged. The leaderboard's `big_case` block reads a case as the
-  **mean over its moments** before correlating it with the evaluator panel;
-  this board reads it as the newest moment. The two answer different questions
-  over different collapses, so a figure here is never differenced against one
-  there.
+  **The collapse: the moment first, then the predictors on it.** A row is one
+  **moment** of a case and every predictor's read of that moment, so the reads
+  the mean pools are answers to the same question. The case's current moment
+  (`moment` on the row, with `moment_opened_at` beside it) is chosen from the
+  **docket** rather than from run times — with the one fallback below, where the
+  docket gives no date at all: the newest **predicted** event by its
+  `opened_at`, ties broken by the docket's stage progression — the petition's
+  arrival, then its distribution, then the interim application's arrival, the
+  response requested on it and the response filed, then the CVSG, then the
+  merits moments — and then by event id, so a date collision never inverts the
+  order a case is actually walked in; an event whose definition records no
+  `opened_at` is ordered by the **day** of its first prediction's harness clock,
+  which therefore falls through to the same tie-break. One exception the
+  pre-registration records
+  ([docs/freeze-record.md](../docs/freeze-record.md)): the cert petition
+  baseline's `opened_at` is **docketing**, while the moment it declares is the
+  distribution, so on those rows `moment_opened_at` is the day the petition
+  reached the docket rather than the day its moment arrived — it is ordered on
+  anyway, because the distribution has no date in committed data and docketing
+  is still a docket fact that moves only when the docket does. A re-predict of
+  an older moment therefore cannot move a case's moment, and only a newly
+  predicted moment can. "Newest" is over the events the panel was **asked**
+  about, so a row lags the docket wherever no cell has been dispatched on a
+  newer event. Each predictor's
+  read is then its **newest run on that moment**, newest by the harness-written
+  cell clock (the process stamp, else `created_at`) rather than by directory
+  name, with run id breaking a tie. A predictor with no run on that moment is
+  excluded from `n` and from the mean exactly as a declared no view is — never
+  carried over from an older moment — and its earlier read stays under its own
+  event as history, never averaged.
+
+  **The coverage consequence, which is the price of the collapse.** Where a
+  fresh moment has been minted for some predictors and not others — an engine
+  losing cells to capacity, or a forward cell refused because its provisioned
+  snapshot exceeded the predict lane's staleness bound — the row shows the
+  newest moment at a
+  **small `n`** rather than a fuller `n` on a stage the docket has left behind.
+  That is the honest reading: the alternative, "the moment most predictors have
+  reached", shows a stale stage to keep `n` high and moves when coverage
+  changes rather than when the docket does. The previous moment's fuller panel
+  is in the row's per-event entries, which a site can render as history. A case
+  whose current moment drew only declining reads is off the board entirely,
+  counted in `cases_without_score`, rather than having an earlier moment's
+  scores promoted back into a current read.
+
+  **Three collapses, never differenced.** (1) The leaderboard's `big_case`
+  block reads a case as the **mean over its moments** before correlating it
+  with the evaluator panel — bigness is a property of the case, so its moments
+  are not independent observations there. (2) A **row** here is the newest
+  moment the panel has been asked about, and each predictor's newest run on it.
+  (3) An
+  **event entry** here is each predictor's newest run on *that* event, which is
+  how an earlier moment stays visible as history. Each answers a different
+  question over a different population, so a figure from one is never
+  differenced against a figure from another — and the leaderboard's is narrower
+  on axes this board does not share: cells a judge has graded on either build,
+  and the frozen partition on the default `all` build, which the `frozen`
+  comparison build shares instead. The artifact's own
+  `leaderboard_divergence` string is worded for the build it ships on.
 
   **Denominators.** `n` sits beside every mean and is the count of predictors
   that gave a number. A newest run declaring **no view** — the prompt asks for
@@ -1677,25 +1746,100 @@ the rendered table) and
   counted as a zero, which would fabricate a panel opinion. A row with `n < 3`
   is ranked with the rest and flagged by its own `n` rather than split into a
   second table: the flag is the denominator, and a reader who quotes a mean
-  without it has quoted a different number. `score_range` sits beside `n` for
-  the same reason — a mean of 0.5 over two 0.5s and a mean of 0.5 over 0.1 and
-  0.9 are not the same observation.
+  without it has quoted a different number — the more so under the moment-first
+  collapse, where a freshly minted moment can leave `n = 1` while the board's own
+  roster (`predictors`, itself scope-dependent) holds more. `score_range` sits
+  beside `n` for the same reason — a mean of 0.5 over two 0.5s and a mean of 0.5
+  over 0.1 and 0.9 are not the same observation. `moment` is the third such flag,
+  and the collapse sharpens rather than settles what it guards: each row is one moment,
+  so a row's mean **is** comparable across its own predictors, but two rows on
+  different moments are not comparable to each other and the `#` column orders
+  across moments anyway. The panel reads stakes systematically higher at later
+  moments, so a row's position reflects which question its panel answered as
+  well as how big its case is.
 
   **Population.** Every case in the committed ledger carrying at least one
-  current read, pending and decided alike, with a status per row derived from
-  `outcome.json` presence on its predicted events and the realized disposition
-  on each event that has one. The list is the predictions', never the corpus's,
-  so the board describes what the panel was asked about and is **not** a sample
-  of the docket or of any conference. Display is by caption — the `event.yaml`
-  title of the event carrying the case's newest current read — because there is
-  no docket number in committed data; `case_id` is the identifier.
+  **in-scope** scored read on its current moment, pending and decided alike,
+  with a status
+  per row derived from `outcome.json` presence on its predicted events and the
+  realized disposition on each event that has one. `status` is the **case's**
+  grain, not the moment's — the one such figure on an otherwise moment-scoped
+  row, so a case can read `resolved` on an earlier event while its `moment` is
+  still pending. Two counts sit beside `cases` and are never added together:
+  `cases_without_score` is the predicted cases whose in-scope reads carry no
+  number — a panel that declined — and `cases_out_of_scope` is the cases no run
+  of which is in `process_scope`, which is this build refusing to read them. The
+  test is ordered — out of scope wins where both would hold, since a case with no
+  in-scope run cannot be observed to have declined — so a filtered build's
+  `cases_without_score` counts in-scope decliners alone. On the default `all`
+  build the second count is zero. The list is the
+  predictions', never the corpus's, so the board describes what the panel was
+  asked about and is **not** a sample of the docket or of any conference.
+  Display is by caption — the `event.yaml` title of the case's current moment,
+  whose event id `caption_event_id` repeats so the rule is checkable against the
+  row — because there is no docket number in committed data; `case_id` is the
+  identifier.
+
+  **Process scope, and why the default is version-blind.** `process_scope` says
+  which process versions a **current read** may come from. The default is
+  `all`: every committed run is eligible, shakedown, pre-freeze,
+  retired-digest and unstamped cells included, because the board is a census of
+  what the panel said rather than a measurement of how well it said it, and a
+  stakes read resolves against nothing for a partition to protect.
+  `fedcourts big-cases --process-scope frozen` builds the **comparison** board,
+  admitting only runs whose harness stamp is in the blessed digest set and was
+  written at or after the freeze instant — the predicate the performance boards
+  scope on. On that build a pre-freeze, retired-digest, shakedown or unstamped
+  run is **history** under its event, never a current read, never in `n` and
+  never in a mean; the scope is applied before the moment choice, so such a run
+  cannot move a case's moment either. The per-event entries are unfiltered on
+  both settings, and both publish `process_scope` and the `frozen_process`
+  record they key on.
+
+  **What the frozen build holds out, which is why it is not the default.** It
+  does not thin the board evenly. A **resolved** case is never re-predicted, so
+  one whose reads all predate the freeze can never be refilled into scope — a
+  case first predicted after the freeze stays in scope through its own
+  resolution. The re-predict rule (`REPREDICT_MOMENTS` in `pipeline/pull.py`)
+  re-owes only the cert distribution, the CVSG and the three interim moments, so
+  a case sitting at a cert **arrival** moment or at either **merits** moment is
+  never refilled however long it waits. Those are a floor rather than the whole
+  of it: a pending case at a moment the rule does re-owe can still sit outside,
+  because a distribution is re-owed only while a conference is still ahead of it
+  and because a re-owed cell has to be minted and land before it counts.
+
+  Measured over the ledger at `64e8568b7`, the frozen build **removes 76 of the
+  193 rows** — including the whole of the `all` board's top 20, since the frozen
+  board's rank 1 is the `all` board's rank 21 — and **`cases_out_of_scope` reads
+  78**, not 76: it also absorbs the two predicted cases that were already off the
+  `all` board for carrying no score, which at `frozen` have no in-scope run at
+  all, so `cases_without_score` there reads 0 rather than 2. What survives
+  carries no merits moment and no cert-arrival moment at all. It is a
+  live-cert-and-interim slice of a selected population: a legitimate thing to
+  look at, and the wrong thing to publish as the census. The board states the
+  hold-out in its own `population` and `version_scope` provenance strings.
+
+  **No count, mean, rate or spread statistic is differenced across a scope
+  change.** A row's own mean and `n` move when one predictor's read falls outside
+  the scope, and every denominator moves at once, so a coverage rate that rises
+  on the frozen build rises by construction — the older cells the rate's
+  numerator was missing are exactly the cells the scope removed (`missing_reads`
+  goes 21 → 0 over the ledger at `64e8568b7`). That is never the pre-registered
+  coverage rise [docs/freeze-record.md](../docs/freeze-record.md) describes.
 
   **No time series.** The predict prompt's amendment making `big_case_score`
   required with an explicit null escape changed which cells carry a read
   ([docs/freeze-record.md](../docs/freeze-record.md)), so scores elicited
   before and after it are two populations. The board therefore publishes no
   trend and no history, and a movement across that boundary is not a
-  measurement of anything.
+  measurement of anything. On the `frozen` comparison build every current read
+  post-dates that amendment, since the freeze instant does, so there the
+  boundary bites on the per-event history rather than on the rows — and no
+  trend is published there either, because a read elicited under one ask is not
+  a revision of one elicited under another. Nor is a movement between two
+  consecutive daily builds: a row's mean, `n` and rank also move when its
+  `moment` does, which is the docket advancing and the whole panel switching
+  question at once, not a predictor changing its mind.
 
   Like the other roll-ups here it is byte-stable and stamps neither a clock nor
   a commit: the vintage of a board is the commit that wrote it. The daily
@@ -1723,7 +1867,7 @@ court below — the parsed merits judgments carry no cut by originating court).
 **What may be claimed from an agreement rate.** A `qp-topic-v0` labeling run
 (`data/qp-topics/qp-topics.json`, `docs/qp-topic.md`) produces one instrument
 this document does not otherwise carry, and it is not a skill number: it is
-**agreement with a single agent reference rater, never accuracy**. Reference
+**agreement with the v0 reference raters, never accuracy**. Reference
 error and labeler error cannot be separated — least of all on the boundary
 labels, which is where the disagreement lives — and the reference rater was
 itself an agent session, so agreement with a labeler of the same model family
@@ -1735,14 +1879,18 @@ rate alone is unreadable, and only the distance
 above the floor is anything a labeler did. **Per-label rates only at or above
 the support floor** — five of the sixteen labels have fewer than 10 reference
 examples, and under the floor a label is published as a raw count, not a rate.
-**Nothing transfers to a topic cut yet**: the founding reference block
-contains every QP-bearing grant and 40 of 855 denials, so its rate certifies
-the grant stream only. The **stratified supplement** (164 texts — adding 100
+**A pooled rate is not a per-stream one**: the founding reference block
+contains every QP-bearing grant and 40 of 855 denials, so that block's rate
+certifies the grant stream only. The **stratified supplement** (164 texts — adding 100
 of the remaining 815 QP-bearing denials, which brings the set to 140 of 855,
 plus 44 of 87 GVR and 20 of 83 dismissed) is the block a denial-heavy cut's
-quality is conditioned on, and it exists but is not yet measured — no labeler
-has been scored against it — so the denial/IFP stream that dominates any
-reweighted cut stays unmeasured until the first labeler run is scored. The deterministic shadow rules'
+quality is conditioned on, and every batch **covers** it: the first cleared all
+353 entries of both blocks with none uncovered, which is the coverage condition
+a published cut waited on. It is not a rate for the supplement — a pooled figure
+is the same however the disagreements fall between the blocks — so the pooled
+rate still certifies the grant stream, and the denial/IFP stream that dominates
+any reweighted cut is measured at review rather than by the artifact, which
+carries the pooled figure only. The deterministic shadow rules'
 disagreement count is a regression trip-wire on one labeler's movement between
 runs, not a second measurement — its *level* is uninterpretable off the
 reference set. **The artifact accrues and the headline rate does not**: the

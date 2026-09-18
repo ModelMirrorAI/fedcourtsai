@@ -947,6 +947,12 @@ jobs:
     concurrency:
       group: run-analytics-qp-topic-extract-${{ github.ref_name }}
       cancel-in-progress: false
+    outputs:
+      # The one number that crosses to the labeling job besides the extract
+      # itself: how many QP-bearing rows the frame this batch was cut from
+      # holds. A plain integer, so it carries none of the draw's shape — which
+      # is why the sidecar it is read from stays here (see the extract step).
+      frame-rows: ${{ steps.extract.outputs.frame-rows }}
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
@@ -976,6 +982,7 @@ jobs:
           corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
 
       - name: Extract the stored questions-presented texts
+        id: extract
         env:
           # The corpus estate's base URL, in the same spelling every
           # corpus-reading step in this file declares. Inert for this step:
@@ -1019,7 +1026,34 @@ jobs:
             cat "$RUNNER_TEMP/qp-batch.txt"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          exit "$status"
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+          # The frame size, and nothing else, travels on to the measure step —
+          # as a VALUE, read out of the sidecar here rather than by handing the
+          # sidecar over. `qp-topics` records it on this batch's ledger entry,
+          # which is what lets the docket pack publish the labeled share of the
+          # QP-bearing frame as a measurement instead of an upper bound over
+          # every in-scope row (docs/qp-topic.md). An integer carries no Term or
+          # fee-class counts and reaches the labeling job's *measure* step, not
+          # its agent, so the fence the sidecar exists behind is untouched.
+          # `|| frame=''` so the guard below owns the diagnosis: `jq -e` exits
+          # non-zero and prints nothing when `.frame` is absent or not a number,
+          # which under `set -e` would otherwise end the step with a bare exit
+          # code and no annotation. The digit check is also what sanitizes the
+          # value: only digits reach $GITHUB_OUTPUT. A zero is refused here
+          # rather than at `qp-topics --frame-rows`, which takes 1 or more —
+          # a frame that small cannot clear the extract's coverage floor anyway,
+          # so this is the two contracts agreeing on the page.
+          frame="$(jq -er '.frame | numbers | floor' \
+            "$RUNNER_TEMP/qp-texts.batch.json")" || frame=''
+          case "$frame" in
+            ''|0|*[!0-9]*)
+              echo "::error::qp-corpus wrote no usable frame count; refusing to pass one on"
+              exit 1
+              ;;
+          esac
+          echo "frame-rows=$frame" >> "$GITHUB_OUTPUT"
 
       - name: Upload the extract
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -1764,6 +1798,11 @@ jobs:
           labels: ${{ runner.temp }}/qp-io/qp-labels.jsonl
           texts: ${{ runner.temp }}/qp-io/qp-texts.json
           labeler: ${{ env.LABELER }}
+          # The extract job's count of the QP-bearing frame this batch was cut
+          # from, as a value. It reaches the deterministic measure step only —
+          # the agent has long finished by here — and lands on the batch's
+          # ledger entry, where the docket pack reads it.
+          frame-rows: ${{ needs.qp-topic-extract.outputs.frame-rows }}
           transcript-hint: >-
             The qp-label-transcript run artifact carries the turn-by-turn
             transcript to diagnose from (absent only when the scan withheld it
@@ -1844,11 +1883,17 @@ jobs:
           # is containment: every labeler-sourced row main publishes must
           # appear byte-identically in the incoming file, and the ledger must
           # extend main's.
-          if [ -f data/qp-topics/qp-topics.json ]; then
+          # Main's copy is read from the fetched ref, never from the work tree:
+          # `checkout -f` replaces tracked files only, so while main does not
+          # yet carry the artifact the run's own untracked file survives the
+          # switch, and a tree read would compare the artifact against itself
+          # and refuse the one batch that has no prior at all.
+          if git cat-file -e "origin/main:data/qp-topics/qp-topics.json" 2>/dev/null; then
+            git show "origin/main:data/qp-topics/qp-topics.json" > "$RUNNER_TEMP/landed.json"
             landed=$(jq -cS '[.batches[] | {batch, labeler, published}]' \
-              data/qp-topics/qp-topics.json)
+              "$RUNNER_TEMP/landed.json")
             landed_rows=$(jq -cS '[.entries[] | select(.source == "labeler")]' \
-              data/qp-topics/qp-topics.json)
+              "$RUNNER_TEMP/landed.json")
           else
             landed='[]'
             landed_rows='[]'

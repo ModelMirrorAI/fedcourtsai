@@ -119,6 +119,20 @@
           "description": "What a constant labeler scores on the same compared entries. An agreement rate is unreadable without it: on a sixteen-label vocabulary most of the rate is the floor, and only the distance from it is skill",
           "title": "Floor"
         },
+        "frame_rows": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "QP-bearing rows in the labeling frame the newest batch was cut from, as that batch's extract counted them. The denominator behind the scope note's labeled share of the frame, carried as a field so the share is recomputable without parsing the prose. At the **batch's** corpus vintage, not this pack's, so it pairs with `labeled_cases` and never with `matched_cases`. None where the newest batch recorded no count, which is the state the note bounds instead of measuring",
+          "title": "Frame Rows"
+        },
         "labeled_cases": {
           "default": 0,
           "description": "Cases the labels artifact carries a primary label for",
@@ -155,6 +169,14 @@
         "section": {
           "$ref": "#/$defs/StatPackSection",
           "description": "The distribution: labeled cases bucketed by primary `qp-topic-v0` label"
+        },
+        "support": {
+          "description": "The raw, unweighted rows behind each bucket, with the reference-sourced share of them \u2014 the view a denial-reweighted `est. n=` does not give, and the one a small bucket's disposition split cannot be read without",
+          "items": {
+            "$ref": "#/$defs/QpTopicSupport"
+          },
+          "title": "Support",
+          "type": "array"
         },
         "uncovered": {
           "default": 0,
@@ -341,6 +363,54 @@
       ],
       "title": "GroupBy",
       "type": "string"
+    },
+    "QpTopicSupport": {
+      "additionalProperties": false,
+      "description": "The raw rows behind one bucket of the published topic distribution.\n\nEvery count in the topic table is denial-reweighted, so a bucket's `est. n=`\nis a population estimate and not the number of petitions anyone read. On a\nframe that is still accruing, the gap between the two can be an order of\nmagnitude \u2014 one sampled denial stands for ten \u2014 so the smallest buckets\npublish a disposition split over a handful of rows. This is the raw view a\nreweighted bucket otherwise has none of, and the reason it is per label\nrather than pooled: the thin buckets are not the ones a reader would guess.\n\n``reference_rows`` is carried beside it because the two populations enter on\ndifferent terms: a reference-set member rides in every batch, so a bucket\nthat is mostly reference rows is the block's mix rather than the frame's.",
+      "properties": {
+        "label": {
+          "description": "The primary `qp-topic-v0` label this bucket counts",
+          "enum": [
+            "administrative-law-and-benefit-programs",
+            "business-and-financial-regulation",
+            "civil-procedure",
+            "constitutional-rights",
+            "criminal-law",
+            "election-law",
+            "employment-and-antidiscrimination",
+            "environment-energy-and-property",
+            "firearms",
+            "first-amendment",
+            "habeas-and-postconviction",
+            "immigration",
+            "intellectual-property",
+            "sovereignty-and-foreign-relations",
+            "tax",
+            "unclassifiable"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "reference_rows": {
+          "default": 0,
+          "description": "Of those, rows published from the hand reference set, which is in every batch and so over-represented while the frame is still accruing",
+          "minimum": 0,
+          "title": "Reference Rows",
+          "type": "integer"
+        },
+        "rows": {
+          "description": "Labeled cases in this bucket \u2014 rows on hand, unweighted",
+          "minimum": 0,
+          "title": "Rows",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "label",
+        "rows"
+      ],
+      "title": "QpTopicSupport",
+      "type": "object"
     },
     "StatPackCoverage": {
       "additionalProperties": false,

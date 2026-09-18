@@ -42,13 +42,15 @@ commands (`fedcourts qp-corpus` / `fedcourts qp-topics`), the shadow rules
 as a reviewed PR — see `docs/pipeline.md`), and the court-facing docket pack's
 topic section, which renders — always with the inline scope string below, and
 only from a gate-passing labels artifact — in place of the gap bullet that
-names the missing distribution until then. No labels artifact has been
-produced, so no distribution is published. The publication bar the reference
+names the missing distribution until then. The labels artifact exists and
+accrues one batch a run, so the cut renders wherever a checkout holds it and
+`fedcourts docket` is re-run; a committed `metrics/docket.md` older than that
+run still carries the gap bullet. The publication bar the reference
 section sets is **not** enforced by the cut's code and cannot be: whether a
-labeler has been measured against the supplement block is a property of the
-labeling run's review, which the labels artifact does not record — so
-producing and merging the first artifact is the decision that publishes the
-first cut.
+labeler has covered the supplement block is a property of the labeling run's
+review, which the labels artifact does not record as such — so merging a
+labeling run's artifact is the decision that licenses the cut, and the
+regeneration is what publishes it.
 
 ## The register
 
@@ -272,9 +274,13 @@ Three consequences bind every use of the set:
 - **Agreement is measured per stream, and the bar on publishing stands.** The
   founding block covers the grant stream; the supplement is the denial- and
   GVR-stratified block a published cut's quality was conditioned on. The block
-  now **exists**; it is not yet **measured** — no labeler has been scored
-  against it — so the publication prerequisite still holds until the first
-  labeler run is. The committed artifact records a pooled rate only; the
+  exists and every batch **covers** it: the first cleared all 353 entries of
+  both blocks with none uncovered, which is the coverage condition a published
+  cut waited on. What that does not give is a rate *for* the supplement — the
+  pooled figure is identical however the disagreements fall between the blocks,
+  and the set is grant-enriched by design, so the pooled rate still certifies
+  the grant stream and a denial-dominated cut is not certified by it.
+  The committed artifact records a pooled rate only; the
   per-stream split is derived at measurement review by joining the reference
   to the corpus's dispositions (deliberately not carried in this file, where a
   stratum tag would sharpen the oracle below), and a labeler that fails the
@@ -576,9 +582,15 @@ the corpus is a **document-fetch artifact, not a sample**:
 - **The labeled rows are the QP-bearing part of one frame, and it is the
   published cut's own frame.** `qp-corpus` selects the live/historical slice's
   modern discretionary-cert petitions — the same frame the docket pack's topic
-  section is computed over — so `kept` and `<N>` in the scope string are counts
-  over one population rather than two, and no row inside the section's frame is
-  unlabelable. The frame is keyed on the **docket form** (the Term-prefixed
+  section is computed over — so every labeled row has a published home and no
+  QP-bearing row in that scope is unlabelable. What the two are not is one
+  count: `<N>` in the scope string is the whole in-scope population, while the
+  labelable frame is its **QP-bearing** part, which is smaller by a document-fetch
+  gap. So `<n>` of `<N>` is not the labeled share of the frame, and the scope
+  string keeps the two apart rather than leaving them to be read as one — it
+  states the share separately, from the frame count the batch's ledger entry
+  carries, and says the split is unrecorded where that entry has none. The frame
+  is keyed on the **docket form** (the Term-prefixed
   `YY-NNNN` number), not on the writ sought, so it takes in the whole
   case-opening filing family a cert-form docket can be opened by: a mandamus or
   habeas petition, and a direct appeal's statement as to jurisdiction, all of
@@ -618,31 +630,84 @@ section-level caveat does not survive a quoted number; the scope string does.
 are not interchangeable. A **per-Term** cut states `<pct> of walked Term-<T>
 rows` against that Term's serial census, the frame the coverage figures above
 are quoted in. A **pooled** cut — the docket pack's, computed over the whole
-modern discretionary-cert live slice — states `<n> of <N> ingested rows
+modern discretionary-cert live slice — states `<n> of <N> in-scope ingested rows
 labeled`: counts, because a pooled percentage against a census that spans Terms
 of 0% and 16% coverage reads as a coverage level no Term has, and *ingested*
 rather than *walked*, because the denial sampling puts the walked serial count
 several-fold above the rows on hand. A pooled cut must also say that coverage is
 uneven across Terms, since its own ratio cannot show it.
 
-The word *labeled* is load-bearing, and the scope string carries one further
-mandatory clause behind it. The gap between `<n>` and `<N>` is two different
+The word *labeled* is load-bearing, and the scope string carries two further
+mandatory clauses behind it. The gap between `<n>` and `<N>` is two different
 things at once — rows with no stored QP text, and QP-bearing rows whose labeling
 batch has not come up yet — and a reader who takes the whole gap for a fetch gap
-reads the labeled subset as whatever the extractor happened to reach.
+reads the labeled subset as whatever the extractor happened to reach, while one
+who takes it for a batching gap reads `<n>` of `<N>` as the labeled share of the
+QP-bearing frame. It is neither, so the first clause **names both gaps and sizes
+the second of them**.
 
-So the scope string must also state **how the labeled subset was drawn, and on
+Sizing it takes a number neither the pack nor the labels file can derive: how
+many of the in-scope rows carry a labelable questions-presented text — the frame
+`qp-corpus` cuts from, after the rows with no docket number or no stored text are
+skipped. The extract
+job measures exactly that when it cuts a batch, so the count travels from there
+to `qp-topics` as a **value** — a job output, then a `--frame-rows` flag — and
+lands on that batch's ledger entry (`frame_rows`). A plain integer carries none
+of the draw's shape, so the `.batch.json` sidecar it is read from stays on the
+extract runner: what the labeling job must not learn is which of *its* rows are
+which, and a frame size says nothing about any row. The flag is
+optional and the field nullable, because a batch can land without one — the
+artifact's first carries none, and the integration scenario's canned legs cut no
+frame to count. Where the newest batch carries no count the clause falls back to
+saying the split is unrecorded.
+
+What the clause then states is the **artifact's** figure at the **batch's**
+corpus vintage: that batch's frame, and the labeled rows the artifact held once
+it landed. It is deliberately not this pack's labeled count over that frame —
+the frame grows with every pull, so pairing a later pack's numerator with an
+earlier batch's denominator is arithmetic across two blobs, which is what a
+published share must not be. The pack's own `<n>` of `<N>` stays beside it,
+measured over this blob, and the two are not the same ratio.
+
+Stating the vintage is not the whole of it, because the two blobs are ordered:
+the frame grows with every pull while the labeled count moves only when a batch
+lands. So the batch's share is a **ceiling** on the share of the frame as it now
+stands, and the clause says so. A caveat that errs is why the unmeasured form is
+published as a bound at all, and a measurement that quietly errs the other way
+would be the worse figure of the two; the direction travels with the number.
+
+The second clause states **how the labeled subset was drawn, and on
 what unequal terms**. The labeled rows are two populations: the hand reference
 set, which rides in every batch and is therefore included with certainty, and a
 Term × fee-class-stratified, seeded-hash draw of the remainder, included only as
 its batch comes up. Both then count once in the table. Until the frame converges
 the reference block is over-represented by the ratio of those two inclusion
 rates, and it is grant-enriched by design and carries no sampling weights — so
-the clause states both counts and that ratio, and says outright that this mix is
+the clause states both counts and that ratio. The drawn rows' own denominator is
+the QP-bearing part of the pool they were drawn from, which is the same frame
+count the first clause needs: with it the factor is **measured**, over the
+frame's rows outside the reference block, at that batch's vintage; without it,
+only the whole in-scope count outside the block is on hand, and dividing by the
+larger count overstates the factor — the direction a caveat may err in — so it
+publishes **as an upper bound** rather than as arithmetic over a population the
+draw never ran on. Either way it says outright that this mix is
 not the frame's while any of the frame is unlabeled. No reweighting in the pack
 corrects it: the denial reweighting corrects the *walker's* sampling, not the
 force-include. The unlabeled remainder is outstanding rather than excluded, and
-the distortion closes on its own as the frame clears.
+the distortion closes on its own as the frame clears. The measured factor closes
+with it, to 1.0x; the bound does not, since its denominator keeps counting rows
+no batch could reach, and a cut publishing the bound says so.
+
+Beside the table, each bucket publishes the **rows on hand** behind it and the
+reference-sourced share of them. Every count in the cut is denial-reweighted, so
+a bucket's `est. n=` estimates the population its rows stand for and runs above
+what anyone read — one sampled denial for ten — and on a frame this thin the
+smallest buckets are a handful of petitions rendering a two-figure denominator.
+A bucket under the same support floor the reference set uses per label is named
+outright as a split to read row by row rather than as a rate. The reference
+share is per bucket because it is not uniform across them: the block holds every
+QP-bearing grant it could reach, so it inflates the grant-heavy topics most and
+no single factor de-biases a row.
 
 ## What one labeling run can hold
 
@@ -739,7 +804,12 @@ to a `.batch.json` sidecar beside the extract. It is deliberately **not** writte
 into the extract: that file is the labeler's whole evidentiary input, and strata
 counts plus the selection rule are exactly what the labeling prompt forbids
 reasoning from. The run mode uploads the extract by name, so the sidecar does not
-travel to the labeling job either.
+travel to the labeling job either. One number out of it does, and only one: the
+frame size, read in the extract job and declared as a job output the measure step
+passes to `qp-topics` as `--frame-rows`. It is a value rather than the file
+because the file is the draw's shape and the value is a population count — and
+it reaches the deterministic measure step, which runs after the labeler is
+finished, rather than the agent.
 
 **Label once, and what publishes what.** The accumulating artifact is the union
 of the prior artifact and the run's new rows, prior entries carried forward
@@ -757,8 +827,9 @@ unchanged. Two rules make that safe:
 
 Each row carries the `batch` that first published it, and `batches` is a ledger
 of every contributing run — its labeler, what it published, how many of those
-rows were its own calls rather than the hand set's, how many rows it read, and
-its own agreement, floor and shadow figures — so a drifting labeler is readable
+rows were its own calls rather than the hand set's, how many rows it read, its
+own agreement, floor and shadow figures, and the frame it was cut from where the
+extract reported one — so a drifting labeler is readable
 as a series rather than as one current number. Read that series carefully: every
 batch is scored over the *same* reference entries, so the differences between
 rows are one labeler re-labeling identical items, not independent samples. A few

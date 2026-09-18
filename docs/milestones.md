@@ -51,7 +51,9 @@ conference; once the opening order list drops (~early October), the realized
 grants and denials evaluate those predictions. The deliverable is a blog post /
 short article — *"We predicted the long conference — here's how we did"* — with
 the calibration numbers attached, compared against the statpack's per-Term cert
-base rates.
+base rates. What that write-up must state, section by section, and the
+command or artifact behind each number, is
+[release-ot2026-long-conference.md](release-ot2026-long-conference.md).
 
 The counted record for this release opens at the `proc-v8` **full** freeze:
 its three blessed predictor digests and the freeze instant
