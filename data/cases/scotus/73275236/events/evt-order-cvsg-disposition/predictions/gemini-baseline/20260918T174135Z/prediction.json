@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": null,
+  "big_case_score": 0.7,
+  "case_id": "scotus/73275236",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.45
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.5
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.0
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.1
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-01-13",
+    "cvsg_date": "2026-01-12",
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-01-13",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-09-18T17:41:35Z",
+  "engine": "gemini",
+  "event_id": "evt-order-cvsg-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-01-13.json",
+  "judgment": null,
+  "model": null,
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": null,
+  "predictor_id": "gemini-baseline",
+  "probability": 0.45,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
+    "label": "proc-v8",
+    "pipeline_sha": "dcec207cda4182a8b20effbd325bb257485091ff",
+    "stamped_at": "2026-09-18T18:52:25.512648Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260918T174135Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
