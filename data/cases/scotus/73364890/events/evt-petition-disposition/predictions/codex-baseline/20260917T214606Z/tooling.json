@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73364890",
+  "gaps": [
+    "Web attempts returned no usable source content in this session.",
+    "The default uv cache was read-only; a temporary cache override was necessary.",
+    "The petition bundle is truncated, and no BIO text is provisioned; the latter is consistent with the response waiver.",
+    "The attempted PDF extraction utility was unavailable, and the official HTML fallback timed out."
+  ],
+  "helpful": [
+    "The frozen band and distribution count made the correct conditioning population clear.",
+    "Exact reached-band counts in the aggregate JSON allowed reproducible pooling.",
+    "The petition's appended appellate opinion exposed vehicle limitations not apparent from the QPs alone."
+  ],
+  "notes": "Completed from provisioned evidence and the committed aggregate base rates. No live CourtListener lookup, corpus-prior query, or case-outcome retrieval was attempted. External failures did not block the forecast. No current-rule verification is claimed.",
+  "role": "predictor",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and documents",
+    "committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "shell and jq",
+    "web search and open attempts",
+    "official-source HTTP attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

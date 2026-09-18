@@ -1,0 +1,13 @@
+# Forecast: what the Court will do with No. 25-1141, Bell v. Gilley
+
+**Disposition.** The Court will most likely **deny** the petition (P(any grant) = 0.30). If it grants, the grant will be a **Munsingwear GVR** — a one-line order vacating the Fourth Circuit's judgment and remanding with instructions to dismiss as moot — not plenary review. P(cert-order disposition | grant) = 0.95: the petitioner asks for nothing else, the mootness is uncontested, and there is no merits question the Court could set for argument short of taking up Munsingwear's reach in criminal cases, which nobody has asked it to do.
+
+**Relists.** The docket shows **two distributions**: one for the 1 May 2026 conference, which never reached consideration because the Court called for a response on 22 April, and one for the 28 September 2026 long conference, where the petition will be considered for the first time. From that state I expect a **35% chance of at least one further distribution**. A contested Munsingwear vacatur is often relisted once before the order issues (the Court needs a written order and a dissenting Justice may want time), and a denial that draws a statement is relisted too; a clean denial on the first October order list is the modal single outcome.
+
+**CVSG.** None. The Solicitor General already represents the respondent and has filed a brief in opposition; a call for the views of the Solicitor General is not a live possibility (0.01).
+
+**Which question the Court would take.** Only the question as framed: whether to vacate under Munsingwear. The underlying Jones v. Hendrix / Suspension Clause question is not before the Court and would not be reached on any route.
+
+**Dissent or statement if denied.** Conditional on denial, P(some Justice notes a dissent or writes a statement respecting denial) = 0.15. The likeliest author would be a Justice who dissented in Jones v. Hendrix and objects to a federal prisoner having no forum for a Johnson-type constitutional sentencing claim, or one who thinks the SG's "criminal cases are different" reading of Munsingwear should not stand unremarked. A separate writing is plausible because a Justice cared enough to call for a response after the government waived, but most called-for-response denials pass silently.
+
+**If granted.** The order will vacate 147 F.4th 452 and remand with instructions to dismiss the appeal as moot, most likely without noted dissent; a short dissent from the vacatur on the Bancorp voluntary-action ground, or on the view that vacatur is being used to erase circuit precedent, is possible but less likely than a silent order.

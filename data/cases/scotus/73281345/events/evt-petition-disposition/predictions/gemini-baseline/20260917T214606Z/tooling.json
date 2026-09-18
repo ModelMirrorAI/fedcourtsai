@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73281345",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query"
+  ],
+  "helpful": [
+    "The statpack base rates for the elevated band.",
+    "The provisioned BIO text exposing the vehicle problem."
+  ],
+  "gaps": [
+    "Access to the unprovisioned reply brief."
+  ],
+  "notes": "Everything worked smoothly.",
+  "schema_version": "1.0"
+}

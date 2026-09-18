@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281632",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Input coverage limitation, not a blocked cell: documents.json marks the petition truncated; supplied text ends within appendix page 50a, although the substantive petition is present. The snapshot records a July 21 reply, but no reply text is provisioned. Forecast uses the petition, complete opposition, available appellate appendix, snapshot and general precedents; reply responses to vehicle objections were not assessed."
+    }
+  ]
+}

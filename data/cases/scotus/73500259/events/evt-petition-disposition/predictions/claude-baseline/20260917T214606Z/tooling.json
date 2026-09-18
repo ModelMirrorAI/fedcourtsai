@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500259",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "metrics/statpack.md",
+    "courtlistener MCP: search (opinions, dockets), read_document",
+    "WebSearch"
+  ],
+  "helpful": [
+    "Provisioned petition, BIO and QP text \u2014 the vehicle arguments in the BIO drove most of the adjustment",
+    "Statpack salience-band table with bracketed reached rates, pooled over prior Terms",
+    "CourtListener opinion header for panel composition and publication status"
+  ],
+  "gaps": [
+    "fedcourts query has no free-text or subject filter for SCOTUS rows, so FTAIA/antitrust priors cannot be pulled; the citation lookup for Empagran returned nothing (200 of 590,940 scotus rows carry citation data) after 1357 ranged GETs",
+    "No statpack cut conditioned on a call-for-response after waiver, which is the strongest non-band signal on this docket",
+    "No cut of distribution_count that distinguishes a CFR-superseded first distribution from a genuine relist",
+    "No per-Term summary-route share of grants published for the summary-disposition-route baseline"
+  ],
+  "notes": "Corpus queries were shape-only here: the granted-2020s sweep confirmed recent grants cluster at 2-5+ distributions, but returned no subject-matched priors. The Empagran citation lookup cost ~356 MB of ranged reads for an empty result; a coverage pre-check before the scan would save egress."
+}

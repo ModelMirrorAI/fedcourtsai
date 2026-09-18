@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73281354",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "WebFetch (supremecourt.gov docket)", "WebSearch"],
+  "helpful": [
+    "Provisioned petition, BIO and QP text with documents.json (the BIO disclosed the companion petition)",
+    "Segment base rate by salience band table matching the context's salience_version",
+    "WebFetch of the companion petition's public docket page"
+  ],
+  "gaps": [
+    "CourtListener MCP returned no SCOTUS docket rows for a 2026 docket number or party name; a supremecourt.gov docket fetch for a companion docket number would be a natural corpus-side helper",
+    "A per-docket count of actual conference considerations (distinct from DISTRIBUTED entries, which include superseded distributions and reschedules) would make relist-increment easier to price",
+    "The reply brief and the cert-stage amicus briefs were not provisioned",
+    "The citation filter on fedcourts query is too sparse to find precedent by authority cited"
+  ],
+  "notes": "Two corpus queries; the Illinois Brick citation lookup was a large ranged read (1357 GETs) for an empty result. Ten retrieval calls total, within budget."
+}

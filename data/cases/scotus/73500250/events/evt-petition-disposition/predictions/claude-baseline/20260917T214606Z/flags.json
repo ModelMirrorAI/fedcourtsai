@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500250",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen band is `baseline` (one distribution, no CVSG), but the docket shows the Court called for a response on Jul 27 2026 after the Solicitor General waived. That call-for-response signal is not among the salience features and has no statpack cut, so the scored baseline understates this petition's position; the forecast adjusts up from the band anchor on the predictor's own estimate of the conditional rate."
+    }
+  ]
+}

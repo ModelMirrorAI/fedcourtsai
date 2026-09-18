@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281702",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Local provisioned-record and schema reads",
+    "Committed statpack Markdown and JSON with jq arithmetic",
+    "fedcourts paths",
+    "CourtListener MCP search, search_document, read_document",
+    "Web search and open attempts (no usable output)",
+    "Official reply PDF retrieval with urllib and in-memory pypdf extraction"
+  ],
+  "helpful": [
+    "Complete petition and BIO text with a document manifest",
+    "Frozen band and distribution count plus dated docket entries",
+    "Unrounded prior-Term risk-set statistics",
+    "CourtListener targeted precedent excerpts",
+    "Exact reply-document link in the provisioned snapshot"
+  ],
+  "gaps": [
+    "Provisioning did not include reply text; direct retrieval supplied it",
+    "Web tool attempts returned no usable content",
+    "Default uv cache was read-only; a temporary cache override was needed"
+  ],
+  "notes": "No target-case outcome was retrieved. Distribution chronology distinguished response-driven redistribution from demonstrated substantive relisting. Long console outputs were truncated, requiring smaller excerpt reads. No remote corpus query or credential access was needed."
+}

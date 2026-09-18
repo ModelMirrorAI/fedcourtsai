@@ -1,0 +1,3 @@
+Distributed once so far; expect no further relists before a decision on the petition. The Court will deny certiorari outright at the 9/28/2026 conference. The petition is brought pro se and raises a narrow due process challenge regarding a state court's application of a statute of limitations. This presents no federal circuit split or pressing issue of national importance.
+
+Expect no CVSG, because no federal party's interest is implicated and the dispute is purely private. If granted, the Court would likely take the sole question presented to clarify the due process notice requirements, but a summary disposition is unlikely. Should it deny, expect no separate writing or dissent from denial, as the case is a routine denial.

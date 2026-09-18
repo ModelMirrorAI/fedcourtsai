@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281401",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener.search", "courtlistener.get_endpoint_item", "courtlistener.call_endpoint", "courtlistener.search_document"],
+  "helpful": [
+    "Provisioned petition and BIO full text; the QP file cut cleanly.",
+    "search_document on the opinion below let me verify the alternative holding without reading 84k characters.",
+    "The sal-v4 band table with bracketed reached rates made the anchor arithmetic straightforward."
+  ],
+  "gaps": [
+    "A call-for-response marker in context.json (or a distribution count that distinguishes pre- and post-consideration distributions) would keep the relist signal honest.",
+    "A statpack cut for petitions with a call for response would give a direct anchor for this common shape.",
+    "The corpus --citation filter matched nothing for Tennessee v. Garner; a cases-citing-authority query would be far more useful for finding doctrinal priors."
+  ],
+  "notes": "The first corpus query cost about 355 MB of ranged reads for an empty result on a sparse column; a coverage warning before the scan would save that."
+}

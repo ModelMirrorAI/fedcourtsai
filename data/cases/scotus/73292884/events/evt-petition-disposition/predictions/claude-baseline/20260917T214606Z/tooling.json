@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292884",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md",
+    "fedcourts query",
+    "courtlistener-mcp search",
+    "courtlistener-mcp read_document"
+  ],
+  "helpful": [
+    "context.json's frozen band plus the sal-v4 per-Term reached table made the anchor mechanical (17.2% pooled OT2017-OT2024)",
+    "Petition, QP and BIO were all fully extracted, so the vehicle assessment rests on the parties' own text",
+    "One CourtListener opinion read confirmed the panel composition and published status cheaply"
+  ],
+  "gaps": [
+    "No statpack cut or query filter conditions on a requested response after a waiver, the strongest signal on this docket",
+    "The reply brief (filed Aug 10, 2026) was not provisioned although it sits on the docket; it would have answered the BIO's vehicle points directly",
+    "CourtListener's SCOTUS docket index returned nothing for three well-known recent cert dockets, so comparable-petition dispositions could not be verified",
+    "The NRSC v. FEC opinion had no text on CourtListener, so a recent and relevant merits decision could only be read through the BIO's account"
+  ],
+  "notes": "The generic recency-ranked fedcourts query returns mostly interim applications and unrelated grants; a subject or keyword filter on SCOTUS rows would make it useful for a cert cell."
+}

@@ -1,0 +1,3 @@
+- CourtListener MCP search for Fourth Circuit opinion.
+- Read CA4 opinion (id: 11232095) via CourtListener MCP to confirm publication status and case background.
+- Examined provisioned snapshot and BIO/petition texts for circuit split claims.

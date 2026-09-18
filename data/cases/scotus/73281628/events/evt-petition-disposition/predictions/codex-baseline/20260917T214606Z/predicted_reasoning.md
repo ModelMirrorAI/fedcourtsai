@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will most likely deny the petition without a separate writing. I assign a 38% probability to any grant, almost entirely a summary grant, vacatur, and remand directing dismissal as moot. That disposition is a `gvr` under this prediction contract, not a denial and not plenary review of the constitutional sentencing issue.
+
+The baseline records **two distributions**: April 15 for the May 1, 2026 conference, and August 5 for the September 28, 2026 conference. A response request on April 22 intervened after the original waiver. The second distribution thus follows completion of requested briefing; these entries do not establish that the Court has already considered the petition at two conferences. From this recorded count of two, I expect no further distribution before disposition, with a 30% chance of at least one additional distribution. If further consideration occurs, one or two additional distributions are more likely than a prolonged hold. My central timing forecast is late September through October 2026, following the conference identified in the snapshot.
+
+No CVSG is recorded, and I predict none will issue: the Solicitor General has already presented the federal respondent's opposition. The probability of a new CVSG is 0.5%.
+
+If the Court grants, it will take the question actually presented: whether to vacate the Fourth Circuit's judgment under Munsingwear and remand for dismissal as moot. It will not use this moot case to decide the mandatory-Guidelines or Suspension Clause controversy on the merits. Conditional on a grant, the probability of disposition in the cert order itself is 98%; an order directing mootness vacatur, rather than an intervening-decision GVR or summary merits reversal, is the expected grant route.
+
+The likely denial leaves the lower judgment in place without endorsing its reasoning. The strongest competing outcome is a short vacatur order recognizing that Bell continued pursuing review and completed supervision before Supreme Court review. If review is denied, I assign a 12% probability to some noted dissent or statement respecting denial; I do not make a Justice-specific prediction. The modal denial has no explanation, so no majority opinion or author is forecast.

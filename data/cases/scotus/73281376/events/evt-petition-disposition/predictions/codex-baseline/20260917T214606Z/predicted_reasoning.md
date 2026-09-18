@@ -1,0 +1,11 @@
+# Forecast
+
+The Court will deny the petition, most likely in the orders following the September 28, 2026 conference, in late September or early October. The modal path is no further distribution and no explanatory writing. Denial will not decide whether the Fourth Circuit's municipal-liability analysis is correct.
+
+The snapshot contains two distributions: April 22 for May 14, and July 22 for September 28. Between them, the Court requested a response on May 8 and received briefing on July 8. From that two-distribution baseline, I assign a 24% probability to at least one additional distribution. If additional consideration occurs, one or two further distributions are more likely than a long sequence. The response request preceding the first scheduled conference makes this history less indicative of repeated substantive consideration than two fully briefed conferences would be.
+
+No CVSG is recorded. I forecast no new CVSG, with a 1.5% probability of one after prediction time. This petition principally concerns county responsibility for contracted medical care; a federal institutional interest is possible but is not the central feature of the questions presented.
+
+Conditional on a grant, plenary review is the more likely route: 78% briefing and argument versus 22% disposition in the cert order itself. The most plausible review question is a narrowed version of QP 2: when does a county's contract for jail healthcare delegate final policymaking authority for Section 1983 purposes, as distinct from medical decision-making discretion? QP 1's respondeat-superior and nondelegable-duty framing would supply context rather than require acceptance of its premise that liability was imposed automatically. If the Court reaches the merits, the likely focus is the distinction between delegated policy and mere operational discretion, not a categorical exemption for outsourced care.
+
+A summary reversal enforcing that distinction is a minority possibility. A GVR is less persuasive on the supplied record because no intervening decision controlling this municipal-policy issue has been identified. Conditional on denial, I assign 7% to any noted dissent or statement respecting denial. I expect none and do not forecast a particular Justice's vote or writing.

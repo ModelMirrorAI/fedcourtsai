@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73369988",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "committed statpack", "fedcourts paths", "CourtListener MCP search and opinion read", "web search attempt", "local weighted-rate calculation", "fedcourts validate"],
+  "helpful": ["Full extracted petition and questions presented", "Frozen sal-v4 conditioning and explicit forward mode", "Reached-band rates with denominators", "Separate precedent opinion text through MCP"],
+  "gaps": ["No provisioned appendix or standalone lower-court opinion", "No BIO text; the docket records a respondent waiver", "Default uv cache is read-only; a /tmp cache works", "Web search returned no usable content", "Citation search returned an unrelated result; case-name pagination found the precedent"],
+  "notes": "Forecast rests principally on provisioned material and the prior-Term committed anchor. No live lookup of this case was needed. Statpack freshness was not independently established. CourtListener's combined precedent metadata used a later date than the decision date printed in the opinion."
+}

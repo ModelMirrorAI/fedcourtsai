@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281376",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The petition is marked truncated and its extract ends during appendix page 53a, before the cited dissent discussion at 54a\u201355a. The main petition and majority liability analysis were available. The July 24 reply and July 8 medical-provider supporting brief appear on the snapshot but their text was not provisioned. The prediction weighs the available petition against the full BIO and does not assume the missing arguments; see reasoning.md.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0"
+}

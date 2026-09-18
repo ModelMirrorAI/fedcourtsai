@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292884",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned documents", "committed statpack", "jq", "fedcourts paths", "web search and official opinion retrieval attempts", "fedcourts validate"],
+  "helpful": ["Both petition and opposition supplied with extraction metadata", "Frozen sal-v4 conditioning state", "Unrounded reached-band rates in statpack JSON"],
+  "gaps": ["Reply text was not provisioned despite a docketed reply", "Statpack lacks a forward redistribution hazard conditioned on a response request", "Web calls returned no usable displayed content"],
+  "notes": "Attempted targeted general-precedent retrieval, not a case-specific live docket search; relied on provisioned briefing when the web returned no usable content. Default CLI cache was read-only; a writable temporary cache and the existing environment allowed CLI execution. No corpus or MCP availability failure was inferred from not using those tools. Data validation passed."
+}

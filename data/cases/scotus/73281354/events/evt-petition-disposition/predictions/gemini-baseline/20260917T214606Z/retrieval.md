@@ -1,0 +1,3 @@
+- Read `metrics/statpack.md` to find the base rate for the `elevated` band (reached) across 2017-2024 Terms and to check the relist-count definitions.
+- Used CourtListener MCP `search` to locate the Second Circuit's decision in `Mosaic Health, Inc. v. Sanofi-Aventis U.S., LLC` (24-598).
+- Used CourtListener MCP `read_document` to retrieve the text of the Second Circuit's opinion (opinion ID 11170898).

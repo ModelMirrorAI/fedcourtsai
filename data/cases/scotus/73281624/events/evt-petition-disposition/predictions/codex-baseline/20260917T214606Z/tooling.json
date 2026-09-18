@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281624",
+  "gaps": [
+    "The web open returned no usable content",
+    "Citation search returned an unrelated case and the narrow case-name search found none",
+    "Default uv cache location was read-only; a temporary cache worked",
+    "No corpus vintage was included with the committed statpack"
+  ],
+  "helpful": [
+    "Complete petition and opposition text with an opinion appendix",
+    "Frozen conditioning context",
+    "Exact prior-Term reached-band rates in statpack.json"
+  ],
+  "notes": "The supplied filings were sufficient to finish without further retrieval. Distribution chronology was important: two entries did not establish two completed, fully briefed conferences. No outcome material was sought or encountered. No flags.json was needed for a blocking or data-quality issue.",
+  "role": "predictor",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-document reads",
+    "committed statpack and jq aggregation",
+    "CourtListener MCP search",
+    "web.run open",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

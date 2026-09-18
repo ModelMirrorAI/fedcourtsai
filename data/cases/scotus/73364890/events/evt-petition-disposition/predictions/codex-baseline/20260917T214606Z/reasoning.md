@@ -1,0 +1,31 @@
+# Rationale for the probabilities
+
+## Record and conditioning
+
+I forecast **P(any grant) = 0.01**, including a plenary grant, partial grant, GVR, or summary reversal, with denial as the modal disposition. This is a forward cell. The petition-kind event has no express stage or moment; I apply the prompt's cert default and supply its five requested cert probabilities. I did not retrieve this petition's disposition, subsequent history, another prediction, or any evaluator-only material, and I do not carry a known outcome for this petition.
+
+I read the provisioned **2026-09-16.json** snapshot, the event definition, context, document manifest, questions presented, the substantive petition, and pertinent portions of its appended Eleventh Circuit opinion. The context fixes **sal-v4 / baseline**, Term **2025**, one distribution, and no CVSG. The snapshot records a June 16 response waiver and June 24 distribution for September 28. One distribution does not mean one completed relist, nor does the summer interval itself show repeated consideration. F.E.B. is a private petitioner; the United States' position as respondent does not confer the federal-petitioner floor.
+
+The manifest dates the document fetch to July 17, 2026 and marks the 178-page petition bundle **truncated**, not empty. The questions presented and the petition's substantive argument are available, as are the appellate passages used below. There is no provisioned BIO; the response waiver explains the posture, but it supplies no government argument. I do not claim to have read the entire appendix. These are the provisioned vintages, not a claim about a freshly polled docket or the remote corpus's current contents.
+
+## Baseline and adjustment
+
+The anchor is the **bracketed reached baseline-band rate**, not the terminal baseline rate. Pooling every rendered prior Term, **2017–2024**, under the matching sal-v4 vocabulary yields **593 weighted grants / 11,580 weighted resolved petitions = 5.1209%**. I used the exact prefix rates and denominators in `metrics/statpack.json` behind `metrics/statpack.md`. Terms 2025 and 2026 are excluded. The committed pack's last-change commit is dated September 14, 2026; this is artifact provenance, not a verified corpus-wide pull or snapshot timestamp.
+
+I also read the modern-cert disposition, originating-circuit, paid-segment relist, and CVSG cuts. The broader modern-cert population is not the paid private-petitioner risk set. The relist and CVSG cuts condition on terminal observations and pool Terms, so they provide qualitative procedural context only: they are not estimates of this cell's next-distribution or next-CVSG hazard. I do not substitute their terminal zero-relist rate for the reached-band anchor or estimate the increments by dividing terminal bucket counts.
+
+I adjust materially downward from 5.12% for the following record-based reasons:
+
+- **No developed conflict.** The petition's short reasons section, pages 4–9, seeks reconsideration of Justice Blackmun's reservation in Anderson rather than identifying conflicting current appellate holdings. This is an assessment of the supplied argument, not a claim that a comprehensive search found no split.
+- **The opinion applies, rather than departs from, the cited precedent.** Appendix A, pages 13a–15a, invokes Anderson, 470 U.S. 564, 573–74, for deferential review of factual findings, including documentary inferences. It separately states that legal arguments receive de novo review. The petition's objection to plausibility thus appears primarily to challenge established review of competing factual inferences.
+- **The proposed vehicle is imperfect.** Despite the petition's characterization as purely historical-documentary, Appendix A, page 12a, describes a two-day trial with experts. Pages 18a–19a discuss Professor Hailey's testimony and decline to entertain a reliability objection first raised in reply. Page 14a's footnote also supplies a predominantly factual mixed-question rationale under Bufkin v. Collins. These are obstacles to cleanly reaching the requested exception, not assumptions about arguments in an unavailable BIO.
+- **The lower court did not simply accept every government inference.** Appendix A, page 19a note 7, rejects the non-development rationale as unsupported while finding other intended uses sufficient. That makes a petition framed around indiscriminate acceptance of plausibility less compelling.
+- **The docket supplies little affirmative attention.** There is one distribution, a government response waiver, and no recorded request for a response or CVSG. I treat the waiver as a modest negative signal, not a merits concession or a procedural bar to a later grant.
+
+The nonzero 1% leaves room for broader interest in documentary factfinding or federal title to reclaimed lands. The questions have potential reach beyond this island, but the record does not justify pricing that possibility near the generic paid-private baseline.
+
+## Other claims and limitations
+
+The 6% further-distribution estimate allows a request for additional briefing or closer consideration without assuming eventual review. A CVSG is particularly unlikely because the federal government is already a party; a called-for party response is not that signal. The 12% summary-route estimate is **conditional on grant**, and the 1.5% separate-writing estimate is **conditional on denial**. Both are judgmental estimates rather than measured matched-cohort rates. The significance score of 0.27 balances a geographically narrow title dispute against the possible reach of a documentary-review rule; it does not encode grant likelihood.
+
+External verification was degraded: web calls returned no usable source content, an attempted PDF route lacked a text-extraction executable and encountered a missing URL, and an official Rule 52 HTML request timed out. I therefore rely on the provisioned appellate passages, not purportedly verified current rule text, and do not add a claim about a Rule 52 amendment. No live CourtListener or corpus-prior lookup was used. The main uncertainties are unseen opposition arguments, the truncated remainder of the appendix, and any broader conflict not developed in the petition.

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500259",
+  "run_id": "20260917T214606Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2 and the band is `elevated`, but the docket shows no true relist: the first distribution (Jun 9, for the 6/25/2026 conference) was superseded six days later by a call for a response, and the second (Aug 5, for the 9/28/2026 long conference) is the petition's first real consideration. The frozen band therefore reflects a mooted pre-response distribution rather than a relist trajectory. I anchored on the `elevated` reached rate as the prompt directs and noted the inflation in reasoning.md; flagging so the salience reading of CFR-superseded distributions can be reviewed."
+    }
+  ]
+}

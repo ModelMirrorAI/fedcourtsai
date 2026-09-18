@@ -1,0 +1,1 @@
+ranged corpus reads: 32 GET(s), 8388608 byte(s) (from `fedcourts query --court scotus --decided-before 2026 --disposition granted --limit 5`)

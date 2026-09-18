@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500248",
+  "gaps": [
+    "Web searches returned no usable result content.",
+    "Large terminal outputs were truncated, requiring smaller reads."
+  ],
+  "helpful": [
+    "Provisioned petition includes the lower-court order, allowing the claimed splits to be checked against the actual issue decided.",
+    "Version-matched reached-rate counts permit a strictly-prior weighted anchor.",
+    "CourtListener opinion snippets allow focused precedent checks without retrieving the target case."
+  ],
+  "notes": "The default uv cache path was read-only; a temporary writable cache resolved the CLI failure. No BIO was provisioned, consistent with the recorded response waiver. No durable blocker or outcome exposure was encountered.",
+  "role": "predictor",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "committed statpack",
+    "web search",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

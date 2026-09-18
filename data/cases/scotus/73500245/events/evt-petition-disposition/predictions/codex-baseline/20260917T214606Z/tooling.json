@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500245",
+  "gaps": [
+    "Separately linked appendix and full lower-court opinion were not provisioned",
+    "General rules web lookups returned no usable content"
+  ],
+  "helpful": [
+    "Readable petition and questions presented",
+    "Frozen band and distribution count",
+    "Unrounded per-Term risk-set statistics"
+  ],
+  "notes": "Predicted from the provisioned forward record and committed prior-Term statistics. No live case lookup was attempted. The default uv cache was read-only; using a cache under /tmp restored CLI operation. BIO absence is explained by the recorded response waiver.",
+  "role": "predictor",
+  "run_id": "20260917T214606Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "committed statpack",
+    "web search/open attempts"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
