@@ -91,7 +91,10 @@ from ..supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
 AGREEMENT_GATE: Final = 0.80
 
 # Per-label support floor. Under it a label's agreement is reported as a raw
-# count and never as a rate — one entry moves the ratio by tens of points.
+# count and never as a rate — one entry moves the ratio by tens of points. The
+# docket pack reads it for the same reason on its own published buckets (a
+# disposition split over fewer rows than this is reported as rows), so a change
+# here moves a court-facing document's caveats as well as the agreement table's.
 SUPPORT_FLOOR: Final = 10
 
 # The share of the reference set a run must cover for its rate to be a
@@ -221,7 +224,7 @@ def labels_path(data_root: Path) -> Path:
 
     One definition because the writer and every reader must agree on it: a
     docket-pack build that looked one directory away from where ``qp-topics``
-    wrote would omit the topic cut and report it as "no labeler has run".
+    wrote would omit the topic cut and report it as an absent labels artifact.
     """
     return data_root / "qp-topics" / "qp-topics.json"
 

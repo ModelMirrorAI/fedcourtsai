@@ -6135,6 +6135,32 @@ class DocketPackTerm(_Strict):
     )
 
 
+class QpTopicSupport(_Strict):
+    """The raw rows behind one bucket of the published topic distribution.
+
+    Every count in the topic table is denial-reweighted, so a bucket's `est. n=`
+    is a population estimate and not the number of petitions anyone read. On a
+    frame that is still accruing, the gap between the two can be an order of
+    magnitude — one sampled denial stands for ten — so the smallest buckets
+    publish a disposition split over a handful of rows. This is the raw view a
+    reweighted bucket otherwise has none of, and the reason it is per label
+    rather than pooled: the thin buckets are not the ones a reader would guess.
+
+    ``reference_rows`` is carried beside it because the two populations enter on
+    different terms: a reference-set member rides in every batch, so a bucket
+    that is mostly reference rows is the block's mix rather than the frame's.
+    """
+
+    label: QpTopicLabel = Field(description="The primary `qp-topic-v0` label this bucket counts")
+    rows: int = Field(ge=0, description="Labeled cases in this bucket — rows on hand, unweighted")
+    reference_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows published from the hand reference set, which is in every "
+        "batch and so over-represented while the frame is still accruing",
+    )
+
+
 class DocketPackQpTopics(_Strict):
     """The question-presented topic distribution, inseparable from how it was labeled.
 
@@ -6228,6 +6254,12 @@ class DocketPackQpTopics(_Strict):
         description="Buckets whose per-label agreement is unmeasured in v0 — fewer reference "
         "examples than the support floor, where one entry moves the ratio by tens of points. "
         "The headline agreement certifies none of these rows",
+    )
+    support: list[QpTopicSupport] = Field(
+        default_factory=list,
+        description="The raw, unweighted rows behind each bucket, with the reference-sourced "
+        "share of them — the view a denial-reweighted `est. n=` does not give, and the one a "
+        "small bucket's disposition split cannot be read without",
     )
     section: StatPackSection = Field(
         description="The distribution: labeled cases bucketed by primary `qp-topic-v0` label"

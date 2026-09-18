@@ -22,7 +22,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from itertools import pairwise
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple
+from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -40,6 +40,12 @@ from .pipeline.judgment import (
     judgment_rode_the_grant_order,
 )
 from .pipeline.outcome import granted_flag, is_machine_readable
+
+# The reference set's per-label support floor, read here for a second job the docket
+# pack states out loud: below it a published bucket's disposition split is reported as
+# rows rather than as a rate. One number because the reason is one reason — under ten
+# rows a single petition moves a ratio by tens of points — so moving it moves both.
+from .pipeline.qp_topics import SUPPORT_FLOOR as _QP_REFERENCE_SUPPORT_FLOOR
 from .pipeline.salience import (
     SALIENCE_VERSION,
     registered_versions,
@@ -69,7 +75,9 @@ from .schemas import (
     Judgment,
     Outcome,
     PredictableEvent,
+    QpTopicLabel,
     QpTopicLabels,
+    QpTopicSupport,
     StatPack,
     StatPackCoverage,
     StatPackInterim,
@@ -807,15 +815,22 @@ def _qp_topic_spec(labels: QpTopicLabels) -> _SectionSpec:
 def _qp_topic_reference_spec(labels: QpTopicLabels) -> _SectionSpec:
     """The topic cut narrowed to the rows published from the hand reference set.
 
-    Never rendered: its only output is ``kept`` — how many reference-sourced rows
-    the topic section itself matched — which the scope note's over-representation
-    ratio divides by. Counted in the same streamed pass as the cut it describes,
-    because the two counts have to be over the same rows: an artifact-level
-    reference tally would be a count of a different population than the one the
-    published table sums, and the ratio between them is the number the caveat
-    exists to state.
+    Never rendered as a section: what is read off it is ``kept`` — how many
+    reference-sourced rows the topic section itself matched, which the scope
+    note's over-representation bound divides by — and its per-label buckets,
+    which give each published bucket its reference share. Counted in the same
+    streamed pass as the cut it describes, because the counts have to be over the
+    same rows: an artifact-level reference tally would count a different
+    population than the one the published table sums.
+
+    Buckets on the same primary label as the cut, so a bucket's reference share
+    is a share of the rows that bucket published. That share is not uniform —
+    the reference set holds every QP-bearing grant it could reach, so the
+    grant-heavy topics are the ones it inflates most — which is why one pooled
+    factor cannot de-bias a row and each bucket carries its own count.
     """
     members = {entry.case_id for entry in labels.entries if entry.source == "reference"}
+    primaries = {entry.case_id: entry.label for entry in labels.entries}
     return _SectionSpec(
         _QP_TOPIC_TITLE,
         "scotus",
@@ -823,9 +838,7 @@ def _qp_topic_reference_spec(labels: QpTopicLabels) -> _SectionSpec:
         True,
         True,
         GroupBy.qp_topic,
-        # One bucket, because only `kept` is read: bucketing on the case id would
-        # build a per-row slice for a section that is discarded.
-        key_fn=lambda row: "reference",
+        key_fn=lambda row: primaries.get(row.case_id),
         row_filter=lambda row: row.case_id in members,
     )
 
@@ -838,53 +851,99 @@ def _qp_topic_scope_note(rows: _SectionRows, reference_rows: int) -> str:
     numbers rather than as a standing sentence.
 
     The mandated string leads and stays contiguous, so it is quotable whole. Its
-    two counts are the **labeled coverage** of the cut's own frame, in ingested
-    rows — rows on hand — not walked serials: this document reserves *walked* for
-    the discovery cursors' census, which runs several-fold above the ingested
-    count because the historical walk samples denials.
+    two counts are labeled rows over the section's whole in-scope population, in
+    ingested rows — rows on hand — not walked serials: this document reserves
+    *walked* for the discovery cursors' census, which runs several-fold above the
+    ingested count because the historical walk samples denials. That ratio is not
+    the labeled share of the *labelable* frame, and the gap clause below is what
+    keeps it from being read as one.
 
     The clauses after it carry what the flags and that string leave unsaid: which
     counts are raw and which reweighted, that reweighting does not recover the
     docket, that a grant-enriched population makes this section's base-rate
-    column incomparable to the cuts above it, and **how the labeled subset was
-    chosen** — which the batching makes a claim of its own rather than a
-    footnote. The labeled subset is two populations, drawn on different terms:
-    the hand reference set, in every batch and so included with certainty, and a
-    stratified draw of the remainder, included only as its batch comes up. Both
-    then enter the table at one row apiece, so until the frame converges the
-    reference block is over-represented by the ratio of those two rates — and it
-    is grant-enriched by design and carries no sampling weights
-    (``docs/qp-topic.md``). Naming the ratio is the whole point: this cut's mix is
-    not the frame's while any of the frame is unlabeled, and no reweighting here
-    corrects it.
+    column incomparable to the cuts above it, **what the gap between the two
+    counts is made of**, and **how the labeled subset was chosen** — which the
+    batching makes a claim of its own rather than a footnote.
+
+    The gap clause is the one a partial frame makes load-bearing. ``scoped`` is
+    every in-scope ingested row, not every *labelable* one, so the rows outside
+    ``kept`` are two populations at once: rows carrying no stored
+    questions-presented text, which no batch can reach, and QP-bearing rows whose
+    batch has not come up. Nothing in the labels artifact records where that line
+    falls — the batch sidecar that knows the frame size is deliberately fenced off
+    the labeling job (``docs/qp-topic.md``) — so the labeled share *of the
+    QP-bearing frame* is not a number this cut can state, and it says so rather
+    than letting its own ratio be read as one.
+
+    The same unknown bounds the over-representation figure. The labeled subset is
+    two populations, drawn on different terms: the hand reference set, in every
+    batch and so included with certainty, and a stratified draw of the
+    QP-bearing remainder, included only as its batch comes up. Both then enter
+    the table at one row apiece, so until the frame converges the reference block
+    — grant-enriched by design and carrying no sampling weights
+    (``docs/qp-topic.md``) — is over-represented by the ratio of those two
+    inclusion rates. That ratio publishes as an **upper bound**, because its
+    denominator is the QP-bearing part of the unlabeled rows and only the whole
+    unlabeled count is on hand: dividing by the larger count understates the
+    drawn rows' inclusion rate and so overstates the factor, which is the
+    direction a caveat may err in. Naming it is still the point — this cut's mix
+    is not the frame's while any of the frame is unlabeled, and no reweighting
+    here corrects it — but naming it as a measurement would publish arithmetic
+    over a population the draw never ran on.
     """
     drawn = max(rows.kept - reference_rows, 0)
     unlabeled = max(rows.scoped - rows.kept, 0)
-    # The remainder's inclusion rate, against the frame outside the reference
-    # block — the denominator a drawn row was actually drawn from.
+    # Every unlabeled in-scope row plus the drawn ones: an upper bound on the pool
+    # the draw ran over, since an unknown share of it carries no questions-presented
+    # text at all and was never eligible.
     pool = drawn + unlabeled
-    # With no drawn rows the ratio is unbounded rather than large: the cut would
-    # be the reference block alone, which is the strongest form of the caveat and
-    # must not round to a finite-looking number.
-    over = (
-        f"{pool / drawn:.1f}x" if drawn else "an unbounded factor — every labeled row here is one"
+    gap = (
+        f"The {unlabeled} unlabeled row(s) span two gaps at once — rows carrying no stored "
+        "questions-presented text, which no labeling batch can reach, and QP-bearing rows "
+        "whose batch has not come up — and the labels artifact records neither size, so what "
+        "share of the QP-bearing frame is labeled is not a number this cut can state."
+        if unlabeled
+        else "No in-scope row is unlabeled, so the labeled rows are every row this section's "
+        "scope holds; the QP-bearing frame they were drawn from is a subset of it, of "
+        "unrecorded size."
     )
+    # `unlabeled` decides first: with nothing in scope unlabeled there is no
+    # unknown left to bound, whatever the draw did, and publishing a bound there
+    # would caveat a number the pass can state exactly.
+    if not unlabeled:
+        over = "no factor — every in-scope row is labeled, so both entered at the same rate"
+    elif drawn:
+        over = (
+            f"at most about {pool / drawn:.1f}x — an upper bound over the whole of that "
+            "block-outside count, because how many of those rows carry a questions-presented "
+            "text is unrecorded. A bound taken that way does not converge: when the last "
+            "QP-bearing row is labeled the distortion has closed while this figure, whose "
+            "denominator keeps counting rows no batch could reach, still will not read 1.0x"
+        )
+    else:
+        # With no drawn rows the factor is unbounded rather than large: the cut is
+        # the reference block alone, which is the strongest form of the caveat and
+        # must not round to a finite-looking number.
+        over = "an unbounded factor — every labeled row here is a reference-set member"
     return (
-        f"QP-bearing rows only — {rows.kept} of {rows.scoped} ingested rows labeled; "
+        f"QP-bearing rows only — {rows.kept} of {rows.scoped} in-scope ingested rows "
+        "labeled; "
         "grant-enriched; primaries only; not docket-representative. Those two counts are raw "
         "rows; the bucket counts are denial-reweighted, and no reweighting recovers the "
         "docket — QP presence is itself outcome- and stream-correlated, so this stays a share "
         "of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, "
         "so the mix is not the whole slice's; the base-rate column is over a grant-enriched "
-        "population and is not comparable to the sections above. Labeling accrues in batches, "
+        f"population and is not comparable to the sections above. {gap} Labeling accrues in "
+        "batches, "
         f"so the labeled rows are two populations on different terms: {reference_rows} hand "
         f"reference-set members, carried in every batch and so included with certainty, and "
-        f"{drawn} drawn from the remaining {pool} by a Term x fee-class-stratified, "
-        "seeded-hash order. Both count once here, so the reference block — grant-enriched by "
-        f"design and carrying no sampling weights — is over-represented by about {over}, and "
-        "this mix is not the frame's until every row is labeled. A naive share partly counts "
-        "coordinated filing campaigns rather than subjects; no de-duplicated companion is "
-        "published."
+        f"{drawn} drawn by a Term x fee-class-stratified, seeded-hash order from the "
+        f"QP-bearing part of the {pool} in-scope row(s) outside that block (the {unlabeled} "
+        "still unlabeled, plus these). Both count once here, so the reference block — "
+        "grant-enriched by design and carrying no sampling weights — is over-represented by "
+        f"{over}, and this mix is not the frame's until every QP-bearing row is labeled. A "
+        "naive share partly counts coordinated filing campaigns rather than subjects; no "
+        "de-duplicated companion is published."
     )
 
 
@@ -1726,7 +1785,7 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
 
     ``qp_topics_path`` names a ``qp-topic-v0`` labels artifact. A gate-passing one
     adds the question-presented topic cut, carrying that run's labeler and measured
-    agreement; absent — no labeler has run — the pack omits the cut and the
+    agreement; absent, or below the gate, the pack omits the cut and the
     rendered document names it among the gaps instead. ``gate_passed`` is re-read
     here rather than assumed from the file's existence: ``fedcourts qp-topics``
     declines to *write* a failing run, but the artifact records the flag either
@@ -1734,8 +1793,10 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
 
     One further condition ``docs/qp-topic.md`` sets on publication is **not**
     enforced here and cannot be: no cut may publish until the reference set's
-    denial- and GVR-stratified supplement block exists and is measured, which is a
-    property of the reference set that nothing in the labels artifact records. The
+    denial- and GVR-stratified supplement block exists and has been covered by a
+    scored labeling run, which is a property of the reference set that nothing in
+    the labels artifact records — a run's ``uncovered`` count is over whatever
+    reference set it was handed, not over a named block. The
     cell workflows also delete ``data/qp-topics/`` before an agent starts, so a
     pack regenerated inside a cell's checkout omits the cut by construction rather
     than by regression.
@@ -1772,6 +1833,23 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
         # drop the gap bullet, which is the one state a reader most needs it in.
         if rows.kept:
             reference_rows = scan.section_rows[-1].kept
+            # Raw rows per bucket, from the same pass: the reweighted `est. n=`
+            # the table prints is a population estimate, and on a bucket built
+            # from a handful of sampled denials the two differ by an order of
+            # magnitude. The reference-sourced share rides along per bucket
+            # because it is not uniform across them.
+            reference_slices = scan.sections[-1]
+            support = [
+                QpTopicSupport(
+                    label=cast(QpTopicLabel, key),
+                    rows=entry.cases,
+                    reference_rows=(reference_slices[key].cases if key in reference_slices else 0),
+                )
+                for key, entry in sorted(
+                    scan.sections[-2].items(), key=lambda item: (-item[1].cases, item[0])
+                )
+                if key != _NONE_KEY
+            ]
             qp_topics = DocketPackQpTopics(
                 labeler=labels.labeler,
                 batches=len(labels.batches),
@@ -1788,6 +1866,7 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
                 unmeasured_labels=[
                     row.label for row in labels.agreement.per_label if row.rate is None
                 ],
+                support=support,
                 # The scope note is set here rather than on the spec because its
                 # numbers are the scan's: how many rows carry a label is not known
                 # until the rows have been walked.
@@ -2318,9 +2397,9 @@ _GVR_SPLIT_CAVEAT = (
 # the renderer drops this bullet when the pack carries one.
 _QP_TOPIC_GAP = (
     "**What the petitions are about.** The claim taxonomy for this cut exists — "
-    "the `qp-topic-v0` vocabulary (`docs/qp-topic.md`) — but no labeler has run "
-    "over the stored questions-presented texts, so the distribution is not yet "
-    "computed. When it is, it carries that vocabulary's coverage caveat: QP "
+    "the `qp-topic-v0` vocabulary (`docs/qp-topic.md`) — but no gate-passing labels "
+    "artifact was on disk when this pack was built, so the distribution is not "
+    "computed here. Where one is, it carries that vocabulary's coverage caveat: QP "
     "presence is a document-fetch artifact, not a sample of the docket."
 )
 
@@ -2347,7 +2426,7 @@ _DOCKET_GAPS = (
 def _qp_topic_provenance(topics: DocketPackQpTopics) -> list[str]:
     """The lines that make the topic table's numbers readable, under the table.
 
-    Four claims a share cannot be quoted without. The agreement figure never
+    The claims a share cannot be quoted without. The agreement figure never
     appears without its ``n``, without the rate a **constant** labeler scores on
     the same entries — on a sixteen-label vocabulary most of any rate is that
     floor, and only the distance from it is skill — or without the word
@@ -2372,8 +2451,9 @@ def _qp_topic_provenance(topics: DocketPackQpTopics) -> list[str]:
         f"_Accrued over {spans}. The most recent was labeled by {topics.labeler}, whose "
         + f"primaries matched the `qp-topic-v0` reference rater on {topics.agree} of "
         + f"{topics.n} reference case(s) ({rate}), against the {floor} a constant labeler "
-        + "scores on the same entries — **agreement, not accuracy**: with a single hand "
-        + "rater, rater error and labeler error cannot be separated, and the reference frame "
+        + "scores on the same entries — **agreement, not accuracy**: the reference raters "
+        + "were agent sessions too, so rater error and labeler error cannot be separated, "
+        + "and the reference frame "
         + "is grant-enriched, so the figure certifies the grant stream only. That rate "
         + "certifies the batch that produced it, not every row in the table above; the "
         + f"per-batch figures are in the labels artifact. {topics.uncovered} reference "
@@ -2390,6 +2470,53 @@ def _qp_topic_provenance(topics: DocketPackQpTopics) -> list[str]:
             + " — fewer reference examples than the support floor, where one entry moves the "
             + "ratio by tens of points. The figure above certifies none of those rows._",
         ]
+    lines += _qp_topic_support_lines(topics)
+    return lines
+
+
+def _qp_topic_support_lines(topics: DocketPackQpTopics) -> list[str]:
+    """The raw view a denial-reweighted bucket does not otherwise publish.
+
+    Every count in the table is reweighted, so `est. n=` is a population estimate
+    and a bucket's real support is smaller — by up to the denial sampling
+    weight, which is where a two-row bucket renders a two-figure denominator. The
+    counts are printed rather than the shares suppressed because suppression
+    would need the shared bucket renderer to know about this section; naming the
+    rows beside the estimate answers the same question and leaves the table's
+    machinery alone.
+
+    The thin buckets are then named outright, on the same floor the reference set
+    uses per label: under it one row moves a disposition split by tens of points,
+    and what the cell reports is the rows themselves rather than a rate. The
+    reference-sourced count rides beside each bucket because the block is
+    over-represented while the frame accrues and unevenly so — it holds every
+    QP-bearing grant it could reach, so it inflates the grant-heavy topics most,
+    and one pooled factor cannot de-bias a row.
+    """
+    if not topics.support:
+        return []
+    counts = ", ".join(
+        f"`{entry.label}` {entry.rows} [{entry.reference_rows}]" for entry in topics.support
+    )
+    lines = [
+        "",
+        "_Rows on hand behind each bucket, reference-sourced in brackets, ordered by rows "
+        + "rather than by the table's reweighted count — the raw view the reweighted "
+        + f"`est. n=` above does not give: {counts}. A bucket's `est. n=` is an "
+        + "estimate of the population its rows stand for, so it runs above the rows read; the "
+        + "reference share is not uniform across buckets, and the block holds every QP-bearing "
+        + "grant it could reach, so it inflates the grant-heavy topics most._",
+    ]
+    thin = [entry.label for entry in topics.support if entry.rows < _QP_REFERENCE_SUPPORT_FLOOR]
+    if thin:
+        lines += [
+            "",
+            "_Read the disposition split of "
+            + ", ".join(f"`{label}`" for label in thin)
+            + f" as the rows themselves, not as a rate: under {_QP_REFERENCE_SUPPORT_FLOOR} rows "
+            + "on hand one petition moves it by tens of points, and the `est. n=` beside it is "
+            + "what those rows stand for rather than what was read._",
+        ]
     return lines
 
 
@@ -2405,8 +2532,8 @@ def render_docket_markdown(pack: DocketPack) -> str:
     Deterministic; safe on the empty pack (renders a one-line note).
 
     The topic cut and the gap bullet naming its absence are mutually exclusive:
-    the bullet says no labeler has run, which stops being true exactly when the
-    cut renders.
+    the bullet reports that no gate-passing labels artifact backed this build,
+    which stops being true exactly when the cut renders.
 
     Every Term is rendered rather than capped. The statpack's cap bounds what the
     predict/evaluate prompts point agents at; this document is not that surface,
