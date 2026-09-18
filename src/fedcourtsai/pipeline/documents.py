@@ -911,7 +911,20 @@ FETCH_LOSS_UNAVAILABLE = "unavailable"
 # routine.
 FETCH_LOSS_OFF_HOST = "off-host"
 FETCH_LOSS_BIO_EMPTY = "bio-empty"
-# The last reason is one step earlier than the four above, and it is the one
+# The partial of `bio-empty`, and the outcome the three per-document reasons
+# above cannot express. A multi-respondent case whose opposition briefs were all
+# selected and only *some* fetched still stores a `brief-in-opposition` row, and
+# the per-brief reason that shortened it — one `unavailable` or `http-error`
+# among however many the pass recorded — cannot say the row it shortened was
+# stored anyway. That is a different outcome from a document lost outright: the
+# case ends the pass holding an opposition a reader takes for the whole of it,
+# and the stored row is byte-indistinguishable from a genuine lone respondent's
+# except for the per-brief header a partial keeps
+# (:func:`_combine_bio_documents`). Recorded per case, with the selected and
+# fetched counts in the detail, so the shortfall is attributable rather than
+# inferred from a header count after the fact.
+FETCH_LOSS_BIO_PARTIAL = "bio-partial"
+# The last reason is one step earlier than the five above, and it is the one
 # loss they cannot see: they are raised inside the loops over
 # `select_documents`' output, so a docket the pass was *asked* to fetch for and
 # selected nothing on leaves no trace among them — and a case that reaches
@@ -927,23 +940,29 @@ _NOT_SELECTED_KIND = "the primary document"
 
 @dataclass(frozen=True)
 class DocumentFetchLosses:
-    """How many selected documents a fetch pass dropped, by reason.
+    """What a fetch pass lost, by reason — documents for three of them, cases for three.
 
     ``http_error`` is a transport failure the client's own retry did not clear;
     ``unavailable`` an upstream 404 (:meth:`SupremeCourtClient.get_document`
     returns ``None``) — the rolling-window miss; ``off_host`` a link that was not
     HTTPS on the Court's own host, or was redirected off it, refused unrequested;
     ``bio_empty`` a case whose opposition briefs were all selected and none
-    fetched, so the combined ``brief-in-opposition`` row was never built. Those
-    four are post-selection. ``not_selected`` is the pre-selection one: a case
+    fetched, so the combined ``brief-in-opposition`` row was never built; and
+    ``bio_partial`` its partial — a case whose opposition briefs were all
+    selected and only some fetched, so a row *was* stored and it carries less
+    than the docket's opposition. Those five are post-selection.
+    ``not_selected`` is the pre-selection one: a case
     whose docket JSON nominated no document at all, so nothing was ever attempted
     for it — the class an upstream that posts no PDF (a Rule 34.6 paper filing)
     and a selector with no arm for the filing type both land in, and the reason
-    the others cannot see either. The last two count *cases*, not documents, and
-    ``bio_empty`` does not partition the three above it: the per-brief failures
-    that emptied the group — an off-host link among them — are counted there as
-    well. ``not_selected`` is disjoint from all four by construction — nothing
-    was selected, so nothing could fail. Both case counts are per *attempt*, not
+    the others cannot see either. The last three count *cases*, not documents, and
+    neither ``bio_empty`` nor ``bio_partial`` partitions the three above them: the
+    per-brief failures that emptied or shortened the group — an off-host link
+    among them — are counted there as
+    well. ``not_selected`` is disjoint from all five by construction — nothing
+    was selected, so nothing could fail. ``bio_empty`` and ``bio_partial`` are
+    disjoint from each other, since they name the two sides of the same test.
+    All three case counts are per *attempt*, not
     per distinct case: a docket the poller reaches twice in one process counts
     twice, which is the reading a pass-level record wants and the run log shows.
     """
@@ -952,6 +971,7 @@ class DocumentFetchLosses:
     unavailable: int = 0
     off_host: int = 0
     bio_empty: int = 0
+    bio_partial: int = 0
     not_selected: int = 0
 
     @property
@@ -959,15 +979,41 @@ class DocumentFetchLosses:
         """How many losses were recorded — a record count, not a document count.
 
         Named for what it sums, because the fields do not share a unit: the three
-        fetch reasons count documents while ``bio_empty`` and ``not_selected``
-        count cases, so a "total documents lost" reading of it would
-        double-count every case whose whole opposition failed and over-count
+        fetch reasons count documents while ``bio_empty``, ``bio_partial`` and
+        ``not_selected`` count cases, so a "total documents lost" reading of it
+        would double-count every case whose opposition failed in whole or in part
+        and over-count
         every case that selected nothing. What it is good for is the only
         question that needs one number: whether this pass lost anything at all.
         """
         return (
-            self.http_error + self.unavailable + self.off_host + self.bio_empty + self.not_selected
+            self.http_error
+            + self.unavailable
+            + self.off_host
+            + self.bio_empty
+            + self.bio_partial
+            + self.not_selected
         )
+
+    @property
+    def by_reason(self) -> dict[str, int]:
+        """The same counts keyed by the reason strings, zero-filled, in field order.
+
+        The single rendering of this record, so the lanes that report it cannot
+        list different reasons: the document back-fill's ledger and the live
+        window's loss block both read it here, and a reason added to the
+        dataclass reaches both surfaces or neither. Zero-filled and always
+        present, because an unlisted reason reads as an omitted one rather than
+        as a zero.
+        """
+        return {
+            FETCH_LOSS_HTTP_ERROR: self.http_error,
+            FETCH_LOSS_UNAVAILABLE: self.unavailable,
+            FETCH_LOSS_OFF_HOST: self.off_host,
+            FETCH_LOSS_BIO_EMPTY: self.bio_empty,
+            FETCH_LOSS_BIO_PARTIAL: self.bio_partial,
+            FETCH_LOSS_NOT_SELECTED: self.not_selected,
+        }
 
 
 # Process-wide and monotonic within a run, read through `document_fetch_losses`.
@@ -1021,6 +1067,7 @@ def document_fetch_losses() -> DocumentFetchLosses:
         unavailable=_fetch_losses[FETCH_LOSS_UNAVAILABLE],
         off_host=_fetch_losses[FETCH_LOSS_OFF_HOST],
         bio_empty=_fetch_losses[FETCH_LOSS_BIO_EMPTY],
+        bio_partial=_fetch_losses[FETCH_LOSS_BIO_PARTIAL],
         not_selected=_fetch_losses[FETCH_LOSS_NOT_SELECTED],
     )
 
@@ -1092,8 +1139,9 @@ def _combine_bio_documents(
     (:func:`fedcourtsai.provision.documents_before`).
 
     A failed fetch of one brief never drops the others, and each failure — plus
-    the case-level case where none of them fetched — is recorded
-    (:func:`document_fetch_losses`).
+    the two case-level outcomes those per-brief failures cannot express, none of
+    the group fetched (``bio-empty``) and some but not all of it
+    (``bio-partial``) — is recorded (:func:`document_fetch_losses`).
     """
     if not bio_refs:
         return None
@@ -1105,6 +1153,12 @@ def _combine_bio_documents(
     # skipped forever.
     if stored_url == BIO_URL_JOIN.join(sorted(ref.url for ref in bio_refs)):
         return None
+    # Off the SELECTED refs, deliberately, and it must stay that way: a group of
+    # two that fetches one is then stored under its per-brief header where a
+    # genuine lone opposition is stored raw, which is the only difference between
+    # the two rows and therefore the one durable trace a partial leaves in the
+    # corpus. Reading it off `fetched_refs` after the loop would erase that trace
+    # and change the stored bytes of every partial row.
     single = len(bio_refs) == 1
     fetched_refs: list[DocumentRef] = []
     blocks: list[str] = []
@@ -1150,6 +1204,22 @@ def _combine_bio_documents(
             f"{len(bio_refs)} selected brief(s), none fetched",
         )
         return None
+    if len(fetched_refs) < len(bio_refs):
+        # Some but not all: a row IS stored, and it carries less than the docket's
+        # opposition. Recorded apart from the per-brief failures above for the
+        # reason `bio-empty` is — it is the outcome rather than the mechanism —
+        # and apart from `bio-empty` because the two are opposite repairs: an
+        # empty group leaves the case with no row for the next poll's idempotency
+        # check to be short of, while a partial group leaves a stored row a
+        # reader takes for the whole opposition. The counts go in the detail
+        # because the shortfall is what sizes it; without them the run log says
+        # only that something was lost here.
+        _record_fetch_loss(
+            FETCH_LOSS_BIO_PARTIAL,
+            case_id,
+            KIND_BRIEF_IN_OPPOSITION,
+            f"{len(bio_refs)} selected brief(s), {len(fetched_refs)} fetched",
+        )
     text = "\n\n".join(blocks)
     if len(text) > char_cap:
         text = text[:char_cap]
@@ -1244,7 +1314,7 @@ def fetch_case_documents(
     refs = select_documents(payload)
     if not refs:
         # Selection came back empty on a docket the caller asked about, which is
-        # the one loss the four post-selection reasons cannot see. Recorded
+        # the one loss the five post-selection reasons cannot see. Recorded
         # once per case, before any fetch: there is no kind and no URL to
         # attribute it to, and the count is of cases left with nothing.
         _record_fetch_loss(

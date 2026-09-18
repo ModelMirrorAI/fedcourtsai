@@ -336,12 +336,32 @@ needs a denominator: a gap that drains says nothing without the population it
 drains from. The wide `distributed`
 stock stays petition-keyed and unfiltered, matching what it is. On the fetch
 side the routes are recorded as they happen —
-`documents.document_fetch_losses` counts every dropped document by reason (a
-transport failure, a link the upstream did not serve, a link that is not HTTPS
-on the Court's own host, an opposition whose every brief failed) and each one is
-warned into the run log — so those causes stop leaving the same trace, which is
-none. `off-host` is the one of the four that is not an upstream failing to serve
-and is not repaired by re-attempting it. **Every request the fetching client
+`documents.document_fetch_losses` counts what each pass lost, by reason — three
+of them per document (a transport failure, a link the upstream did not serve, a
+link that is not HTTPS on the Court's own host) and two per case (an opposition
+whose every brief failed, and an opposition only *some* of whose briefs did) —
+and each one is warned into the run log, so those causes stop leaving the same
+trace, which is none. `off-host` is the one per-document reason that is not an upstream failing
+to serve and is not repaired by re-attempting it; where it is the failure that
+emptied or shortened an opposition, the case-level reason beside it inherits
+that irreparability. `bio-partial` is the reason whose case still ends the pass
+holding a `brief-in-opposition` row: some of a multi-respondent case's
+selected opposition briefs fetched and some did not, so the
+row exists and carries less than the docket's opposition, where `bio-empty`
+writes no row this pass at all. It is counted at the outcome grain
+because the per-document reason that shortened the row cannot say a row was
+stored anyway, and it wants a maintainer's reading for the same
+reason the back-fill gap class does: the short set heals only at the case's
+**next provisioning fetch**, and the triggers for one are finite. Provisioning
+fires on a distribution transition — a fresh distribution or a relist — and in
+the cycle-end salience sweep while some enabled predictor is still owed a cell
+on the case; the stored key records the briefs actually fetched, so it never
+matches the selected set and the next such fetch re-tries the missing brief. A
+case that takes no further transition and owes no further cell keeps the short
+row, and `brief-in-opposition` is not a back-fill gap kind, so the repair pass
+reaches it only incidentally — when the case is a candidate for some other
+missing kind and the apply runs the whole selector over its payload.
+**Every request the fetching client
 makes is HTTPS on a supremecourt.gov host, and it enforces that rather than
 assuming it**: a `DocumentUrl` is upstream text lifted verbatim out of docket
 JSON and a `Location` header is upstream text too, so the client checks the URL
@@ -352,12 +372,33 @@ are stored and read by a cell as evidence, and the politeness pacing and the 403
 retry posture are keyed to the intended host — so a single occurrence is worth a
 maintainer's reading. (The reachability probe below keeps its own client, which
 follows a redirect wherever it leads: it builds its own URLs and writes nothing
-to the corpus, so where a body came from cannot enter the record.) A fifth
-reason sits one step earlier and is the one loss those four cannot see:
+to the corpus, so where a body came from cannot enter the record.) A sixth
+reason sits one step earlier and is the one loss those five cannot see:
 `not-selected`, recorded per case where the docket JSON nominated no document,
 so the class an upstream that publishes no PDF (a Rule 34.6 paper
 filing) and a selector with no arm for the filing type both land in is counted
 rather than silent.
+**Both lanes that fetch for a case a cell can still be minted over report the
+counts, not just the one that repairs.** A
+counter and a `logger.warning` die with the runner, so a reason recorded and
+never reported is a loss that happened and left nothing: `live-poll` — where the
+ordinary provisioning fetch happens, and therefore where most of these losses
+are incurred — closes each window with the whole reason
+set, zero-filled, on stdout, plus a `::warning::` and a Markdown block on the
+Actions step summary whenever the window lost anything; the document back-fill
+prints the same set as its apply's ledger (`backfill-documents`, whose dry run
+fetches no filings, so its copy of the ledger is structurally zero). The two
+surfaces render
+from one keying on the record itself, so a reason added to it reaches both or
+neither. The per-document detail — which case, which link, and for `bio-partial`
+how many briefs were selected against how many fetched — stays in the
+`documents:` warnings; the summary carries the count, what the reason means, and
+where that detail is. The **historical walker** is the third lane that fetches
+(`historical-terms`, for ingested Terms from `document_floor_term` onward) and
+the one that reports none of it: it records into the same counter and its run
+report carries no ledger. That is a known residue rather than a claim about it —
+every row it ingests lands already resolved, so a brief lost there costs a
+replay cell's input and never a forecast, and no sweep re-fetches it.
 **The questions presented
 are derived from the petition PDF, never from `QPLink`:** the `/qp/` page is
 generated when certiorari is *granted* and opens with the grant order, so the
