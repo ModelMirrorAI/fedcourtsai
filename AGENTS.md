@@ -396,7 +396,7 @@ task-specific instructions: the prompt file named in your run
 | How does the SCOTUS live channel work? | `docs/live-sources.md` |
 | Which command does X, and with which flags? | `docs/cli.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
-| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, the first batch has landed, and the cut renders at the next `fedcourts docket`) | `docs/qp-topic.md` |
+| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, two batches have landed, and the cut renders at the next `fedcourts docket`) | `docs/qp-topic.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` (the rules), `docs/freeze-record.md` (the dated record) |
 | How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote/writing pre-registered; the semantic family an alpha declared, elicited, staged and graded on the merits moments, producing only the availability mask while opinion coverage is a rounding error) | `docs/outcome-decomposition.md` |
 | How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated, and fed to the leaderboard as `mean_vote_accuracy` — no vote source populated yet; margins pre-registered only) | `docs/decision-model.md` |

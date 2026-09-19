@@ -580,6 +580,68 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     return env
 
 
+def _under_the_ledger(data_root: Path) -> bool:
+    """Whether ``data_root`` is the repository's own ``data/`` tree.
+
+    The one question :func:`_output_root_block` turns on, asked of the resolved
+    paths so a relative invocation and an absolute one answer alike. The ledger
+    is whatever the settings name it (default ``data/``, relative to the working
+    directory), because that is the tree the prompt templates' ``data/cases/...``
+    output path actually means. An unresolvable path is not the ledger: naming
+    the output root outright is the safe answer to "I cannot tell".
+    """
+    try:
+        return data_root.resolve() == (Path.cwd() / get_settings().data_root).resolve()
+    except OSError:  # pragma: no cover - a path the OS refuses to resolve
+        return False
+
+
+def _output_root_block(request: RunRequest) -> str:
+    """The kickoff's output-path override, empty for a cell writing to the ledger.
+
+    The prompt templates name a repo-relative ``data/cases/...`` output path.
+    That is right for a live cell and wrong for every cell the harness places
+    under a scratch root — the cert back-test's ``--work-dir``, a cascade over a
+    temp tree — where an engine that follows the template writes into the
+    checkout's ``data/`` while the runner reads the scratch root, and the cell is
+    lost with no file where anyone looks for it. Engines do not resolve a
+    repo-relative path against a root they were never told about the same way,
+    and a harness that leaves two readings open is asking each of them to
+    guess: whenever the output root is not the ledger, the kickoff names the
+    cell's own directory outright and absolutely, and says which of the two
+    paths governs.
+
+    A cell writing to the ledger gets no such line, so the live predict and
+    evaluate kickoffs stay byte-identical to the workflows' own.
+    """
+    if _under_the_ledger(request.data_root):
+        return ""
+    events = CasePaths(request.data_root.resolve(), request.court_id, request.docket_id).event(
+        request.event_id
+    )
+    if request.role == UsageRole.predictor:
+        target = events.prediction_dir(request.actor_id, request.run_id)
+        shape = ""
+    else:
+        target = events.evaluator_dir(request.actor_id)
+        shape = (
+            " (one directory per predictor you score, then the run id; this "
+            "cell's own run-keyed files sit beside them)"
+        )
+    # A prohibition rather than a pointer, because the tree the template names
+    # is one an off-ledger cell has reason to stay out of entirely: a replay
+    # cell's own case is decided, and the ledger in the same checkout may hold
+    # the outcome it is being asked to forecast.
+    return (
+        f"Write your output files under {target.as_posix()}/{shape} — and do "
+        "not read or write under the repository's data/ directory at all. This "
+        "run's output root is not the repository ledger, so the "
+        "`data/cases/...` output path the prompt template names does not apply "
+        "to it; this line does.\n"
+        "\n"
+    )
+
+
 def _claude_instruction(request: RunRequest, model: str) -> str:
     """The kickoff prompt, mirroring what the live workflows give their engines.
 
@@ -588,6 +650,9 @@ def _claude_instruction(request: RunRequest, model: str) -> str:
     now phrase it: some engines sanitize the shell environment in CI, so the
     prompt — not the env — is the contract's delivery channel, and the local
     harness keeps the same shape so a cell reads identically here and in CI.
+
+    A cell whose output root is not the ledger carries one line the workflows'
+    kickoffs have no use for — see :func:`_output_root_block`.
     """
     prompt = request.prompt.as_posix()
     if request.role == UsageRole.predictor:
@@ -626,6 +691,7 @@ def _claude_instruction(request: RunRequest, model: str) -> str:
         f"MODEL_ID={model}\n"
         "\n"
         f"{record_block}"
+        f"{_output_root_block(request)}"
         "These values are authoritative; the same identifiers are exported as "
         "environment variables on engines that pass them through, but if "
         "`$COURT_ID` expands empty in your shell, use the literals above. "

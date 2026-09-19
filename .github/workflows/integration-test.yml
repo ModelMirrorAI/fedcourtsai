@@ -46,7 +46,10 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # smoke and the freeze probe are dispatch-only and join no whole-suite run),
 # and `all-offline`
 # (the same suite with both engine
-# families dropped) spends nothing. The repro leg is the long one in wall-clock
+# families dropped) spends nothing — which is why it, not a single
+# scenario, is the dispatch default: the whole suite is what a dispatch
+# usually wants, and the free one is what it gets without typing.
+# The repro leg is the long one in wall-clock
 # as well: the judge cell it presents runs 40-50 minutes on production cells
 # and has been measured past 50 here, so its bounds and its job cap are set
 # above that rather than at the suite's usual 45. The collect scenario is environment-free on top of token-free:
@@ -144,8 +147,14 @@ on:
           MODEL TOKENS: three engine-smoke cells' worth plus three boot
           probes. `all-offline` is that same suite with both engine families
           dropped: token-free end to end, and accepted as whole-suite
-          freshness evidence only by a promotion dispatched with its own
-          engine-smoke skip set. `codex-application-repro` is the repro
+          freshness evidence only under the engine-smoke skip — the
+          `promote` dispatch input for the pre-flight, the
+          `promote:skip-engine-smoke` label for the promotion PR's required
+          check. It is also the DEFAULT, so an unqualified
+          dispatch spends nothing and the paid suite is always a typed
+          choice — `-f scenario=all`, which a promotion-bound suite makes
+          once per batch at the final staging head.
+          `codex-application-repro` is the repro
           family's first member — one codex evaluate cell against a pinned
           application-lane record — and SPENDS MODEL TOKENS: one evaluate
           cell's worth of codex. `qp-labeler-smoke` sends the qp-topic
@@ -167,7 +176,7 @@ on:
           posture, and the account-drop-vs-teardown isolation. No
           whole-suite selection fans out either of them.
         type: choice
-        default: ranged-reads
+        default: all-offline
         options:
           - ranged-reads
           - corpus-service
@@ -306,7 +315,10 @@ permissions: {}
 # cancel or queue behind another, and an overlap on the same scenario is
 # harmless because every scenario is idempotent and side-effect free — the one
 # carve-out, the repro leg's marker-keyed telemetry row, is reset rather than
-# stacked by a re-dispatch. The
+# stacked by a re-dispatch. That separation is what makes the `all-offline`
+# default safe: an unqualified dispatch lands in the offline group, where it
+# can supersede only another token-free suite — never the paid `all` a
+# promotion is waiting on. The
 # canary keys on its own name for the whole-suite reason: a schedule supplies
 # no inputs, so the pair would collapse to a constant anyway, and naming it
 # says which runs supersede each other.
@@ -2915,7 +2927,7 @@ jobs:
             not wait for a reply.
           claude_args: |
             --model claude-haiku-4-5-20251001
-            --max-turns 120
+            --max-turns 200
             --permission-mode default
             --allowedTools Write,Edit
             --disallowedTools Agent,Task,Explore,Bash,WebFetch,WebSearch
@@ -2931,15 +2943,19 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
-          # `wc` comes off PATH, and an agent subprocess can prepend to
+          # `awk` comes off PATH, and an agent subprocess can prepend to
           # `$GITHUB_PATH` for every later step — a shimmed one is a stuck run
           # reporting a healthy count. Pinned to root-owned directories, as
-          # the pristine step pins `git` for the same reason.
+          # the pristine step pins `git` for the same reason. The count is
+          # progress only on this leg (the smoke's measure legs run on canned
+          # inputs in another job), but it is taken exactly as the paid lane
+          # takes it — non-blank lines, as `read_label_lines` reads them — so
+          # the two blocks stay one shape.
           PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           set -euo pipefail
           if [ -f "$LABELS_OUT" ]; then
-            lines=$(wc -l < "$LABELS_OUT")
+            lines=$(awk 'NF{n++} END{print n+0}' "$LABELS_OUT")
             present=true
           else
             lines=0

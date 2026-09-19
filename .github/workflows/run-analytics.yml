@@ -953,6 +953,17 @@ jobs:
       # holds. A plain integer, so it carries none of the draw's shape — which
       # is why the sidecar it is read from stays here (see the extract step).
       frame-rows: ${{ steps.extract.outputs.frame-rows }}
+      # The batch's own size — how many texts this extract holds — read from
+      # the same sidecar, on the same terms, and carrying no more shape than
+      # the frame count does: it is the row count of a file the labeler reads
+      # in full and could tally itself. It crosses because the labeling job's
+      # publication gate is "the labeler wrote one line per extract row", and
+      # the denominator of that comparison must not be a number the labeler
+      # could edit — `qp-texts.json` lands inside the one directory the agent
+      # holds a Write grant over, so a locally counted batch size would let a
+      # shrunken extract make a partial run look complete. A job output is
+      # fixed before the agent starts.
+      batch-rows: ${{ steps.extract.outputs.batch-rows }}
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
@@ -1054,6 +1065,22 @@ jobs:
               ;;
           esac
           echo "frame-rows=$frame" >> "$GITHUB_OUTPUT"
+          # The batch's row count travels beside it, through the same guard and
+          # for the same reason it is a value rather than a file: the labeling
+          # job's measure gate compares it against the label lines the run left
+          # behind. `rows` is the sidecar's word for the batch's size; the
+          # ledger's `batch` is an index, which is why the sidecar spells them
+          # apart. A zero is refused here too — an empty extract is nothing for
+          # a labeler to finish, and it would make "wrote every row" vacuous.
+          rows="$(jq -er '.rows | numbers | floor' \
+            "$RUNNER_TEMP/qp-texts.batch.json")" || rows=''
+          case "$rows" in
+            ''|0|*[!0-9]*)
+              echo "::error::qp-corpus wrote no usable batch row count; refusing to pass one on"
+              exit 1
+              ;;
+          esac
+          echo "batch-rows=$rows" >> "$GITHUB_OUTPUT"
 
       - name: Upload the extract
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -1087,7 +1114,8 @@ jobs:
     # three post-agent transcript steps at 5 each and the 3-minute labels scan
     # come to 63, and everything else here carries no cap of its own — the
     # `fetch-depth: 0` checkout, apt, the artifact download, the label-line
-    # count, the scanner path clear, the two artifact uploads, the measure
+    # count, the scanner path clear, the two artifact uploads, the short-batch
+    # refusal, the measure
     # composite (which also revalidates the data root), the App token, and the
     # PR step's fetch and push. Twelve minutes for that set is headroom for
     # two things worth naming: the measure composite, which runs the labels
@@ -1338,9 +1366,20 @@ jobs:
           # uses it — a denied name the running CLI does not carry costs
           # nothing, and every name here is denied whether or not this
           # generation advertises it.
+          # `--max-turns` is sized to leave the 40-minute step cap the binding
+          # bound, because the step cap is the one the ceiling is derived from
+          # (docs/qp-topic.md) and the one whose expiry still leaves the rows
+          # the run wrote on disk. A turn cap does not: the action fails the
+          # step *after the fact* when a successful result used more turns than
+          # the cap allows, so the complaint lands once every label line is
+          # already written, and a cap inside the pace buys nothing and costs a
+          # finished batch. The two complete ceiling-sized batches at the
+          # finishing tier took 76 and 128 turns, so 200 sits clear of the
+          # measured range — and the measure step below keys on the label-line
+          # count rather than on this step's verdict in any case.
           claude_args: |
             --model ${{ inputs.label_model }}
-            --max-turns 120
+            --max-turns 200
             --permission-mode default
             --allowedTools Write,Edit
             --disallowedTools Agent,Task,Explore,Bash,WebFetch,WebSearch
@@ -1356,30 +1395,40 @@ jobs:
       # below it can withhold: the scanner build reaches the network and the
       # scan can hit. A count, never a byte of the file — this line goes to a
       # public step summary with no scan ahead of it, so it carries arithmetic
-      # only. `wc -l` counts complete lines, which is what a JSONL reader
-      # would accept anyway.
+      # only. The count is taken the way `read_label_lines` reads the file —
+      # non-blank lines, final newline or not — because the measure step gates
+      # on it equalling the extract's batch size, and `wc -l`'s newline count
+      # differs from that in both directions: it drops a complete last line
+      # that was written without a trailing newline (refusing a finished
+      # batch) and counts a stray blank one.
       - name: Count the label lines the run left behind
         id: label_lines
         if: ${{ !cancelled() }}
         env:
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
-          # `wc` comes off PATH like every other tool a verdict rests on, and
+          # `awk` comes off PATH like every other tool a verdict rests on, and
           # `$GITHUB_PATH` — appendable from the labeling step's subprocesses —
-          # prepends ahead of everything for every later step. A shimmed `wc`
-          # is a stuck run reporting a healthy count, on the one number this
-          # job publishes with no scan ahead of it, so PATH is pinned to the
-          # root-owned directories exactly as the scanner steps below pin it.
+          # prepends ahead of everything for every later step. A shimmed `awk`
+          # is a stuck run reporting a healthy count — and, since the measure
+          # step gates on this number, a partial run reporting a full batch.
+          # PATH is pinned to the root-owned directories exactly as the
+          # scanner steps below pin it.
           PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           set -euo pipefail
           if [ -f "$LABELS_OUT" ]; then
-            lines=$(wc -l < "$LABELS_OUT")
+            lines=$(awk 'NF{n++} END{print n+0}' "$LABELS_OUT")
             present=true
           else
             lines=0
             present=false
           fi
           echo "present=$present" >> "$GITHUB_OUTPUT"
+          # The count itself, not just its presence: the measure step gates on
+          # it equalling the extract's batch size, so this number — arithmetic
+          # off a PATH the agent cannot shim — is what decides whether the run
+          # publishes.
+          echo "lines=$lines" >> "$GITHUB_OUTPUT"
           echo "The labeling step left ${lines} label line(s) on the runner." \
             >> "$GITHUB_STEP_SUMMARY"
           echo "label lines written: ${lines}"
@@ -1400,9 +1449,10 @@ jobs:
         # and tampered should say which, and a skipped assertion says nothing.
         # Idempotent on every early-exit path (the rm tolerates a missing dir;
         # the checkout is a no-op when the move step never ran), and its
-        # success never revives the job — the measure and PR steps carry no
-        # `if:` of their own, so they stay on the default `success()` gate that
-        # a failed assertion has already turned red. That gating is this
+        # success never revives the job. The measure and PR steps below key on
+        # the label-line count rather than on the default `success()` gate, and
+        # a named `if:` drops the implicit `success()` — so this assertion is
+        # named in their conditions explicitly. That gating is this
         # assertion's whole job: it is about a *rigged number*, since the
         # measure step does run this checkout's `fedcourts qp-topics`.
         if: ${{ !cancelled() }}
@@ -1785,6 +1835,31 @@ jobs:
           # this artifact exists for are the ones where it never does.
           retention-days: 1
 
+      # Where a wasted run gets its redness. The gate below skips a short run
+      # rather than letting `qp-topics` refuse it, and a skip is silent: a
+      # labeler that ended its turn cleanly having written half the batch would
+      # otherwise leave a green run and a summary line nobody reads — the
+      # `is_error: false` abort the measure composite's no-output assertion was
+      # written for is exactly that shape. So the count is checked out loud, on
+      # every outcome the runner survives. A run whose labeling step failed
+      # is already red and this adds a second, more specific reason; a complete
+      # run skips it. Nothing downstream is gated on this step: the measure
+      # step and the publish trio carry their own conditions, so failing here
+      # cannot cost a complete batch its PR.
+      - name: Refuse a labels file short of the batch
+        if: >-
+          ${{ !cancelled()
+          && steps.label_lines.outputs.lines != needs.qp-topic-extract.outputs.batch-rows }}
+        env:
+          WRITTEN: ${{ steps.label_lines.outputs.lines }}
+          EXPECTED: ${{ needs.qp-topic-extract.outputs.batch-rows }}
+        run: |
+          set -euo pipefail
+          echo "::error::the labeler wrote ${WRITTEN:-no} label line(s) for a ${EXPECTED}-row" \
+            "extract; qp-topics publishes only a complete file, so this run measured and" \
+            "published nothing. The qp-labels artifact holds the rows it did write."
+          exit 1
+
       # The post-label half — assert the labeler wrote its declared output,
       # measure against the reference set, publish-or-refuse, re-validate —
       # lives in the shared composite so the token-free `qp-topic`
@@ -1793,6 +1868,34 @@ jobs:
       # tampered and wrote nothing reports the higher-signal tamper first.
       - name: Measure the run against the reference set
         id: measure
+        # Publication keys on what the labeler *wrote*, never on the action's
+        # verdict. `claude-code-action` fails the step after the fact when a
+        # successful result used more turns than `--max-turns` allows, and that
+        # verdict arrives after the last label line is already on disk — so a
+        # complete, gate-clearing batch would otherwise lose its measurement
+        # and its PR to a bookkeeping complaint. The gate is instead the count
+        # step's number against the extract job's batch size: equal means one
+        # label line per extract row, which is exactly what `qp-topics` refuses
+        # to publish without. A short file therefore never reaches this step —
+        # the refusal above is what makes that run red — and the labeling
+        # step's own exit stays its own, so a turn overrun still fails the job.
+        #
+        # `!cancelled()` rather than `always()`: a cancelled run must publish
+        # nothing. And the tree-pristine assertion is named here because a
+        # named `if:` carries no implicit `success()` — this command runs
+        # `fedcourts qp-topics` out of the checkout the
+        # labeler held a Write grant over, and measuring a rigged tree is the
+        # one thing that gate exists to stop. The diagnostic chain between them
+        # (scanner build, scans, uploads) is deliberately absent: those steps
+        # withhold rather than fail by design, and a diagnostic must not cost
+        # the labels. Everything ahead of the agent — the no-cloud-credential
+        # tripwire and the oracle move above all — is covered by the count
+        # rather than by name: each of them failing skips the labeling step, so
+        # the file is empty and no non-zero batch size can equal zero.
+        if: >-
+          ${{ !cancelled() && steps.pristine.outcome == 'success'
+          && steps.label_lines.outputs.lines != ''
+          && steps.label_lines.outputs.lines == needs.qp-topic-extract.outputs.batch-rows }}
         uses: ./.github/actions/qp-topic-measure
         with:
           labels: ${{ runner.temp }}/qp-io/qp-labels.jsonl
@@ -1822,8 +1925,17 @@ jobs:
       # prod environment alone, and a rehearsal's labels stay on the runner —
       # the measured block in the step summary and the transcript artifact are
       # its record, and the fenced note below states the boundary.
+      # The publish trio — this step, the identity, and the PR — each carry the
+      # measure step's outcome beside that fence: a named `if:` carries no
+      # implicit `success()`, and the labeling step's post-hoc turn complaint
+      # is precisely the failure these steps must survive. The outcome is the
+      # narrower gate anyway — it holds only where the measure step's own
+      # condition held (pristine tree, a full batch on disk) *and* the
+      # publication gate then passed.
       - name: Mint app token
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: >-
+          ${{ !cancelled() && steps.measure.outcome == 'success'
+          && github.ref == 'refs/heads/main' }}
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -1832,8 +1944,15 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
+      # `steps.app-token.outcome` beside the measure gate, on both steps that
+      # consume the token: with the implicit `success()` gone, nothing else
+      # orders the trio, and a mint that failed would otherwise hand these two
+      # an empty token and turn one clean skip into two opaque `gh` errors.
       - name: Configure git identity
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: >-
+          ${{ !cancelled() && steps.measure.outcome == 'success'
+          && steps.app-token.outcome == 'success'
+          && github.ref == 'refs/heads/main' }}
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -1843,7 +1962,10 @@ jobs:
       # unmerged labeling PR updates in place rather than stacking, opened
       # against `main` and never auto-merged.
       - name: Open or update the review PR
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: >-
+          ${{ !cancelled() && steps.measure.outcome == 'success'
+          && steps.app-token.outcome == 'success'
+          && github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}

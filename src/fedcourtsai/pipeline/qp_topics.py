@@ -115,15 +115,20 @@ COVERAGE_FLOOR: Final = 0.90
 # therefore admit an extract the step kills, which is the exact failure the
 # ceiling exists to prevent.
 #
-# 40 minutes buys about 1,200 texts at the only pace this repository has a
-# figure for — the labeling prompt's own declared budget, which paired that step
-# with roughly this many rows. Be honest about what that makes this number: the
-# pace is **unmeasured** (no labeling dispatch has completed), and the budget it
-# comes from was written when the extract happened to be about this size, so the
-# ceiling is not independent of the population it bounds. It is a declared
-# budget, not an observed rate. The first finished run is what should re-derive
-# it, and until then the guard's value is that it refuses *loudly* rather than
-# that it sits in exactly the right place.
+# 40 minutes buys about 1,200 texts: a declared budget, checked against a
+# measured pace rather than derived from one. The check is one run — a
+# ceiling-sized extract labeled in full at the frontier tier in 35.7 minutes,
+# about four minutes inside the step cap — and a second complete batch at the
+# same tier whose wall-clock is unread, so the headroom figure rests on the
+# shorter of the two. Be honest about what that makes this number: the budget
+# it comes from was written when the extract happened to be about this size, so
+# the ceiling is not independent of the population it bounds, and one timed run
+# is a floor under the pace, not a distribution. The next complete run's
+# minutes are what would re-derive it; until then the guard's value is that it
+# refuses *loudly* rather than that it sits in exactly the right place. Turns
+# are not the bound and the labeling prompt states no turn budget: the two
+# complete batches took 76 and 128 of them, and the action raises a turn
+# overrun only after the labels file is written (``docs/qp-topic.md``).
 #
 # Raising the caps is not the lever either. The step cap sits inside a 75-minute
 # job cap on purpose — a runaway that trips the step still leaves a run to

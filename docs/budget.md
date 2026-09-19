@@ -962,14 +962,28 @@ that does not finish, and what it leaves is a diagnostic, not an artifact
 (`qp-topics` publishes nothing from a partial file, and the invented keys
 would have failed the extract join on their own). At `claude-fable-5` a run
 labeled all 1,200 rows in 76 turns and 36 minutes for **$60**, in extract
-order with every key copied verbatim. That is the figure a ceiling-sized run
-costs, and it is why the frontier tier is the one to dispatch: the bounded
-derivation below still holds per tier, but only the frontier tier has bought a
-complete file, and `claude-sonnet-4-6` is unmeasured. Because the mode is
-manual-dispatch-only, its annual line is a bound on a cadence: ≈$180–300 a
-year at the forward cadence of a handful of frontier batches, ≈$600 in a year
-that also clears the backlog's ten — carried inside the misc floor's buffer
-(driver #5) rather than as its own line. For this mode the artifact, not the
+order with every key copied verbatim. That is the one ceiling-sized run whose
+cost has been read, and it is why the frontier tier is the one to dispatch:
+the bounded derivation below still holds per tier, but only the frontier tier
+has bought a complete file, and `claude-sonnet-4-6` is unmeasured.
+
+A later ceiling-sized batch at the same tier also finished in full, in **128
+turns** — a figure off the run's own step annotation, not an engine log, so
+that batch's dollars are unread. The two complete batches therefore bracket
+the finishing tier's pace at **76–128 turns** for the same 1,200 rows, and
+the billing multiple below tracks turns, so **$60 is the low end of what a
+ceiling-sized run costs at this tier** rather than the figure: every total
+derived from it below is a lower bound until a second log is read. The spread
+is also why the labeling step's 40-minute clock, not its turn cap, is the
+bound to size the ceiling against — the action raises a turn overrun only
+after the file is written, so a cap inside the measured range costs a finished
+batch and buys nothing.
+
+Because the mode is manual-dispatch-only, its annual line is a bound on a
+cadence: ≈$180–300 a year at the forward cadence of a handful of frontier
+batches, ≈$600 in a year that also clears the backlog's ten — both scaled from
+the low-end figure, and carried inside the misc floor's buffer (driver #5)
+rather than as its own line. For this mode the artifact, not the
 money, is what a mis-sized dispatch loses — and what it keeps is the run's
 label-line count and the rows it did write, which is what sizes the next
 dispatch.
@@ -985,9 +999,9 @@ document-fetch artifact — and the frame runs well past the ceiling,
 which is what the batching below exists for.) A ceiling-sized run is ≈1.3 MB of
 question text ≈ 0.33M input tokens
 read once (~4 characters a token); what it bills is a multiple of that, and
-the multiple is the soft part: the session re-sends context across the
-prompt's ~120-turn budget (76 used by the one complete run), so a labeler that
-streams slices runs a few times the
+the multiple is the soft part: the session re-sends context across every turn
+it takes (76 and 128 over the two complete runs, against a 200-turn cap sized
+to stay clear of them), so a labeler that streams slices runs a few times the
 once-read figure while one that accumulates the whole transcript runs an order
 of magnitude above it. Output is roughly 0.1–0.2M tokens. With cache reads at
 a tenth of the input rate (cache writes at 1.25×), the default model lands in
@@ -995,9 +1009,10 @@ single-digit dollars.
 
 **What clearing the frame costs, in batches.** The frame outruns the ceiling, so
 a dispatch labels a derived batch and the artifact accrues one batch at a time
-([qp-topic.md](qp-topic.md)). Every batch is ceiling-sized, so each costs the
-measured **$60** at the frontier tier and the rest is multiplication, not a
-new rate (the single-digit-dollar figure above is the same work at the
+([qp-topic.md](qp-topic.md)). Every batch is ceiling-sized, so each costs from
+the measured **$60** at the frontier tier — the low end, since the one batch
+whose cost was read is also the shorter of the two measured paces — and the
+rest is multiplication, not a new rate (the single-digit-dollar figure above is the same work at the
 default tier's rate — the measured $60 scaled by the table's 10× lands there
 too, which is the derivation's one check against a measurement — and that
 tier buys no artifact):
@@ -1010,8 +1025,8 @@ tier buys no artifact):
   with how much of the reference set the frame holds, and falls if that shrinks.
 - **Clearing the historical backlog** — 8,452 frame rows against the blob pulled
   2026-09-09 (newest stored snapshot 2026-07-13), leaving 8,099 to label at 847
-  new rows a batch, so **ten dispatches** — is **≈$600 at the frontier
-  tier**. The frame holds all 353 reference cases at that vintage — 100.0%,
+  new rows a batch, so **ten dispatches** — is **≈$600 or more at the frontier
+  tier**, ten times the one batch whose cost was read. The frame holds all 353 reference cases at that vintage — 100.0%,
   above the coverage floor the extract enforces
   ([qp-topic.md](qp-topic.md)) — so spend begins at the first dispatch. The
   rate table above orders the tiers 1× / 3× / 10×, but only the 10× tier has
@@ -1283,9 +1298,33 @@ of which can move it:
   10-minute timeout; not `spend.ceiling_usd`.
 
 The same three legs also ride every `scenario=all` dispatch, adding ≈$0.45 to a
-promotion suite that already spends three engine-smoke cells' worth — on the
-order of $14–23/yr at a plausible 30–50 whole-suite dispatches. Both sit inside
-the buffer below, so the floor is unchanged; state them, do not imply them.
+promotion suite that already spends three engine-smoke cells' worth — $7.3–7.5
+at the design-mix mean above (≈$2.44–2.49/cell), so **≈$7.8 per paid
+whole-suite dispatch**. The yearly figure is that unit times the dispatch
+count, and the count is the term worth measuring, because like the canary none
+of this enters the `usage.json` ledger the spend backstop reads. Measured over
+the 50 days to 2026-09-19: **53 `scenario=all` dispatches, across 48 distinct
+staging heads** against 37 promotion batches — three cells apiece, so ≈160
+cells and ≈$410 (an upper read: 11 of the 53 ended red or cancelled, and a leg
+that dies early spends less than a cell). Both counts are re-derivable —
+`gh run list --workflow integration-test.yml` filtered to titles beginning
+`integration-test: all @`, and `git tag -l 'promotion/*'` over the same window.
+
+That is ≈1.4 paid suites per batch, ≈$250/mo at the measured cadence, and
+**it does not ride the misc buffer** the canary sits inside: at that size it is
+comparable to the whole $350/mo bucket, so it belongs with the inference lines
+of driver #1 in everything but ledger visibility. Two things make the paid
+count a deliberate choice rather than a default, neither of them a gate. The
+dispatch default is `all-offline`, so the whole-suite run an unqualified
+dispatch gets is the token-free one and spending takes a typed
+`-f scenario=all`; and the promotion sequence pays for `all` once per batch, at
+the head the batch will promote, because freshness is per-SHA and a head that
+moves afterwards discards the evidence rather than the spend (*Promotion:
+staging → main* in [pipeline.md](pipeline.md)). One paid suite per batch at the
+measured batch cadence is ≈$290 per 50 days; the distance from the measured
+figure is re-dispatch — at a moved head, and at the same head after a red or
+cancelled run (5 of the 53). The canary's own ≈$14/mo and the ≈$0.45 it adds to
+each suite do sit inside the buffer; state all three, do not imply them.
 
 The workflow's **repro-family** scenarios add nothing to either figure. Each
 runs one real cell against a pinned record, but none rides the schedule and

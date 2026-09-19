@@ -249,6 +249,120 @@ def test_the_predict_kickoff_names_the_case_level_record_directory(tmp_path: Pat
     assert "Your provisioned inputs are at" not in evaluate.argv[-1]
 
 
+# The live predict kickoff, byte for byte. A cell writing to the repository
+# ledger is the production path — what `run-predict.yml` hands its three engine
+# steps — so nothing the harness learns about scratch roots may reach it. Pinned
+# whole rather than by substring: the failure this guards against is an extra
+# line, and every substring assertion in this file would pass with one.
+_LEDGER_PREDICT_KICKOFF = """\
+Read .github/prompts/predict.md and AGENTS.md, then produce the prediction for this cell:
+
+COURT_ID={court}
+DOCKET_ID={docket}
+EVENT_ID={event}
+PREDICTOR_ID={actor}
+RUN_ID={run}
+MODEL_ID={model}
+
+Your provisioned inputs are at {record}/ — the case-level directory (a sibling \
+of events/, not a child of it) holding the snapshot, context.json, and any \
+provisioned documents.
+
+These values are authoritative; the same identifiers are exported as \
+environment variables on engines that pass them through, but if `$COURT_ID` \
+expands empty in your shell, use the literals above. Write only the output \
+files the prompt contract names for your cell. Do not commit, push, or open a \
+PR. You run headless with no interactive input; if you are blocked, record it \
+in flags.json and explain it in reasoning.md, then finish — do not wait for a \
+reply."""
+
+
+def test_a_ledger_cell_gets_the_production_kickoff_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A cell writing to the ledger is told nothing extra about where to write.
+
+    The output-root override exists for cells the harness places under a
+    scratch root; the live lane is the ledger, and its kickoff must stay what
+    the workflows hand their engines. The pin is the whole text, so a stray
+    line cannot slip through a substring check.
+    """
+    data_root = tmp_path / "data"
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    recorder = _Recorder()
+    runner = ClaudeCodeRunner(command_runner=recorder)
+    runner.run(_predict_request(data_root))
+    assert recorder.argv[recorder.argv.index("-p") + 1] == _LEDGER_PREDICT_KICKOFF.format(
+        court=COURT,
+        docket=DOCKET,
+        event=EVENT,
+        actor=PREDICTOR,
+        run=RUN,
+        model=runner.model,
+        record=CasePaths(data_root, COURT, DOCKET).record.as_posix(),
+    )
+
+    evaluate = _Recorder()
+    ClaudeCodeRunner(command_runner=evaluate).run(_evaluate_request(data_root))
+    assert "Write your output files under" not in evaluate.argv[-1]
+
+
+def test_a_scratch_root_cell_is_told_where_to_write_absolutely(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Off the ledger, the kickoff names the output directory and overrides the template.
+
+    The prompt templates name a repo-relative `data/cases/...` output path,
+    which is wrong for every cell the harness places under a scratch root — the
+    cert back-test's work root, a cascade over a temp tree. An engine that
+    followed the template wrote its six files into the checkout's `data/` while
+    the runner read the work root, and the cell was lost; the instruction that
+    removes the ambiguity belongs in the kickoff the harness composes, not in
+    the frozen template. Asserted for all three engines, since the contract is
+    delivered three separate times.
+    """
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "ledger"))
+    work_root = tmp_path / "backtest-cells"
+    kickoffs = []
+    for build, flag in ((ClaudeCodeRunner, "-p"), (CodexRunner, None), (GeminiRunner, "--prompt")):
+        recorder = _Recorder()
+        build(command_runner=recorder).run(_predict_request(work_root))
+        # Each engine carries the kickoff on its own argument: a flag's value
+        # for claude and gemini, the trailing positional for codex.
+        kickoffs.append(
+            recorder.argv[-1] if flag is None else recorder.argv[recorder.argv.index(flag) + 1]
+        )
+
+    target = (
+        CasePaths(work_root, COURT, DOCKET)
+        .event(EVENT)
+        .prediction_dir(PREDICTOR, RUN)
+        .resolve()
+        .as_posix()
+    )
+    for kickoff in kickoffs:
+        assert f"Write your output files under {target}/ — and do not read" in kickoff
+        # And it says which of the two paths governs, so an engine reading both
+        # the template and the kickoff is not left to choose.
+        assert "the `data/cases/...` output path the prompt template names" in kickoff
+    # One contract, three deliveries: the three texts agree line for line
+    # except MODEL_ID, which is each engine's own.
+    without_model = {
+        tuple(line for line in kickoff.splitlines() if not line.startswith("MODEL_ID="))
+        for kickoff in kickoffs
+    }
+    assert len(without_model) == 1
+
+    # An evaluate cell off the ledger gets the same override, pointed at the
+    # directory its per-predictor outputs sit under.
+    evaluate = _Recorder()
+    CodexRunner(command_runner=evaluate).run(_evaluate_request(work_root))
+    evaluations = (
+        CasePaths(work_root, COURT, DOCKET).event(EVENT).evaluator_dir(EVALUATOR).resolve()
+    )
+    assert f"Write your output files under {evaluations.as_posix()}/ (" in evaluate.argv[-1]
+
+
 def test_gemini_runner_builds_the_headless_yolo_call(tmp_path: Path) -> None:
     recorder = _Recorder()
     runner = GeminiRunner(command_runner=recorder)

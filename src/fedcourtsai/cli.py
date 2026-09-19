@@ -18,7 +18,7 @@ import sys
 import tempfile
 import textwrap
 import time
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
@@ -78,6 +78,7 @@ from .authz import authorize_trigger
 from .backtest import default_backtesters, run_backtest, select_backtest_set
 from .cert_backtest import (
     CERT_BACKTEST_SCOPES,
+    ReplayOutcome,
     build_segment_context,
     replay_predictors,
     replayable_items,
@@ -294,6 +295,7 @@ from .schemas import (
     CellFailure,
     CellMode,
     CertBacktest,
+    CertBacktestCellLoss,
     CertBacktestDispatch,
     CertBacktestProvenance,
     ClaimScoreBlock,
@@ -318,6 +320,7 @@ from .schemas import (
     PredictableEvent,
     Prediction,
     PredictionContext,
+    PredictorConfig,
     ProcessVersion,
     QpTopicLabels,
     QpTopicReference,
@@ -5297,6 +5300,72 @@ def backtest(
     )
 
 
+def _report_replay_drops(
+    outcome: ReplayOutcome,
+    roster: list[PredictorConfig],
+    skipped_engines: Collection[str],
+) -> list[str]:
+    """Echo a cert back-test replay's run-time losses and return the dropped ids.
+
+    Every one of them rides the report as well as stderr, because the run log
+    expires and the artifact does not: a board silently short one engine — or
+    one predictor short the petitions another was scored over — is a different
+    comparison from the one it looks like. Three distinct losses, named apart
+    rather than pooled, since they say different things about the run: an
+    engine whose CLI was missing, a predictor every one of whose cells came
+    back unreadable, and a predictor whose engine has no registered runner at
+    all. The deliberate `--skip-engines` opt-out is none of them and is
+    recorded on the dispatch instead.
+
+    A predictor that lost only *some* of its cells is not dropped: it is on the
+    board, scored over the petitions that came back, and its cells are in
+    ``lost_cells``.
+    """
+    dropped = list(outcome.unavailable)
+    if outcome.lost_cells:
+        # The tally beside the summary line, as well as the per-loss line each
+        # printed when it happened: a run whose losses scrolled past an hour of
+        # cell output deserves both.
+        typer.echo(
+            f"lost {len(outcome.lost_cells)} cell(s) that produced no readable prediction: "
+            + ", ".join(
+                f"{loss.predictor_id} on {loss.case_id} ({loss.reason})"
+                for loss in outcome.lost_cells
+            ),
+            err=True,
+        )
+    for pid in outcome.unavailable:
+        typer.echo(
+            f"dropped predictor {pid}: its engine's CLI was not available at run time", err=True
+        )
+    replayed_ids = {b.id for b in outcome.backtesters}
+    # Only a predictor whose engine stayed available: one that went missing
+    # mid-campaign is already named above, and its remaining cells were never
+    # attempted rather than lost.
+    lost_whole = (
+        {loss.predictor_id for loss in outcome.lost_cells} - replayed_ids - set(outcome.unavailable)
+    )
+    for pid in sorted(lost_whole):
+        dropped.append(pid)
+        typer.echo(
+            f"dropped predictor {pid}: every one of its cells came back unreadable", err=True
+        )
+    for predictor in roster:
+        if (
+            predictor.id not in replayed_ids
+            and predictor.id not in outcome.unavailable
+            and predictor.id not in lost_whole
+            and str(predictor.engine) not in skipped_engines
+        ):
+            dropped.append(predictor.id)
+            typer.echo(
+                f"skipped predictor {predictor.id}: engine "
+                f"{predictor.engine} has no registered runner",
+                err=True,
+            )
+    return dropped
+
+
 @app.command("cert-backtest")
 def cert_backtest_cmd(
     out: Annotated[
@@ -5374,8 +5443,9 @@ def cert_backtest_cmd(
     through its own configured engine under ``auto`` (this spends tokens on a
     real engine). Petitions the corpus cannot replay (no held snapshot or
     petition event — partial coverage is the norm while the historical walk
-    drains) are dropped up front and named, so every backtester in one report is
-    scored over the same set. Out of band by design: it never writes the
+    drains) are dropped up front and named, so every backtester in one report
+    starts from the same set — a predictor short of it lost cells at run time
+    and the report says which. Out of band by design: it never writes the
     ``data/`` ledger, and the report is labeled retrospective (the outcomes
     predate every modern model's training cutoff).
     """
@@ -5437,6 +5507,7 @@ def cert_backtest_cmd(
         provisioning: dict[str, int] = {}  # empty unless an agentic replay ran
         replay_run_id: str | None = None  # null unless one did: baselines have no run
         dropped: list[str] = []  # predictors lost at run time, not opted out
+        lost_cells: list[CertBacktestCellLoss] = []  # cells that came back unreadable
         if engine:
             items, unreplayable = replayable_items(db_path, items)
             if unreplayable:
@@ -5463,7 +5534,7 @@ def cert_backtest_cmd(
                     "opted out of engine(s): " + ", ".join(sorted(skipped_engines)), err=True
                 )
             replay_run_id = ids.run_id()
-            replayed, unavailable, provisioning = replay_predictors(
+            outcome = replay_predictors(
                 items,
                 corpus_db_path=db_path,
                 config_root=settings.config_root,
@@ -5472,29 +5543,13 @@ def cert_backtest_cmd(
                 skip_engines=skipped_engines,
                 run_id=replay_run_id,
             )
-            # Both run-time losses ride the report, not only stderr: a board
-            # silently short one engine is a different comparison from the
-            # three-engine one it looks like, and the run log expires.
-            dropped = list(unavailable)
-            for pid in unavailable:
-                typer.echo(
-                    f"dropped predictor {pid}: its engine's CLI was not available at run time",
-                    err=True,
-                )
-            replayed_ids = {b.id for b in replayed}
-            for predictor in enabled_predictors(settings.config_root / "predictors.yaml"):
-                if (
-                    predictor.id not in replayed_ids
-                    and predictor.id not in unavailable
-                    and str(predictor.engine) not in skipped_engines
-                ):
-                    dropped.append(predictor.id)
-                    typer.echo(
-                        f"skipped predictor {predictor.id}: engine "
-                        f"{predictor.engine} has no registered runner",
-                        err=True,
-                    )
-            backtesters += replayed
+            provisioning, lost_cells = outcome.provisioning, outcome.lost_cells
+            dropped = _report_replay_drops(
+                outcome,
+                enabled_predictors(settings.config_root / "predictors.yaml"),
+                skipped_engines,
+            )
+            backtesters += outcome.backtesters
         # The leakage-safe segment context (band + per-Term base rate) mirrors
         # the forward stratum's yardstick; segment_base_rate masks each item to
         # Terms strictly before its own, so a full-corpus statpack is safe here.
@@ -5513,6 +5568,7 @@ def cert_backtest_cmd(
                 salience_floor=salience_cfg.floor,
                 base_rate_lookback_terms=salience_cfg.base_rate_lookback_terms,
                 dropped_predictors=sorted(dropped),
+                lost_cells=lost_cells,
             ),
         )
     write_json(destination, report)

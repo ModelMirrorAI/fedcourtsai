@@ -107,6 +107,14 @@ token spend plus three boot probes; collect rides the
 run as its own environment-free job beside the matrix). `scenario=all-offline`
 is that suite minus the six token-spending engine legs; the jobs that remain are
 identical, environment binding included, and the run is token-free end to end.
+Of the two whole-suite modes, **`all-offline` is the dispatch default** — an
+unqualified `gh workflow run integration-test.yml --ref staging` runs it — so
+spending model tokens takes a typed `-f scenario=all`, which a promotion pays
+once per batch at the head it will promote (*Promotion: staging → main* in
+[pipeline.md](pipeline.md)). The default changes what an unqualified dispatch
+runs and nothing about what the gate accepts: an `all-offline` title is minted
+only by a run that really ran that suite, and it counts as whole-suite
+evidence only under the engine-smoke skip.
 
 The **canary** is the workflow's one scheduled arm (11:53 UTC daily): the three
 `engine-actions-smoke` legs and nothing else, so a provider-side or action-side

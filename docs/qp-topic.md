@@ -721,21 +721,62 @@ than a down payment. They do survive the run as such — the slices the labeler
 landed are uploaded as the `qp-labels` run artifact and their line count
 reaches the job summary — which is what makes a mis-sized dispatch measurable
 rather than merely wasted.
-The cap that bites is the **labeling step's**, set below the surrounding job's
-so a runaway trips the step and still leaves a run to read; the ceiling is
-derived from that one, since a bound sized against the outer cap would admit
-exactly the extracts the inner one kills.
+The cap that bites is the **labeling step's 40-minute clock**, set below the
+surrounding job's so a runaway trips the step and still leaves a run to read;
+the ceiling is derived from that one, since a bound sized against the outer cap
+would admit exactly the extracts the inner one kills. The agent's turn cap
+(`--max-turns`) is deliberately *not* the bound: it sits clear of the observed
+pace, because the two caps fail differently. A step killed at its clock leaves
+every row the labeler had landed on disk; a turn cap does not bite during the
+run at all — the action fails the step **after the fact**, when a result it has
+already accepted as successful turns out to have used more turns than the cap
+allowed, so the complaint arrives with the whole file written. A cap set inside
+the observed pace therefore buys nothing and costs a finished batch, which is
+why publication keys on the label-line count rather than on the action's
+verdict (below).
 
 `qp-corpus` therefore enforces a ceiling (`LABEL_ROW_CEILING` in
 `fedcourtsai.pipeline.qp_topics`) and sizes each dispatch's extract to it. Its
-value is a **declared budget, checked once against an observed pace**: a
+value is a **declared budget, checked against an observed pace**: a
 ceiling-sized extract labeled in full at `claude-fable-5` took 35.7 minutes of
-the labeling step's 40-minute cap over 76 turns (run of 2026-09-16), so the
-ceiling holds with about four minutes of headroom and cannot rise without the
-cap rising first. The default tier is no datum for it: its one run ended after
-200 rows. The labeling prompt states its budget as "whatever the
-extract holds" for the same reason — one number, in one place, and no second copy
-to drift.
+the labeling step's 40-minute cap over **76 turns**, so on that run the clock
+held with about four minutes of headroom. A later ceiling-sized batch at the
+same tier also finished in full, in **128 turns**, whose wall-clock is unread —
+so the pace measured over two complete batches is 76–128 turns for the same
+1,200 rows, and the headroom figure rests on the shorter of them. That is the
+argument for leaving the ceiling where it is rather than for raising it: the
+clock cannot rise without the step cap rising first, the turn count varies by
+nearly two to one across two runs of the same size, and the next complete run's
+minutes are the number that would re-derive the headroom. The default tier is
+no datum for either bound: its one run ended after 200 rows. The labeling
+prompt states its budget as "whatever the extract holds" for the same reason —
+one number, in one place, and no second copy to drift.
+
+### Publication keys on the count, not on the agent's verdict
+
+The workflow decides whether to measure and publish by comparing the label
+lines the run left behind against the extract's own batch size — one line per
+extract row, which is exactly what `qp-topics` refuses to publish without —
+rather than by whether the labeling step concluded success. Counted the way
+the labels file is read: non-blank lines, trailing newline or not, so the
+gate's number and the reader's cannot differ by one. The batch size crosses
+from the extract job as a value, because the extract file itself lands in the
+one directory the labeler holds a Write grant over and a denominator counted
+on the labeling runner is one the agent could shrink.
+
+Three things hold alongside it. **A wasted run is still red**: a labels file
+short of the batch is refused by a step of its own, out loud, because the
+measure step it would once have died inside is now skipped for it and a
+skipped step says nothing — and a labeling step that fails fails the job on
+its own account, so a turn overrun is a red run that publishes anyway.
+**A cancelled run publishes nothing**, since every one of these conditions is
+`!cancelled()` rather than `always()`. And **the count is a screen, not a
+substitute for the gate**: `qp-topics` still requires the labels and the
+extract to be the same case set, keyed the same way, so a full-length file of
+duplicates is refused there as any other malformed one is. Because a named
+`if:` carries no implicit `success()`, the tree-pristine assertion is spelled
+out in the measure step's own condition — measuring out of a checkout the
+labeler rewrote is the one thing it exists to stop.
 
 ## Batching: how the frame gets labeled
 

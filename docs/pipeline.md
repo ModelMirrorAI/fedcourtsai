@@ -397,18 +397,22 @@ queues behind the production run of the same mode. The modes:
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
   credential in its environment and no MCP config (the vocabulary is text-only,
-  so the extract is the agent's entire evidentiary input). Exactly two things
-  cross the split: that artifact, and the size of the QP-bearing frame the
-  extract cut the batch from — a job output, one integer, which the post-label
-  measure step passes to `qp-topics --frame-rows` so the labels artifact records
-  each batch's frame ([qp-topic.md](qp-topic.md)). The `.batch.json` sidecar it
-  is read from stays on the extract runner: the value is a population count, the
-  file is the shape of the draw. Its tools are Write, Edit and free reads; the
+  so the extract is the agent's entire evidentiary input). Exactly three things
+  cross the split: that artifact, and two job outputs, each one integer. The
+  size of the QP-bearing frame the extract cut the batch from goes to the
+  post-label measure step's `qp-topics --frame-rows`, so the labels artifact
+  records each batch's frame ([qp-topic.md](qp-topic.md)). The size of the batch
+  itself is the denominator of the publication gate — the job measures and opens
+  its PR when the label lines the run left behind equal it — and it comes from
+  the extract job rather than being counted on the labeling runner, because the
+  extract file lands in the one directory the agent holds a Write grant over.
+  The `.batch.json` sidecar both are read from stays on the extract runner: the
+  values are population counts, the file is the shape of the draw. Its tools are Write, Edit and free reads; the
   shell, the delegation tools and the web tools are denied by name in the
   invocation, because a grant list
   pre-approves without withholding anything. The labeling run is a single
   headless session, so a delegated subagent would die with it leaving the
-  batch part-labeled and the measure step refusing a partial file; labels
+  batch part-labeled and the run refused short of the ceiling; labels
   have to come from the agent reading each text rather than from a command
   it runs; and a fetch is either redundant with the extract or later than the
   petition, and the later kind has to stay out of a label for the label to be
@@ -420,8 +424,10 @@ queues behind the production run of the same mode. The modes:
   count. That artifact and that line are what a step killed at its cap leaves,
   since the action writes its execution log at exit and there is then no
   transcript to read (disclosure argued in [qp-topic.md](qp-topic.md)). The
-  measure step still refuses a partial file: it is captured for reading, never
-  for publication. It applies the same
+  partial file is captured for reading, never for publication: a labels file
+  short of the batch is refused out loud, so a wasted run is red, and the
+  measure step and the review PR run on the complete count alone — never on
+  the action's own verdict, which it can issue after the last row is written. It applies the same
   structural prohibition the cell workflows do — `data/qp-topics/` is moved out
   of the tree for the duration of the agent step, since reading the reference
   set would not improve the labels, only destroy the measurement — and restores
@@ -484,7 +490,11 @@ evidence at all — it would block the promotion carrying the fix.
 `scenario=all-offline` is that same
 suite with all six token-spending engine legs dropped: token-free end to end,
 and whole-suite evidence only for a pre-flight that skipped them (*The
-engine-smoke skip* under *Promotion: staging → main* below).
+engine-smoke skip* under *Promotion: staging → main* below). It is the
+dispatch **default**, so an unqualified dispatch runs the whole suite and
+spends nothing; `all` is reached only by typing it, which is what a
+promotion-bound suite does once per batch (step 3 of the operator's path
+below).
 
 The **daily canary** is the schedule: the three `engine-actions-smoke` legs
 alone, at 11:53 UTC, catching a provider-side or action-side flip between
@@ -1410,8 +1420,13 @@ The mechanics:
   which ran neither — would satisfy that requirement without exercising it.
   Unsound, not stricter. Whether that evidence
   is worth its tokens for a given batch is the maintainer's risk call; the
-  default at every surface is the full suite, and a batch that cannot affect a
-  cell — docs, analytics, non-cell code — is the clear case for waiving.
+  default at every gate surface is the full required set — what a dispatch
+  costs by default changes nothing about what the gate asks for — and a batch
+  that cannot affect a cell — docs, analytics, non-cell code — is the clear
+  case for waiving. The other case is scoped to a *delta* rather than a batch:
+  a head that moved after a green `all` run, where what the move added cannot
+  reach a cell (*When the head moves after a green `all`* in the operator's
+  path below).
   It takes **two separate acts**, because a pre-flight and a merge are
   different decisions:
   - `promote`'s **`skip_engine_smoke` input** drops all six from that
@@ -1454,6 +1469,14 @@ The full path of a change, operator's view:
 3. Dispatch the required integration scenarios at staging's post-sync head —
    one `scenario=all` dispatch covers the whole suite, or per-scenario runs
    add up to it (the summary prints both forms) — then re-dispatch `promote`.
+   **Pay for `all` once per batch, at the head the batch will actually
+   promote**: after the sync has landed and after every staging merge the
+   batch carries. Freshness is per-SHA, so a head that moves afterwards
+   discards the evidence and not the spend — three engine-smoke cells plus
+   three boot probes, re-paid at the new head. Everyday dispatches want the
+   default instead: `gh workflow run integration-test.yml --ref staging` with
+   no `scenario` runs the token-free `all-offline` suite, which exercises
+   every required scenario but the six engine legs.
    Leave `docket` empty: the run-time case resolver self-resolves on the seeded
    staging slice as it does on production, falling back to a content-store probe
    where the split-on slice's blob carries no snapshot rows, and the plan job
@@ -1463,6 +1486,23 @@ The full path of a change, operator's view:
    On a cell-inert batch, `promote -f skip_engine_smoke=true` first: it prints
    the `all-offline` form and tells you whether anything *else* is missing
    before you pay for the engine legs, which step 4 still needs.
+
+   **When the head moves after a green `all`.** The gate's rule is
+   mechanical and does not read the delta: the green `all` run sits at the
+   old sha, so at the new one nothing satisfies the twelve, and the choice is
+   to re-dispatch `all` or to dispatch `all-offline` at the new head and take
+   the skip's **two acts** — `promote -f skip_engine_smoke=true` for the
+   pre-flight, the `promote:skip-engine-smoke` label on the promotion PR for
+   the required check — which is the gate's only path to accepting a
+   token-free whole-suite run. The second course is
+   a risk call, not a shortcut, and it is the maintainer's to make on the
+   delta the head move introduced: where that delta cannot reach a cell — a
+   data commit the sync brought over, docs, analytics — the engine evidence
+   from the earlier sha is the maintainer's inference, which the gate does
+   not check and the label is the record of. Where the delta touches cells,
+   engine CLIs, engine actions or the invocation path, re-dispatch `all`:
+   that is precisely the evidence the skip trades away, and an action version
+   bump is the class it breaks silently (*The engine-smoke skip* above).
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
    `promotion-gate` check re-verifies quiescence + freshness. Add the batch's
    **stated effect check** to that PR body — what should be true once it is
@@ -1690,6 +1730,25 @@ promotion gate: quiescence counts a `waiting` run of `run-backtest` as
 in-flight, so a fortnight left parked blocks every promotion until it is
 released or rejected. Reject it rather than leaving it pending when a batch is
 waiting.
+
+A released fortnight is a campaign of paid cells, so it accounts for its losses
+rather than ending on one. Two run-time faults are absorbed: an engine whose CLI
+binary is missing drops that predictor whole, and a cell that ran and left no
+readable `prediction.json` where the runner reads it is a loss for that
+(petition, predictor) pair alone. Both are printed to the run log and both ride
+`metrics/cert-backtest.json` — the whole-predictor ones in
+`provenance.dropped_predictors`, the per-cell ones in `provenance.lost_cells`
+with the reason (`missing`, `invalid`, or `wrote-outside-work-root`) — because
+the run log expires and the artifact does not, and the review PR body names the
+per-cell losses outright. A predictor short some cells stays on the board scored
+over the petitions that came back, which is why the losses have to be readable
+beside its numbers; one short *every* cell leaves the board and is dropped. The
+engine cells are told their output directory absolutely whenever it is not the
+repository's `data/`: the kickoff the runner composes overrides the prompt
+template's repo-relative output path for every engine, so an engine has one
+path to follow rather than two readings of the same instruction — which makes
+`wrote-outside-work-root` a diagnosis of an engine ignoring its kickoff rather
+than of an ambiguous one.
 
 A predict cell refuses to run for three reasons, all landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP

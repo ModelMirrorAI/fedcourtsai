@@ -542,6 +542,13 @@ jobs:
           # index, and the replay's snapshot reads come from the per-case
           # content store the same base derives.
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          # A cell's `uv run fedcourts …` tooling needs a cache it can write.
+          # setup-uv's cache sits under $RUNNER_TEMP, which codex's
+          # workspace-write sandbox cannot reach (its writable roots are the
+          # checkout cwd, /tmp and $TMPDIR), so a codex cell either burns turns
+          # on a read-only cache or loses its corpus tooling. A cold cache under
+          # /tmp for this one step is the accepted cost.
+          UV_CACHE_DIR: /tmp/fedcourts-backtest-uv-cache
         run: |
           set -euo pipefail
           if [ ! -f corpus/corpus.db ]; then
@@ -555,10 +562,26 @@ jobs:
           # An empty `--skip-engines` runs every engine, and an unknown engine
           # name simply matches no predictor.
           if [ "$BT_SPREAD" = "true" ]; then SPREAD_FLAG=--spread; else SPREAD_FLAG=--no-spread; fi
+          # The work root must sit inside every engine's writable roots. codex
+          # runs `exec --sandbox workspace-write` from the checkout, whose roots
+          # are the cwd, /tmp and $TMPDIR (a codex default; re-check on any
+          # codex-version bump) — $RUNNER_TEMP is a sibling of the checkout and
+          # is not one, so a cell told to write there could not. /tmp is also
+          # where claude and gemini, unsandboxed, write when told. A fresh
+          # mktemp directory keeps the path unpredictable and unshared across
+          # runs on a non-ephemeral runner; run_id is inside every cell path
+          # anyway, so a stale cell could never be collected. The output root is
+          # what the kickoff names absolutely for every engine — the prompt's
+          # own path is relative to the working directory, which here is the
+          # checkout, not the work root. Inside this root the engines are not
+          # isolated from each other's cells: the back-test's cross-engine
+          # integrity rests on the first-party engine configs, as it already
+          # did for the unsandboxed engines.
+          work_dir="$(mktemp -d /tmp/fedcourts-backtest-cells.XXXXXXXX)"
           uv run fedcourts cert-backtest \
             --engine "$BT_ENGINE" --limit "$BT_LIMIT" --skip-engines "$BT_SKIP_ENGINES" \
             --scope "$BT_SCOPE" "$SPREAD_FLAG" \
-            --work-dir "$RUNNER_TEMP/backtest-cells"
+            --work-dir "$work_dir"
 
       # The salience-gate mode replays the deterministic gate, not the
       # predictors: `fedcourts salience-replay` runs offline over the pulled
