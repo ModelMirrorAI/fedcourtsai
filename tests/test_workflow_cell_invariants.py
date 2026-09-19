@@ -167,6 +167,17 @@ def _load(name: str) -> dict[Any, Any]:
     return data
 
 
+def _norm(condition: str) -> str:
+    """One-line form of a step condition, for substring assertions on a gate.
+
+    A condition long enough to need a `>-` block is one whose line breaks are
+    the author's formatting rather than its meaning, and a folded scalar's
+    exact whitespace depends on how the block was indented. Collapsing every
+    whitespace run to one space lets a gate be asserted on what it says.
+    """
+    return " ".join(str(condition).split())
+
+
 def _run_blocks(wf: dict[str, Any]) -> list[str]:
     return [
         step["run"]
@@ -971,11 +982,14 @@ def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
     # nothing.
     assert "!cancelled()" in pristine["if"]
     # What the assertion does gate is the *number*. The measure step runs this
-    # checkout's `fedcourts qp-topics`, so it must stay on the default
-    # `success()` gate — an `if:` of its own would let a rigged tree be
-    # measured.
+    # checkout's `fedcourts qp-topics`, so a rigged tree must never reach it.
+    # The step carries an `if:` of its own (the labels-not-the-verdict gate
+    # pinned below), and a named `if:` carries no implicit `success()` — so
+    # the assertion has to be named in that condition explicitly.
     measure = next(s for s in steps if s.get("id") == "measure")
-    assert "if" not in measure, "the measure step must stay on the default success() gate"
+    assert "steps.pristine.outcome == 'success'" in _norm(measure["if"]), (
+        "the measure step's own condition must name the tree-pristine assertion"
+    )
     assert steps.index(pristine) < steps.index(measure)
     assert scan.get("continue-on-error") is True  # withhold, never fail the labels result
     assert "scan-diff-for-secrets" in scan["run"]
@@ -1040,14 +1054,22 @@ def test_the_qp_labeler_partial_output_survives_the_step_cap() -> None:
         assert count["if"] == "${{ !cancelled() }}", (
             f"{workflow}: the count must survive the labeling step's failure"
         )
-        assert "wc -l" in count["run"] and "present=" in count["run"]
+        # Counted the way `read_label_lines` reads the file — non-blank lines,
+        # final newline or not — never `wc -l`, whose newline count drops a
+        # complete last line written without one. On the paid lane the measure
+        # step gates on this number, so the two must not disagree.
+        assert "awk 'NF{n++} END{print n+0}'" in count["run"], (
+            f"{workflow}: the count must match how the labels file is read"
+        )
+        assert "wc -l" not in count["run"], f"{workflow}: newline counting is the wrong count"
+        assert "present=" in count["run"]
         assert "GITHUB_STEP_SUMMARY" in count["run"], f"{workflow}: the count must be durable"
         # A count, never the file: this summary is published unscanned.
         assert "cat " not in count["run"]
         # `wc` comes off PATH like every other tool a verdict rests on, and the
         # agent's subprocesses can prepend to it for every later step.
         assert count["env"]["PATH"].startswith("/usr/local/sbin:"), (
-            f"{workflow}: the count must not resolve `wc` off an agent-writable PATH"
+            f"{workflow}: the count must not resolve `awk` off an agent-writable PATH"
         )
         upload = next(s for s in steps if (s.get("with") or {}).get("name") == "qp-labels")
         assert upload["with"]["path"] == "${{ runner.temp }}/qp-io/qp-labels.jsonl"
@@ -1101,6 +1123,102 @@ def test_the_qp_labeler_partial_output_survives_the_step_cap() -> None:
     assert guard.get("continue-on-error") is True
     smoke_upload = next(s for s in smoke if (s.get("with") or {}).get("name") == "qp-labels")
     assert "steps.labels_guard.outcome == 'success'" in smoke_upload["if"]
+
+
+def test_the_qp_labeling_run_publishes_on_its_count_not_on_the_agents_verdict() -> None:
+    """A complete batch must publish even when the action fails the step late.
+
+    `claude-code-action` fails a step *after the fact* when a successful result
+    used more turns than `--max-turns` allows, so the complaint arrives with
+    every label line already on disk. Riding the default `success()` there
+    would cost such a run its measurement and its PR, so publication keys on
+    the count step's number against the extract job's batch size instead — one
+    label line per extract row, which is exactly what `qp-topics` refuses to
+    publish without.
+
+    Three things must hold alongside it. The labeling step's own exit stays its
+    own, so a turn overrun still fails the job. A short file must still make
+    the run **red**: it no longer reaches `qp-topics` to be refused there, and
+    a skipped step is silent, so an explicit refusal step carries the redness
+    a green-but-half-finished run would otherwise escape with. And the
+    tree-pristine assertion is what stands between a rigged checkout and the
+    command that measures out of it, so it is named in the measure step's own
+    condition, which carries no implicit `success()`.
+
+    The turn cap sits clear of the measured pace for the same reason — the two
+    complete ceiling-sized batches at the finishing tier took 76 and 128 turns
+    — so the bound the lane is designed around is the step's own 40-minute cap:
+    the one the ceiling is derived from, and the one whose expiry still leaves
+    the written rows on disk.
+    """
+    steps = _load("run-analytics.yml")["jobs"]["qp-topic-label"]["steps"]
+    label = next(s for s in steps if s.get("id") == "label")
+    turns = [
+        line.split()[1]
+        for line in str(label["with"]["claude_args"]).splitlines()
+        if line.strip().startswith("--max-turns")
+    ]
+    assert len(turns) == 1 and int(turns[0]) >= 200, (
+        f"the labeler's turn cap must sit clear of the measured 76-128 range: {turns}"
+    )
+    assert label.get("timeout-minutes") == 40, "the step cap is the bound the ceiling is sized to"
+    # The action's verdict is still the job's verdict: a turn overrun is a red
+    # run, and only its effect on the publish is decoupled.
+    assert "continue-on-error" not in label, (
+        "the labeling step's own exit stays untouched — the job must still fail"
+    )
+
+    # A short file is refused out loud, because the measure step it would have
+    # died in is now skipped instead, and a skip is silent. The refusal must
+    # not be `continue-on-error`, or the run it exists to redden stays green —
+    # and nothing downstream may be gated on it, or it costs a complete batch
+    # its PR on the very failure this test exists for.
+    refusal = next(s for s in steps if s.get("name") == "Refuse a labels file short of the batch")
+    refusal_gate = _norm(refusal["if"])
+    assert "!cancelled()" in refusal_gate, refusal_gate
+    short = "steps.label_lines.outputs.lines != needs.qp-topic-extract.outputs.batch-rows"
+    assert short in refusal_gate, refusal_gate
+    assert "continue-on-error" not in refusal, "the refusal must actually fail the job"
+    assert "exit 1" in refusal["run"]
+    assert "id" not in refusal, (
+        "the refusal carries no id, so no later step can be gated on its outcome"
+    )
+
+    count = next(s for s in steps if s.get("id") == "label_lines")
+    assert 'echo "lines=$lines" >> "$GITHUB_OUTPUT"' in count["run"], (
+        "the publication gate reads the count, so the count must be an output"
+    )
+
+    measure = next(s for s in steps if s.get("id") == "measure")
+    # The refusal is charged after the diagnostics and before the measure step,
+    # so a run that publishes nothing is still fully readable.
+    assert steps.index(count) < steps.index(refusal) < steps.index(measure)
+    gate = _norm(measure["if"])
+    # `!cancelled()`, never `always()`: a cancelled run publishes nothing.
+    assert "!cancelled()" in gate and "always()" not in gate, gate
+    assert "steps.pristine.outcome == 'success'" in gate, (
+        "the measure step's condition must still refuse a tampered tree"
+    )
+    # The gate is the count against the extract job's batch size — a value
+    # fixed before the agent started, never the extract file on this runner,
+    # which sits inside the labeler's one granted directory.
+    assert "steps.label_lines.outputs.lines != ''" in gate, gate
+    equality = "steps.label_lines.outputs.lines == needs.qp-topic-extract.outputs.batch-rows"
+    assert equality in gate, gate
+    # And nothing in it reads the agent's own verdict, which is the whole point.
+    assert "steps.label.outcome" not in gate and "steps.label.conclusion" not in gate, gate
+
+    # The publish trio follows measure rather than the default gate: a named
+    # `if:` carries no implicit `success()`, so every gate is spelled out.
+    publishers = [
+        s
+        for s in steps
+        if "create-github-app-token" in str(s.get("uses") or "")
+        or "steps.app-token.outputs" in yaml.safe_dump(s)
+    ]
+    assert len(publishers) == 3
+    for step in publishers:
+        assert "steps.measure.outcome == 'success'" in _norm(step["if"]), step.get("name")
 
 
 def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() -> None:
@@ -1211,12 +1329,19 @@ def test_the_qp_frame_count_crosses_as_a_value_and_the_sidecar_stays_behind() ->
     label = wf["jobs"]["qp-topic-label"]
 
     assert extract["outputs"]["frame-rows"] == "${{ steps.extract.outputs.frame-rows }}"
+    # The batch's own size crosses on the same terms and for a different
+    # consumer: the labeling job's publication gate compares it against the
+    # label lines the run left behind, and the denominator of that comparison
+    # must be a number the labeler could not edit — the extract file itself
+    # sits in the agent's one granted directory.
+    assert extract["outputs"]["batch-rows"] == "${{ steps.extract.outputs.batch-rows }}"
     step = next(s for s in extract["steps"] if s.get("id") == "extract")
     # Read from the sidecar in the job that wrote it, and emitted as a bare
     # integer — the digit check is what keeps a malformed file out of the output.
     assert "qp-texts.batch.json" in step["run"]
-    assert "*[!0-9]*)" in step["run"]
+    assert step["run"].count("*[!0-9]*)") == 2, "both counts need the digit guard"
     assert 'echo "frame-rows=$frame" >> "$GITHUB_OUTPUT"' in step["run"]
+    assert 'echo "batch-rows=$rows" >> "$GITHUB_OUTPUT"' in step["run"]
 
     # One file crosses the job boundary, and it is the extract.
     uploads = [s for s in extract["steps"] if "upload-artifact" in str(s.get("uses") or "")]
@@ -3442,8 +3567,15 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
     on it. The publisher set is derived, not enumerated: every job holding a
     mint step is a publishing job, and every step that mints or that touches
     the minted token is a publisher — so a new consumer of the token, or a
-    mint added to a third job, lands inside the fence's sweep by default."""
-    fence = "${{ github.ref == 'refs/heads/main' }}"
+    mint added to a third job, lands inside the fence's sweep by default.
+    A publisher may carry further conjuncts — the labeling job's trio also
+    requires its measure step to have succeeded, since gating publication on
+    the label-line count rather than on the agent's own verdict costs those
+    steps the implicit `success()` a bare condition would carry — but
+    conjuncts only: a
+    disjunction anywhere in the condition is a route around the fence, so
+    `||` is refused outright."""
+    fence = "github.ref == 'refs/heads/main'"
     wf = _load("run-analytics.yml")
     publishing_jobs = {
         job_id: job["steps"]
@@ -3464,8 +3596,17 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
             f"{job_id}: expected mint + identity + PR steps, found {len(publishers)}"
         )
         for step in publishers:
-            assert step.get("if") == fence, (
+            condition = _norm(step.get("if") or "")
+            assert condition.startswith("${{ ") and condition.endswith(" }}"), (
+                f"{job_id}: publish step {step.get('name')!r} carries no condition at all"
+            )
+            # As a positive conjunct, never negated and never disjoined: both
+            # are routes around the fence that a bare substring match misses.
+            assert f"&& {fence}" in condition or condition.startswith(f"${{{{ {fence}"), (
                 f"{job_id}: publish step {step.get('name')!r} is not fenced to the main ref"
+            )
+            assert "||" not in condition, (
+                f"{job_id}: publish step {step.get('name')!r} disjoins its fence away: {condition}"
             )
         rehearsal_notes = [
             step for step in steps if "github.ref != 'refs/heads/main'" in str(step.get("if") or "")

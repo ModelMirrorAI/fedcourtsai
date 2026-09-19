@@ -2927,7 +2927,7 @@ jobs:
             not wait for a reply.
           claude_args: |
             --model claude-haiku-4-5-20251001
-            --max-turns 120
+            --max-turns 200
             --permission-mode default
             --allowedTools Write,Edit
             --disallowedTools Agent,Task,Explore,Bash,WebFetch,WebSearch
@@ -2943,15 +2943,19 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
-          # `wc` comes off PATH, and an agent subprocess can prepend to
+          # `awk` comes off PATH, and an agent subprocess can prepend to
           # `$GITHUB_PATH` for every later step — a shimmed one is a stuck run
           # reporting a healthy count. Pinned to root-owned directories, as
-          # the pristine step pins `git` for the same reason.
+          # the pristine step pins `git` for the same reason. The count is
+          # progress only on this leg (the smoke's measure legs run on canned
+          # inputs in another job), but it is taken exactly as the paid lane
+          # takes it — non-blank lines, as `read_label_lines` reads them — so
+          # the two blocks stay one shape.
           PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
         run: |
           set -euo pipefail
           if [ -f "$LABELS_OUT" ]; then
-            lines=$(wc -l < "$LABELS_OUT")
+            lines=$(awk 'NF{n++} END{print n+0}' "$LABELS_OUT")
             present=true
           else
             lines=0

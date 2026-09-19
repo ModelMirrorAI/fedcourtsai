@@ -84,7 +84,11 @@ runs:
           echo "::error::the labeler ($LABELER) wrote no labels to $LABELS_OUT — the agent exited without producing its only declared output.${TRANSCRIPT_HINT:+ $TRANSCRIPT_HINT}"
           exit 1
         fi
-        echo "labeler wrote $(wc -l < "$LABELS_OUT") label line(s)"
+        # Counted as `read_label_lines` reads the file — non-blank lines,
+        # final newline or not — so this number and the caller's label-line
+        # count, which the production lane gates publication on, cannot
+        # disagree about the same file by one.
+        echo "labeler wrote $(awk 'NF{n++} END{print n+0}' "$LABELS_OUT") label line(s)"
 
     - name: Measure the run and write the labels artifact
       id: measure
