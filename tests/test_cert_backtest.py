@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -32,7 +33,7 @@ from fedcourtsai.pipeline.asof import replay_cutoff
 from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner, get_runner
 from fedcourtsai.pricing import DEFAULT_MODELS
 from fedcourtsai.registry import enabled_predictors
-from fedcourtsai.schemas import CertBacktest, Disposition
+from fedcourtsai.schemas import CertBacktest, CertBacktestCellLoss, Disposition
 from fedcourtsai.serialize import read_model
 from tests.conftest import FixtureCorpus
 
@@ -545,7 +546,7 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
     # cell receives it as DECIDED_BEFORE so its retrieval is time-masked.
     assert items[0].features.year == 2022
 
-    backtesters, unavailable, _ = replay_predictors(
+    outcome = replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
@@ -553,6 +554,8 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
         engine_override="stub",
         run_id="20260706T000000Z",
     )
+    backtesters = outcome.backtesters
+    unavailable = outcome.unavailable
     assert unavailable == []  # the stub is always available
 
     # One replayed backtester per enabled predictor, each covering the whole set.
@@ -613,13 +616,15 @@ def test_replay_routes_each_predictor_through_its_own_engine(
     monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls))
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    backtesters, unavailable, _ = cert_backtest.replay_predictors(
+    outcome = cert_backtest.replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
         work_root=tmp_path / "replay",
         run_id="20260706T000000Z",
     )
+    backtesters = outcome.backtesters
+    unavailable = outcome.unavailable
     assert unavailable == []
     assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline", "gemini-baseline"}
     # No cell ever ran on an engine other than its predictor's own.
@@ -649,13 +654,15 @@ def test_replay_drops_a_predictor_whose_engine_has_no_runner(
     monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls, unrouted="gemini"))
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    backtesters, unavailable, _ = cert_backtest.replay_predictors(
+    outcome = cert_backtest.replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
         work_root=tmp_path / "replay",
         run_id="20260706T000000Z",
     )
+    backtesters = outcome.backtesters
+    unavailable = outcome.unavailable
     assert unavailable == []  # a no-runner engine is dropped up front, not "unavailable"
     assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline"}
     assert "gemini" not in {backend for backend, _ in calls}
@@ -672,7 +679,7 @@ def test_replay_opts_a_named_engine_out(
     monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls))
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    backtesters, unavailable, _ = cert_backtest.replay_predictors(
+    outcome = cert_backtest.replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
@@ -680,6 +687,8 @@ def test_replay_opts_a_named_engine_out(
         run_id="20260706T000000Z",
         skip_engines=frozenset({"gemini"}),
     )
+    backtesters = outcome.backtesters
+    unavailable = outcome.unavailable
     assert unavailable == []
     assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline"}
     assert "gemini" not in {backend for backend, _ in calls}
@@ -716,16 +725,214 @@ def test_replay_drops_a_missing_binary_loudly_and_keeps_the_rest(
     )
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    backtesters, unavailable, _ = cert_backtest.replay_predictors(
+    outcome = cert_backtest.replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
         work_root=tmp_path / "replay",
         run_id="20260706T000000Z",
     )
+    backtesters = outcome.backtesters
+    unavailable = outcome.unavailable
     assert unavailable == ["gemini-baseline"]
     assert {b.id for b in backtesters} == {"claude-baseline", "codex-baseline"}
     assert "gemini" not in {backend for backend, _ in calls}
+
+
+class _MisplacingRunner:
+    """A stub that writes one predictor's cell somewhere the runner will not look.
+
+    Reproduces the incident the kickoff fix removes: an engine that followed the
+    prompt template's repo-relative ``data/cases/...`` output path wrote its
+    files into the checkout's ledger while the runner read the back-test work
+    root. Whatever the kickoff now says, an engine can still put its files in
+    the wrong place — which is what this exercises: the campaign has to survive
+    it and account for it, not crash on the first read-back.
+
+    ``elsewhere`` is where the misplaced cell lands; ``None`` writes nothing at
+    all (the cell that produced no file anywhere).
+    """
+
+    def __init__(self, misplace: str, elsewhere: Path | None) -> None:
+        self._misplace = misplace
+        self._elsewhere = elsewhere
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        if request.actor_id != self._misplace:
+            return self._stub.run(request)
+        if self._elsewhere is None:
+            return []
+        return self._stub.run(replace(request, data_root=self._elsewhere))
+
+
+def test_a_cell_written_to_the_wrong_root_is_a_loss_and_the_others_score(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The incident, end to end: one cell lands off the work root and is lost.
+
+    The campaign must finish — the cells already paid for on the other engines
+    are the whole reason — with the stray cell named on the report and the rest
+    scored. The reason is the specific one, because "wrote outside the work
+    root" and "produced nothing" call for different fixes.
+    """
+    monkeypatch.setattr(
+        cert_backtest,
+        "get_runner",
+        lambda backend="stub": _MisplacingRunner("codex-baseline", fixture_corpus.data_root),
+    )
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    outcome = cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    assert outcome.unavailable == []  # every engine was there; one cell was not
+    assert outcome.lost_cells == [
+        CertBacktestCellLoss(
+            predictor_id="codex-baseline",
+            case_id=items[0].features.case_id,
+            reason="wrote-outside-work-root",
+        )
+    ]
+    # The cells that landed where the runner reads are scored, and the predictor
+    # that lost its only cell is off the board rather than on it at zero.
+    assert {b.id for b in outcome.backtesters} == {"claude-baseline", "gemini-baseline"}
+    report = run_cert_backtest(outcome.backtesters, items)
+    assert {e.predictor_id for e in report.entries} == {"claude-baseline", "gemini-baseline"}
+    assert all(e.events_scored == len(items) for e in report.entries)
+
+
+def test_a_cell_that_produced_nothing_is_a_loss_too(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The plainer half of the same fault: the engine returned and wrote no file
+    # anywhere. Distinguished from the misplaced write because the probe found
+    # no cell under the ledger either.
+    monkeypatch.setattr(
+        cert_backtest,
+        "get_runner",
+        lambda backend="stub": _MisplacingRunner("gemini-baseline", None),
+    )
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    outcome = cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    assert [(c.predictor_id, c.reason) for c in outcome.lost_cells] == [
+        ("gemini-baseline", "missing")
+    ]
+    assert {b.id for b in outcome.backtesters} == {"claude-baseline", "codex-baseline"}
+
+
+def test_a_malformed_cell_is_a_loss_rather_than_a_crash(tmp_path: Path) -> None:
+    # A file that is there and is not a Prediction: the schema-invalid half,
+    # which read_model raises as a ValueError rather than an OSError.
+    cell = tmp_path / "prediction.json"
+    cell.write_text('{"predicted_disposition": "not-a-disposition"}')
+    lost = cert_backtest._read_replayed_cell(
+        cell, None, predictor_id="claude-baseline", case_id="scotus/304"
+    )
+    assert isinstance(lost, CertBacktestCellLoss)
+    assert lost.reason == "invalid"
+
+
+def test_a_partly_lost_predictor_is_scored_over_what_came_back() -> None:
+    """An entry short some cells is scored, and floored, over the ones it has.
+
+    Lift against an always-deny floor computed over petitions the predictor
+    never forecast would be arithmetic across two samples. The set here is two
+    denials and a grant; a predictor holding only the grant is scored over that
+    one petition, against the floor *that* petition implies (0.0), not the
+    set's 2/3.
+    """
+    items = [
+        _item("scotus/1", Disposition.denied),
+        _item("scotus/2", Disposition.denied),
+        _item("scotus/3", Disposition.granted),
+    ]
+    short = cert_backtest.ReplayedBacktester(
+        id="claude-baseline",
+        predictions={"scotus/3": BacktestPrediction(Disposition.granted, 0.9)},
+        engine="stub",
+    )
+    report = run_cert_backtest([short], items)
+    entry = report.entries[0]
+    assert report.events_scored == 3  # the set is the set
+    assert entry.events_scored == 1  # the entry is not
+    assert entry.accuracy == 1.0
+    assert entry.lift_over_always_denied == 1.0  # vs the 0.0 floor of its own petition
+    assert report.always_denied_accuracy == pytest.approx(2 / 3)
+
+
+def test_a_short_entry_never_outranks_one_that_scored_the_set() -> None:
+    """The loss must not read as a reward on the rank key.
+
+    Lift is a per-petition mean against a floor computed the same way, so
+    dropping a petition the predictor would have got wrong both rescales and
+    shifts it upward — here to a perfect +1.0 off one lucky petition, against
+    an honest full-set entry's +1/3. Ranking the two on that number would put
+    the predictor that lost a cell on top, so a short entry sorts below every
+    full one whatever its lift.
+    """
+    items = [
+        _item("scotus/1", Disposition.denied),
+        _item("scotus/2", Disposition.denied),
+        _item("scotus/3", Disposition.granted),
+    ]
+    lucky = cert_backtest.ReplayedBacktester(
+        id="codex-baseline",
+        predictions={"scotus/3": BacktestPrediction(Disposition.granted, 0.9)},
+        engine="stub",
+    )
+    honest = cert_backtest.ReplayedBacktester(
+        id="claude-baseline",
+        predictions={
+            item.features.case_id: BacktestPrediction(item.actual_disposition, 0.5)
+            for item in items
+        },
+        engine="stub",
+    )
+    report = run_cert_backtest([lucky, honest], items)
+    ranked = [(e.predictor_id, e.rank, e.events_scored) for e in report.entries]
+    assert ranked == [("claude-baseline", 1, 3), ("codex-baseline", 2, 1)]
+    # And the short entry's inflated number is still published — it is a
+    # reading hazard to be labelled, not a figure to be hidden.
+    assert report.entries[1].lift_over_always_denied == 1.0
+
+
+def test_the_cli_report_carries_the_lost_cells(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The artifact is the durable channel: stderr expires with the runner, and a
+    # board short one predictor's petitions must say so where a reader looks.
+    monkeypatch.setattr(
+        cert_backtest,
+        "get_runner",
+        lambda backend="stub": _MisplacingRunner("codex-baseline", fixture_corpus.data_root),
+    )
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(out), "--engine", "auto", "--work-dir", str(tmp_path / "w")],
+    )
+    assert result.exit_code == 0, result.output
+    report = read_model(out, CertBacktest)
+    assert report.provenance is not None
+    assert [(c.predictor_id, c.reason) for c in report.provenance.lost_cells] == [
+        ("codex-baseline", "wrote-outside-work-root")
+    ]
+    # It lost its only cell, so it is dropped — as that, not as a missing runner.
+    assert "codex-baseline" in report.provenance.dropped_predictors
+    assert "every one of its cells came back unreadable" in result.stderr
+    assert "codex-baseline" not in {e.predictor_id for e in report.entries}
 
 
 def test_replay_unknown_override_still_raises(fixture_corpus: FixtureCorpus) -> None:
@@ -934,7 +1141,7 @@ def test_replay_records_the_backend_that_ran_each_predictor(
     # entries are still named claude-/codex-/gemini-baseline.
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    backtesters, _, _ = replay_predictors(
+    outcome = replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
@@ -942,6 +1149,7 @@ def test_replay_records_the_backend_that_ran_each_predictor(
         engine_override="stub",
         run_id="20260706T000000Z",
     )
+    backtesters = outcome.backtesters
     assert {b.id for b in backtesters} == {
         "claude-baseline",
         "codex-baseline",

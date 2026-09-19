@@ -1725,6 +1725,25 @@ in-flight, so a fortnight left parked blocks every promotion until it is
 released or rejected. Reject it rather than leaving it pending when a batch is
 waiting.
 
+A released fortnight is a campaign of paid cells, so it accounts for its losses
+rather than ending on one. Two run-time faults are absorbed: an engine whose CLI
+binary is missing drops that predictor whole, and a cell that ran and left no
+readable `prediction.json` where the runner reads it is a loss for that
+(petition, predictor) pair alone. Both are printed to the run log and both ride
+`metrics/cert-backtest.json` — the whole-predictor ones in
+`provenance.dropped_predictors`, the per-cell ones in `provenance.lost_cells`
+with the reason (`missing`, `invalid`, or `wrote-outside-work-root`) — because
+the run log expires and the artifact does not, and the review PR body names the
+per-cell losses outright. A predictor short some cells stays on the board scored
+over the petitions that came back, which is why the losses have to be readable
+beside its numbers; one short *every* cell leaves the board and is dropped. The
+engine cells are told their output directory absolutely whenever it is not the
+repository's `data/`: the kickoff the runner composes overrides the prompt
+template's repo-relative output path for every engine, so an engine has one
+path to follow rather than two readings of the same instruction — which makes
+`wrote-outside-work-root` a diagnosis of an engine ignoring its kickoff rather
+than of an ambiguous one.
+
 A predict cell refuses to run for three reasons, all landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP
 sidecar, the comment-token mint, and every engine step). One is the

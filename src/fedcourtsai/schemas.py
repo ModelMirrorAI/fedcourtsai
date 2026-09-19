@@ -4265,8 +4265,8 @@ class CertBacktestDispatch(_Strict):
     Recorded because these options *are* the population definition and the engine
     routing, and neither is recoverable from the scores. ``scope``/``spread``/
     ``limit`` choose which decided petitions were replayed — and the always-deny
-    floor every ``lift_over_always_denied`` is measured against moves with them,
-    so two reports dispatched differently are two different samples whose top
+    floor a ``lift_over_always_denied`` is measured against moves with them, so
+    two reports dispatched differently are two different samples whose top
     lines are not comparable. ``engine``/``skip_engines`` say which backends were
     asked for, which is what makes a board's absences legible as a dispatch
     choice rather than a config gap.
@@ -4311,6 +4311,35 @@ class CertBacktestDispatch(_Strict):
         description="``--limit``: the cap on the cert set before unreplayable "
         "petitions were dropped. `events_scored` is what survived that filter, so "
         "a gap between the two is coverage, not sampling",
+    )
+
+
+class CertBacktestCellLoss(_Strict):
+    """One replayed cell that produced no readable prediction, and why.
+
+    A replay cell is a model call that was paid for; when the file the runner
+    reads back is missing or does not validate, the petition is simply absent
+    from that predictor's scores. Recording it keeps the absence legible: the
+    entry's own ``events_scored`` already differs, and this says which petitions
+    are behind the difference and what went wrong, rather than leaving a board
+    whose predictors were scored over silently unequal sets.
+
+    ``reason`` is a closed vocabulary, not prose — the run log carries the
+    detail (a validation error's text, the path that was read):
+
+    - ``missing`` — nothing readable at the cell's path under the replay's work
+      root: the file is absent, or the filesystem refused it.
+    - ``wrote-outside-work-root`` — nothing there either, but the same cell's
+      directory **did** appear under the repository ledger: the engine followed
+      the prompt template's ``data/cases/...`` path instead of the work root it
+      was given.
+    - ``invalid`` — a file was there and is not a valid ``Prediction``.
+    """
+
+    predictor_id: str = Field(description="The predictor whose cell was lost")
+    case_id: str = Field(description="The petition the lost cell was replaying")
+    reason: Literal["missing", "wrote-outside-work-root", "invalid"] = Field(
+        description="Why the cell produced no score, from the closed vocabulary above"
     )
 
 
@@ -4368,11 +4397,27 @@ class CertBacktestProvenance(_Strict):
     dropped_predictors: list[str] = Field(
         default_factory=list,
         description="Enabled predictors that produced no entry for a **run-time** "
-        "reason, sorted: their engine had no registered runner, or its CLI binary "
-        "turned out to be missing mid-run. The deliberate opt-out is "
+        "reason, sorted: their engine had no registered runner, its CLI binary "
+        "turned out to be missing mid-run, or every one of its cells came back "
+        "unreadable (`lost_cells`). The ids carry no cause — the run log names "
+        "which. The deliberate opt-out is "
         "`dispatch.skip_engines` instead. Recorded because a board silently short "
         "one engine is a different comparison from the three-engine one it looks "
         "like, and stderr does not survive the runner",
+    )
+    lost_cells: list[CertBacktestCellLoss] = Field(
+        default_factory=list,
+        description="Individual (petition, predictor) cells that ran and produced "
+        "no readable prediction, sorted. The per-cell counterpart of "
+        "`dropped_predictors`, which loses a predictor whole: a predictor short "
+        "**some** of its cells is still on the board, scored over the petitions "
+        "that did come back — so its `events_scored` is smaller than the set, "
+        "and its top line is not measured over the same sample as a predictor "
+        "that lost none. One short every cell has nothing to be scored over: it "
+        "has no entry and is in `dropped_predictors`, while its cells stay "
+        "here. Read this before comparing two entries. Empty on a run where "
+        "every cell came back, and on an offline baseline-only run, which has "
+        "no cells",
     )
 
 
@@ -4385,8 +4430,26 @@ class CertBacktestEntry(_Strict):
     """
 
     predictor_id: str
-    rank: int = Field(ge=1, description="1-based standing; 1 is best")
-    events_scored: int = Field(ge=0, description="Decided cert petitions replayed")
+    rank: int = Field(
+        ge=1,
+        description="1-based standing; 1 is best. Ordered by lift over the "
+        "always-deny floor, then Brier, then id — **among entries scored over "
+        "the whole set**. An entry short some cells (`provenance.lost_cells`) "
+        "sorts below every full one whatever its number, because lift is a "
+        "per-petition mean and a lost petition the predictor would have got "
+        "wrong both rescales and shifts it upward; the ordering among short "
+        "entries is the same key over unequal samples, which is a listing "
+        "rather than a comparison",
+    )
+    events_scored: int = Field(
+        ge=0,
+        description="Decided cert petitions this entry was **scored over**, "
+        "which is the whole set unless cells were lost: a predictor short some "
+        "of `provenance.lost_cells` is scored, and its lift measured against the "
+        "always-deny floor, over the petitions that came back rather than over "
+        "the set. Compare two entries with different values here only through "
+        "that block",
+    )
     accuracy: float = Field(
         ge=0.0, le=1.0, description="Fraction whose predicted disposition matched the known label"
     )
@@ -4403,8 +4466,11 @@ class CertBacktestEntry(_Strict):
     lift_over_always_denied: float = Field(
         ge=-1.0,
         le=1.0,
-        description="Disposition accuracy minus the always-deny floor's — the honest "
-        "signal under cert's structural denial skew, where raw accuracy is cheap",
+        description="Disposition accuracy minus the always-deny floor's over the "
+        "petitions **this entry was scored on** — the honest signal under cert's "
+        "structural denial skew, where raw accuracy is cheap. That floor is the "
+        "report's `always_denied_accuracy` whenever `events_scored` is the whole "
+        "set, and the scored subset's own denial rate where cells were lost",
     )
     calibration: list[CalibrationBin] = Field(
         default_factory=list,
@@ -4494,8 +4560,11 @@ class CertBacktest(_Strict):
         default=0.0,
         ge=0.0,
         le=1.0,
-        description="The always-deny floor's disposition accuracy over this set "
-        "(the denial base rate every lift figure is measured against)",
+        description="The always-deny floor's disposition accuracy over this set: "
+        "the denial base rate a lift figure is measured against, and exactly the "
+        "one every entry that scored the whole set is measured against. An entry "
+        "short some cells (`provenance.lost_cells`) is floored over its own "
+        "scored subset instead, which this figure does not give",
     )
     provisioning: dict[str, int] = Field(
         default_factory=dict,

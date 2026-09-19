@@ -27,9 +27,10 @@ axes the cert task demands:
 from __future__ import annotations
 
 import sqlite3
+import sys
 from collections import Counter
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
@@ -43,8 +44,8 @@ from .backtest import (
     BacktestPrediction,
     backtest_features,
 )
-from .config import SalienceConfig
-from .paths import CasePaths
+from .config import SalienceConfig, get_settings
+from .paths import CasePaths, EventPaths
 from .pipeline import arrival_cut, cell_context, cert_signals, moments
 from .pipeline.asof import replay_cutoff
 from .pipeline.cert_signals import match_disposition_signal
@@ -67,6 +68,7 @@ from .schemas import (
     CalibrationBin,
     CertBacktest,
     CertBacktestBigCase,
+    CertBacktestCellLoss,
     CertBacktestEntry,
     CertBacktestProvenance,
     CertBacktestSegment,
@@ -430,9 +432,12 @@ def replayable_items(
     An engine replay needs what a live predict cell reads — a held snapshot and a
     petition event — and partial coverage is the norm while the date backfill
     drains (a bulk-seeded row has neither until its first fetch). Filtering up
-    front keeps one report internally comparable: every backtester, offline
-    baselines included, is scored over the same kept set, and the caller can name
-    what was skipped instead of failing the whole run on the first bare row.
+    front is what makes one report internally comparable: every backtester,
+    offline baselines included, starts from the same kept set, and the caller
+    can name what was skipped instead of failing the whole run on the first bare
+    row. A replayed predictor can still end up short of that set — a cell that
+    came back unreadable (:func:`_read_replayed_cell`) — which is why the entry
+    publishes its own ``events_scored`` and is floored over it.
     """
     kept: list[BacktestItem] = []
     skipped: list[str] = []
@@ -488,6 +493,135 @@ def _runners_by_predictor(
     return pairs
 
 
+@dataclass(frozen=True)
+class ReplayOutcome:
+    """What one agentic replay campaign produced, losses included.
+
+    Three of the four fields exist because a campaign that spends real money per
+    cell must finish and account for itself rather than crash: ``unavailable``
+    names the predictors whose engine binary went missing mid-run,
+    ``lost_cells`` the individual cells that ran and came back unreadable, and
+    ``provisioning`` the information-set mix the scores were produced over.
+    Everything here rides the report — stderr does not survive the runner.
+    """
+
+    backtesters: list[Backtester]
+    unavailable: list[str]
+    provisioning: dict[str, int]
+    lost_cells: list[CertBacktestCellLoss]
+
+
+def _read_replayed_cell(
+    cell_path: Path, ledger_cell_path: Path | None, *, predictor_id: str, case_id: str
+) -> BacktestPrediction | CertBacktestCellLoss:
+    """Read one replayed cell back, or say why it cannot be scored.
+
+    The cell is a paid model call; a file that is absent or malformed where the
+    runner looks is a loss for *this* (petition, predictor) pair and nothing
+    more, so it is classified and returned rather than raised: raising here
+    would strand the spend already made on every other cell of the campaign and
+    leave the run with no report at all. ``OSError`` covers the absent file,
+    ``ValueError`` both halves of a file that is there and unusable: a JSON
+    decode failure and a pydantic ``ValidationError``.
+
+    ``ledger_cell_path`` is the same cell's path under the repository ledger,
+    probed only when nothing was at the work-root path: a cell directory that
+    appeared *there* is the engine having followed the prompt template's
+    ``data/cases/...`` output path instead of the work root it was given, which
+    is a different fault from a cell that produced nothing at all and is worth
+    naming as one. ``None`` skips the probe (the two roots are one tree). The
+    probe reads nothing it finds: a replay is scored over the scratch tree it
+    provisioned, and scoring a file out of the ledger instead would make the
+    board's inputs depend on which cells escaped into it.
+
+    Every loss is printed as it happens rather than summarized at the end: a
+    long campaign can still die of something else, and a loss named when it
+    occurs is in the run log either way.
+    """
+    reason: Literal["missing", "wrote-outside-work-root", "invalid"]
+    try:
+        cell = read_model(cell_path, Prediction)
+    except OSError as exc:
+        # The cell's own run directory under the ledger, not just the file: an
+        # engine that wrote there and then failed mid-cell still left the
+        # directory, and that is the same misplaced write.
+        stray = None if ledger_cell_path is None else ledger_cell_path.parent
+        if stray is not None and stray.is_dir():
+            reason = "wrote-outside-work-root"
+            detail = f"nothing at {cell_path}; the cell's directory is at {stray} instead"
+        else:
+            reason, detail = "missing", str(exc)
+    except ValueError as exc:
+        reason, detail = "invalid", f"{cell_path} is not a valid prediction: {exc}"
+    else:
+        return BacktestPrediction(
+            Disposition(cell.predicted_disposition),
+            cell.probability,
+            big_case_score=cell.big_case_score,
+        )
+    print(f"lost cell {predictor_id} on {case_id} ({reason}): {detail}", file=sys.stderr)
+    return CertBacktestCellLoss(predictor_id=predictor_id, case_id=case_id, reason=reason)
+
+
+def _replay_item_cells(
+    pairs: list[tuple[PredictorConfig, Runner]],
+    cell: RunRequest,
+    stray_paths: EventPaths | None,
+    *,
+    case_id: str,
+    unavailable: set[str],
+    collected: dict[str, dict[str, BacktestPrediction]],
+) -> list[CertBacktestCellLoss]:
+    """Run one provisioned petition's cell on every routed predictor, and read it back.
+
+    ``cell`` is the shared contract for this petition — the case, the event, the
+    run, the work root, and the replay clock — with the two per-cell slots
+    (``actor_id``, ``prompt``) left open and filled from ``pairs`` as each
+    predictor's turn comes. Scored predictions land in ``collected`` and
+    predictors whose engine binary turns out to be missing land in
+    ``unavailable``; the cells that ran and came back unreadable are returned.
+
+    Both failure modes are absorbed rather than raised, and they are absorbed at
+    different widths: a missing CLI binary is a property of the engine, so it
+    drops that predictor from the rest of the campaign, while an unreadable
+    ``prediction.json`` is a property of this one cell and costs only this
+    petition. Neither ends a campaign that has already spent real money on the
+    cells behind it.
+
+    ``stray_paths`` is this event's directory under the repository ledger, for
+    the misplaced-write probe in :func:`_read_replayed_cell`; ``None`` where
+    there is no separate ledger to probe.
+
+    ``case_id`` is the item's own id rather than ``cell.case_id``, which is the
+    same id re-composed from the parts the request carries: what is collected
+    has to key on the spelling the scorer looks it up by.
+    """
+    losses: list[CertBacktestCellLoss] = []
+    for predictor, engine_runner in pairs:
+        if predictor.id in unavailable:
+            continue  # this engine's binary was already found missing
+        request = replace(cell, actor_id=predictor.id, prompt=Path(predictor.prompt))
+        try:
+            engine_runner.run(request)
+        except EngineUnavailable:
+            # Config drift (the CLI binary is not installed): drop this engine
+            # from the whole replay rather than crash and lose the spend the
+            # other engines already made. The caller reports the drop loudly.
+            unavailable.add(predictor.id)
+            continue
+        scored = _read_replayed_cell(
+            request.event_paths.prediction(predictor.id, cell.run_id),
+            stray_paths.prediction(predictor.id, cell.run_id) if stray_paths is not None else None,
+            predictor_id=predictor.id,
+            case_id=case_id,
+        )
+        if isinstance(scored, CertBacktestCellLoss):
+            losses.append(scored)
+            continue
+        collected[predictor.id][case_id] = scored
+    return losses
+
+
 def replay_predictors(
     items: list[BacktestItem],
     *,
@@ -497,7 +631,7 @@ def replay_predictors(
     run_id: str,
     engine_override: str | None = None,
     skip_engines: frozenset[str] = frozenset(),
-) -> tuple[list[Backtester], list[str], dict[str, int]]:
+) -> ReplayOutcome:
     """Replay every routable enabled predictor over ``items``, each through its
     own configured engine.
 
@@ -514,12 +648,22 @@ def replay_predictors(
     ``prediction.json``. Each cell carries the trial's year as its replay clock
     (``DECIDED_BEFORE``), so the agent's own corpus retrieval is masked to
     provably earlier history — the same cutoff the offline prior-vote baseline
-    honors. Returns the :class:`ReplayedBacktester` list (one per predictor that
-    produced predictions) plus the ids of predictors whose engine turned out to
-    be **unavailable** mid-run — the workflow installs every engine, so this is a
-    safety net for config drift (a missing CLI binary), caught per engine and
-    dropped **loudly** rather than crashing the whole run and stranding the spend
-    already made on the other engines. A real engine spends tokens per cell.
+    honors. Returns a :class:`ReplayOutcome`: the :class:`ReplayedBacktester`
+    list (one per predictor that produced predictions), the ids of predictors
+    whose engine turned out to be **unavailable** mid-run, the per-cell losses,
+    and the provisioning mix.
+
+    Two run-time faults are absorbed rather than raised, for the same reason: a
+    campaign that crashes strands the spend already made on every other cell and
+    produces no report at all. An **unavailable** engine — the workflow installs
+    every one, so this is a safety net for config drift (a missing CLI binary) —
+    drops that predictor whole. A cell whose ``prediction.json`` is missing or
+    does not validate is a loss for that (petition, predictor) pair alone
+    (:func:`_read_replayed_cell`): the predictor stays on the board, scored over
+    the petitions that did come back, and the loss rides the report so the
+    smaller ``events_scored`` has a reason attached. Both are reported
+    **loudly** — the losses to stderr as they happen, and everything to the
+    caller. A real engine spends tokens per cell.
     Callers filter the set through :func:`replayable_items` first; a petition
     with no snapshot or petition event here is an internal-invariant error.
 
@@ -538,6 +682,13 @@ def replay_predictors(
         p.id: (engine_override or str(p.engine), replay_model(runner)) for p, runner in pairs
     }
     unavailable: set[str] = set()
+    lost: list[CertBacktestCellLoss] = []
+    # The repository ledger, for the stray-write probe only (see
+    # :func:`_read_replayed_cell`). None where the replay is writing into the
+    # ledger itself, which the workflow never does but a local invocation can:
+    # there is then no "outside" for a cell to have landed in.
+    ledger_root = get_settings().data_root.resolve()
+    probe_ledger = ledger_root != work_root.resolve()
     # Three information sets, counted as they are provisioned. A blind cell cannot
     # observe its own relist history at all, which is most of what a cert forecast
     # turns on, so a score over their union is a score over a mixture.
@@ -546,6 +697,7 @@ def replay_predictors(
         court, _, docket_raw = item.features.case_id.partition("/")
         docket = int(docket_raw)
         case_paths = CasePaths(work_root, court, docket)
+        ledger_paths = CasePaths(ledger_root, court, docket) if probe_ledger else None
         with corpus.connect_readonly(corpus_db_path) as conn:
             found = corpus.latest_snapshot(conn, item.features.case_id)
             events = corpus.events_for_case(conn, item.features.case_id)
@@ -655,45 +807,50 @@ def replay_predictors(
                 resolved=False,  # the pre-decision view: the outcome stays hidden
             ),
         )
-        for predictor, engine_runner in pairs:
-            if predictor.id in unavailable:
-                continue  # this engine's binary was already found missing
-            try:
-                engine_runner.run(
-                    RunRequest(
-                        role=UsageRole.predictor,
-                        court_id=court,
-                        docket_id=docket,
-                        event_id=event.event_id,
-                        actor_id=predictor.id,
-                        run_id=run_id,
-                        prompt=Path(predictor.prompt),
-                        data_root=work_root,
-                        # The replay clock: the cell sees it as DECIDED_BEFORE and
-                        # masks its corpus retrieval to provably earlier history.
-                        decided_before=item.features.year,
-                    )
-                )
-            except EngineUnavailable:
-                # Config drift (the CLI binary is not installed): drop this engine
-                # from the whole replay rather than crash and lose the spend the
-                # other engines already made. The caller reports the drop loudly.
-                unavailable.add(predictor.id)
-                continue
-            cell = read_model(
-                case_paths.event(event.event_id).prediction(predictor.id, run_id), Prediction
+        # One petition's cells, every enabled predictor on its own engine.
+        lost.extend(
+            _replay_item_cells(
+                pairs,
+                RunRequest(
+                    role=UsageRole.predictor,
+                    court_id=court,
+                    docket_id=docket,
+                    event_id=event.event_id,
+                    # The two per-cell slots the template leaves open.
+                    actor_id="",
+                    prompt=Path(),
+                    run_id=run_id,
+                    data_root=work_root,
+                    # The replay clock: the cell sees it as DECIDED_BEFORE and
+                    # masks its corpus retrieval to provably earlier history.
+                    decided_before=item.features.year,
+                ),
+                ledger_paths.event(event.event_id) if ledger_paths is not None else None,
+                case_id=item.features.case_id,
+                unavailable=unavailable,
+                collected=collected,
             )
-            collected[predictor.id][item.features.case_id] = BacktestPrediction(
-                Disposition(cell.predicted_disposition),
-                cell.probability,
-                big_case_score=cell.big_case_score,
-            )
+        )
     backtesters: list[Backtester] = [
         ReplayedBacktester(id=pid, predictions=preds, engine=ran_on[pid][0], model=ran_on[pid][1])
         for pid, preds in collected.items()
-        if pid not in unavailable
+        # `preds`: a predictor every one of whose cells came back unreadable has
+        # nothing to be scored over, so it leaves the board entirely rather than
+        # appearing at an accuracy of zero over zero petitions. Its cells are on
+        # the report as losses, and the caller names it as dropped.
+        if pid not in unavailable and preds
     ]
-    return backtesters, sorted(unavailable), dict(provisioning)
+    return ReplayOutcome(
+        backtesters=backtesters,
+        unavailable=sorted(unavailable),
+        provisioning=dict(provisioning),
+        # Every loss, including one on a predictor whose engine went missing
+        # later in the campaign: unavailability drops the predictor from the
+        # board, but the cells it already ran and lost were paid for and are
+        # facts about the run. Why the predictor has no entry is
+        # `unavailable`'s to say, not this list's to omit.
+        lost_cells=sorted(lost, key=lambda loss: (loss.predictor_id, loss.case_id)),
+    )
 
 
 def _calibration(pairs: list[tuple[float, int]]) -> list[CalibrationBin]:
@@ -832,21 +989,38 @@ def _big_case_distribution(scores: list[float]) -> CertBacktestBigCase | None:
     )
 
 
+def _predicted(backtester: Backtester, item: BacktestItem) -> BacktestPrediction | None:
+    """This backtester's forecast for one petition, or ``None`` where it has none.
+
+    Only a replayed backtester can be short a petition — a cell that ran and
+    came back unreadable (:func:`_read_replayed_cell`) — and it is then scored
+    over what did come back rather than over a guess in place of it. The offline
+    reference baselines are pure functions of the features and always answer.
+    """
+    if isinstance(backtester, ReplayedBacktester):
+        return backtester.predictions.get(item.features.case_id)
+    return backtester.predict(item.features)
+
+
 def _score_one(
     backtester: Backtester,
     items: list[BacktestItem],
-    always_denied_accuracy: float,
     segments: Mapping[str, _ItemSegment] | None,
-) -> CertBacktestEntry:
+) -> CertBacktestEntry | None:
     correct = 0
     granted_correct = 0
     brier_sum = 0.0
+    denied_scored = 0
     pairs: list[tuple[float, int]] = []
     band_acc: dict[str, _BandAcc] = {}
     big_case_scores: list[float] = []
     for item in items:
-        prediction = backtester.predict(item.features)
+        prediction = _predicted(backtester, item)
+        if prediction is None:
+            continue  # a lost cell: this entry is scored over the rest
         actual_granted = granted_flag(item.actual_disposition)
+        if item.actual_disposition == Disposition.denied:
+            denied_scored += 1
         disp_correct = prediction.predicted_disposition == item.actual_disposition
         if disp_correct:
             correct += 1
@@ -862,7 +1036,20 @@ def _score_one(
             if seg is not None:
                 acc = band_acc.setdefault(seg.band, _BandAcc())
                 acc.add(disp_correct, brier, actual_granted, seg.base_rate)
-    n = len(items)
+    n = len(pairs)
+    if n == 0:
+        # Nothing of this set came back for this predictor, so there is no rate
+        # to report and no denominator to report one over. `replay_predictors`
+        # already keeps such a predictor off the board; this is the same rule
+        # stated where the division would otherwise happen.
+        return None
+    # The floor this entry's lift is measured against: the always-deny accuracy
+    # over the petitions **this entry was scored on**. Lift against a floor
+    # computed over petitions the entry never forecast is arithmetic across two
+    # samples, so a short entry is floored over its own subset. A full entry
+    # counts exactly the items the report-level `always_denied_accuracy` is
+    # summed over, so this reproduces that figure wherever nothing was lost.
+    floor = denied_scored / n
     # Null for anything that is not an engine replay: the offline reference
     # baselines are pure functions of the corpus, so they ran no backend and no
     # model, and saying so is what keeps their rows readable beside replayed ones.
@@ -880,7 +1067,7 @@ def _score_one(
         accuracy=correct / n,
         granted_accuracy=granted_correct / n,
         mean_brier_score=brier_sum / n,
-        lift_over_always_denied=correct / n - always_denied_accuracy,
+        lift_over_always_denied=correct / n - floor,
         calibration=_calibration(pairs),
         segments=_band_segments(band_acc),
         big_case=_big_case_distribution(big_case_scores),
@@ -924,10 +1111,25 @@ def run_cert_backtest(
         item.actual_disposition == Disposition.denied for item in items
     ) / len(items)
     entries = [
-        _score_one(backtester, items, always_denied_accuracy, segments)
+        entry
         for backtester in backtesters
+        if (entry := _score_one(backtester, items, segments)) is not None
     ]
-    entries.sort(key=lambda e: (-e.lift_over_always_denied, e.mean_brier_score, e.predictor_id))
+    # Lift ranks the board — but only among entries measured over the same
+    # petitions. Lift is a per-petition mean against a floor computed the same
+    # way, so an entry short a petition it would have got wrong is both
+    # rescaled and shifted upward by the loss; at a ten-petition draw that is
+    # worth more than any plausible true lift, and a lost cell would read as a
+    # reward. So a short entry sorts below every full one, whatever its number,
+    # and is ranked only against other short entries.
+    entries.sort(
+        key=lambda e: (
+            e.events_scored != len(items),
+            -e.lift_over_always_denied,
+            e.mean_brier_score,
+            e.predictor_id,
+        )
+    )
     for position, entry in enumerate(entries, start=1):
         entry.rank = position
     return CertBacktest(
