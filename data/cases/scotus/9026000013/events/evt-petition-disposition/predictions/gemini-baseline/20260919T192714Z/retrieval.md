@@ -1,0 +1,1 @@
+Consulted the provisioned inputs (snapshot, event, documents). Searched the web for factual background regarding the 9/11 military commission plea agreements and the Secretary of Defense's withdrawal. Read the statpack for the modern discretionary-cert base rates (salience band 'baseline' for private petitioners).
