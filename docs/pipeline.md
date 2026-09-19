@@ -397,18 +397,22 @@ queues behind the production run of the same mode. The modes:
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
   credential in its environment and no MCP config (the vocabulary is text-only,
-  so the extract is the agent's entire evidentiary input). Exactly two things
-  cross the split: that artifact, and the size of the QP-bearing frame the
-  extract cut the batch from — a job output, one integer, which the post-label
-  measure step passes to `qp-topics --frame-rows` so the labels artifact records
-  each batch's frame ([qp-topic.md](qp-topic.md)). The `.batch.json` sidecar it
-  is read from stays on the extract runner: the value is a population count, the
-  file is the shape of the draw. Its tools are Write, Edit and free reads; the
+  so the extract is the agent's entire evidentiary input). Exactly three things
+  cross the split: that artifact, and two job outputs, each one integer. The
+  size of the QP-bearing frame the extract cut the batch from goes to the
+  post-label measure step's `qp-topics --frame-rows`, so the labels artifact
+  records each batch's frame ([qp-topic.md](qp-topic.md)). The size of the batch
+  itself is the denominator of the publication gate — the job measures and opens
+  its PR when the label lines the run left behind equal it — and it comes from
+  the extract job rather than being counted on the labeling runner, because the
+  extract file lands in the one directory the agent holds a Write grant over.
+  The `.batch.json` sidecar both are read from stays on the extract runner: the
+  values are population counts, the file is the shape of the draw. Its tools are Write, Edit and free reads; the
   shell, the delegation tools and the web tools are denied by name in the
   invocation, because a grant list
   pre-approves without withholding anything. The labeling run is a single
   headless session, so a delegated subagent would die with it leaving the
-  batch part-labeled and the measure step refusing a partial file; labels
+  batch part-labeled and the run refused short of the ceiling; labels
   have to come from the agent reading each text rather than from a command
   it runs; and a fetch is either redundant with the extract or later than the
   petition, and the later kind has to stay out of a label for the label to be
@@ -420,8 +424,10 @@ queues behind the production run of the same mode. The modes:
   count. That artifact and that line are what a step killed at its cap leaves,
   since the action writes its execution log at exit and there is then no
   transcript to read (disclosure argued in [qp-topic.md](qp-topic.md)). The
-  measure step still refuses a partial file: it is captured for reading, never
-  for publication. It applies the same
+  partial file is captured for reading, never for publication: a labels file
+  short of the batch is refused out loud, so a wasted run is red, and the
+  measure step and the review PR run on the complete count alone — never on
+  the action's own verdict, which it can issue after the last row is written. It applies the same
   structural prohibition the cell workflows do — `data/qp-topics/` is moved out
   of the tree for the duration of the agent step, since reading the reference
   set would not improve the labels, only destroy the measurement — and restores

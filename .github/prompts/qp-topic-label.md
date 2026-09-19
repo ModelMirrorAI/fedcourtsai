@@ -165,11 +165,13 @@ labels against a reference you are forbidden to see.
   assign a label instead of reading the question is the one rule here you keep
   on your own.
 
-  Work in slices of roughly 50–100 texts against the budget (about 120 turns
-  and a 40-minute step). **The extract is bounded, not a fixed size**: the
-  command that built it sizes it to what a labeling run can finish, so whatever
-  `$QP_TEXTS` holds fits the step — count its rows once at the start and pace
-  against that number, never against a figure quoted here.
+  Work in slices of roughly 50–100 texts. The bound on this run is a wall-clock
+  step cap you cannot read, not a turn budget, so do not ration turns: take as
+  many as the work needs and land each slice as it finishes rather than
+  batching work up to save them. **The extract is bounded, not a fixed size**:
+  the command that built it sizes it to what a labeling run can finish, so
+  whatever `$QP_TEXTS` holds fits the step — count its rows once at the start
+  and pace against that number, never against a figure quoted here.
   Land each slice's lines in
   `$LABELS_OUT` **exactly once** as it finishes, so a failed turn costs one
   slice rather than the run — though only the complete file yields published
