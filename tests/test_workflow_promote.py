@@ -430,6 +430,24 @@ def test_all_offline_is_dispatchable_and_titled_as_a_whole_suite() -> None:
     assert WHOLE_SUITE in str(workflow["concurrency"]["group"])
 
 
+def test_an_unqualified_dispatch_runs_the_token_free_whole_suite() -> None:
+    # Model spend is a typed choice, never what a bare dispatch falls into:
+    # the scenario default is the whole required suite with both engine
+    # families dropped, so `-f scenario=all` is the only way to reach the
+    # three cells and three boot probes. What the default moves is the cost
+    # of an unqualified dispatch, not what the gate accepts — an
+    # `all-offline` title is minted only by a run that really ran that
+    # suite, and it stands in for `all` only under the engine-smoke skip
+    # (the freshness tests below pin that half).
+    inputs = _load(WORKFLOWS / "integration-test.yml")[True]["workflow_dispatch"]["inputs"]
+    assert inputs["scenario"]["default"] == "all-offline"
+    # A choice default GitHub cannot select would leave the dispatch form
+    # empty; and the paid suite must stay selectable beside it, because a
+    # promotion still has to be able to ask for it.
+    assert inputs["scenario"]["default"] in inputs["scenario"]["options"]
+    assert "all" in inputs["scenario"]["options"]
+
+
 def _case_step(
     tmp_path: Path,
     *,
