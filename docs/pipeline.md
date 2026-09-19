@@ -484,7 +484,11 @@ evidence at all — it would block the promotion carrying the fix.
 `scenario=all-offline` is that same
 suite with all six token-spending engine legs dropped: token-free end to end,
 and whole-suite evidence only for a pre-flight that skipped them (*The
-engine-smoke skip* under *Promotion: staging → main* below).
+engine-smoke skip* under *Promotion: staging → main* below). It is the
+dispatch **default**, so an unqualified dispatch runs the whole suite and
+spends nothing; `all` is reached only by typing it, which is what a
+promotion-bound suite does once per batch (step 3 of the operator's path
+below).
 
 The **daily canary** is the schedule: the three `engine-actions-smoke` legs
 alone, at 11:53 UTC, catching a provider-side or action-side flip between
@@ -1410,8 +1414,13 @@ The mechanics:
   which ran neither — would satisfy that requirement without exercising it.
   Unsound, not stricter. Whether that evidence
   is worth its tokens for a given batch is the maintainer's risk call; the
-  default at every surface is the full suite, and a batch that cannot affect a
-  cell — docs, analytics, non-cell code — is the clear case for waiving.
+  default at every gate surface is the full required set — what a dispatch
+  costs by default changes nothing about what the gate asks for — and a batch
+  that cannot affect a cell — docs, analytics, non-cell code — is the clear
+  case for waiving. The other case is scoped to a *delta* rather than a batch:
+  a head that moved after a green `all` run, where what the move added cannot
+  reach a cell (*When the head moves after a green `all`* in the operator's
+  path below).
   It takes **two separate acts**, because a pre-flight and a merge are
   different decisions:
   - `promote`'s **`skip_engine_smoke` input** drops all six from that
@@ -1454,6 +1463,14 @@ The full path of a change, operator's view:
 3. Dispatch the required integration scenarios at staging's post-sync head —
    one `scenario=all` dispatch covers the whole suite, or per-scenario runs
    add up to it (the summary prints both forms) — then re-dispatch `promote`.
+   **Pay for `all` once per batch, at the head the batch will actually
+   promote**: after the sync has landed and after every staging merge the
+   batch carries. Freshness is per-SHA, so a head that moves afterwards
+   discards the evidence and not the spend — three engine-smoke cells plus
+   three boot probes, re-paid at the new head. Everyday dispatches want the
+   default instead: `gh workflow run integration-test.yml --ref staging` with
+   no `scenario` runs the token-free `all-offline` suite, which exercises
+   every required scenario but the six engine legs.
    Leave `docket` empty: the run-time case resolver self-resolves on the seeded
    staging slice as it does on production, falling back to a content-store probe
    where the split-on slice's blob carries no snapshot rows, and the plan job
@@ -1463,6 +1480,23 @@ The full path of a change, operator's view:
    On a cell-inert batch, `promote -f skip_engine_smoke=true` first: it prints
    the `all-offline` form and tells you whether anything *else* is missing
    before you pay for the engine legs, which step 4 still needs.
+
+   **When the head moves after a green `all`.** The gate's rule is
+   mechanical and does not read the delta: the green `all` run sits at the
+   old sha, so at the new one nothing satisfies the twelve, and the choice is
+   to re-dispatch `all` or to dispatch `all-offline` at the new head and take
+   the skip's **two acts** — `promote -f skip_engine_smoke=true` for the
+   pre-flight, the `promote:skip-engine-smoke` label on the promotion PR for
+   the required check — which is the gate's only path to accepting a
+   token-free whole-suite run. The second course is
+   a risk call, not a shortcut, and it is the maintainer's to make on the
+   delta the head move introduced: where that delta cannot reach a cell — a
+   data commit the sync brought over, docs, analytics — the engine evidence
+   from the earlier sha is the maintainer's inference, which the gate does
+   not check and the label is the record of. Where the delta touches cells,
+   engine CLIs, engine actions or the invocation path, re-dispatch `all`:
+   that is precisely the evidence the skip trades away, and an action version
+   bump is the class it breaks silently (*The engine-smoke skip* above).
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
    `promotion-gate` check re-verifies quiescence + freshness. Add the batch's
    **stated effect check** to that PR body — what should be true once it is

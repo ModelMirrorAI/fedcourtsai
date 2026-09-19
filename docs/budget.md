@@ -1283,9 +1283,33 @@ of which can move it:
   10-minute timeout; not `spend.ceiling_usd`.
 
 The same three legs also ride every `scenario=all` dispatch, adding ≈$0.45 to a
-promotion suite that already spends three engine-smoke cells' worth — on the
-order of $14–23/yr at a plausible 30–50 whole-suite dispatches. Both sit inside
-the buffer below, so the floor is unchanged; state them, do not imply them.
+promotion suite that already spends three engine-smoke cells' worth — $7.3–7.5
+at the design-mix mean above (≈$2.44–2.49/cell), so **≈$7.8 per paid
+whole-suite dispatch**. The yearly figure is that unit times the dispatch
+count, and the count is the term worth measuring, because like the canary none
+of this enters the `usage.json` ledger the spend backstop reads. Measured over
+the 50 days to 2026-09-19: **53 `scenario=all` dispatches, across 48 distinct
+staging heads** against 37 promotion batches — three cells apiece, so ≈160
+cells and ≈$410 (an upper read: 11 of the 53 ended red or cancelled, and a leg
+that dies early spends less than a cell). Both counts are re-derivable —
+`gh run list --workflow integration-test.yml` filtered to titles beginning
+`integration-test: all @`, and `git tag -l 'promotion/*'` over the same window.
+
+That is ≈1.4 paid suites per batch, ≈$250/mo at the measured cadence, and
+**it does not ride the misc buffer** the canary sits inside: at that size it is
+comparable to the whole $350/mo bucket, so it belongs with the inference lines
+of driver #1 in everything but ledger visibility. Two things make the paid
+count a deliberate choice rather than a default, neither of them a gate. The
+dispatch default is `all-offline`, so the whole-suite run an unqualified
+dispatch gets is the token-free one and spending takes a typed
+`-f scenario=all`; and the promotion sequence pays for `all` once per batch, at
+the head the batch will promote, because freshness is per-SHA and a head that
+moves afterwards discards the evidence rather than the spend (*Promotion:
+staging → main* in [pipeline.md](pipeline.md)). One paid suite per batch at the
+measured batch cadence is ≈$290 per 50 days; the distance from the measured
+figure is re-dispatch — at a moved head, and at the same head after a red or
+cancelled run (5 of the 53). The canary's own ≈$14/mo and the ≈$0.45 it adds to
+each suite do sit inside the buffer; state all three, do not imply them.
 
 The workflow's **repro-family** scenarios add nothing to either figure. Each
 runs one real cell against a pinned record, but none rides the schedule and
