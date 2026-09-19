@@ -1079,11 +1079,22 @@ def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
             + "released a fortnight's `run-backtest` hold (or dispatched one) — there is "
             + "no number here to be stale."
         ]
+    # The coverage clause, because the two counts read as their product and are
+    # not one wherever a cell was lost: a predictor short some cells is scored
+    # over fewer petitions than the set, and the digest is the most-quoted of
+    # the surfaces this report reaches.
+    lost = len(report.provenance.lost_cells) if report.provenance is not None else 0
+    losses = (
+        f" {lost} cell(s) lost, so at least one predictor was scored over fewer "
+        "petitions than the set — read `provenance.lost_cells` before ranking."
+        if lost
+        else ""
+    )
     return [
         f"- **Cert back-test** ({_sourced('cert-backtest.json', vintaged)}): "
         f"{report.predictors_evaluated} predictor(s) over {report.events_scored:,} "
         f"petition(s), banded by `{report.salience_version}`; always-deny floor "
-        f"{report.always_denied_accuracy:.1%}."
+        f"{report.always_denied_accuracy:.1%}.{losses}"
     ]
 
 

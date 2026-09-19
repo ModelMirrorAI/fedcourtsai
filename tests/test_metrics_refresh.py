@@ -15,7 +15,9 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     CalibrationBin,
     CertBacktest,
+    CertBacktestCellLoss,
     CertBacktestEntry,
+    CertBacktestProvenance,
     ClaimJudgeAgreement,
     ClaimScoreBoard,
     DocketPack,
@@ -368,6 +370,161 @@ def test_render_backtest_pr_reads_the_report_headline(tmp_path: Path) -> None:
     assert "always-deny floor: **92%**" in pr.body
     assert "--limit 25 --engine auto" in pr.body
     assert "not** auto-merged" in pr.body
+
+
+def test_render_backtest_pr_names_the_lost_cells(tmp_path: Path) -> None:
+    """A run that lost cells says so in the PR, not only in the report's JSON.
+
+    The review PR is where the board is read from, and a predictor scored over
+    fewer petitions than the rest is not comparable with them on the top line —
+    which the top line cannot show. The body names the predictor, the petition,
+    and the reason.
+    """
+    report = CertBacktest(
+        events_scored=10,
+        predictors_evaluated=2,
+        always_denied_accuracy=0.9,
+        provenance=CertBacktestProvenance(
+            lost_cells=[
+                CertBacktestCellLoss(
+                    predictor_id="codex-baseline",
+                    case_id="scotus/73275187",
+                    reason="wrote-outside-work-root",
+                )
+            ]
+        ),
+        entries=[
+            CertBacktestEntry(
+                predictor_id="claude-baseline",
+                rank=1,
+                events_scored=10,
+                accuracy=0.9,
+                granted_accuracy=0.9,
+                mean_brier_score=0.08,
+                lift_over_always_denied=0.0,
+            )
+        ],
+    )
+    (tmp_path / "cert-backtest.json").write_text(report.model_dump_json())
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert "1 cell(s) lost" in pr.body
+    assert "`codex-baseline` — scotus/73275187 (wrote-outside-work-root)" in pr.body
+    # A clean run says nothing at all, rather than "0 lost".
+    clean = CertBacktest(events_scored=10, predictors_evaluated=0, entries=[])
+    (tmp_path / "cert-backtest.json").write_text(clean.model_dump_json())
+    unlost = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert unlost is not None and "cell(s) lost" not in unlost.body
+
+
+def _entry(
+    predictor_id: str, *, scored: int, lift: float, granted_rate: float = 0.1
+) -> CertBacktestEntry:
+    """One board row with a calibration view covering exactly its own cells."""
+    return CertBacktestEntry(
+        predictor_id=predictor_id,
+        rank=1,
+        events_scored=scored,
+        accuracy=0.9,
+        granted_accuracy=0.9,
+        mean_brier_score=0.05,
+        lift_over_always_denied=lift,
+        calibration=[
+            CalibrationBin(
+                lower=0.0,
+                upper=0.1,
+                predictions=scored,
+                mean_probability=0.04,
+                observed_granted_rate=granted_rate,
+            )
+        ],
+    )
+
+
+def test_render_backtest_pr_headlines_only_an_entry_that_scored_the_set(
+    tmp_path: Path,
+) -> None:
+    """A short entry's lift never becomes the PR's headline number.
+
+    Lift is a per-petition mean against a floor computed the same way, so a
+    lost petition the predictor would have got wrong lifts it — at a small
+    draw, past every honest full-set entry. The body still names the short
+    entry in the losses line; what it must not do is quote its number as the
+    board's top line.
+    """
+    report = CertBacktest(
+        events_scored=10,
+        predictors_evaluated=2,
+        always_denied_accuracy=0.9,
+        provenance=CertBacktestProvenance(
+            lost_cells=[
+                CertBacktestCellLoss(
+                    predictor_id="codex-baseline", case_id="scotus/1", reason="missing"
+                )
+            ]
+        ),
+        entries=[
+            _entry("codex-baseline", scored=9, lift=0.5),
+            _entry("claude-baseline", scored=10, lift=0.02),
+        ],
+    )
+    (tmp_path / "cert-backtest.json").write_text(report.model_dump_json())
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert "top predictor `claude-baseline`" in pr.body
+    assert "+50.0%" not in pr.body
+    assert "`codex-baseline` — scotus/1 (missing)" in pr.body
+
+
+def test_render_backtest_pr_withholds_a_headline_when_no_entry_scored_the_set(
+    tmp_path: Path,
+) -> None:
+    # Every entry short some cells: there is no lift here measured over the
+    # set, so the body says that rather than quoting one measured over less.
+    report = CertBacktest(
+        events_scored=10,
+        predictors_evaluated=1,
+        always_denied_accuracy=0.9,
+        provenance=CertBacktestProvenance(
+            lost_cells=[
+                CertBacktestCellLoss(
+                    predictor_id="claude-baseline", case_id="scotus/1", reason="invalid"
+                )
+            ]
+        ),
+        entries=[_entry("claude-baseline", scored=9, lift=0.5)],
+    )
+    (tmp_path / "cert-backtest.json").write_text(report.model_dump_json())
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert "no predictor scored the whole set" in pr.body
+    assert "`claude-baseline`: lift" not in pr.body
+
+
+def test_the_grant_free_guard_reads_a_full_set_entry_not_the_top_one(
+    tmp_path: Path,
+) -> None:
+    """A short top entry must not disable the grant-free withholding guard.
+
+    The granted-side count comes from a calibration view covering the whole
+    set; a short entry bins only what it forecast. Reading the count off the
+    top row alone would make a lost cell silently publish the ranking the
+    guard exists to suppress.
+    """
+    report = CertBacktest(
+        events_scored=10,
+        predictors_evaluated=2,
+        always_denied_accuracy=1.0,
+        entries=[
+            _entry("codex-baseline", scored=9, lift=0.5, granted_rate=0.0),
+            _entry("constant-denied", scored=10, lift=0.0, granted_rate=0.0),
+        ],
+    )
+    (tmp_path / "cert-backtest.json").write_text(report.model_dump_json())
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert "no granted-side outcome in this set" in pr.body
+    assert "(0 granted-side outcome(s) in 10)" in pr.body
 
 
 def test_render_backtest_pr_none_without_a_report(tmp_path: Path) -> None:

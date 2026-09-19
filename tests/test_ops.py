@@ -24,6 +24,8 @@ from fedcourtsai.schemas import (
     BigCaseCoverage,
     BigCaseRow,
     CertBacktest,
+    CertBacktestCellLoss,
+    CertBacktestProvenance,
     ClaimProbability,
     ClaimScoreBoard,
     ConferenceBucket,
@@ -2674,6 +2676,38 @@ def test_the_weekly_digest_reports_the_missing_cert_backtest_honestly() -> None:
 
     assert "**Cert back-test**: **no report has landed yet.**" in md
     assert "there is no number here to be stale" in md
+
+
+def test_the_weekly_digest_names_a_back_test_that_lost_cells() -> None:
+    """`N predictor(s) over M petition(s)` reads as a product; losses break it.
+
+    A predictor short some cells was scored over fewer petitions than the set,
+    so the two counts no longer multiply out to what ran — and the digest is
+    the most-quoted surface this report reaches, which is where the caveat has
+    to be rather than one artifact away.
+    """
+    report = CertBacktest(
+        events_scored=10,
+        predictors_evaluated=3,
+        always_denied_accuracy=0.9,
+        provenance=CertBacktestProvenance(
+            lost_cells=[
+                CertBacktestCellLoss(
+                    predictor_id="codex-baseline",
+                    case_id="scotus/1",
+                    reason="wrote-outside-work-root",
+                )
+            ]
+        ),
+    )
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(cert_backtest=report))
+    assert "1 cell(s) lost" in md
+    assert "scored over fewer petitions than the set" in md
+
+    # A clean report says nothing about losses rather than "0 lost".
+    clean = CertBacktest(events_scored=10, predictors_evaluated=3, always_denied_accuracy=0.9)
+    unlost = ops.render_weekly_digest(_empty_report(), analytics=_analytics(cert_backtest=clean))
+    assert "cell(s) lost" not in unlost
 
 
 def test_the_weekly_digest_names_the_scorer_a_replay_was_produced_under() -> None:

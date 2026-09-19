@@ -1168,19 +1168,32 @@ the rendered table) and
   backends — `stub` being canned numbers, while `replay` re-emits one captured
   forecast across every petition, a constant predictor here. The dispatch is
   part of the reading, not bookkeeping: `scope`, `spread`, and `limit` choose
-  the population, and the always-deny floor every lift is measured against moves
-  with them, so two differently dispatched reports are two samples whose top
-  lines are not comparable. Two config values ride the block for the same
+  the population, and the always-deny floor a lift is measured against — the
+  set's, or, for an entry short some cells, that entry's own scored subset —
+  moves with them, so two differently dispatched reports are two samples whose
+  top lines are not comparable. Two config values ride the block for the same
   reason, because they move the population and the baselines under an *identical*
   dispatch: `salience_floor` (what `--scope selected` means) and
   `base_rate_lookback_terms` (what every `segment_base_rate`, and so every
   `mean_brier_skill`, is scored against — it sits in no process digest, so
   without it here a per-band comparison across two reports is not one).
   `dropped_predictors` names the predictors lost at run time (no registered
-  runner, or a missing CLI binary) as against the deliberate `skip_engines`
-  opt-out, since a board silently short one engine is not the three-engine
-  comparison it looks like. A **null** `provenance` means unknown, never
-  offline: read nothing from such a report. Produced by the
+  runner, a missing CLI binary, or every one of its cells unreadable — the ids
+  carry no cause, which the run log states) as against the deliberate
+  `skip_engines` opt-out, since a board silently short one engine is not the
+  three-engine comparison it looks like. `lost_cells` is the per-cell
+  counterpart: a (petition, predictor) cell that ran and produced no readable
+  prediction, with its reason (`missing`, `invalid`, or
+  `wrote-outside-work-root`). It is a reading rule, not bookkeeping — a
+  predictor short *some* cells is scored, and its lift floored, over the
+  petitions that came back, so its `events_scored` is below the set and its top
+  line is not measured over the same sample as an entry that lost none; one
+  short every cell has no entry at all and is in `dropped_predictors` instead.
+  The board keeps a short entry below every full one whatever its lift —
+  dropping a petition a predictor would have got wrong raises the figure — so
+  `rank` orders comparably only within one `events_scored`, and the rows below
+  the full ones are a listing rather than a ranking. A **null** `provenance` means unknown, never offline: read
+  nothing from such a report. Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A
   real-engine replay spends tokens, so **the schedule asks and the hold
   spends**: no run spends without an explicit maintainer decision. The

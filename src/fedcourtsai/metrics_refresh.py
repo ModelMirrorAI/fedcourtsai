@@ -363,16 +363,48 @@ def _granted_in_set(report: CertBacktest) -> int | None:
     granted side by the dismissal-bearing draws. The calibration view can:
     every replayed petition lands in exactly one probability bin, so a bin's
     ``predictions x observed_granted_rate`` is its granted count and the sum
-    over bins is the set's. Any entry scores the same items, so the top one
-    answers for the board. ``None`` where the bins do not account for the whole
-    set, so a caller states nothing rather than a wrong number.
+    over bins is the set's. It has to come from an entry that scored the **whole
+    set**: an entry short some cells (``provenance.lost_cells``) bins only what
+    it forecast, and reading the board's granted count off it would understate
+    the draw. The offline reference baselines are pure functions of the corpus
+    and are never short, so on any report that ran them there is such an entry.
+    ``None`` where no entry accounts for the whole set, so a caller states
+    nothing rather than a wrong number.
     """
-    if not report.entries:
-        return None
-    bins = report.entries[0].calibration
-    if not bins or sum(one.predictions for one in bins) != report.events_scored:
-        return None
-    return round(sum(one.predictions * one.observed_granted_rate for one in bins))
+    for entry in report.entries:
+        bins = entry.calibration
+        if bins and sum(one.predictions for one in bins) == report.events_scored:
+            return round(sum(one.predictions * one.observed_granted_rate for one in bins))
+    return None
+
+
+def _backtest_losses_line(report: CertBacktest) -> str:
+    """The PR body's per-cell loss line, empty where nothing was lost.
+
+    A cell that ran and came back unreadable leaves its predictor scored over
+    fewer petitions than the set, which is invisible in a top line and decisive
+    for reading one — so the review PR says it outright rather than leaving it
+    to whoever opens the report's `provenance` block. Grouped by predictor,
+    because "which predictor is short, and by how much" is the question the
+    line exists to answer.
+    """
+    losses = report.provenance.lost_cells if report.provenance is not None else []
+    if not losses:
+        return ""
+    by_predictor: dict[str, list[str]] = {}
+    for loss in losses:
+        by_predictor.setdefault(loss.predictor_id, []).append(f"{loss.case_id} ({loss.reason})")
+    named = "; ".join(
+        f"`{predictor}` — {', '.join(cells)}" for predictor, cells in sorted(by_predictor.items())
+    )
+    return (
+        f"- **{len(losses)} cell(s) lost** (ran, no readable prediction): {named}. "
+        "A predictor short some of its cells is scored over the petitions that "
+        "came back, so its `events_scored` is below the set and its lift is "
+        "floored over that subset — not the same measurement as a full entry, "
+        "and never the headline above. One short every cell has no entry at all "
+        "and is in `provenance.dropped_predictors`.\n"
+    )
 
 
 def render_backtest_pr(
@@ -392,6 +424,13 @@ def render_backtest_pr(
         return None
     report = read_model(report_path, CertBacktest)
     granted = _granted_in_set(report)
+    # The headline names a predictor scored over the **whole set**, or it names
+    # none. An entry short some cells is floored over its own subset, and lift
+    # is a per-petition mean, so dropping a petition the predictor got wrong
+    # both rescales and shifts its lift — at a ten-petition draw, far enough to
+    # outrank every honest full-set entry. Such an entry belongs on the board
+    # and in the losses line, never on the top line.
+    full = next((e for e in report.entries if e.events_scored == report.events_scored), None)
     if not report.entries:
         headline = "no predictors scored (empty set)"
     elif granted == 0:
@@ -399,12 +438,17 @@ def render_backtest_pr(
             "no granted-side outcome in this set — every predictor is scored against a "
             "draw with nothing to discriminate, so the lift ordering is not a measurement"
         )
-    else:
-        top = report.entries[0]
+    elif full is None:
         headline = (
-            f"top predictor `{top.predictor_id}`: lift "
-            f"**{top.lift_over_always_denied:+.1%}** over always-deny "
-            f"(accuracy {top.accuracy:.0%}, Brier {top.mean_brier_score:.3f})"
+            "no predictor scored the whole set — every entry is short some cells (see "
+            "the losses below), so there is no lift here measured over the set and the "
+            "ordering is not a measurement"
+        )
+    else:
+        headline = (
+            f"top predictor `{full.predictor_id}`: lift "
+            f"**{full.lift_over_always_denied:+.1%}** over always-deny "
+            f"(accuracy {full.accuracy:.0%}, Brier {full.mean_brier_score:.3f})"
         )
     title = f"metrics: cert back-test over {report.events_scored} petition(s)"
     granted_line = (
@@ -424,7 +468,8 @@ def render_backtest_pr(
         f"- {headline}\n"
         f"- always-deny floor: **{report.always_denied_accuracy:.0%}** over this set"
         f"{granted_line}\n"
-        f"- predictors on the board: {report.predictors_evaluated}\n\n"
+        f"- predictors on the board: {report.predictors_evaluated}\n"
+        f"{_backtest_losses_line(report)}\n"
         "Review and merge — this PR is intentionally **not** auto-merged; a "
         "later run force-pushes this same branch and the PR updates in place.\n"
     )
