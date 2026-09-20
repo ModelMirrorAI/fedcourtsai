@@ -808,11 +808,11 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
     assert "| 2022 | 850/460 | 1 | 5 | denied 100.0% | 0.0% | 0 | 168 | ✓/partial |" in md
     assert "| 2024 | 12/— | 1 | 0 | — | — | 0 | — | partial/partial |" in md
     # The replay self-selection rule rides under the Term table, and names the
-    # clock: the record's docket Term, never the retrieval boundary. These rows
-    # are keyed on the docket Term, so a cell that anchored on a Term derived
-    # from its cutoff date would read its own row.
+    # clock: the record's docket Term. These rows are keyed on the docket Term,
+    # so a cell that anchored on a Term derived from its cutoff date would read
+    # its own row — the rule says which Term, and why.
     assert "anchor only on Term rows strictly preceding `record/context.json`'s" in md
-    assert "never derive an anchoring Term from the `DECIDED_BEFORE` environment value" in md
+    assert "keyed on the **docket-number** Term, so your own Term's row already" in md
     # The grant-family comparability caveat rides directly under the Term table —
     # the table whose base-rate column prints the `granted` / `gvr` split — before
     # the segment section begins.

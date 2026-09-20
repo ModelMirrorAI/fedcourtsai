@@ -507,11 +507,14 @@ class ReplayOutcome:
     ``clock_days`` maps each dated cell's case id to the cutoff day it was
     clocked on, and carries no entry for a blind cell. It is what puts the
     offline reference baseline on the same clock the engine cells are on
-    (:func:`fedcourtsai.backtest.default_backtesters`); a lift measured against
-    a reference masked on a different clock would not be a lift over the same
-    history. The same clock, not the same pool: the prior index screens to the
-    machine-readable disposition subset a vote can be scored over, which a
-    cell's own ``fedcourts query`` does not (:class:`PriorIndex`).
+    (:func:`fedcourtsai.backtest.default_backtesters`), so the reference row is
+    comparable with the engine rows rather than masked more loosely than they
+    were. It moves no *lift*: every entry's lift is measured against the
+    always-deny floor, which is a property of the replayed set's labels and
+    carries no clock. The same clock, not the same pool either: the prior index
+    screens to the machine-readable disposition subset a vote can be scored
+    over, which a cell's own ``fedcourts query`` does not
+    (:class:`fedcourtsai.backtest.PriorIndex`).
     """
 
     backtesters: list[Backtester]
@@ -655,19 +658,14 @@ def replay_predictors(
     mislabeled through another engine, and ``engine_override`` forces one
     backend for offline ``stub``/``replay`` runs, and ``skip_engines`` opts
     named engines out) and collects its
-    ``prediction.json``. Each cell carries a replay clock (``DECIDED_BEFORE``):
-    the **cutoff date** it was provisioned at where it has one, so the boundary
-    the prompt contract bounds the cell's own retrieval at is the day it was
-    really placed on, and the trial's October-Term year on the blind arm, which
-    was given no cutoff to name. The two arms do not mask the corpus alike: a
-    dated cell's retrieval is masked on the **day** itself — only priors that
-    resolved before it, undated priors never
-    (:class:`fedcourtsai.backtest.ReplayClock`) — while a blind cell's falls
-    back to the coarser Term rule. The day is what keeps the cell's own decided
-    row out of its priors, and what keeps a petition held over past its Term
-    from losing a Term of already-resolved history. The offline prior-vote
-    baseline is given the same per-cell day, so it runs on the same clock.
-    Returns a :class:`ReplayOutcome`:
+    ``prediction.json``. Each cell carries the replay clock in two halves: its
+    own docket Term as ``DECIDED_BEFORE`` on every arm, and — on the dated arm
+    only — the day it was provisioned at as ``REPLAY_CUTOFF``, which
+    ``fedcourts query`` applies as a second bar and which can only remove
+    priors that had not yet resolved when the cell was placed. The offline
+    prior-vote baseline is given the same per-cell day, so the reference row on
+    the board is masked as the engine rows were. Returns a
+    :class:`ReplayOutcome`:
     the :class:`ReplayedBacktester` list (one per predictor that produced
     predictions), the ids of predictors whose engine turned out to be
     **unavailable** mid-run, the per-cell losses, the provisioning mix, and
@@ -851,18 +849,15 @@ def replay_predictors(
                     prompt=Path(),
                     run_id=run_id,
                     data_root=work_root,
-                    # The replay clock the cell sees as DECIDED_BEFORE. The
-                    # cutoff date wherever provisioning produced one, because
-                    # that *is* this cell's boundary and the prompt bounds the
-                    # agent's own retrieval at it — a bare year leaves everything
-                    # between the Term's opening and the cutoff to the reader.
-                    # The blind arm has no cutoff, so it falls back to the
-                    # trial's Term year. The two do NOT mask the corpus alike: a
-                    # dated clock screens on the day directly, which is what
-                    # keeps this very case out of its own priors — and what
-                    # keeps a petition held over past its Term from losing a
-                    # Term of already-resolved history to a coarser bar.
-                    decided_before=cutoff if cutoff is not None else item.features.year,
+                    # The replay clock, in the two halves the cell reads as
+                    # DECIDED_BEFORE and REPLAY_CUTOFF. The Term is the case's
+                    # own docket Term on every arm — self-excluding, and what
+                    # the prompt contract anchors on. The day is this cell's
+                    # provisioned cutoff and only the dated arm has one; it
+                    # narrows retrieval to the priors that had actually resolved
+                    # when the cell was placed, and can only remove.
+                    decided_before=item.features.year,
+                    replay_cutoff=cutoff,
                 ),
                 ledger_paths.event(event.event_id) if ledger_paths is not None else None,
                 case_id=item.features.case_id,

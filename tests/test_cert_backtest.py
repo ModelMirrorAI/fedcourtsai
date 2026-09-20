@@ -588,22 +588,22 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
 
 
 class _ClockRecordingRunner:
-    """Delegates to the stub but records the replay clock each cell was handed."""
+    """Delegates to the stub but records both halves of each cell's clock."""
 
-    def __init__(self, clocks: list[date | int | None]) -> None:
+    def __init__(self, clocks: list[tuple[int | None, date | None]]) -> None:
         self._clocks = clocks
         self._stub = StubRunner()
 
     def run(self, request: RunRequest) -> object:
-        self._clocks.append(request.decided_before)
+        self._clocks.append((request.decided_before, request.replay_cutoff))
         return self._stub.run(request)
 
 
 def _replay_clocks(
     fixture_corpus: FixtureCorpus, work_root: Path, monkeypatch: pytest.MonkeyPatch
-) -> tuple[list[date | int | None], Path, dict[str, date]]:
+) -> tuple[list[tuple[int | None, date | None]], Path, dict[str, date]]:
     """Replay the fixture set through a clock-recording runner; return the clocks."""
-    clocks: list[date | int | None] = []
+    clocks: list[tuple[int | None, date | None]] = []
     monkeypatch.setattr(
         cert_backtest, "get_runner", lambda backend="stub": _ClockRecordingRunner(clocks)
     )
@@ -620,40 +620,59 @@ def _replay_clocks(
     return clocks, work_root, outcome.clock_days
 
 
-def test_a_dated_replay_cell_is_clocked_on_its_own_cutoff(
+def test_a_dated_replay_cell_carries_both_halves_of_its_clock(
     fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # The cell's boundary is the day it was placed at, so that is the clock it
-    # is handed — not the Term year, which leaves the months between the Term's
-    # opening and the cutoff for the cell to resolve on its own. The fixture
-    # petition shows no dated distribution before its resolution, so the cutoff
-    # the real rule would derive is supplied here.
+    # The Term is the case's own docket Term on every arm — self-excluding, and
+    # what the prompt contract anchors on — and the cutoff day rides beside it,
+    # never in place of it. The fixture petition shows no dated distribution
+    # before its resolution, so the cutoff the real rule would derive is
+    # supplied here.
     cut = date(2024, 5, 20)
     monkeypatch.setattr(cert_backtest, "replay_cutoff", lambda payload, resolved_at: cut)
     clocks, work_root, clock_days = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
     context = read_model(next(work_root.rglob("record/context.json")), PredictionContext)
     assert context.cutoff == cut
-    assert set(clocks) == {cut}
-    # The same day reaches the offline reference baseline, so it retrieves over
-    # the set the engine cells did rather than over the docket Term's.
+    assert set(clocks) == {(2022, cut)}
+    # The same day reaches the offline reference baseline, so its row on the
+    # board is masked as the engine rows were.
     assert clock_days == {"scotus/304": cut}
-    # The record beside it keeps the Term year: `cutoff` already carries the day,
-    # and the per-Term statpack anchoring rule is read against a Term.
+    # And the record's clock is the Term, which is what the statpack's per-Term
+    # anchoring rule is read against; `cutoff` beside it carries the day.
     assert context.decided_before == "2022"
 
 
-def test_a_blind_replay_cell_falls_back_to_the_trial_term_year(
+def test_a_blind_replay_cell_carries_the_term_half_only(
     fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # The blind arm is the one provisioning produced no cutoff for, so there is
-    # no finer boundary to name and the clock is the trial's October Term.
+    # no day to narrow with and the Term stands alone.
     monkeypatch.setattr(cert_backtest, "replay_cutoff", lambda payload, resolved_at: None)
     clocks, work_root, clock_days = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
     context = read_model(next(work_root.rglob("record/context.json")), PredictionContext)
     assert context.cutoff is None and context.snapshot_provenance == "blind"
-    assert set(clocks) == {2022}
-    # No day to mirror onto the baseline: it falls back to the trial's Term.
+    assert set(clocks) == {(2022, None)}
     assert clock_days == {}
+
+
+def test_every_dated_replay_cell_is_cut_at_or_before_its_own_resolution(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The self-exclusion invariant, checked on the provisioned cells rather than
+    # asserted in prose: a cutoff is the day after the last distribution that
+    # PRECEDES resolution, so it can never fall after the case resolved — which
+    # is what guarantees the day bar removes the replayed case's own row from
+    # its priors whatever its Term admits.
+    cut = date(2024, 5, 20)
+    monkeypatch.setattr(cert_backtest, "replay_cutoff", lambda payload, resolved_at: cut)
+    _, _, clock_days = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
+    assert clock_days, "no dated cell was provisioned"
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        for case_id, day in clock_days.items():
+            row = corpus.get_row(conn, case_id)
+            assert row is not None
+            resolved = corpus.resolution_date(row)
+            assert resolved is not None and day <= resolved, (case_id, day, resolved)
 
 
 class _RecordingRunner:

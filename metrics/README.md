@@ -1211,12 +1211,15 @@ the rendered table) and
   over the union, rather than depressing them. Read the mix before the scores,
   and read a shift in it between two fortnights the way you read a change of
   dispatch. The weekly digest's cert back-test line carries the mix and the
-  dispatch beside the figure for that reason. One more thing the mix does not
-  capture: in a replay the offline prior-vote baseline is put on each dated
-  cell's own day, the clock its engine cells retrieved under, so the floor and
-  the reference vote a rehearsal produces with **no** engine replay are masked
-  differently from the ones a real campaign produces over the same population.
-  The two runs' lifts are not comparable on that account alone. Produced by the
+  dispatch beside the figure for that reason. One thing the mix does not
+  capture: the offline prior-vote row is masked on each dated cell's own cutoff
+  day, the clock its engine cells retrieved under, and only an **engine replay**
+  provisions those cutoffs. So a run with no replay at all (`--engine` unset)
+  carries a prior-vote row masked on the Terms alone, while any replay — a stub
+  rehearsal included, since it provisions the same cells — carries one masked on
+  the days. Compare prior-vote across those two only with that in mind. No lift
+  moves either way: every lift is measured against the always-deny floor, which
+  is the replayed set's own denial share and carries no clock. Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A
   real-engine replay spends tokens, so **the schedule asks and the hold
   spends**: no run spends without an explicit maintainer decision. The
@@ -1533,7 +1536,8 @@ the rendered table) and
   administrative dominance stays visible, but they never pool into any rate.
   The section carries no salience version, because it is not a salience-band
   product; the per-Term rows share the cert tables' replay self-selection
-  rule (anchor strictly before your clock).
+  rule (anchor strictly before the case's own docket Term,
+  `record/context.json`'s `decided_before`).
 
   **The arrival cohort's claim rule** (the caption-banded scorers'
   `cert@arrival` cells — the active `sal-v4`, and earlier versions' cells beside
@@ -1608,7 +1612,8 @@ the rendered table) and
   same population (the `procedural` stratum is keyed on mootness practice,
   which no merits outcome carries). The
   section carries no salience version, and the per-Term rows share the cert
-  tables' replay self-selection rule (anchor strictly before your clock).
+  tables' replay self-selection rule (anchor strictly before the case's own
+  docket Term, `record/context.json`'s `decided_before`).
 
 - `docket.json` / `docket.md` — the **court-facing docket pack**: facts about the
   dockets themselves, for a reader with no interest in whether this project's

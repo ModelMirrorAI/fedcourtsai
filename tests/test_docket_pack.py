@@ -380,7 +380,7 @@ def test_render_docket_markdown_carries_the_replay_self_selection_rule(
     # of the discipline its sibling states.
     md = analytics.render_docket_markdown(_pack(fixture_corpus.db_path))
     assert "anchor only on Term rows strictly preceding `record/context.json`'s" in md
-    assert "never derive an anchoring Term from the `DECIDED_BEFORE` environment value" in md
+    assert "keyed on the **docket-number** Term, so your own Term's row already" in md
     # It sits under the Term table, not at the foot of the document.
     assert md.index("anchor only on Term rows") < md.index("## Not yet included")
 

@@ -769,10 +769,11 @@ class PredictionContext(_Strict):
         "docket-number Term, so this case's own Term row already contains its "
         "disposition — which is why the clock is the docket Term and not the "
         "Term the cutoff falls in, deliberately conservative for a petition held "
-        "over into a later Term. NOT the retrieval boundary: that is `cutoff` "
-        "beside it, the day the cell was placed at, and it is `cutoff` that the "
-        "cell was handed as DECIDED_BEFORE wherever provisioning produced one. "
-        "Null on a forward cell, whose outcome does not exist yet",
+        "over into a later Term. This is also what the cell was handed as "
+        "DECIDED_BEFORE, and what it passed to `fedcourts query`. The day-level "
+        "retrieval boundary is `cutoff` beside it, which is what REPLAY_CUTOFF "
+        "carries on a dated cell and what narrows that query further. Null on a "
+        "forward cell, whose outcome does not exist yet",
     )
     signals_observable: bool = Field(
         description="Whether the payload disclosed a proceedings list at all. False "

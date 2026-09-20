@@ -219,9 +219,9 @@ def test_prior_vote_never_predicts_an_unscoreable_label(tmp_path: Path) -> None:
 
 def test_prior_vote_masks_on_the_replay_day_where_one_is_given(tmp_path: Path) -> None:
     # In the cert replay the offline reference must be on the clock the engine
-    # cells are on, so it takes the same per-case cutoff — and the day then
-    # governs by itself, never a Term derived from it. Here the trial's own Term
-    # (2026) admits a prior the cell's day (2026-06-30) excludes.
+    # cells are on, so it takes the same per-case cutoff — beside the trial's
+    # own Term, never a Term derived from the day. Here the Term (2026) admits
+    # a prior the cell's day (2026-06-30) removes.
     db = tmp_path / "corpus.db"
     _seed(
         db,
@@ -326,9 +326,10 @@ def test_october_term_year_pivots_on_october() -> None:
         # invocation types, is that Term and carries no day.
         ("2025", ReplayClock(term=2025)),
         ("1998", ReplayClock(term=1998)),
-        # A date keeps both halves, but only the day screens: the Term it falls
-        # in — the run's own example, 2026-06-30 inside OT2025 — rides along for
-        # a reader and is consulted by nothing.
+        # A date sets the day bar; the Term it falls in — the run's own
+        # example, 2026-06-30 inside OT2025 — rides along for a reader and is
+        # consulted by nothing. A replay cell never spells its clock this way:
+        # it passes its own Term here and its day through REPLAY_CUTOFF.
         ("2026-06-30", ReplayClock(term=2025, day=date(2026, 6, 30))),
         # The October pivot at its boundary. A Term opens in October, so the last
         # day of September still belongs to the Term that opened the year before,
@@ -376,9 +377,10 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
 
     Covers every semantic branch: pure recency order (no features), required judge
     overlap, required citation overlap, both filters combined (score sums), the
-    replay clock in both spellings (the Term year alone, with overlap filters,
-    and the day that governs by itself; a year-less row is excluded under any
-    Term cutoff and an undated row under any day), an undated-but-resolved row
+    replay clock in every shape it takes (the Term year alone, with overlap
+    filters; the day alone; and the two conjoined, which is what a replay cell
+    retrieves under — a year-less row is excluded under any Term bar and an
+    undated row rides the Term bar under any day), an undated-but-resolved row
     (sorts after dated ones), unresolved rows excluded, a foreign court, and a
     no-match query.
     """
@@ -414,8 +416,8 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
             # Unresolved: never a prior.
             _row("ca9/5", None, judges=["alpha"]),
             # Resolved by label with a derivable year but NO resolution date:
-            # admitted by a Term clock that clears its year, and refused by any
-            # dated clock, which cannot prove it came first.
+            # the day bar cannot test it, so it rides the Term bar alone —
+            # under a day with no Term beside it, nothing screens it at all.
             _row(
                 "ca9/9",
                 Disposition.granted,
@@ -458,16 +460,22 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
         ("ca9", (), (), 1900, None),
         ("ca9", ("alpha", "beta"), (), 2026, None),
         ("ca9", ("beta",), ("1 U.S. 1",), 2025, None),
-        # The day, which governs alone wherever it is present and which both
-        # paths must apply identically: after every dated resolution, on one of
-        # them, before all of them, and combined with an overlap filter. No Term
-        # rides beside it — a query that carried one would be ignoring it.
+        # The day bar alone (a hand date), which both paths must apply
+        # identically: after every dated resolution, on one of them, before all
+        # of them, and combined with an overlap filter.
         ("ca9", (), (), None, date(2026, 6, 1)),
         ("ca9", (), (), None, date(2026, 3, 1)),
         ("ca9", (), (), None, date(2026, 2, 1)),
         ("ca9", (), (), None, date(2025, 1, 1)),
         ("ca9", ("beta",), (), None, date(2026, 6, 1)),
         ("ca9", (), ("1 U.S. 1",), None, date(2026, 3, 1)),
+        # And the shape a replay cell retrieves under: both halves at once, the
+        # day narrowing what the Term admitted and the undated row riding the
+        # Term either way.
+        ("ca9", (), (), 2026, date(2026, 6, 1)),
+        ("ca9", (), (), 2026, date(2026, 2, 1)),
+        ("ca9", (), (), 2026, date(2025, 1, 1)),
+        ("ca9", ("beta",), (), 2026, date(2026, 2, 1)),
     ]
     with corpus.connect(db) as conn:
         index = PriorIndex.build(conn)

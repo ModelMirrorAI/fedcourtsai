@@ -3154,18 +3154,17 @@ class PriorQuery(BaseModel):
     )
     decided_before_day: date | None = Field(
         default=None,
-        description="The calendar cutoff a dated replay cell was placed at. Where "
-        "it is set it **governs the clock alone** and `decided_before` is not "
-        "consulted: a row qualifies only when it carries a resolution date that "
-        "strictly precedes this day, and a row with no resolution date never "
-        "qualifies. That is the same doctrine the year rule states — history "
-        "that cannot be proven to precede the cutoff is never consulted — read "
-        "at the resolution the cell was actually placed at rather than at a "
-        "Term's. A Term bar cannot substitute for it in either direction: it "
-        "would admit the replayed case itself where the docket-number Term "
-        "(rolling in July) sits behind the cutoff's October Term, and it would "
-        "drop a whole Term of already-resolved history where it sits ahead of "
-        "it.",
+        description="The calendar cutoff a dated replay cell was placed at, "
+        "screening ON TOP OF `decided_before` rather than instead of it: a row "
+        "must clear the Term bar AND, where it carries a resolution date, have "
+        "resolved strictly before this day. A row with no resolution date is "
+        "left to the Term bar, which is the only thing that can speak for it. "
+        "So the day **only ever removes rows** — it is the finer half of one "
+        "clock, not a second clock, and with the Term set to the case's own "
+        "docket Term a cell sees exactly what it saw before, minus the priors "
+        "that had not yet resolved when it was placed. Set alone (a hand "
+        "`--decided-before <date>`) it applies the day bar by itself, which "
+        "cannot screen an undated row at all; pair it with a Term to bar those.",
     )
     resolved_only: bool = Field(
         default=True,
@@ -3274,12 +3273,11 @@ def _mask_post_clock_merits(
     cannot prove precedence, so it is stripped (mirroring the snapshot
     truncation's fail-closed treatment of undated entries).
 
-    ``decided_before_day``, where the clock carries one, **replaces** the year
-    bar on this pair exactly as it does on the row: the judgment survives only
-    when ``merits_decided`` is present and strictly precedes the day. That is
-    the same question the year bar was approximating, asked at the resolution
-    the cell was placed at, so mixing the two would reintroduce the Term
-    granularity the day exists to escape — in both directions.
+    ``decided_before_day``, where the clock carries one, is an **additional**
+    bar on this pair exactly as it is on the row: the judgment survives only
+    when ``merits_decided`` clears every bar the clock sets. An undated judgment
+    is stripped either way, so there is no "left to the Term rule" arm here —
+    the pair is the one place where absence of a date is already fatal.
 
     ``merits_terminated`` is stripped **unconditionally** whenever it is set,
     because it carries no date to test: the column records that the merits
@@ -3292,12 +3290,9 @@ def _mask_post_clock_merits(
         return row
     decided = row.merits_decided
     if decided is not None:
-        survives = (
-            decided < decided_before_day
-            if decided_before_day is not None
-            else decided_before is not None and decided.year < decided_before
-        )
-        if survives:
+        clears_term = decided_before is None or decided.year < decided_before
+        clears_day = decided_before_day is None or decided < decided_before_day
+        if clears_term and clears_day:
             return row
     return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
 
@@ -3313,28 +3308,25 @@ def _precedes_replay_clock(row: CorpusRow, query: PriorQuery) -> bool:
     granularity, and a row with no derivable year is refused for the same
     reason.
 
-    The day governs *instead of* the Term, never alongside it. The Term is a
-    coarser proxy for this exact question and its error runs both ways against a
-    calendar cutoff: behind the docket Term for a petition docketed after the
-    July roll, which would admit the replayed case itself, and ahead of it for
-    one held over into a later Term, which would drop a Term of history that had
-    already resolved. Consulting both would keep whichever error applied.
-
-    What a dated clock admits is therefore *not* a superset or a subset of what
-    the docket-Term clock admits, and the safe reading is the one the predicate
-    states rather than a comparison between them: **every row it admits carries
-    a resolution date strictly before the cutoff**, so nothing it admits can
-    postdate the cell's boundary, and no undated row reaches a dated cell at
-    all. Against the docket-Term clock it drops the rows that had not resolved
-    by the cutoff — which that clock could admit — and picks up rows from the
-    case's own and later Terms that had.
+    The two are halves of one clock and conjoin; neither replaces the other.
+    The Term is the coarse half and the only one that can speak for an undated
+    row; the day is the fine half and refines nothing it cannot date. So a day
+    **only ever removes rows** from what its Term admits. That is what makes it
+    safe to add to a cell whose Term is its own docket Term: the cell sees
+    exactly what it saw before, minus the priors that had not yet resolved when
+    it was placed. Nothing about the Term is re-derived from the day — a Term
+    read off a calendar cutoff is wrong in both directions (behind the docket
+    Term for a petition docketed after the July roll, ahead of it for one held
+    over), and this predicate never computes one.
     """
-    if query.decided_before_day is not None:
-        resolved = resolution_date(row)
-        return resolved is not None and resolved < query.decided_before_day
     if query.decided_before is not None:
         year = case_year(row)
-        return year is not None and year < query.decided_before
+        if year is None or year >= query.decided_before:
+            return False
+    if query.decided_before_day is not None:
+        resolved = resolution_date(row)
+        if resolved is not None and resolved >= query.decided_before_day:
+            return False
     return True
 
 
@@ -3349,11 +3341,9 @@ def _screen_derived(row: CorpusRow, query: PriorQuery) -> CorpusRow | None:
     columns. Both retrieval paths screen through here, so the ranked fast path
     and the scored path admit exactly the same rows.
 
-    Which half of the clock applies is decided once, here, and passed on: a day
-    governs the merits pair exactly where it governs the row
-    (:func:`_precedes_replay_clock`), so the year bar is withheld from
-    :func:`_mask_post_clock_merits` whenever a day is present rather than
-    applied beside it.
+    Both halves of the replay clock apply to the merits pair exactly as they
+    apply to the row (:func:`_precedes_replay_clock`), so both are passed on to
+    :func:`_mask_post_clock_merits` rather than one standing in for the other.
     """
     if query.exclude_non_cert and is_non_cert_scotus_form(row):
         return None
@@ -3362,9 +3352,7 @@ def _screen_derived(row: CorpusRow, query: PriorQuery) -> CorpusRow | None:
     if query.decided_before_day is not None or query.decided_before is not None:
         if not _precedes_replay_clock(row, query):
             return None
-        # The day governs the merits pair too wherever it governs the row.
-        year_bar = query.decided_before if query.decided_before_day is None else None
-        return _mask_post_clock_merits(row, year_bar, query.decided_before_day)
+        return _mask_post_clock_merits(row, query.decided_before, query.decided_before_day)
     return row
 
 

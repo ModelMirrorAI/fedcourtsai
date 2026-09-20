@@ -1305,14 +1305,14 @@ whole committed corpus — it has no clock. Leakage-safety comes solely from the
 **per-Term self-selection surface**: a replay/back-test cell restricts itself to
 Term rows strictly preceding its anchoring clock, and that clock is
 `record/context.json`'s `decided_before` — the cell's own **docket-number**
-Term. It has to be the docket Term, because that is what these rows are keyed
-on: a cell's own Term row already contains its disposition, and for a petition
-held over past its Term the cutoff falls in a *later* Term, so anchoring there
-would hand the cell its own row. The `DECIDED_BEFORE` value the cell is handed
-is a different quantity — the day-level **retrieval** boundary — and no
-anchoring Term is ever derived from it. Retrieval is masked on that day
-directly (`fedcourts query --decided-before`), which is also what keeps the
-cell's own case out of its priors. Today that per-Term
+Term, which is what `DECIDED_BEFORE` carries. It has to be the docket Term,
+because that is what these rows are keyed on: a cell's own Term row already
+contains its disposition, so a Term derived from the cell's cutoff date — which
+for a petition held over past its Term falls in a *later* Term — would hand the
+cell its own row. Nothing derives one. Retrieval is masked on the same Term,
+narrowed by the cutoff day the dated cells carry in `REPLAY_CUTOFF`, which
+`fedcourts query` reads for itself and which can only remove priors the Term
+admitted. Today that per-Term
 surface carries only *overall + per-fee-class* grant rates; the relist/CVSG cuts
 are **pack-wide marginals blended across all Terms** and would leak the current
 term's outcomes if a replay cell read them. Therefore the segment base rate **must
@@ -1903,7 +1903,8 @@ and anything dated after the event — the same signals the evaluator *may* use 
 judge. This makes both scores' timing contract identical to the grant/deny
 prediction's, so they slot into the existing forward/replay frame with no new
 machinery: a forward cell computes them live, a replay cell self-selects its
-statpack Term rows behind the `DECIDED_BEFORE` clock.
+statpack Term rows behind its own docket Term (`record/context.json`'s
+`decided_before`, which is what `DECIDED_BEFORE` carries).
 
 "Live" is per **moment**, not per wall clock. A stage's moments are declared
 because their information sets differ, so `provision-snapshot` places a forward

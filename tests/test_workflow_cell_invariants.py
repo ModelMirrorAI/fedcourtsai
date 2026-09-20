@@ -90,6 +90,7 @@ import re
 import textwrap
 import tomllib
 from contextlib import redirect_stdout
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -107,7 +108,7 @@ from fedcourtsai.config import Settings
 from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
 from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
-from fedcourtsai.pipeline.runner import CodexRunner, RunRequest
+from fedcourtsai.pipeline.runner import CodexRunner, RunRequest, _cell_env
 from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
 from fedcourtsai.schemas import UsageRole
 from fedcourtsai.watchdog_telemetry import _CHANNEL_LABELS, CHANNELS
@@ -320,6 +321,38 @@ def test_the_labeler_diverts_and_restores_the_oracle() -> None:
     assert "git status --porcelain -- data/qp-topics" in restore, (
         "the pristine assertion must refuse untracked residue under data/qp-topics"
     )
+
+
+def test_the_backtest_gemini_allowlist_carries_both_halves_of_the_replay_clock() -> None:
+    """Gemini's sanitizer strips every custom var, so the allowlist *is* the
+    cell env contract for that engine. Both halves of the replay clock have to
+    be on it: `DECIDED_BEFORE`, which the cell passes to `fedcourts query`
+    itself, and `REPLAY_CUTOFF`, which the query reads from the environment —
+    so a missing entry there is silent, narrowing nothing and saying nothing.
+    Asserted against the same `_cell_env` the runner builds, so a variable
+    added to the contract cannot reach the other two engines while gemini
+    quietly loses it.
+    """
+    steps = _load("run-backtest.yml")["jobs"]["backtest"]["steps"]
+    runs = [str(step.get("run") or "") for step in steps]
+    writers = [run for run in runs if ".gemini/settings.json" in run]
+    assert len(writers) == 1, "expected exactly one step writing the gemini settings"
+    settings = json.loads(re.findall(r"'(\{.*\})'", writers[0])[0])
+    allowed = set(settings["security"]["environmentVariableRedaction"]["allowed"])
+    request = RunRequest(
+        role=UsageRole.predictor,
+        court_id="scotus",
+        docket_id=1,
+        event_id="evt-petition-disposition",
+        actor_id="claude-baseline",
+        run_id="20260706T000000Z",
+        prompt=Path(".github/prompts/predict.md"),
+        data_root=Path("data"),
+        decided_before=2024,
+        replay_cutoff=date(2026, 6, 30),
+    )
+    assert set(_cell_env(request, "model")) <= allowed
+    assert {"DECIDED_BEFORE", "REPLAY_CUTOFF"} <= allowed
 
 
 def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> None:

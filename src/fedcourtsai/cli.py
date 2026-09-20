@@ -77,6 +77,7 @@ from .attribution_migration import (
 from .authz import authorize_trigger
 from .backtest import (
     Backtester,
+    ReplayClock,
     default_backtesters,
     parse_decided_before,
     run_backtest,
@@ -5564,9 +5565,10 @@ def cert_backtest_cmd(
             )
             replayed = outcome.backtesters
         # After the replay, so the offline reference masks on the same per-cell
-        # clock the engine cells were given: a lift over a baseline that saw a
-        # different history is not a lift over the same history. Offline, the
-        # map is empty and every trial falls back to its own Term.
+        # clock the engine cells were given and its row on the board is
+        # comparable with theirs. No lift moves: every lift is measured against
+        # the always-deny floor, which carries no clock. With no replay the map
+        # is empty and every trial is masked on its Term alone.
         backtesters = default_backtesters(conn, replay_days=clock_days) + replayed
         # The leakage-safe segment context (band + per-Term base rate) mirrors
         # the forward stratum's yardstick; segment_base_rate masks each item to
@@ -9178,9 +9180,13 @@ Filters — every one optional, none of them positional:
                          parallel cite, not a cases-citing-it search
   --disposition TEXT     one realized outcome label, listed below
   --era TEXT             one decade token, listed below
-  --decided-before CLOCK the replay clock: an ISO date (2026-06-30) or a
-                         bare four-digit October-Term year (2025); a date
-                         also bars priors resolved on or after that day
+  --decided-before CLOCK a bare four-digit October-Term year (2025) sets the
+                         TERM bar: priors whose best-known year precedes it.
+                         An ISO date (2026-06-30) sets the DAY bar instead:
+                         priors that had resolved by then. A replay cell
+                         passes its Term here and finds REPLAY_CUTOFF in its
+                         environment carrying the day; both apply, and the
+                         day can then only remove rows the Term admitted
   --limit N              how many priors to return
   --corpus-backend NAME  transport only: local / ranged / service; the run
                          environment sets this, so leave it alone
@@ -9208,6 +9214,58 @@ Every flag with its own help: fedcourts query --help"""
 #: terminal still renders each token list as a block rather than re-wrapping it
 #: into the flag column, which is what makes the screen scannable at all.
 _QUERY_HELP_WIDTH = 72
+
+
+#: The cell env var carrying a dated replay cell's provisioned cutoff. Read by
+#: `query` rather than passed as a flag because the prompt contract — frozen —
+#: spells only `--decided-before "$DECIDED_BEFORE"`, whose value is the cell's
+#: October Term. The day has to reach the mask without a new flag in that line.
+REPLAY_CUTOFF_VAR = "REPLAY_CUTOFF"
+
+
+def _echo_replay_cutoff(day: date | None, source: str | None) -> None:
+    """Say that the day bar is on, and where it came from, before the rows.
+
+    A cell that never asked for this bar is the one reader most in need of
+    being told it is there: ``REPLAY_CUTOFF`` is read from the environment, so
+    without a line the narrower result would look like a thin corpus. Said
+    before the scan, beside the other sentinels, so it reaches the log even
+    when the query matches nothing.
+    """
+    if day is None:
+        return
+    typer.echo(
+        f"note: replay cutoff {day.isoformat()} (from {source}) — priors that had not "
+        "resolved by then are excluded, on top of any --decided-before Term",
+        err=True,
+    )
+
+
+def _replay_cutoff_day(clock: ReplayClock | None) -> tuple[date | None, str | None]:
+    """The day bar to apply, and where it came from, for one ``query``.
+
+    Two sources, one meaning. A dated replay cell carries its provisioned cutoff
+    in ``REPLAY_CUTOFF`` and passes only its Term on the command line, so this
+    reads the environment for itself; a hand invocation spells the day as
+    ``--decided-before <date>``. The argument wins where both are given, because
+    someone who typed a day meant that day.
+
+    ``ValueError`` on an unparseable environment value — the same refusal the
+    argument gets, and for the same reason: a cutoff that fell through to "no
+    day" would widen a replay cell's retrieval while looking masked.
+    """
+    if clock is not None and clock.day is not None:
+        return clock.day, "--decided-before"
+    raw = (os.environ.get(REPLAY_CUTOFF_VAR) or "").strip()
+    if not raw:
+        return None, None
+    try:
+        return date.fromisoformat(raw), REPLAY_CUTOFF_VAR
+    except ValueError as exc:
+        raise ValueError(
+            f"{REPLAY_CUTOFF_VAR}={raw!r} is not an ISO date (YYYY-MM-DD); it carries "
+            "this replay cell's provisioned cutoff and cannot be guessed at"
+        ) from exc
 
 
 def _query_interface_help() -> str:
@@ -9295,14 +9353,16 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     decided_before: Annotated[
         str,
         typer.Option(
-            help="Back-test replay clock — an ISO date (2026-06-30) or a bare "
-            "four-digit October-Term year (2025). Both give the exclusive "
-            "Term-year cutoff: keep only priors whose best-known year strictly "
-            "precedes it (rows with no derivable year are excluded). A date "
-            "gives that Term as the October Term containing it AND bars any "
-            "prior that resolved on or after the day itself — which is what "
-            "keeps a replayed case out of its own priors. Omitted, or 0 = no "
-            "cutoff (the live, forward view)."
+            help="Back-test replay clock. A bare four-digit October-Term year "
+            "(2025) sets the TERM bar: keep only priors whose best-known year "
+            "strictly precedes it, and never one with no derivable year. An ISO "
+            "date (2026-06-30) sets the DAY bar instead: keep only priors that "
+            "had already resolved by then, leaving a prior with no resolution "
+            "date unscreened. The REPLAY_CUTOFF environment variable sets the "
+            "same day bar, and where both apply a prior must clear both — which "
+            "is the shape a replay cell retrieves under, since the day can then "
+            "only remove rows its own Term admitted. Omitted, or 0 = no cutoff "
+            "(the live, forward view)."
         ),
     ] = "",
     include_open: Annotated[
@@ -9377,9 +9437,11 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         raise typer.Exit(code=2)
     # The replay clock is judged here too, and refused rather than dropped: a
     # misspelled clock that fell through to "no cutoff" would hand a replay cell
-    # the unmasked corpus while looking like it had been masked.
+    # the unmasked corpus while looking like it had been masked. Both halves —
+    # the argument, and the cutoff day the cell's environment carries.
     try:
         clock = parse_decided_before(decided_before)
+        cutoff_day, cutoff_source = _replay_cutoff_day(clock)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         typer.echo(_query_interface_help(), err=True)
@@ -9399,14 +9461,15 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         citations=citation or [],
         disposition=disp,
         era=era or None,
-        # One half or the other, never both: a date's Term is informational
-        # (ReplayClock) and passing it would put an ignored field on the query
-        # — and on the sidecar wire — that reads as if it screened.
+        # The Term half only from the year spelling: a date's `term` is
+        # informational (ReplayClock) and passing it would put a field the
+        # screens ignore on the query, and on the sidecar wire.
         decided_before=clock.term if clock is not None and clock.day is None else None,
-        decided_before_day=clock.day if clock is not None else None,
+        decided_before_day=cutoff_day,
         resolved_only=not include_open,
         exclude_non_cert=not include_applications,
     )
+    _echo_replay_cutoff(cutoff_day, cutoff_source)
     if backend == "service":
         try:
             response = corpus_service.client_query(

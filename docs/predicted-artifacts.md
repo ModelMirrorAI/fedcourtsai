@@ -575,11 +575,12 @@ directory without knowing which part is which invites trusting the wrong half.
   cell's mode, the cutoff it was placed at (the replay cutoff on a replay cell,
   the declared moment on a forward one; null where nothing placed it, as in the
   cert-baseline example above — and distinct from `decided_before`, the replay
-  clock beside it, which records the **October Term** the cell may anchor
-  statpack rows behind even where the clock exported to the cell as
-  `DECIDED_BEFORE` is the cutoff date itself), **which rule bounded the
-  entries inside that cutoff** (`cut_kind`, with `cut_anchor_index` beside
-  it), and the conditioning state frozen at provisioning: the
+  clock beside it, which records the **October Term** the cell anchors statpack
+  rows behind and is what it was handed as `DECIDED_BEFORE`; the `cutoff` is
+  the day-level retrieval boundary, and on a dated replay cell it is what
+  `REPLAY_CUTOFF` carries), **which rule bounded the entries inside that
+  cutoff** (`cut_kind`, with `cut_anchor_index` beside it), and the
+  conditioning state frozen at provisioning: the
   salience band, the distribution count and CVSG date as at that cutoff (as at
   the snapshot where there is none), the Term, and — on an application cell only
   — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It

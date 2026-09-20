@@ -522,8 +522,16 @@ jobs:
           role-duration-seconds: "21600"
 
       # Gemini's replay cells read the same cell env contract as a live predict
-      # cell (COURT_ID/DOCKET_ID/... from `_cell_env`, plus DECIDED_BEFORE, the
-      # replay clock), but its sanitizer runs strict whenever GITHUB_SHA is set
+      # cell (COURT_ID/DOCKET_ID/... from `_cell_env`), plus both halves of the
+      # replay clock: DECIDED_BEFORE, the case's own October Term, on every
+      # replay cell, and REPLAY_CUTOFF, the provisioned cutoff day, on the dated
+      # ones. `fedcourts query` reads REPLAY_CUTOFF from the environment rather
+      # than from a flag, so a stripped variable is silent: the query would fall
+      # back to the Term-only mask, which is the self-excluding behaviour the
+      # blind arm runs under — a loss of precision, not a leak. Claude and codex
+      # take the same contract straight from `_cell_env` through the
+      # subprocess environment and need no allowlist.
+      # Its sanitizer runs strict whenever GITHUB_SHA is set
       # and strips every custom var from the agent's shell — so `$COURT_ID`
       # expands empty and the cell cannot resolve its own provisioned snapshot,
       # silently degrading gemini's replay while claude and codex read the same
@@ -538,7 +546,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .gemini
-          printf '%s\n' '{"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE"]}}}' > .gemini/settings.json
+          printf '%s\n' '{"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","REPLAY_CUTOFF"]}}}' > .gemini/settings.json
 
       # The codex replay sandbox (bubblewrap) needs unprivileged user
       # namespaces, which Ubuntu 24.04 runners restrict via AppArmor: without

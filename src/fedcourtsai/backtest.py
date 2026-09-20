@@ -74,30 +74,29 @@ _FIRST_TERM_DAY = date(1789, 10, 1)
 
 @dataclass(frozen=True)
 class ReplayClock:
-    """The back-test replay clock at whichever resolution it was given.
+    """One ``--decided-before`` argument, read into the halves it names.
 
-    Exactly one of the two governs retrieval. ``day`` is the calendar boundary
-    the cell was placed at, present only for the date spelling; where it is
-    present it **is** the clock — a prior qualifies when its resolution date
-    strictly precedes it, and an undated prior never does.
+    ``term`` is the exclusive October-Term cutoff and comes from the bare
+    **year** spelling. ``day`` is the calendar cutoff and comes from the
+    **date** spelling. They are halves of one clock rather than rival clocks:
+    where both are set a prior must clear both, and because an undated prior
+    cannot be tested against a day, the day only ever *removes* rows the Term
+    admitted.
 
-    ``term`` is the exclusive October-Term cutoff, and it governs only the bare
-    **year** spelling, which has no day to offer. For the date spelling it is
-    **informational**: the October Term the day falls in, recorded so a reader
-    need not re-derive it, and consulted by no screen. A Term derived from a
-    date is wrong in both directions. It sits *behind* the docket Term of a
-    petition docketed after the July roll — the docket-number Term rolls in
-    July, the October Term in October — so the replayed case clears it and
-    comes back carrying its own realized disposition. And it sits *ahead* of
-    the docket Term of a petition held over into a later Term, dropping a whole
-    Term of history that had already resolved before the cutoff. Asking the day
-    directly has neither error.
+    A replay cell is given both, by different routes — ``DECIDED_BEFORE``
+    carries its docket Term and ``REPLAY_CUTOFF`` its cutoff day — so the cell's
+    Term is always its own docket Term and is never re-derived from the day. A
+    derived Term would be wrong in both directions: behind the docket Term of a
+    petition docketed after the July roll (the docket-number Term rolls in July,
+    the October Term in October), which would admit the replayed case itself,
+    and ahead of it for one held over into a later Term, which would drop a
+    whole Term of already-resolved history.
 
-    The Term a cell may anchor **statpack rows** behind is a third quantity,
-    and is neither of these: it is the case's own docket Term, recorded on
-    ``record/context.json``'s ``decided_before``, because the statpack's
-    per-Term rows are keyed on the docket Term and a held-over petition's own
-    row already contains its disposition.
+    For the date spelling ``term`` is therefore **informational** — the October
+    Term the day falls in, recorded so a reader need not re-derive it, and
+    consulted by no screen. A hand ``--decided-before <date>`` applies the day
+    bar alone, which cannot screen a prior carrying no resolution date; pair it
+    with a Term to bar those.
     """
 
     term: int
@@ -107,15 +106,19 @@ class ReplayClock:
 def parse_decided_before(raw: str) -> ReplayClock | None:
     """The replay clock a ``--decided-before`` argument names, in both resolutions.
 
-    The clock reaches a cell in two spellings and both resolve here, so the
-    corpus mask is one rule rather than one per caller. A **date**
-    (``2026-06-30``) is the boundary a dated replay cell was actually placed at,
-    and it governs the mask by itself: only a prior that resolved strictly
-    before it qualifies. The October Term it falls in
+    A bare **year** (``2025``) names the exclusive October-Term cutoff: only
+    priors whose best-known year strictly precedes it qualify. This is what a
+    replay cell passes, from ``DECIDED_BEFORE`` — its own docket Term — and what
+    a hand invocation types. A **date** (``2026-06-30``) names the day bar
+    instead: priors that had already resolved by then qualify, and one carrying
+    no resolution date is not screened at all, since a day cannot test it. The
+    October Term the date falls in
     (:func:`fedcourtsai.supremecourt.october_term_year` — OT2025) rides along as
-    ``term`` for a reader and screens nothing. A bare **year** (``2025``) is the
-    blind arm's clock, and what a hand invocation types; it has no finer
-    boundary to offer, so the Term rule stands by itself there.
+    ``term`` for a reader and screens nothing.
+
+    A cell gets both halves without spelling either as a date: the Term through
+    this argument and the day through ``REPLAY_CUTOFF``, which
+    :func:`fedcourtsai.cli.query` reads for itself.
 
     ``""`` and ``"0"`` are the no-cutoff spellings (the live, forward view) and
     return ``None``. Anything else raises :class:`ValueError`, loudly: a clock
@@ -387,22 +390,24 @@ class PriorIndex:
         no citation, is skipped); rank is overlap score descending, then the
         candidate order (most recent decision, then ``case_id``).
         The replay clock screens exactly as :func:`corpus._screen_derived`
-        applies it, under one doctrine at two resolutions: history that cannot
-        be proven to precede the trial is never consulted.
-        ``decided_before_day``, where the clock carries one, **governs alone** —
-        a candidate qualifies only when its resolution date strictly precedes
-        the day, and an undated candidate never does. Otherwise
-        ``decided_before`` is the exclusive year cutoff: only candidates whose
-        best-known year strictly precedes it qualify, and one with no derivable
-        year never does.
+        applies it, and its two halves conjoin. ``decided_before`` is the
+        exclusive year cutoff: only candidates whose best-known year strictly
+        precedes it qualify, and one with no derivable year never does — history
+        that cannot be proven to precede the trial is never consulted.
+        ``decided_before_day``, where the clock carries one, then removes any
+        candidate that had not resolved by that day; a candidate with no
+        resolution date is left to the year bar, the only half that can speak
+        for it.
         """
 
         def qualifies(candidate: _PriorCandidate) -> bool:
-            if decided_before_day is not None:
-                return candidate.resolved is not None and candidate.resolved < decided_before_day
-            if decided_before is None:
-                return True
-            return candidate.year is not None and candidate.year < decided_before
+            if decided_before is not None and (
+                candidate.year is None or candidate.year >= decided_before
+            ):
+                return False
+            if decided_before_day is not None and candidate.resolved is not None:
+                return candidate.resolved < decided_before_day
+            return True
 
         candidates = self._candidates.get(court, [])
         if not judges and not citations:
@@ -468,14 +473,16 @@ class PriorVoteBacktester:
 
     ``replay_days`` maps a case id to the calendar cutoff its replay cell was
     placed at, and is supplied **only** by the cert back-test, where the engine
-    cells are clocked on exactly those days. It puts this baseline on the same
-    clock they are on — the day, which then governs the mask by itself — so the
-    lift a cell is ranked by is measured against a reference masked the same
-    way. Not the same *pool*: this index screens to the machine-readable
-    disposition subset that a vote can be scored over, which a cell's own
-    ``fedcourts query`` does not (see :class:`PriorIndex`). Left empty, as the
-    mechanical ``backtest`` command leaves it, every trial falls back to its own
-    Term year and the numbers are unchanged.
+    cells retrieve under exactly those days. It puts this baseline on the same
+    clock they are on — the trial's own Term, and that day beside it — so the
+    reference row on the board is comparable with the engine rows rather than
+    masked more loosely than they were. (Every entry's *lift* is measured
+    against the always-deny floor, which carries no clock and does not move.)
+    The same clock, not the same pool: this index screens to the
+    machine-readable disposition subset a vote can be scored over, which a
+    cell's own ``fedcourts query`` does not (see :class:`PriorIndex`). Left
+    empty, as the mechanical ``backtest`` command leaves it, only the Term bar
+    applies and the numbers are unchanged.
     """
 
     conn: sqlite3.Connection
@@ -485,13 +492,13 @@ class PriorVoteBacktester:
     _index: PriorIndex | None = field(default=None, repr=False)
 
     def predict(self, features: BacktestFeatures) -> BacktestPrediction:
-        day = self.replay_days.get(features.case_id)
-        # The day governs where there is one; the trial's own Term otherwise.
-        # A Term is never derived from the day — it is wrong in both directions
-        # (see :class:`fedcourtsai.backtest.ReplayClock`).
-        if day is None and features.year is None:
+        if features.year is None:
             # No replay clock: no prior can be proven to precede this trial.
             return BacktestPrediction(Disposition.denied, 0.0)
+        # The trial's own Term, with the cell's cutoff day beside it where the
+        # replay supplied one. The Term is never derived from the day — that is
+        # wrong in both directions (see :class:`ReplayClock`) — so the day can
+        # only narrow what the Term already admitted.
         if self._index is None:
             self._index = PriorIndex.build(self.conn)
         retrieved = self._index.top(
@@ -499,8 +506,8 @@ class PriorVoteBacktester:
             features.judges,
             (),
             self.limit,
-            decided_before=None if day is not None else features.year,
-            decided_before_day=day,
+            decided_before=features.year,
+            decided_before_day=self.replay_days.get(features.case_id),
         )
         labels = [prior.disposition for prior in retrieved]
         if not labels:
