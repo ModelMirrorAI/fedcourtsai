@@ -1,0 +1,432 @@
+{
+  "always_denied_accuracy": 0.6,
+  "entries": [
+    {
+      "accuracy": 0.64,
+      "big_case": {
+        "maximum": 0.95,
+        "mean": 0.4416,
+        "minimum": 0.08,
+        "scored": 25
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.020714285714285716,
+          "observed_granted_rate": 0.0,
+          "predictions": 7,
+          "upper": 0.1
+        },
+        {
+          "lower": 0.1,
+          "mean_probability": 0.19,
+          "observed_granted_rate": 0.0,
+          "predictions": 1,
+          "upper": 0.2
+        },
+        {
+          "lower": 0.2,
+          "mean_probability": 0.27,
+          "observed_granted_rate": 0.0,
+          "predictions": 2,
+          "upper": 0.30000000000000004
+        },
+        {
+          "lower": 0.30000000000000004,
+          "mean_probability": 0.35,
+          "observed_granted_rate": 0.5,
+          "predictions": 2,
+          "upper": 0.4
+        },
+        {
+          "lower": 0.4,
+          "mean_probability": 0.44999999999999996,
+          "observed_granted_rate": 0.5,
+          "predictions": 2,
+          "upper": 0.5
+        },
+        {
+          "lower": 0.5,
+          "mean_probability": 0.548,
+          "observed_granted_rate": 0.6,
+          "predictions": 5,
+          "upper": 0.6000000000000001
+        },
+        {
+          "lower": 0.6000000000000001,
+          "mean_probability": 0.64,
+          "observed_granted_rate": 0.5,
+          "predictions": 2,
+          "upper": 0.7000000000000001
+        },
+        {
+          "lower": 0.7000000000000001,
+          "mean_probability": 0.72,
+          "observed_granted_rate": 0.0,
+          "predictions": 2,
+          "upper": 0.8
+        },
+        {
+          "lower": 0.8,
+          "mean_probability": 0.855,
+          "observed_granted_rate": 1.0,
+          "predictions": 2,
+          "upper": 0.9
+        }
+      ],
+      "engine": "claude-code",
+      "events_scored": 25,
+      "granted_accuracy": 0.72,
+      "lift_over_always_denied": 0.040000000000000036,
+      "mean_brier_score": 0.157045,
+      "model": "claude-fable-5-1",
+      "predictor_id": "claude-baseline",
+      "rank": 1,
+      "segments": [
+        {
+          "accuracy": 1.0,
+          "band": "federal",
+          "events_scored": 2,
+          "mean_brier_score": 0.06305,
+          "mean_brier_skill": 0.8814519599403122,
+          "segment_base_rate": 0.7292817679558011
+        },
+        {
+          "accuracy": 0.6153846153846154,
+          "band": "high",
+          "events_scored": 13,
+          "mean_brier_score": 0.21719230769230766,
+          "mean_brier_skill": -0.2524444127065526,
+          "segment_base_rate": 0.3458657554089859
+        },
+        {
+          "accuracy": 0.0,
+          "band": "state",
+          "events_scored": 1,
+          "mean_brier_score": 0.0576,
+          "mean_brier_skill": -1.0151916704391124,
+          "segment_base_rate": 0.16906474820143885
+        }
+      ]
+    },
+    {
+      "accuracy": 0.6,
+      "big_case": null,
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.07303050925437797,
+          "observed_granted_rate": 0.42105263157894735,
+          "predictions": 19,
+          "upper": 0.1
+        },
+        {
+          "lower": 0.1,
+          "mean_probability": 0.1037210665104014,
+          "observed_granted_rate": 0.0,
+          "predictions": 6,
+          "upper": 0.2
+        }
+      ],
+      "engine": null,
+      "events_scored": 25,
+      "granted_accuracy": 0.68,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.2799503765486737,
+      "model": null,
+      "predictor_id": "prior-vote",
+      "rank": 2,
+      "segments": [
+        {
+          "accuracy": 1.0,
+          "band": "federal",
+          "events_scored": 2,
+          "mean_brier_score": 0.005399637701845856,
+          "mean_brier_skill": 0.989847478721868,
+          "segment_base_rate": 0.7292817679558011
+        },
+        {
+          "accuracy": 0.46153846153846156,
+          "band": "high",
+          "events_scored": 13,
+          "mean_brier_score": 0.46529059106987136,
+          "mean_brier_skill": -0.10316278689620581,
+          "segment_base_rate": 0.3458657554089859
+        },
+        {
+          "accuracy": 0.0,
+          "band": "state",
+          "events_scored": 1,
+          "mean_brier_score": 0.005399637701845856,
+          "mean_brier_skill": 0.8110884562474173,
+          "segment_base_rate": 0.16906474820143885
+        }
+      ]
+    },
+    {
+      "accuracy": 0.6,
+      "big_case": null,
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.0,
+          "observed_granted_rate": 0.32,
+          "predictions": 25,
+          "upper": 0.1
+        }
+      ],
+      "engine": null,
+      "events_scored": 25,
+      "granted_accuracy": 0.68,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.32,
+      "model": null,
+      "predictor_id": "constant-denied",
+      "rank": 3,
+      "segments": [
+        {
+          "accuracy": 1.0,
+          "band": "federal",
+          "events_scored": 2,
+          "mean_brier_score": 0.0,
+          "mean_brier_skill": 1.0,
+          "segment_base_rate": 0.7292817679558011
+        },
+        {
+          "accuracy": 0.46153846153846156,
+          "band": "high",
+          "events_scored": 13,
+          "mean_brier_score": 0.5384615384615384,
+          "mean_brier_skill": -0.25959781003935933,
+          "segment_base_rate": 0.3458657554089859
+        },
+        {
+          "accuracy": 0.0,
+          "band": "state",
+          "events_scored": 1,
+          "mean_brier_score": 0.0,
+          "mean_brier_skill": 1.0,
+          "segment_base_rate": 0.16906474820143885
+        }
+      ]
+    },
+    {
+      "accuracy": 0.56,
+      "big_case": {
+        "maximum": 0.85,
+        "mean": 0.662,
+        "minimum": 0.55,
+        "scored": 10
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.021333333333333333,
+          "observed_granted_rate": 0.0,
+          "predictions": 6,
+          "upper": 0.1
+        },
+        {
+          "lower": 0.1,
+          "mean_probability": 0.14,
+          "observed_granted_rate": 0.0,
+          "predictions": 1,
+          "upper": 0.2
+        },
+        {
+          "lower": 0.30000000000000004,
+          "mean_probability": 0.34375,
+          "observed_granted_rate": 0.5,
+          "predictions": 8,
+          "upper": 0.4
+        },
+        {
+          "lower": 0.4,
+          "mean_probability": 0.4228571428571429,
+          "observed_granted_rate": 0.42857142857142855,
+          "predictions": 7,
+          "upper": 0.5
+        },
+        {
+          "lower": 0.5,
+          "mean_probability": 0.6,
+          "observed_granted_rate": 1.0,
+          "predictions": 1,
+          "upper": 0.6000000000000001
+        },
+        {
+          "lower": 0.7000000000000001,
+          "mean_probability": 0.745,
+          "observed_granted_rate": 0.0,
+          "predictions": 2,
+          "upper": 0.8
+        }
+      ],
+      "engine": "codex",
+      "events_scored": 25,
+      "granted_accuracy": 0.64,
+      "lift_over_always_denied": -0.039999999999999925,
+      "mean_brier_score": 0.20076055999999998,
+      "model": "gpt-6-astra",
+      "predictor_id": "codex-baseline",
+      "rank": 4,
+      "segments": [
+        {
+          "accuracy": 0.0,
+          "band": "federal",
+          "events_scored": 2,
+          "mean_brier_score": 0.55525,
+          "mean_brier_skill": -0.043993643824609685,
+          "segment_base_rate": 0.7292817679558011
+        },
+        {
+          "accuracy": 0.5384615384615384,
+          "band": "high",
+          "events_scored": 13,
+          "mean_brier_score": 0.2554692307692308,
+          "mean_brier_skill": -0.019871164702513308,
+          "segment_base_rate": 0.3458657554089859
+        },
+        {
+          "accuracy": 0.0,
+          "band": "state",
+          "events_scored": 1,
+          "mean_brier_score": 0.019600000000000003,
+          "mean_brier_skill": 0.31427505658669075,
+          "segment_base_rate": 0.16906474820143885
+        }
+      ]
+    },
+    {
+      "accuracy": 0.52,
+      "big_case": {
+        "maximum": 0.95,
+        "mean": 0.4978260869565217,
+        "minimum": 0.1,
+        "scored": 23
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.022250000000000002,
+          "observed_granted_rate": 0.0,
+          "predictions": 8,
+          "upper": 0.1
+        },
+        {
+          "lower": 0.1,
+          "mean_probability": 0.15,
+          "observed_granted_rate": 0.0,
+          "predictions": 1,
+          "upper": 0.2
+        },
+        {
+          "lower": 0.2,
+          "mean_probability": 0.25,
+          "observed_granted_rate": 0.5,
+          "predictions": 2,
+          "upper": 0.30000000000000004
+        },
+        {
+          "lower": 0.30000000000000004,
+          "mean_probability": 0.35,
+          "observed_granted_rate": 0.4,
+          "predictions": 5,
+          "upper": 0.4
+        },
+        {
+          "lower": 0.4,
+          "mean_probability": 0.4166666666666667,
+          "observed_granted_rate": 1.0,
+          "predictions": 3,
+          "upper": 0.5
+        },
+        {
+          "lower": 0.5,
+          "mean_probability": 0.6,
+          "observed_granted_rate": 0.0,
+          "predictions": 1,
+          "upper": 0.6000000000000001
+        },
+        {
+          "lower": 0.6000000000000001,
+          "mean_probability": 0.7,
+          "observed_granted_rate": 0.0,
+          "predictions": 2,
+          "upper": 0.7000000000000001
+        },
+        {
+          "lower": 0.8,
+          "mean_probability": 0.85,
+          "observed_granted_rate": 0.5,
+          "predictions": 2,
+          "upper": 0.9
+        },
+        {
+          "lower": 0.9,
+          "mean_probability": 0.95,
+          "observed_granted_rate": 1.0,
+          "predictions": 1,
+          "upper": 1.0
+        }
+      ],
+      "engine": "gemini",
+      "events_scored": 25,
+      "granted_accuracy": 0.64,
+      "lift_over_always_denied": -0.07999999999999996,
+      "mean_brier_score": 0.1990852,
+      "model": "gemini-3.1-pro-preview",
+      "predictor_id": "gemini-baseline",
+      "rank": 5,
+      "segments": [
+        {
+          "accuracy": 0.0,
+          "band": "federal",
+          "events_scored": 2,
+          "mean_brier_score": 0.48999999999999994,
+          "mean_brier_skill": 0.07869088613406805,
+          "segment_base_rate": 0.7292817679558011
+        },
+        {
+          "accuracy": 0.46153846153846156,
+          "band": "high",
+          "events_scored": 13,
+          "mean_brier_score": 0.2728846153846154,
+          "mean_brier_skill": -0.30898545788598286,
+          "segment_base_rate": 0.3458657554089859
+        },
+        {
+          "accuracy": 0.0,
+          "band": "state",
+          "events_scored": 1,
+          "mean_brier_score": 0.0025000000000000005,
+          "mean_brier_skill": 0.9125350837483024,
+          "segment_base_rate": 0.16906474820143885
+        }
+      ]
+    }
+  ],
+  "events_scored": 25,
+  "predictors_evaluated": 5,
+  "provenance": {
+    "base_rate_lookback_terms": 10,
+    "dispatch": {
+      "engine": "auto",
+      "limit": 25,
+      "scope": "all",
+      "skip_engines": [],
+      "spread": false
+    },
+    "dropped_predictors": [],
+    "lost_cells": [],
+    "run_id": "20260920T133708Z",
+    "salience_floor": 0.28
+  },
+  "provisioning": {
+    "blind": 5,
+    "truncated": 20
+  },
+  "salience_version": "sal-v4",
+  "schema_version": "1.0",
+  "stratum": "retrospective"
+}
