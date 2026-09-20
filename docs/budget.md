@@ -20,17 +20,21 @@ Model spend is `events × cost per event`, and two dials set it:
   prediction moment (a cert petition at first distribution, an argued case
   after oral argument, and so on). `N` grows by covering more of the docket or
   by adding moments. Cost scales linearly with it.
-- **`P` — how many predictors forecast each event.** Each predictor adds its
-  own prediction run, plus the cost of three evaluator models grading that
-  prediction. So `P` raises the cost *per event*, by an amount that depends on
-  which model is added: measured prediction runs span roughly $0.60 to $4.30
-  across the current three.
+- **`P` — how many predictors forecast each event.** A judge grades every
+  predictor for its event in one run, so a fully covered event is `P + 3` agent
+  runs rather than the `P + 3P` a per-(predictor, evaluator) grading would cost:
+  adding a predictor buys one more prediction run and makes each of the three
+  grading runs a little larger. So `P` raises the cost *per event*, by an amount
+  that depends on which model is added: measured prediction runs span roughly
+  $0.60 to $4.30 across the current three.
 
 At today's `P = 3` with three evaluators, one fully predicted and evaluated
 event costs roughly **$15–17**. The evaluator count holds at 3 as `P` grows.
 Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled
-up by `fedcourts usage-summary`), so these rates are re-measured continuously
-rather than assumed.
+up by `fedcourts usage-summary`), so the rates can be re-anchored from
+measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned
+rate table the plans price against, never a drift: the figures move when someone
+moves them.
 
 ## Scenario 1: Bootstrapping
 
@@ -43,6 +47,10 @@ merits event it leads to — on the order of 850–1,100 events a Term.
 | Model API spend | $2,000 | $24,000 |
 | Other spend | $600 | $7,200 |
 | **Total** | **$2,600** | **$31,200** |
+
+The model line is the **envelope**, not today's run rate: 850–1,100 events at
+$15–17 is ≈$13–19K, and the headroom above it carries the moments milestone 1
+adds ([milestones.md](milestones.md)).
 
 ## Scenario 2: Scaling
 

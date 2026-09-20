@@ -170,8 +170,8 @@ from ..supremecourt import is_live_docket_id
 # A modest default: the pass is a standing maintenance step, not a bulk load,
 # and the cap keeps one run's spend legible beside the pull windows that share
 # the same daily budget — about two-thirds of the held tier's hourly ceiling at
-# the four requests a case resolved by docket number costs (see docs/budget.md
-# for the tier).
+# the four requests a case resolved by docket number costs (see
+# docs/data-sources.md for the tier).
 DEFAULT_MAX_CASES: Final = 50
 
 # Upstream ids are integers; a link whose id segment is anything else is not a

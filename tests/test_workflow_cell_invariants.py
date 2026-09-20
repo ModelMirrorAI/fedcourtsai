@@ -3496,8 +3496,8 @@ def test_the_back_test_cron_path_pins_every_parameter_it_replays_under() -> None
     every job reads from there — the plan the hold is judged on and the command
     the release runs cannot describe different spends. The pinned values are the
     standing measurement: consecutive fortnights are comparable only because
-    nothing about the dispatch moves between them, and the fortnightly budget
-    line in `docs/budget.md` is written against exactly this limit, scope and
+    nothing about the dispatch moves between them, and what a fortnight costs is
+    whatever the usage ledger measures against exactly this limit, scope and
     engine.
     """
     workflow = _load("run-backtest.yml")

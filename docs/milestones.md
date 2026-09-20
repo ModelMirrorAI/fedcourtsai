@@ -22,8 +22,10 @@ Public releases are anchored to the Court's calendar, so predictions publish
 - **Release 1 — the OT2026 long conference (late Sept–Oct 2026).** Cert
   predictions committed before the conference, scored against the opening
   order list ([release-ot2026-long-conference.md](release-ot2026-long-conference.md)).
-- **Release 2 — mid-Term (~January 2027).** First populated leaderboard, plus
-  the pre-registered salience ranking and big-case scores.
+- **Release 2 — mid-Term (~January 2027).** Timed to the January mop-up
+  conference, the last at which a grant can still be argued the same Term.
+  First populated leaderboard, plus the pre-registered salience ranking and
+  big-case scores.
 - **Release 3 — end-of-Term retrospective (~June–July 2027).** The full merits
   docket resolves; the first complete Term of calibration and cost data.
 
@@ -92,6 +94,15 @@ The new models are inexpensive to run; most of the added cost is three judges
 grading four more predictions per event, a margin the first new predictor's
 fan-out will measure. New predictors are not judges: the evaluator panel
 stays at three.
+
+Each of the four is a new **engine**, not a registry entry. `engine` is a closed
+enumeration mirrored into the exported schemas, so a new developer needs an enum
+value, a default model in the pricing table, a retrieval-surface entry in the
+process-version registry, a client-config emitter for its own MCP dialect, a
+usage-log parser with its own `record-usage` file flag, a backend in the pipeline
+runner, and its own steps in both cell workflows. That adapter work is in none
+of the figures above, and it is why prompt lenses — which are a registry entry plus a prompt template — come
+last.
 
 ### 4. Prompt lenses — up to ≈$148K / yr
 

@@ -752,6 +752,13 @@ no datum for either bound: its one run ended after 200 rows. The labeling
 prompt states its budget as "whatever the extract holds" for the same reason —
 one number, in one place, and no second copy to drift.
 
+What a batch costs is measured per run from the labeler's own engine report,
+never a planning rate: at `claude-fable-5` a ceiling-sized 1,200-row extract has
+run at $60.16 and at $37.48 (both full batches, 847 new labels beside the
+353-row reference set), so budget about $40–60 a dispatch. At that rate the
+rest of the 8,498-row frame — ~5,600 rows against the committed artifact — is
+on the order of five dispatches and a few hundred dollars.
+
 ### Publication keys on the count, not on the agent's verdict
 
 The workflow decides whether to measure and publish by comparing the label

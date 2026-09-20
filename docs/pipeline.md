@@ -463,8 +463,8 @@ queues behind the production run of the same mode. The modes:
   set and enforces the agreement/coverage gate — below it, nothing is written,
   the measured block still reaches the step summary, and the job fails. The
   `label_model` dispatch input picks the labeler's model; a ceiling-sized run
-  overrides the default for `claude-fable-5`, the one tier measured to finish
-  ([budget.md](budget.md)). See [qp-topic.md](qp-topic.md).
+  overrides the default for `claude-fable-5`, the one tier measured to finish.
+  See [qp-topic.md](qp-topic.md).
 
 ## `integration-test` — the infrastructure preflight
 
@@ -1757,8 +1757,17 @@ in-flight, so a fortnight left parked blocks every promotion until it is
 released or rejected. Reject it rather than leaving it pending when a batch is
 waiting.
 
-A released fortnight is a campaign of paid cells, so it accounts for its losses
-rather than ending on one. Two run-time faults are absorbed: an engine whose CLI
+What a release costs is a campaign's worth of paid cells — roughly $70–90 at the
+cron's pinned `--limit` of ten petitions across three engines, on the order of
+$2K a year at 26 releases. The ex-post spend backstop sees none of it: the
+back-test's **scratch-tree** replay writes no `usage.json`, so the ledger the
+ceiling reads stays flat while the campaign spends — unlike a committed replay
+cell, which lands on that ledger like any other. What bounds this lane is the
+fortnightly cadence, that pinned `--limit`, the manual hold, and the job's
+`timeout-minutes` — not `spend.ceiling_usd`.
+
+Such a campaign accounts for its losses rather than ending on one. Two run-time
+faults are absorbed: an engine whose CLI
 binary is missing drops that predictor whole, and a cell that ran and left no
 readable `prediction.json` where the runner reads it is a loss for that
 (petition, predictor) pair alone. Both are printed to the run log and both ride
@@ -1964,7 +1973,7 @@ usual cause is a drained backlog — nothing in scope is missing a forecast or a
 grading. Note the volume cap above can also empty the matrix (when it defers
 *every* case);
 so can the ex-post spend backstop (`spend.ceiling_usd` in `config/tracking.yaml`
-— armed, see [budget.md](budget.md)) when the trailing window's measured spend
+— armed) when the trailing window's measured spend
 reaches the ceiling; and so can the plan-time forecastability re-check, when no
 derived event is still forecastable — each has resolved since it was queued, or
 is a merits moment on a grant gone stale unparsed. The summary line cannot tell
@@ -1986,8 +1995,9 @@ spend-breach deferral clears on its own when the window rolls past the burst
 that tripped it (or when the maintainer raises `spend.ceiling_usd`). A breach
 driven by a sustained *rate* rather than a burst — a capacity knob left
 non-binding, which at the current planning rate runs above the ceiling
-([budget.md](budget.md)) — does not clear that way: it re-trips each cycle, and
-the fix is the capacity knob or the ceiling, not waiting.
+(`config/tracking.yaml`'s `spend` section carries the figure) — does not clear
+that way: it re-trips each cycle, and the fix is the capacity knob or the
+ceiling, not waiting.
 
 ### The evaluate cell grades blind
 

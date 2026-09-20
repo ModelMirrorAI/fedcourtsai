@@ -111,7 +111,13 @@ Of the two whole-suite modes, **`all-offline` is the dispatch default** — an
 unqualified `gh workflow run integration-test.yml --ref staging` runs it — so
 spending model tokens takes a typed `-f scenario=all`, which a promotion pays
 once per batch at the head it will promote (*Promotion: staging → main* in
-[pipeline.md](pipeline.md)). The default changes what an unqualified dispatch
+[pipeline.md](pipeline.md)). That default is a spend decision as much as a safety
+one: a paid `scenario=all` spends three real cells plus the boot probes, on the
+order of $8 a run, and at the measured cadence of about 1.4 paid suites a
+promotion batch that is roughly $250 a month — re-measured from `gh run list
+--workflow integration-test.yml` filtered to titles beginning
+`integration-test: all @`, against `git tag -l 'promotion/*'` over the same
+window. The default changes what an unqualified dispatch
 runs and nothing about what the gate accepts: an `all-offline` title is minted
 only by a run that really ran that suite, and it counts as whole-suite
 evidence only under the engine-smoke skip.
@@ -257,8 +263,11 @@ see that class either — a bump moves every pin consistently, and only running
 the action shows what it does with them. So this
 scenario sends each engine the cell's own block on a prompt that asks for a
 single word and asserts **acceptance** — that the invocation was taken and a
-turn completed — never output quality. One boot probe per engine, per leg
-(the recurring cost is a line in [budget.md](budget.md)); the fidelity of the
+turn completed — never output quality. One boot probe per engine, per leg — one a
+day per engine on the canary, on the order of fifteen cents an engine, so a couple
+of hundred dollars a year at three engines and linear in engine count. No cell
+writes a `usage.json` beside a probe, so that spend sits outside the ex-post
+backstop and is bounded by the cadence instead. The fidelity of the
 blocks is the whole claim, so the codex one is held in lockstep with both cell
 workflows' by a test, and the two deliberate deviations — the kickoff prompt,
 and handing claude the job's read-capped token instead of minting the cells'

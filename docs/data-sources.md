@@ -215,7 +215,7 @@ The automated consumer stays within CourtListener's published API limits by desi
 - **`pull` owns the CourtListener API budget**, throttled in-process
   (`courtlistener/ratelimit.py`) to the ceilings set in the prod environment
   (`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD`, wired from repo variables
-  to the held Free Law Project tier — see [budget.md](budget.md)), with
+  to the held Free Law Project tier described below), with
   per-run caps in [`config/tracking.yaml`](../config/tracking.yaml) well under
   them.
 - **Opinion enrichment shares that budget**, through the same client and the
@@ -227,7 +227,8 @@ The automated consumer stays within CourtListener's published API limits by desi
   intended route to opinion bodies across the whole corpus, and nothing here is
   a step toward reading them out of the API instead.
 
-The pilot holds a paid Free Law Project **membership tier** — the top
+The pilot holds a paid Free Law Project **membership tier** — **Tier 4**, at 25
+requests a minute, 300 an hour and 1,400 a day, for $1,000 a year. It is the top
 published tier, so more throughput now means the replication agreement (or
 shifting work to the budget-free supremecourt.gov channels), never a code
 change to the governor.

@@ -98,8 +98,8 @@ permissions: {}
 # directly — an unresolved `inputs.limit` would pass an empty `--limit`.
 #
 # The pins are the standing measurement — 10 petitions, all three real engines,
-# the paid modern-cert population, spread across conference cohorts — and the
-# fortnightly budget line is written against exactly them.
+# the paid modern-cert population, spread across conference cohorts — and what a
+# fortnight costs is whatever the usage ledger measures against exactly them.
 #
 # `--scope paid` is the pin, not the wider `all`, because the population has to
 # carry signal at this sample size: the paid class resolves grant-or-GVR at
@@ -301,7 +301,14 @@ jobs:
             echo '```'
             uv run fedcourts predictors
             echo '```'
-            echo 'Nothing has spent yet. Releasing the `review` hold below is what spends: up to the limit above x the routable predictors, one cert cell each. What that costs is priced once, as the fortnightly driver line under *Backtest campaigns* in `docs/budget.md`. Declining the hold, or letting it expire, is a skipped fortnight — a first-class outcome of this lane, and the digest states the standing vintage either way.'
+            # The per-engine predict rates are pinned in the CLI rate table
+            # (fedcourtsai.cli._PLANNING_RATES_USD_PER_CELL). They are restated
+            # here because neither command this step runs prices a fan-out, and
+            # a maintainer judging the hold needs the number in front of them; a
+            # re-anchor of that table moves this line too.
+            bt_cost=$(awk -v n="$BT_LIMIT" 'BEGIN { printf "%.0f", n * 6.79 }')
+            printf 'Nothing has spent yet. Releasing the `review` hold below is what spends: up to the limit above x the routable predictors, one cert cell each. At the shipped predict rates as pinned in the CLI rate table ($4.27 claude-code + $1.88 codex + $0.64 gemini, about $6.79 an event across the three engines), %s petitions is on the order of $%s; the usage ledger (`fedcourts usage-summary`) measures what it actually spent. Declining the hold, or letting it expire, is a skipped fortnight — a first-class outcome of this lane, and the digest states the standing vintage either way.\n' \
+              "$BT_LIMIT" "$bt_cost"
             echo ""
             echo 'One operational consequence of leaving this pending: a run waiting on a hold counts as an in-flight back-test for the promotion gate'"'"'s quiescence check, so a parked fortnight blocks promotions until it is released or declined.'
           } >> "$GITHUB_STEP_SUMMARY"
@@ -402,7 +409,8 @@ jobs:
     # from burning six billable hours. It stays sized for the widest dispatch
     # rather than for the cron's pinned 10 petitions (~30 cells, well inside it):
     # a cap that killed a legitimately-running replay would waste the spend it
-    # had already made. This is the hard ceiling the budget line cites.
+    # had already made. This 330-minute cap is the hard ceiling the cadence
+    # guard and the cron slot's runway are both written against.
     timeout-minutes: 330
     environment: prod
     permissions:

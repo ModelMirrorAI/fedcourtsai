@@ -8,7 +8,7 @@ CourtListener enforces per-token request budgets. The free default:
 
 A paid Free Law Project membership raises them; the held tier's ceilings
 arrive through settings (``FEDCOURTS_COURTLISTENER_RPM`` / ``_RPH`` /
-``_RPD`` — see ``docs/budget.md``), and the constants below stay the free
+``_RPD`` — see ``docs/data-sources.md``), and the constants below stay the free
 default so an unconfigured run can never overdraw any account.
 
 The deterministic ``pull`` scripts can blow through these while
