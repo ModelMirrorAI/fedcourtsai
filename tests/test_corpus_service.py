@@ -15,6 +15,7 @@ import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import date
 from pathlib import Path
 
 import httpx
@@ -50,6 +51,29 @@ def test_query_round_trip_matches_direct_read(fixture_corpus: FixtureCorpus) -> 
     served = [json.dumps(r, sort_keys=True) for r in response.rows]
     assert served == [json.dumps(r, sort_keys=True) for r in direct]
     assert response.reads is None  # local backend: nothing was transferred
+
+
+def test_both_replay_clock_halves_survive_the_wire(fixture_corpus: FixtureCorpus) -> None:
+    """The sidecar serializes the whole `PriorQuery`, so both halves of the
+    replay clock have to make the trip: a day dropped in transit would widen a
+    cell's retrieval through the service backend alone, silently and only there.
+    """
+    q = corpus.PriorQuery(court="scotus", decided_before=2024, decided_before_day=date(2026, 6, 30))
+    request = corpus_service.QueryRequest(
+        schema_version=corpus_service.SCHEMA_VERSION, query=q, limit=5, full=False
+    )
+    back = corpus_service.QueryRequest.model_validate_json(request.model_dump_json())
+    assert back.query == q
+    assert back.query.decided_before == 2024
+    assert back.query.decided_before_day == date(2026, 6, 30)
+    # And the served rows match the direct read under that clock.
+    with _running_server(fixture_corpus.db_path) as url:
+        response = corpus_service.client_query(url, q, limit=5, full=False)
+    with corpus.connect_readonly(fixture_corpus.db_path, backend="local") as conn:
+        direct = [corpus.prior_payload(row) for row in corpus.retrieve_priors(conn, q, limit=5)]
+    assert [json.dumps(r, sort_keys=True) for r in response.rows] == [
+        json.dumps(r, sort_keys=True) for r in direct
+    ]
 
 
 def test_query_full_toggles_opinion_text(fixture_corpus: FixtureCorpus) -> None:

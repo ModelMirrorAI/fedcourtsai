@@ -194,7 +194,7 @@
             }
           ],
           "default": null,
-          "description": "The replay clock: retrieval about this case must not postdate it. Null on a forward cell, whose outcome does not exist yet",
+          "description": "This cell's **docket-number Term**, and the one anchoring clock: the statpack's and docket pack's per-Term rows may be read only for Terms strictly preceding it. Those rows are keyed on the docket-number Term, so this case's own Term row already contains its disposition \u2014 which is why the clock is the docket Term and not the Term the cutoff falls in, deliberately conservative for a petition held over into a later Term. This is also what the cell was handed as DECIDED_BEFORE, and what it passed to `fedcourts query`. The day-level retrieval boundary is `cutoff` beside it, which is what REPLAY_CUTOFF carries on a dated cell and what narrows that query further. Null on a forward cell, whose outcome does not exist yet",
           "title": "Decided Before"
         },
         "distribution_count": {

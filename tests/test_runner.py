@@ -181,8 +181,9 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert recorder.env["RUN_ID"] == RUN
     assert recorder.env["MODEL_ID"] == "claude-fable-5-1"
     assert "EVALUATOR_ID" not in recorder.env
-    # Live cells carry no replay clock; DECIDED_BEFORE is back-test-only.
+    # Live cells carry no replay clock; both halves are back-test-only.
     assert "DECIDED_BEFORE" not in recorder.env
+    assert "REPLAY_CUTOFF" not in recorder.env
     # The command targets the `claude` CLI in print mode with the workflow's args.
     assert recorder.argv[0] == "claude"
     assert "-p" in recorder.argv
@@ -195,14 +196,31 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert written == _predict_artifacts(events)
 
 
-def test_replay_request_exports_the_decided_before_clock(tmp_path: Path) -> None:
+def test_a_blind_replay_cell_exports_only_the_term_half(tmp_path: Path) -> None:
     recorder = _Recorder()
     runner = ClaudeCodeRunner(command_runner=recorder)
     request = _predict_request(tmp_path / "data")
     StubRunner().run(request)
     runner.run(replace(request, decided_before=1998))
-    # A back-test replay cell sees its clock so corpus retrieval can be masked.
+    # Every replay cell carries its own October Term, which is what the prompt
+    # contract anchors on and what it passes to `fedcourts query`. The blind arm
+    # was given no cutoff, so there is no day half to export.
     assert recorder.env["DECIDED_BEFORE"] == "1998"
+    assert "REPLAY_CUTOFF" not in recorder.env
+
+
+def test_a_dated_replay_cell_exports_both_halves_of_the_clock(tmp_path: Path) -> None:
+    recorder = _Recorder()
+    runner = ClaudeCodeRunner(command_runner=recorder)
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)
+    runner.run(replace(request, decided_before=2024, replay_cutoff=date(2026, 6, 30)))
+    # The Term stays the case's own docket Term — never re-derived from the day,
+    # which for this pair would read OT2025 — and the day rides beside it, where
+    # `fedcourts query` reads it for itself and can only narrow what the Term
+    # admitted.
+    assert recorder.env["DECIDED_BEFORE"] == "2024"
+    assert recorder.env["REPLAY_CUTOFF"] == "2026-06-30"
 
 
 def test_evaluate_uses_the_evaluator_id_env_var(tmp_path: Path) -> None:

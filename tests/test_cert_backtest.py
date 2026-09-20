@@ -33,7 +33,12 @@ from fedcourtsai.pipeline.asof import replay_cutoff
 from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner, get_runner
 from fedcourtsai.pricing import DEFAULT_MODELS
 from fedcourtsai.registry import enabled_predictors
-from fedcourtsai.schemas import CertBacktest, CertBacktestCellLoss, Disposition
+from fedcourtsai.schemas import (
+    CertBacktest,
+    CertBacktestCellLoss,
+    Disposition,
+    PredictionContext,
+)
 from fedcourtsai.serialize import read_model
 from tests.conftest import FixtureCorpus
 
@@ -580,6 +585,130 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
     event_yaml = next(work_root.rglob("event.yaml")).read_text()
     assert "resolved: false" in event_yaml
     assert not fixture_corpus.data_root.exists()
+
+
+class _ClockRecordingRunner:
+    """Delegates to the stub but records both halves of each cell's clock."""
+
+    def __init__(self, clocks: list[tuple[int | None, date | None]]) -> None:
+        self._clocks = clocks
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        self._clocks.append((request.decided_before, request.replay_cutoff))
+        return self._stub.run(request)
+
+
+def _replay_clocks(
+    fixture_corpus: FixtureCorpus, work_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[list[tuple[int | None, date | None]], Path, dict[str, date]]:
+    """Replay the fixture set through a clock-recording runner; return the clocks."""
+    clocks: list[tuple[int | None, date | None]] = []
+    monkeypatch.setattr(
+        cert_backtest, "get_runner", lambda backend="stub": _ClockRecordingRunner(clocks)
+    )
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    outcome = cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=work_root,
+        run_id="20260706T000000Z",
+    )
+    assert clocks, "no cell ran"
+    return clocks, work_root, outcome.clock_days
+
+
+def test_a_dated_replay_cell_carries_both_halves_of_its_clock(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The Term is the case's own docket Term on every arm — self-excluding, and
+    # what the prompt contract anchors on — and the cutoff day rides beside it,
+    # never in place of it. The fixture petition shows no dated distribution
+    # before its resolution, so the cutoff the real rule would derive is
+    # supplied here.
+    cut = date(2024, 5, 20)
+    monkeypatch.setattr(cert_backtest, "replay_cutoff", lambda payload, resolved_at: cut)
+    clocks, work_root, clock_days = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
+    context = read_model(next(work_root.rglob("record/context.json")), PredictionContext)
+    assert context.cutoff == cut
+    assert set(clocks) == {(2022, cut)}
+    # The same day reaches the offline reference baseline, so its row on the
+    # board is masked as the engine rows were.
+    assert clock_days == {"scotus/304": cut}
+    # And the record's clock is the Term, which is what the statpack's per-Term
+    # anchoring rule is read against; `cutoff` beside it carries the day.
+    assert context.decided_before == "2022"
+
+
+def test_a_blind_replay_cell_carries_the_term_half_only(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The blind arm is the one provisioning produced no cutoff for, so there is
+    # no day to narrow with and the Term stands alone.
+    monkeypatch.setattr(cert_backtest, "replay_cutoff", lambda payload, resolved_at: None)
+    clocks, work_root, clock_days = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
+    context = read_model(next(work_root.rglob("record/context.json")), PredictionContext)
+    assert context.cutoff is None and context.snapshot_provenance == "blind"
+    assert set(clocks) == {(2022, None)}
+    assert clock_days == {}
+
+
+def test_a_provisioned_dated_cell_is_not_among_its_own_priors(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Self-exclusion, end to end and unmocked: give the fixture petition a real
+    distribution so provisioning derives a real cutoff, then retrieve at the
+    clock the cell was handed and check its own row is not in the result.
+
+    The structural reason is asserted separately over ``replay_cutoff`` itself
+    (``test_a_replay_cutoff_never_falls_after_its_own_resolution``); this leg
+    checks the two ends agree — that the clock provisioning writes is the clock
+    ``retrieve_priors`` screens on, and that the screen is strict. The second
+    retrieval loosens the Term by one so the day bar is doing the work alone:
+    in the cell's real clock the two exclusions overlap, and a test that only
+    ran the real one could not tell which had fired.
+    """
+    case_id = "scotus/304"
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        found = corpus.latest_snapshot(conn, case_id)
+        assert found is not None
+        snapshot_date, payload = found
+        entries = list(payload["docket_entries"])
+        entries.insert(
+            -1,
+            {
+                "id": 99,
+                "date_filed": "2024-05-20",
+                "description": "DISTRIBUTED for Conference of June 6, 2024.",
+            },
+        )
+        corpus.upsert_snapshot(conn, case_id, snapshot_date, {**payload, "docket_entries": entries})
+
+    clocks, _, clock_days = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
+    # Derived by the real rule: the day after the last distribution preceding
+    # the 2024-06-24 denial.
+    assert clock_days == {case_id: date(2024, 5, 21)}
+    terms = {term for term, day in clocks if day is not None}
+    assert terms == {2022}  # the docket Term of 22-845, not a Term read off the day
+
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        for term in (2022, 2023):
+            priors = corpus.retrieve_priors(
+                conn,
+                corpus.PriorQuery(
+                    court="scotus", decided_before=term, decided_before_day=date(2024, 5, 21)
+                ),
+                limit=1_000,
+            )
+            assert case_id not in {r.case_id for r in priors}, term
+        # And the day is what excludes it at the loosened Term: without the day
+        # that same Term admits it.
+        loose = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before=2023), limit=1_000
+        )
+    assert case_id in {r.case_id for r in loose}
 
 
 class _RecordingRunner:
@@ -1310,6 +1439,48 @@ def test_the_cutoff_reads_entry_dates_not_the_conferences_they_name() -> None:
     the replay after the docket had already moved."""
     cutoff = replay_cutoff(_TRAJECTORY, date(2025, 3, 10))
     assert cutoff is not None and cutoff < date(2025, 3, 7)
+
+
+def test_a_replay_cutoff_never_falls_after_its_own_resolution() -> None:
+    """The structural guarantee behind a dated cell's self-exclusion.
+
+    ``replay_cutoff`` takes the last distribution ``filed < resolved_at`` and
+    returns ``filed + 1 day``, so the cutoff is at most the resolution date
+    itself and never past it. The day screen is a strict ``<`` on the same
+    quantity both ends read — ``corpus.resolution_date`` — so the replayed
+    case's own row can never clear it, whatever its Term admits.
+
+    Checked at the shape that stresses the bound: the plain trajectory, where
+    the last distribution sits weeks before resolution; a distribution filed the
+    very day before, where ``filed + 1`` lands exactly on it; and the rehearing
+    family, where ``resolution_date`` falls back to the docket's termination and
+    a later distribution survives the disposing order.
+    """
+    cases = [
+        (_TRAJECTORY, date(2025, 3, 10)),
+        (
+            _live(
+                ("Jan 5 2025", "Petition for a writ of certiorari filed."),
+                ("Mar 9 2025", "DISTRIBUTED for Conference of March 21, 2025."),
+            ),
+            date(2025, 3, 10),
+        ),
+        (
+            _live(
+                ("Jan 5 2025", "Petition for a writ of certiorari filed."),
+                ("Feb 7 2025", "DISTRIBUTED for Conference of February 21, 2025."),
+                ("Mar 10 2025", "Petition DENIED."),
+                ("May 2 2025", "DISTRIBUTED for Conference of May 15, 2025."),
+            ),
+            date(2025, 5, 30),
+        ),
+    ]
+    for payload, resolved_at in cases:
+        cutoff = replay_cutoff(payload, resolved_at)
+        assert cutoff is not None and cutoff <= resolved_at, (cutoff, resolved_at)
+    # The tight one, stated rather than left to the reader: filed the day before
+    # resolution puts the cutoff exactly on it, which the strict `<` still bars.
+    assert replay_cutoff(cases[1][0], cases[1][1]) == date(2025, 3, 10)
 
 
 def test_no_dated_distribution_yields_no_cutoff() -> None:

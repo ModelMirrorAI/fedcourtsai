@@ -3152,6 +3152,20 @@ class PriorQuery(BaseModel):
         "the back-test replay clock; live (forward) retrieval omits it because "
         "every resolved prior genuinely precedes an open case.",
     )
+    decided_before_day: date | None = Field(
+        default=None,
+        description="The calendar cutoff a dated replay cell was placed at, "
+        "screening ON TOP OF `decided_before` rather than instead of it: a row "
+        "must clear the Term bar AND, where it carries a resolution date, have "
+        "resolved strictly before this day. A row with no resolution date is "
+        "left to the Term bar, which is the only thing that can speak for it. "
+        "So the day **only ever removes rows** — it is the finer half of one "
+        "clock, not a second clock, and with the Term set to the case's own "
+        "docket Term a cell sees exactly what it saw before, minus the priors "
+        "that had not yet resolved when it was placed. Set alone (a hand "
+        "`--decided-before <date>`) it applies the day bar by itself, which "
+        "cannot screen an undated row at all; pair it with a Term to bar those.",
+    )
     resolved_only: bool = Field(
         default=True,
         description="Keep only decided cases — precedent. A case counts as "
@@ -3242,7 +3256,9 @@ def recency_key(row: CorpusRow) -> tuple[int, int]:
     return (1, 0)
 
 
-def _mask_post_clock_merits(row: CorpusRow, decided_before: int) -> CorpusRow:
+def _mask_post_clock_merits(
+    row: CorpusRow, decided_before: int | None, decided_before_day: date | None = None
+) -> CorpusRow:
     """Strip a masked prior's merits columns unless they provably precede the clock.
 
     The ``decided_before`` mask admits a *row* by its best-known year, but the
@@ -3257,6 +3273,12 @@ def _mask_post_clock_merits(row: CorpusRow, decided_before: int) -> CorpusRow:
     cannot prove precedence, so it is stripped (mirroring the snapshot
     truncation's fail-closed treatment of undated entries).
 
+    ``decided_before_day``, where the clock carries one, is an **additional**
+    bar on this pair exactly as it is on the row: the judgment survives only
+    when ``merits_decided`` clears every bar the clock sets. An undated judgment
+    is stripped either way, so there is no "left to the Term rule" arm here —
+    the pair is the one place where absence of a date is already fatal.
+
     ``merits_terminated`` is stripped **unconditionally** whenever it is set,
     because it carries no date to test: the column records that the merits
     proceeding ended, which is exactly the post-clock fact the mask exists to
@@ -3266,40 +3288,81 @@ def _mask_post_clock_merits(row: CorpusRow, decided_before: int) -> CorpusRow:
         row = row.model_copy(update={"merits_terminated": None})
     if row.merits_judgment is None and row.merits_decided is None:
         return row
-    if row.merits_decided is not None and row.merits_decided.year < decided_before:
-        return row
+    decided = row.merits_decided
+    if decided is not None:
+        clears_term = decided_before is None or decided.year < decided_before
+        clears_day = decided_before_day is None or decided < decided_before_day
+        if clears_term and clears_day:
+            return row
     return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
+
+
+def _precedes_replay_clock(row: CorpusRow, query: PriorQuery) -> bool:
+    """Whether one row provably precedes the query's replay clock.
+
+    One doctrine at two resolutions: history that cannot be proven to precede
+    the cutoff is never consulted. Where the clock carries a **day** that is the
+    whole rule — the row's resolution date must exist and strictly precede it,
+    so an undated row is refused however old it looks. Where it carries only a
+    **Term year**, the best-known year stands in for the same question at Term
+    granularity, and a row with no derivable year is refused for the same
+    reason.
+
+    The two are halves of one clock and conjoin; neither replaces the other.
+    The Term is the coarse half and the only one that can speak for an undated
+    row; the day is the fine half and refines nothing it cannot date. So a day
+    **only ever removes rows** from what its Term admits. That is what makes it
+    safe to add to a cell whose Term is its own docket Term: the cell sees
+    exactly what it saw before, minus the priors that had not yet resolved when
+    it was placed. Nothing about the Term is re-derived from the day — a Term
+    read off a calendar cutoff is wrong in both directions (behind the docket
+    Term for a petition docketed after the July roll, ahead of it for one held
+    over), and this predicate never computes one.
+    """
+    if query.decided_before is not None:
+        year = case_year(row)
+        if year is None or year >= query.decided_before:
+            return False
+    if query.decided_before_day is not None:
+        resolved = resolution_date(row)
+        if resolved is not None and resolved >= query.decided_before_day:
+            return False
+    return True
 
 
 def _screen_derived(row: CorpusRow, query: PriorQuery) -> CorpusRow | None:
     """Apply the query's derived filters to one retrieved row.
 
-    Era, best-known year and docket form are computed from the row (decade,
-    Term year or filing/decision dates, the letter-form recognizers) rather
+    Era, the replay clock and docket form are computed from the row (decade,
+    best-known year or resolution date, the letter-form recognizers) rather
     than read from a column, so they screen retrieved rows instead of riding
     the SQL. ``None`` means screened out; otherwise the row comes back possibly
-    rewritten, since the ``decided_before`` clock also strips a surviving row's
-    post-clock merits columns. Both retrieval paths screen through here, so the
-    ranked fast path and the scored path admit exactly the same rows.
+    rewritten, since the clock also strips a surviving row's post-clock merits
+    columns. Both retrieval paths screen through here, so the ranked fast path
+    and the scored path admit exactly the same rows.
+
+    Both halves of the replay clock apply to the merits pair exactly as they
+    apply to the row (:func:`_precedes_replay_clock`), so both are passed on to
+    :func:`_mask_post_clock_merits` rather than one standing in for the other.
     """
     if query.exclude_non_cert and is_non_cert_scotus_form(row):
         return None
     if query.era is not None and case_era(row) != query.era:
         return None
-    if query.decided_before is not None:
-        year = case_year(row)
-        if year is None or year >= query.decided_before:
+    if query.decided_before_day is not None or query.decided_before is not None:
+        if not _precedes_replay_clock(row, query):
             return None
-        return _mask_post_clock_merits(row, query.decided_before)
+        return _mask_post_clock_merits(row, query.decided_before, query.decided_before_day)
     return row
 
 
 def _screens_in_python(query: PriorQuery) -> bool:
     """Whether any of the query's derived filters can drop a row after SQL.
 
-    ``era``, ``decided_before`` and ``exclude_non_cert`` are computed from the
-    row (decade, best-known year, docket-number form), not from a column SQL can
-    filter on, so they screen the retrieved stream. A screened row must not
+    ``era``, the replay clock in either spelling (``decided_before`` /
+    ``decided_before_day``) and ``exclude_non_cert`` are computed from the
+    row (decade, best-known year, resolution date, docket-number form), not from
+    a column SQL can filter on, so they screen the retrieved stream. A screened row must not
     consume a result slot — which is what makes this the condition on pushing
     the ``LIMIT`` down, and (with no court equality to serve the ordering) the
     condition on taking the ranked fast path at all.
@@ -3307,7 +3370,11 @@ def _screens_in_python(query: PriorQuery) -> bool:
     The non-cert screen is SCOTUS-only, so a query pinned to another court
     cannot lose a row to it and keeps the pushdown for free.
     """
-    if query.era is not None or query.decided_before is not None:
+    if (
+        query.era is not None
+        or query.decided_before is not None
+        or query.decided_before_day is not None
+    ):
         return True
     return query.exclude_non_cert and query.court in (None, "scotus")
 

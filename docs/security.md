@@ -435,7 +435,8 @@ sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
 strips every env var from the agent's shell in CI
 (strict mode is forced by `GITHUB_SHA`), so the cell workflows name the cell
 contract — court/docket/event/actor/run/model ids, plus the back-test's
-`DECIDED_BEFORE` clock, plus `FEDCOURTS_CORPUS_BACKEND` and
+replay clock in both halves (`DECIDED_BEFORE`, the docket Term, and
+`REPLAY_CUTOFF`, the dated cell's cutoff day), plus `FEDCOURTS_CORPUS_BACKEND` and
 `FEDCOURTS_CORPUS_SERVICE_URL` (a backend name and a localhost URL: the corpus
 sidecar contract, and what gives this engine the corpus retrieval the sanitizer
 could never grant via AWS credentials) —

@@ -30,7 +30,7 @@ import sqlite3
 import sys
 from collections import Counter
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
@@ -497,18 +497,35 @@ def _runners_by_predictor(
 class ReplayOutcome:
     """What one agentic replay campaign produced, losses included.
 
-    Three of the four fields exist because a campaign that spends real money per
+    Three of the fields exist because a campaign that spends real money per
     cell must finish and account for itself rather than crash: ``unavailable``
     names the predictors whose engine binary went missing mid-run,
     ``lost_cells`` the individual cells that ran and came back unreadable, and
     ``provisioning`` the information-set mix the scores were produced over.
-    Everything here rides the report — stderr does not survive the runner.
+    Everything there rides the report — stderr does not survive the runner.
+
+    ``clock_days`` maps each dated cell's case id to the cutoff day it was
+    clocked on, and carries no entry for a blind cell. It is what puts the
+    offline reference baseline on the same clock the engine cells are on
+    (:func:`fedcourtsai.backtest.default_backtesters`), so the reference row is
+    comparable with the engine rows rather than masked more loosely than they
+    were. It moves that row's own accuracy, Brier and lift — a narrower
+    retrieved set is a different vote — and no other entry's on account of the
+    mask. The always-deny floor carries no clock either way: it is the replayed
+    set's denial share, a property of the labels. But ``prior-vote``'s top line
+    still must not be compared between a replay run and a no-replay one,
+    because ``--engine`` narrows the population to the replayable petitions and
+    the two runs are scored over different sets. The same clock, not the same
+    pool either: the prior index screens to the machine-readable disposition
+    subset a vote can be scored over, which a cell's own ``fedcourts query``
+    does not (:class:`fedcourtsai.backtest.PriorIndex`).
     """
 
     backtesters: list[Backtester]
     unavailable: list[str]
     provisioning: dict[str, int]
     lost_cells: list[CertBacktestCellLoss]
+    clock_days: dict[str, date] = field(default_factory=dict)
 
 
 def _read_replayed_cell(
@@ -645,13 +662,18 @@ def replay_predictors(
     mislabeled through another engine, and ``engine_override`` forces one
     backend for offline ``stub``/``replay`` runs, and ``skip_engines`` opts
     named engines out) and collects its
-    ``prediction.json``. Each cell carries the trial's year as its replay clock
-    (``DECIDED_BEFORE``), so the agent's own corpus retrieval is masked to
-    provably earlier history — the same cutoff the offline prior-vote baseline
-    honors. Returns a :class:`ReplayOutcome`: the :class:`ReplayedBacktester`
-    list (one per predictor that produced predictions), the ids of predictors
-    whose engine turned out to be **unavailable** mid-run, the per-cell losses,
-    and the provisioning mix.
+    ``prediction.json``. Each cell carries the replay clock in two halves: its
+    own docket Term as ``DECIDED_BEFORE`` on every arm, and — on the dated arm
+    only — the day it was provisioned at as ``REPLAY_CUTOFF``, which
+    ``fedcourts query`` applies as a second bar and which can only remove
+    priors that had not yet resolved when the cell was placed. The offline
+    prior-vote baseline is given the same per-cell day, so the reference row on
+    the board is masked as the engine rows were. Returns a
+    :class:`ReplayOutcome`:
+    the :class:`ReplayedBacktester` list (one per predictor that produced
+    predictions), the ids of predictors whose engine turned out to be
+    **unavailable** mid-run, the per-cell losses, the provisioning mix, and
+    each dated cell's clock day.
 
     Two run-time faults are absorbed rather than raised, for the same reason: a
     campaign that crashes strands the spend already made on every other cell and
@@ -693,6 +715,9 @@ def replay_predictors(
     # observe its own relist history at all, which is most of what a cert forecast
     # turns on, so a score over their union is a score over a mixture.
     provisioning: Counter[str] = Counter()
+    # Each dated cell's cutoff, for the offline baseline to mask on the same
+    # clock (see :class:`ReplayOutcome`). A blind cell contributes no entry.
+    clock_days: dict[str, date] = {}
     for item in items:
         court, _, docket_raw = item.features.case_id.partition("/")
         docket = int(docket_raw)
@@ -760,6 +785,8 @@ def replay_predictors(
         if provenance != "dated" and cutoff is not None:
             snapshot_date = cutoff
         provisioning[provenance] += 1
+        if cutoff is not None:
+            clock_days[item.features.case_id] = cutoff
         write_raw_json(case_paths.snapshot(snapshot_date.isoformat()), redacted)
         # The cell's mode context: a replay cell runs with the same tools
         # as a forward one — etiquette, logging, and the cross-evaluator's leakage
@@ -788,6 +815,11 @@ def replay_predictors(
                 # wholesale and its cutoff is null, which is neither rule, so it
                 # carries no kind.
                 boundary=(arrival_cut.CutBoundary(kind="date") if cutoff is not None else None),
+                # The record's clock is the Term year even where the exported
+                # one is a date: `cutoff` beside it already carries the day, and
+                # this field is what the statpack's and docket's per-Term
+                # anchoring rule is read against — a Term row either precedes a
+                # Term year or it does not, with nothing to resolve.
                 decided_before=str(item.features.year),
             ).model_dump(mode="json"),
         )
@@ -821,9 +853,15 @@ def replay_predictors(
                     prompt=Path(),
                     run_id=run_id,
                     data_root=work_root,
-                    # The replay clock: the cell sees it as DECIDED_BEFORE and
-                    # masks its corpus retrieval to provably earlier history.
+                    # The replay clock, in the two halves the cell reads as
+                    # DECIDED_BEFORE and REPLAY_CUTOFF. The Term is the case's
+                    # own docket Term on every arm — self-excluding, and what
+                    # the prompt contract anchors on. The day is this cell's
+                    # provisioned cutoff and only the dated arm has one; it
+                    # narrows retrieval to the priors that had actually resolved
+                    # when the cell was placed, and can only remove.
                     decided_before=item.features.year,
+                    replay_cutoff=cutoff,
                 ),
                 ledger_paths.event(event.event_id) if ledger_paths is not None else None,
                 case_id=item.features.case_id,
@@ -844,6 +882,7 @@ def replay_predictors(
         backtesters=backtesters,
         unavailable=sorted(unavailable),
         provisioning=dict(provisioning),
+        clock_days=clock_days,
         # Every loss, including one on a predictor whose engine went missing
         # later in the campaign: unavailability drops the predictor from the
         # board, but the cells it already ran and lost were paid for and are

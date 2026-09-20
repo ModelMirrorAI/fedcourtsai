@@ -51,7 +51,7 @@ import tempfile
 import time
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -120,10 +120,25 @@ class RunRequest:
     ``prompt`` is carried for parity with the live engine (which reads it) even
     though the stub does not consult it; it is part of the cell contract.
 
-    ``decided_before`` is the back-test replay clock: set only when a decided
-    case is replayed as of a past moment (the cert back-test's engine replay),
-    it is exported to the cell as ``DECIDED_BEFORE`` so the agent's corpus
-    retrieval masks history from that year on. Live cells never set it.
+    ``decided_before`` and ``replay_cutoff`` are the two halves of the back-test
+    replay clock, set only when a decided case is replayed as of a past moment
+    (the cert back-test's engine replay). Live cells set neither.
+
+    ``decided_before`` is the case's own **October-Term year**, exported as
+    ``DECIDED_BEFORE``. Every cell on the replay arm has one, and the prompt
+    contract is written against it as a Term: it is what the cell anchors
+    statpack rows behind and what it passes to ``fedcourts query
+    --decided-before``. It is the docket Term and nothing derived from a date,
+    so it is self-excluding — a case's own row never clears a bar set at its own
+    Term.
+
+    ``replay_cutoff`` is the calendar day the cell was provisioned at, exported
+    as ``REPLAY_CUTOFF``, and only a **dated** cell has one (the blind arm was
+    given no cutoff). ``fedcourts query`` reads it for itself and applies it as
+    a second bar on top of whatever ``--decided-before`` set. Because an undated
+    prior cannot be tested against a day, that bar can only **remove** rows the
+    Term already admitted — the priors that had not yet resolved when this cell
+    was placed. Nothing about the Term is re-derived from it.
     """
 
     role: UsageRole
@@ -135,6 +150,7 @@ class RunRequest:
     prompt: Path
     data_root: Path
     decided_before: int | None = None
+    replay_cutoff: date | None = None
 
     @property
     def case_id(self) -> str:
@@ -561,9 +577,10 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     cell: the case + event ids, the shared run id, the acting id under
     ``PREDICTOR_ID`` (predict) or ``EVALUATOR_ID`` (evaluate), and the model the
     engine runs (``MODEL_ID`` — the agent copies it into its artifact's ``model``
-    field). ``DECIDED_BEFORE`` appears only on back-test replay cells (the live
-    workflows never set ``decided_before``). Auth is never assembled here: the
-    agent inherits it from the scrubbed base environment
+    field). ``DECIDED_BEFORE`` (the case's October-Term year) appears only on
+    back-test replay cells, and ``REPLAY_CUTOFF`` (an ISO date) only on the
+    dated ones among them — the live workflows set neither. Auth is never
+    assembled here: the agent inherits it from the scrubbed base environment
     (:func:`_agent_base_env`), which passes through only the engine's own.
     """
     actor_var = "PREDICTOR_ID" if request.role == UsageRole.predictor else "EVALUATOR_ID"
@@ -577,6 +594,8 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     }
     if request.decided_before is not None:
         env["DECIDED_BEFORE"] = str(request.decided_before)
+    if request.replay_cutoff is not None:
+        env["REPLAY_CUTOFF"] = request.replay_cutoff.isoformat()
     return env
 
 
