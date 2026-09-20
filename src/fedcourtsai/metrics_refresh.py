@@ -350,13 +350,14 @@ def render_refresh_pr(
 BACKTEST_BRANCH = "metrics/cert-backtest"
 
 
-def _granted_in_set(report: CertBacktest) -> int | None:
+def granted_in_set(report: CertBacktest) -> int | None:
     """Granted-side outcomes in the replayed set, or ``None`` when unrecoverable.
 
     What a lift is measured on is the *granted* side of the binary target, and
     cert's denial skew makes a draw with none of them an ordinary outcome at a
     small sample — one where every denial-heavy predictor ties the floor and the
-    ranking is noise. So the review PR has to say how many there were.
+    ranking is noise. So every surface that quotes the floor — the review PR,
+    and the weekly digest's own line — says how many there were.
 
     The always-deny floor cannot answer it: that is the **denied** share, and a
     dismissal is neither denied nor granted, so ``1 - floor`` overstates the
@@ -423,7 +424,7 @@ def render_backtest_pr(
     if not report_path.exists():
         return None
     report = read_model(report_path, CertBacktest)
-    granted = _granted_in_set(report)
+    granted = granted_in_set(report)
     # The headline names a predictor scored over the **whole set**, or it names
     # none. An entry short some cells is floored over its own subset, and lift
     # is a per-petition mean, so dropping a petition the predictor got wrong

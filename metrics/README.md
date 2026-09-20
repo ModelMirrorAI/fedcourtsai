@@ -1193,7 +1193,25 @@ the rendered table) and
   dropping a petition a predictor would have got wrong raises the figure — so
   `rank` orders comparably only within one `events_scored`, and the rows below
   the full ones are a listing rather than a ranking. A **null** `provenance` means unknown, never offline: read
-  nothing from such a report. Produced by the
+  nothing from such a report. `provisioning` counts the replayed **petitions**
+  by the snapshot provenance each was given — `dated` (a snapshot the docket
+  really served before the cutoff), `truncated` (a later payload with its
+  post-cutoff entries removed), `blind` (no trajectory shown at all, from
+  either cause: no forward moment fixed a cutoff, or truncation left a
+  disposition visible and the fail-closed leakage guard withdrew the
+  trajectory) — and those are three information sets, so a score over their
+  union is a score over a mixture: a blind petition cannot observe its own
+  relist history, which is most of what a cert forecast turns on. The
+  always-deny floor is not one of the figures the information set moves — it is
+  the replayed set's own denial share, a property of the labels. What moves it
+  is **composition**: a docket with no distribution to show is the strongest
+  denial signal here, so the blind arm is selected on a feature that correlates
+  with the outcome and comes out denial-purer than the rest. A blind-heavy draw
+  therefore carries a *higher* pooled floor and dilutes every lift measured
+  over the union, rather than depressing them. Read the mix before the scores,
+  and read a shift in it between two fortnights the way you read a change of
+  dispatch. The weekly digest's cert back-test line carries the mix and the
+  dispatch beside the figure for that reason. Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A
   real-engine replay spends tokens, so **the schedule asks and the hold
   spends**: no run spends without an explicit maintainer decision. The
