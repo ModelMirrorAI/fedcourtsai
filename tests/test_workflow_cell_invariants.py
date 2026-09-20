@@ -3208,6 +3208,25 @@ def test_the_daily_digest_job_keeps_its_narrow_permission_surface() -> None:
     assert "secrets." not in yaml.safe_dump(job), "the digest job needs no secret"
 
 
+def test_the_daily_digest_job_is_parked_by_the_pause_variable_and_nothing_else() -> None:
+    """The job's only gate is the maintainer's standing pause variable.
+
+    The digest is optional reading once the website carries every prediction,
+    so it parks on a repository variable rather than by deleting the job: the
+    code and the label stay, and clearing the variable resumes it. The gate
+    must fail open — an absent variable runs the job, so a pause is always an
+    explicit act — and must not key on the schedule string, which would be
+    true for every cron it does not name and would drop Monday's digest when
+    the weekly tick cancels the daily one.
+    """
+    job = _load("run-ops.yml")["jobs"]["daily-digest"]
+    # The whole expression, not substrings: a second disjunct — a dispatch
+    # bypass, a schedule test — would pass a looser check while making the
+    # gate two rules, and a dispatch is the ops report's recovery handle, which
+    # must never post a digest the maintainer parked.
+    assert job["if"] == "${{ vars.DAILY_DIGEST_PAUSED != 'true' }}"
+
+
 def test_no_workflow_triggers_on_a_digest_label() -> None:
     """Every label the reporting surfaces create must stay non-triggering.
 
