@@ -5668,12 +5668,14 @@ class StatPackTerm(_Strict):
     the denial sampling does not bias them); a Term known only from the discovery
     cursors still appears, carrying its census with zero ingested rows. **This is
     the replay self-selection surface**: a time-masked cell anchors only on Term
-    entries strictly preceding the Term on ``record/context.json``'s
-    ``decided_before`` — its own **docket-number** Term, which is what these
-    entries are keyed on, so a cell's own entry already holds its disposition.
-    Never a Term derived from the cell's ``DECIDED_BEFORE`` retrieval boundary:
-    for a petition held over past its Term that boundary falls in a later Term
-    than the docket, and anchoring there would hand the cell its own row.
+    entries strictly preceding ``record/context.json``'s ``decided_before`` —
+    its own **docket-number** Term, which is what these entries are keyed on and
+    what the cell is handed as ``DECIDED_BEFORE``, so its own entry (which
+    already holds its disposition) is always behind the bar. The cell's
+    day-level *retrieval* boundary is a different field, ``cutoff``, which it
+    reads as ``REPLAY_CUTOFF``; no anchoring Term is ever derived from it,
+    because for a petition held over past its Term that day falls in a later
+    Term than the docket and a Term read off it would hand the cell its own row.
     """
 
     term: int = Field(description="The October-Term year, e.g. 2024")

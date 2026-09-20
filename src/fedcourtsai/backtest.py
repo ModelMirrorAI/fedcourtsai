@@ -476,8 +476,21 @@ class PriorVoteBacktester:
     cells retrieve under exactly those days. It puts this baseline on the same
     clock they are on — the trial's own Term, and that day beside it — so the
     reference row on the board is comparable with the engine rows rather than
-    masked more loosely than they were. (Every entry's *lift* is measured
-    against the always-deny floor, which carries no clock and does not move.)
+    masked more loosely than they were.
+
+    It therefore **moves this row's own numbers**, and that is the point: a
+    narrower retrieved set is a different vote, so the accuracy, the Brier score
+    and the lift on the ``prior-vote`` entry all differ from what the Term bar
+    alone would have produced. No other entry's do, on account of the mask —
+    each engine entry is scored on what its own cells returned. The always-deny
+    floor is not a clocked quantity at all: it is the replayed set's denial
+    share, a property of the labels.
+
+    Which is why ``prior-vote``'s top line is not comparable between a run that
+    replayed and one that did not. Supplying ``--engine`` also narrows the
+    population to the replayable petitions, so the two runs score different sets
+    and their floors are different floors.
+
     The same clock, not the same pool: this index screens to the
     machine-readable disposition subset a vote can be scored over, which a
     cell's own ``fedcourts query`` does not (see :class:`PriorIndex`). Left

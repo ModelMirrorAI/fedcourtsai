@@ -1211,15 +1211,23 @@ the rendered table) and
   over the union, rather than depressing them. Read the mix before the scores,
   and read a shift in it between two fortnights the way you read a change of
   dispatch. The weekly digest's cert back-test line carries the mix and the
-  dispatch beside the figure for that reason. One thing the mix does not
-  capture: the offline prior-vote row is masked on each dated cell's own cutoff
-  day, the clock its engine cells retrieved under, and only an **engine replay**
-  provisions those cutoffs. So a run with no replay at all (`--engine` unset)
-  carries a prior-vote row masked on the Terms alone, while any replay — a stub
-  rehearsal included, since it provisions the same cells — carries one masked on
-  the days. Compare prior-vote across those two only with that in mind. No lift
-  moves either way: every lift is measured against the always-deny floor, which
-  is the replayed set's own denial share and carries no clock. Produced by the
+  dispatch beside the figure for that reason. Two things the mix does not
+  capture. The first is that the day bar narrows the **dated** cells'
+  retrieval and not the blind ones', so the two arms differ in what they could
+  *retrieve* as well as in what their snapshots showed — one more reason to
+  read the mix before the scores. The second is the offline `prior-vote` row:
+  it is masked on each dated cell's own cutoff day, the clock its engine cells
+  retrieved under, and only an **engine replay** provisions those cutoffs. So a
+  run with no replay at all (`--engine` unset) carries a prior-vote row masked
+  on the Terms alone, while any replay — a stub rehearsal included, since it
+  provisions the same cells — carries one masked on the days. That changes
+  `prior-vote`'s own accuracy, Brier and **lift**, because a narrower retrieved
+  set is a different vote; no other entry's figures move on account of the
+  mask, and the always-deny floor is not a clocked quantity at all — it is the
+  replayed set's denial share, a property of the labels. Do not compare
+  `prior-vote`'s top line between a replay run and a no-replay one regardless:
+  `--engine` also narrows the population to the replayable petitions, so the
+  two are scored over different sets and their floors are different floors. Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A
   real-engine replay spends tokens, so **the schedule asks and the hold
   spends**: no run spends without an explicit maintainer decision. The

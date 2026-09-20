@@ -323,36 +323,63 @@ def test_the_labeler_diverts_and_restores_the_oracle() -> None:
     )
 
 
-def test_the_backtest_gemini_allowlist_carries_both_halves_of_the_replay_clock() -> None:
-    """Gemini's sanitizer strips every custom var, so the allowlist *is* the
-    cell env contract for that engine. Both halves of the replay clock have to
-    be on it: `DECIDED_BEFORE`, which the cell passes to `fedcourts query`
-    itself, and `REPLAY_CUTOFF`, which the query reads from the environment —
-    so a missing entry there is silent, narrowing nothing and saying nothing.
-    Asserted against the same `_cell_env` the runner builds, so a variable
-    added to the contract cannot reach the other two engines while gemini
-    quietly loses it.
+#: Every workflow that writes gemini's env-redaction allowlist, and whether the
+#: cells it configures carry the back-test replay clock. The sanitizer strips
+#: every custom var, so for that engine the allowlist *is* the cell env contract.
+GEMINI_ALLOWLIST_WORKFLOWS = (
+    ("run-backtest.yml", True),
+    ("run-predict.yml", False),
+    ("run-evaluate.yml", False),
+    ("integration-test.yml", False),
+)
+
+
+def _gemini_allowlist(name: str) -> set[str]:
+    """The `security.environmentVariableRedaction.allowed` set one workflow writes."""
+    text = (WORKFLOWS / name).read_text(encoding="utf-8")
+    settings = [
+        json.loads(match)
+        for match in re.findall(r"printf '%s\\n' '(\{.*?\})'", text)
+        if "environmentVariableRedaction" in match
+    ]
+    assert len(settings) == 1, f"expected exactly one allowlist writer in {name}"
+    allowed = settings[0]["security"]["environmentVariableRedaction"]["allowed"]
+    return set(allowed)
+
+
+def test_every_gemini_allowlist_covers_its_own_cell_env_contract() -> None:
+    """Gemini's sanitizer strips every custom var, so the allowlist *is* the cell
+    env contract for that engine — and a variable missing from it is silent.
+    `REPLAY_CUTOFF` is the sharpest case: `fedcourts query` reads it from the
+    environment rather than from a flag, so a stripped one narrows nothing and
+    says nothing. Asserted against the `_cell_env` the runner actually builds,
+    so a variable added to the contract cannot reach claude and codex while
+    gemini quietly loses it. The live lanes carry no replay clock at all, and
+    their allowlists are checked against a clock-free request on the same
+    footing rather than being exempted — they may still name `DECIDED_BEFORE`,
+    a harmless superset, but nothing requires them to name the cutoff day.
     """
-    steps = _load("run-backtest.yml")["jobs"]["backtest"]["steps"]
-    runs = [str(step.get("run") or "") for step in steps]
-    writers = [run for run in runs if ".gemini/settings.json" in run]
-    assert len(writers) == 1, "expected exactly one step writing the gemini settings"
-    settings = json.loads(re.findall(r"'(\{.*\})'", writers[0])[0])
-    allowed = set(settings["security"]["environmentVariableRedaction"]["allowed"])
-    request = RunRequest(
-        role=UsageRole.predictor,
-        court_id="scotus",
-        docket_id=1,
-        event_id="evt-petition-disposition",
-        actor_id="claude-baseline",
-        run_id="20260706T000000Z",
-        prompt=Path(".github/prompts/predict.md"),
-        data_root=Path("data"),
-        decided_before=2024,
-        replay_cutoff=date(2026, 6, 30),
-    )
-    assert set(_cell_env(request, "model")) <= allowed
-    assert {"DECIDED_BEFORE", "REPLAY_CUTOFF"} <= allowed
+    for name, replays in GEMINI_ALLOWLIST_WORKFLOWS:
+        allowed = _gemini_allowlist(name)
+        clock: dict[str, object] = (
+            {"decided_before": 2024, "replay_cutoff": date(2026, 6, 30)} if replays else {}
+        )
+        request = RunRequest(
+            role=UsageRole.predictor,
+            court_id="scotus",
+            docket_id=1,
+            event_id="evt-petition-disposition",
+            actor_id="claude-baseline",
+            run_id="20260706T000000Z",
+            prompt=Path(".github/prompts/predict.md"),
+            data_root=Path("data"),
+            **clock,  # type: ignore[arg-type]
+        )
+        assert set(_cell_env(request, "model")) <= allowed, name
+        if replays:
+            # Named explicitly on the one lane that sets them, so a rename in
+            # `_cell_env` cannot satisfy the subset check with the wrong pair.
+            assert {"DECIDED_BEFORE", "REPLAY_CUTOFF"} <= allowed, name
 
 
 def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> None:

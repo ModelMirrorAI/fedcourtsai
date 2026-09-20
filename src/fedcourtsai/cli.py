@@ -5566,9 +5566,13 @@ def cert_backtest_cmd(
             replayed = outcome.backtesters
         # After the replay, so the offline reference masks on the same per-cell
         # clock the engine cells were given and its row on the board is
-        # comparable with theirs. No lift moves: every lift is measured against
-        # the always-deny floor, which carries no clock. With no replay the map
-        # is empty and every trial is masked on its Term alone.
+        # comparable with theirs. This moves the prior-vote row's own accuracy,
+        # Brier and lift (a narrower set is a different vote) and no other
+        # entry's; the always-deny floor carries no clock, being the labels'
+        # own denial share. With no replay the map is empty and every trial is
+        # masked on its Term alone — and `--engine` also narrows the population
+        # to the replayable petitions, so the two runs' floors are over
+        # different sets and prior-vote's top line does not compare across them.
         backtesters = default_backtesters(conn, replay_days=clock_days) + replayed
         # The leakage-safe segment context (band + per-Term base rate) mirrors
         # the forward stratum's yardstick; segment_base_rate masks each item to

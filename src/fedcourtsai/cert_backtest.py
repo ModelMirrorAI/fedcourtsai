@@ -509,12 +509,16 @@ class ReplayOutcome:
     offline reference baseline on the same clock the engine cells are on
     (:func:`fedcourtsai.backtest.default_backtesters`), so the reference row is
     comparable with the engine rows rather than masked more loosely than they
-    were. It moves no *lift*: every entry's lift is measured against the
-    always-deny floor, which is a property of the replayed set's labels and
-    carries no clock. The same clock, not the same pool either: the prior index
-    screens to the machine-readable disposition subset a vote can be scored
-    over, which a cell's own ``fedcourts query`` does not
-    (:class:`fedcourtsai.backtest.PriorIndex`).
+    were. It moves that row's own accuracy, Brier and lift — a narrower
+    retrieved set is a different vote — and no other entry's on account of the
+    mask. The always-deny floor carries no clock either way: it is the replayed
+    set's denial share, a property of the labels. But ``prior-vote``'s top line
+    still must not be compared between a replay run and a no-replay one,
+    because ``--engine`` narrows the population to the replayable petitions and
+    the two runs are scored over different sets. The same clock, not the same
+    pool either: the prior index screens to the machine-readable disposition
+    subset a vote can be scored over, which a cell's own ``fedcourts query``
+    does not (:class:`fedcourtsai.backtest.PriorIndex`).
     """
 
     backtesters: list[Backtester]
