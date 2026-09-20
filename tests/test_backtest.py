@@ -218,10 +218,10 @@ def test_prior_vote_never_predicts_an_unscoreable_label(tmp_path: Path) -> None:
 
 
 def test_prior_vote_masks_on_the_replay_day_where_one_is_given(tmp_path: Path) -> None:
-    # In the cert replay the offline reference must retrieve over the set the
-    # engine cells retrieved over, so it takes the same per-case cutoff: the
-    # day's own October Term AND the day itself. Here the trial's docket Term
-    # (2026) would admit a prior the cell's day (2026-06-30) excludes.
+    # In the cert replay the offline reference must be on the clock the engine
+    # cells are on, so it takes the same per-case cutoff — and the day then
+    # governs by itself, never a Term derived from it. Here the trial's own Term
+    # (2026) admits a prior the cell's day (2026-06-30) excludes.
     db = tmp_path / "corpus.db"
     _seed(
         db,
@@ -242,7 +242,7 @@ def test_prior_vote_masks_on_the_replay_day_where_one_is_given(tmp_path: Path) -
     )
     trial = _features("ca9/99")
     with corpus.connect(db) as conn:
-        # No day: the year rule alone, which votes over both 2025-filed priors.
+        # No day: the Term rule alone, which votes over both 2025-filed priors.
         plain = PriorVoteBacktester(conn).predict(trial)
         clocked = PriorVoteBacktester(conn, replay_days={"ca9/99": date(2026, 6, 30)}).predict(
             trial
@@ -326,9 +326,9 @@ def test_october_term_year_pivots_on_october() -> None:
         # invocation types, is that Term and carries no day.
         ("2025", ReplayClock(term=2025)),
         ("1998", ReplayClock(term=1998)),
-        # A date keeps BOTH halves: the October Term containing it — the run's
-        # own example, 2026-06-30 sitting inside OT2025 — and the day itself,
-        # which is the bar that excludes the replayed case from its own priors.
+        # A date keeps both halves, but only the day screens: the Term it falls
+        # in — the run's own example, 2026-06-30 inside OT2025 — rides along for
+        # a reader and is consulted by nothing.
         ("2026-06-30", ReplayClock(term=2025, day=date(2026, 6, 30))),
         # The October pivot at its boundary. A Term opens in October, so the last
         # day of September still belongs to the Term that opened the year before,
@@ -358,6 +358,7 @@ def test_the_replay_clock_reads_a_year_or_a_date(raw: str, expected: ReplayClock
         "25",  # a two-digit Term prefix is a mistyped year, not a clock
         "202",
         "1789-09-30",  # the day before the federal judiciary opened
+        "1788",  # and the same floor in the year spelling
     ],
 )
 def test_an_unreadable_replay_clock_is_refused_rather_than_dropped(raw: str) -> None:
@@ -375,10 +376,11 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
 
     Covers every semantic branch: pure recency order (no features), required judge
     overlap, required citation overlap, both filters combined (score sums), the
-    decided_before cutoff (alone, with overlap filters, and with the clock's day
-    half screening on top of it; a year-less row is excluded under any cutoff),
-    an undated-but-resolved row (sorts after dated ones), unresolved rows
-    excluded, a foreign court, and a no-match query.
+    replay clock in both spellings (the Term year alone, with overlap filters,
+    and the day that governs by itself; a year-less row is excluded under any
+    Term cutoff and an undated row under any day), an undated-but-resolved row
+    (sorts after dated ones), unresolved rows excluded, a foreign court, and a
+    no-match query.
     """
     db = tmp_path / "corpus.db"
     _seed(
@@ -412,7 +414,8 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
             # Unresolved: never a prior.
             _row("ca9/5", None, judges=["alpha"]),
             # Resolved by label with a derivable year but NO resolution date:
-            # the day bar has nothing to test, so the year rule alone decides.
+            # admitted by a Term clock that clears its year, and refused by any
+            # dated clock, which cannot prove it came first.
             _row(
                 "ca9/9",
                 Disposition.granted,
@@ -455,12 +458,16 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
         ("ca9", (), (), 1900, None),
         ("ca9", ("alpha", "beta"), (), 2026, None),
         ("ca9", ("beta",), ("1 U.S. 1",), 2025, None),
-        # The day bar, which both paths must apply identically: after every
-        # dated resolution, on one of them, before all of them.
-        ("ca9", (), (), 2026, date(2026, 3, 1)),
-        ("ca9", (), (), 2026, date(2026, 2, 1)),
-        ("ca9", (), (), 2026, date(2025, 1, 1)),
-        ("ca9", ("beta",), (), 2026, date(2026, 2, 1)),
+        # The day, which governs alone wherever it is present and which both
+        # paths must apply identically: after every dated resolution, on one of
+        # them, before all of them, and combined with an overlap filter. No Term
+        # rides beside it — a query that carried one would be ignoring it.
+        ("ca9", (), (), None, date(2026, 6, 1)),
+        ("ca9", (), (), None, date(2026, 3, 1)),
+        ("ca9", (), (), None, date(2026, 2, 1)),
+        ("ca9", (), (), None, date(2025, 1, 1)),
+        ("ca9", ("beta",), (), None, date(2026, 6, 1)),
+        ("ca9", (), ("1 U.S. 1",), None, date(2026, 3, 1)),
     ]
     with corpus.connect(db) as conn:
         index = PriorIndex.build(conn)

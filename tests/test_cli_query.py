@@ -141,18 +141,19 @@ def test_a_bad_flag_value_is_refused_with_the_interface(fixture_corpus: FixtureC
 
 def test_the_replay_clock_takes_a_date_or_a_term_year(fixture_corpus: FixtureCorpus) -> None:
     # Both ca9 priors are filed in 2022 (their best-known year) and decided in
-    # 2023 — ca9/101 on 09-18, ca9/102 on 11-30. A date resolves to the October
-    # Term containing it and keeps the day, which screens on top of that Term.
+    # 2023 — ca9/101 on 09-18, ca9/102 on 11-30. A bare year screens on the
+    # best-known year; a date screens on the resolution date alone.
     def ids(clock: str) -> list[object]:
         result = runner.invoke(app, ["query", "--court", "ca9", "--decided-before", clock])
         assert result.exit_code == 0, result.output
         return [r["case_id"] for r in _rows(result.stdout)]
 
-    # A mid-2023 date sits inside OT2022, so its Term bar alone already empties
-    # the set — exactly what the bare year 2022 does.
+    # Neither prior had been decided by mid-2023, so a date there empties the
+    # set — as the bare year 2022 does, for the unrelated reason that neither
+    # row's best-known year precedes 2022.
     assert ids("2023-06-30") == ids("2022") == []
-    # Past OT2023's opening the Term bar admits both, and the day then drops the
-    # one that had not been decided yet. A bare year cannot express that.
+    # The bare year 2023 admits both: it can only ask about the year. The date
+    # asks about the day, and drops the one not yet decided on 2023-10-02.
     assert ids("2023") == ["ca9/102", "ca9/101"]
     assert ids("2023-10-02") == ["ca9/101"]
 
@@ -342,6 +343,7 @@ def test_query_service_backend_parity_with_replay_clock(
     # Both spellings, because the date carries a second field over the wire and a
     # day that failed to serialize would unmask the sidecar's retrieval alone.
     server, url = _serve(fixture_corpus.db_path)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SERVICE_URL", url)
     try:
         for clock in ("2023", "2023-10-02"):
             args = [
@@ -356,7 +358,6 @@ def test_query_service_backend_parity_with_replay_clock(
                 "3",
             ]
             local = runner.invoke(app, args)
-            monkeypatch.setenv("FEDCOURTS_CORPUS_SERVICE_URL", url)
             served = runner.invoke(app, [*args, "--corpus-backend", "service"])
             assert served.exit_code == 0, served.output
             assert served.stdout == local.stdout, clock

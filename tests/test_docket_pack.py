@@ -379,8 +379,8 @@ def test_render_docket_markdown_carries_the_replay_self_selection_rule(
     # it the artifact would be a per-Term outcome surface that silently opts out
     # of the discipline its sibling states.
     md = analytics.render_docket_markdown(_pack(fixture_corpus.db_path))
-    assert "anchor only on Term rows strictly preceding your clock" in md
-    assert "anchor behind the Term that date falls in" in md
+    assert "anchor only on Term rows strictly preceding `record/context.json`'s" in md
+    assert "never derive an anchoring Term from the `DECIDED_BEFORE` environment value" in md
     # It sits under the Term table, not at the foot of the document.
     assert md.index("anchor only on Term rows") < md.index("## Not yet included")
 

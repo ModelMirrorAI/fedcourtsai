@@ -194,7 +194,7 @@
             }
           ],
           "default": null,
-          "description": "The October Term this replay cell may anchor the statpack's per-Term surfaces behind: only Term rows strictly preceding it. NOT the day-level retrieval boundary \u2014 that is `cutoff` beside it, which is also what the cell was handed as its DECIDED_BEFORE clock wherever provisioning produced one, and the two differ when a docket's Term and its cutoff's Term differ (the docket-number Term rolls in July, the October Term in October). Null on a forward cell, whose outcome does not exist yet",
+          "description": "This cell's **docket-number Term**, and the one anchoring clock: the statpack's and docket pack's per-Term rows may be read only for Terms strictly preceding it. Those rows are keyed on the docket-number Term, so this case's own Term row already contains its disposition \u2014 which is why the clock is the docket Term and not the Term the cutoff falls in, deliberately conservative for a petition held over into a later Term. NOT the retrieval boundary: that is `cutoff` beside it, the day the cell was placed at, and it is `cutoff` that the cell was handed as DECIDED_BEFORE wherever provisioning produced one. Null on a forward cell, whose outcome does not exist yet",
           "title": "Decided Before"
         },
         "distribution_count": {

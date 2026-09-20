@@ -505,11 +505,13 @@ class ReplayOutcome:
     Everything there rides the report — stderr does not survive the runner.
 
     ``clock_days`` maps each dated cell's case id to the cutoff day it was
-    clocked on, and carries no entry for a blind cell. It is what lets the
-    offline reference baseline retrieve over the same admitted set the engine
-    cells did (:func:`fedcourtsai.backtest.default_backtesters`); a lift
-    measured against a reference that masked on a different clock would not be
-    a lift over the same history.
+    clocked on, and carries no entry for a blind cell. It is what puts the
+    offline reference baseline on the same clock the engine cells are on
+    (:func:`fedcourtsai.backtest.default_backtesters`); a lift measured against
+    a reference masked on a different clock would not be a lift over the same
+    history. The same clock, not the same pool: the prior index screens to the
+    machine-readable disposition subset a vote can be scored over, which a
+    cell's own ``fedcourts query`` does not (:class:`PriorIndex`).
     """
 
     backtesters: list[Backtester]
@@ -657,14 +659,15 @@ def replay_predictors(
     the **cutoff date** it was provisioned at where it has one, so the boundary
     the prompt contract bounds the cell's own retrieval at is the day it was
     really placed on, and the trial's October-Term year on the blind arm, which
-    was given no cutoff to name. A date names the October Term it falls in,
-    which is **not** always the docket-number Term (that one rolls in July,
-    the October Term in October), so the two arms do not mask the corpus
-    identically: what keeps a dated clock from loosening the mask — and from
-    handing a cell its own decided row — is the day screen the date also
-    carries (:class:`fedcourtsai.backtest.ReplayClock`). The offline prior-vote
-    baseline is given the same per-cell day, so it retrieves over the set the
-    engine cells did. Returns a :class:`ReplayOutcome`:
+    was given no cutoff to name. The two arms do not mask the corpus alike: a
+    dated cell's retrieval is masked on the **day** itself — only priors that
+    resolved before it, undated priors never
+    (:class:`fedcourtsai.backtest.ReplayClock`) — while a blind cell's falls
+    back to the coarser Term rule. The day is what keeps the cell's own decided
+    row out of its priors, and what keeps a petition held over past its Term
+    from losing a Term of already-resolved history. The offline prior-vote
+    baseline is given the same per-cell day, so it runs on the same clock.
+    Returns a :class:`ReplayOutcome`:
     the :class:`ReplayedBacktester` list (one per predictor that produced
     predictions), the ids of predictors whose engine turned out to be
     **unavailable** mid-run, the per-cell losses, the provisioning mix, and
@@ -855,10 +858,10 @@ def replay_predictors(
                     # between the Term's opening and the cutoff to the reader.
                     # The blind arm has no cutoff, so it falls back to the
                     # trial's Term year. The two do NOT mask the corpus alike: a
-                    # date names the Term it falls in, which can be one later
-                    # than the docket Term, and it is the day the date also
-                    # carries that keeps the mask tight enough to exclude this
-                    # very case from its own priors.
+                    # dated clock screens on the day directly, which is what
+                    # keeps this very case out of its own priors — and what
+                    # keeps a petition held over past its Term from losing a
+                    # Term of already-resolved history to a coarser bar.
                     decided_before=cutoff if cutoff is not None else item.features.year,
                 ),
                 ledger_paths.event(event.event_id) if ledger_paths is not None else None,

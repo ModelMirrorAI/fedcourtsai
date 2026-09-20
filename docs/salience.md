@@ -1303,15 +1303,16 @@ on **the segment we predict on**.
 **The leakage constraint is the crux.** The statpack is a pure function of the
 whole committed corpus — it has no clock. Leakage-safety comes solely from the
 **per-Term self-selection surface**: a replay/back-test cell restricts itself to
-Term rows strictly preceding its clock, and the clock it anchors on is
-`record/context.json`'s `decided_before` — an October Term. Where
-`DECIDED_BEFORE` reaches the cell as a **date** instead, the Term to anchor
-behind is the one that date falls in, not every Term whose start precedes it:
-a mid-Term date sits *inside* a Term whose rows run on past it. The Term bar is
-not what excludes the cell's own case from its retrieval — the docket-number
-Term rolls in July and the October Term in October, so the two can differ by
-one. The **day** the dated clock also carries is the self-exclusion, screening
-on top of the Term in `fedcourts query`. Today that per-Term
+Term rows strictly preceding its anchoring clock, and that clock is
+`record/context.json`'s `decided_before` — the cell's own **docket-number**
+Term. It has to be the docket Term, because that is what these rows are keyed
+on: a cell's own Term row already contains its disposition, and for a petition
+held over past its Term the cutoff falls in a *later* Term, so anchoring there
+would hand the cell its own row. The `DECIDED_BEFORE` value the cell is handed
+is a different quantity — the day-level **retrieval** boundary — and no
+anchoring Term is ever derived from it. Retrieval is masked on that day
+directly (`fedcourts query --decided-before`), which is also what keeps the
+cell's own case out of its priors. Today that per-Term
 surface carries only *overall + per-fee-class* grant rates; the relist/CVSG cuts
 are **pack-wide marginals blended across all Terms** and would leak the current
 term's outcomes if a replay cell read them. Therefore the segment base rate **must

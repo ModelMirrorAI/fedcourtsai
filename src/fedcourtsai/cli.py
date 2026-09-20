@@ -9399,7 +9399,10 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         citations=citation or [],
         disposition=disp,
         era=era or None,
-        decided_before=clock.term if clock is not None else None,
+        # One half or the other, never both: a date's Term is informational
+        # (ReplayClock) and passing it would put an ignored field on the query
+        # — and on the sidecar wire — that reads as if it screened.
+        decided_before=clock.term if clock is not None and clock.day is None else None,
         decided_before_day=clock.day if clock is not None else None,
         resolved_only=not include_open,
         exclude_non_cert=not include_applications,

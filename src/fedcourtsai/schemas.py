@@ -763,14 +763,16 @@ class PredictionContext(_Strict):
     )
     decided_before: str | None = Field(
         default=None,
-        description="The October Term this replay cell may anchor the statpack's "
-        "per-Term surfaces behind: only Term rows strictly preceding it. NOT the "
-        "day-level retrieval boundary — that is `cutoff` beside it, which is also "
-        "what the cell was handed as its DECIDED_BEFORE clock wherever "
-        "provisioning produced one, and the two differ when a docket's Term and "
-        "its cutoff's Term differ (the docket-number Term rolls in July, the "
-        "October Term in October). Null on a forward cell, whose outcome does "
-        "not exist yet",
+        description="This cell's **docket-number Term**, and the one anchoring "
+        "clock: the statpack's and docket pack's per-Term rows may be read only "
+        "for Terms strictly preceding it. Those rows are keyed on the "
+        "docket-number Term, so this case's own Term row already contains its "
+        "disposition — which is why the clock is the docket Term and not the "
+        "Term the cutoff falls in, deliberately conservative for a petition held "
+        "over into a later Term. NOT the retrieval boundary: that is `cutoff` "
+        "beside it, the day the cell was placed at, and it is `cutoff` that the "
+        "cell was handed as DECIDED_BEFORE wherever provisioning produced one. "
+        "Null on a forward cell, whose outcome does not exist yet",
     )
     signals_observable: bool = Field(
         description="Whether the payload disclosed a proceedings list at all. False "
@@ -5665,10 +5667,12 @@ class StatPackTerm(_Strict):
     the denial sampling does not bias them); a Term known only from the discovery
     cursors still appears, carrying its census with zero ingested rows. **This is
     the replay self-selection surface**: a time-masked cell anchors only on Term
-    entries strictly preceding its ``DECIDED_BEFORE`` clock — strictly
-    preceding the October Term that clock falls in, since a clock spelled as a
-    date sits *inside* a Term rather than before it, and the Term it sits in
-    runs on past it.
+    entries strictly preceding the Term on ``record/context.json``'s
+    ``decided_before`` — its own **docket-number** Term, which is what these
+    entries are keyed on, so a cell's own entry already holds its disposition.
+    Never a Term derived from the cell's ``DECIDED_BEFORE`` retrieval boundary:
+    for a petition held over past its Term that boundary falls in a later Term
+    than the docket, and anchoring there would hand the cell its own row.
     """
 
     term: int = Field(description="The October-Term year, e.g. 2024")
@@ -5878,7 +5882,8 @@ class StatPackInterimTerm(_StatPackInterimCounts):
     The Term is read from the application's own docket number (``24A1099`` ->
     OT2024), so the split needs no dates. Like the cert Term entries, the array
     is a replay self-selection surface: a time-masked cell anchors only on Term
-    rows strictly preceding the October Term its clock falls in.
+    rows strictly preceding ``record/context.json``'s ``decided_before`` — the
+    cell's own docket Term, never a Term derived from its retrieval boundary.
     """
 
     term: int = Field(description="The October-Term year the application was docketed in")
@@ -6022,7 +6027,8 @@ class StatPackMeritsTerm(_StatPackMeritsCounts):
     T+1, so identically labeled rows across the two tables cover different
     cohorts. Like the cert Term entries, the array is a replay self-selection
     surface: a time-masked cell anchors only on Term rows strictly preceding
-    the October Term its clock falls in.
+    ``record/context.json``'s ``decided_before`` — the cell's own docket Term,
+    never a Term derived from its retrieval boundary.
     """
 
     term: int = Field(description="The October-Term year certiorari was granted in")

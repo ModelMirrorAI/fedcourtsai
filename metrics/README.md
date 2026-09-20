@@ -1211,7 +1211,12 @@ the rendered table) and
   over the union, rather than depressing them. Read the mix before the scores,
   and read a shift in it between two fortnights the way you read a change of
   dispatch. The weekly digest's cert back-test line carries the mix and the
-  dispatch beside the figure for that reason. Produced by the
+  dispatch beside the figure for that reason. One more thing the mix does not
+  capture: in a replay the offline prior-vote baseline is put on each dated
+  cell's own day, the clock its engine cells retrieved under, so the floor and
+  the reference vote a rehearsal produces with **no** engine replay are masked
+  differently from the ones a real campaign produces over the same population.
+  The two runs' lifts are not comparable on that account alone. Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A
   real-engine replay spends tokens, so **the schedule asks and the hold
   spends**: no run spends without an explicit maintainer decision. The
