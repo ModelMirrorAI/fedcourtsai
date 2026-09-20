@@ -32,6 +32,7 @@ from .agent_feedback import already_posted, marker_head
 from .analytics import _GRANT_LABELS
 from .collect import flags_table
 from .integrity import FORWARD, RETROSPECTIVE
+from .metrics_refresh import granted_in_set
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
@@ -1068,6 +1069,163 @@ def _salience_replay_lines(vintaged: Vintaged[SalienceReplay], in_force: str) ->
     ]
 
 
+#: What each `--scope` value selects, since the flag name is not the population.
+_CERT_SCOPES = {
+    "all": "no scope filter",
+    "paid": "IFP dropped",
+    "selected": "the salience gate's carve-out core",
+}
+
+#: The offline backends, whose numbers cost nothing and model nothing.
+_OFFLINE_ENGINES = {
+    "stub": "offline rehearsal — no model ran",
+    "replay": "offline — one captured forecast re-emitted across every petition",
+}
+
+#: The snapshot provenances in reading order; anything else is printed after them.
+_PROVISIONING_ORDER = ("blind", "truncated", "dated")
+
+
+def _cert_backtest_dispatch(report: CertBacktest) -> str:
+    """The dispatch that chose the replayed population, or that it is unknown.
+
+    ``engine`` leads it because predictor ids are identical under every backend
+    — a ``--engine stub`` rehearsal writes entries named for real predictors —
+    so a quoted line without it cannot say whether a number cost anything.
+    ``scope``/``spread``/``limit`` are the population definition, and the
+    always-deny floor is the replayed set's own denial rate, so it moves with
+    them: two differently dispatched reports are scored against two different
+    floors, which is a reading rule that has to travel with the quoted line
+    rather than sit in the artifact. A report without a `provenance` block says
+    the dispatch is unknown: null means unknown, never a default.
+    """
+    if report.provenance is None:
+        return (
+            " Dispatch **unknown** — the report carries no `provenance` block, so which "
+            "population was replayed cannot be read off it."
+        )
+    dispatch = report.provenance.dispatch
+    offline = _OFFLINE_ENGINES.get(dispatch.engine)
+    engine = (
+        f"engine `{dispatch.engine}`" + (f" ({offline})" if offline else "")
+        if dispatch.engine
+        else "no engine (the offline reference baselines only)"
+    )
+    # `limit` is 0 both when it was never recorded and when it would select
+    # nothing, and 0 is the pydantic default — so it is never read as "uncapped".
+    limit = f"limit {dispatch.limit:,}" if dispatch.limit else "limit unrecorded"
+    # The recency draw is named by its size, because that is what collapses:
+    # a small head lands on the last order lists, a full population does not.
+    head = (
+        f"the {dispatch.limit:,} most recently decided"
+        if dispatch.limit
+        else "the most recently decided"
+    )
+    spread = (
+        "spread on (drawn across conference cohorts)"
+        if dispatch.spread
+        else (
+            f"spread off ({head}, which collapses onto the grant-heavy "
+            "last order lists — the floor moves with it)"
+        )
+    )
+    scope_gloss = _CERT_SCOPES.get(dispatch.scope)
+    scope = f"scope `{dispatch.scope}`" + (f" ({scope_gloss})" if scope_gloss else "")
+    # An opt-out is why a predictor is missing from the board; absent one there
+    # is nothing to say, and "engines opted out: none" would read as a finding.
+    skipped = (
+        f", engines opted out: {', '.join(dispatch.skip_engines)}" if dispatch.skip_engines else ""
+    )
+    return (
+        f" Dispatched with {engine} over {scope}, {limit}, {spread}{skipped} — the dispatch "
+        "is the population definition and the engine routing, so a differently dispatched "
+        "report is a different sample scored against a different floor, and neither that "
+        "floor nor the lifts over it are comparable with these."
+    )
+
+
+def _cert_backtest_provisioning(report: CertBacktest) -> str:
+    """The information-set mix the replayed petitions were provisioned under.
+
+    Three information sets, so a figure over their union is a figure over a
+    mixture — and the mixture is not neutral. A blind petition was shown no
+    docket trajectory at all: either no forward moment fixed a cutoff, or
+    truncation left a disposition visible and the fail-closed guard withdrew
+    the trajectory. A docket with no distribution to show is this pipeline's
+    strongest denial signal, so the blind arm is selected on a feature that
+    correlates with the outcome: it raises the pooled floor and dilutes every
+    lift measured over the union rather than depressing them.
+    """
+    mix = report.provisioning
+    if not mix:
+        engine = report.provenance.dispatch.engine if report.provenance is not None else None
+        if report.provenance is not None and not engine:
+            return (
+                " No petition was provisioned — the offline reference baselines are pure "
+                "functions of the corpus and read no snapshot."
+            )
+        return (
+            " Provisioning mix **unknown** — the report records no snapshot-provenance "
+            "split, so the information set behind these scores is unstated."
+        )
+    # The report's own keys, the known three first: a count the renderer does
+    # not know about still has to be in the total the reader adds up.
+    order = [kind for kind in _PROVISIONING_ORDER if kind in mix]
+    order += sorted(kind for kind in mix if kind not in _PROVISIONING_ORDER)
+    counts = ", ".join(f"{mix[kind]:,} {kind}" for kind in order)
+    return (
+        f" Provisioned {counts} petition(s) — a blind petition was shown no docket "
+        "trajectory at all (no dated pre-resolution distribution, or a truncation that "
+        "still showed a disposition), and a docket with no distribution to show is the "
+        "strongest denial signal here, so the blind arm is selected on an "
+        "outcome-correlated feature: it raises the pooled floor and dilutes every lift "
+        "rather than depressing them."
+    )
+
+
+def _cert_backtest_predictors(report: CertBacktest) -> str:
+    """The board's two populations of entry, which are not the same evidence.
+
+    An entry's ``engine`` is null exactly for the offline reference baselines,
+    which run no model and cost nothing; pooling them into one predictor count
+    reads as that many replayed predictors.
+    """
+    baselines = sum(1 for entry in report.entries if entry.engine is None)
+    engines = len(report.entries) - baselines
+    parts = []
+    if engines or not baselines:
+        parts.append(f"{engines} engine predictor(s)")
+    if baselines:
+        parts.append(f"{baselines} reference baseline(s)")
+    return " and ".join(parts)
+
+
+def _cert_backtest_losses(report: CertBacktest) -> str:
+    """Predictors dropped whole and cells lost individually, where there are any.
+
+    ``N predictor(s) over M petition(s)`` reads as a product and is not one
+    wherever a cell was lost — the predictor short some cells is scored, and
+    floored, over its own subset — and a board silently short one predictor is
+    a different comparison from the one it looks like.
+    """
+    if report.provenance is None:
+        return ""
+    dropped = len(report.provenance.dropped_predictors)
+    lost = len(report.provenance.lost_cells)
+    clauses = ""
+    if dropped:
+        clauses += (
+            f" {dropped} predictor(s) dropped at run time, so this board is short what it "
+            "was dispatched to compare — read `provenance.dropped_predictors`."
+        )
+    if lost:
+        clauses += (
+            f" {lost} cell(s) lost, so at least one predictor was scored over fewer "
+            "petitions than the set — read `provenance.lost_cells` before ranking."
+        )
+    return clauses
+
+
 def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
     """The cert back-test, whose absence is the honest thing to report."""
     report = vintaged.value
@@ -1076,25 +1234,38 @@ def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
             "- **Cert back-test**: **no report has landed yet.** "
             + "`metrics/cert-backtest.json` is not regenerated by this refresh because a "
             + "real-engine replay spends tokens, so it exists only once a maintainer has "
-            + "released a fortnight's `run-backtest` hold (or dispatched one) — there is "
+            + "released a fortnight's hold or dispatched a run — there is "
             + "no number here to be stale."
         ]
-    # The coverage clause, because the two counts read as their product and are
-    # not one wherever a cell was lost: a predictor short some cells is scored
-    # over fewer petitions than the set, and the digest is the most-quoted of
-    # the surfaces this report reaches.
-    lost = len(report.provenance.lost_cells) if report.provenance is not None else 0
-    losses = (
-        f" {lost} cell(s) lost, so at least one predictor was scored over fewer "
-        "petitions than the set — read `provenance.lost_cells` before ranking."
-        if lost
-        else ""
+    where = _sourced("cert-backtest.json", vintaged)
+    if not report.entries:
+        return [
+            f"- **Cert back-test** ({where}): empty — {report.events_scored:,} petition(s) "
+            "in the set and no predictor scored over them, so there is no floor here to "
+            f"read.{_cert_backtest_losses(report)}"
+        ]
+    # The granted side is what a lift is won on, and the floor cannot give it:
+    # the floor is the **denied** share and a dismissal is neither, so `1 -
+    # floor` is a different quantity. A draw with none is an ordinary outcome
+    # at this sample size, and there every denial-heavy predictor ties.
+    granted = granted_in_set(report)
+    grants = (
+        f"{granted:,} of {report.events_scored:,} grant-family; "
+        if granted is not None
+        else "grant-family count unrecoverable, no entry scored the whole set; "
     )
+    # The stratum caveat, the dispatch, and the provisioning mix ride in this
+    # bullet rather than the one above it: a caveat one bullet away does not
+    # travel when the line is quoted, which is how this line is read.
     return [
-        f"- **Cert back-test** ({_sourced('cert-backtest.json', vintaged)}): "
-        f"{report.predictors_evaluated} predictor(s) over {report.events_scored:,} "
-        f"petition(s), banded by `{report.salience_version}`; always-deny floor "
-        f"{report.always_denied_accuracy:.1%}.{losses}"
+        f"- **Cert back-test** ({where}): {_cert_backtest_predictors(report)} over "
+        f"{report.events_scored:,} petition(s), banded by `{report.salience_version}`; "
+        f"{grants}always-deny floor "
+        f"{report.always_denied_accuracy:.1%}. `{report.stratum}` by construction — "
+        "recall and calibration over known history, never foresight, and an **iteration "
+        "instrument**: nothing here is a claimable performance figure "
+        f"(`metrics/README.md`).{_cert_backtest_dispatch(report)}"
+        f"{_cert_backtest_provisioning(report)}{_cert_backtest_losses(report)}"
     ]
 
 

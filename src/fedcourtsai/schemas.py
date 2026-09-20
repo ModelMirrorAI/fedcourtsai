@@ -4568,15 +4568,20 @@ class CertBacktest(_Strict):
     )
     provisioning: dict[str, int] = Field(
         default_factory=dict,
-        description="How many replayed cells were provisioned under each "
+        description="How many replayed petitions were provisioned under each "
         "snapshot_provenance — 'dated' (a snapshot the docket really served before "
         "the cutoff), 'truncated' (a later payload with its post-cutoff entries "
-        "removed), 'blind' (no forward moment identifiable, so no trajectory was "
-        "shown). These are three different information sets, and a figure over "
-        "their union is a figure over a mixture: a blind cell cannot observe its "
-        "own relist history at all, which is most of what a cert forecast turns "
-        "on. Read the mix before reading the scores. Empty on reports written "
-        "before the split existed",
+        "removed), 'blind' (no trajectory shown at all, from either cause: no "
+        "forward moment fixed a cutoff, or truncation left a disposition visible "
+        "and the fail-closed leakage guard withdrew the trajectory). These are "
+        "three different information sets, and a figure over their union is a "
+        "figure over a mixture: a blind petition cannot observe its own relist "
+        "history at all, which is most of what a cert forecast turns on. The "
+        "mixture is not neutral either — a docket with no distribution to show is "
+        "the strongest denial signal here, so the blind arm is selected on an "
+        "outcome-correlated feature, which raises the pooled floor and dilutes "
+        "every lift measured over the union. Read the mix before reading the "
+        "scores. Empty on reports written before the split existed",
     )
     provenance: CertBacktestProvenance | None = Field(
         default=None,
