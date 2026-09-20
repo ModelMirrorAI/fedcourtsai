@@ -525,13 +525,7 @@ jobs:
       # cell (COURT_ID/DOCKET_ID/... from `_cell_env`), plus both halves of the
       # replay clock: DECIDED_BEFORE, the case's own October Term, on every
       # replay cell, and REPLAY_CUTOFF, the provisioned cutoff day, on the dated
-      # ones. `fedcourts query` reads REPLAY_CUTOFF from the environment rather
-      # than from a flag, so a stripped variable is silent: the query would fall
-      # back to the Term-only mask, which is the self-excluding behaviour the
-      # blind arm runs under — a loss of precision, not a leak. Claude and codex
-      # take the same contract straight from `_cell_env` through the
-      # subprocess environment and need no allowlist.
-      # Its sanitizer runs strict whenever GITHUB_SHA is set
+      # ones. Gemini's sanitizer runs strict whenever GITHUB_SHA is set
       # and strips every custom var from the agent's shell — so `$COURT_ID`
       # expands empty and the cell cannot resolve its own provisioned snapshot,
       # silently degrading gemini's replay while claude and codex read the same
@@ -541,6 +535,16 @@ jobs:
       # allowlist anything matching /TOKEN|SECRET|KEY|AUTH|.../i regardless. No
       # MCP or telemetry block here: unlike the live workflows, the back-test
       # configures no MCP servers and parses no telemetry.
+      # The clock's env is its only channel on every engine — the kickoff
+      # inlines the six identifiers but not the clock, since the frozen prompt
+      # spells `--decided-before "$DECIDED_BEFORE"` — which is why the
+      # allowlist test pins the whole `_cell_env` contract. `fedcourts query`
+      # reads REPLAY_CUTOFF from the environment rather than from a flag, so a
+      # stripped variable is silent: the query falls back to the Term-only
+      # mask, the blind arm's own — the replayed case's outcome still never
+      # clears its own Term, but priors that had not resolved by the cutoff
+      # are readmitted. Claude and codex take the same contract straight from
+      # `_cell_env` through the subprocess environment and need no allowlist.
       - name: Configure the Gemini cell env allowlist
         if: env.BT_ENGINE == 'auto' && env.BT_REPLAY != 'salience-gate'
         run: |
