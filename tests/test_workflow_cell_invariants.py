@@ -8,6 +8,11 @@ of them while every gate stays green:
   checkout deletes the directory first (the labeler in `run-analytics` instead
   moves it aside and restores from the commit, because its measure step needs
   the reference set back);
+* the **qp labels push guard** — the labeler's PR step refuses a push whose
+  batch ledger does not strictly extend `main`'s or whose labeler-sourced rows
+  do not contain `main`'s byte for byte, reading both operands from files
+  (the row arrays outgrow one argv string) and treating a jq that could not
+  run as a refusal on its own terms, never as the condition failing;
 * the **qp frame count** — the size of the labeling frame crosses from the
   extract job to the measure step as a job output, one integer, while the
   `.batch.json` sidecar it is read from stays on the extract runner: the count
@@ -314,11 +319,28 @@ def test_the_qp_labels_push_guard_checks_rows_not_ledger_counts() -> None:
     the guard must deliver it mechanically: ledger strict extension plus
     byte-identical containment of every labeler-sourced row main publishes."""
     runs = _run_blocks(_load("run-analytics.yml"))
-    guard = next(run for run in runs if "qp-topics/refresh" in run or "stale or divergent" in run)
+    guard = next(run for run in runs if "stale or divergent" in run)
     assert 'select(.source == "labeler")' in guard
     assert "($a - $b) | length == 0" in guard, "row containment, not counts, is the check"
     assert "($b | length) > ($a | length)" in guard, (
         "the ledger must strictly extend main's — an equal ledger is a settled rerun"
+    )
+    # The operands travel as files. The row arrays are the artifact's whole
+    # labeler-sourced content, past the kernel's 128 KiB per-argument cap from
+    # the second batch on, so an `--argjson` carrying them never starts jq;
+    # `-se` reads them as files and makes jq's own exit the verdict. Every
+    # assertion below reads the block's code, not its comments, so prose
+    # naming the rejected form cannot satisfy or defeat one.
+    code = "\n".join(line for line in guard.splitlines() if not line.lstrip().startswith("#"))
+    assert "--argjson" not in code, "the row sets do not fit one argv string"
+    assert 'jq -se "$2" "$3" "$4"' in code
+    assert '"$RUNNER_TEMP/landed-ledger.json" "$RUNNER_TEMP/incoming-ledger.json"' in code
+    assert '"$RUNNER_TEMP/landed-rows.json" "$RUNNER_TEMP/incoming-rows.json"' in code
+    # Fail closed on the check's own terms: a jq that could not run (exit
+    # above 1 — missing file, malformed operand, program error) must end the
+    # step on its own message, never fall through as the condition failing.
+    assert "|| rc=$?" in code and '[ "$rc" -gt 1 ]' in code and 'exit "$rc"' in code, (
+        "an unrunnable check must refuse as unrunnable, not as a false condition"
     )
     # The prior is read from the fetched ref, not the work tree: `checkout -f`
     # leaves untracked files in place, so while main does not carry the
