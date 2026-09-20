@@ -596,6 +596,24 @@ def _under_the_ledger(data_root: Path) -> bool:
         return False
 
 
+def _admitted_workspace_root(data_root: Path) -> Path | None:
+    """The absolute output root a workspace-bounded engine must be admitted to.
+
+    ``None`` whenever there is nothing to admit: a cell writing to the ledger,
+    which sits inside the launch directory already, and a path the OS refuses to
+    resolve, which :func:`_under_the_ledger` reads as "not the ledger" but which
+    cannot be named absolutely either. One resolution answers both questions, so
+    a caller never resolves a second time and raises out of command construction
+    where that one swallowed.
+    """
+    if _under_the_ledger(data_root):
+        return None
+    try:
+        return data_root.resolve()
+    except OSError:  # pragma: no cover - a path the OS refuses to resolve
+        return None
+
+
 def _output_root_block(request: RunRequest) -> str:
     """The kickoff's output-path override, empty for a cell writing to the ledger.
 
@@ -1113,7 +1131,9 @@ class GeminiRunner(AgenticRunner):
     upstream ``run-gemini-cli`` action pulls unpinned actions the org's
     SHA-pinning policy rejects, so it is bypassed there too). Auth is the
     inherited ``GEMINI_API_KEY``; a headless run must trust the workspace
-    explicitly (``GEMINI_CLI_TRUST_WORKSPACE=true``) or the CLI exits 55. As in
+    explicitly (``GEMINI_CLI_TRUST_WORKSPACE=true``) or the CLI exits 55, and a
+    cell writing outside the workspace boundary its file tools enforce needs that
+    root passed as ``--include-directories`` (see :meth:`build_command`). As in
     the workflow, the cell identifiers ride inline in the prompt: Gemini's CLI
     sanitizer runs strict whenever ``GITHUB_SHA`` is set and strips every custom
     env var from the agent's shell **unless the workspace's
@@ -1140,6 +1160,35 @@ class GeminiRunner(AgenticRunner):
             "--yolo",
             "--model",
             self.model,
+        ]
+        # Gemini's file tools (write_file / read_file / list_directory) refuse
+        # any path outside the workspace, which is the launch directory plus the
+        # CLI's own per-project temp dir — a refusal the model can only work
+        # around through run_shell_command, at several extra turns a cell. A
+        # cell whose output root is not the ledger writes under a scratch tree
+        # (the cert back-test's `--work-dir`, a cascade over a temp tree) that
+        # is neither, so that root is admitted into the workspace explicitly, on
+        # exactly the condition :func:`_output_root_block` names it absolutely
+        # on. The ledger is the right proxy for "inside the launch directory":
+        # it is the checkout's own `data/`, resolved against the working
+        # directory the CLI is launched from in every invocation shape here, so
+        # a ledger cell needs no admission and its command line stays
+        # byte-identical to the one the cell workflows hand the CLI.
+        #
+        # Admission is also what makes a directory a `GEMINI.md` context-file
+        # discovery root — at startup, and again whenever a file tool touches a
+        # path under it — so the back-test's shared work root carries that
+        # channel alongside the checkout, which is one already;
+        # `run-backtest.yml` states the residual beside the root it creates. The
+        # CLI splits the value on commas (`coerce: coerceCommaSeparated`), so a
+        # hand-passed `--work-dir` holding one is admitted as two directories
+        # that do not exist and the cell degrades to the shell path rather than
+        # failing; mktemp never produces one. Both are gemini-cli 0.49.0
+        # behaviour — re-check on any CLI bump.
+        admitted = _admitted_workspace_root(request.data_root)
+        if admitted is not None:
+            argv += ["--include-directories", admitted.as_posix()]
+        argv += [
             "--prompt",
             _claude_instruction(request, self.model),
             "--output-format",

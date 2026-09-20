@@ -187,7 +187,10 @@ FROZEN_SINCE: datetime | None = datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC)
 # the grant cannot ride on the step). Indexed rather than `.get`, so a new engine
 # fails loudly here instead of defaulting to a surface nobody declared; the
 # codex row is pinned to the runner's own argv by a test in `test_runner.py` and
-# to the cells' profile by one in `test_process_version.py`.
+# to the cells' profile by one in `test_process_version.py`; gemini's row is
+# pinned by the same file's ledger-argv test, which fixes a live cell's whole
+# command line, so a capability reaching gemini through a new flag has to move
+# that test first.
 ENGINE_RETRIEVAL: dict[str, tuple[str, ...]] = {
     "claude-code": ("web",),
     # Codex additionally needs the subprocess-network grant to reach the

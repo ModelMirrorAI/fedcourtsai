@@ -363,10 +363,16 @@ def test_a_scratch_root_cell_is_told_where_to_write_absolutely(
     assert f"Write your output files under {evaluations.as_posix()}/ (" in evaluate.argv[-1]
 
 
-def test_gemini_runner_builds_the_headless_yolo_call(tmp_path: Path) -> None:
+def test_gemini_runner_builds_the_headless_yolo_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data_root = tmp_path / "data"
+    # The ledger, so this is the live lane's invocation: a cell off the ledger
+    # carries one flag more (see the two tests below).
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
     recorder = _Recorder()
     runner = GeminiRunner(command_runner=recorder)
-    request = _predict_request(tmp_path / "data")
+    request = _predict_request(data_root)
     StubRunner().run(request)
     written = runner.run(request)
 
@@ -386,6 +392,92 @@ def test_gemini_runner_builds_the_headless_yolo_call(tmp_path: Path) -> None:
     # It reports the artifacts the agent left at the canonical paths.
     events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
     assert written == _predict_artifacts(events)
+
+
+def test_a_ledger_gemini_cell_carries_no_workspace_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A forward cell writes under the checkout's `data/`, already the workspace.
+
+    Gemini's file tools are bounded to the launch directory and the CLI's own
+    per-project temp dir. The live lane launches in the checkout and writes
+    inside it, so nothing is admitted and the command line stays exactly what
+    `run-predict.yml` / `run-evaluate.yml` hand the CLI. Pinned whole rather
+    than by substring: the failure this guards against is an extra flag, and a
+    substring assertion would pass with one.
+    """
+    data_root = tmp_path / "data"
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    recorder = _Recorder()
+    runner = GeminiRunner(command_runner=recorder)
+    request = _predict_request(data_root)
+    StubRunner().run(request)
+    runner.run(request)
+    kickoff = recorder.argv[recorder.argv.index("--prompt") + 1]
+    assert recorder.argv == [
+        "gemini",
+        "--yolo",
+        "--model",
+        runner.model,
+        "--prompt",
+        kickoff,
+        "--output-format",
+        "json",
+    ]
+
+
+def test_a_scratch_root_gemini_cell_admits_its_work_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Off the ledger, the scratch root is passed as an extra workspace directory.
+
+    A replay cell writes under the back-test's work root, which is outside both
+    the launch directory and the CLI's per-project temp dir, so every
+    `write_file` there is refused and the cell can only land through the shell
+    tool. `--include-directories` takes the root absolutely, on the same
+    condition the kickoff names it absolutely on.
+    """
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "ledger"))
+    work_root = tmp_path / "backtest-cells"
+    recorder = _Recorder()
+    request = _predict_request(work_root)
+    StubRunner().run(request)
+    runner = GeminiRunner(command_runner=recorder)
+    runner.run(request)
+    kickoff = recorder.argv[recorder.argv.index("--prompt") + 1]
+    # Pinned whole, symmetric with the ledger test: the flag is additive and
+    # nothing else about the call moves.
+    assert recorder.argv == [
+        "gemini",
+        "--yolo",
+        "--model",
+        runner.model,
+        "--include-directories",
+        work_root.resolve().as_posix(),
+        "--prompt",
+        kickoff,
+        "--output-format",
+        "json",
+    ]
+    assert ".github/prompts/predict.md" in kickoff
+
+    # An evaluate cell off the ledger is admitted the same way — the boundary is
+    # the tree, not the role.
+    evaluate = _Recorder()
+    GeminiRunner(command_runner=evaluate).run(_evaluate_request(work_root))
+    assert (
+        evaluate.argv[evaluate.argv.index("--include-directories") + 1]
+        == work_root.resolve().as_posix()
+    )
+
+    # The other two engines reach the work root under their own rules and gain
+    # no flag from this.
+    codex = _Recorder()
+    CodexRunner(command_runner=codex).run(request)
+    assert "--include-directories" not in codex.argv
+    claude = _Recorder()
+    ClaudeCodeRunner(command_runner=claude).run(request)
+    assert "--include-directories" not in claude.argv
 
 
 def test_nonzero_exit_raises_engine_failed(tmp_path: Path) -> None:

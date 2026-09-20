@@ -67,6 +67,12 @@ of them while every gate stays green:
   line count, leave the runner on every outcome it survives, because a
   labeling step killed at its cap writes no execution log and the count is
   then the only record of how far it got;
+* the **gemini context-file surface** — every directory admitted to a gemini
+  cell's workspace (the checkout it launches in, and the back-test work root
+  `GeminiRunner.build_command` adds) is also a `GEMINI.md` discovery root, read
+  at startup and again whenever a file tool touches a path beneath it, so a
+  context file anywhere in the tree would be standing instructions to every
+  gemini cell that no prompt, config or schema records;
 * the **run-surface retry** — the run-record steps and the handoff writes both
   route their `gh` calls through `scripts/gh_retry.sh`'s `gh_retry`; the steps
   that cannot safely source it carry an inline copy, which only stays a copy
@@ -746,6 +752,36 @@ def _joined_run_blocks(name: str) -> list[str]:
     """Every ``run:`` block with whitespace collapsed, so a cosmetic re-wrap
     cannot split a flag off the command it belongs to."""
     return [" ".join(block.split()) for block in _run_blocks(_load(name))]
+
+
+# gemini-cli discovers context files by name in every workspace directory: the
+# default `GEMINI.md`, and `MEMORY.md` where a project-memory directory is in
+# play. `context.fileName` in a settings file cannot retire either — the CLI
+# unions the configured name with the built-in one rather than replacing it —
+# so the only control on this channel is that no such file is in the tree.
+GEMINI_CONTEXT_FILENAMES = ("GEMINI.md", "MEMORY.md")
+
+
+def test_no_file_in_the_checkout_is_a_gemini_context_file() -> None:
+    """The checkout is a context-file discovery root for every gemini cell.
+
+    A gemini cell launches in the checkout, and the back-test additionally
+    admits its work root, so anything named like a context file inside either
+    tree is read into the model's context before the prompt contract is —
+    instructions with none of a prompt's review, no process-digest input, and
+    no artifact. Nothing in this repository is meant to be one; the pin is that
+    nothing becomes one by accident, under any directory, including a path an
+    agent's own tooling might drop one in.
+    """
+    found = sorted(
+        path.relative_to(REPO_ROOT).as_posix()
+        for name in GEMINI_CONTEXT_FILENAMES
+        for path in REPO_ROOT.rglob(name)
+        if ".git/" not in path.as_posix() and path.is_file()
+    )
+    assert found == [], (
+        "these files are read into every gemini cell's context by name: " + ", ".join(found)
+    )
 
 
 def test_the_codex_mcp_wiring_agrees_across_the_cells_and_the_smoke() -> None:
