@@ -2,10 +2,11 @@ name: run-backtest
 
 # Cert back-test: replay the enabled predictors over the most recently decided
 # modern discretionary-cert petitions (outcomes hidden — redacted snapshots in a
-# scratch tree, never data/) and land the refreshed `metrics/cert-backtest.json`
-# as a **reviewed** PR — never a direct commit, never auto-merged. Retrospective
-# by construction: iteration signal, never claimable performance (see
-# metrics/README.md).
+# scratch tree, never data/, and the committed ledger removed from the working
+# tree for the replay so no outcome sits beside the cells) and land the
+# refreshed `metrics/cert-backtest.json` as a **reviewed** PR — never a direct
+# commit, never auto-merged. Retrospective by construction: iteration signal,
+# never claimable performance (see metrics/README.md).
 #
 # Replaying agentic engines SPENDS MODEL TOKENS (~one cell per predictor per
 # petition), so no run spends without an explicit maintainer decision. There are
@@ -461,12 +462,44 @@ jobs:
       # data/qp-topics membership encodes cert outcomes (docs/qp-topic.md), so
       # the prompts forbid cells from reading it. Replay cells are the ones the
       # oracle would actually inform, and they inherit this checkout as their
-      # working directory; deleting it leaves them nothing to read, while
-      # deliberate access through git history stays covered by the prompt
-      # prohibition and the logged-tool-call audit. Nothing here commits
-      # data/, so the deletion never propagates.
+      # working directory; deleting it leaves them nothing to read. Deliberate
+      # access through git history is covered by the prompt prohibition and by
+      # nothing else here: this job writes no retrieval log and uploads no
+      # transcript, so the agent's own stdout in the expiring run log is the
+      # only record a tool call leaves. Nothing here commits data/, so the
+      # deletion never propagates.
       - name: Remove the labeling-measurement oracle from the agent's tree
         run: rm -rf data/qp-topics
+
+      # The committed ledger is the other oracle this checkout carries, and the
+      # larger one: a replayed petition is decided, so
+      # `data/cases/<court>/<docket>/events/` can hold the very
+      # `evt-petition-disposition/outcome.json` the cell is being asked to
+      # forecast, or a merits event whose existence alone discloses the grant.
+      # The three engines read that tree on unequal terms — claude runs
+      # `bypassPermissions`, gemini's workspace is this checkout, codex's
+      # `workspace-write` sandbox is rooted here — and the harness probes only
+      # for stray *writes*, so nothing at run time would see the read. The
+      # replay needs none of it: `fedcourts cert-backtest` draws its population,
+      # its snapshots and the outcomes it scores against from the corpus, and
+      # provisions every cell under `--work-dir`. So the tree goes away for the
+      # duration, and the step below puts it back from the commit — the one
+      # source whose bytes no cell could have touched.
+      #
+      # The residual, stated: this checkout is full-depth, so the ledger stays
+      # one `git show HEAD:data/cases/...` away, and a tidy agent running `git
+      # checkout -- data/cases` would undo the fence unnoticed. The removal is
+      # therefore structural against an *incidental* read — a cell that opens
+      # what is in front of it. A deliberate one is covered by the kickoff's
+      # own prohibition ("do not read or write under the repository's data/
+      # directory at all", `_output_root_block` in pipeline/runner.py) and by
+      # nothing else at run time, for the same reason the qp-topics fence above
+      # names: no retrieval log, no transcript artifact, only an expiring run
+      # log. The misplaced-write probe is unaffected either way — an engine
+      # that follows the prompt template's `data/cases/...` path recreates the
+      # directory the probe looks for.
+      - name: Remove the committed ledger from the replay's tree
+        run: rm -rf data/cases
 
       # The replay provisions redacted snapshots from the corpus, so it must be
       # on disk; without a pointer there is nothing to back-test.
@@ -582,6 +615,33 @@ jobs:
             --engine "$BT_ENGINE" --limit "$BT_LIMIT" --skip-engines "$BT_SKIP_ENGINES" \
             --scope "$BT_SCOPE" "$SPREAD_FLAG" \
             --work-dir "$work_dir"
+
+      # Put the ledger back before anything downstream runs in this checkout —
+      # the salience-gate arm and the review PR step both do. From the commit,
+      # which is the whole point: whatever a replay cell did while the agents
+      # held this tree, the bytes the rest of the job sees are the reviewed
+      # ones. The wipe before the checkout is what makes that cover untracked
+      # files — `git checkout --` restores tracked paths only, so a cell that
+      # wrote its own directory under data/cases would otherwise survive the
+      # restore — and the porcelain check refuses any residue left over.
+      - name: Restore the committed ledger and assert it is pristine
+        # `!cancelled()` so this runs, and records a real success/failure
+        # outcome, even when the replay failed: a run that both failed and
+        # wrote into the ledger should say which, and a skipped assertion says
+        # nothing. Idempotent and harmless on every early-exit path, not free:
+        # the rm tolerates a missing directory and the checkout always rewrites
+        # the tracked tree, whether or not the removal step ran.
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          rm -rf data/cases
+          git checkout -- data/cases
+          if [ -n "$(git status --porcelain -- data/cases)" ]; then
+            echo "::error::data/cases is not pristine after the restore"
+            git status --porcelain -- data/cases
+            exit 1
+          fi
+          echo "committed ledger restored pristine"
 
       # The salience-gate mode replays the deterministic gate, not the
       # predictors: `fedcourts salience-replay` runs offline over the pulled
