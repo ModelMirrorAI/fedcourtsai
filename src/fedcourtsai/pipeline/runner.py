@@ -126,10 +126,17 @@ class RunRequest:
     retrieval at it. A **date** where the cell has one — the replay cutoff it
     was actually placed at, which is what the prompt contract calls the cell's
     boundary — and a bare October-Term year on the blind arm, which has no
-    finer boundary to name. Either spelling masks the corpus identically
-    (:func:`fedcourtsai.backtest.parse_decided_before` reads both), so the
-    difference is what the agent's *own* retrieval is bounded by: a date bounds
-    it at the day, a year only at the Term. Live cells never set it.
+    finer boundary to name.
+
+    The two do not mask the corpus alike, and the difference matters.
+    :func:`fedcourtsai.backtest.parse_decided_before` reads a date into *both* a
+    Term and a day: the Term is the October Term the date falls in, which can be
+    one later than the case's docket-number Term (that one rolls in July), and
+    the day screens on top of it. Without the day the wider Term would readmit
+    the replayed case itself, carrying its own realized disposition; with it the
+    mask is strictly tighter than the bare Term year's, and the agent's own
+    retrieval is bounded at the day rather than at the Term. Live cells never
+    set it.
     """
 
     role: UsageRole
@@ -569,7 +576,8 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     engine runs (``MODEL_ID`` — the agent copies it into its artifact's ``model``
     field). ``DECIDED_BEFORE`` appears only on back-test replay cells (the live
     workflows never set ``decided_before``), as an ISO date where the cell has a
-    cutoff and a bare October-Term year where it does not. Auth is never
+    cutoff and a bare October-Term year where it does not — both spellings
+    ``fedcourts query --decided-before`` accepts. Auth is never
     assembled here: the agent inherits it from the scrubbed base environment
     (:func:`_agent_base_env`), which passes through only the engine's own.
     """

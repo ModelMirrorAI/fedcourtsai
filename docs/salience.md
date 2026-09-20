@@ -1303,9 +1303,15 @@ on **the segment we predict on**.
 **The leakage constraint is the crux.** The statpack is a pure function of the
 whole committed corpus — it has no clock. Leakage-safety comes solely from the
 **per-Term self-selection surface**: a replay/back-test cell restricts itself to
-Term rows strictly preceding its `DECIDED_BEFORE` clock — strictly preceding the
-October Term that clock falls in, which is the same set of rows whether the
-clock arrives as a cutoff date or as the bare Term year it maps to. Today that per-Term
+Term rows strictly preceding its clock, and the clock it anchors on is
+`record/context.json`'s `decided_before` — an October Term. Where
+`DECIDED_BEFORE` reaches the cell as a **date** instead, the Term to anchor
+behind is the one that date falls in, not every Term whose start precedes it:
+a mid-Term date sits *inside* a Term whose rows run on past it. The Term bar is
+not what excludes the cell's own case from its retrieval — the docket-number
+Term rolls in July and the October Term in October, so the two can differ by
+one. The **day** the dated clock also carries is the self-exclusion, screening
+on top of the Term in `fedcourts query`. Today that per-Term
 surface carries only *overall + per-fee-class* grant rates; the relist/CVSG cuts
 are **pack-wide marginals blended across all Terms** and would leak the current
 term's outcomes if a replay cell read them. Therefore the segment base rate **must

@@ -577,10 +577,9 @@ directory without knowing which part is which invites trusting the wrong half.
   cert-baseline example above — and distinct from `decided_before`, the replay
   clock beside it, which records the **October Term** the cell may anchor
   statpack rows behind even where the clock exported to the cell as
-  `DECIDED_BEFORE` is the cutoff date itself), **which rule bounded the entries
-  inside that cutoff**
-  (`cut_kind`, with `cut_anchor_index` beside it), and the conditioning state
-  frozen at provisioning: the
+  `DECIDED_BEFORE` is the cutoff date itself), **which rule bounded the
+  entries inside that cutoff** (`cut_kind`, with `cut_anchor_index` beside
+  it), and the conditioning state frozen at provisioning: the
   salience band, the distribution count and CVSG date as at that cutoff (as at
   the snapshot where there is none), the Term, and — on an application cell only
   — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It

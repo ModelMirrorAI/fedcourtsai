@@ -807,8 +807,12 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
     assert "## SCOTUS cert petitions by Term" in md
     assert "| 2022 | 850/460 | 1 | 5 | denied 100.0% | 0.0% | 0 | 168 | ✓/partial |" in md
     assert "| 2024 | 12/— | 1 | 0 | — | — | 0 | — | partial/partial |" in md
-    # The replay self-selection rule rides under the Term table, verbatim.
+    # The replay self-selection rule rides under the Term table, verbatim, and
+    # names which clock and how a date spelling resolves — a cell that anchored
+    # behind every Term whose start precedes a mid-Term date would read its own
+    # Term's realized rates.
     assert "anchor only on Term rows strictly preceding your clock" in md
+    assert "anchor behind the Term that date falls in" in md
     # The grant-family comparability caveat rides directly under the Term table —
     # the table whose base-rate column prints the `granted` / `gvr` split — before
     # the segment section begins.

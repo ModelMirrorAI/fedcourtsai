@@ -2228,7 +2228,10 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
             (
                 "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
                 + "anchor only on Term rows strictly preceding your clock — later Terms "
-                + "post-date what you are allowed to know._"
+                + "post-date what you are allowed to know. Which clock: "
+                + "`record/context.json`'s `decided_before`, an October Term; where "
+                + "`DECIDED_BEFORE` reaches you as a date, anchor behind the Term that date "
+                + "falls in, not behind every Term whose start precedes it._"
             ),
         ]
     if pack.interim is not None:
@@ -2284,7 +2287,10 @@ def _interim_lines(interim: StatPackInterim) -> list[str]:
             + "here conditions on them; the as-at-prediction values a conditioned rate would "
             + "need live on the cells' own frozen contexts. "
             + "Replay/backtest cells: the cert Term tables' self-selection rule applies here "
-            + "too — anchor only on Term rows strictly preceding your clock._"
+            + "too — anchor only on Term rows strictly preceding your clock, which is "
+            + "`record/context.json`'s `decided_before`, an October Term; where "
+            + "`DECIDED_BEFORE` reaches you as a date, anchor behind the Term that date "
+            + "falls in, not behind every Term whose start precedes it._"
         ),
         "",
         f"**{interim.applications}** application(s): {interim.extension} extension, "
@@ -2368,7 +2374,9 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
             + "This is not a salience-band product and carries "
             + "no salience version. Replay/backtest cells: the cert Term tables' "
             + "self-selection rule applies here too — anchor only on Term rows strictly "
-            + "preceding your clock._"
+            + "preceding your clock, which is `record/context.json`'s `decided_before`, an "
+            + "October Term; where `DECIDED_BEFORE` reaches you as a date, anchor behind "
+            + "the Term that date falls in, not behind every Term whose start precedes it._"
         ),
         "",
         _merits_cohort_line(merits),
@@ -2802,7 +2810,10 @@ def render_docket_markdown(pack: DocketPack) -> str:
                 "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
                 + "this document sits in the same checkout as the statpack and the same rule "
                 + "applies — anchor only on Term rows strictly preceding your clock, because "
-                + "later Terms post-date what you are allowed to know._"
+                + "later Terms post-date what you are allowed to know. Which clock: "
+                + "`record/context.json`'s `decided_before`, an October Term; where "
+                + "`DECIDED_BEFORE` reaches you as a date, anchor behind the Term that date "
+                + "falls in, not behind every Term whose start precedes it._"
             ),
         ]
     lines += ["", "## Not yet included", ""]

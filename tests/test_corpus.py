@@ -1010,6 +1010,96 @@ def test_retrieve_priors_decided_before_is_exclusive_and_conservative(tmp_path: 
     assert len(unmasked) == 4
 
 
+def test_retrieve_priors_decided_before_day_screens_on_top_of_the_term(tmp_path: Path) -> None:
+    # The day half of the replay clock is an ADDITIONAL bar, never a
+    # replacement: a row has to clear the Term year AND have resolved strictly
+    # before the day. The cutoff is exclusive on both, so a row resolved ON the
+    # day is out; one resolved the day before is in; and a row carrying no
+    # resolution date at all is left to the year rule, which is what keeps the
+    # undated historical slice retrieving exactly as it always did.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(  # OT2024, cert denied ON the boundary day
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="24-100",
+                    date_decided=None,
+                    date_cert_denied=date(2026, 6, 30),
+                ),
+                _row(  # OT2024, cert denied the day before it
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="24-200",
+                    date_decided=None,
+                    date_cert_denied=date(2026, 6, 29),
+                ),
+                _row(  # OT2024, resolved on no date at all: the year rule alone
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="24-300",
+                    date_decided=None,
+                ),
+            ],
+        )
+        term_only = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before=2025), limit=10
+        )
+        with_day = corpus.retrieve_priors(
+            conn,
+            corpus.PriorQuery(
+                court="scotus", decided_before=2025, decided_before_day=date(2026, 6, 30)
+            ),
+            limit=10,
+        )
+    # Every row is OT2024, so the Term bar alone admits all three.
+    assert sorted(r.case_id for r in term_only) == ["scotus/1", "scotus/2", "scotus/3"]
+    assert sorted(r.case_id for r in with_day) == ["scotus/2", "scotus/3"]
+
+
+def test_a_dated_replay_clock_never_retrieves_the_replayed_case(tmp_path: Path) -> None:
+    # The defect the day bar exists for. The docket-number Term rolls in July
+    # and the October Term in October, so a petition docketed into OT2024 and
+    # cut at a day inside OT2025 has case_year 2024 against a Term clock of
+    # 2025: the year rule alone admits it, and the row it hands back carries its
+    # own realized disposition at rank 1.
+    db = tmp_path / "corpus.db"
+    clock_day = date(2026, 6, 30)  # inside OT2025
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id="scotus/1097",
+                    court="scotus",
+                    docket_number="24-1097",  # OT2024
+                    date_decided=None,
+                    date_cert_denied=clock_day,
+                    disposition=Disposition.denied,
+                ),
+            ],
+        )
+        year_rule_alone = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before=2025), limit=10
+        )
+        as_clocked = corpus.retrieve_priors(
+            conn,
+            corpus.PriorQuery(court="scotus", decided_before=2025, decided_before_day=clock_day),
+            limit=10,
+        )
+    assert [r.case_id for r in year_rule_alone] == ["scotus/1097"]  # the defect, reproduced
+    assert as_clocked == []
+
+
+def test_a_prior_query_day_without_a_term_is_refused() -> None:
+    # A day alone screens nothing, so it would read as a masked query while
+    # masking nothing — refused rather than silently ignored.
+    with pytest.raises(ValidationError):
+        corpus.PriorQuery(decided_before_day=date(2026, 6, 30))
+
+
 def test_retrieve_priors_decided_before_strips_post_clock_merits(tmp_path: Path) -> None:
     # The merits judgment on an admitted row is a later fact than the row's own
     # year: a Term-1993 petition qualifies under a 1998 clock while its

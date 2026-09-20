@@ -849,7 +849,7 @@ restating the merits headline `probability` the way the cert set's
 `disposition` claim restates its headline (a divergent pair voids the block
 identically). Its baseline is `pipeline.base_rates.merits_base_rate` — the
 statpack merits section's disturbed rate pooled over strictly-prior Terms,
-version-free — read at the **grant** Term (`october_term_year` over the merits
+version-free — read at the **grant** Term (`fedcourtsai.supremecourt.october_term_year` over the merits
 event's `opened_at`), never the frozen context's docket-number Term, which
 runs a Term later for a summer-docketed pre-October grant and would admit the
 case's own cohort; so the claim scores only

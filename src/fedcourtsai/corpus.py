@@ -3152,6 +3152,19 @@ class PriorQuery(BaseModel):
         "the back-test replay clock; live (forward) retrieval omits it because "
         "every resolved prior genuinely precedes an open case.",
     )
+    decided_before_day: date | None = Field(
+        default=None,
+        description="The day half of the same replay clock, set only where the "
+        "cell was placed at a calendar cutoff. It screens ON TOP OF "
+        "`decided_before`, never instead of it: a row qualifies only when its "
+        "year clears the Term bar AND its resolution date is absent or strictly "
+        "precedes this day. The Term bar alone cannot exclude the replayed case "
+        "itself, because the docket-number Term rolls in July and the October "
+        "Term in October — a petition docketed into one Term and cut at a day "
+        "inside the next clears the year bar and would come back carrying its "
+        "own realized disposition. A row with no resolution date is left to the "
+        "year rule, so the undated historical slice retrieves as it always did.",
+    )
     resolved_only: bool = Field(
         default=True,
         description="Keep only decided cases — precedent. A case counts as "
@@ -3175,6 +3188,18 @@ class PriorQuery(BaseModel):
         "the same single-form bar the predicate itself draws. Flip it off to "
         "retrieve the whole letter-form docket.",
     )
+
+    @model_validator(mode="after")
+    def _day_needs_its_term(self) -> PriorQuery:
+        """A day with no Term is refused rather than silently ignored.
+
+        The day screens inside the Term branch, so a query carrying one alone
+        would mask nothing at all while reading as a masked query — the exact
+        shape of failure the clock exists to prevent.
+        """
+        if self.decided_before_day is not None and self.decided_before is None:
+            raise ValueError("decided_before_day needs decided_before: a day alone masks nothing")
+        return self
 
 
 def opinion_body(row: CorpusRow) -> str | None:
@@ -3242,7 +3267,9 @@ def recency_key(row: CorpusRow) -> tuple[int, int]:
     return (1, 0)
 
 
-def _mask_post_clock_merits(row: CorpusRow, decided_before: int) -> CorpusRow:
+def _mask_post_clock_merits(
+    row: CorpusRow, decided_before: int, decided_before_day: date | None = None
+) -> CorpusRow:
     """Strip a masked prior's merits columns unless they provably precede the clock.
 
     The ``decided_before`` mask admits a *row* by its best-known year, but the
@@ -3257,6 +3284,13 @@ def _mask_post_clock_merits(row: CorpusRow, decided_before: int) -> CorpusRow:
     cannot prove precedence, so it is stripped (mirroring the snapshot
     truncation's fail-closed treatment of undated entries).
 
+    ``decided_before_day``, where the clock carries one, is an **additional**
+    bar on the same pair rather than a replacement: the judgment must clear the
+    Term year *and* fall strictly before the day. Both, because a day inside a
+    later October Term than the row's own would otherwise readmit a judgment the
+    year rule refuses, and the day exists to tighten this clock, never to loosen
+    it.
+
     ``merits_terminated`` is stripped **unconditionally** whenever it is set,
     because it carries no date to test: the column records that the merits
     proceeding ended, which is exactly the post-clock fact the mask exists to
@@ -3266,7 +3300,12 @@ def _mask_post_clock_merits(row: CorpusRow, decided_before: int) -> CorpusRow:
         row = row.model_copy(update={"merits_terminated": None})
     if row.merits_judgment is None and row.merits_decided is None:
         return row
-    if row.merits_decided is not None and row.merits_decided.year < decided_before:
+    decided = row.merits_decided
+    if (
+        decided is not None
+        and decided.year < decided_before
+        and (decided_before_day is None or decided < decided_before_day)
+    ):
         return row
     return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
 
@@ -3290,7 +3329,15 @@ def _screen_derived(row: CorpusRow, query: PriorQuery) -> CorpusRow | None:
         year = case_year(row)
         if year is None or year >= query.decided_before:
             return None
-        return _mask_post_clock_merits(row, query.decided_before)
+        # The day bar, on top of the year: the Term alone does not exclude the
+        # replayed case itself (`decided_before_day`), and a row that resolved
+        # on the boundary day is not shown to a cell placed at it — the cutoff
+        # is exclusive, as the year bar is.
+        if query.decided_before_day is not None:
+            resolved = resolution_date(row)
+            if resolved is not None and resolved >= query.decided_before_day:
+                return None
+        return _mask_post_clock_merits(row, query.decided_before, query.decided_before_day)
     return row
 
 

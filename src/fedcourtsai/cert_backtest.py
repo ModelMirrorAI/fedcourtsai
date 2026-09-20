@@ -30,7 +30,7 @@ import sqlite3
 import sys
 from collections import Counter
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
@@ -497,18 +497,26 @@ def _runners_by_predictor(
 class ReplayOutcome:
     """What one agentic replay campaign produced, losses included.
 
-    Three of the four fields exist because a campaign that spends real money per
+    Three of the fields exist because a campaign that spends real money per
     cell must finish and account for itself rather than crash: ``unavailable``
     names the predictors whose engine binary went missing mid-run,
     ``lost_cells`` the individual cells that ran and came back unreadable, and
     ``provisioning`` the information-set mix the scores were produced over.
-    Everything here rides the report — stderr does not survive the runner.
+    Everything there rides the report — stderr does not survive the runner.
+
+    ``clock_days`` maps each dated cell's case id to the cutoff day it was
+    clocked on, and carries no entry for a blind cell. It is what lets the
+    offline reference baseline retrieve over the same admitted set the engine
+    cells did (:func:`fedcourtsai.backtest.default_backtesters`); a lift
+    measured against a reference that masked on a different clock would not be
+    a lift over the same history.
     """
 
     backtesters: list[Backtester]
     unavailable: list[str]
     provisioning: dict[str, int]
     lost_cells: list[CertBacktestCellLoss]
+    clock_days: dict[str, date] = field(default_factory=dict)
 
 
 def _read_replayed_cell(
@@ -649,11 +657,18 @@ def replay_predictors(
     the **cutoff date** it was provisioned at where it has one, so the boundary
     the prompt contract bounds the cell's own retrieval at is the day it was
     really placed on, and the trial's October-Term year on the blind arm, which
-    was given no cutoff to name. Either way the corpus mask is the Term cutoff
-    the offline prior-vote baseline honors. Returns a :class:`ReplayOutcome`:
+    was given no cutoff to name. A date names the October Term it falls in,
+    which is **not** always the docket-number Term (that one rolls in July,
+    the October Term in October), so the two arms do not mask the corpus
+    identically: what keeps a dated clock from loosening the mask — and from
+    handing a cell its own decided row — is the day screen the date also
+    carries (:class:`fedcourtsai.backtest.ReplayClock`). The offline prior-vote
+    baseline is given the same per-cell day, so it retrieves over the set the
+    engine cells did. Returns a :class:`ReplayOutcome`:
     the :class:`ReplayedBacktester` list (one per predictor that produced
     predictions), the ids of predictors whose engine turned out to be
-    **unavailable** mid-run, the per-cell losses, and the provisioning mix.
+    **unavailable** mid-run, the per-cell losses, the provisioning mix, and
+    each dated cell's clock day.
 
     Two run-time faults are absorbed rather than raised, for the same reason: a
     campaign that crashes strands the spend already made on every other cell and
@@ -695,6 +710,9 @@ def replay_predictors(
     # observe its own relist history at all, which is most of what a cert forecast
     # turns on, so a score over their union is a score over a mixture.
     provisioning: Counter[str] = Counter()
+    # Each dated cell's cutoff, for the offline baseline to mask on the same
+    # clock (see :class:`ReplayOutcome`). A blind cell contributes no entry.
+    clock_days: dict[str, date] = {}
     for item in items:
         court, _, docket_raw = item.features.case_id.partition("/")
         docket = int(docket_raw)
@@ -762,6 +780,8 @@ def replay_predictors(
         if provenance != "dated" and cutoff is not None:
             snapshot_date = cutoff
         provisioning[provenance] += 1
+        if cutoff is not None:
+            clock_days[item.features.case_id] = cutoff
         write_raw_json(case_paths.snapshot(snapshot_date.isoformat()), redacted)
         # The cell's mode context: a replay cell runs with the same tools
         # as a forward one — etiquette, logging, and the cross-evaluator's leakage
@@ -834,7 +854,11 @@ def replay_predictors(
                     # agent's own retrieval at it — a bare year leaves everything
                     # between the Term's opening and the cutoff to the reader.
                     # The blind arm has no cutoff, so it falls back to the
-                    # trial's Term year; both mask the corpus identically.
+                    # trial's Term year. The two do NOT mask the corpus alike: a
+                    # date names the Term it falls in, which can be one later
+                    # than the docket Term, and it is the day the date also
+                    # carries that keeps the mask tight enough to exclude this
+                    # very case from its own priors.
                     decided_before=cutoff if cutoff is not None else item.features.year,
                 ),
                 ledger_paths.event(event.event_id) if ledger_paths is not None else None,
@@ -856,6 +880,7 @@ def replay_predictors(
         backtesters=backtesters,
         unavailable=sorted(unavailable),
         provisioning=dict(provisioning),
+        clock_days=clock_days,
         # Every loss, including one on a predictor whose engine went missing
         # later in the campaign: unavailability drops the predictor from the
         # board, but the cells it already ran and lost were paid for and are

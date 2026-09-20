@@ -601,7 +601,7 @@ class _ClockRecordingRunner:
 
 def _replay_clocks(
     fixture_corpus: FixtureCorpus, work_root: Path, monkeypatch: pytest.MonkeyPatch
-) -> tuple[list[date | int | None], Path]:
+) -> tuple[list[date | int | None], Path, dict[str, date]]:
     """Replay the fixture set through a clock-recording runner; return the clocks."""
     clocks: list[date | int | None] = []
     monkeypatch.setattr(
@@ -609,7 +609,7 @@ def _replay_clocks(
     )
     with corpus.connect(fixture_corpus.db_path) as conn:
         items = select_cert_backtest_set(conn)
-    cert_backtest.replay_predictors(
+    outcome = cert_backtest.replay_predictors(
         items,
         corpus_db_path=fixture_corpus.db_path,
         config_root=Path("config"),
@@ -617,7 +617,7 @@ def _replay_clocks(
         run_id="20260706T000000Z",
     )
     assert clocks, "no cell ran"
-    return clocks, work_root
+    return clocks, work_root, outcome.clock_days
 
 
 def test_a_dated_replay_cell_is_clocked_on_its_own_cutoff(
@@ -630,10 +630,13 @@ def test_a_dated_replay_cell_is_clocked_on_its_own_cutoff(
     # the real rule would derive is supplied here.
     cut = date(2024, 5, 20)
     monkeypatch.setattr(cert_backtest, "replay_cutoff", lambda payload, resolved_at: cut)
-    clocks, work_root = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
+    clocks, work_root, clock_days = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
     context = read_model(next(work_root.rglob("record/context.json")), PredictionContext)
     assert context.cutoff == cut
     assert set(clocks) == {cut}
+    # The same day reaches the offline reference baseline, so it retrieves over
+    # the set the engine cells did rather than over the docket Term's.
+    assert clock_days == {"scotus/304": cut}
     # The record beside it keeps the Term year: `cutoff` already carries the day,
     # and the per-Term statpack anchoring rule is read against a Term.
     assert context.decided_before == "2022"
@@ -645,10 +648,12 @@ def test_a_blind_replay_cell_falls_back_to_the_trial_term_year(
     # The blind arm is the one provisioning produced no cutoff for, so there is
     # no finer boundary to name and the clock is the trial's October Term.
     monkeypatch.setattr(cert_backtest, "replay_cutoff", lambda payload, resolved_at: None)
-    clocks, work_root = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
+    clocks, work_root, clock_days = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
     context = read_model(next(work_root.rglob("record/context.json")), PredictionContext)
     assert context.cutoff is None and context.snapshot_provenance == "blind"
     assert set(clocks) == {2022}
+    # No day to mirror onto the baseline: it falls back to the trial's Term.
+    assert clock_days == {}
 
 
 class _RecordingRunner:

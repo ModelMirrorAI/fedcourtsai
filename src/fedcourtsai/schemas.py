@@ -763,8 +763,14 @@ class PredictionContext(_Strict):
     )
     decided_before: str | None = Field(
         default=None,
-        description="The replay clock: retrieval about this case must not postdate "
-        "it. Null on a forward cell, whose outcome does not exist yet",
+        description="The October Term this replay cell may anchor the statpack's "
+        "per-Term surfaces behind: only Term rows strictly preceding it. NOT the "
+        "day-level retrieval boundary — that is `cutoff` beside it, which is also "
+        "what the cell was handed as its DECIDED_BEFORE clock wherever "
+        "provisioning produced one, and the two differ when a docket's Term and "
+        "its cutoff's Term differ (the docket-number Term rolls in July, the "
+        "October Term in October). Null on a forward cell, whose outcome does "
+        "not exist yet",
     )
     signals_observable: bool = Field(
         description="Whether the payload disclosed a proceedings list at all. False "

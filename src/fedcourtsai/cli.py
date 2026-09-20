@@ -76,6 +76,7 @@ from .attribution_migration import (
 )
 from .authz import authorize_trigger
 from .backtest import (
+    Backtester,
     default_backtesters,
     parse_decided_before,
     run_backtest,
@@ -5513,11 +5514,12 @@ def cert_backtest_cmd(
             spread=spread,
             salience_floor=salience_cfg.floor,
         )
-        backtesters = default_backtesters(conn)
         provisioning: dict[str, int] = {}  # empty unless an agentic replay ran
         replay_run_id: str | None = None  # null unless one did: baselines have no run
         dropped: list[str] = []  # predictors lost at run time, not opted out
         lost_cells: list[CertBacktestCellLoss] = []  # cells that came back unreadable
+        replayed: list[Backtester] = []  # the engine cells' backtesters, if any ran
+        clock_days: dict[str, date] = {}  # each dated cell's cutoff; empty offline
         if engine:
             items, unreplayable = replayable_items(db_path, items)
             if unreplayable:
@@ -5554,12 +5556,18 @@ def cert_backtest_cmd(
                 run_id=replay_run_id,
             )
             provisioning, lost_cells = outcome.provisioning, outcome.lost_cells
+            clock_days = outcome.clock_days
             dropped = _report_replay_drops(
                 outcome,
                 enabled_predictors(settings.config_root / "predictors.yaml"),
                 skipped_engines,
             )
-            backtesters += outcome.backtesters
+            replayed = outcome.backtesters
+        # After the replay, so the offline reference masks on the same per-cell
+        # clock the engine cells were given: a lift over a baseline that saw a
+        # different history is not a lift over the same history. Offline, the
+        # map is empty and every trial falls back to its own Term.
+        backtesters = default_backtesters(conn, replay_days=clock_days) + replayed
         # The leakage-safe segment context (band + per-Term base rate) mirrors
         # the forward stratum's yardstick; segment_base_rate masks each item to
         # Terms strictly before its own, so a full-corpus statpack is safe here.
@@ -9171,8 +9179,8 @@ Filters — every one optional, none of them positional:
   --disposition TEXT     one realized outcome label, listed below
   --era TEXT             one decade token, listed below
   --decided-before CLOCK the replay clock: an ISO date (2026-06-30) or a
-                         bare October-Term year (2025); a date is read as
-                         the October Term containing it
+                         bare four-digit October-Term year (2025); a date
+                         also bars priors resolved on or after that day
   --limit N              how many priors to return
   --corpus-backend NAME  transport only: local / ranged / service; the run
                          environment sets this, so leave it alone
@@ -9288,10 +9296,12 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         str,
         typer.Option(
             help="Back-test replay clock — an ISO date (2026-06-30) or a bare "
-            "October-Term year (2025). A date reads as the October Term "
-            "containing it, so either spelling is the same exclusive Term-year "
-            "cutoff: keep only priors whose best-known year strictly precedes "
-            "it (rows with no derivable year are excluded). Omitted, or 0 = no "
+            "four-digit October-Term year (2025). Both give the exclusive "
+            "Term-year cutoff: keep only priors whose best-known year strictly "
+            "precedes it (rows with no derivable year are excluded). A date "
+            "gives that Term as the October Term containing it AND bars any "
+            "prior that resolved on or after the day itself — which is what "
+            "keeps a replayed case out of its own priors. Omitted, or 0 = no "
             "cutoff (the live, forward view)."
         ),
     ] = "",
@@ -9389,7 +9399,8 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         citations=citation or [],
         disposition=disp,
         era=era or None,
-        decided_before=clock,
+        decided_before=clock.term if clock is not None else None,
+        decided_before_day=clock.day if clock is not None else None,
         resolved_only=not include_open,
         exclude_non_cert=not include_applications,
     )

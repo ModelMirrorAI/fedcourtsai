@@ -35,6 +35,7 @@ from __future__ import annotations
 import re
 import sqlite3
 from collections import Counter, defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Protocol
@@ -51,29 +52,57 @@ from .supremecourt import october_term_year
 _NO_BRIER: float = 2.0
 
 
-#: A bare October-Term year, the clock's original spelling. Bounded at four
-#: digits so an unpunctuated date (``20260630``) is refused rather than read as
-#: a year in the far future.
-_CLOCK_YEAR_RE = re.compile(r"^\d{1,4}$")
+#: A bare October-Term year, the clock's original spelling and what a hand
+#: invocation types. Exactly four digits: a two- or three-digit stub is a
+#: mistyped year far more often than a deliberate one, and accepting an
+#: unpunctuated date (``20260630``) as a year in the far future would mask away
+#: the whole corpus in silence.
+_CLOCK_YEAR_RE = re.compile(r"^[0-9]{4}$")
 
 #: An ISO calendar date, the spelling a dated replay cell's clock takes.
 #: Deliberately only the extended form: `date.fromisoformat` also accepts the
 #: basic form, and admitting it would make the two patterns overlap.
-_CLOCK_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_CLOCK_DATE_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+
+#: The first day of the first Term of the federal judiciary, opened under the
+#: Judiciary Act of 1789. No case can precede it, so a clock before it is a
+#: typo rather than a very old back-test.
+_FIRST_TERM_DAY = date(1789, 10, 1)
 
 
-def parse_decided_before(raw: str) -> int | None:
-    """The exclusive Term-year cutoff a ``--decided-before`` argument names.
+@dataclass(frozen=True)
+class ReplayClock:
+    """The back-test replay clock at both of the resolutions it can carry.
 
-    The replay clock reaches a cell in two spellings and both resolve here, so
-    the corpus mask is one rule rather than one per caller. A **date**
-    (``2026-06-30``) is the boundary a dated replay cell was actually placed
-    at, and maps to the October Term containing it
-    (:func:`fedcourtsai.supremecourt.october_term_year`) — OT2025, so priors
-    from OT2024 and earlier qualify. A bare **year** (``2025``) is the blind
-    arm's clock, which has no finer boundary to offer, and is that Term
-    directly. Both then mean the same thing downstream: keep only priors whose
-    best-known year strictly precedes the returned value.
+    ``term`` is the exclusive October-Term cutoff every spelling resolves to,
+    and is what the statpack's per-Term surface is anchored behind. ``day`` is
+    the calendar boundary the cell was actually placed at, present only for the
+    date spelling.
+
+    The two are **both** screens, not alternatives, because a Term year alone
+    does not exclude the replayed case itself. The docket-number Term rolls in
+    July and the October Term in October, so a petition docketed into OT2024
+    and cut at a day inside OT2025 has ``case_year`` 2024 against a ``term`` of
+    2025 — it passes the year bar, and without ``day`` its own resolved
+    disposition comes back at rank 1. The day closes that: a row whose
+    resolution date is on or after it is refused whatever its Term.
+    """
+
+    term: int
+    day: date | None = None
+
+
+def parse_decided_before(raw: str) -> ReplayClock | None:
+    """The replay clock a ``--decided-before`` argument names, in both resolutions.
+
+    The clock reaches a cell in two spellings and both resolve here, so the
+    corpus mask is one rule rather than one per caller. A **date**
+    (``2026-06-30``) is the boundary a dated replay cell was actually placed at:
+    it yields the October Term containing it
+    (:func:`fedcourtsai.supremecourt.october_term_year` — OT2025) *and* the day
+    itself, and both screen. A bare **year** (``2025``) is the blind arm's
+    clock, and what a hand invocation types; it has no finer boundary to offer,
+    so it yields the Term alone and the year rule stands by itself.
 
     ``""`` and ``"0"`` are the no-cutoff spellings (the live, forward view) and
     return ``None``. Anything else raises :class:`ValueError`, loudly: a clock
@@ -82,21 +111,28 @@ def parse_decided_before(raw: str) -> int | None:
     to prevent.
     """
     text = raw.strip()
-    if not text:
+    if not text or text == "0":
         return None
     if _CLOCK_YEAR_RE.match(text):
-        return int(text) or None
+        return ReplayClock(term=int(text))
     if _CLOCK_DATE_RE.match(text):
         try:
-            return october_term_year(date.fromisoformat(text))
+            day = date.fromisoformat(text)
         except ValueError as exc:
             raise ValueError(
                 f"{raw!r} is not a real calendar date; the replay clock is an ISO "
-                "date (YYYY-MM-DD) or a bare October-Term year"
+                "date (YYYY-MM-DD) or a bare four-digit October-Term year"
             ) from exc
+        if day < _FIRST_TERM_DAY:
+            raise ValueError(
+                f"{raw!r} precedes {_FIRST_TERM_DAY.isoformat()}, the first day of the "
+                "federal judiciary — no case can precede it, so this is a typo"
+            )
+        return ReplayClock(term=october_term_year(day), day=day)
     raise ValueError(
         f"{raw!r} is not a replay clock; give an ISO date (YYYY-MM-DD) or a bare "
-        "October-Term year (2025), or omit the flag for the live forward view"
+        "four-digit October-Term year (2025), or omit the flag for the live "
+        "forward view"
     )
 
 
@@ -223,6 +259,9 @@ class _PriorCandidate:
     judges: frozenset[str]
     citations: frozenset[str]
     year: int | None
+    #: The row's resolution date, for the replay clock's day bar. ``None`` where
+    #: the row carries no date at all, which leaves it to the year rule.
+    resolved: date | None = None
 
 
 class PriorIndex:
@@ -296,6 +335,7 @@ class PriorIndex:
                         judges=frozenset(row.judges),
                         citations=frozenset(row.citations),
                         year=corpus.case_year(row),
+                        resolved=corpus.resolution_date(row),
                     )
                 )
                 for judge in row.judges:
@@ -315,6 +355,7 @@ class PriorIndex:
         limit: int | None,
         *,
         decided_before: int | None = None,
+        decided_before_day: date | None = None,
     ) -> list[_PriorCandidate]:
         """Up to ``limit`` priors, most relevant first — ``retrieve_priors`` semantics.
 
@@ -329,13 +370,21 @@ class PriorIndex:
         ``decided_before`` is the exclusive year cutoff: only candidates whose
         best-known year strictly precedes it qualify, and a candidate with no
         derivable year never does — history that cannot be proven to precede the
-        trial is never consulted.
+        trial is never consulted. ``decided_before_day`` is the same clock's day
+        half and screens **on top of** the year, exactly as
+        :func:`corpus._screen_derived` applies it: a candidate that resolved on
+        or after the day is refused whatever its Term, and one with no
+        resolution date is left to the year rule.
         """
 
         def qualifies(candidate: _PriorCandidate) -> bool:
             if decided_before is None:
                 return True
-            return candidate.year is not None and candidate.year < decided_before
+            if candidate.year is None or candidate.year >= decided_before:
+                return False
+            if decided_before_day is None or candidate.resolved is None:
+                return True
+            return candidate.resolved < decided_before_day
 
         candidates = self._candidates.get(court, [])
         if not judges and not citations:
@@ -398,15 +447,30 @@ class PriorVoteBacktester:
     lift-ranked cert back-test. That is the honest reading of a court with no
     judges to retrieve on, not a regression: the signal it still carries is
     calibration, in P(granted) and the Brier score, not the label.
+
+    ``replay_days`` maps a case id to the calendar cutoff its replay cell was
+    placed at, and is supplied **only** by the cert back-test, where the engine
+    cells are clocked on exactly those days. It makes this baseline retrieve
+    over the same admitted set they do — the same Term
+    (:func:`fedcourtsai.supremecourt.october_term_year` of the day, which is
+    not always the docket Term) and the same day bar — so the lift a cell is
+    ranked by is measured against a reference that saw what it saw. Left empty,
+    as the mechanical ``backtest`` command leaves it, every trial falls back to
+    its own year and the numbers are unchanged.
     """
 
     conn: sqlite3.Connection
     id: str = "prior-vote"
     limit: int | None = None
+    replay_days: Mapping[str, date] = field(default_factory=dict)
     _index: PriorIndex | None = field(default=None, repr=False)
 
     def predict(self, features: BacktestFeatures) -> BacktestPrediction:
-        if features.year is None:
+        day = self.replay_days.get(features.case_id)
+        # The day's own Term, so this baseline and the cell clocked on that day
+        # mask on one clock; the trial's docket Term where no day was supplied.
+        term = october_term_year(day) if day is not None else features.year
+        if term is None:
             # No replay clock: no prior can be proven to precede this trial.
             return BacktestPrediction(Disposition.denied, 0.0)
         if self._index is None:
@@ -416,7 +480,8 @@ class PriorVoteBacktester:
             features.judges,
             (),
             self.limit,
-            decided_before=features.year,
+            decided_before=term,
+            decided_before_day=day,
         )
         labels = [prior.disposition for prior in retrieved]
         if not labels:
@@ -428,16 +493,22 @@ class PriorVoteBacktester:
         return BacktestPrediction(top, granted_share)
 
 
-def default_backtesters(conn: sqlite3.Connection) -> list[Backtester]:
+def default_backtesters(
+    conn: sqlite3.Connection, *, replay_days: Mapping[str, date] | None = None
+) -> list[Backtester]:
     """The reference baselines the ``backtest`` command replays offline.
 
     A constant floor plus the retrieval vote — both deterministic — so the
     metric is real without an agent in the loop. Agentic predictors are layered
     on the same :class:`Backtester` seam out of band.
+
+    ``replay_days`` is the cert back-test's per-case cutoff map, forwarded to
+    the retrieval vote so it masks on the clock the engine cells were given.
+    The mechanical ``backtest`` command passes none, so its numbers do not move.
     """
     return [
         ConstantBacktester(id="constant-denied", disposition=Disposition.denied),
-        PriorVoteBacktester(conn),
+        PriorVoteBacktester(conn, replay_days=replay_days or {}),
     ]
 
 
