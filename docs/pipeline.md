@@ -186,8 +186,21 @@ every predictor side by side — the case/event header, each cell's probability
 and claims, its `predicted_reasoning.md` and `reasoning.md` inline, its flags,
 and links to the committed cell paths — on its own issue under the
 non-triggering `daily-digest` label. The ops report answers whether the machine
-is producing; this answers *what it said*, which nothing else surfaces for a
-human to read.
+is producing; this answers *what it said* — a reading the big-case board
+(`metrics/big-cases.{json,md}`, which the site renders) also carries in summary
+form, which is why the job can be **parked rather than removed**: the
+repository variable `DAILY_DIGEST_PAUSED` set to `true` skips the job on every
+trigger, a manual dispatch included, while the `ops` job and the weekly digest
+keep running; unset or any value other than `true` (compared
+case-insensitively) runs it, so a pause is always an explicit act, and clearing
+the variable resumes it on the next tick. Setting it is the maintainer's act —
+an interactive session's token is refused on variable administration — at
+Settings → Secrets and variables → Actions → Variables, or `gh variable set
+DAILY_DIGEST_PAUSED --body true` / `gh variable delete DAILY_DIGEST_PAUSED`.
+It is repository-scoped where every other variable here is environment-scoped
+because a job-level `if` is evaluated before any environment resolves, and this
+job binds none. Open digest issues are unaffected either way — close them as
+read.
 
 The maintainer **closes the issue once read**, so the open `daily-digest` issues
 are the unread backlog and no reading-state store exists. Two HTML markers in
@@ -222,7 +235,7 @@ Everything under a `##` heading in the body is agent-authored and untrusted: the
 predictors' own prose, verbatim. It is presented, not vouched for, and it can
 spell markdown of its own — including headings that look like the digest's.
 
-The job runs on every trigger the workflow has, including the Monday weekly
+Unless parked, the job runs on every trigger the workflow has, including the Monday weekly
 tick: the day marker, not a schedule filter, is what makes it once a day. That
 is deliberate — a `schedule` filter is fail-open on any cron it does not name,
 and the workflow-level `cancel-in-progress` lets the 08:30 weekly tick cancel an
