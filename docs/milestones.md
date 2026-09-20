@@ -1,144 +1,120 @@
 # Milestones
 
-What the project is aiming at, anchored to the Supreme Court's term calendar so
-public "releases" land when the Court is producing the events worth predicting.
-It is a sequence, not a set of dated commitments: the external anchors — the
-long conference, the end of term — are fixed; the internal ordering is
-load-bearing; the specific timing is a working estimate, shared for
-transparency. (The project's accountable forecasts are its committed
-predictions, which are evaluated against real outcomes — not this planning
-document.) The milestones assume the budget's **bootstrapping** state
-([budget.md](budget.md)) throughout; the funded growth path is budget.md's
-*Scaling plan*, not a premise of any release below.
+Where the project is, and what each increment of funding buys. The scaling
+plan is four milestones taken in order, each with the annual funding level the
+project needs to reach **before committing to it**. Dollar figures are rough
+planning estimates built on the rates in [budget.md](budget.md); the ledger
+re-measures them as each step lands. (The project's accountable forecasts are
+its committed predictions, not this planning document.)
 
-## Why anchor to the SCOTUS calendar
+## Where things stand
 
-The Court runs on a predictable annual cycle, and each phase generates a
-different, datable supply of predictable events. Building releases around it
-means predictions are published *before* the outcomes exist and evaluated *as*
-they arrive — the only honest way to show calibration.
+The pipeline runs end to end at the **bootstrapping** level
+([budget.md](budget.md)): three predictors (Anthropic, OpenAI, Google), each
+cross-evaluated by three judges, forecasting a salience-ranked slice of the
+paid SCOTUS cert docket and every interim and merits event downstream of it.
+The dated record of process-version freezes is
+[freeze-record.md](freeze-record.md).
 
-| Phase | Timing | What it supplies to predict |
-|-------|--------|------------------------------|
-| **Long Conference** | Last week of September | The Court clears ~2,000 cert petitions accumulated over summer — the single largest, most datable burst of cert grant/deny decisions of the year |
-| **Term opens** | First Monday in October (**OT2026: Oct 5, 2026**) | Opening order list (long-conference grants/denials); argument calendar begins |
-| **Grant cadence** | Order lists, most Mondays after each conference, Oct–June | Steady stream of cert decisions |
-| **January "mop-up" conference** | Mid-January | Last grants that can still be argued the same term — a natural cutoff |
-| **Term ends** | Late June / early July | The full merits docket resolves — ~60–70 argued cases decided, the richest evaluation set of the year |
-| **Summer recess** | July–September | No new merits; time to load history, back-test, and retune |
+Public releases are anchored to the Court's calendar, so predictions publish
+*before* outcomes exist and are scored *as* they arrive:
 
-Sources: [28 U.S.C. § 2](https://www.law.cornell.edu/uscode/text/28/2) (term start),
-[SCOTUSblog: the long conference](https://www.scotusblog.com/2025/08/what-is-the-supreme-courts-long-conference/),
-[Court procedures](https://www.supremecourt.gov/about/procedures.aspx).
+- **Release 1 — the OT2026 long conference (late Sept–Oct 2026).** Cert
+  predictions committed before the conference, scored against the opening
+  order list ([release-ot2026-long-conference.md](release-ot2026-long-conference.md)).
+- **Release 2 — mid-Term (~January 2027).** First populated leaderboard, plus
+  the pre-registered salience ranking and big-case scores.
+- **Release 3 — end-of-Term retrospective (~June–July 2027).** The full merits
+  docket resolves; the first complete Term of calibration and cost data.
 
-## Where the pipeline stands
+None of the releases depends on the funding below. Funding changes how much of
+the docket, how many moments, and how many models each release covers.
 
-The machinery for the first release is running end to end — ingestion running on
-all four channels, the three daily ones plus opinion enrichment by dispatch,
-the corpus split on in production, the SCOTUS-gated
-predict/evaluate cascade producing valid ledger artifacts with per-run cost
-measured from the engines' own logs, and the cert back-test as the
-never-claimable vetting loop. The dated record of the process-version freezes —
-what each blessed, and the boundaries a published figure may not be pooled
-across — is [freeze-record.md](freeze-record.md); this document is the forward
-half.
+## The scaling plan
 
-## Release 1 — the OT2026 long-conference cert release (late Sept–Oct 2026)
+| Milestone | Model API / yr (cumulative) | Other / yr | **Funding needed / yr** |
+|---|---:|---:|---:|
+| Today — bootstrapping | ≈$15K (of the $24K envelope) | $7K | **≈$31K** |
+| 1. More prediction events | ≈$20K (of the $24K envelope) | $7K | **≈$31K** |
+| 2. All paid cases | ≈$40K | $28K | **≈$68K** |
+| 3. Seven model developers | ≈$60K | $28K | **≈$88K** |
+| 4. Prompt lenses | up to $120K | $28K | **≈$148K** |
 
-The first public release. Before the Court meets at the long conference (~late
-September), the pipeline predicts cert outcomes for the petitions up for that
-conference; once the opening order list drops (~early October), the realized
-grants and denials evaluate those predictions. The deliverable is a blog post /
-short article — *"We predicted the long conference — here's how we did"* — with
-the calibration numbers attached, compared against the statpack's per-Term cert
-base rates. What that write-up must state, section by section, and the
-command or artifact behind each number, is
-[release-ot2026-long-conference.md](release-ot2026-long-conference.md).
+Every column is cumulative: each row is the whole project's annual run rate
+at that milestone, not the increment over the row above. The first two rows
+sit inside the bootstrapping envelope, so their funding figure is that
+envelope rather than the sum of the row. Other spend is assumed to step from the
+bootstrapping to the scaling level at milestone 2, when volume starts to grow.
 
-The counted record for this release opens at the `proc-v8` **full** freeze:
-its three blessed predictor digests and the freeze instant
-2026-09-16T00:26:04Z ([freeze-record.md](freeze-record.md)) — so predictions
-stamped from that instant, under those digests, are the release's
-claimable population. The conference cohort is re-predicted under them from
-the carrying promotion's first released tick, which is what puts this
-conference inside the counted record rather than behind its boundary. It is small, datable, and end-to-end, and it defines the
-scope cleanly: the petitions on that conference list are SCOTUS dockets,
-exactly the gate the budget sizes for bootstrapping.
+The order is deliberate. New moments are cheap and raise the value of every
+case already covered, so they come first. Coverage comes before more models
+because the project's claims are coverage claims, and every later predictor
+multiplies over the events this step buys. New developers come before prompt
+variants because a baseline for each model has to exist before a variant of it
+means anything.
 
-## Release 2 — the mid-term release (~January 2027)
+### 1. More prediction events — within bootstrapping (≈$31K / yr)
 
-The cert release is the entry point; the term that follows is the real runway.
-Each cert grant opens a stream of downstream events on its docket —
-emergency/interim applications, merits argument, the decision, the per-justice
-votes — predicted and evaluated as they land, with the predict/evaluate loop
-running on its daily cadence across the OT2026 argument season. The mid-term
-release, timed near the January mop-up conference (the last grants arguable
-this term), publishes what that cohort-follow has accumulated:
+Add the moments where a case's information set materially changes, starting
+with the one the public cares about most:
 
-- **A first populated leaderboard** (`metrics/`) ranking predictors on resolved
-  events — Brier and **Brier skill over the segment base rate**, accuracy, vote
-  accuracy, reasoning quality — plus the cert-cadence calibration since the
-  opening release.
-- **The salience / big-case board as a public artifact.** Two pre-registered,
-  datable releases, distinct from the cert calibration numbers: the
-  deterministic **salience ranking** ("the petitions worth forecasting, ranked,
-  *before* the conference sat") and the models' **big-case scores** ("how big
-  we called them, *before* the term played out"). Both answer the post-hoc
-  *"big case"* critique — the git timestamps prove the calls preceded the
-  outcomes — and the big-case score adds a second skill dimension: a model can
-  read significance well while calling grant/deny only modestly, or the
-  reverse.
+- **Post-oral-argument** — every argued case, after the transcript is out
+  (~60 events a Term). First to be built.
+- **SG brief after a CVSG** — the Solicitor General's recommendation (~20).
+- **Late-Term authorship elimination** — a fixed calendar date on which every
+  still-undecided argued case is re-forecast, once the pattern of who has
+  written from each sitting is visible (~25).
+- **Relist re-forecast** and **call for response** — the strongest public
+  cert-stage signals; volumes to be counted from the statpack before
+  committing.
 
-## Release 3 — the end-of-term retrospective (~June–July 2027)
+These add a few hundred events at most, mainly on the low-volume merits track,
+so the cost is engineering rather than inference: each moment is a
+pre-registered population with its own base rate, and new inputs (argument
+transcripts) move the registered process version.
 
-As the term's ~60–70 merits decisions land, predictions and evaluations across
-the full cohort publish as a retrospective accuracy report — the capstone of
-the year's cohort-follow, and the first full term of cost and calibration data.
-It is also the input to two decisions deliberately held until it exists: the
-academic / B2B / public-artifact fork, and the scope call — widen past the
-SCOTUS-docket gate toward the originating courts of appeals, or hold the gate
-as the durable scope ([budget.md](budget.md), *Deferred scope, unpriced*).
+### 2. All paid cases — ≈$68K / yr
 
-## Funding
+Raise the salience gate's capacity until every paid SCOTUS petition not
+removed by a deterministic filter (such as the in-forma-pauperis exclusion) is
+forecast at every moment, and widen the interim reserve to the full stream of
+substantive applications. Roughly 2,100–2,500 events a Term, up from
+~850–1,100. At this point salience stops being a spend control and survives
+as the public, pre-registered ranking.
 
-Inference dominates the budget, so the near-term play is bootstrapping on
-credit programs (Anthropic startup credits primary, AWS Activate the runner-up)
-to run the releases above. The milestone proper is a first **external funding
-event** — a grant, an academic collaboration, or a first B2B pilot — that lifts
-the budget from bootstrapping to **initial funding**. What each funding state
-buys, and in what order (`N`, then richer inputs and moments, then `P`), is
-budget.md's *Scaling plan*; no release above depends on it.
+### 3. Seven model developers — ≈$88K / yr
 
-## Housekeeping, in parallel
+Add a baseline predictor for four more developers — **xAI, Moonshot, Meta, and
+Alibaba** — each running its most capable model inside its own coding harness
+(Grok Build, Kimi Code, Muse Code, Qwen Code), the same way the current three
+run. Same prompt, same retrieval tools, so the comparison is like for like.
+The new models are inexpensive to run; most of the added cost is three judges
+grading four more predictions per event, a margin the first new predictor's
+fan-out will measure. New predictors are not judges: the evaluator panel
+stays at three.
 
-- Verify the S3 egress projections against the split stores
-  ([budget.md](budget.md)).
-- Finish re-anchoring the budget once an evaluate-side per-run cost under the
-  currently blessed grading digests is measured **at the cert stage**. The
-  predict side is measured; every evaluate measurement predates the currently
-  blessed grading digests, and every one taken under a post-freeze process is
-  interim-stage ([budget.md](budget.md), *Evaluate cost*).
-- Re-anchor the per-predictor grading margin at the first `P = 4` fan-out.
+### 4. Prompt lenses — up to ≈$148K / yr
 
-The last two are distinct triggers — one prices the evaluate half at today's
-registry size, the other prices how that half grows when the registry does.
+Field three **prompt-lens variants** that instruct a model to reason from one
+perspective — **legal/doctrinal, political, economic** — and let the
+tournament rank them against the baselines. This tests, prospectively and on a
+public ledger, the oldest argument about the Court: whether law or politics
+better predicts what it does. Each lens partitions from its parent under its
+own process version, so any difference in score is attributable to the prompt
+alone. Lenses run on a subset of models sized to the remaining budget (about
+three models at full coverage), reaching the **scaling** scenario in
+[budget.md](budget.md).
 
-## Beyond a year — the automated-research goal
+Other ways to spend at this stage, several of them nearly free, to be weighed
+against the lenses when the milestone opens:
 
-The long-run aim is a harness that proposes new predictor designs, registers
-them in the registry, and lets `run-predict` / `run-evaluate` run the
-tournament that ranks them. Nothing in the data or control flow has to change —
-a predictor is just an id, an engine, and a prompt — so it is sequenced after
-the loop and the leaderboard are proven, and after back-testing gives a cheap
-way to screen candidates before they spend live budget. (The prompt-perspective
-predictor variants in budget.md's *Scaling plan* are this goal's manual
-precursor on the same seam.)
-
-**Partnership-gated architecture: Free Law Project.** Several ingestion
-upgrades wait on an established relationship (and, for some, funding) with Free
-Law Project rather than on engineering: database replication (a hosted Postgres
-replica under FLP's replication agreement — *The planned end-state* in
-[data-pipeline.md](data-pipeline.md)), docket-alert webhooks, and opinion
-bodies served from the replica. The corpus boundary and everything downstream
-of ingestion are unchanged by design under all of these; budget.md carries why
-two of the three are not cost-justified at the current scope.
+- **Aggregate predictors** — mean, median, and extremized ensembles of the
+  baselines, plus a base-rate floor, committed at prediction time (≈$0).
+- **Resampling** — the same predictor run repeatedly on a fixed stratum, to
+  measure the within-model noise floor any leaderboard gap must clear.
+- **Smaller sibling models** from each developer — does general capability
+  track forecasting skill within a family?
+- **Retrieval ablations** — closed-book or no-CourtListener variants, which
+  double as a contamination probe.
+- **Open-harness twins** — each model re-run inside one shared open-source
+  harness, separating the model's contribution from its vendor harness's.
