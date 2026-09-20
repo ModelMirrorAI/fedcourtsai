@@ -8,6 +8,11 @@ of them while every gate stays green:
   checkout deletes the directory first (the labeler in `run-analytics` instead
   moves it aside and restores from the commit, because its measure step needs
   the reference set back);
+* the **back-test ledger fence** — a replayed petition is decided, so the
+  committed `data/cases/` tree in the replay's own checkout can hold the
+  outcome its cells are forecasting; `run-backtest` removes it before the cells
+  and restores it from the commit before anything downstream reads the
+  checkout, and every clause of that is step order and one restore source;
 * the **qp labels push guard** — the labeler's PR step refuses a push whose
   batch ledger does not strictly extend `main`'s or whose labeler-sourced rows
   do not contain `main`'s byte for byte, reading both operands from files
@@ -309,6 +314,67 @@ def test_the_labeler_diverts_and_restores_the_oracle() -> None:
     assert "git status --porcelain -- data/qp-topics" in restore, (
         "the pristine assertion must refuse untracked residue under data/qp-topics"
     )
+
+
+def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> None:
+    """A replayed petition is decided, so the committed ledger in the same
+    checkout can hold the `outcome.json` the cell is being asked to forecast —
+    or a merits event whose existence alone discloses the grant. The three
+    engines read that tree on unequal terms and the harness probes only for
+    stray *writes*, so the whole fence is step *order* and one restore source:
+    nothing at runtime notices a removal that stopped happening, a restore
+    reinstating bytes a cell could have written, or a restore that landed after
+    a consumer of the tree. `cert-backtest` itself reads nothing under the
+    ledger — its population, snapshots and scored outcomes come from the
+    corpus, and its cells are provisioned under `--work-dir` — which is what
+    makes the fence free.
+    """
+    steps = _load("run-backtest.yml")["jobs"]["backtest"]["steps"]
+    runs = [str(step.get("run") or "") for step in steps]
+
+    def index(needle: str) -> int:
+        found = [i for i, run in enumerate(runs) if needle in run]
+        assert len(found) == 1, f"expected exactly one step running {needle!r}, found {found}"
+        return found[0]
+
+    # The fence step runs the removal and nothing else, which is also what
+    # tells it apart from the restore step's own wipe of the same path.
+    fences = [i for i, run in enumerate(runs) if run.strip() == "rm -rf data/cases"]
+    assert len(fences) == 1, f"expected exactly one bare data/cases removal, found {fences}"
+    remove = fences[0]
+    # The cell step, named by the scratch root only its invocation passes:
+    # `cert-backtest` alone also matches the PR step's `cert-backtest-plan`.
+    cells = index('--work-dir "$work_dir"')
+    assert "fedcourts cert-backtest" in runs[cells]
+    restore = index("git checkout -- data/cases")
+    # Likewise pinned to the invocation, not the PR body's echo of it.
+    salience = index('fedcourts salience-replay --terms "$BT_TERMS"')
+    pr = index("gh pr create")
+
+    assert remove < cells, "the ledger leaves the tree before the replay cells run"
+    assert cells < restore < salience, (
+        "the restore is the first post-cell step and precedes the salience-gate arm"
+    )
+    assert restore < pr, "the review PR step runs against a restored tree"
+    # The wipe before the checkout is what makes the restore cover untracked
+    # files: `git checkout --` restores tracked paths only, so a cell that
+    # wrote its own directory under data/cases would survive a bare restore.
+    wipe = runs[restore].find("rm -rf data/cases")
+    assert 0 <= wipe < runs[restore].index("git checkout -- data/cases"), (
+        "the restore must wipe data/cases before checking it out"
+    )
+    assert "git status --porcelain -- data/cases" in runs[restore], (
+        "the pristine assertion must refuse untracked residue under data/cases"
+    )
+    # Unconditional, like the oracle fence beside it: a condition that
+    # evaluates false re-admits the ledger with every check still green. That
+    # holds on the salience-gate path too, which runs no cells but shares the
+    # checkout.
+    assert "if" not in steps[remove]
+    # The restore, by contrast, must run behind a failed or timed-out replay
+    # too — the steps after it read this checkout either way.
+    assert steps[restore].get("if") == "${{ !cancelled() }}"
+    assert "continue-on-error" not in steps[restore]
 
 
 def test_the_qp_labels_push_guard_checks_rows_not_ledger_counts() -> None:

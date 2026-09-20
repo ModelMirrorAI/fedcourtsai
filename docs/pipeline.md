@@ -1776,6 +1776,31 @@ path to follow rather than two readings of the same instruction — which makes
 `wrote-outside-work-root` a diagnosis of an engine ignoring its kickoff rather
 than of an ambiguous one.
 
+The replay's leakage fence reaches past the snapshot to the checkout the cells
+sit in. A replayed petition is decided, so its committed ledger directory can
+hold the `outcome.json` the cell is being asked to forecast, or a merits event
+whose existence alone discloses the grant — and the three engines read that
+tree on unequal terms, with the harness watching only for stray *writes*. The
+kickoff already tells every off-ledger cell not to read or write under `data/`
+at all; `run-backtest` makes that structural by deleting `data/cases` before
+the cells run and restoring it **from the commit** afterwards, asserting the
+path pristine. The restore lands before the salience-gate arm and the review PR
+step, which run in the same checkout. The measurement loses nothing by it: the
+population, the snapshots and the outcomes the replay scores against all come
+from the corpus, and every cell is provisioned under `--work-dir`. The
+misplaced-write probe is unaffected — an engine following the prompt template's
+`data/cases/...` path recreates the directory the probe looks for.
+
+Two residuals ride that fence, and both are the reason it is described as
+structural rather than as a wall. The checkout is full-depth, so the ledger
+stays one `git show HEAD:data/cases/...` away, and a tidy agent running `git
+checkout -- data/cases` would undo the deletion unnoticed — so what the fence
+stops is the *incidental* read, a cell opening what sits in front of it. And
+nothing at run time would catch a deliberate one: this job writes no retrieval
+log and uploads no transcript, so an agent's own stdout in the expiring run log
+is the only record a tool call leaves. The same two hold for the `data/qp-topics`
+oracle the job deletes beside it.
+
 A predict cell refuses to run for three reasons, all landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP
 sidecar, the comment-token mint, and every engine step). One is the
