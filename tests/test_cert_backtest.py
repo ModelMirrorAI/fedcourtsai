@@ -33,7 +33,12 @@ from fedcourtsai.pipeline.asof import replay_cutoff
 from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner, get_runner
 from fedcourtsai.pricing import DEFAULT_MODELS
 from fedcourtsai.registry import enabled_predictors
-from fedcourtsai.schemas import CertBacktest, CertBacktestCellLoss, Disposition
+from fedcourtsai.schemas import (
+    CertBacktest,
+    CertBacktestCellLoss,
+    Disposition,
+    PredictionContext,
+)
 from fedcourtsai.serialize import read_model
 from tests.conftest import FixtureCorpus
 
@@ -580,6 +585,70 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
     event_yaml = next(work_root.rglob("event.yaml")).read_text()
     assert "resolved: false" in event_yaml
     assert not fixture_corpus.data_root.exists()
+
+
+class _ClockRecordingRunner:
+    """Delegates to the stub but records the replay clock each cell was handed."""
+
+    def __init__(self, clocks: list[date | int | None]) -> None:
+        self._clocks = clocks
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        self._clocks.append(request.decided_before)
+        return self._stub.run(request)
+
+
+def _replay_clocks(
+    fixture_corpus: FixtureCorpus, work_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[list[date | int | None], Path]:
+    """Replay the fixture set through a clock-recording runner; return the clocks."""
+    clocks: list[date | int | None] = []
+    monkeypatch.setattr(
+        cert_backtest, "get_runner", lambda backend="stub": _ClockRecordingRunner(clocks)
+    )
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=work_root,
+        run_id="20260706T000000Z",
+    )
+    assert clocks, "no cell ran"
+    return clocks, work_root
+
+
+def test_a_dated_replay_cell_is_clocked_on_its_own_cutoff(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The cell's boundary is the day it was placed at, so that is the clock it
+    # is handed — not the Term year, which leaves the months between the Term's
+    # opening and the cutoff for the cell to resolve on its own. The fixture
+    # petition shows no dated distribution before its resolution, so the cutoff
+    # the real rule would derive is supplied here.
+    cut = date(2024, 5, 20)
+    monkeypatch.setattr(cert_backtest, "replay_cutoff", lambda payload, resolved_at: cut)
+    clocks, work_root = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
+    context = read_model(next(work_root.rglob("record/context.json")), PredictionContext)
+    assert context.cutoff == cut
+    assert set(clocks) == {cut}
+    # The record beside it keeps the Term year: `cutoff` already carries the day,
+    # and the per-Term statpack anchoring rule is read against a Term.
+    assert context.decided_before == "2022"
+
+
+def test_a_blind_replay_cell_falls_back_to_the_trial_term_year(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The blind arm is the one provisioning produced no cutoff for, so there is
+    # no finer boundary to name and the clock is the trial's October Term.
+    monkeypatch.setattr(cert_backtest, "replay_cutoff", lambda payload, resolved_at: None)
+    clocks, work_root = _replay_clocks(fixture_corpus, tmp_path / "replay", monkeypatch)
+    context = read_model(next(work_root.rglob("record/context.json")), PredictionContext)
+    assert context.cutoff is None and context.snapshot_provenance == "blind"
+    assert set(clocks) == {2022}
 
 
 class _RecordingRunner:

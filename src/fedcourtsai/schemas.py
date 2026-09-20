@@ -5659,7 +5659,10 @@ class StatPackTerm(_Strict):
     the denial sampling does not bias them); a Term known only from the discovery
     cursors still appears, carrying its census with zero ingested rows. **This is
     the replay self-selection surface**: a time-masked cell anchors only on Term
-    entries strictly preceding its ``DECIDED_BEFORE`` clock.
+    entries strictly preceding its ``DECIDED_BEFORE`` clock — strictly
+    preceding the October Term that clock falls in, since a clock spelled as a
+    date sits *inside* a Term rather than before it, and the Term it sits in
+    runs on past it.
     """
 
     term: int = Field(description="The October-Term year, e.g. 2024")
@@ -5869,7 +5872,7 @@ class StatPackInterimTerm(_StatPackInterimCounts):
     The Term is read from the application's own docket number (``24A1099`` ->
     OT2024), so the split needs no dates. Like the cert Term entries, the array
     is a replay self-selection surface: a time-masked cell anchors only on Term
-    rows strictly preceding its clock.
+    rows strictly preceding the October Term its clock falls in.
     """
 
     term: int = Field(description="The October-Term year the application was docketed in")
@@ -6013,7 +6016,7 @@ class StatPackMeritsTerm(_StatPackMeritsCounts):
     T+1, so identically labeled rows across the two tables cover different
     cohorts. Like the cert Term entries, the array is a replay self-selection
     surface: a time-masked cell anchors only on Term rows strictly preceding
-    its clock.
+    the October Term its clock falls in.
     """
 
     term: int = Field(description="The October-Term year certiorari was granted in")

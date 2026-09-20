@@ -461,20 +461,6 @@ def judgment_rode_the_grant_order(merits_decided: date, date_cert_granted: date)
     return merits_decided <= date_cert_granted
 
 
-def grant_term_year(granted: date) -> int:
-    """The October Term a cert-grant date falls in (a new Term opens in October).
-
-    The merits cohort's Term axis, shared by the statpack's merits section and
-    the merits base rate's leakage guard: keyed on the grant date rather than
-    the docket number because a case is often granted the Term after it was
-    docketed, and the merits cohort is defined by the grant. The pivot is the
-    calendar month, a deliberate convention: a late-September long-conference
-    grant order — issued for the *incoming* Term — lands in the outgoing Term's
-    row. Consistent and stated, so do not "fix" it in one caller.
-    """
-    return granted.year if granted.month >= 10 else granted.year - 1
-
-
 def opinion_author(text: str) -> str | None:
     """Best-effort: who delivered the opinion of the Court, from the entry text.
 

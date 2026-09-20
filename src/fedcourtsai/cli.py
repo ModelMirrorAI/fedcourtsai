@@ -75,7 +75,12 @@ from .attribution_migration import (
     reopen_misattributed_outcomes,
 )
 from .authz import authorize_trigger
-from .backtest import default_backtesters, run_backtest, select_backtest_set
+from .backtest import (
+    default_backtesters,
+    parse_decided_before,
+    run_backtest,
+    select_backtest_set,
+)
 from .cert_backtest import (
     CERT_BACKTEST_SCOPES,
     ReplayOutcome,
@@ -232,7 +237,7 @@ from .pipeline.documents import (
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.ingest import UNSAMPLED_WEIGHT
-from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
+from .pipeline.judgment import backfill_merits_judgments, last_judgment_entry
 from .pipeline.live import live_poll_all
 from .pipeline.ocr_recovery import DEFAULT_PROBE_SAMPLE as DEFAULT_OCR_PROBE_SAMPLE
 from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_documents
@@ -358,7 +363,12 @@ from .store import (
     stratify,
     unforecastable_listed_events,
 )
-from .supremecourt import SupremeCourtClient, current_docket_term, parse_scotus_docket_number
+from .supremecourt import (
+    SupremeCourtClient,
+    current_docket_term,
+    october_term_year,
+    parse_scotus_docket_number,
+)
 from .usage import (
     parse_claude_usage,
     parse_codex_usage,
@@ -7359,7 +7369,7 @@ def _grant_term_for(event_paths: EventPaths) -> int | None:
     if spec is not None and spec.ordinal > 0:
         first = moments.moments_for(Stage.merits)[0]
         _, opened_at = _event_stage_and_opened(event_paths.sibling(first.event_id))
-    return grant_term_year(opened_at) if opened_at is not None else None
+    return october_term_year(opened_at) if opened_at is not None else None
 
 
 def _event_stage_and_opened(event_paths: EventPaths) -> tuple[Stage | None, date | None]:
@@ -9160,7 +9170,9 @@ Filters — every one optional, none of them positional:
                          parallel cite, not a cases-citing-it search
   --disposition TEXT     one realized outcome label, listed below
   --era TEXT             one decade token, listed below
-  --decided-before YEAR  a bare four-digit year, not a date
+  --decided-before CLOCK the replay clock: an ISO date (2026-06-30) or a
+                         bare October-Term year (2025); a date is read as
+                         the October Term containing it
   --limit N              how many priors to return
   --corpus-backend NAME  transport only: local / ranged / service; the run
                          environment sets this, so leave it alone
@@ -9273,13 +9285,16 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         ),
     ] = "",
     decided_before: Annotated[
-        int,
+        str,
         typer.Option(
-            help="Exclusive year cutoff for back-test replays: keep only priors "
-            "whose best-known year strictly precedes it (rows with no derivable "
-            "year are excluded). 0 = no cutoff (the live, forward view)."
+            help="Back-test replay clock — an ISO date (2026-06-30) or a bare "
+            "October-Term year (2025). A date reads as the October Term "
+            "containing it, so either spelling is the same exclusive Term-year "
+            "cutoff: keep only priors whose best-known year strictly precedes "
+            "it (rows with no derivable year are excluded). Omitted, or 0 = no "
+            "cutoff (the live, forward view)."
         ),
-    ] = 0,
+    ] = "",
     include_open: Annotated[
         bool, typer.Option(help="Include unresolved cases (default: decided priors only).")
     ] = False,
@@ -9350,6 +9365,15 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         )
         typer.echo(_query_interface_help(), err=True)
         raise typer.Exit(code=2)
+    # The replay clock is judged here too, and refused rather than dropped: a
+    # misspelled clock that fell through to "no cutoff" would hand a replay cell
+    # the unmasked corpus while looking like it had been masked.
+    try:
+        clock = parse_decided_before(decided_before)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        typer.echo(_query_interface_help(), err=True)
+        raise typer.Exit(code=2) from exc
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_service=True))
     if backend == "local" and not db_path.exists():
@@ -9365,7 +9389,7 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         citations=citation or [],
         disposition=disp,
         era=era or None,
-        decided_before=decided_before or None,
+        decided_before=clock,
         resolved_only=not include_open,
         exclude_non_cert=not include_applications,
     )

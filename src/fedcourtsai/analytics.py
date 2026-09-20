@@ -35,11 +35,7 @@ from .pipeline import moments as moment_registry
 from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
 from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from .pipeline.interim_signals import ApplicationKind
-from .pipeline.judgment import (
-    grant_term_year,
-    judgment_disturbed,
-    judgment_rode_the_grant_order,
-)
+from .pipeline.judgment import judgment_disturbed, judgment_rode_the_grant_order
 from .pipeline.outcome import granted_flag, is_machine_readable
 
 # The reference set's per-label support floor, read here for a second job the docket
@@ -96,7 +92,7 @@ from .schemas import (
 )
 from .serialize import read_model
 from .store import LedgerPrediction
-from .supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
+from .supremecourt import IFP_SERIAL_BASE, october_term_year, parse_scotus_docket_number
 
 if TYPE_CHECKING:
     import sqlite3
@@ -1708,7 +1704,7 @@ def _accumulate_scotus_terms(
     if application_year is not None:
         interim_accs.setdefault(application_year, _InterimAcc()).add(row)
     if corpus.opens_merits_proceeding(row) and row.date_cert_granted is not None:
-        grant_year = grant_term_year(row.date_cert_granted)
+        grant_year = october_term_year(row.date_cert_granted)
         acc = merits_accs.setdefault(grant_year, _MeritsAcc())
         if _judgment_rode_its_grant_order(row):
             acc.exclude()

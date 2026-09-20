@@ -363,7 +363,7 @@ def merits_base_rate(
     slice this rate divides.
 
     ``grant_term`` is the October Term certiorari was **granted** in
-    (:func:`fedcourtsai.pipeline.judgment.grant_term_year` over the merits
+    (:func:`fedcourtsai.supremecourt.october_term_year` over the merits
     event's ``opened_at``), the axis the statpack merits section is keyed on.
     It must not be substituted with the docket-number Term: the two disagree
     for a petition docketed into the incoming Term and granted before that Term

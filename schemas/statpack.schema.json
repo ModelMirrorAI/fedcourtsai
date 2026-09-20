@@ -255,7 +255,7 @@
     },
     "StatPackInterimTerm": {
       "additionalProperties": false,
-      "description": "One application-Term's slice of the interim docket.\n\nThe Term is read from the application's own docket number (``24A1099`` ->\nOT2024), so the split needs no dates. Like the cert Term entries, the array\nis a replay self-selection surface: a time-masked cell anchors only on Term\nrows strictly preceding its clock.",
+      "description": "One application-Term's slice of the interim docket.\n\nThe Term is read from the application's own docket number (``24A1099`` ->\nOT2024), so the split needs no dates. Like the cert Term entries, the array\nis a replay self-selection surface: a time-masked cell anchors only on Term\nrows strictly preceding the October Term its clock falls in.",
       "properties": {
         "applications": {
           "default": 0,
@@ -464,7 +464,7 @@
     },
     "StatPackMeritsTerm": {
       "additionalProperties": false,
-      "description": "One grant-Term's slice of the merits docket.\n\nThe Term is the October Term certiorari was **granted** in, read from\n`date_cert_granted` (October pivot) \u2014 the one date every eligible row\ncarries by construction, where the judgment's own `merits_decided` date is\nnullable (a judgment parsed from an undated entry) and so cannot key the\nsplit. This grant-date axis does **not** align with the cert tables'\ndocket-number Terms: a petition docketed in Term T is routinely granted in\nT+1, so identically labeled rows across the two tables cover different\ncohorts. Like the cert Term entries, the array is a replay self-selection\nsurface: a time-masked cell anchors only on Term rows strictly preceding\nits clock.",
+      "description": "One grant-Term's slice of the merits docket.\n\nThe Term is the October Term certiorari was **granted** in, read from\n`date_cert_granted` (October pivot) \u2014 the one date every eligible row\ncarries by construction, where the judgment's own `merits_decided` date is\nnullable (a judgment parsed from an undated entry) and so cannot key the\nsplit. This grant-date axis does **not** align with the cert tables'\ndocket-number Terms: a petition docketed in Term T is routinely granted in\nT+1, so identically labeled rows across the two tables cover different\ncohorts. Like the cert Term entries, the array is a replay self-selection\nsurface: a time-masked cell anchors only on Term rows strictly preceding\nthe October Term its clock falls in.",
       "properties": {
         "affirmed": {
           "default": 0,
@@ -644,7 +644,7 @@
     },
     "StatPackTerm": {
       "additionalProperties": false,
-      "description": "One SCOTUS October Term's slice of the statpack: the live-slice cert population.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic committed metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nAggregates are computed over the live/historical provenance slice (weighted, so\nthe denial sampling does not bias them); a Term known only from the discovery\ncursors still appears, carrying its census with zero ingested rows. **This is\nthe replay self-selection surface**: a time-masked cell anchors only on Term\nentries strictly preceding its ``DECIDED_BEFORE`` clock.",
+      "description": "One SCOTUS October Term's slice of the statpack: the live-slice cert population.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic committed metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nAggregates are computed over the live/historical provenance slice (weighted, so\nthe denial sampling does not bias them); a Term known only from the discovery\ncursors still appears, carrying its census with zero ingested rows. **This is\nthe replay self-selection surface**: a time-masked cell anchors only on Term\nentries strictly preceding its ``DECIDED_BEFORE`` clock \u2014 strictly\npreceding the October Term that clock falls in, since a clock spelled as a\ndate sits *inside* a Term rather than before it, and the Term it sits in\nruns on past it.",
       "properties": {
         "alt_segments": {
           "description": "The same per-band slices under every OTHER registered salience version, so a prediction frozen at a version the live pass no longer scores with still finds its own scorer's base rate. Empty \u2014 and absent from the serialized payload \u2014 while only one version is registered",

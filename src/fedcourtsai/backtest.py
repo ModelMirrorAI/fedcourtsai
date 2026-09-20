@@ -32,6 +32,7 @@ seam and are replayed out of band, exactly as ``run-predict`` runs them live.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
@@ -42,11 +43,61 @@ from . import corpus
 from .corpus import CorpusRow
 from .pipeline.outcome import granted_flag, is_machine_readable
 from .schemas import Backtest, BacktestCourtScore, BacktestEntry, Disposition
+from .supremecourt import october_term_year
 
 # Brier scores are bounded in [0, 1]; a predictor that reported none sorts after
 # every one that did, without colliding with a real worst score (mirrors the
 # leaderboard's tie-break sentinel).
 _NO_BRIER: float = 2.0
+
+
+#: A bare October-Term year, the clock's original spelling. Bounded at four
+#: digits so an unpunctuated date (``20260630``) is refused rather than read as
+#: a year in the far future.
+_CLOCK_YEAR_RE = re.compile(r"^\d{1,4}$")
+
+#: An ISO calendar date, the spelling a dated replay cell's clock takes.
+#: Deliberately only the extended form: `date.fromisoformat` also accepts the
+#: basic form, and admitting it would make the two patterns overlap.
+_CLOCK_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def parse_decided_before(raw: str) -> int | None:
+    """The exclusive Term-year cutoff a ``--decided-before`` argument names.
+
+    The replay clock reaches a cell in two spellings and both resolve here, so
+    the corpus mask is one rule rather than one per caller. A **date**
+    (``2026-06-30``) is the boundary a dated replay cell was actually placed
+    at, and maps to the October Term containing it
+    (:func:`fedcourtsai.supremecourt.october_term_year`) — OT2025, so priors
+    from OT2024 and earlier qualify. A bare **year** (``2025``) is the blind
+    arm's clock, which has no finer boundary to offer, and is that Term
+    directly. Both then mean the same thing downstream: keep only priors whose
+    best-known year strictly precedes the returned value.
+
+    ``""`` and ``"0"`` are the no-cutoff spellings (the live, forward view) and
+    return ``None``. Anything else raises :class:`ValueError`, loudly: a clock
+    that silently fell back to "no cutoff" would unmask a replay cell's
+    retrieval without saying so, which is the one failure this argument exists
+    to prevent.
+    """
+    text = raw.strip()
+    if not text:
+        return None
+    if _CLOCK_YEAR_RE.match(text):
+        return int(text) or None
+    if _CLOCK_DATE_RE.match(text):
+        try:
+            return october_term_year(date.fromisoformat(text))
+        except ValueError as exc:
+            raise ValueError(
+                f"{raw!r} is not a real calendar date; the replay clock is an ISO "
+                "date (YYYY-MM-DD) or a bare October-Term year"
+            ) from exc
+    raise ValueError(
+        f"{raw!r} is not a replay clock; give an ISO date (YYYY-MM-DD) or a bare "
+        "October-Term year (2025), or omit the flag for the live forward view"
+    )
 
 
 @dataclass(frozen=True)

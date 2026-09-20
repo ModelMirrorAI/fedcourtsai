@@ -202,7 +202,20 @@ def test_replay_request_exports_the_decided_before_clock(tmp_path: Path) -> None
     StubRunner().run(request)
     runner.run(replace(request, decided_before=1998))
     # A back-test replay cell sees its clock so corpus retrieval can be masked.
+    # The blind arm's spelling: a bare October-Term year, all it can name.
     assert recorder.env["DECIDED_BEFORE"] == "1998"
+
+
+def test_a_dated_replay_cell_exports_its_cutoff_as_the_clock(tmp_path: Path) -> None:
+    recorder = _Recorder()
+    runner = ClaudeCodeRunner(command_runner=recorder)
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)
+    runner.run(replace(request, decided_before=date(2026, 6, 30)))
+    # Where the cell was placed at a cutoff, the clock is that day, in ISO form:
+    # the prompt bounds the agent's own retrieval at it, and a bare Term year
+    # would leave everything from the Term's opening to the cutoff unbounded.
+    assert recorder.env["DECIDED_BEFORE"] == "2026-06-30"
 
 
 def test_evaluate_uses_the_evaluator_id_env_var(tmp_path: Path) -> None:

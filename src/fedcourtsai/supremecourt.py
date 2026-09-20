@@ -215,6 +215,20 @@ def scotus_docket_slug(
     return f"{term:02d}{separator}{serial}"
 
 
+def october_term_year(day: date) -> int:
+    """The October Term ``day`` falls in — the tree's one date→Term rule.
+
+    A Term opens in October and runs until the next one does, so the pivot is
+    the calendar month: ``2026-06-30`` is OT2025, ``2026-10-05`` is OT2026.
+    Deliberate at the seam — a late-September long-conference order, issued for
+    the *incoming* Term, lands in the **outgoing** Term's row — and stated here
+    once rather than per caller, so the merits cohort's Term axis (keyed on the
+    cert-grant date), the statpack's per-Term rows, and the back-test replay
+    clock all cut on the same boundary. Do not re-derive it anywhere.
+    """
+    return day.year if day.month >= 10 else day.year - 1
+
+
 def current_docket_term(today: date) -> int:
     """The two-digit Term prefix the Clerk assigns new filings ``today``.
 
@@ -224,9 +238,9 @@ def current_docket_term(today: date) -> int:
     in late June), so the filing prefix rolls in July. Probing discovery by an
     October roll would leave the entire summer intake — the long-conference
     cohort — invisible until the Term opened. The other date→Term pivot in the
-    tree, ``pipeline.judgment.grant_term_year``, rolls in **October** on
-    purpose: it names the October Term a grant belongs to, a different concept
-    — do not unify them.
+    tree, :func:`october_term_year` above, rolls in **October** on purpose: it
+    names the October Term a date belongs to, a different concept — do not
+    unify them.
     """
     year = today.year if today.month >= 7 else today.year - 1
     return year % 100

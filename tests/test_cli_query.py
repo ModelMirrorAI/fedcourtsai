@@ -130,18 +130,41 @@ def test_a_free_text_search_argument_is_refused_with_the_interface(
 
 
 def test_a_bad_flag_value_is_refused_with_the_interface(fixture_corpus: FixtureCorpus) -> None:
-    # `--full` is a boolean, so a case name after it parses as a positional and
-    # `--decided-before` takes a year rather than a date: two spellings of the
-    # same wrong mental model, and both teach the same screen.
-    for argv in (
-        ["query", "--court", "scotus", "--full", "Jennings v. Rodriguez"],
-        ["query", "--court", "scotus", "--decided-before", "2026-06-30"],
-    ):
-        result = runner.invoke(app, argv)
-        assert result.exit_code == 2, argv
+    # `--full` is a boolean, so a case name after it parses as a positional —
+    # the wrong mental model this screen exists to correct.
+    result = runner.invoke(app, ["query", "--court", "scotus", "--full", "Jennings v. Rodriguez"])
+    assert result.exit_code == 2
+    out = _unwrapped(result.output)
+    assert "takes no free-text search argument" in out
+    assert "an ISO date (2026-06-30) or a" in out
+
+
+def test_the_replay_clock_takes_a_date_or_a_term_year(fixture_corpus: FixtureCorpus) -> None:
+    # A date is the October Term containing it, so a cutoff inside OT2022 admits
+    # exactly what the bare year 2022 admits, and a cutoff past OT2022's opening
+    # admits one Term more. Same rows, same order — the mask is one rule.
+    def rows(clock: str) -> list[dict[str, object]]:
+        result = runner.invoke(app, ["query", "--court", "ca9", "--decided-before", clock])
+        assert result.exit_code == 0, result.output
+        return _rows(result.stdout)
+
+    assert rows("2023-06-30") == rows("2022")
+    assert rows("2023-10-02") == rows("2023")
+    # And the two Terms really are different cuts, or the parity above is vacuous.
+    assert rows("2022") != rows("2023")
+
+
+def test_an_unreadable_replay_clock_is_refused_with_the_interface(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # Refused rather than dropped: a clock that fell through to "no cutoff"
+    # would unmask a replay cell's retrieval while looking masked.
+    for clock in ("2026-13-01", "last year", "20260630"):
+        result = runner.invoke(app, ["query", "--court", "ca9", "--decided-before", clock])
+        assert result.exit_code == 2, clock
         out = _unwrapped(result.output)
-        assert "takes no free-text search argument" in out, argv
-        assert "a bare four-digit year, not a date" in out, argv
+        assert "replay clock" in out or "calendar date" in out, clock
+        assert "an ISO date (2026-06-30) or a" in out, clock
 
 
 def test_an_invented_era_is_refused_and_the_vocabulary_printed(

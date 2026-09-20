@@ -51,7 +51,7 @@ import tempfile
 import time
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -122,8 +122,14 @@ class RunRequest:
 
     ``decided_before`` is the back-test replay clock: set only when a decided
     case is replayed as of a past moment (the cert back-test's engine replay),
-    it is exported to the cell as ``DECIDED_BEFORE`` so the agent's corpus
-    retrieval masks history from that year on. Live cells never set it.
+    it is exported to the cell as ``DECIDED_BEFORE`` so the agent bounds its
+    retrieval at it. A **date** where the cell has one — the replay cutoff it
+    was actually placed at, which is what the prompt contract calls the cell's
+    boundary — and a bare October-Term year on the blind arm, which has no
+    finer boundary to name. Either spelling masks the corpus identically
+    (:func:`fedcourtsai.backtest.parse_decided_before` reads both), so the
+    difference is what the agent's *own* retrieval is bounded by: a date bounds
+    it at the day, a year only at the Term. Live cells never set it.
     """
 
     role: UsageRole
@@ -134,7 +140,7 @@ class RunRequest:
     run_id: str
     prompt: Path
     data_root: Path
-    decided_before: int | None = None
+    decided_before: date | int | None = None
 
     @property
     def case_id(self) -> str:
@@ -562,8 +568,9 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     ``PREDICTOR_ID`` (predict) or ``EVALUATOR_ID`` (evaluate), and the model the
     engine runs (``MODEL_ID`` — the agent copies it into its artifact's ``model``
     field). ``DECIDED_BEFORE`` appears only on back-test replay cells (the live
-    workflows never set ``decided_before``). Auth is never assembled here: the
-    agent inherits it from the scrubbed base environment
+    workflows never set ``decided_before``), as an ISO date where the cell has a
+    cutoff and a bare October-Term year where it does not. Auth is never
+    assembled here: the agent inherits it from the scrubbed base environment
     (:func:`_agent_base_env`), which passes through only the engine's own.
     """
     actor_var = "PREDICTOR_ID" if request.role == UsageRole.predictor else "EVALUATOR_ID"
@@ -575,8 +582,9 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
         "RUN_ID": request.run_id,
         "MODEL_ID": model,
     }
-    if request.decided_before is not None:
-        env["DECIDED_BEFORE"] = str(request.decided_before)
+    clock = request.decided_before
+    if clock is not None:
+        env["DECIDED_BEFORE"] = clock.isoformat() if isinstance(clock, date) else str(clock)
     return env
 
 

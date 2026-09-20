@@ -645,13 +645,15 @@ def replay_predictors(
     mislabeled through another engine, and ``engine_override`` forces one
     backend for offline ``stub``/``replay`` runs, and ``skip_engines`` opts
     named engines out) and collects its
-    ``prediction.json``. Each cell carries the trial's year as its replay clock
-    (``DECIDED_BEFORE``), so the agent's own corpus retrieval is masked to
-    provably earlier history — the same cutoff the offline prior-vote baseline
-    honors. Returns a :class:`ReplayOutcome`: the :class:`ReplayedBacktester`
-    list (one per predictor that produced predictions), the ids of predictors
-    whose engine turned out to be **unavailable** mid-run, the per-cell losses,
-    and the provisioning mix.
+    ``prediction.json``. Each cell carries a replay clock (``DECIDED_BEFORE``):
+    the **cutoff date** it was provisioned at where it has one, so the boundary
+    the prompt contract bounds the cell's own retrieval at is the day it was
+    really placed on, and the trial's October-Term year on the blind arm, which
+    was given no cutoff to name. Either way the corpus mask is the Term cutoff
+    the offline prior-vote baseline honors. Returns a :class:`ReplayOutcome`:
+    the :class:`ReplayedBacktester` list (one per predictor that produced
+    predictions), the ids of predictors whose engine turned out to be
+    **unavailable** mid-run, the per-cell losses, and the provisioning mix.
 
     Two run-time faults are absorbed rather than raised, for the same reason: a
     campaign that crashes strands the spend already made on every other cell and
@@ -788,6 +790,11 @@ def replay_predictors(
                 # wholesale and its cutoff is null, which is neither rule, so it
                 # carries no kind.
                 boundary=(arrival_cut.CutBoundary(kind="date") if cutoff is not None else None),
+                # The record's clock is the Term year even where the exported
+                # one is a date: `cutoff` beside it already carries the day, and
+                # this field is what the statpack's and docket's per-Term
+                # anchoring rule is read against — a Term row either precedes a
+                # Term year or it does not, with nothing to resolve.
                 decided_before=str(item.features.year),
             ).model_dump(mode="json"),
         )
@@ -821,9 +828,14 @@ def replay_predictors(
                     prompt=Path(),
                     run_id=run_id,
                     data_root=work_root,
-                    # The replay clock: the cell sees it as DECIDED_BEFORE and
-                    # masks its corpus retrieval to provably earlier history.
-                    decided_before=item.features.year,
+                    # The replay clock the cell sees as DECIDED_BEFORE. The
+                    # cutoff date wherever provisioning produced one, because
+                    # that *is* this cell's boundary and the prompt bounds the
+                    # agent's own retrieval at it — a bare year leaves everything
+                    # between the Term's opening and the cutoff to the reader.
+                    # The blind arm has no cutoff, so it falls back to the
+                    # trial's Term year; both mask the corpus identically.
+                    decided_before=cutoff if cutoff is not None else item.features.year,
                 ),
                 ledger_paths.event(event.event_id) if ledger_paths is not None else None,
                 case_id=item.features.case_id,

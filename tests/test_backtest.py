@@ -15,6 +15,7 @@ from fedcourtsai.backtest import (
     PriorIndex,
     PriorVoteBacktester,
     default_backtesters,
+    parse_decided_before,
     run_backtest,
     select_backtest_set,
 )
@@ -238,6 +239,53 @@ def test_prior_vote_reads_the_population_not_the_most_recent_slice(tmp_path: Pat
     # so the uncapped default cannot regress back to it unnoticed.
     assert capped.predicted_disposition == Disposition.granted
     assert capped.probability_granted == 1.0
+
+
+# --- the replay clock's two spellings ------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # The bare year, the clock's original spelling, is that Term directly.
+        ("2025", 2025),
+        ("1998", 1998),
+        # A date is the October Term containing it. The run's own example: a
+        # cutoff of 2026-06-30 sits inside OT2025, so OT2024 and earlier qualify
+        # — byte-identical to what the bare year 2025 admits.
+        ("2026-06-30", 2025),
+        # The October pivot at its boundary. A Term opens in October, so the last
+        # day of September still belongs to the Term that opened the year before,
+        # and the first days of October open the next one.
+        ("2026-09-30", 2025),
+        ("2026-10-01", 2026),
+        ("2026-12-31", 2026),
+        # The no-cutoff spellings: the live, forward view.
+        ("", None),
+        ("0", None),
+    ],
+)
+def test_the_replay_clock_reads_a_year_or_a_date(raw: str, expected: int | None) -> None:
+    assert parse_decided_before(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "2026-13-01",  # date-shaped but not a date
+        "2026-02-30",
+        "20260630",  # the basic ISO form, which would otherwise read as a year
+        "2026-06",
+        "last year",
+        "OT2025",
+        "-2025",
+    ],
+)
+def test_an_unreadable_replay_clock_is_refused_rather_than_dropped(raw: str) -> None:
+    # Loudly, because a clock that fell through to "no cutoff" would hand a
+    # replay cell the unmasked corpus while looking as if it had been masked.
+    with pytest.raises(ValueError, match=r"replay clock|calendar date"):
+        parse_decided_before(raw)
 
 
 # --- prior index parity with retrieve_priors -----------------------------------
