@@ -832,12 +832,12 @@
           "run_id": "20260918T195102Z"
         },
         {
-          "big_case_rationale": "The 9/11 military commission trial for Khalid Shaikh Mohammad and co-defendants, involving the Secretary of Defense's withdrawal of a plea deal.",
+          "big_case_rationale": null,
           "big_case_score": 0.95,
           "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "gemini-baseline",
-          "run_id": "20260820T181919Z"
+          "run_id": "20260919T192714Z"
         }
       ],
       "docket_id": 9026000013,
@@ -875,18 +875,18 @@
               "run_id": "20260918T195102Z"
             },
             {
-              "big_case_rationale": "The 9/11 military commission trial for Khalid Shaikh Mohammad and co-defendants, involving the Secretary of Defense's withdrawal of a plea deal.",
+              "big_case_rationale": null,
               "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000013/events/evt-petition-disposition/predictions/gemini-baseline/20260820T181919Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000013/events/evt-petition-disposition/predictions/gemini-baseline/20260820T181919Z",
+              "cell_path": "data/cases/scotus/9026000013/events/evt-petition-disposition/predictions/gemini-baseline/20260919T192714Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000013/events/evt-petition-disposition/predictions/gemini-baseline/20260919T192714Z",
               "confidence": null,
               "granted": 0,
               "leakage_suspected": false,
               "mode": "forward",
               "predicted_disposition": "denied",
               "predictor_id": "gemini-baseline",
-              "probability": 0.08,
-              "run_id": "20260820T181919Z"
+              "probability": 0.05,
+              "run_id": "20260919T192714Z"
             }
           ],
           "resolved_at": null,
