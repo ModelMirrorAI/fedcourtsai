@@ -1,7 +1,7 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 1420.3,
+    "actions_minutes": 1394.2,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 1203.57,
     "fixed_monthly_usd": 115.0,
@@ -577,27 +577,27 @@
     "warnings": 23,
     "window_days": 14
   },
-  "generated_at": "2026-09-21T14:49:32.953771+00:00",
+  "generated_at": "2026-09-21T15:17:09.705868+00:00",
   "health": [
     {
       "failures": 12,
-      "last_conclusion": "success",
-      "last_run_at": "2026-09-21T14:21:11Z",
-      "median_seconds": 551,
+      "last_conclusion": null,
+      "last_run_at": "2026-09-21T15:11:11Z",
+      "median_seconds": 550,
       "p95_seconds": 576,
-      "runs_considered": 65,
-      "success_rate": 0.8153846153846154,
-      "successes": 53,
+      "runs_considered": 63,
+      "success_rate": 0.8064516129032258,
+      "successes": 50,
       "workflow": "ci"
     },
     {
-      "failures": 6,
+      "failures": 7,
       "last_conclusion": "success",
-      "last_run_at": "2026-09-21T14:21:11Z",
-      "median_seconds": 174,
+      "last_run_at": "2026-09-21T15:11:11Z",
+      "median_seconds": 175,
       "p95_seconds": 191,
-      "runs_considered": 75,
-      "success_rate": 0.92,
+      "runs_considered": 76,
+      "success_rate": 0.9078947368421053,
       "successes": 69,
       "workflow": "codeql"
     },
@@ -616,11 +616,11 @@
       "failures": 0,
       "last_conclusion": "success",
       "last_run_at": "2026-09-21T00:23:20Z",
-      "median_seconds": 30,
+      "median_seconds": 31,
       "p95_seconds": 50,
-      "runs_considered": 13,
+      "runs_considered": 12,
       "success_rate": 1.0,
-      "successes": 13,
+      "successes": 12,
       "workflow": "lint-actions"
     },
     {
@@ -670,12 +670,12 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-09-21T14:48:42Z",
-      "median_seconds": 58,
+      "last_run_at": "2026-09-21T15:16:20Z",
+      "median_seconds": 63,
       "p95_seconds": 63,
-      "runs_considered": 3,
+      "runs_considered": 4,
       "success_rate": 1.0,
-      "successes": 2,
+      "successes": 3,
       "workflow": "run-ops"
     },
     {
@@ -714,12 +714,12 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-09-21T08:56:16Z",
-      "median_seconds": 22,
+      "last_run_at": "2026-09-21T15:10:40Z",
+      "median_seconds": 32,
       "p95_seconds": 33,
-      "runs_considered": 3,
+      "runs_considered": 4,
       "success_rate": 1.0,
-      "successes": 3,
+      "successes": 4,
       "workflow": "sync-staging"
     }
   ],
