@@ -185,6 +185,7 @@ from .ops import (
     DAILY_DIGEST_MARKER_LINES,
     WEEKLY_DIGEST_LABEL,
     WEEKLY_DIGEST_MARKER_LINES,
+    ProducedWindow,
     Vintaged,
     WeeklyAnalytics,
     WeeklyProduction,
@@ -301,7 +302,6 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     Backtest,
-    BigCaseBoard,
     CellFailure,
     CellMode,
     CertBacktest,
@@ -309,7 +309,6 @@ from .schemas import (
     CertBacktestDispatch,
     CertBacktestProvenance,
     ClaimScoreBlock,
-    ClaimScoreBoard,
     ConferenceBucket,
     CorpusValidation,
     DataHealth,
@@ -7739,12 +7738,8 @@ def _vintaged[T: BaseModel](path: Path, model: type[T]) -> Vintaged[T]:
 
 
 def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
-    """The committed boards the weekly digest reports, each with its own vintage."""
+    """The committed replay artifacts the weekly digest's back-test block reports."""
     return WeeklyAnalytics(
-        leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
-        claim_scores=_vintaged(metrics_root / "claim-scores.json", ClaimScoreBoard),
-        big_cases=_vintaged(metrics_root / "big-cases.json", BigCaseBoard),
-        statpack=_vintaged(metrics_root / "statpack.json", StatPack),
         backtest=_vintaged(metrics_root / "backtest.json", Backtest),
         salience_replay=_vintaged(metrics_root / "salience-replay.json", SalienceReplay),
         # Never produced by the scheduled refresh — a real-engine replay spends
@@ -7780,29 +7775,66 @@ def _parse_when(stamp: str) -> datetime:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
-#: The window the weekly digest's production census and its spend figure share.
-#: A week, because that is the period the digest covers; the spend *backstop*
-#: keeps its own, longer window, which is why the two are reported separately
-#: rather than one being derived from the other.
+#: The window the digest's first production block covers. A week, because that is
+#: the period the digest is opened for; the month block takes its own window from
+#: the spend backstop's config instead, so the backstop's verdict and the census
+#: printed beside it can never describe different periods.
 _WEEKLY_WINDOW_DAYS = 7
 
 
-def _weekly_production(data_root: Path, config_root: Path, when: datetime) -> WeeklyProduction:
-    """The week's cells and cost, plus the spend backstop's own verdict.
+def _produced_over(
+    usage: Sequence[ModelUsage],
+    title: str,
+    *,
+    window_days: int,
+    when: datetime,
+    since: datetime | None = None,
+    term: int | None = None,
+) -> ProducedWindow:
+    """One production block's census and spend, over one window of the ledger."""
+    return ProducedWindow(
+        title=title,
+        census=cell_census(usage, window_days=window_days, now=when, since=since),
+        spend_usd=spend_over(usage, window_days=window_days, now=when, since=since)[0],
+        window_start=(since or when - timedelta(days=window_days)).date(),
+        window_end=when.date(),
+        term=term,
+    )
 
-    One walk of the ledger for all three figures: the census, the week's spend,
-    and the backstop's own longer window read the same records, so they cannot
-    disagree about what they cover and the growing tree is scanned once.
+
+def _weekly_production(data_root: Path, config_root: Path, when: datetime) -> WeeklyProduction:
+    """The digest's three production windows, plus the spend backstop's verdict.
+
+    One walk of the ledger for every figure: the three censuses, their three
+    spend totals, and the backstop's own window all read the same records, so
+    they cannot disagree about what they cover and the growing tree is scanned
+    once.
+
+    The Term window is pinned to the instant its Term opened rather than counted
+    back in days — an October Term opens at midnight on 1 October and the digest
+    renders mid-morning, so a day count would cut the Term's own first morning
+    out of its census.
     """
     usage = iter_usage(data_root)
-    census = cell_census(usage, window_days=_WEEKLY_WINDOW_DAYS, now=when)
-    spent, _cells = spend_over(usage, window_days=_WEEKLY_WINDOW_DAYS, now=when)
+    spend_config = load_spend_config(config_root)
+    term = october_term_year(when.date())
+    term_start = datetime(term, 10, 1, tzinfo=UTC)
     return WeeklyProduction(
-        census=census,
-        spend_usd=spent,
-        backstop=verdict_over(usage, load_spend_config(config_root), now=when),
-        window_start=(when - timedelta(days=_WEEKLY_WINDOW_DAYS)).date(),
-        window_end=when.date(),
+        week=_produced_over(
+            usage, "Produced this week", window_days=_WEEKLY_WINDOW_DAYS, when=when
+        ),
+        month=_produced_over(
+            usage, "Produced this month", window_days=spend_config.window_days, when=when
+        ),
+        term=_produced_over(
+            usage,
+            "Produced this term",
+            window_days=(when.date() - term_start.date()).days,
+            when=when,
+            since=term_start,
+            term=term,
+        ),
+        backstop=verdict_over(usage, spend_config, now=when),
     )
 
 
@@ -7888,12 +7920,13 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     to stdout (the run-ops job's Actions step summary); ``--json`` writes the
     structured ``OpsReport``.
 
-    ``--digest-out`` renders the **weekly performance digest** — the health
-    questions, the committed boards' state with each empty one saying why it is
-    empty, the week's cells and measured spend, and the back-test results,
-    every metrics-derived figure carrying the vintage of the artifact it came
-    from. ``--digest-post-repo`` additionally opens it as a `weekly-digest`
-    issue, once per ISO week.
+    ``--digest-out`` renders the **weekly performance digest** — the cells and
+    measured spend produced over the week, the trailing month (closing with the
+    spend backstop's verdict) and the Term to date (closing with the forward
+    cells scored under the process in force), then the back-test results, each
+    back-test figure carrying the vintage of the artifact it came from.
+    ``post-weekly-digest`` is the separate command that opens it as a
+    `weekly-digest` issue, once per ISO week.
 
     Unlike the leaderboard/back-test roll-ups it is a point-in-time snapshot, so
     it is surfaced, not committed.

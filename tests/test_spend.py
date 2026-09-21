@@ -15,7 +15,8 @@ from pathlib import Path
 from fedcourtsai.config import SpendConfig
 from fedcourtsai.schemas import Engine, ModelUsage, UsageRole
 from fedcourtsai.serialize import write_json
-from fedcourtsai.spend import check_spend, trailing_spend
+from fedcourtsai.spend import check_spend, spend_over, trailing_spend
+from fedcourtsai.store import iter_usage
 
 NOW = datetime(2026, 7, 27, 12, 0, tzinfo=UTC)
 
@@ -134,3 +135,23 @@ def test_a_naive_created_at_is_read_as_utc(tmp_path: Path) -> None:
     )  # naive on purpose
     spent, cells = trailing_spend(tmp_path, window_days=30, now=NOW)
     assert (spent, cells) == (5.0, 1)
+
+
+def test_a_pinned_since_overrides_the_day_count_cutoff(tmp_path: Path) -> None:
+    """A window whose start is a calendar boundary cannot be counted back in days.
+
+    An October Term opens at midnight on 1 October while the weekly digest renders
+    mid-morning, so a cutoff taken as N days before the render lands at 08:30 on
+    1 October and drops the Term's own first morning out of its own census.
+    """
+    _usage(tmp_path, docket=1, cost=3.00, created_at=datetime(2025, 10, 1, 2, 0, tzinfo=UTC))
+    _usage(tmp_path, docket=2, cost=5.00, created_at=datetime(2025, 9, 30, 23, 0, tzinfo=UTC))
+    now = datetime(2026, 9, 21, 8, 30, tzinfo=UTC)
+
+    pinned = spend_over(
+        iter_usage(tmp_path), window_days=355, now=now, since=datetime(2025, 10, 1, tzinfo=UTC)
+    )
+    counted = spend_over(iter_usage(tmp_path), window_days=355, now=now)
+
+    assert pinned == (3.00, 1)
+    assert counted == (0.0, 0)

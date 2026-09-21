@@ -1375,18 +1375,24 @@ def recent_cell_census(
 
 
 def cell_census(
-    usage: Iterable[ModelUsage], *, window_days: int, now: datetime | None = None
+    usage: Iterable[ModelUsage],
+    *,
+    window_days: int,
+    now: datetime | None = None,
+    since: datetime | None = None,
 ) -> RecentCells:
-    """The cells among ``usage`` inside the trailing window, by role and stage.
+    """The cells among ``usage`` inside the window, by role and stage.
 
     Applies the same cutoff rule :func:`fedcourtsai.spend.spend_over` applies to
-    the very same records (a naive ``created_at`` reads as UTC), so the count and
-    the cost a digest reports describe exactly the same set of cells. The stage
-    comes off the moment register
+    the very same records (a naive ``created_at`` reads as UTC), ``since``
+    included, so the count and the cost a digest reports describe exactly the
+    same set of cells. The stage comes off the moment register
     (:func:`fedcourtsai.pipeline.moments.spec_for`) rather than the ledger, since
     a usage record names its event but not the standard governing it.
     """
-    cutoff = (now or datetime.now(UTC)) - timedelta(days=window_days)
+    cutoff = (
+        since if since is not None else (now or datetime.now(UTC)) - timedelta(days=window_days)
+    )
     counts: Counter[tuple[str, str]] = Counter()
     events: set[tuple[str, str]] = set()
     for record in usage:

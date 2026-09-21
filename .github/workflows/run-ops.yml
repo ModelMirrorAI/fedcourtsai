@@ -27,8 +27,8 @@ name: run-ops
 # The reading surfaces are digests a maintainer closes, not a standing body this
 # job edits in place: an unread digest is an open issue, so the backlog is
 # visible without a reading-state store. The Monday schedule opens the **weekly
-# performance digest** as its own `weekly-digest` issue — the health questions,
-# the committed boards' state, the week's cells and measured spend, and the
+# performance digest** as its own `weekly-digest` issue — the cells and measured
+# spend produced over the week, the trailing month and the Term to date, and the
 # back-test results, every metrics figure carrying its artifact's vintage. A
 # second job on the daily tick opens the **daily prediction-reading digest**:
 # one predicted event with every predictor side by side, on its own
@@ -49,10 +49,10 @@ on:
   schedule:
     - cron: "0 8 * * *" # after run-pull (07:17) so the day's runs are visible
     # The weekly tick: the same daily job, plus the weekly performance digest
-    # issue. Two steps are gated on this exact schedule string — the build
-    # step's WEEKLY_TICK env and the posting step's `if` — and a shape test
-    # pins both to a cron this block actually declares. Offset from the daily
-    # 08:00 so the two runs never race on the `ops-metrics` branch.
+    # issue. The posting step's `if` is gated on this exact schedule string,
+    # and a shape test pins it to a cron this block actually declares. Offset
+    # from the daily 08:00 so the two runs never race on the `ops-metrics`
+    # branch.
     - cron: "30 8 * * 1"
   workflow_dispatch:
 
@@ -120,8 +120,7 @@ jobs:
           # An open issue wearing a run:* fan-out label is a marker somebody left
           # behind: nothing keys on those labels, so it is queued work to no one
           # and the report says so rather than letting it read as a round in
-          # flight — the weekly digest carries the same signal as a health
-          # question. One gh call per label, merged; the tested
+          # flight. One gh call per label, merged; the tested
           # `summarize_trigger_issues` does the filtering/ordering.
           for label in run:predict run:evaluate; do
             gh_retry gh issue list --repo "$REPO" --label "$label" --state open --limit 100 \

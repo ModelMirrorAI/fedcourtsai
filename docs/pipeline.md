@@ -112,25 +112,30 @@ unread backlog.
 
 Four blocks, in the order a reader needs them:
 
-- **Health questions** — the fixed interrogative bullets (replay calibration,
-  forward cells scored, watchlist vs next conference, oldest stalled trigger,
-  spend vs budget): numbers as questions demanding a reaction. These carry the
-  ops report's un-vintaged framing, which is why the vintage rule below is
-  scoped to the two blocks that publish figures to quote.
-- **Analytics state** — what the committed boards hold. An empty one names the
-  condition that empties it — which cells the frozen headline ranks, and how
-  many have reached it — rather than showing a bare zero, and an artifact that
-  has never landed reads differently from one that landed empty. Plus the
-  statpack's two headline rates — stated with each one's own denominator, and
-  with the plain statement that **neither anchors a scored cell**: a forward
-  cert cell is scored against its own band's strictly-prior-Term risk-set rate,
-  and the pooled band rate is a fit diagnostic for the ranking constant rather
-  than a scoring baseline ([salience.md](salience.md)).
 - **Produced this week** — cells landed by role and stage, how many events they
   covered, and the week's measured spend, all over one window and one set of
-  `usage.json` records; then the spend backstop's own (longer) window and how
-  much of its ceiling the trailing period has consumed. An unenforced ceiling
-  says so instead of reporting a fraction of a budget that does not exist.
+  `usage.json` records. The window's bounds are in the heading: the Monday tick
+  titles its issue for the ISO week that *starts* that morning while the census
+  covers the seven days before it, so without them the block would describe the
+  previous week under this week's heading.
+- **Produced this month** — the same shape over the trailing window the ex-post
+  spend backstop is configured with, closing with that backstop's own verdict
+  and how much of its ceiling the period has consumed. The window is the
+  backstop's own precisely so the census and the verdict beside it cannot
+  describe different periods. An unenforced ceiling says so instead of reporting
+  a fraction of a budget that does not exist.
+- **Produced this term** — the same shape again over the October Term to date,
+  from the 1 October that Term opened to the day the digest is generated. The
+  cutoff is pinned to that instant rather than counted back in days, or a
+  mid-morning render would cut the Term's own first morning out of its census.
+  It closes with the forward cells scored under the process in force. That
+  count is cumulative over the whole ledger, not the Term's, with a delta
+  against the prior ops-metrics snapshot (a week when the dated snapshot
+  exists, shorter when the job fell back to the latest one); it sits in the
+  Term block because a forward cell is minted once at its event and never
+  again, so the Term is the period it is worth reading beside. A frozen scope
+  with nothing scored in either stratum is named as the shakedown state rather
+  than shown as a bare zero.
 - **Backtest results** — the historical replay **per court**, with each court's
   own always-deny floor beside its accuracy and the pooled row labelled as the
   mixture it is (`granted` means cert on a SCOTUS row and a motion granted on a
@@ -157,10 +162,12 @@ Four blocks, in the order a reader needs them:
   the number is in, because a caveat one bullet away does not travel when the
   line is quoted. A board with no entries says so and prints no floor.
 
-**In the analytics and back-test blocks, every figure carries the vintage of the
-artifact it came from.** None of those artifacts is refreshed on this schedule —
-a board is byte-stable and a statpack moves only when the corpus does — so a
-figure without its vintage would silently claim to be this week's. The vintage
+**In the back-test block, every figure carries the vintage of the artifact it
+came from.** None of those artifacts is refreshed on this schedule — a board is
+byte-stable, and the cert back-test moves only when a maintainer dispatches one —
+so a figure without its vintage would silently claim to be this week's. The
+production blocks need no vintage: they are computed from the committed ledger at
+render time. The vintage
 is the commit that last wrote the file, and a **shallow** checkout yields none:
 in a depth-1 clone the one grafted commit matches every path, so a pathspec'd
 `git log` would stamp every board with today's date — the exact misreading the

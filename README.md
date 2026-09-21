@@ -47,7 +47,8 @@ requests.
 Plus `run-ops` (a read-only daily operations report, plus two issues the maintainer
 closes once read: a daily prediction-reading digest — one predicted event with
 every predictor side by side — and a Monday performance digest carrying the
-week's cells, spend, board state, and back-test results) and
+cells and spend produced over the week, the trailing month and the Term to
+date, plus the back-test results) and
 `run-analytics` — seven dispatch modes: corpus statistics, the
 distribution-parse census, the document text-coverage enumeration, the
 tool-usage roll-up, the metrics refresh, the daily big-case board, and the
