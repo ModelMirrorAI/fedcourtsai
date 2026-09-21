@@ -4619,18 +4619,29 @@ class CertBacktestDispatch(_Strict):
     )
 
 
-class CertBacktestCellLoss(_Strict):
-    """One replayed cell that produced no readable prediction, and why.
+#: Why a replayed back-test cell produced no score. A named alias rather than an
+#: inline ``Literal`` because the replay code classifies a loss before it builds
+#: one, and a second spelling of the vocabulary is a second thing to keep in step.
+CertBacktestLossReason = Literal[
+    "missing", "wrote-outside-work-root", "invalid", "engine-failed", "quota-exhausted"
+]
 
-    A replay cell is a model call that was paid for; when the file the runner
-    reads back is missing or does not validate, the petition is simply absent
-    from that predictor's scores. Recording it keeps the absence legible: the
-    entry's own ``events_scored`` already differs, and this says which petitions
-    are behind the difference and what went wrong, rather than leaving a board
-    whose predictors were scored over silently unequal sets.
+
+class CertBacktestCellLoss(_Strict):
+    """One back-test cell that produced no score, and why.
+
+    A replay cell is a model call that was paid for; when it fails, or the file
+    the runner reads back is missing or does not validate, the petition is
+    simply absent from that predictor's scores. Recording it keeps the absence
+    legible: the entry's own ``events_scored`` already differs, and this says
+    which petitions are behind the difference and what went wrong, rather than
+    leaving a board whose predictors were scored over silently unequal sets. A
+    cell the campaign declined to attempt is recorded the same way and for the
+    same reason — it is absent from the scores either way.
 
     ``reason`` is a closed vocabulary, not prose — the run log carries the
-    detail (a validation error's text, the path that was read):
+    detail (a validation error's text, the path that was read, the engine's own
+    stderr):
 
     - ``missing`` — nothing readable at the cell's path under the replay's work
       root: the file is absent, or the filesystem refused it.
@@ -4639,11 +4650,21 @@ class CertBacktestCellLoss(_Strict):
       the prompt template's ``data/cases/...`` path instead of the work root it
       was given.
     - ``invalid`` — a file was there and is not a valid ``Prediction``.
+    - ``engine-failed`` — the engine CLI exited non-zero for the cell and wrote
+      nothing to read back: a deterministic fault, or a transient one that
+      outlasted the runner's retry budget.
+    - ``quota-exhausted`` — the engine's own quota is spent, so the cell failed
+      and no retry could have cleared it. Every later cell on that engine in
+      the same campaign carries this reason without being attempted, since the
+      attempt is a paid-for certainty of the same failure.
+
+    The last two are distinct because they say different things about the run:
+    one cell hit a fault, against one engine being finished for the day.
     """
 
     predictor_id: str = Field(description="The predictor whose cell was lost")
     case_id: str = Field(description="The petition the lost cell was replaying")
-    reason: Literal["missing", "wrote-outside-work-root", "invalid"] = Field(
+    reason: CertBacktestLossReason = Field(
         description="Why the cell produced no score, from the closed vocabulary above"
     )
 
@@ -4703,8 +4724,8 @@ class CertBacktestProvenance(_Strict):
         default_factory=list,
         description="Enabled predictors that produced no entry for a **run-time** "
         "reason, sorted: their engine had no registered runner, its CLI binary "
-        "turned out to be missing mid-run, or every one of its cells came back "
-        "unreadable (`lost_cells`). The ids carry no cause — the run log names "
+        "turned out to be missing mid-run, or every one of its cells was lost "
+        "(`lost_cells`). The ids carry no cause — the run log names "
         "which. The deliberate opt-out is "
         "`dispatch.skip_engines` instead. Recorded because a board silently short "
         "one engine is a different comparison from the three-engine one it looks "
@@ -4712,8 +4733,9 @@ class CertBacktestProvenance(_Strict):
     )
     lost_cells: list[CertBacktestCellLoss] = Field(
         default_factory=list,
-        description="Individual (petition, predictor) cells that ran and produced "
-        "no readable prediction, sorted. The per-cell counterpart of "
+        description="Individual (petition, predictor) cells that produced no "
+        "score, sorted — the cell failed, was declined once its engine's "
+        "quota was spent, or came back unreadable. The per-cell counterpart of "
         "`dropped_predictors`, which loses a predictor whole: a predictor short "
         "**some** of its cells is still on the board, scored over the petitions "
         "that did come back — so its `events_scored` is smaller than the set, "

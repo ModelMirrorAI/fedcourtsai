@@ -1213,17 +1213,40 @@ the rendered table) and
   `mean_brier_skill`, is scored against — it sits in no process digest, so
   without it here a per-band comparison across two reports is not one).
   `dropped_predictors` names the predictors lost at run time (no registered
-  runner, a missing CLI binary, or every one of its cells unreadable — the ids
+  runner, a missing CLI binary, or every one of its cells lost — the ids
   carry no cause, which the run log states) as against the deliberate
   `skip_engines` opt-out, since a board silently short one engine is not the
   three-engine comparison it looks like. `lost_cells` is the per-cell
-  counterpart: a (petition, predictor) cell that ran and produced no readable
-  prediction, with its reason (`missing`, `invalid`, or
-  `wrote-outside-work-root`). It is a reading rule, not bookkeeping — a
-  predictor short *some* cells is scored, and its lift floored, over the
-  petitions that came back, so its `events_scored` is below the set and its top
-  line is not measured over the same sample as an entry that lost none; one
-  short every cell has no entry at all and is in `dropped_predictors` instead.
+  counterpart: a (petition, predictor) cell that produced no score, with its
+  reason — `missing`, `invalid`, `wrote-outside-work-root` (the cell ran and
+  what came back was absent, malformed, or written outside the work root),
+  `engine-failed` (the engine exited non-zero for that cell), or
+  `quota-exhausted` (the engine's own quota was spent, so that cell failed and
+  the engine's remaining cells were recorded lost without being attempted,
+  every further invocation being a paid-for certainty of the same failure — so
+  exactly one of an engine's `quota-exhausted` cells was a model call and the
+  rest were not, which is why the count is a coverage figure and not an attempt
+  count). Read the two whole-predictor drops apart here: a predictor dropped
+  because its engine's quota ran out carries a `lost_cells` entry for every
+  petition, while one dropped for a missing CLI binary carries entries only for
+  the cells it had already lost — its remaining ones were never attempted and
+  are not counted as losses, so a shortfall with no entries behind it is that
+  case. It is a reading
+  rule, not bookkeeping — a predictor short *some* cells is scored, and its
+  lift floored, over the petitions that came back, so its `events_scored` is
+  below the set and its top line is not measured over the same sample as an
+  entry that lost none; one short every cell has no entry at all and is in
+  `dropped_predictors` instead. **A `quota-exhausted` truncation is not a
+  scattered subsample**: petitions are replayed in the dispatched order, and
+  once an engine's allowance trips every later cell of that engine is lost, so
+  what survives is the *prefix* of that order — under `--spread` the cohorts
+  the round-robin had already reached, otherwise the most recent decisions.
+  That is a differently composed slice, not merely a smaller one: its denial
+  share (so its floor), its band mix (so its `segment_base_rate` and per-band
+  skill) and the `provisioning` mix that applies to it all follow from the
+  prefix rather than from the dispatched population. `lost_cells` names the
+  case ids, so reconstruct the surviving set before reading such an entry's
+  numbers, and do not compare it with a full entry even as a listing.
   The board keeps a short entry below every full one whatever its lift —
   dropping a petition a predictor would have got wrong raises the figure — so
   `rank` orders comparably only within one `events_scored`, and the rows below

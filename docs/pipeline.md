@@ -1773,18 +1773,29 @@ cell, which lands on that ledger like any other. What bounds this lane is the
 fortnightly cadence, that pinned `--limit`, the manual hold, and the job's
 `timeout-minutes` — not `spend.ceiling_usd`.
 
-Such a campaign accounts for its losses rather than ending on one. Two run-time
-faults are absorbed: an engine whose CLI
-binary is missing drops that predictor whole, and a cell that ran and left no
-readable `prediction.json` where the runner reads it is a loss for that
-(petition, predictor) pair alone. Both are printed to the run log and both ride
-`metrics/cert-backtest.json` — the whole-predictor ones in
-`provenance.dropped_predictors`, the per-cell ones in `provenance.lost_cells`
-with the reason (`missing`, `invalid`, or `wrote-outside-work-root`) — because
-the run log expires and the artifact does not, and the review PR body names the
-per-cell losses outright. A predictor short some cells stays on the board scored
-over the petitions that came back, which is why the losses have to be readable
-beside its numbers; one short *every* cell leaves the board and is dropped. The
+Such a campaign accounts for its losses rather than ending on one, so a report
+always lands. An engine whose CLI binary is missing drops that predictor whole.
+A cell whose engine exited non-zero, and a cell that left no readable
+`prediction.json` where the runner reads it, are each a loss for that
+(petition, predictor) pair alone. An engine that reports its own allowance
+exhausted — a fault the runner classifies as terminal rather than retrying it
+through the backoff budget — has its remaining cells recorded as lost without
+being attempted: the engine is finished for this campaign, so every further
+invocation is a paid-for certainty of the same failure. That is where it parts
+company with a missing binary, which also drops its predictor for the rest of
+the run but skips the remaining cells **silently** — an engine that was never
+installed had no cells to lose, while one that ran out did, so those cells are
+named. All of
+them are printed to the run log and all ride `metrics/cert-backtest.json` — the
+whole-predictor ones in `provenance.dropped_predictors`, the per-cell ones in
+`provenance.lost_cells` with the reason (`missing`, `invalid`,
+`wrote-outside-work-root`, `engine-failed`, or `quota-exhausted`) — because the
+run log expires and the artifact does not, and the review PR body names the
+per-cell losses outright. An engine whose quota ran out is never reported as an
+unavailable binary: the two are different facts about the run. A predictor
+short some cells stays on the board scored over the petitions that came back,
+which is why the losses have to be readable beside its numbers; one short
+*every* cell leaves the board and is dropped. The
 engine cells are told their output directory absolutely whenever it is not the
 repository's `data/`: the kickoff the runner composes overrides the prompt
 template's repo-relative output path for every engine, so an engine has one

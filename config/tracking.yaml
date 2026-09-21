@@ -422,7 +422,10 @@ spend:
 # an HTTP 429 / quota-exceeded throttle, a 5xx upstream, a timeout, or a
 # serving-side dropped stream — is retried with exponential backoff and jitter;
 # a PERMANENT fault (content-filter trip, context-length blowout, auth error) is
-# a hard failure and never retried.
+# a hard failure and never retried. A TERMINAL quota sits on the permanent side
+# though it arrives throttle-shaped: an engine that says its own allowance is
+# spent (its message names that, where a plain 429 does not) fails after one
+# attempt, since no wait inside this budget can clear a spent allowance.
 # The transient/permanent split mirrors pull's is_transient classifier.
 runner:
   # Total attempts a transient-failing cell gets (1 = no retries). A 429/5xx that

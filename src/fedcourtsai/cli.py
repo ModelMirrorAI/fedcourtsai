@@ -5327,10 +5327,11 @@ def _report_replay_drops(
     one predictor short the petitions another was scored over — is a different
     comparison from the one it looks like. Three distinct losses, named apart
     rather than pooled, since they say different things about the run: an
-    engine whose CLI was missing, a predictor every one of whose cells came
-    back unreadable, and a predictor whose engine has no registered runner at
-    all. The deliberate `--skip-engines` opt-out is none of them and is
-    recorded on the dispatch instead.
+    engine whose CLI was missing, a predictor every one of whose cells was
+    lost (named apart again where the cause was its engine's spent quota), and
+    a predictor whose engine has no registered runner at all. The deliberate
+    `--skip-engines` opt-out is none of them and is recorded on the dispatch
+    instead.
 
     A predictor that lost only *some* of its cells is not dropped: it is on the
     board, scored over the petitions that came back, and its cells are in
@@ -5342,7 +5343,7 @@ def _report_replay_drops(
         # printed when it happened: a run whose losses scrolled past an hour of
         # cell output deserves both.
         typer.echo(
-            f"lost {len(outcome.lost_cells)} cell(s) that produced no readable prediction: "
+            f"lost {len(outcome.lost_cells)} cell(s) that produced no score: "
             + ", ".join(
                 f"{loss.predictor_id} on {loss.case_id} ({loss.reason})"
                 for loss in outcome.lost_cells
@@ -5362,9 +5363,16 @@ def _report_replay_drops(
     )
     for pid in sorted(lost_whole):
         dropped.append(pid)
-        typer.echo(
-            f"dropped predictor {pid}: every one of its cells came back unreadable", err=True
+        reasons = {loss.reason for loss in outcome.lost_cells if loss.predictor_id == pid}
+        # An engine that ran out of quota did not produce unreadable cells — most
+        # of them it never attempted — so the drop line says which of the two
+        # happened rather than defaulting to the artifact-shaped wording.
+        cause = (
+            "its engine's quota was exhausted"
+            if "quota-exhausted" in reasons
+            else "every one of its cells was lost"
         )
+        typer.echo(f"dropped predictor {pid}: {cause}", err=True)
     for predictor in roster:
         if (
             predictor.id not in replayed_ids
@@ -5521,7 +5529,7 @@ def cert_backtest_cmd(
         provisioning: dict[str, int] = {}  # empty unless an agentic replay ran
         replay_run_id: str | None = None  # null unless one did: baselines have no run
         dropped: list[str] = []  # predictors lost at run time, not opted out
-        lost_cells: list[CertBacktestCellLoss] = []  # cells that came back unreadable
+        lost_cells: list[CertBacktestCellLoss] = []  # cells that produced no score
         replayed: list[Backtester] = []  # the engine cells' backtesters, if any ran
         clock_days: dict[str, date] = {}  # each dated cell's cutoff; empty offline
         if engine:

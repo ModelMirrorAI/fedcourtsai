@@ -56,7 +56,15 @@ from .pipeline.outcome import (
     is_machine_readable,
     snapshot_shows_disposition,
 )
-from .pipeline.runner import AgenticRunner, EngineUnavailable, Runner, RunRequest, get_runner
+from .pipeline.runner import (
+    AgenticRunner,
+    EngineFailed,
+    EngineQuotaExhausted,
+    EngineUnavailable,
+    Runner,
+    RunRequest,
+    get_runner,
+)
 from .pipeline.salience import (
     SALIENCE_VERSION,
     salience_band,
@@ -70,6 +78,7 @@ from .schemas import (
     CertBacktestBigCase,
     CertBacktestCellLoss,
     CertBacktestEntry,
+    CertBacktestLossReason,
     CertBacktestProvenance,
     CertBacktestSegment,
     Disposition,
@@ -435,9 +444,10 @@ def replayable_items(
     front is what makes one report internally comparable: every backtester,
     offline baselines included, starts from the same kept set, and the caller
     can name what was skipped instead of failing the whole run on the first bare
-    row. A replayed predictor can still end up short of that set — a cell that
-    came back unreadable (:func:`_read_replayed_cell`) — which is why the entry
-    publishes its own ``events_scored`` and is floored over it.
+    row. A replayed predictor can still end up short of that set — a cell lost to
+    a failed engine, a spent quota or an unreadable artifact
+    (:func:`_replay_item_cells`) — which is why the entry publishes its own
+    ``events_scored`` and is floored over it.
     """
     kept: list[BacktestItem] = []
     skipped: list[str] = []
@@ -500,9 +510,11 @@ class ReplayOutcome:
     Three of the fields exist because a campaign that spends real money per
     cell must finish and account for itself rather than crash: ``unavailable``
     names the predictors whose engine binary went missing mid-run,
-    ``lost_cells`` the individual cells that ran and came back unreadable, and
-    ``provisioning`` the information-set mix the scores were produced over.
-    Everything there rides the report — stderr does not survive the runner.
+    ``lost_cells`` the individual cells that produced no score — the engine
+    failed, the engine's quota was spent, or what came back was unreadable,
+    each under its own reason — and ``provisioning`` the information-set mix
+    the scores were produced over. Everything there rides the report — stderr
+    does not survive the runner.
 
     ``clock_days`` maps each dated cell's case id to the cutoff day it was
     clocked on, and carries no entry for a blind cell. It is what puts the
@@ -528,6 +540,21 @@ class ReplayOutcome:
     clock_days: dict[str, date] = field(default_factory=dict)
 
 
+def _lost_cell(
+    predictor_id: str, case_id: str, reason: CertBacktestLossReason, detail: str
+) -> CertBacktestCellLoss:
+    """Record one lost cell on the report and name it on stderr as it happens.
+
+    Every loss is printed where it occurred rather than summarized at the end: a
+    long campaign can still die of something else, and a loss named when it
+    occurs is in the run log either way. The reason is the report's closed
+    vocabulary; ``detail`` is the part only the log carries — a validation
+    error's text, the path that was read, the engine's exit message.
+    """
+    print(f"lost cell {predictor_id} on {case_id} ({reason}): {detail}", file=sys.stderr)
+    return CertBacktestCellLoss(predictor_id=predictor_id, case_id=case_id, reason=reason)
+
+
 def _read_replayed_cell(
     cell_path: Path, ledger_cell_path: Path | None, *, predictor_id: str, case_id: str
 ) -> BacktestPrediction | CertBacktestCellLoss:
@@ -551,9 +578,7 @@ def _read_replayed_cell(
     provisioned, and scoring a file out of the ledger instead would make the
     board's inputs depend on which cells escaped into it.
 
-    Every loss is printed as it happens rather than summarized at the end: a
-    long campaign can still die of something else, and a loss named when it
-    occurs is in the run log either way.
+    The loss is printed as it happens by :func:`_lost_cell`.
     """
     reason: Literal["missing", "wrote-outside-work-root", "invalid"]
     try:
@@ -576,8 +601,7 @@ def _read_replayed_cell(
             cell.probability,
             big_case_score=cell.big_case_score,
         )
-    print(f"lost cell {predictor_id} on {case_id} ({reason}): {detail}", file=sys.stderr)
-    return CertBacktestCellLoss(predictor_id=predictor_id, case_id=case_id, reason=reason)
+    return _lost_cell(predictor_id, case_id, reason, detail)
 
 
 def _replay_item_cells(
@@ -586,7 +610,9 @@ def _replay_item_cells(
     stray_paths: EventPaths | None,
     *,
     case_id: str,
+    engines: Mapping[str, str],
     unavailable: set[str],
+    quota_exhausted: set[str],
     collected: dict[str, dict[str, BacktestPrediction]],
 ) -> list[CertBacktestCellLoss]:
     """Run one provisioned petition's cell on every routed predictor, and read it back.
@@ -594,16 +620,28 @@ def _replay_item_cells(
     ``cell`` is the shared contract for this petition — the case, the event, the
     run, the work root, and the replay clock — with the two per-cell slots
     (``actor_id``, ``prompt``) left open and filled from ``pairs`` as each
-    predictor's turn comes. Scored predictions land in ``collected`` and
-    predictors whose engine binary turns out to be missing land in
-    ``unavailable``; the cells that ran and came back unreadable are returned.
+    predictor's turn comes. Scored predictions land in ``collected``, predictors
+    whose engine binary turns out to be missing land in ``unavailable``, and
+    engines whose quota turns out to be spent land in ``quota_exhausted``
+    (keyed by the backend label in ``engines``, since the quota belongs to the
+    engine and not to the one predictor that happened to hit it); every cell
+    that produced no score is returned as a loss.
 
-    Both failure modes are absorbed rather than raised, and they are absorbed at
-    different widths: a missing CLI binary is a property of the engine, so it
-    drops that predictor from the rest of the campaign, while an unreadable
-    ``prediction.json`` is a property of this one cell and costs only this
-    petition. Neither ends a campaign that has already spent real money on the
-    cells behind it.
+    No run-time failure is raised, and they are absorbed at three different
+    widths, because they are facts about three different things. A missing CLI
+    binary is a property of the **engine**, so it drops that predictor from the
+    rest of the campaign. A spent quota is also a property of the engine, but a
+    different one: the engine is there and answering, so its remaining cells are
+    recorded as lost rather than silently dropped, and they are not attempted —
+    the engine is finished for this campaign, so every further invocation is a
+    paid-for certainty of the same failure. An engine failure on one cell, and
+    an unreadable ``prediction.json``, are properties of **this cell** and cost
+    only this petition — with one shape to read for what it is: a deterministic
+    fault that belongs to the engine rather than the cell (a rejected engine
+    login, say) fails every petition the same way, and shows up as one
+    ``engine-failed`` loss per petition rather than as one fact about the
+    engine. The count in ``lost_cells`` is what says so. None of them ends a
+    campaign that has already spent real money on the cells behind it.
 
     ``stray_paths`` is this event's directory under the repository ledger, for
     the misplaced-write probe in :func:`_read_replayed_cell`; ``None`` where
@@ -617,6 +655,20 @@ def _replay_item_cells(
     for predictor, engine_runner in pairs:
         if predictor.id in unavailable:
             continue  # this engine's binary was already found missing
+        engine = engines[predictor.id]
+        if engine in quota_exhausted:
+            # Not attempted, and said so: the cell is still absent from this
+            # predictor's scores, and a report that omitted it would show a
+            # shorter `events_scored` with nothing behind it.
+            losses.append(
+                _lost_cell(
+                    predictor.id,
+                    case_id,
+                    "quota-exhausted",
+                    f"{engine}'s quota was already exhausted in this campaign; not attempted",
+                )
+            )
+            continue
         request = replace(cell, actor_id=predictor.id, prompt=Path(predictor.prompt))
         try:
             engine_runner.run(request)
@@ -625,6 +677,21 @@ def _replay_item_cells(
             # from the whole replay rather than crash and lose the spend the
             # other engines already made. The caller reports the drop loudly.
             unavailable.add(predictor.id)
+            continue
+        except EngineQuotaExhausted as exc:
+            # Before the bare EngineFailed clause, which is this one's base
+            # class. The engine is finished for this campaign, so stop spending
+            # backoff on it — but it stays on the report under its own reason,
+            # because an engine that ran out of quota and one whose binary was
+            # never there are different facts about the run.
+            quota_exhausted.add(engine)
+            losses.append(_lost_cell(predictor.id, case_id, "quota-exhausted", str(exc)))
+            continue
+        except EngineFailed as exc:
+            # The cell failed and wrote nothing: one lost cell, exactly as an
+            # unreadable artifact is. Crashing here would strand the spend
+            # already made on every cell before it and produce no report at all.
+            losses.append(_lost_cell(predictor.id, case_id, "engine-failed", str(exc)))
             continue
         scored = _read_replayed_cell(
             request.event_paths.prediction(predictor.id, cell.run_id),
@@ -675,17 +742,24 @@ def replay_predictors(
     **unavailable** mid-run, the per-cell losses, the provisioning mix, and
     each dated cell's clock day.
 
-    Two run-time faults are absorbed rather than raised, for the same reason: a
+    Every run-time fault is absorbed rather than raised, for the same reason: a
     campaign that crashes strands the spend already made on every other cell and
     produces no report at all. An **unavailable** engine — the workflow installs
     every one, so this is a safety net for config drift (a missing CLI binary) —
-    drops that predictor whole. A cell whose ``prediction.json`` is missing or
-    does not validate is a loss for that (petition, predictor) pair alone
-    (:func:`_read_replayed_cell`): the predictor stays on the board, scored over
+    drops that predictor whole. A cell that failed on its engine, or whose
+    ``prediction.json`` is missing or does not validate, is a loss for that
+    (petition, predictor) pair alone (:func:`_replay_item_cells`,
+    :func:`_read_replayed_cell`): the predictor stays on the board, scored over
     the petitions that did come back, and the loss rides the report so the
-    smaller ``events_scored`` has a reason attached. Both are reported
-    **loudly** — the losses to stderr as they happen, and everything to the
-    caller. A real engine spends tokens per cell.
+    smaller ``events_scored`` has a reason attached. A **spent quota** reaches
+    forward like an unavailable binary does, but is accounted for unlike one:
+    once an engine says its allowance is exhausted, the rest of its cells are
+    recorded lost for that reason without being attempted — every further
+    invocation being a paid-for certainty of the same failure — where an
+    unavailable engine's remaining cells are skipped silently, having never
+    been the campaign's to lose. All of them are reported **loudly** — the losses to stderr
+    as they happen, and everything to the caller. A real engine spends tokens
+    per cell.
     Callers filter the set through :func:`replayable_items` first; a petition
     with no snapshot or petition event here is an internal-invariant error.
 
@@ -703,7 +777,15 @@ def replay_predictors(
     ran_on: dict[str, tuple[str, str | None]] = {
         p.id: (engine_override or str(p.engine), replay_model(runner)) for p, runner in pairs
     }
+    # The backend each predictor is actually routed through, which under
+    # `engine_override` is the override rather than the registry entry — the
+    # same resolution `ran_on` records, and the key a spent quota belongs to.
+    engines = {pid: backend for pid, (backend, _) in ran_on.items()}
     unavailable: set[str] = set()
+    # Engines whose quota this campaign has already seen spent. Kept beside
+    # `unavailable` and never merged into it: a missing binary and an exhausted
+    # allowance are different facts, and the report says which.
+    quota_exhausted: set[str] = set()
     lost: list[CertBacktestCellLoss] = []
     # The repository ledger, for the stray-write probe only (see
     # :func:`_read_replayed_cell`). None where the replay is writing into the
@@ -865,17 +947,19 @@ def replay_predictors(
                 ),
                 ledger_paths.event(event.event_id) if ledger_paths is not None else None,
                 case_id=item.features.case_id,
+                engines=engines,
                 unavailable=unavailable,
+                quota_exhausted=quota_exhausted,
                 collected=collected,
             )
         )
     backtesters: list[Backtester] = [
         ReplayedBacktester(id=pid, predictions=preds, engine=ran_on[pid][0], model=ran_on[pid][1])
         for pid, preds in collected.items()
-        # `preds`: a predictor every one of whose cells came back unreadable has
-        # nothing to be scored over, so it leaves the board entirely rather than
-        # appearing at an accuracy of zero over zero petitions. Its cells are on
-        # the report as losses, and the caller names it as dropped.
+        # `preds`: a predictor every one of whose cells was lost has nothing to
+        # be scored over, so it leaves the board entirely rather than appearing
+        # at an accuracy of zero over zero petitions. Its cells are on the
+        # report as losses, and the caller names it as dropped.
         if pid not in unavailable and preds
     ]
     return ReplayOutcome(
@@ -1031,9 +1115,9 @@ def _big_case_distribution(scores: list[float]) -> CertBacktestBigCase | None:
 def _predicted(backtester: Backtester, item: BacktestItem) -> BacktestPrediction | None:
     """This backtester's forecast for one petition, or ``None`` where it has none.
 
-    Only a replayed backtester can be short a petition — a cell that ran and
-    came back unreadable (:func:`_read_replayed_cell`) — and it is then scored
-    over what did come back rather than over a guess in place of it. The offline
+    Only a replayed backtester can be short a petition — a lost cell
+    (:func:`_replay_item_cells`) — and it is then scored over what did come
+    back rather than over a guess in place of it. The offline
     reference baselines are pure functions of the features and always answer.
     """
     if isinstance(backtester, ReplayedBacktester):

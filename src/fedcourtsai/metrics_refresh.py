@@ -382,9 +382,9 @@ def granted_in_set(report: CertBacktest) -> int | None:
 def _backtest_losses_line(report: CertBacktest) -> str:
     """The PR body's per-cell loss line, empty where nothing was lost.
 
-    A cell that ran and came back unreadable leaves its predictor scored over
-    fewer petitions than the set, which is invisible in a top line and decisive
-    for reading one — so the review PR says it outright rather than leaving it
+    A lost cell leaves its predictor scored over fewer petitions than the set,
+    which is invisible in a top line and decisive for reading one — so the
+    review PR says it outright rather than leaving it
     to whoever opens the report's `provenance` block. Grouped by predictor,
     because "which predictor is short, and by how much" is the question the
     line exists to answer.
@@ -399,7 +399,8 @@ def _backtest_losses_line(report: CertBacktest) -> str:
         f"`{predictor}` — {', '.join(cells)}" for predictor, cells in sorted(by_predictor.items())
     )
     return (
-        f"- **{len(losses)} cell(s) lost** (ran, no readable prediction): {named}. "
+        f"- **{len(losses)} cell(s) lost** (no score — unreadable, failed, or "
+        f"not attempted after a spent quota): {named}. "
         "A predictor short some of its cells is scored over the petitions that "
         "came back, so its `events_scored` is below the set and its lift is "
         "floored over that subset — not the same measurement as a full entry, "
