@@ -2140,6 +2140,39 @@ cell while this ratio stayed silent, and only the capture rate climbing back
 toward 1.0 would show it. The ratio is there because this is a standing
 condition rather than a per-run event.
 
+The same walk writes a third note, and this one is about the **guaranteed-common
+input** rather than about a channel: which of the run's cells **reached outside**
+the provisioned `record/documents/` set for a court filing, how many such calls
+the run carries in all, and — against each actor's own legible-cell denominator
+— how many of that actor's cells did it. The provisioned document set is
+what every predictor in a fan-out is guaranteed to share, so where it is short a
+brief, a cell that reaches past the record and pulls the document and a cell
+that does not have not formed their numbers over the same information — and the
+fan-out that puts those numbers side by side still reads as one comparison. The
+fetch marks the cell's retrieval log and nothing else, so without the note the
+split disappears with the run. It is a **record, not a finding**: retrieval is
+not fenced, a forward cell may retrieve without restriction, and a predictor
+that recovers a brief the pipeline failed to provision is doing the work well —
+what moves is comparability, which is why the note splits the cells by actor —
+each against its own denominator, in actor order rather than sorted by count,
+since this is the one cut that must not read as a ranking — and stops at the
+observation. It is a **reach, not an acquisition**: the row is the call, and
+whether anything came back is `result_status`'s business, so a refused fetch
+counts and moved no information set. Nothing scores or stratifies
+on it. Like the throttle and prior-availability notes it stays silent where no cell
+fetched, and unlike them it stays off the facts-only PR of a wholesale-failed run, which produced no
+predictions for a comparability record to qualify. Read the counts as an
+**engine-shaped floor** with four known holes: a call that left no row, a filing
+URL past a row's query cut, a hosted web search carrying a bare URL (not counted,
+since a search is not a fetch), and a fetch tool called with a prompt beside its
+URL, whose query slice keeps the prompt and so leaves the whole channel
+unmatchable. An engine that reaches through its shell is legible where one
+reaching through a prompted fetch tool is not, the holes do not share a sign, and
+the split between actors is therefore not a behavioural difference between
+engines. A log of this run that could not be parsed at all is carried as its own
+count rather than read as a cell that reached for nothing
+(`self_provisioned_fetches` in [predicted-artifacts.md](predicted-artifacts.md)).
+
 A further note — on **predict** rounds only, since an evaluation carries no
 such field — turns the same lens on the run's **own output**: how many of this
 round's predictions landed with no `big_case_score`, and whose. The stakes read
@@ -2169,7 +2202,7 @@ deliberately free of anything an agent wrote. `stamp-cell` says the same thing
 per cell as it stamps, one `::warning::` in the cell's own log; this is the
 run-level roll-up of it.
 
-Unlike the two retrieval notes above, the census also reaches the collect job's
+Unlike the three retrieval notes above, the census also reaches the collect job's
 Actions summary, because a round that dropped its reads is otherwise legible
 only by opening cells — and it gets there on the **same terms as the flag
 roll-up**, not on weaker ones. Its prose is harness-rendered, but the cells and

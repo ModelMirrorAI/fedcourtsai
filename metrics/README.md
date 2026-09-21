@@ -2181,6 +2181,56 @@ that made no manifest call, so a ledger-wide cut pools stretches with
 categorically different coverage. Read a per-engine throttle number as scoped
 to the logs that could express one.
 
+**What may be claimed from `self_provisioned_fetches`: a comparison drawn by
+hand over the cells the run names, never a published number.** The log's third
+summary counts the calls through which a cell **reached outside** the
+provisioned `record/documents/` set for a court filing
+([predicted-artifacts.md](../docs/predicted-artifacts.md)), and the run PR's
+per-run note names those cells. Both are a **record** placed ahead of any use
+of it. No figure on any board reads the field: no stratum keys on it, no score
+is adjusted by it, and no cell is excluded or caveated because of it. That is
+deliberate rather than an omission: caveating or stratifying a scored board on
+self-provisioning changes what the boards claim, so it is pre-registered work —
+a dated entry in [freeze-record.md](../docs/freeze-record.md) before any figure
+moves — and the record exists first so that decision is made against evidence
+rather than an intuition. The one claim the counts support is *these cells
+**reached for** filing text the fan-out did not guarantee every cell*, which
+qualifies a comparison a reader draws by hand and no published number, because
+none is defined to depend on it. Four limits bind even that reading.
+
+It is a **reach, not an acquisition**. The row is the call; whether anything
+came back is `result_status`'s business, and on a shell row that is the
+engine's own failure marker rather than a read of the payload. A refused fetch
+counts and moved no information set, so condition on `result_status` before
+reading any count as text a cell actually got — on the committed ledger that
+distinction moves one engine's cell count by more than a third.
+
+It does **not** say the record was **short** what was fetched — the manifest
+that could say so is thrown away with the runner — so it counts recovery and
+re-fetch alike.
+
+It is a floor with **four** known holes, not one: a call that left no row, a
+URL past the row's 500-character query cut, a hosted web search carrying a bare
+filing URL (deliberately excluded, since a search is not a fetch and such a row
+captures no result either way), and a fetch tool called with a prompt beside
+its URL, whose query slice keeps the prompt and so leaves nothing to match.
+None of them is measurable from the rows, so the residual cannot be signed:
+the third hole cuts against one engine and the fourth against another.
+
+And the floor is **engine-shaped**, which is adjacent to the throttle
+denominator's unevenness rather than the same thing — and the difference
+decides what a reader may do about it. Throttle coverage is a *denominator*
+problem, so its remedy is to scope the figure to the logs that could express
+one. This is a *numerator* problem: what a reach leaves in a query slice
+depends on how an engine spells its tools, and there is no per-engine subset
+that could express it, so no scoping recovers a comparable figure. The
+per-actor split is therefore **not** a behavioural difference between engines
+and must not be differenced, ranked, or read as one — which is why the note
+renders it in actor order with each actor's own denominator rather than sorted
+by count. The by-hand comparison it supports runs over the cells the note
+**names**, and that list is capped, so on a wide run the remainder is countable
+but not nameable.
+
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`,
 `salience-replay.json`) are **iteration

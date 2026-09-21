@@ -83,11 +83,17 @@ blinded number depends on naming them:
   which pass the mask untouched. The marker is kept regardless, because
   dropping it makes every uncaptured call read as one that returned nothing —
   a leakage grade wrong in a known direction, which is the worse of the two
-  harms. Call *provenance* is the case where that trade reverses and the field
-  is dropped instead: one engine reaches its manifest tools from inside a
-  freeform call, so a row marked as lifted from such a call's source names the
-  engine outright, and the grading loses nothing by not seeing it
-  (:func:`mask_retrieval_log`).
+  harms. Two fields are the case where that trade reverses and the value is
+  dropped instead, both for the same reason — the grading needs neither, and
+  each is engine-shaped. Call *provenance*: one engine reaches its manifest
+  tools from inside a freeform call, so a row marked as lifted from such a
+  call's source names the engine outright. And the log-level count of
+  **filing fetches**, which is engine-shaped by construction rather than by
+  behaviour: what a fetch leaves in a query slice depends on how an engine
+  spells its tools, so an engine that pulls filings through its shell scores
+  above one that pulls the same filings through a prompted fetch tool. The
+  grader reads the rows, so nothing in the grading depends on the summary over
+  them (:func:`mask_retrieval_log`).
 - **A query slice is not respelled, and a freeform call's slice is program
   text.** The mask rewrites each call's ``tool`` and leaves ``query`` alone,
   which the grading needs — but the engine that reaches its manifest tools from
@@ -513,8 +519,20 @@ def mask_retrieval_log(
     recompute them, since the staged rate and count would otherwise summarize
     rows the grader cannot see.
 
-    ``call_source`` is **dropped**, and it is the one field here that is, because
-    the trade above runs the other way for it. It names the transcript shape a
+    The log-level ``self_provisioned_fetches`` is **dropped**, because the trade
+    above runs the other way for it. It is a count of the calls through which the
+    cell fetched a court filing from outside its provisioned document set, and it
+    is engine-shaped by construction rather than by behaviour: what a fetch
+    leaves in a query slice depends on how an engine spells its tools, so a
+    shell-pulling engine scores above one using a prompted fetch tool over
+    identical work. Unlike the capture markers there is nothing to weigh against
+    that, because the grading reads the *rows* and no part of it reads a summary
+    over them — the rows themselves stay, respelled like any other. Dropping it
+    also keeps the staged file's field set exactly what it was, so the surface a
+    grader reads does not move. A dropped value reads as the same
+    never-counted null a pre-field record carries.
+
+    ``call_source`` is **dropped** for the same reason. It names the transcript shape a
     row was read from, and only one engine's transcript has that shape, so it
     identifies the candidate about as directly as the raw tool vocabulary the
     respelling exists to remove. Nothing in the grading needs it — a lifted row
@@ -528,6 +546,7 @@ def mask_retrieval_log(
         raise BlindingError("retrieval_log.json does not decode to a JSON object")
     masked["actor_id"] = alias
     masked["engine"] = None
+    masked.pop("self_provisioned_fetches", None)
     calls = masked.get("calls")
     if isinstance(calls, list):
         for call in calls:

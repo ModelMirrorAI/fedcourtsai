@@ -563,6 +563,50 @@ directory without knowing which part is which invites trusting the wrong half.
   Both reach an evaluator's information set unmasked, which is
   recorded as a masking-surface entry in
   [freeze-record.md](freeze-record.md).
+  `self_provisioned_fetches` is the log's third summary and the one about the
+  *guaranteed-common input*: how many of its calls **reached outside** the
+  provisioned `record/documents/` set for a **court filing** — a row carrying a
+  filing-document URL (the Court's own `DocketPDF` tree, or RECAP's document
+  store) through a tool that could have fetched with it — a dedicated fetch
+  tool, or a **manifest** tool, on their own; a shell call only where its
+  command names an HTTP client; and never a search, in either the engine's
+  vocabulary or the manifest's. The provisioned
+  document set is what every predictor in a fan-out is guaranteed to share, so
+  a cell that repairs a gap in it by live fetch and a cell that cannot have not
+  reasoned from one information set — and nothing else records the split, since
+  the fetch marks the log and not the prediction. A **record only**: no score,
+  board or metric reads it. It is a **reach, not an acquisition** — the row is
+  the call, and whether anything came back is `result_status`'s business, which
+  on a shell row is the engine's own failure marker rather than a read of the
+  payload, so a refused fetch counts and moved no information set. It does not
+  say the record was short what was fetched either, because the manifest that could say so is thrown away with the
+  runner and names document *kinds* where a row names a URL, so a re-fetch of a
+  provisioned filing counts the same as a recovery; read a non-zero count
+  beside the cell's own `flags.json`, which is where a predictor that noticed a
+  gap says so. A floor with four known holes, and an **engine-shaped**
+  one, which binds exactly where the reading is a comparison: a call that left
+  no row is absent, a URL past the row's query cut is unseen, a hosted web
+  search carrying a bare URL is not a fetch, and a fetch tool called with a
+  prompt beside its URL keeps the *prompt* in its query slice and so leaves that
+  whole channel unmatchable. The holes do not share a sign, so the residual
+  cannot be signed either. That fourth hole is a **capture** choice rather than
+  a limit of the predicate: a row's query slice is cut from the first params
+  key capture finds, and `prompt` sits ahead of `url` in that order, so the
+  slice keeps the instruction the cell wrote instead of the address it asked
+  for. Reversing the pair would make the channel legible and would cost the
+  leakage grading the prompt text it reads a fetch's *intent* from, which is
+  the trade, and it is not taken here. Excluded on other
+  grounds are the tools that can only have written the URL down — a file write,
+  read or search — and a shell row naming no HTTP client, which is what a patch
+  applying the cell's own note about a *failed* fetch looks like. Unlike the two
+  summaries above it is **baked at capture** and never re-derived, so a committed
+  log reads back exactly as written; a null is unasked rather than zero. It is
+  also the second field the blinding mask **drops** rather than staging, beside
+  `call_source` and for the same reason: what a fetch leaves in a query slice
+  depends on how an engine spells its tools, so the count is engine-shaped by
+  construction, and the grading reads the rows rather than any summary over
+  them. So it never reaches an evaluator, and the staged file's field set is
+  exactly what it was.
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
   One path removes a committed one: the `include-failed-attempts` widening on
