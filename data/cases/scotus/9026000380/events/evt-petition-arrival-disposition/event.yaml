@@ -1,0 +1,13 @@
+case_id: scotus/9026000380
+decision_target: disposition
+description: "Disposition of the petition, forecast at docketing \u2014 before any\
+  \ distribution or docket-acquired signal exists."
+docket_entry_id: null
+event_id: evt-petition-arrival-disposition
+kind: petition
+moment: arrival
+opened_at: '2026-09-21'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Donald J. Trump, President of the United States, et al. v. Badar Khan Suri
