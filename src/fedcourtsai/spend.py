@@ -23,6 +23,25 @@ Two properties worth stating, because they bound what this can promise:
 - **It is deliberately blunt.** It does not attribute, forecast, or pro-rate; it
   is the control that holds when a *different* control has failed, which is the
   one job it has to do reliably.
+
+A breach defers rather than destroys, but deferral is not free. Two
+consequences are worth stating here, because neither is visible in the verdict:
+
+- **A deferred forward cell can lose its stratum.** Whether a cell is
+  ``forward`` or ``retrospective`` is decided by its harness clock against the
+  outcome's ``resolved_at`` (:func:`fedcourtsai.integrity.classify_stratum`),
+  so a cell deferred past its event's resolution re-mints as a *retrospective*
+  cell — still worth having, since retrospective cells measure calibration and
+  label-mapping fit, but never evidence of forecasting skill, which only the
+  forward stratum carries (``metrics/README.md``, *Forward vs retrospective*).
+  The work is recoverable; the claim is not.
+- **Every committed campaign draws on this same ceiling.** The window sums the
+  whole committed ledger (:func:`fedcourtsai.store.iter_usage` walks every
+  ``usage.json`` under ``data/cases``), so a re-forecast or re-grade campaign
+  competes with the scheduled lanes for the same dollars rather than carrying a
+  budget of its own. The back-test's replay is the one exception, and only
+  because it writes to a scratch tree instead of ``data/`` — which makes its
+  spend invisible here rather than exempt.
 """
 
 from __future__ import annotations

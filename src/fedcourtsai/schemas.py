@@ -1841,7 +1841,7 @@ class ModelUsage(_Strict):
     ``input_tokens`` is fresh input, with cached reads and cache writes counted
     separately so ``estimated_cost_usd`` can apply the right rate to each (see
     ``fedcourtsai.pricing``). Summing these across runs replaces the planning
-    assumption in ``docs/budget.md`` with a measured \\$/run.
+    assumption with a measured \\$/run.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -1865,7 +1865,7 @@ class ModelUsage(_Strict):
     cache_read_input_tokens: int = Field(default=0, ge=0, description="Input served from cache")
     cache_creation_input_tokens: int = Field(default=0, ge=0, description="Input written to cache")
     estimated_cost_usd: float = Field(
-        ge=0.0, description="On-demand USD estimate from the budget-doc rates"
+        ge=0.0, description="On-demand USD estimate from the rates in fedcourtsai.pricing"
     )
 
 
@@ -4666,8 +4666,8 @@ class CostEstimate(_Strict):
     rate; model cost is the recorded usage ledger, both cumulatively and projected
     to 30 days from the ledger's own span; fixed monthly captures the infra not
     metered per run (CourtListener membership, S3). All figures are estimates
-    against the rates in ``docs/budget.md`` — check the provider billing dashboards
-    for ground truth.
+    against the rates in ``fedcourtsai.pricing`` and ``fedcourtsai.ops`` — check
+    the provider billing dashboards for ground truth.
 
     The model projection averages the ledger's full span, first record to last.
     A trailing idle tail (a paused tournament, an exhausted cap) falls outside

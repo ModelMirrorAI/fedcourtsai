@@ -91,7 +91,8 @@ _FAILURE_CONCLUSIONS = frozenset({"failure", "timed_out", "cancelled", "startup_
 # hiding it or letting a reader take it for breakage.
 _GATE_WORKFLOWS = frozenset({"promote"})
 
-# Cost constants, kept in sync with docs/budget.md (the single source for rates).
+# Cost constants — the source for this report's non-inference lines (the model
+# rates it applies live in `fedcourtsai.pricing`).
 # GitHub Actions standard runners are free on a public repository, so the
 # per-minute rate is zero; minutes are still tracked as a runtime-health
 # signal. Set a real rate here if the repo ever goes private or moves to
@@ -104,7 +105,8 @@ _ACTIONS_USD_PER_MINUTE = 0.0
 # The S3 line is dominated by internet egress, not storage — GitHub runners are
 # Azure-hosted, so the scan-shaped writers' recurring full index pulls (~250-300
 # GB/mo at today's ~1 GB blob) carry it just past the free tier. It scales with
-# the blob, so revisit this alongside `docs/budget.md` when the index grows.
+# the blob, so revisit this alongside `docs/data-pipeline.md`'s storage-class
+# passage when the index grows.
 _FIXED_MONTHLY_USD = 115.0
 _DAYS_PER_MONTH = 30.0
 
@@ -2417,8 +2419,9 @@ def render_markdown(report: OpsReport) -> str:
         f"{'—' if ce.window_days is None else f'{ce.window_days:g}d'} of run history) · "
         f"fixed ${ce.fixed_monthly_usd:,.0f}/mo.",
         "",
-        "> Rough estimate at the `docs/budget.md` rates (Actions from run durations, "
-        + "no billing-API access); check the provider billing dashboards for ground truth. "
+        "> Rough estimate at the rates in `fedcourtsai.pricing` and this module "
+        + "(Actions from run durations, no billing-API access); check the provider "
+        + "billing dashboards for ground truth. "
         + "The model rate averages the usage ledger's **full span**, first record to "
         + "last — a trailing pause does not deflate it, but an interior gap or a "
         + "low-volume early era does, so it trends toward a lifetime average as "

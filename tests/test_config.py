@@ -209,8 +209,9 @@ def test_repo_tracking_yaml_arms_the_spend_backstop() -> None:
     The one control that reads measured spend rather than bounding a single
     run: sized to sit above every legitimate month and within days of a
     runaway burst — a mis-set capacity knob minting whole cohorts — per the
-    derivation in docs/budget.md. A silent edit re-sizes the program's
-    worst-case spend, so it fails a test the way the salience capacities do.
+    derivation the `spend` section of ``config/tracking.yaml`` carries. A silent
+    edit re-sizes the program's worst-case spend, so it fails a test the way the
+    salience capacities do.
     """
     cfg = load_spend_config(Path("config"))
     assert cfg.ceiling_usd == 2500.0

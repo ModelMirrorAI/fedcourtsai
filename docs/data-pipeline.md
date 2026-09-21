@@ -58,11 +58,11 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
 
 ## The binding constraint: the CourtListener API budget
 
-CourtListener's REST API is throttled per token (see [budget.md](budget.md)
-for the held tier); the in-process governor (`courtlistener/ratelimit.py`)
-throttles to whatever ceilings the prod environment sets
-(`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD`). At roughly **3 requests per
-docket** the budget is a few hundred dockets a day at most — and the
+CourtListener's REST API is throttled per token (see
+[data-sources.md](data-sources.md) for the held tier); the in-process governor
+(`courtlistener/ratelimit.py`) throttles to whatever ceilings the prod
+environment sets (`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD`). At roughly
+**3 requests per docket** the budget is a few hundred dockets a day at most — and the
 supremecourt.gov live channel spends none of it.
 
 Because pull runs headless inside a CI job, budget pressure and a degraded
@@ -276,8 +276,11 @@ write-once discipline — and it holds only for as long as no object is ever
 collected. Reclaiming the tail would buy storage by making old commits
 unresolvable, which is the one thing the corpus is committed against.
 
-Cost is therefore managed by **storage class, not deletion**. A bucket lifecycle
-rule transitions objects under the index prefix to **S3 Glacier Instant
+Cost is therefore managed by **storage class, not deletion**. Keeping every
+version is the one cost line with no asymptote: the Standard-resident window is a
+constant, but the Glacier IR tail grows with the archive — at today's blob size,
+a couple of dollars a month more for each further month of history. A bucket
+lifecycle rule transitions objects under the index prefix to **S3 Glacier Instant
 Retrieval** 30 days after creation:
 
 ```json
@@ -692,8 +695,8 @@ than the live channel's, and to two on a case neither route resolves. So
 reaches its opinion, and ≈520 a Term bounds a
 Term's new grants, against the held
 Tier-4 ceiling of 1,400/day of which the four daily pull windows commit ≈360
-(30 dockets × ~3 requests × 4 windows — see [`config/tracking.yaml`](../config/tracking.yaml)
-and [budget.md](budget.md)). `--max-cases`
+(30 dockets × ~3 requests × 4 windows — see
+[`config/tracking.yaml`](../config/tracking.yaml)). `--max-cases`
 (default 50, ≈two-thirds of the 300/hr ceiling at four requests a case) bounds one
 run's spend ahead of the client's own governor, so the
 pace is the operator's choice rather than a race with the pull rotation — and

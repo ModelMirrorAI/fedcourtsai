@@ -738,7 +738,7 @@ The **scheduled canary** is the one exception to "by who may dispatch": it runs
 unattended. It is also the one engine spend that lands on `prod`'s keys without
 a human act, because a schedule runs from the default branch and the branch
 resolution then binds `prod`. That is bounded rather than open-ended — three
-boot probes a day, sized and stated in [budget.md](budget.md) — and it is
+boot probes a day — and it is
 bounded by construction rather than by trust: the canary's legs come from the
 same suite literal the promotion gate requires, it can start no other scenario,
 and a schedule reaches no branch but `main`, so changing what it spends is a

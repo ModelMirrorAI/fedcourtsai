@@ -19,8 +19,11 @@ merits event, and that event is forecastable on its own terms — no salience
 score, no rank, and no reserve, because the case was already selected once as a
 petition and the grant cohort is self-limiting at the Court's own volume. The
 gate below governs which *petitions* and which *applications* earn cells; the
-merits cell rides the grant. Its cost is priced in [budget.md](budget.md) and
-its scoring contract in [decision-model.md](decision-model.md).
+merits cell rides the grant. Its per-cell cost rides the same rate table as a
+cert cell's, which conditions on seam and engine rather than on the moment — the
+~+$1.2-an-event merits separation sits in that table's caveats
+(`src/fedcourtsai/cli.py`) — and its scoring contract is in
+[decision-model.md](decision-model.md).
 
 ## Why salience
 
@@ -1212,16 +1215,16 @@ past Term inherits. What the numbers may and may not be read as:
 ## Capacity `N` — the funding knob
 
 `N` is the parameter that scales *how many events* are forecast, and the mechanism
-the budget's "more funding = more cases" equation and the milestones' funding
-milestone both hang on. It is one of two dials on inference cost — the registry
+the budget's "more funding = more cases" equation and the milestones' scaling
+plan both hang on. It is one of two dials on inference cost — the registry
 size `P` sets what one event costs, and takes over once `N` reaches full
 paid-gate coverage ([budget.md](budget.md)). It is a **per-conference** config
 value, and raising it **deepens the
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
-sized to the **bootstrapping** budget — the flagship three-engine release fits the
-~$18.5K envelope: ≈$13K inference at the $15 planning rate with the active
-scorer's arrival cohort included (~$11.1–11.5K for the escalation program alone) — **12
-per regular conference and 24
+sized to the **bootstrapping** budget — the flagship three-engine release, with the
+active scorer's arrival cohort included, fits inside that scenario's $24K/yr
+model-spend envelope at the $15–17 per fully predicted event
+([budget.md](budget.md)) — **12 per regular conference and 24
 for the long conference** (double, because that one cohort clears the summer
 backlog at once). The caps are sized to **bind**, and the gate replay at this
 capacity (`metrics/salience-replay.json`, sal-v1, OT2022–24) measures that they
@@ -1237,8 +1240,7 @@ could select them — leaving selectable denominators of 86/102/88: recall of
 the *selectable* outcomes is 0.80–0.84, and 0.944–0.967 is the achievable
 ceiling at any capacity (the prior committed replay, at the then-shipped
 150/200 caps on this same pool, measured exactly that ceiling), with the
-carve-outs supplying most of the grant coverage
-([budget.md](budget.md) works the decomposition). A per-conference cap
+carve-outs supplying most of the grant coverage. A per-conference cap
 matches the Court's cadence and scopes replay to one conference's candidate pool;
 the long conference carries a larger `N` so a flat cap does not under-serve it. At
 the top of the same dial, `N` = "every eligible event" makes salience purely the
@@ -1716,7 +1718,7 @@ exceeds it — at the shipped capacity a full reserve leaves a rank fill of 7,
 far below the ~37–38-petition mean replay-reconstructable cohort, so a full
 reserve would displace a pick at essentially every capacity-bound conference;
 the displacement *frequency* itself is unmeasured, because the gate replay
-runs with no reserve occupancy ([budget.md](budget.md)). An
+runs with no reserve occupancy. An
 unfilled reserve lowers nothing. Where it does bite, it bites prospectively, pass by
 pass: a cohort whose rank fill latched *before* a slot was occupied keeps its
 sticky picks, and an application queued in the fail-open window before its
@@ -2033,7 +2035,7 @@ the posture below keeps selection additive and never destructive:
   replay ranks — the mean replay-reconstructable conference cohort runs ~37–38
   petitions — and the gate replay at this capacity measures the cap binding
   **29 of each Term's 33–36 reconstructable first-distribution cohorts** across
-  OT2022–24 (`metrics/salience-replay.json`; [budget.md](budget.md)); carve-outs ride
+  OT2022–24 (`metrics/salience-replay.json`); carve-outs ride
   above `N` untouched, the interim reserve's slots in use trade inside it, and
   the cert rank fill is what remains. The Tier-0 IFP filter shapes that pool too,
   and it is larger than it sounds — measured on the accumulating OT2026

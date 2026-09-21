@@ -5955,9 +5955,9 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     Reads token counts from the engine's own log (``--claude-execution-file``,
     ``--codex-sessions-dir``, or ``--gemini-telemetry-file``) or from the explicit
     ``--*-tokens`` overrides,
-    applies the central rates in ``fedcourtsai.pricing`` (kept in sync with
-    ``docs/budget.md``), and writes the validated artifact next to the run's
-    prediction or evaluation output. Best-effort: exits non-zero without writing
+    applies the central rates in ``fedcourtsai.pricing``, and writes the
+    validated artifact next to the run's prediction or evaluation output.
+    Best-effort: exits non-zero without writing
     if no usage can be determined, so a capture step can warn and move on rather
     than fail the run or commit false zeros.
     """
@@ -7642,8 +7642,8 @@ def usage_summary() -> None:
 
     Aggregates every ``usage.json`` under ``data/`` — overall totals and a
     per-actor (predictor/evaluator) breakdown with mean cost per run — so a
-    maintainer can replace the planning assumption in ``docs/budget.md`` with the
-    measured figure. Pure roll-up; persists nothing.
+    maintainer can replace the planning assumption with the measured figure.
+    Pure roll-up; persists nothing.
     """
     settings = get_settings()
     records = iter_usage(settings.data_root)
@@ -13437,32 +13437,35 @@ def evaluate_matrix_cmd(
     typer.echo(json.dumps(fanout.matrix, separators=(",", ":")))
 
 
-#: The **fallback** per-cell rate, from *Capacity `N`: the funding knob* in
-#: ``docs/budget.md``: $15 per fully-tournamented case divided across its design
-#: mix of six cells. It prices a cell whose engine the table below does not name
-#: — a new engine, or a registry entry ahead of the doc — so a plan never
-#: silently drops such a cell from its total. Re-anchor it when the doc moves.
+#: The **fallback** per-cell rate: the ~$15 a fully-tournamented case costs,
+#: divided across its design mix of six cells. It prices a cell whose engine the
+#: table below does not name — a new engine, or a registry entry ahead of the
+#: table — so a plan never silently drops such a cell from its total. Re-anchor
+#: it when the table below moves.
 _PLANNING_USD_PER_CELL = 2.50
 
-#: Per-cell rates in USD, keyed (seam, engine), from ``docs/budget.md``. The
-#: predict row is the whole-run column of *Per-cell cost is keyed on the stage*
-#: — one stamped fan-out, 81 cells over 27 events, since re-based out of the
-#: frozen partition by the predictor re-blesses that followed it. The evaluate row is
-#: that section's evaluate-cohort table, ``proc-v2`` row (the better-matched of
-#: its two pre-freeze anchors), scaled by the whole predict move (x1.218)
-#: exactly as the doc's own per-case derivation does. The doc's stamped
-#: evaluate rows are interim-stage, graded before the current instant under
-#: superseded evaluator digests, so they re-anchor nothing here; see the
-#: caveats below. The two sum
-#: to $6.79 + $8.18 = $14.97 a case — the top of the doc's $14.6-15.0 band,
-#: which the $2.50 fallback is the six-cell rounding of — so a full
-#: three-engine, both-seam fan-out prices within a cent either way. What
-#: conditioning buys is the *narrowed* plan: within a seam the engines differ
-#: ~7x, so an engine-narrowed backfill priced at the flat rate is wrong by up
-#: to ~4x.
+#: Per-cell rates in USD, keyed (seam, engine) — the source for every spend
+#: figure a plan prints; ``docs/budget.md`` sizes the program from measurements
+#: like these, not the other way round. The predict row is measured: one stamped
+#: fan-out, 81 cells over 27 events, since re-based out of the frozen partition
+#: by the predictor re-blesses that followed it. The evaluate row is the
+#: better-matched of the two pre-freeze cert-stage anchors — the ``proc-v2``
+#: grading — scaled by the whole predict move (x1.218), the same scaling the
+#: per-case derivation uses. The other stamped evaluate gradings are
+#: interim-stage, graded before the current instant under superseded evaluator
+#: digests, so they re-anchor nothing here; see the caveats below. The two sum
+#: to $6.79 + $8.18 = $14.97 a case, which the $2.50 fallback is the six-cell
+#: rounding of — so a full three-engine, both-seam fan-out prices within a cent
+#: either way. ``docs/budget.md``'s $15-17 per fully predicted event is that
+#: same total rounded up, carrying the headroom the codex row's pending
+#: re-anchor needs (the caveats below): one table, described twice, not two
+#: measurements. What conditioning buys is the *narrowed* plan: within a seam the
+#: engines differ ~7x, so an engine-narrowed backfill priced at the flat rate is
+#: wrong by up to ~4x.
 #:
 #: Engine keys, not actor ids: a cell carries its resolved ``engine``, and the
-#: doc's per-actor columns are one actor per engine in the shipped registries.
+#: per-actor measurements behind these rows are one actor per engine in the
+#: shipped registries.
 _PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
     "predict": {"claude-code": 4.27, "codex": 1.88, "gemini": 0.64},
     "evaluate": {"claude-code": 5.92, "codex": 1.30, "gemini": 0.96},
@@ -13473,24 +13476,29 @@ _PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
 #: seam where the standing differs; :func:`_shared_spend_caveats` adds the rest.
 #:
 #: The two "four"s in this file name different things and each says which: the
-#: four predict *moments* docs/budget.md measures, and the four pre-freeze
-#: *gradings* the evaluate anchor is drawn from (of which the rates here use
-#: three).
+#: four predict *moments* the predict measurements cover, and the four
+#: pre-freeze *gradings* the evaluate anchor is drawn from (of which the rates
+#: here use three).
 _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
     "predict": [
         "Measured, but over one stamped fan-out (81 cells, 27 events) that "
         + "predates the current freeze instant — a shakedown figure for claims "
         + "purposes. "
-        + "docs/budget.md reads the ~+20% level gap to the 410-cell pre-freeze "
-        + "ledger as an UPPER BOUND on any level effect, not a measurement of one.",
+        + "The ~+20% level gap to the 410-cell pre-freeze ledger is an UPPER "
+        + "BOUND on any level effect, not a measurement of one.",
+        "The codex row is PRE-CUTOVER and projects LOW: it was measured on "
+        + "gpt-5.6-sol ($5/$30 per MTok) while that engine's default is now "
+        + "gpt-6-astra ($10/$50). On the new default a fully-tournamented case "
+        + "prices nearer $16.7-17.8 than the $14.97 these rates sum to, and "
+        + "only the first measured post-cutover run re-anchors the row.",
     ],
     "evaluate": [
-        "An ASSUMPTION, not a measurement: docs/budget.md scales a pre-freeze "
-        + "anchor by the whole predict move (~+22%). The anchor these rates use "
-        + "is its `proc-v2` row — THREE graded events, the process-stamped subset "
-        + "of the four pre-freeze gradings — taken as the better-matched of the "
-        + "doc's two pre-freeze anchors; the pooled four-grading row is the more "
-        + "cautious one and is NOT what these rates carry. All four are "
+        "An ASSUMPTION, not a measurement: these rates scale a pre-freeze "
+        + "anchor by the whole predict move (~+22%). The anchor they use "
+        + "is the `proc-v2` grading — THREE graded events, the process-stamped "
+        + "subset of the four pre-freeze gradings — taken as the better-matched "
+        + "of the two pre-freeze anchors; the pooled four-grading figure is the "
+        + "more cautious one and is NOT what these rates carry. All four are "
         + "cert-stage, so the anchor is stage-narrow either way.",
         "An evaluate measurement EXISTS outside the frozen partition, and these "
         + "rates do not use "
@@ -13518,7 +13526,7 @@ def _shared_spend_caveats(seam: str) -> list[str]:
     """
     moment = (
         "Not conditioned on the forecast moment. Of the four predict MOMENTS "
-        "docs/budget.md measures, only merits-above-cert-arrival separates at the "
+        "the ledger measures, only merits-above-cert-arrival separates at the "
         "measured n (~+$1.2 an event, on 11 events against 12); the rest sit "
         "within noise of each other, so conditioning on them would fit noise. "
         "The merits separation is real and is deliberately not applied here, so "
@@ -13620,16 +13628,15 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
         # lives inside the basis block, named as the fallback it is.
         "spend_estimate_basis": {
             "source": (
-                "docs/budget.md — 'Per-cell cost is keyed on the stage' (the predict "
-                "whole-run row) and the evaluate-cohort table in the 'Evaluate cost: "
-                "narrower, weaker, and mid-re-anchor' subsection that follows it "
-                "(proc-v2 row, scaled by the predict move)"
+                "fedcourtsai.cli._PLANNING_RATES_USD_PER_CELL — the predict "
+                "whole-run measurement, and the evaluate pre-freeze cert-stage "
+                "anchor (the proc-v2 grading, scaled by the predict move)"
             ),
             "seam": seam,
             "rates_usd_per_cell": dict(rates),
             "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
             "fallback_source": (
-                "docs/budget.md — 'Capacity `N`: the funding knob' ($15 per "
+                "fedcourtsai.cli._PLANNING_USD_PER_CELL (~$15 per "
                 "fully-tournamented case over a six-cell design mix)"
             ),
             "cells_at_fallback_rate": at_fallback,
@@ -13788,10 +13795,11 @@ def _plan_spend_line(plan: dict[str, Any], *, stage: str) -> str:
     # reader is most likely to quote has to carry that in the same sentence as
     # the number; predict's are measured and need no such clause.
     rate_note = (
-        "docs/budget.md's per-engine rates, which for the evaluate seam are an "
-        "assumption (pre-freeze cert-stage anchor scaled ~+22%), not a measurement"
+        "the per-engine rates this command carries, which for the evaluate seam "
+        "are an assumption (pre-freeze cert-stage anchor scaled ~+22%), not a "
+        "measurement"
         if plan["stage"] == "evaluate"
-        else "the per-engine rates in docs/budget.md (see spend_estimate_basis)"
+        else "the per-engine rates this command carries (see spend_estimate_basis)"
     )
     return (
         f"{stage}: would mint {ledger['would_mint_cells']} cell(s), estimated "
@@ -14153,10 +14161,10 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
     read for different questions and a flat block invites reading a case count
     as a cell count. The drop lists explain each count, every record carrying
     the dropping step's own reason; ``would_mint`` is the surviving cell set;
-    and ``estimated_spend_usd`` prices it at the per-(seam, engine) rates in
-    ``docs/budget.md``, with ``spend_estimate_basis`` naming the source section,
-    the rates used, and what they cannot support. That makes "this change
-    protects a rerun" a check someone can execute rather than a claim.
+    and ``estimated_spend_usd`` prices it at the per-(seam, engine) rates this
+    module carries, with ``spend_estimate_basis`` naming their source, the rates
+    used, and what they cannot support. That makes "this change protects a
+    rerun" a check someone can execute rather than a claim.
 
     The ex-post spend backstop is **reported, not applied**: ``spend_gate``
     carries its verdict while ``would_mint`` stays the fan-out the earlier steps
@@ -14337,8 +14345,8 @@ def evaluate_plan_cmd(
     derivation would mint. Read-only in both modes, corpus included.
 
     Its ``estimated_spend_usd`` carries a weaker basis than predict's, and says
-    so: the rates are ``docs/budget.md``'s pre-freeze cert-stage anchor scaled
-    by the whole predict move, an assumption rather than a measurement.
+    so: the rates are a pre-freeze cert-stage anchor scaled by the whole
+    predict move, an assumption rather than a measurement.
     ``spend_estimate_basis.caveats`` states that on every plan, and
     ``--approval-report`` carries it into the rendered report's spend sentence.
 

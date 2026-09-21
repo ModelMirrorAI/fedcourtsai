@@ -9,8 +9,9 @@
 # current.
 # The per-request rate limits the client throttles to are NOT set here: they live
 # in the prod env (FEDCOURTS_COURTLISTENER_RPM/_RPH/_RPD, wired from repo
-# variables to the active Free Law Project tier — see docs/budget.md). The caps
-# below bound how much work each run and each day does within that envelope.
+# variables to the active Free Law Project tier — see docs/data-sources.md).
+# The caps below bound how much work each run and each day does within that
+# envelope.
 pull:
   # Max dockets refreshed per run (~3 requests each). On Tier 4 (25/300/1400)
   # with four daily windows this gives ~120 refreshes/day: 30×3=90 requests/run
@@ -161,8 +162,7 @@ historical:
   document_text_cap: 150000
 
 predict:
-  # Prediction-scope gate (docs/data-pipeline.md "Scope", docs/budget.md
-  # "Scope: the SCOTUS-docket gate"). Restricts only the agentic
+  # Prediction-scope gate (docs/data-pipeline.md "Scope"). Restricts only the agentic
   # predict/evaluate stages; ingestion stays full-coverage. Read at the
   # pull-queue and matrix seams.
   #   scotus_docket — only SCOTUS dockets (court == scotus); the cost gate.
@@ -249,11 +249,13 @@ salience:
   # Bootstrapping-sized, and sized to BIND. Raw paid cohorts run a median 34
   # petitions (p90 82, max 369), so a cap of 150 would cut just 8 of 251
   # cohorts and select ~95% of the paid docket — a ranking, not a spend
-  # control, funding ~$24K/Term against a ~$13K inference envelope. At 12 the
+  # control: at the ~$15-per-event planning rate (docs/budget.md) that is on
+  # the order of $24K a Term, about twice what the shipped cap of 12 costs
+  # (derived below). At 12 the
   # gate measures 495-522 selections a Term (OT2022-24 replay: capped rank
   # fill 398-413 plus uncapped carve-outs 97-115), which with the other
   # stages' moments lands the escalation program at ~$11.1-11.5K — ~$12.6-13.0K
-  # with the arrival cohort beside it (docs/budget.md).
+  # with the arrival cohort beside it.
   #
   # It costs coverage, and the trade is stated rather than hidden: the
   # selection keeps 0.76-0.81 of the Term's replay-reconstructable
@@ -339,7 +341,7 @@ salience:
   # a change re-bases every published skill number at once.
   base_rate_lookback_terms: 10
   # Cap on interim-docket tournament slots (stays, injunctions — docs/salience.md
-  # "The interim docket", docs/budget.md). Defined INSIDE N by the selection pass
+  # "The interim docket"). Defined INSIDE N by the selection pass
   # (pipeline.salience.plan_cohorts): each pass, pending substantive
   # applications fill up to this many reserve slots (escalation-ladder order —
   # response requested, then amicus count; a still-pending selected
@@ -349,7 +351,8 @@ salience:
   # That limit costs a real cert pick wherever the cohort's non-carve-out
   # remainder exceeds it — which typical cohorts reach at
   # per_conference_capacity 12, where a full reserve leaves a rank fill of 7 —
-  # so slots in use displace cert picks by design (docs/budget.md). Set well BELOW the
+  # so slots in use displace cert picks by design (docs/salience.md, same
+  # section). Set well BELOW the
   # observed concurrency (~13 substantive applications live at once against
   # OT2025-to-date's 179 arrivals, a floor while the Term is open): the reserve
   # is a deliberate cap on how much of
@@ -400,10 +403,12 @@ spend:
   # and within days of a runaway burst, a mis-set capacity knob minting whole
   # cohorts in single runs. It does NOT clear a sustained regression to a
   # non-binding capacity cap ($2.0-2.7K per 30 days) — that trips the backstop
-  # on a rate. The derivation, the measured figures it rests on,
-  # and the two breach consequences (a deferred forward cell can re-mint as a
-  # non-claimable retrospective cell; replay campaigns draw on the same
-  # ceiling) are in docs/budget.md's ex-post backstop section.
+  # on a rate. The derivation is the two measured figures above: the ~1.7x
+  # headroom over the Term's average and that $2.0-2.7K sustained-regression
+  # band. What a breach then COSTS — a deferred forward cell re-minting as a
+  # non-claimable retrospective cell once the outcome lands, and committed
+  # re-forecast and re-grade campaigns drawing on this same ceiling — is in
+  # `src/fedcourtsai/spend.py`.
   ceiling_usd: 2500.0
   # The window the ceiling applies over, days. Sized to approximate the billing
   # period being protected, not a run (trailing, so it never aligns exactly
