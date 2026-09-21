@@ -4653,3 +4653,73 @@ freeze commit is recorded here.
   `proc-v8` and the same six digests — this commit moves no constant, no
   prompt byte and no registry field, so a moved digest would mean something
   else rode along.
+
+- **Row-blind `codex-baseline` leakage gradings read as unassessed,
+  2026-09-21.** No freeze commit and no label bump: nothing here moves a prompt
+  byte, a registry field, a stamp or a score. What it adds is a reading rule,
+  in `metrics/README.md` (*The leakage exclusion*), for gradings already on
+  the ledger. The code-mode lift bullet in the 2026-08-15 entry's rides-along
+  list states that the code-mode cells committed before the lift carry no
+  lifted rows and never can, that the partition holds three capture regimes,
+  and that nothing in a committed artifact names the regime a cell was minted
+  under. The regimes are settled here by measurement, and the first gets the
+  consequence that bullet left implicit.
+
+  **Regimes**, over every committed `codex-baseline` `retrieval_log.json` at
+  `main` `a0a871953` (339 logs). *Row-blind:* `call_source` is null on every
+  row of all **180** logs from runs `20260713T190721Z` through
+  `20260816T173750Z`, the runs before the lift's carrying promotion
+  (`promotion/2026-08-20`, merged `2026-08-20T18:13:40Z`). Those logs carry
+  `exec`, `wait`, `send_message` and `wait_agent` rows; each `exec` row's query
+  is the program's head slice, cut at 500 characters on 648 rows, naming a
+  manifest tool on 527 rows across 127 logs, and 293 rows carry a
+  `retrieved_doc_date` surfaced from the combined output — what the grader
+  had, with no row per call inside the program. *Manifest-lifted:* the marker
+  is set on every row of the **28** logs from `20260820T181919Z` through
+  `20260825T231742Z`, the runs between that promotion and
+  `promotion/2026-08-26` (merged `2026-08-26T14:46:40Z`, carrying the builtin
+  lift), where a program's manifest calls have rows and its builtin calls do
+  not. *Both idioms lifted:* the **131** logs from `20260827T155120Z` onward.
+  No mixed log exists, so on a `codex-baseline` log the marker's absence is
+  the row-blind regime's name; the other two are separated by run id alone.
+
+  **Population.** **30** gradings of **7** row-blind `codex-baseline`
+  predictions across four runs (`20260714T120628Z`, `20260716T205846Z`,
+  `20260717T214313Z`, `20260816T173750Z`; ten each by `claude-judge`,
+  `codex-judge` and `gemini-judge`), every one declaring `mode: forward`.
+  **24** read `not_applicable` with no outcome material retrieved, none reads
+  `none`, and **6** read `likely` with outcome material retrieved — two
+  predictions, all three judges — so within this vintage the declared mode
+  did not settle the verdict. Over those seven logs the head slices name a
+  manifest tool on 9 rows and 5 rows carry a `retrieved_doc_date`. The
+  manifest-lifted regime holds a further **30** gradings of **7** predictions
+  (29 `not_applicable`, one `none` — the only `none` in the codex ledger), all
+  forward: half-blind, since a program's shell calls, the channel most able to
+  reach an outcome, have no rows there.
+
+  **The rule.** An unsuspected verdict on a row-blind or half-blind grading is
+  read as a null bit — assessed nothing, scored — never as a clean read; a
+  suspected verdict stands. Six of thirty on the ledger (six of twenty-one after the run
+  collapse below) is a lower bound on leakage over the vintage, not a rate. A cross-engine leakage comparison over cells before
+  `20260820T181919Z` is not a comparison: `claude-baseline` and
+  `gemini-baseline` logs of that vintage carry their manifest calls as rows.
+
+  **What moves: nothing rendered.** The leaderboard and claim-score boards
+  render their frozen empty state, and none of these predictions can ever
+  enter them: the row-blind runs carry no process stamp or `proc-v3`, the
+  half-blind ones `proc-v3` to `proc-v5`, none of them a frozen digest. The
+  all-versions build is where they count — `fedcourts leaderboard
+  --all-versions` reads `assessed: 183, excluded: 20` at `main` `a0a871953` — and that
+  count is taken **after the run collapse**, so the ledger counts above do not
+  subtract from it: of the 30 row-blind gradings, 21 survive the collapse (15
+  unsuspected, 6 inside `excluded`), and of the 30 half-blind, 21 (20
+  unsuspected, one inside neither). Whether `assessed` should stop counting
+  the unsuspected ones moves a published denominator — to 168 on the row-blind
+  cut, 147 with the half-blind cut — so it is left open here, to be decided
+  with a stats review before the first leakage-conditioned figure ships.
+  Either cut falls on `codex-baseline` alone.
+
+  The runnable effect check, for the promotion carrying this:
+  `grep -c "A row-blind" metrics/README.md` reads `1`, and
+  `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+  six digests — this entry moves no digest input.

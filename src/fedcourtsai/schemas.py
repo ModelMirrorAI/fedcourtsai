@@ -2198,7 +2198,8 @@ class RetrievalCall(_Strict):
         "blinding mask DROPS rather than staging, since naming a row as lifted names the "
         "engine that lifts it. Null on records written before the field existed: "
         "provenance-unknown — and on a code-mode engine's log a null also marks a record "
-        "whose calls inside the program were never captured at all.",
+        "whose calls inside the program have no rows of their own (row-blind: only the "
+        "wrapping call's head slice of program text and combined output were captured).",
     )
 
     @model_validator(mode="after")
