@@ -410,6 +410,10 @@ def test_render_backtest_pr_names_the_lost_cells(tmp_path: Path) -> None:
     assert pr is not None
     assert "1 cell(s) lost" in pr.body
     assert "`codex-baseline` — scotus/73275187 (wrote-outside-work-root)" in pr.body
+    # The gloss covers every reason in the vocabulary, including the cells a
+    # spent quota meant were never attempted: a body asserting they ran would
+    # be false about most of a quota-truncated campaign.
+    assert "no score — unreadable, failed, or not attempted after a spent quota" in pr.body
     # A clean run says nothing at all, rather than "0 lost".
     clean = CertBacktest(events_scored=10, predictors_evaluated=0, entries=[])
     (tmp_path / "cert-backtest.json").write_text(clean.model_dump_json())

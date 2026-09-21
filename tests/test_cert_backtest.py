@@ -30,7 +30,14 @@ from fedcourtsai.cli import app
 from fedcourtsai.config import load_salience_config
 from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest
 from fedcourtsai.pipeline.asof import replay_cutoff
-from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner, get_runner
+from fedcourtsai.pipeline.runner import (
+    EngineFailed,
+    EngineQuotaExhausted,
+    EngineUnavailable,
+    RunRequest,
+    StubRunner,
+    get_runner,
+)
 from fedcourtsai.pricing import DEFAULT_MODELS
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import (
@@ -38,6 +45,7 @@ from fedcourtsai.schemas import (
     CertBacktestCellLoss,
     Disposition,
     PredictionContext,
+    UsageRole,
 )
 from fedcourtsai.serialize import read_model
 from tests.conftest import FixtureCorpus
@@ -973,6 +981,187 @@ def test_a_malformed_cell_is_a_loss_rather_than_a_crash(tmp_path: Path) -> None:
     assert lost.reason == "invalid"
 
 
+class _FailingRunner:
+    """A stub that raises one backend's engine failure and serves the rest.
+
+    The engine ran and exited non-zero — the fault the campaign used to die of.
+    ``failure`` is the exception that backend raises, so one double covers both
+    an ordinary failure and a terminal quota.
+    """
+
+    def __init__(
+        self,
+        backend: str,
+        failing: str,
+        failure: EngineFailed,
+        calls: list[tuple[str, str]],
+    ) -> None:
+        self._backend = backend
+        self._failing = failing
+        self._failure = failure
+        self._calls = calls
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        self._calls.append((self._backend, request.actor_id))
+        if self._backend == self._failing:
+            raise self._failure
+        return self._stub.run(request)
+
+
+def _failing_get_runner(
+    failing: str, failure: EngineFailed, calls: list[tuple[str, str]]
+) -> object:
+    """A `get_runner` double whose ``failing`` backend raises ``failure``."""
+
+    def factory(backend: str = "stub") -> _FailingRunner:
+        return _FailingRunner(backend, failing, failure, calls)
+
+    return factory
+
+
+def test_an_engine_failure_is_one_lost_cell_not_a_lost_campaign(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A cell whose engine exited non-zero costs that cell and nothing else.
+
+    The cells already paid for on the other engines are the whole reason: an
+    exception escaping here discards them with the work root and lands no
+    report at all, which is strictly worse than a report naming one loss.
+    """
+    calls: list[tuple[str, str]] = []
+    failure = EngineFailed(
+        "gemini exited 1 for cell gemini-baseline/evt-petition-disposition "
+        + "after 3 attempts (transient failure, retry budget exhausted)"
+    )
+    monkeypatch.setattr(cert_backtest, "get_runner", _failing_get_runner("gemini", failure, calls))
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    outcome = cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    assert outcome.unavailable == []  # the binary was there; the call failed
+    assert [(c.predictor_id, c.reason) for c in outcome.lost_cells] == [
+        ("gemini-baseline", "engine-failed")
+    ]
+    assert {b.id for b in outcome.backtesters} == {"claude-baseline", "codex-baseline"}
+    report = run_cert_backtest(outcome.backtesters, items)
+    assert {e.predictor_id for e in report.entries} == {"claude-baseline", "codex-baseline"}
+
+
+def test_a_terminal_quota_is_lost_under_its_own_reason(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Named apart from the plain failure because it says something different
+    # about the run — and because it is the one that generalizes to the
+    # engine's remaining cells.
+    calls: list[tuple[str, str]] = []
+    failure = EngineQuotaExhausted(
+        "gemini exited 1 for cell gemini-baseline/evt-petition-disposition "
+        + "(terminal quota: the engine's quota is exhausted and no retry can clear it)"
+    )
+    monkeypatch.setattr(cert_backtest, "get_runner", _failing_get_runner("gemini", failure, calls))
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    outcome = cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    assert [(c.predictor_id, c.reason) for c in outcome.lost_cells] == [
+        ("gemini-baseline", "quota-exhausted")
+    ]
+    # The exhausted engine is not "unavailable": its CLI was there and answered.
+    assert outcome.unavailable == []
+    assert {b.id for b in outcome.backtesters} == {"claude-baseline", "codex-baseline"}
+
+
+def test_a_spent_quota_skips_that_engines_later_cells_and_records_them(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Once the quota is known spent, the engine's later cells are not attempted.
+
+    Two petitions through the per-petition step directly, sharing the campaign
+    state the caller threads through it — the fixture corpus replays a single
+    petition, and what is under test is precisely what carries *across* them.
+    Each skipped cell is still recorded as lost, so the report's counts say why
+    the predictor is short rather than leaving the gap unexplained.
+    """
+    calls: list[tuple[str, str]] = []
+    failure = EngineQuotaExhausted("gemini exited 1 for a cell (terminal quota: exhausted)")
+    monkeypatch.setattr(cert_backtest, "get_runner", _failing_get_runner("gemini", failure, calls))
+    work_root = tmp_path / "replay"
+    pairs = cert_backtest._runners_by_predictor(Path("config"), None)
+    engines = {predictor.id: str(predictor.engine) for predictor, _ in pairs}
+    collected: dict[str, dict[str, BacktestPrediction]] = {p.id: {} for p, _ in pairs}
+    unavailable: set[str] = set()
+    quota_exhausted: set[str] = set()
+    losses: list[CertBacktestCellLoss] = []
+    for docket, case_id in ((304, "scotus/304"), (305, "scotus/305")):
+        losses.extend(
+            cert_backtest._replay_item_cells(
+                pairs,
+                RunRequest(
+                    role=UsageRole.predictor,
+                    court_id="scotus",
+                    docket_id=docket,
+                    event_id="evt-petition-disposition",
+                    actor_id="",
+                    prompt=Path(),
+                    run_id="20260706T000000Z",
+                    data_root=work_root,
+                ),
+                None,
+                case_id=case_id,
+                engines=engines,
+                unavailable=unavailable,
+                quota_exhausted=quota_exhausted,
+                collected=collected,
+            )
+        )
+    # One attempt on gemini, ever: the second petition's cell was skipped rather
+    # than paid for in backoff.
+    assert [actor for backend, actor in calls if backend == "gemini"] == ["gemini-baseline"]
+    # Both cells are on the report, under the reason that explains the gap.
+    assert [(c.case_id, c.predictor_id, c.reason) for c in losses] == [
+        ("scotus/304", "gemini-baseline", "quota-exhausted"),
+        ("scotus/305", "gemini-baseline", "quota-exhausted"),
+    ]
+    # The other engines are untouched by one engine's quota, on both petitions.
+    assert collected["claude-baseline"].keys() == {"scotus/304", "scotus/305"}
+    assert collected["codex-baseline"].keys() == {"scotus/304", "scotus/305"}
+    assert unavailable == set()  # a spent quota is never a missing binary
+
+
+def test_the_cli_names_a_quota_drop_as_that(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # End to end: the campaign lands a report, and the predictor whose engine ran
+    # out is dropped as that rather than as cells that came back unreadable.
+    calls: list[tuple[str, str]] = []
+    failure = EngineQuotaExhausted("gemini exited 1 for a cell (terminal quota: exhausted)")
+    monkeypatch.setattr(cert_backtest, "get_runner", _failing_get_runner("gemini", failure, calls))
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(out), "--engine", "auto", "--work-dir", str(tmp_path / "w")],
+    )
+    assert result.exit_code == 0, result.output
+    report = read_model(out, CertBacktest)
+    assert report.provenance is not None
+    assert [(c.predictor_id, c.reason) for c in report.provenance.lost_cells] == [
+        ("gemini-baseline", "quota-exhausted")
+    ]
+    assert "gemini-baseline" in report.provenance.dropped_predictors
+    assert "dropped predictor gemini-baseline: its engine's quota was exhausted" in result.stderr
+
+
 def test_a_partly_lost_predictor_is_scored_over_what_came_back() -> None:
     """An entry short some cells is scored, and floored, over the ones it has.
 
@@ -1060,7 +1249,7 @@ def test_the_cli_report_carries_the_lost_cells(
     ]
     # It lost its only cell, so it is dropped — as that, not as a missing runner.
     assert "codex-baseline" in report.provenance.dropped_predictors
-    assert "every one of its cells came back unreadable" in result.stderr
+    assert "every one of its cells was lost" in result.stderr
     assert "codex-baseline" not in {e.predictor_id for e in report.entries}
 
 

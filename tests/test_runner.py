@@ -20,11 +20,13 @@ from fedcourtsai.pipeline.runner import (
     CodexRunner,
     CommandResult,
     EngineFailed,
+    EngineQuotaExhausted,
     EngineUnavailable,
     GeminiRunner,
     RunRequest,
     StubRunner,
     _backoff_delay,
+    _failure_is_terminal_quota,
     _failure_is_transient,
     _input_snapshot,
     _run_subprocess,
@@ -578,6 +580,69 @@ def test_transient_failure_stops_at_the_attempt_cap(tmp_path: Path) -> None:
 
     assert seq.calls == 3  # tried the full attempt budget
     assert len(sleeps) == 2  # a backoff between each pair of tries, none after the last
+
+
+def test_a_terminal_quota_fails_at_once_and_names_the_cause(tmp_path: Path) -> None:
+    """A spent daily allowance is not a throttle: one attempt, then a hard failure.
+
+    The message carries a bare 429 and the word quota, so the ordinary transient
+    set reads it as retryable — and the retry budget then buys three identical
+    failures per cell. The terminal marker overrides that, and the failure is
+    raised as its own type so a caller can stop attempting the engine instead of
+    re-learning it cell by cell.
+    """
+    seq = _SequenceRunner(
+        [
+            CommandResult(
+                1,
+                "ApiError: 429 TerminalQuotaError: You have exhausted your daily "
+                + "quota on this model.",
+            )
+        ]
+    )
+    sleeps: list[float] = []
+    runner = ClaudeCodeRunner(command_runner=seq, sleep=sleeps.append, jitter=_identity_jitter)
+
+    with pytest.raises(EngineQuotaExhausted, match="terminal quota"):
+        runner.run(_predict_request(tmp_path / "data"))
+
+    assert seq.calls == 1  # one try: no retry can clear a spent allowance
+    assert sleeps == []  # and no backoff wait
+
+
+def test_a_terminal_quota_failure_is_an_engine_failure() -> None:
+    # The subclass relationship is the contract: a caller that absorbs failed
+    # cells catches EngineFailed and still catches this one.
+    assert issubclass(EngineQuotaExhausted, EngineFailed)
+
+
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        "TerminalQuotaError",
+        "429 TerminalQuotaError: You have exhausted your daily quota on this model",
+        "you have exhausted your daily quota",
+    ],
+)
+def test_terminal_quota_signatures_are_not_retryable(stderr: str) -> None:
+    assert _failure_is_terminal_quota(CommandResult(1, stderr))
+    assert not _failure_is_transient(CommandResult(1, stderr))
+
+
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        # An ordinary throttle keeps the retry it has always had: it clears
+        # within the budget, and refusing to retry it would lose a cell that
+        # would have come back.
+        "HTTP 429 Too Many Requests",
+        "429 Quota exceeded for quota metric 'generate requests'",
+        "rate limit reached; retry-after: 30",
+    ],
+)
+def test_an_ordinary_throttle_is_still_transient(stderr: str) -> None:
+    assert not _failure_is_terminal_quota(CommandResult(1, stderr))
+    assert _failure_is_transient(CommandResult(1, stderr))
 
 
 def test_backoff_grows_exponentially_and_is_capped(tmp_path: Path) -> None:

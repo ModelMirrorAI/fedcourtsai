@@ -113,7 +113,7 @@
     },
     "CertBacktestCellLoss": {
       "additionalProperties": false,
-      "description": "One replayed cell that produced no readable prediction, and why.\n\nA replay cell is a model call that was paid for; when the file the runner\nreads back is missing or does not validate, the petition is simply absent\nfrom that predictor's scores. Recording it keeps the absence legible: the\nentry's own ``events_scored`` already differs, and this says which petitions\nare behind the difference and what went wrong, rather than leaving a board\nwhose predictors were scored over silently unequal sets.\n\n``reason`` is a closed vocabulary, not prose \u2014 the run log carries the\ndetail (a validation error's text, the path that was read):\n\n- ``missing`` \u2014 nothing readable at the cell's path under the replay's work\n  root: the file is absent, or the filesystem refused it.\n- ``wrote-outside-work-root`` \u2014 nothing there either, but the same cell's\n  directory **did** appear under the repository ledger: the engine followed\n  the prompt template's ``data/cases/...`` path instead of the work root it\n  was given.\n- ``invalid`` \u2014 a file was there and is not a valid ``Prediction``.",
+      "description": "One back-test cell that produced no score, and why.\n\nA replay cell is a model call that was paid for; when it fails, or the file\nthe runner reads back is missing or does not validate, the petition is\nsimply absent from that predictor's scores. Recording it keeps the absence\nlegible: the entry's own ``events_scored`` already differs, and this says\nwhich petitions are behind the difference and what went wrong, rather than\nleaving a board whose predictors were scored over silently unequal sets. A\ncell the campaign declined to attempt is recorded the same way and for the\nsame reason \u2014 it is absent from the scores either way.\n\n``reason`` is a closed vocabulary, not prose \u2014 the run log carries the\ndetail (a validation error's text, the path that was read, the engine's own\nstderr):\n\n- ``missing`` \u2014 nothing readable at the cell's path under the replay's work\n  root: the file is absent, or the filesystem refused it.\n- ``wrote-outside-work-root`` \u2014 nothing there either, but the same cell's\n  directory **did** appear under the repository ledger: the engine followed\n  the prompt template's ``data/cases/...`` path instead of the work root it\n  was given.\n- ``invalid`` \u2014 a file was there and is not a valid ``Prediction``.\n- ``engine-failed`` \u2014 the engine CLI exited non-zero for the cell and wrote\n  nothing to read back: a deterministic fault, or a transient one that\n  outlasted the runner's retry budget.\n- ``quota-exhausted`` \u2014 the engine's own quota is spent, so the cell failed\n  and no retry could have cleared it. Every later cell on that engine in\n  the same campaign carries this reason without being attempted, since the\n  attempt is a paid-for certainty of the same failure.\n\nThe last two are distinct because they say different things about the run:\none cell hit a fault, against one engine being finished for the day.",
       "properties": {
         "case_id": {
           "description": "The petition the lost cell was replaying",
@@ -130,7 +130,9 @@
           "enum": [
             "missing",
             "wrote-outside-work-root",
-            "invalid"
+            "invalid",
+            "engine-failed",
+            "quota-exhausted"
           ],
           "title": "Reason",
           "type": "string"
@@ -323,7 +325,7 @@
           "description": "The parameters the run was dispatched with \u2014 the population definition and the engine routing behind these scores"
         },
         "dropped_predictors": {
-          "description": "Enabled predictors that produced no entry for a **run-time** reason, sorted: their engine had no registered runner, its CLI binary turned out to be missing mid-run, or every one of its cells came back unreadable (`lost_cells`). The ids carry no cause \u2014 the run log names which. The deliberate opt-out is `dispatch.skip_engines` instead. Recorded because a board silently short one engine is a different comparison from the three-engine one it looks like, and stderr does not survive the runner",
+          "description": "Enabled predictors that produced no entry for a **run-time** reason, sorted: their engine had no registered runner, its CLI binary turned out to be missing mid-run, or every one of its cells was lost (`lost_cells`). The ids carry no cause \u2014 the run log names which. The deliberate opt-out is `dispatch.skip_engines` instead. Recorded because a board silently short one engine is a different comparison from the three-engine one it looks like, and stderr does not survive the runner",
           "items": {
             "type": "string"
           },
@@ -331,7 +333,7 @@
           "type": "array"
         },
         "lost_cells": {
-          "description": "Individual (petition, predictor) cells that ran and produced no readable prediction, sorted. The per-cell counterpart of `dropped_predictors`, which loses a predictor whole: a predictor short **some** of its cells is still on the board, scored over the petitions that did come back \u2014 so its `events_scored` is smaller than the set, and its top line is not measured over the same sample as a predictor that lost none. One short every cell has nothing to be scored over: it has no entry and is in `dropped_predictors`, while its cells stay here. Read this before comparing two entries. Empty on a run where every cell came back, and on an offline baseline-only run, which has no cells",
+          "description": "Individual (petition, predictor) cells that produced no score, sorted \u2014 the cell failed, was declined once its engine's quota was spent, or came back unreadable. The per-cell counterpart of `dropped_predictors`, which loses a predictor whole: a predictor short **some** of its cells is still on the board, scored over the petitions that did come back \u2014 so its `events_scored` is smaller than the set, and its top line is not measured over the same sample as a predictor that lost none. One short every cell has nothing to be scored over: it has no entry and is in `dropped_predictors`, while its cells stay here. Read this before comparing two entries. Empty on a run where every cell came back, and on an offline baseline-only run, which has no cells",
           "items": {
             "$ref": "#/$defs/CertBacktestCellLoss"
           },

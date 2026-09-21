@@ -731,7 +731,11 @@ class RunnerConfig(BaseModel):
     failure. A *permanent* fault (a content-filter trip, a context-length blowout,
     an auth error) is deterministic and is never retried, so no cap here touches
     it — the split mirrors :func:`fedcourtsai.courtlistener.is_transient` and the
-    ``pull`` governor's ``max_consecutive_transient_failures``.
+    ``pull`` governor's ``max_consecutive_transient_failures``. A **terminal
+    quota** is permanent although it arrives throttle-shaped: an engine saying
+    its own allowance is spent fails after one attempt
+    (:class:`fedcourtsai.pipeline.runner.EngineQuotaExhausted`), since no wait
+    inside this budget can clear it.
     """
 
     model_config = ConfigDict(extra="ignore")
