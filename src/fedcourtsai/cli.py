@@ -103,6 +103,7 @@ from .collect import (
     PathJailError,
     PriorAvailabilityRollup,
     PrPlan,
+    SelfProvisionedRollup,
     StakesReadRollup,
     ThrottleRollup,
     assert_board_within_jail,
@@ -340,6 +341,7 @@ from .schemas import (
     Stratum,
     UsageRole,
     observed_mcp_conditions,
+    self_provisioned_fetches,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .slug_migration import converge_event_slugs
@@ -7569,6 +7571,12 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         mcp_servers=labels,
         mcp_tools=offered,
         calls=calls,
+        # Baked here rather than derived on load, unlike the two summaries the
+        # model recomputes from `calls`: those reproduce what a committed record
+        # already holds, while a count of filing fetches would turn every log
+        # written before the field into one that rewrites itself on the next
+        # read. Stamped once, from the rows as capture minted them.
+        self_provisioned_fetches=len(self_provisioned_fetches(calls)),
     )
     event_paths = CasePaths(settings.data_root, court, docket).event(event)
     destination = (
@@ -15044,6 +15052,14 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # the tripwire half still prints there, because it reports on what
         # capture could see rather than on what the corpus did.
         "prior_availability": plan.prior_availability_markdown,
+        # The input-side counterpart of both: which cells fetched a court filing
+        # from outside the provisioned `record/documents/` set, and whose. It
+        # rides the PR body like the two above and leaves the process here for
+        # the same reason. A record, not a finding — retrieval is not fenced —
+        # but a fan-out whose predictors did not all get the same documents is
+        # not the clean comparison it presents as, and nothing else says so.
+        # Empty on a run where no cell fetched one.
+        "self_provisioned": plan.self_provisioned_markdown,
         # The census of this run's own output rather than of what reached it:
         # how many predictions landed with no `big_case_score`, and whose. It
         # rides the PR body like the two above, and unlike them the collect
@@ -15235,16 +15251,57 @@ def _add_throttle_cell(rollup: ThrottleRollup, log: RetrievalLog) -> ThrottleRol
     )
 
 
+def _add_self_provisioned_cell(
+    rollup: SelfProvisionedRollup, log: RetrievalLog, path: Path
+) -> SelfProvisionedRollup:
+    """Fold one cell's log into the self-provisioning record.
+
+    Keyed on :func:`~fedcourtsai.schemas.self_provisioned_fetches`, the same
+    predicate capture bakes each log's own ``self_provisioned_fetches`` with —
+    so within a run the note and the field agree, and across a predicate change
+    they part: this re-derives over the committed rows while the field holds
+    what its own capture minted.
+
+    Every legible log counts toward ``cells`` **and** toward its actor's own
+    denominator in ``by_actor``, the clean ones included: a numerator without
+    the cells it came out of cannot tell 2 of 4 from 2 of 41, which on a cut
+    this uneven is the whole difference. Only a log with at least one reach is
+    named, since the note is silent on a run with none.
+    """
+    counts = {actor: (reached, cells) for actor, reached, cells in rollup.by_actor}
+    reached, seen = counts.get(log.actor_id, (0, 0))
+    fetches = self_provisioned_fetches(log.calls)
+    counts[log.actor_id] = (reached + bool(fetches), seen + 1)
+    rollup = replace(
+        rollup,
+        cells=rollup.cells + 1,
+        # Actor id order, never count order: sorting by count is a ranking, and
+        # the instrument's blind spots are engine-shaped, so this cut is the one
+        # that must not read as a league table.
+        by_actor=tuple((actor, *pair) for actor, pair in sorted(counts.items())),
+    )
+    if not fetches:
+        return rollup
+    return replace(
+        rollup,
+        fetch_cells=rollup.fetch_cells + 1,
+        fetches=rollup.fetches + len(fetches),
+        names=(*rollup.names, _cell_name(log, path)),
+    )
+
+
 def _load_retrieval_rollups(
     status_dir: Path, run_id: str
-) -> tuple[ThrottleRollup, PriorAvailabilityRollup]:
+) -> tuple[ThrottleRollup, PriorAvailabilityRollup, SelfProvisionedRollup]:
     """Summarize this run's captured retrieval from the cell artifacts.
 
-    One walk, two roll-ups, because both read the same files and the fan-out
+    One walk, three roll-ups, because they read the same files and the fan-out
     they are read across is wide: what the shared upstream quota did to the run
-    (:class:`~fedcourtsai.collect.ThrottleRollup`) and whether the corpus index
+    (:class:`~fedcourtsai.collect.ThrottleRollup`), whether the corpus index
     served the cells that asked it for priors
-    (:class:`~fedcourtsai.collect.PriorAvailabilityRollup`).
+    (:class:`~fedcourtsai.collect.PriorAvailabilityRollup`), and which cells
+    fetched a court filing from outside the provisioned document set
+    (:class:`~fedcourtsai.collect.SelfProvisionedRollup`).
 
     The same walk shape as :func:`_load_flag_sets`, and for the same reason:
     each cell uploads its whole ``data/`` subtree, so the run's
@@ -15271,18 +15328,23 @@ def _load_retrieval_rollups(
     being dropped: it is a cell of this run — its path carries the run id —
     whose condition nothing can read, which is exactly what that counter means.
     It contributes nothing to the prior roll-up, whose attempt side needs rows
-    it does not have. Neither is ever fatal, because these are notifications
-    and must never take down the aggregation that carries the run's only copy
-    of its output.
+    it does not have; on the self-provisioning record, whose whole content is
+    rows, it lands in that record's own ``unreadable`` count for the same
+    reason the throttle roll-up counts it blind — a cell nothing could parse is
+    not a cell that reached for nothing. None of this is ever fatal, because
+    these are notifications and must never take down the aggregation that
+    carries the run's only copy of its output.
     """
     seen: set[tuple[str, str, str, str, str]] = set()
     throttle = ThrottleRollup()
     priors = PriorAvailabilityRollup()
+    self_provisioned = SelfProvisionedRollup()
     for path in sorted(status_dir.glob(f"**/{run_id}/retrieval_log.json")):
         try:
             log = RetrievalLog.model_validate_json(path.read_text())
         except (OSError, ValueError):
             throttle = replace(throttle, blind_cells=throttle.blind_cells + 1)
+            self_provisioned = replace(self_provisioned, unreadable=self_provisioned.unreadable + 1)
             continue
         if log.run_id != run_id:
             continue
@@ -15298,7 +15360,8 @@ def _load_retrieval_rollups(
         seen.add(identity)
         throttle = _add_throttle_cell(throttle, log)
         priors = _add_prior_cell(priors, log, path)
-    return throttle, priors
+        self_provisioned = _add_self_provisioned_cell(self_provisioned, log, path)
+    return throttle, priors, self_provisioned
 
 
 #: How much of one identifier the stakes census carries into a note. The three
@@ -15429,10 +15492,14 @@ def collect_plan_cmd(
     is the same roll-up wrapped for the long-lived agent-feedback tracking issue
     (empty when no flags), which the collect step posts so a note survives even a
     fully-failed run that opens no PR. ``throttle`` and ``prior_availability``
-    are the two harness-rendered retrieval notes, read from the cells' own
+    are two of the three harness-rendered retrieval notes, read from the cells' own
     captured logs and likewise appended to the PR body: what the shared upstream
     quota did to the run, and whether the corpus index served the cells that
-    asked it for priors. Both are empty on a run with nothing to report.
+    asked it for priors. ``self_provisioned`` is the third and rides the same
+    body: which cells fetched a court filing from outside the provisioned
+    document set, so a fan-out whose predictors did not all get the same
+    documents does not read as a clean comparison. All three are empty on a run
+    with nothing to report.
     ``stakes_reads`` is the same shape of note about the run's own output — the
     predictions that landed with no ``big_case_score``, counted per predictor —
     which the collect step echoes into the Actions summary beside the flags.
@@ -15445,7 +15512,7 @@ def collect_plan_cmd(
         cells.append(
             CellStatus.from_dict(json.loads(status_path.read_text()), artifact_dir=artifact_dir)
         )
-    throttle, priors = _load_retrieval_rollups(status_dir, run_id)
+    throttle, priors, self_provisioned = _load_retrieval_rollups(status_dir, run_id)
     plan = collect_plan(
         role,
         run_id=run_id,
@@ -15473,6 +15540,12 @@ def collect_plan_cmd(
         # predicts from whatever else it had — so without a run-level count the
         # only trace is one line in one cell's tooling report.
         prior_availability=priors,
+        # And which cells went past the provisioned document set for a filing.
+        # The snapshot is every predictor's guaranteed-common input, so a cell
+        # that repaired a short document set by live fetch and one that did not
+        # were not run on the same information — a split that leaves no mark on
+        # the prediction and disappears with the run unless it is recorded here.
+        self_provisioned=self_provisioned,
         # And whether the run's own cells placed the stakes they were asked to.
         # Predict only: an evaluation carries no `big_case_score`, and an
         # evaluate run's artifacts hold predictions from *other* runs, which the

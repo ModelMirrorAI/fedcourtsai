@@ -13,7 +13,7 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from fedcourtsai.blinding import mask_retrieval_log, neutral_tool_class
+from fedcourtsai.blinding import _NEUTRAL_TOOL_CLASSES, mask_retrieval_log, neutral_tool_class
 from fedcourtsai.cli import app
 from fedcourtsai.mcp import _HTTP_BYPASS_RELEASE
 from fedcourtsai.paths import CasePaths
@@ -26,12 +26,14 @@ from fedcourtsai.retrieval import (
     parse_gemini_retrieval,
 )
 from fedcourtsai.schemas import (
+    _NON_FETCH_TOOLS,
     Engine,
     RetrievalCall,
     RetrievalLog,
     UsageRole,
     normalize_call,
     observed_mcp_conditions,
+    self_provisioned_fetches,
 )
 from tests.conftest import FixtureCorpus
 
@@ -2067,3 +2069,287 @@ def test_codex_item_shapes_command_reports_a_truncated_distillation(tmp_path: Pa
     assert result.exit_code == 0, result.output
     assert "2 record(s) past the shape cap" in result.output
     assert json.loads(out.read_text())["truncated"] is True
+
+
+# --- self-provisioned filing fetches -------------------------------------------
+
+_BIO_PDF = (
+    "https://www.supremecourt.gov/DocketPDF/25/25-901/412472/" + "20260602165555690_StateBOR.pdf"
+)
+
+
+def _row(tool: str, query: str) -> RetrievalCall:
+    return RetrievalCall(tool=tool, query=query)
+
+
+def test_a_filing_fetch_counts_and_a_search_for_the_same_filing_does_not() -> None:
+    # The comparability defect this records: the provisioned document set is
+    # every predictor's guaranteed-common input, so a cell that pulls a brief
+    # the record did not carry has been run on different information from the
+    # cell beside it. A *search* is not that — it retrieved no filing text, and
+    # on the one engine that spells a hosted search with a bare URL as its query
+    # the row carries no result either way.
+    fetched = [
+        _row("Bash", f'curl -sL -o /tmp/bio.pdf "{_BIO_PDF}" && pdftotext /tmp/bio.pdf -'),
+        _row("exec_command", f'{{"cmd": "curl -fsSL \'{_BIO_PDF}\' | pdftotext -layout - -"}}'),
+        _row("WebFetch", f"{_BIO_PDF}"),
+        _row("web_fetch", f"{_BIO_PDF}"),
+    ]
+    assert self_provisioned_fetches(fetched) == fetched
+
+    searched = [
+        _row("WebSearch", "supreme court 25-901 brief in opposition Washington"),
+        _row("web_search_call", _BIO_PDF),
+        _row("google_web_search", f"site.supremecourt.gov {_BIO_PDF}"),
+        _row("mcp__courtlistener__search", '{"q": "Garcia v. Hobbs certiorari"}'),
+        _row("search", '{"query": "25-901 brief in opposition"}'),
+        # A *manifest* search is held out on the same ground as an engine's own,
+        # even with the filing URL as its query: a search asks a question and a
+        # fetch takes a document, and `search` means that in either vocabulary.
+        _row("mcp__courtlistener__search", f'{{"q": "{_BIO_PDF}"}}'),
+        _row("mcp__courtlistener__search_document", f'{{"q": "{_BIO_PDF}"}}'),
+    ]
+    assert self_provisioned_fetches(searched) == []
+    # A manifest tool that is not a search is a retrieval channel, so a filing
+    # URL in its params is a fetch.
+    pulled = _row("mcp__courtlistener__read_document", f'{{"url": "{_BIO_PDF}"}}')
+    assert self_provisioned_fetches([pulled]) == [pulled]
+
+
+def test_a_fetch_off_the_filing_trees_is_not_a_self_provisioned_filing() -> None:
+    # The Court serves more than the parties' filings, and none of the rest is
+    # a document the provisioned set was short of: an opinion and an order are
+    # the Court's own output, the rules are the rulebook, and the docket sheet
+    # is already in the record. A non-court host is not one either.
+    off_tree = [
+        _row("Bash", "curl -sL https://www.supremecourt.gov/opinions/24pdf/23-477_2cp3.pdf"),
+        _row("Bash", "curl -sL https://www.supremecourt.gov/orders/courtorders/092926zor.pdf"),
+        _row("Bash", "curl -sL https://www.supremecourt.gov/ctrules/2023RulesoftheCourt.pdf"),
+        _row("Bash", "curl -sL https://www.supremecourt.gov/docket/docketfiles/html/public/"),
+        _row("WebFetch", "https://www.scotusblog.com/2026/09/relist-watch/"),
+        _row("WebFetch", "https://www.courtlistener.com/api/rest/v4/dockets/?docket_number=25-901"),
+    ]
+    assert self_provisioned_fetches(off_tree) == []
+    # RECAP's document store is the same class of object as the Court's own
+    # filing tree, so it counts wherever a cell reaches it.
+    recap = _row("WebFetch", "https://storage.courtlistener.com/recap/gov.uscourts.ca9.1/1.0.pdf")
+    assert self_provisioned_fetches([recap]) == [recap]
+
+
+def test_a_row_that_only_writes_the_url_down_is_not_a_fetch() -> None:
+    # The confusion this screen exists to prevent, and the shape it takes in
+    # the committed ledger: a code-mode cell applies a patch to its own
+    # `retrieval.md` describing a fetch that FAILED, and the patch body carries
+    # the URL it tried. Counting that would record a cell that obtained nothing
+    # as one that self-provisioned. The screen is on the command text, not the
+    # tool, because the patch arrives under the same shell-running builtin a
+    # real `curl` does.
+    note = (
+        '{"cmd": "apply_patch <<\'PATCH\'\\n*** Update File: retrieval.md\\n'
+        + f"-3. Attempted the exact opposition PDF URL `{_BIO_PDF}`. "
+        + 'The tool returned a non-retryable safe-open error; no filing text was obtained."}'
+    )
+    assert self_provisioned_fetches([_row("exec_command", note)]) == []
+    assert self_provisioned_fetches([_row("Write", f"See {_BIO_PDF} for the brief.")]) == []
+    assert self_provisioned_fetches([_row("Read", f"/tmp/notes.md holds {_BIO_PDF}")]) == []
+    assert self_provisioned_fetches([_row("grep", f"-n {_BIO_PDF} retrieval.md")]) == []
+    # The same confusion arriving through a SHELL row, which the client test
+    # alone does not catch: a cell grepping its own notes for the brief it could
+    # not fetch names the URL and `curl` in one line.
+    assert self_provisioned_fetches([_row("Bash", f"rg -n curl notes.md  # {_BIO_PDF}")]) == []
+    # And through a code-mode program's PROSE builtins, whose argument text is
+    # the program's own writing: a plan step about a fetch names the client too.
+    plan = f"step 3: curl the opposition brief at {_BIO_PDF}"
+    assert self_provisioned_fetches([_row("update_plan", plan)]) == []
+    assert self_provisioned_fetches([_row("view_image", f"curl {_BIO_PDF}")]) == []
+    # A row with no query slice at all constrains nothing.
+    assert self_provisioned_fetches([RetrievalCall(tool="Bash")]) == []
+
+
+def test_a_shell_row_is_read_as_a_fetch_through_more_than_one_http_client() -> None:
+    # `curl` is the commonest shape but not the only one, and the second — a
+    # heredoc program importing a client and naming the URL on a later line — is
+    # why the client is looked for across the whole slice rather than in the
+    # URL's own segment. Segmenting that test would miss every such fetch.
+    heredoc = (
+        "uv run python - <<'PY'\nimport io\nimport httpx\nfrom pypdf import PdfReader\n"
+        + f"url = '{_BIO_PDF}'\nPdfReader(io.BytesIO(httpx.get(url).content))\nPY"
+    )
+    for query in (
+        f'curl -fsSL "{_BIO_PDF}" | pdftotext -layout - -',
+        f"wget -q -O bio.pdf {_BIO_PDF}",
+        heredoc,
+        f"python -c \"import urllib.request; urllib.request.urlopen('{_BIO_PDF}')\"",
+    ):
+        assert self_provisioned_fetches([_row("Bash", query)]) != [], query
+    # A shell row naming no client at all is not a fetch, whatever it carries.
+    assert self_provisioned_fetches([_row("Bash", f"ls -la  # {_BIO_PDF}")]) == []
+
+
+def test_the_non_fetch_tools_carry_both_spellings() -> None:
+    # The count answers the same over a blinded log as over the log it was
+    # masked from, exactly as `normalize_call`'s two MCP spellings do: the mask
+    # respells every `tool` as its neutral class, so a set listing only the
+    # engines' own names would let a staged row through that a committed one
+    # was screened on. Pinned against the mask's own map in BOTH directions, so
+    # a rename there fails here rather than silently admitting a row, and a
+    # stale entry here fails rather than lingering unnoticed.
+    screened = {"web-search", "file-read", "file-write", "file-search"}
+    for raw, neutral in _NEUTRAL_TOOL_CLASSES.items():
+        if neutral in screened:
+            assert raw in _NON_FETCH_TOOLS, raw
+            assert neutral in _NON_FETCH_TOOLS, neutral
+        else:
+            assert raw not in _NON_FETCH_TOOLS, raw
+    # The reverse containment, with the one documented exception: the code-mode
+    # lift's prose builtins have no neutral class of their own (both stage as
+    # `other`, which must stay fetch-capable for the command-running pair), so
+    # they are the one place the two spellings deliberately disagree.
+    unmapped = _NON_FETCH_TOOLS - set(_NEUTRAL_TOOL_CLASSES) - screened
+    assert unmapped == {"update_plan", "view_image"}
+
+
+def test_a_manifest_tool_is_read_as_a_fetch_unless_it_is_a_search() -> None:
+    # The manifest's own vocabulary, gated on an underscore-delimited TOKEN
+    # rather than a substring: a tool that merely contains the letters is a
+    # retrieval channel like any other, and sweeping it out with the searches
+    # would silently drop a real fetch when the pinned server adds one.
+    for tool in ("search", "search_document", "create_search_alert", "delete_search_alert"):
+        row = _row(f"mcp__courtlistener__{tool}", f'{{"q": "{_BIO_PDF}"}}')
+        assert self_provisioned_fetches([row]) == [], tool
+    for tool in ("read_document", "get_endpoint_item", "call_endpoint", "research_document"):
+        row = _row(f"mcp__courtlistener__{tool}", f'{{"url": "{_BIO_PDF}"}}')
+        assert self_provisioned_fetches([row]) == [row], tool
+
+
+def test_a_blinded_log_reads_the_same_filing_fetches_as_the_log_it_was_masked_from() -> None:
+    # The property the two-spelling set buys, end to end. The mask keeps the
+    # calls one-for-one and passes the query slice through untouched, so the
+    # same rows must survive the predicate on both sides — otherwise the
+    # blinded view and the committed one disagree about a number neither is
+    # supposed to change.
+    calls = [
+        _row("Bash", f'curl -sL "{_BIO_PDF}"'),
+        _row("exec_command", f'{{"cmd": "curl -fsSL \'{_BIO_PDF}\'"}}'),
+        _row("WebFetch", _BIO_PDF),
+        _row("WebSearch", _BIO_PDF),
+        _row("Write", f"fetched {_BIO_PDF}"),
+        _row("mcp__courtlistener__read_document", f'{{"url": "{_BIO_PDF}"}}'),
+    ]
+    log = RetrievalLog(
+        case_id="scotus/1",
+        run_id="R",
+        role=UsageRole.predictor,
+        actor_id="claude-baseline",
+        engine=Engine.claude_code,
+        calls=calls,
+        self_provisioned_fetches=4,
+    )
+    payload = mask_retrieval_log(
+        log.model_dump(mode="json"), alias="A", pattern=re.compile(r"(?!x)x")
+    )
+    masked = [RetrievalCall.model_validate(call) for call in payload["calls"]]
+    # The mask respelled every tool as its neutral class, so this is the
+    # spelling-stability check and not a tautology.
+    assert [call.tool for call in masked] != [call.tool for call in calls]
+    assert len(self_provisioned_fetches(masked)) == len(self_provisioned_fetches(calls)) == 4
+    # The log-level SUMMARY is dropped, though, like `call_source` and for the
+    # same reason: what a fetch leaves in a query slice depends on how an engine
+    # spells its tools, so the count is engine-shaped by construction, and the
+    # grading reads the rows rather than a summary over them. Dropping it also
+    # leaves the staged file's field set exactly what it was.
+    assert "self_provisioned_fetches" not in payload
+    assert all("call_source" not in call for call in payload["calls"])
+
+
+def test_capture_bakes_the_filing_fetch_count_onto_the_log(
+    tmp_path: Path, fixture_corpus: FixtureCorpus
+) -> None:
+    # The field is stamped once, from the rows as capture minted them, rather
+    # than derived on load like the two summaries beside it: a count derived on
+    # load would make every log written before the field existed rewrite itself
+    # on the next read of the ledger.
+    execution = tmp_path / "execution.json"
+    execution.write_text(
+        json.dumps(
+            [
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool_use",
+                                "id": "t1",
+                                "name": "Bash",
+                                "input": {"command": f'curl -sL -o b.pdf "{_BIO_PDF}"'},
+                            }
+                        ]
+                    },
+                }
+            ]
+        )
+    )
+    result = runner.invoke(
+        app,
+        [
+            "record-retrieval",
+            "--court",
+            "scotus",
+            "--docket",
+            "1",
+            "--event",
+            "evt-petition-disposition",
+            "--run-id",
+            "R",
+            "--actor",
+            "claude-baseline",
+            "--engine",
+            "claude-code",
+            "--role",
+            "predictor",
+            "--claude-execution-file",
+            str(execution),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    log = RetrievalLog.model_validate_json(
+        CasePaths(fixture_corpus.data_root, "scotus", 1)
+        .event("evt-petition-disposition")
+        .prediction_retrieval_log("claude-baseline", "R")
+        .read_text()
+    )
+    assert log.self_provisioned_fetches == 1
+    # Null is unasked, not zero: a record written before the field existed
+    # cannot be read as a cell that fetched nothing.
+    assert (
+        RetrievalLog.model_validate(
+            {
+                "case_id": "scotus/1",
+                "run_id": "R",
+                "role": "predictor",
+                "actor_id": "claude-baseline",
+                "engine": "claude-code",
+            }
+        ).self_provisioned_fetches
+        is None
+    )
+    # And the invariant the "baked at capture" claim actually rests on: loading
+    # a record does NOT recompute the field from its rows, however plainly the
+    # rows disagree with it. This is what a line added to
+    # `_summaries_follow_the_calls` would break, silently and in the ledger.
+    asserted = RetrievalLog.model_validate(
+        {
+            "case_id": "scotus/1",
+            "run_id": "R",
+            "role": "predictor",
+            "actor_id": "claude-baseline",
+            "engine": "claude-code",
+            "calls": [{"tool": "Bash", "query": f'curl -sL "{_BIO_PDF}"'}],
+            "self_provisioned_fetches": 99,
+        }
+    )
+    assert asserted.self_provisioned_fetches == 99
+    assert len(self_provisioned_fetches(asserted.calls)) == 1
+    # The two summaries beside it are the opposite case and stay derived, so
+    # this is a difference between the fields rather than a slack validator.
+    assert asserted.throttled_calls is None

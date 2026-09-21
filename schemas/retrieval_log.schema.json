@@ -241,6 +241,20 @@
       "title": "Schema Version",
       "type": "string"
     },
+    "self_provisioned_fetches": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "How many of this log's calls **reached outside the provisioned document set for a court filing** \u2014 a row whose query slice carries a filing-document URL (the Court's own `DocketPDF` tree, or RECAP's document store) through a tool that could have fetched with it. The provisioned `record/documents/` set is every predictor's guaranteed-common input, so a cell that repairs a gap in it by live fetch and a cell that cannot are not running on one information set, and nothing else records the difference: the call marks the log and not the prediction. A RECORD ONLY \u2014 no score, metric or board reads it, and stratifying one on it is separate, registered work. A REACH, NOT AN ACQUISITION: the row is the call, and whether anything came back is `result_status`'s business \u2014 on a shell row the engine's own failure marker rather than a read of the payload \u2014 so a refused or 404'd fetch counts here and moved no information set. Condition on `result_status` before reading a count as filing text the cell actually got. It also does NOT say the record lacked what was fetched: the manifest that could answer that is thrown away with the runner and names document KINDS where a row names a URL, so a cell that re-fetched a filing it already had counts the same as one that recovered a filing it never got. Read a non-zero count as `this cell reached past the record for filing text` and read its `flags.json` beside it. A floor, and UNEVENLY SO ACROSS ENGINES, which bites exactly where the reading is a comparison between them: a call that left no row is not here; a URL past the row's 500-character query cut is not seen; one engine's hosted web search carries a bare URL as its query and is deliberately not counted, since a search is not a fetch and such a row captures no result either way; and a query slice is cut from the first params key capture finds, so a fetch tool called with a prompt beside its URL keeps the prompt and its fetch is invisible here however plainly it fetched. A cell pulling filings through the shell is counted where one pulling the same filings through a prompted fetch tool is not, so a 0 means `no filing fetch was legible`, never `none happened`. Excluded on a different ground are the tools that can only have written the URL down \u2014 a file write, read or search, and the code-mode lift's prose builtins (a patch, a plan step, an image reference), whose argument text is the cell's own writing about a fetch rather than the fetch \u2014 and a shell row whose command either names no HTTP client or reads the URL as text (a `grep` of the cell's own notes names both the client and the URL). Two residual doors are NOT closed: a manifest tool that takes arbitrary text rather than an address (the citation tools) counts if a pasted brief quotes a filing URL, and a search-paginating tool is read as a fetch channel. Unlike `result_capture_coverage` and `throttled_calls` this is BAKED AT CAPTURE and never re-derived on load, so a committed log reads back exactly as written and a LEDGER-WIDE cut over these fields pools whatever predicate each log was minted under. The collect job's per-run note is the other case and reads the other way: it re-derives over the committed rows, so it always speaks today's predicate and agrees with this field for any run captured under the same one. The blinding mask DROPS this field rather than staging it, so it never reaches an evaluator \u2014 what a reach leaves in a query slice depends on how an engine spells its tools, and the grading reads the rows. Null on records written before the field existed: unasked, not zero \u2014 a real 0 is the stronger claim that the rows were read and carried no such call.",
+      "title": "Self Provisioned Fetches"
+    },
     "throttled_calls": {
       "anyOf": [
         {
