@@ -75,7 +75,14 @@ from .attribution_migration import (
     reopen_misattributed_outcomes,
 )
 from .authz import authorize_trigger
-from .backtest import default_backtesters, run_backtest, select_backtest_set
+from .backtest import (
+    Backtester,
+    ReplayClock,
+    default_backtesters,
+    parse_decided_before,
+    run_backtest,
+    select_backtest_set,
+)
 from .cert_backtest import (
     CERT_BACKTEST_SCOPES,
     ReplayOutcome,
@@ -96,6 +103,7 @@ from .collect import (
     PathJailError,
     PriorAvailabilityRollup,
     PrPlan,
+    SelfProvisionedRollup,
     StakesReadRollup,
     ThrottleRollup,
     assert_board_within_jail,
@@ -228,11 +236,13 @@ from .pipeline.documents import (
     backfill_questions_presented,
     document_fetch_losses,
     document_text_coverage,
+    petitioner_is_unrepresented,
     questions_presented_extract,
+    scrub_contact_details,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.ingest import UNSAMPLED_WEIGHT
-from .pipeline.judgment import backfill_merits_judgments, grant_term_year, last_judgment_entry
+from .pipeline.judgment import backfill_merits_judgments, last_judgment_entry
 from .pipeline.live import live_poll_all
 from .pipeline.ocr_recovery import DEFAULT_PROBE_SAMPLE as DEFAULT_OCR_PROBE_SAMPLE
 from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_documents
@@ -333,6 +343,7 @@ from .schemas import (
     Stratum,
     UsageRole,
     observed_mcp_conditions,
+    self_provisioned_fetches,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .slug_migration import converge_event_slugs
@@ -358,7 +369,12 @@ from .store import (
     stratify,
     unforecastable_listed_events,
 )
-from .supremecourt import SupremeCourtClient, current_docket_term, parse_scotus_docket_number
+from .supremecourt import (
+    SupremeCourtClient,
+    current_docket_term,
+    october_term_year,
+    parse_scotus_docket_number,
+)
 from .usage import (
     parse_claude_usage,
     parse_codex_usage,
@@ -5503,11 +5519,12 @@ def cert_backtest_cmd(
             spread=spread,
             salience_floor=salience_cfg.floor,
         )
-        backtesters = default_backtesters(conn)
         provisioning: dict[str, int] = {}  # empty unless an agentic replay ran
         replay_run_id: str | None = None  # null unless one did: baselines have no run
         dropped: list[str] = []  # predictors lost at run time, not opted out
         lost_cells: list[CertBacktestCellLoss] = []  # cells that came back unreadable
+        replayed: list[Backtester] = []  # the engine cells' backtesters, if any ran
+        clock_days: dict[str, date] = {}  # each dated cell's cutoff; empty offline
         if engine:
             items, unreplayable = replayable_items(db_path, items)
             if unreplayable:
@@ -5544,12 +5561,23 @@ def cert_backtest_cmd(
                 run_id=replay_run_id,
             )
             provisioning, lost_cells = outcome.provisioning, outcome.lost_cells
+            clock_days = outcome.clock_days
             dropped = _report_replay_drops(
                 outcome,
                 enabled_predictors(settings.config_root / "predictors.yaml"),
                 skipped_engines,
             )
-            backtesters += outcome.backtesters
+            replayed = outcome.backtesters
+        # After the replay, so the offline reference masks on the same per-cell
+        # clock the engine cells were given and its row on the board is
+        # comparable with theirs. This moves the prior-vote row's own accuracy,
+        # Brier and lift (a narrower set is a different vote) and no other
+        # entry's; the always-deny floor carries no clock, being the labels'
+        # own denial share. With no replay the map is empty and every trial is
+        # masked on its Term alone — and `--engine` also narrows the population
+        # to the replayable petitions, so the two runs' floors are over
+        # different sets and prior-vote's top line does not compare across them.
+        backtesters = default_backtesters(conn, replay_days=clock_days) + replayed
         # The leakage-safe segment context (band + per-Term base rate) mirrors
         # the forward stratum's yardstick; segment_base_rate masks each item to
         # Terms strictly before its own, so a full-corpus statpack is safe here.
@@ -5931,9 +5959,9 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     Reads token counts from the engine's own log (``--claude-execution-file``,
     ``--codex-sessions-dir``, or ``--gemini-telemetry-file``) or from the explicit
     ``--*-tokens`` overrides,
-    applies the central rates in ``fedcourtsai.pricing`` (kept in sync with
-    ``docs/budget.md``), and writes the validated artifact next to the run's
-    prediction or evaluation output. Best-effort: exits non-zero without writing
+    applies the central rates in ``fedcourtsai.pricing``, and writes the
+    validated artifact next to the run's prediction or evaluation output.
+    Best-effort: exits non-zero without writing
     if no usage can be determined, so a capture step can warn and move on rather
     than fail the run or commit false zeros.
     """
@@ -7359,7 +7387,7 @@ def _grant_term_for(event_paths: EventPaths) -> int | None:
     if spec is not None and spec.ordinal > 0:
         first = moments.moments_for(Stage.merits)[0]
         _, opened_at = _event_stage_and_opened(event_paths.sibling(first.event_id))
-    return grant_term_year(opened_at) if opened_at is not None else None
+    return october_term_year(opened_at) if opened_at is not None else None
 
 
 def _event_stage_and_opened(event_paths: EventPaths) -> tuple[Stage | None, date | None]:
@@ -7545,6 +7573,12 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         mcp_servers=labels,
         mcp_tools=offered,
         calls=calls,
+        # Baked here rather than derived on load, unlike the two summaries the
+        # model recomputes from `calls`: those reproduce what a committed record
+        # already holds, while a count of filing fetches would turn every log
+        # written before the field into one that rewrites itself on the next
+        # read. Stamped once, from the rows as capture minted them.
+        self_provisioned_fetches=len(self_provisioned_fetches(calls)),
     )
     event_paths = CasePaths(settings.data_root, court, docket).event(event)
     destination = (
@@ -7618,8 +7652,8 @@ def usage_summary() -> None:
 
     Aggregates every ``usage.json`` under ``data/`` — overall totals and a
     per-actor (predictor/evaluator) breakdown with mean cost per run — so a
-    maintainer can replace the planning assumption in ``docs/budget.md`` with the
-    measured figure. Pure roll-up; persists nothing.
+    maintainer can replace the planning assumption with the measured figure.
+    Pure roll-up; persists nothing.
     """
     settings = get_settings()
     records = iter_usage(settings.data_root)
@@ -9160,7 +9194,13 @@ Filters — every one optional, none of them positional:
                          parallel cite, not a cases-citing-it search
   --disposition TEXT     one realized outcome label, listed below
   --era TEXT             one decade token, listed below
-  --decided-before YEAR  a bare four-digit year, not a date
+  --decided-before CLOCK a bare four-digit October-Term year (2025) sets the
+                         TERM bar: priors whose best-known year precedes it.
+                         An ISO date (2026-06-30) sets the DAY bar instead:
+                         priors that had resolved by then. A replay cell
+                         passes its Term here and finds REPLAY_CUTOFF in its
+                         environment carrying the day; both apply, and the
+                         day can then only remove rows the Term admitted
   --limit N              how many priors to return
   --corpus-backend NAME  transport only: local / ranged / service; the run
                          environment sets this, so leave it alone
@@ -9188,6 +9228,58 @@ Every flag with its own help: fedcourts query --help"""
 #: terminal still renders each token list as a block rather than re-wrapping it
 #: into the flag column, which is what makes the screen scannable at all.
 _QUERY_HELP_WIDTH = 72
+
+
+#: The cell env var carrying a dated replay cell's provisioned cutoff. Read by
+#: `query` rather than passed as a flag because the prompt contract — frozen —
+#: spells only `--decided-before "$DECIDED_BEFORE"`, whose value is the cell's
+#: October Term. The day has to reach the mask without a new flag in that line.
+REPLAY_CUTOFF_VAR = "REPLAY_CUTOFF"
+
+
+def _echo_replay_cutoff(day: date | None, source: str | None) -> None:
+    """Say that the day bar is on, and where it came from, before the rows.
+
+    A cell that never asked for this bar is the one reader most in need of
+    being told it is there: ``REPLAY_CUTOFF`` is read from the environment, so
+    without a line the narrower result would look like a thin corpus. Said
+    before the scan, beside the other sentinels, so it reaches the log even
+    when the query matches nothing.
+    """
+    if day is None:
+        return
+    typer.echo(
+        f"note: replay cutoff {day.isoformat()} (from {source}) — priors that had not "
+        "resolved by then are excluded, on top of any --decided-before Term",
+        err=True,
+    )
+
+
+def _replay_cutoff_day(clock: ReplayClock | None) -> tuple[date | None, str | None]:
+    """The day bar to apply, and where it came from, for one ``query``.
+
+    Two sources, one meaning. A dated replay cell carries its provisioned cutoff
+    in ``REPLAY_CUTOFF`` and passes only its Term on the command line, so this
+    reads the environment for itself; a hand invocation spells the day as
+    ``--decided-before <date>``. The argument wins where both are given, because
+    someone who typed a day meant that day.
+
+    ``ValueError`` on an unparseable environment value — the same refusal the
+    argument gets, and for the same reason: a cutoff that fell through to "no
+    day" would widen a replay cell's retrieval while looking masked.
+    """
+    if clock is not None and clock.day is not None:
+        return clock.day, "--decided-before"
+    raw = (os.environ.get(REPLAY_CUTOFF_VAR) or "").strip()
+    if not raw:
+        return None, None
+    try:
+        return date.fromisoformat(raw), REPLAY_CUTOFF_VAR
+    except ValueError as exc:
+        raise ValueError(
+            f"{REPLAY_CUTOFF_VAR}={raw!r} is not an ISO date (YYYY-MM-DD); it carries "
+            "this replay cell's provisioned cutoff and cannot be guessed at"
+        ) from exc
 
 
 def _query_interface_help() -> str:
@@ -9273,13 +9365,20 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         ),
     ] = "",
     decided_before: Annotated[
-        int,
+        str,
         typer.Option(
-            help="Exclusive year cutoff for back-test replays: keep only priors "
-            "whose best-known year strictly precedes it (rows with no derivable "
-            "year are excluded). 0 = no cutoff (the live, forward view)."
+            help="Back-test replay clock. A bare four-digit October-Term year "
+            "(2025) sets the TERM bar: keep only priors whose best-known year "
+            "strictly precedes it, and never one with no derivable year. An ISO "
+            "date (2026-06-30) sets the DAY bar instead: keep only priors that "
+            "had already resolved by then, leaving a prior with no resolution "
+            "date unscreened. The REPLAY_CUTOFF environment variable sets the "
+            "same day bar, and where both apply a prior must clear both — which "
+            "is the shape a replay cell retrieves under, since the day can then "
+            "only remove rows its own Term admitted. Omitted, or 0 = no cutoff "
+            "(the live, forward view)."
         ),
-    ] = 0,
+    ] = "",
     include_open: Annotated[
         bool, typer.Option(help="Include unresolved cases (default: decided priors only).")
     ] = False,
@@ -9350,6 +9449,17 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         )
         typer.echo(_query_interface_help(), err=True)
         raise typer.Exit(code=2)
+    # The replay clock is judged here too, and refused rather than dropped: a
+    # misspelled clock that fell through to "no cutoff" would hand a replay cell
+    # the unmasked corpus while looking like it had been masked. Both halves —
+    # the argument, and the cutoff day the cell's environment carries.
+    try:
+        clock = parse_decided_before(decided_before)
+        cutoff_day, cutoff_source = _replay_cutoff_day(clock)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        typer.echo(_query_interface_help(), err=True)
+        raise typer.Exit(code=2) from exc
     db_path = corpus.corpus_db_path(settings.corpus_root)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_service=True))
     if backend == "local" and not db_path.exists():
@@ -9365,10 +9475,15 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         citations=citation or [],
         disposition=disp,
         era=era or None,
-        decided_before=decided_before or None,
+        # The Term half only from the year spelling: a date's `term` is
+        # informational (ReplayClock) and passing it would put a field the
+        # screens ignore on the query, and on the sidecar wire.
+        decided_before=clock.term if clock is not None and clock.day is None else None,
+        decided_before_day=cutoff_day,
         resolved_only=not include_open,
         exclude_non_cert=not include_applications,
     )
+    _echo_replay_cutoff(cutoff_day, cutoff_source)
     if backend == "service":
         try:
             response = corpus_service.client_query(
@@ -10061,7 +10176,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     one was filed — fetched pipeline-side by the live poller) is
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
-    fetch rights.
+    fetch rights. That staged text is passed through the **contact-detail
+    scrub** where the snapshot names nobody but the petitioner to write to:
+    emails, telephone numbers, post-office boxes and street
+    addresses replaced by ``[contact detail withheld]``, with
+    ``contact_scrubbed`` and ``contact_replacements`` on each manifest entry
+    recording that it ran and what it withheld. The stored row and the source
+    PDF are untouched — the staged copy is the one a cell can quote into the
+    public ledger.
 
     "Most recent" is the answer only for a cell that has no declared moment of
     its own. Where ``--event`` names one (and ``--moment-cutoff`` is on, which is
@@ -10207,8 +10329,23 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     )
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}){placed} -> {dest}")
     if documents:
-        for doc in documents:
-            write_text(paths.document(doc.kind), doc.text)
+        # The contact-detail scrub, keyed on the docket-level reading that
+        # separates a filing signed by counsel from one signed in person:
+        # whether the snapshot names anyone but the petitioner to write to.
+        # Where it does not, every document staged for this cell has
+        # its contact-detail shapes withheld — the whole docket rather than the
+        # petition alone, since deciding per document who signed it would be a
+        # second reading with its own failure mode, and an opposition filed by
+        # counsel loses only professional details the cell has no use for. The
+        # corpus row and the source PDF are untouched: the scrub is on the copy
+        # staged under `record/`, which is the copy a cell can quote into the
+        # public ledger.
+        scrubbing = petitioner_is_unrepresented(payload)
+        staged = [
+            (doc, scrub_contact_details(doc.text) if scrubbing else None) for doc in documents
+        ]
+        for doc, scrubbed in staged:
+            write_text(paths.document(doc.kind), doc.text if scrubbed is None else scrubbed.text)
         write_raw_json(
             paths.documents_manifest,
             [
@@ -10224,13 +10361,36 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
                     # pages/truncated alone; flag it so the cell distinguishes
                     # "no document" / "document present but no text layer" /
                     # "text present". Derived here, not stored on the row.
+                    # Read off the stored text, so the flag keeps naming what the
+                    # extraction produced — a scrub replaces a contact detail
+                    # with a placeholder and can never empty text that had any.
                     "empty_text": not doc.text.strip(),
+                    # Whether the scrub ran over this document's staged text, and
+                    # how many details it withheld. The two are separate facts: a
+                    # scrubbed document with nothing to withhold reads `true, 0`,
+                    # which is a different statement from a document the scrub
+                    # never saw, and a cell that meets the placeholder in the text
+                    # can tell from here that the pipeline put it there.
+                    "contact_scrubbed": scrubbed is not None,
+                    "contact_replacements": 0 if scrubbed is None else scrubbed.replacements,
                 }
-                for doc in documents
+                for doc, scrubbed in staged
             ],
         )
         kinds = ", ".join(doc.kind for doc in documents)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
+        if scrubbing:
+            # Echoed for the same reason the cut counts are: the size of a
+            # scrub is itself a signal. A pattern that began matching legal
+            # prose would show up here as a count no signature block could
+            # produce, and the run log is the only place it could show up at
+            # all — the manifest that records it is gitignored with the rest of
+            # `record/`.
+            withheld = sum(0 if done is None else done.replacements for _, done in staged)
+            typer.echo(
+                f"{case} contact scrub: {withheld} detail(s) withheld across "
+                f"{len(staged)} staged document(s) (no attorney named for the petitioner)"
+            )
 
 
 def _clear_opinion_slot(paths: CasePaths) -> None:
@@ -13332,32 +13492,35 @@ def evaluate_matrix_cmd(
     typer.echo(json.dumps(fanout.matrix, separators=(",", ":")))
 
 
-#: The **fallback** per-cell rate, from *Capacity `N`: the funding knob* in
-#: ``docs/budget.md``: $15 per fully-tournamented case divided across its design
-#: mix of six cells. It prices a cell whose engine the table below does not name
-#: — a new engine, or a registry entry ahead of the doc — so a plan never
-#: silently drops such a cell from its total. Re-anchor it when the doc moves.
+#: The **fallback** per-cell rate: the ~$15 a fully-tournamented case costs,
+#: divided across its design mix of six cells. It prices a cell whose engine the
+#: table below does not name — a new engine, or a registry entry ahead of the
+#: table — so a plan never silently drops such a cell from its total. Re-anchor
+#: it when the table below moves.
 _PLANNING_USD_PER_CELL = 2.50
 
-#: Per-cell rates in USD, keyed (seam, engine), from ``docs/budget.md``. The
-#: predict row is the whole-run column of *Per-cell cost is keyed on the stage*
-#: — one stamped fan-out, 81 cells over 27 events, since re-based out of the
-#: frozen partition by the predictor re-blesses that followed it. The evaluate row is
-#: that section's evaluate-cohort table, ``proc-v2`` row (the better-matched of
-#: its two pre-freeze anchors), scaled by the whole predict move (x1.218)
-#: exactly as the doc's own per-case derivation does. The doc's stamped
-#: evaluate rows are interim-stage, graded before the current instant under
-#: superseded evaluator digests, so they re-anchor nothing here; see the
-#: caveats below. The two sum
-#: to $6.79 + $8.18 = $14.97 a case — the top of the doc's $14.6-15.0 band,
-#: which the $2.50 fallback is the six-cell rounding of — so a full
-#: three-engine, both-seam fan-out prices within a cent either way. What
-#: conditioning buys is the *narrowed* plan: within a seam the engines differ
-#: ~7x, so an engine-narrowed backfill priced at the flat rate is wrong by up
-#: to ~4x.
+#: Per-cell rates in USD, keyed (seam, engine) — the source for every spend
+#: figure a plan prints; ``docs/budget.md`` sizes the program from measurements
+#: like these, not the other way round. The predict row is measured: one stamped
+#: fan-out, 81 cells over 27 events, since re-based out of the frozen partition
+#: by the predictor re-blesses that followed it. The evaluate row is the
+#: better-matched of the two pre-freeze cert-stage anchors — the ``proc-v2``
+#: grading — scaled by the whole predict move (x1.218), the same scaling the
+#: per-case derivation uses. The other stamped evaluate gradings are
+#: interim-stage, graded before the current instant under superseded evaluator
+#: digests, so they re-anchor nothing here; see the caveats below. The two sum
+#: to $6.79 + $8.18 = $14.97 a case, which the $2.50 fallback is the six-cell
+#: rounding of — so a full three-engine, both-seam fan-out prices within a cent
+#: either way. ``docs/budget.md``'s $15-17 per fully predicted event is that
+#: same total rounded up, carrying the headroom the codex row's pending
+#: re-anchor needs (the caveats below): one table, described twice, not two
+#: measurements. What conditioning buys is the *narrowed* plan: within a seam the
+#: engines differ ~7x, so an engine-narrowed backfill priced at the flat rate is
+#: wrong by up to ~4x.
 #:
 #: Engine keys, not actor ids: a cell carries its resolved ``engine``, and the
-#: doc's per-actor columns are one actor per engine in the shipped registries.
+#: per-actor measurements behind these rows are one actor per engine in the
+#: shipped registries.
 _PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
     "predict": {"claude-code": 4.27, "codex": 1.88, "gemini": 0.64},
     "evaluate": {"claude-code": 5.92, "codex": 1.30, "gemini": 0.96},
@@ -13368,24 +13531,29 @@ _PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
 #: seam where the standing differs; :func:`_shared_spend_caveats` adds the rest.
 #:
 #: The two "four"s in this file name different things and each says which: the
-#: four predict *moments* docs/budget.md measures, and the four pre-freeze
-#: *gradings* the evaluate anchor is drawn from (of which the rates here use
-#: three).
+#: four predict *moments* the predict measurements cover, and the four
+#: pre-freeze *gradings* the evaluate anchor is drawn from (of which the rates
+#: here use three).
 _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
     "predict": [
         "Measured, but over one stamped fan-out (81 cells, 27 events) that "
         + "predates the current freeze instant — a shakedown figure for claims "
         + "purposes. "
-        + "docs/budget.md reads the ~+20% level gap to the 410-cell pre-freeze "
-        + "ledger as an UPPER BOUND on any level effect, not a measurement of one.",
+        + "The ~+20% level gap to the 410-cell pre-freeze ledger is an UPPER "
+        + "BOUND on any level effect, not a measurement of one.",
+        "The codex row is PRE-CUTOVER and projects LOW: it was measured on "
+        + "gpt-5.6-sol ($5/$30 per MTok) while that engine's default is now "
+        + "gpt-6-astra ($10/$50). On the new default a fully-tournamented case "
+        + "prices nearer $16.7-17.8 than the $14.97 these rates sum to, and "
+        + "only the first measured post-cutover run re-anchors the row.",
     ],
     "evaluate": [
-        "An ASSUMPTION, not a measurement: docs/budget.md scales a pre-freeze "
-        + "anchor by the whole predict move (~+22%). The anchor these rates use "
-        + "is its `proc-v2` row — THREE graded events, the process-stamped subset "
-        + "of the four pre-freeze gradings — taken as the better-matched of the "
-        + "doc's two pre-freeze anchors; the pooled four-grading row is the more "
-        + "cautious one and is NOT what these rates carry. All four are "
+        "An ASSUMPTION, not a measurement: these rates scale a pre-freeze "
+        + "anchor by the whole predict move (~+22%). The anchor they use "
+        + "is the `proc-v2` grading — THREE graded events, the process-stamped "
+        + "subset of the four pre-freeze gradings — taken as the better-matched "
+        + "of the two pre-freeze anchors; the pooled four-grading figure is the "
+        + "more cautious one and is NOT what these rates carry. All four are "
         + "cert-stage, so the anchor is stage-narrow either way.",
         "An evaluate measurement EXISTS outside the frozen partition, and these "
         + "rates do not use "
@@ -13413,7 +13581,7 @@ def _shared_spend_caveats(seam: str) -> list[str]:
     """
     moment = (
         "Not conditioned on the forecast moment. Of the four predict MOMENTS "
-        "docs/budget.md measures, only merits-above-cert-arrival separates at the "
+        "the ledger measures, only merits-above-cert-arrival separates at the "
         "measured n (~+$1.2 an event, on 11 events against 12); the rest sit "
         "within noise of each other, so conditioning on them would fit noise. "
         "The merits separation is real and is deliberately not applied here, so "
@@ -13515,16 +13683,15 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
         # lives inside the basis block, named as the fallback it is.
         "spend_estimate_basis": {
             "source": (
-                "docs/budget.md — 'Per-cell cost is keyed on the stage' (the predict "
-                "whole-run row) and the evaluate-cohort table in the 'Evaluate cost: "
-                "narrower, weaker, and mid-re-anchor' subsection that follows it "
-                "(proc-v2 row, scaled by the predict move)"
+                "fedcourtsai.cli._PLANNING_RATES_USD_PER_CELL — the predict "
+                "whole-run measurement, and the evaluate pre-freeze cert-stage "
+                "anchor (the proc-v2 grading, scaled by the predict move)"
             ),
             "seam": seam,
             "rates_usd_per_cell": dict(rates),
             "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
             "fallback_source": (
-                "docs/budget.md — 'Capacity `N`: the funding knob' ($15 per "
+                "fedcourtsai.cli._PLANNING_USD_PER_CELL (~$15 per "
                 "fully-tournamented case over a six-cell design mix)"
             ),
             "cells_at_fallback_rate": at_fallback,
@@ -13683,10 +13850,11 @@ def _plan_spend_line(plan: dict[str, Any], *, stage: str) -> str:
     # reader is most likely to quote has to carry that in the same sentence as
     # the number; predict's are measured and need no such clause.
     rate_note = (
-        "docs/budget.md's per-engine rates, which for the evaluate seam are an "
-        "assumption (pre-freeze cert-stage anchor scaled ~+22%), not a measurement"
+        "the per-engine rates this command carries, which for the evaluate seam "
+        "are an assumption (pre-freeze cert-stage anchor scaled ~+22%), not a "
+        "measurement"
         if plan["stage"] == "evaluate"
-        else "the per-engine rates in docs/budget.md (see spend_estimate_basis)"
+        else "the per-engine rates this command carries (see spend_estimate_basis)"
     )
     return (
         f"{stage}: would mint {ledger['would_mint_cells']} cell(s), estimated "
@@ -14048,10 +14216,10 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
     read for different questions and a flat block invites reading a case count
     as a cell count. The drop lists explain each count, every record carrying
     the dropping step's own reason; ``would_mint`` is the surviving cell set;
-    and ``estimated_spend_usd`` prices it at the per-(seam, engine) rates in
-    ``docs/budget.md``, with ``spend_estimate_basis`` naming the source section,
-    the rates used, and what they cannot support. That makes "this change
-    protects a rerun" a check someone can execute rather than a claim.
+    and ``estimated_spend_usd`` prices it at the per-(seam, engine) rates this
+    module carries, with ``spend_estimate_basis`` naming their source, the rates
+    used, and what they cannot support. That makes "this change protects a
+    rerun" a check someone can execute rather than a claim.
 
     The ex-post spend backstop is **reported, not applied**: ``spend_gate``
     carries its verdict while ``would_mint`` stays the fan-out the earlier steps
@@ -14232,8 +14400,8 @@ def evaluate_plan_cmd(
     derivation would mint. Read-only in both modes, corpus included.
 
     Its ``estimated_spend_usd`` carries a weaker basis than predict's, and says
-    so: the rates are ``docs/budget.md``'s pre-freeze cert-stage anchor scaled
-    by the whole predict move, an assumption rather than a measurement.
+    so: the rates are a pre-freeze cert-stage anchor scaled by the whole
+    predict move, an assumption rather than a measurement.
     ``spend_estimate_basis.caveats`` states that on every plan, and
     ``--approval-report`` carries it into the rendered report's spend sentence.
 
@@ -14931,6 +15099,14 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # the tripwire half still prints there, because it reports on what
         # capture could see rather than on what the corpus did.
         "prior_availability": plan.prior_availability_markdown,
+        # The input-side counterpart of both: which cells fetched a court filing
+        # from outside the provisioned `record/documents/` set, and whose. It
+        # rides the PR body like the two above and leaves the process here for
+        # the same reason. A record, not a finding — retrieval is not fenced —
+        # but a fan-out whose predictors did not all get the same documents is
+        # not the clean comparison it presents as, and nothing else says so.
+        # Empty on a run where no cell fetched one.
+        "self_provisioned": plan.self_provisioned_markdown,
         # The census of this run's own output rather than of what reached it:
         # how many predictions landed with no `big_case_score`, and whose. It
         # rides the PR body like the two above, and unlike them the collect
@@ -15122,16 +15298,57 @@ def _add_throttle_cell(rollup: ThrottleRollup, log: RetrievalLog) -> ThrottleRol
     )
 
 
+def _add_self_provisioned_cell(
+    rollup: SelfProvisionedRollup, log: RetrievalLog, path: Path
+) -> SelfProvisionedRollup:
+    """Fold one cell's log into the self-provisioning record.
+
+    Keyed on :func:`~fedcourtsai.schemas.self_provisioned_fetches`, the same
+    predicate capture bakes each log's own ``self_provisioned_fetches`` with —
+    so within a run the note and the field agree, and across a predicate change
+    they part: this re-derives over the committed rows while the field holds
+    what its own capture minted.
+
+    Every legible log counts toward ``cells`` **and** toward its actor's own
+    denominator in ``by_actor``, the clean ones included: a numerator without
+    the cells it came out of cannot tell 2 of 4 from 2 of 41, which on a cut
+    this uneven is the whole difference. Only a log with at least one reach is
+    named, since the note is silent on a run with none.
+    """
+    counts = {actor: (reached, cells) for actor, reached, cells in rollup.by_actor}
+    reached, seen = counts.get(log.actor_id, (0, 0))
+    fetches = self_provisioned_fetches(log.calls)
+    counts[log.actor_id] = (reached + bool(fetches), seen + 1)
+    rollup = replace(
+        rollup,
+        cells=rollup.cells + 1,
+        # Actor id order, never count order: sorting by count is a ranking, and
+        # the instrument's blind spots are engine-shaped, so this cut is the one
+        # that must not read as a league table.
+        by_actor=tuple((actor, *pair) for actor, pair in sorted(counts.items())),
+    )
+    if not fetches:
+        return rollup
+    return replace(
+        rollup,
+        fetch_cells=rollup.fetch_cells + 1,
+        fetches=rollup.fetches + len(fetches),
+        names=(*rollup.names, _cell_name(log, path)),
+    )
+
+
 def _load_retrieval_rollups(
     status_dir: Path, run_id: str
-) -> tuple[ThrottleRollup, PriorAvailabilityRollup]:
+) -> tuple[ThrottleRollup, PriorAvailabilityRollup, SelfProvisionedRollup]:
     """Summarize this run's captured retrieval from the cell artifacts.
 
-    One walk, two roll-ups, because both read the same files and the fan-out
+    One walk, three roll-ups, because they read the same files and the fan-out
     they are read across is wide: what the shared upstream quota did to the run
-    (:class:`~fedcourtsai.collect.ThrottleRollup`) and whether the corpus index
+    (:class:`~fedcourtsai.collect.ThrottleRollup`), whether the corpus index
     served the cells that asked it for priors
-    (:class:`~fedcourtsai.collect.PriorAvailabilityRollup`).
+    (:class:`~fedcourtsai.collect.PriorAvailabilityRollup`), and which cells
+    fetched a court filing from outside the provisioned document set
+    (:class:`~fedcourtsai.collect.SelfProvisionedRollup`).
 
     The same walk shape as :func:`_load_flag_sets`, and for the same reason:
     each cell uploads its whole ``data/`` subtree, so the run's
@@ -15158,18 +15375,23 @@ def _load_retrieval_rollups(
     being dropped: it is a cell of this run — its path carries the run id —
     whose condition nothing can read, which is exactly what that counter means.
     It contributes nothing to the prior roll-up, whose attempt side needs rows
-    it does not have. Neither is ever fatal, because these are notifications
-    and must never take down the aggregation that carries the run's only copy
-    of its output.
+    it does not have; on the self-provisioning record, whose whole content is
+    rows, it lands in that record's own ``unreadable`` count for the same
+    reason the throttle roll-up counts it blind — a cell nothing could parse is
+    not a cell that reached for nothing. None of this is ever fatal, because
+    these are notifications and must never take down the aggregation that
+    carries the run's only copy of its output.
     """
     seen: set[tuple[str, str, str, str, str]] = set()
     throttle = ThrottleRollup()
     priors = PriorAvailabilityRollup()
+    self_provisioned = SelfProvisionedRollup()
     for path in sorted(status_dir.glob(f"**/{run_id}/retrieval_log.json")):
         try:
             log = RetrievalLog.model_validate_json(path.read_text())
         except (OSError, ValueError):
             throttle = replace(throttle, blind_cells=throttle.blind_cells + 1)
+            self_provisioned = replace(self_provisioned, unreadable=self_provisioned.unreadable + 1)
             continue
         if log.run_id != run_id:
             continue
@@ -15185,7 +15407,8 @@ def _load_retrieval_rollups(
         seen.add(identity)
         throttle = _add_throttle_cell(throttle, log)
         priors = _add_prior_cell(priors, log, path)
-    return throttle, priors
+        self_provisioned = _add_self_provisioned_cell(self_provisioned, log, path)
+    return throttle, priors, self_provisioned
 
 
 #: How much of one identifier the stakes census carries into a note. The three
@@ -15316,10 +15539,14 @@ def collect_plan_cmd(
     is the same roll-up wrapped for the long-lived agent-feedback tracking issue
     (empty when no flags), which the collect step posts so a note survives even a
     fully-failed run that opens no PR. ``throttle`` and ``prior_availability``
-    are the two harness-rendered retrieval notes, read from the cells' own
+    are two of the three harness-rendered retrieval notes, read from the cells' own
     captured logs and likewise appended to the PR body: what the shared upstream
     quota did to the run, and whether the corpus index served the cells that
-    asked it for priors. Both are empty on a run with nothing to report.
+    asked it for priors. ``self_provisioned`` is the third and rides the same
+    body: which cells fetched a court filing from outside the provisioned
+    document set, so a fan-out whose predictors did not all get the same
+    documents does not read as a clean comparison. All three are empty on a run
+    with nothing to report.
     ``stakes_reads`` is the same shape of note about the run's own output — the
     predictions that landed with no ``big_case_score``, counted per predictor —
     which the collect step echoes into the Actions summary beside the flags.
@@ -15332,7 +15559,7 @@ def collect_plan_cmd(
         cells.append(
             CellStatus.from_dict(json.loads(status_path.read_text()), artifact_dir=artifact_dir)
         )
-    throttle, priors = _load_retrieval_rollups(status_dir, run_id)
+    throttle, priors, self_provisioned = _load_retrieval_rollups(status_dir, run_id)
     plan = collect_plan(
         role,
         run_id=run_id,
@@ -15360,6 +15587,12 @@ def collect_plan_cmd(
         # predicts from whatever else it had — so without a run-level count the
         # only trace is one line in one cell's tooling report.
         prior_availability=priors,
+        # And which cells went past the provisioned document set for a filing.
+        # The snapshot is every predictor's guaranteed-common input, so a cell
+        # that repaired a short document set by live fetch and one that did not
+        # were not run on the same information — a split that leaves no mark on
+        # the prediction and disappears with the run unless it is recorded here.
+        self_provisioned=self_provisioned,
         # And whether the run's own cells placed the stakes they were asked to.
         # Predict only: an evaluation carries no `big_case_score`, and an
         # evaluate run's artifacts hold predictions from *other* runs, which the

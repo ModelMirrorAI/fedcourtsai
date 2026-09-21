@@ -20,6 +20,7 @@ from fedcourtsai.collect import (
     ExpectedCell,
     PathJailError,
     PriorAvailabilityRollup,
+    SelfProvisionedRollup,
     StakesReadRollup,
     ThrottleRollup,
     assert_board_within_jail,
@@ -37,6 +38,7 @@ from fedcourtsai.collect import (
     render_feedback_comment,
     render_flags,
     render_prior_availability_note,
+    render_self_provisioned_note,
     render_stakes_read_note,
     render_stall_comment,
     render_throttle_note,
@@ -1486,3 +1488,91 @@ def test_an_unrelated_head_is_none_rather_than_a_guess(ref: str) -> None:
     # A guessed reading would release the wrong run — re-spending a fan-out —
     # or withhold one that landed. Either is worse than not matching.
     assert parse_run_branch(FinalizeRole.predict, ref) is None
+
+
+def test_a_run_whose_cells_fetched_their_own_filings_says_which_and_a_clean_one_stays_quiet() -> (
+    None
+):
+    # The comparability record: the provisioned document set is every
+    # predictor's guaranteed-common input, so where one predictor in a fan-out
+    # repaired a short set by live fetch and another did not, their numbers were
+    # formed over different information. The fetch marks the cell's retrieval
+    # log and nothing else, so the run PR is where the split has to be said or
+    # it disappears with the run.
+    fetched = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        self_provisioned=SelfProvisionedRollup(
+            cells=60,
+            fetch_cells=3,
+            fetches=9,
+            unreadable=2,
+            names=(
+                "scotus/73280412/evt-petition-disposition/claude-baseline",
+                "scotus/73280412/evt-petition-disposition/codex-baseline",
+                "scotus/73281629/evt-petition-disposition/codex-baseline",
+            ),
+            by_actor=(("claude-baseline", 1, 20), ("codex-baseline", 2, 40)),
+        ),
+    )
+    assert fetched.ready is not None
+    body = fetched.ready.body
+    # The headline is the quotable unit, so it says what the count can carry —
+    # a reach outside the provisioned set — and never that the record was short,
+    # which the caveat further down explicitly denies.
+    assert "Cells reached outside the provisioned document set for a court filing" in body
+    assert "did not carry" not in body
+    assert "3 of 60 legible cell log(s) this run carry 9 such call(s)" in body
+    # Each actor against its own cells, in actor order: a bare numerator cannot
+    # tell 2 of 4 from 2 of 40, and sorting by count would make the one cut that
+    # must not be ranked read as a league table.
+    assert "`claude-baseline` 1/20 cell(s), `codex-baseline` 2/40 cell(s)" in body
+    # A log nothing could parse is carried, not read as a cell that reached for nothing.
+    assert "2 further log(s) of this run could not be parsed" in body
+    assert "scotus/73280412/evt-petition-disposition/claude-baseline" in body
+    # A record, not a finding; a reach, not an acquisition; and nothing scores on it.
+    assert "comparability record, not a finding" in body
+    assert "A reach, not an acquisition" in body
+    assert "Nothing scores or stratifies on any of it." in body
+    assert fetched.self_provisioned_markdown
+
+    # Silent where no cell fetched: a standing "0 self-provisioned" line on a
+    # surface read once per run trains the eye to skip the place the warning
+    # will one day appear.
+    clean = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline")],
+        self_provisioned=SelfProvisionedRollup(cells=60),
+    )
+    assert clean.ready is not None
+    assert "reached outside the provisioned" not in clean.ready.body
+    assert clean.self_provisioned_markdown == ""
+    assert render_self_provisioned_note(None) == ""
+    assert render_self_provisioned_note(SelfProvisionedRollup()) == ""
+
+
+def test_the_self_provisioning_record_stays_off_the_facts_only_pr() -> None:
+    # A wholesale-failed run produced no predictions, so there is no comparison
+    # for the record to qualify — unlike the throttle and prior notes, which
+    # name live candidate causes of the failure itself and do ride that body.
+    plan = collect_plan(
+        FinalizeRole.predict,
+        run_id="R",
+        cells=[_cell("claude-baseline", produced=False, validated=False, agent_ok=False)],
+        throttle=ThrottleRollup(cells=2, throttled_cells=1, calls=10, throttled_calls=3),
+        self_provisioned=SelfProvisionedRollup(
+            cells=2,
+            fetch_cells=1,
+            fetches=1,
+            names=("scotus/1/evt-petition-disposition/claude-baseline",),
+            by_actor=(("claude-baseline", 1, 2),),
+        ),
+    )
+    assert plan.ready is None and plan.partial is None
+    assert plan.facts_only is not None
+    assert "Retrieval was throttled this run" in plan.facts_only.body
+    assert "Cells reached outside" not in plan.facts_only.body
+    # It still leaves the process on the plan, for the surface that echoes it.
+    assert plan.self_provisioned_markdown

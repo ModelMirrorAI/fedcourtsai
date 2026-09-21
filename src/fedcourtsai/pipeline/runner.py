@@ -51,7 +51,7 @@ import tempfile
 import time
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -120,10 +120,25 @@ class RunRequest:
     ``prompt`` is carried for parity with the live engine (which reads it) even
     though the stub does not consult it; it is part of the cell contract.
 
-    ``decided_before`` is the back-test replay clock: set only when a decided
-    case is replayed as of a past moment (the cert back-test's engine replay),
-    it is exported to the cell as ``DECIDED_BEFORE`` so the agent's corpus
-    retrieval masks history from that year on. Live cells never set it.
+    ``decided_before`` and ``replay_cutoff`` are the two halves of the back-test
+    replay clock, set only when a decided case is replayed as of a past moment
+    (the cert back-test's engine replay). Live cells set neither.
+
+    ``decided_before`` is the case's own **October-Term year**, exported as
+    ``DECIDED_BEFORE``. Every cell on the replay arm has one, and the prompt
+    contract is written against it as a Term: it is what the cell anchors
+    statpack rows behind and what it passes to ``fedcourts query
+    --decided-before``. It is the docket Term and nothing derived from a date,
+    so it is self-excluding — a case's own row never clears a bar set at its own
+    Term.
+
+    ``replay_cutoff`` is the calendar day the cell was provisioned at, exported
+    as ``REPLAY_CUTOFF``, and only a **dated** cell has one (the blind arm was
+    given no cutoff). ``fedcourts query`` reads it for itself and applies it as
+    a second bar on top of whatever ``--decided-before`` set. Because an undated
+    prior cannot be tested against a day, that bar can only **remove** rows the
+    Term already admitted — the priors that had not yet resolved when this cell
+    was placed. Nothing about the Term is re-derived from it.
     """
 
     role: UsageRole
@@ -135,6 +150,7 @@ class RunRequest:
     prompt: Path
     data_root: Path
     decided_before: int | None = None
+    replay_cutoff: date | None = None
 
     @property
     def case_id(self) -> str:
@@ -561,9 +577,10 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     cell: the case + event ids, the shared run id, the acting id under
     ``PREDICTOR_ID`` (predict) or ``EVALUATOR_ID`` (evaluate), and the model the
     engine runs (``MODEL_ID`` — the agent copies it into its artifact's ``model``
-    field). ``DECIDED_BEFORE`` appears only on back-test replay cells (the live
-    workflows never set ``decided_before``). Auth is never assembled here: the
-    agent inherits it from the scrubbed base environment
+    field). ``DECIDED_BEFORE`` (the case's October-Term year) appears only on
+    back-test replay cells, and ``REPLAY_CUTOFF`` (an ISO date) only on the
+    dated ones among them — the live workflows set neither. Auth is never
+    assembled here: the agent inherits it from the scrubbed base environment
     (:func:`_agent_base_env`), which passes through only the engine's own.
     """
     actor_var = "PREDICTOR_ID" if request.role == UsageRole.predictor else "EVALUATOR_ID"
@@ -577,6 +594,8 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     }
     if request.decided_before is not None:
         env["DECIDED_BEFORE"] = str(request.decided_before)
+    if request.replay_cutoff is not None:
+        env["REPLAY_CUTOFF"] = request.replay_cutoff.isoformat()
     return env
 
 
@@ -594,6 +613,24 @@ def _under_the_ledger(data_root: Path) -> bool:
         return data_root.resolve() == (Path.cwd() / get_settings().data_root).resolve()
     except OSError:  # pragma: no cover - a path the OS refuses to resolve
         return False
+
+
+def _admitted_workspace_root(data_root: Path) -> Path | None:
+    """The absolute output root a workspace-bounded engine must be admitted to.
+
+    ``None`` whenever there is nothing to admit: a cell writing to the ledger,
+    which sits inside the launch directory already, and a path the OS refuses to
+    resolve, which :func:`_under_the_ledger` reads as "not the ledger" but which
+    cannot be named absolutely either. One resolution answers both questions, so
+    a caller never resolves a second time and raises out of command construction
+    where that one swallowed.
+    """
+    if _under_the_ledger(data_root):
+        return None
+    try:
+        return data_root.resolve()
+    except OSError:  # pragma: no cover - a path the OS refuses to resolve
+        return None
 
 
 def _output_root_block(request: RunRequest) -> str:
@@ -1113,7 +1150,9 @@ class GeminiRunner(AgenticRunner):
     upstream ``run-gemini-cli`` action pulls unpinned actions the org's
     SHA-pinning policy rejects, so it is bypassed there too). Auth is the
     inherited ``GEMINI_API_KEY``; a headless run must trust the workspace
-    explicitly (``GEMINI_CLI_TRUST_WORKSPACE=true``) or the CLI exits 55. As in
+    explicitly (``GEMINI_CLI_TRUST_WORKSPACE=true``) or the CLI exits 55, and a
+    cell writing outside the workspace boundary its file tools enforce needs that
+    root passed as ``--include-directories`` (see :meth:`build_command`). As in
     the workflow, the cell identifiers ride inline in the prompt: Gemini's CLI
     sanitizer runs strict whenever ``GITHUB_SHA`` is set and strips every custom
     env var from the agent's shell **unless the workspace's
@@ -1140,6 +1179,35 @@ class GeminiRunner(AgenticRunner):
             "--yolo",
             "--model",
             self.model,
+        ]
+        # Gemini's file tools (write_file / read_file / list_directory) refuse
+        # any path outside the workspace, which is the launch directory plus the
+        # CLI's own per-project temp dir — a refusal the model can only work
+        # around through run_shell_command, at several extra turns a cell. A
+        # cell whose output root is not the ledger writes under a scratch tree
+        # (the cert back-test's `--work-dir`, a cascade over a temp tree) that
+        # is neither, so that root is admitted into the workspace explicitly, on
+        # exactly the condition :func:`_output_root_block` names it absolutely
+        # on. The ledger is the right proxy for "inside the launch directory":
+        # it is the checkout's own `data/`, resolved against the working
+        # directory the CLI is launched from in every invocation shape here, so
+        # a ledger cell needs no admission and its command line stays
+        # byte-identical to the one the cell workflows hand the CLI.
+        #
+        # Admission is also what makes a directory a `GEMINI.md` context-file
+        # discovery root — at startup, and again whenever a file tool touches a
+        # path under it — so the back-test's shared work root carries that
+        # channel alongside the checkout, which is one already;
+        # `run-backtest.yml` states the residual beside the root it creates. The
+        # CLI splits the value on commas (`coerce: coerceCommaSeparated`), so a
+        # hand-passed `--work-dir` holding one is admitted as two directories
+        # that do not exist and the cell degrades to the shell path rather than
+        # failing; mktemp never produces one. Both are gemini-cli 0.49.0
+        # behaviour — re-check on any CLI bump.
+        admitted = _admitted_workspace_root(request.data_root)
+        if admitted is not None:
+            argv += ["--include-directories", admitted.as_posix()]
+        argv += [
             "--prompt",
             _claude_instruction(request, self.model),
             "--output-format",

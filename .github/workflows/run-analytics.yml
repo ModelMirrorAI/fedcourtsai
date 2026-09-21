@@ -2012,27 +2012,46 @@ jobs:
           # and refuse the one batch that has no prior at all.
           if git cat-file -e "origin/main:data/qp-topics/qp-topics.json" 2>/dev/null; then
             git show "origin/main:data/qp-topics/qp-topics.json" > "$RUNNER_TEMP/landed.json"
-            landed=$(jq -cS '[.batches[] | {batch, labeler, published}]' \
-              "$RUNNER_TEMP/landed.json")
-            landed_rows=$(jq -cS '[.entries[] | select(.source == "labeler")]' \
-              "$RUNNER_TEMP/landed.json")
+            jq -cS '[.batches[] | {batch, labeler, published}]' \
+              "$RUNNER_TEMP/landed.json" > "$RUNNER_TEMP/landed-ledger.json"
+            jq -cS '[.entries[] | select(.source == "labeler")]' \
+              "$RUNNER_TEMP/landed.json" > "$RUNNER_TEMP/landed-rows.json"
           else
-            landed='[]'
-            landed_rows='[]'
+            echo '[]' > "$RUNNER_TEMP/landed-ledger.json"
+            echo '[]' > "$RUNNER_TEMP/landed-rows.json"
           fi
-          incoming=$(jq -cS '[.batches[] | {batch, labeler, published}]' \
-            "$RUNNER_TEMP/qp-topics.json")
-          incoming_rows=$(jq -cS '[.entries[] | select(.source == "labeler")]' \
-            "$RUNNER_TEMP/qp-topics.json")
-          if [ "$(jq -n --argjson a "$landed" --argjson b "$incoming" \
-                  '($b[:($a | length)] == $a) and (($b | length) > ($a | length))')" != "true" ]; then
+          jq -cS '[.batches[] | {batch, labeler, published}]' \
+            "$RUNNER_TEMP/qp-topics.json" > "$RUNNER_TEMP/incoming-ledger.json"
+          jq -cS '[.entries[] | select(.source == "labeler")]' \
+            "$RUNNER_TEMP/qp-topics.json" > "$RUNNER_TEMP/incoming-rows.json"
+          # Both checks read their operands from files, never from the
+          # argument list. The row arrays are the artifact's whole
+          # labeler-sourced content — hundreds of kilobytes from the second
+          # batch on — and the kernel caps one argv string at 128 KiB, so an
+          # `--argjson` carrying them never starts jq. `-se` reads them as
+          # files instead, slurped into `[$a, $b]`, and makes jq's exit the
+          # verdict: 0 is true, 1 is false, anything higher is a check that
+          # could not run. Only 0 lets the push through, and a check that
+          # could not run refuses on its own message rather than on the one
+          # for the condition it never tested.
+          guard() {
+            local label="$1" rc=0
+            jq -se "$2" "$3" "$4" > /dev/null || rc=$?
+            if [ "$rc" -gt 1 ]; then
+              echo "::error::the push guard could not evaluate its ${label} check (jq exit ${rc}); refusing the push"
+              exit "$rc"
+            fi
+            return "$rc"
+          }
+          if ! guard ledger '. as [$a, $b] | ($b[:($a | length)] == $a) and (($b | length) > ($a | length))' \
+                 "$RUNNER_TEMP/landed-ledger.json" "$RUNNER_TEMP/incoming-ledger.json"; then
             echo "::error::this run's batch ledger does not strictly extend main's —" \
               "the run accrued onto a stale artifact, or published nothing new." \
               "Dispatch qp-topic-label from the ref carrying the newest data/qp-topics/qp-topics.json."
             exit 1
           fi
-          if [ "$(jq -n --argjson a "$landed_rows" --argjson b "$incoming_rows" \
-                  '($a - $b) | length == 0')" != "true" ]; then
+          if ! guard rows '. as [$a, $b] | ($a - $b) | length == 0' \
+                 "$RUNNER_TEMP/landed-rows.json" "$RUNNER_TEMP/incoming-rows.json"; then
             echo "::error::rows main already publishes are missing or changed in this run's" \
               "artifact — pushing would rewrite published labels. The run accrued onto a" \
               "stale or divergent artifact; dispatch from the ref carrying main's newest copy."

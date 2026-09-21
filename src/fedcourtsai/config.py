@@ -582,7 +582,7 @@ class SalienceConfig(BaseModel):
     base_rate_lookback_terms: int = Field(default=0, ge=0)
     # Cap on interim-docket tournament slots (stays, injunctions —
     # docs/salience.md, *The interim docket*), defined inside the per-conference
-    # envelope (docs/budget.md). Enforced by the selection pass
+    # envelope (same section). Enforced by the selection pass
     # (pipeline.salience.plan_cohorts): pending substantive applications fill up
     # to this many reserve slots per pass, and the slots in use lower the current
     # conference cohort's rank-fill limit by the same number — which costs a cert

@@ -530,6 +530,14 @@ class CollectPlan:
     code-mode capture tripwire beside it, because that is the blindness bound
     on its own count.
 
+    ``self_provisioned_markdown`` is the third of that family and the one about
+    the *guaranteed-common input*: which cells fetched a court filing from
+    outside the provisioned ``record/documents/`` set, and whose. It travels the
+    same way as the throttle note — appended to whichever ready or draft PR body
+    opens — and is empty on a run where no cell did. Not the facts-only body: a
+    wholesale-failed run produced no predictions for the record to be a
+    comparability note about.
+
     ``stakes_read_markdown`` asks the same shape of question of the run's *own
     output* rather than of its inputs: how many of this run's predictions landed
     without a ``big_case_score``, and whose. It travels the same way, minus the
@@ -548,6 +556,7 @@ class CollectPlan:
     flags_markdown: str = ""
     throttle_markdown: str = ""
     prior_availability_markdown: str = ""
+    self_provisioned_markdown: str = ""
     stakes_read_markdown: str = ""
     feedback_comment: str = ""
     stalled: bool = False
@@ -1074,6 +1083,129 @@ def render_prior_availability_note(rollup: PriorAvailabilityRollup | None) -> st
 
 
 @dataclass(frozen=True)
+class SelfProvisionedRollup:
+    """Which of this run's cells reached outside the provisioned set for a filing.
+
+    The provisioned ``record/documents/`` set is every cell's
+    guaranteed-common input. Where it is short a filing, a cell that reaches
+    past the record for the document and a cell that does not — or cannot —
+    are reasoning from different information, while the fan-out that puts their
+    judgments side by side reads as one comparison. The reach marks the cell's
+    retrieval log and nothing else, so without a per-run count the split is
+    invisible the moment the run is over. Both seams are read the same way: a
+    predict fan-out's numbers and an evaluate fan-out's grades alike.
+
+    It counts **reaches, not acquisitions**, because that is all a row can
+    carry: :func:`~fedcourtsai.schemas.self_provisioned_fetches` finds the call,
+    and whether it came back with anything is ``result_status``'s business —
+    on a shell row that is the engine's own failure marker rather than a read
+    of the payload. A 404'd ``curl`` counts here and moved no information set.
+
+    Re-derived at collect time over the committed rows, with the same predicate
+    capture bakes each log's own ``self_provisioned_fetches`` with. The two
+    therefore agree within a run and can diverge across a predicate change: the
+    field holds what its own capture minted, this holds today's reading.
+
+    ``cells`` is every legible cell log this run — the denominator
+    ``fetch_cells`` is a subset of. ``unreadable`` counts the logs of this run
+    that could not be parsed at all, carried beside it rather than folded away,
+    because a cell nothing could read is not a cell that reached for nothing.
+    A cell that uploaded no log is outside both and is bounded by neither.
+
+    ``by_actor`` carries ``(actor, cells_that_reached, legible_cells)`` for
+    **every** actor with a legible log, the clean ones included, ordered by
+    actor id. Each half of that is deliberate. The denominator rides along
+    because a bare numerator cannot tell 2 of 4 from 2 of 41, and the order is
+    alphabetical rather than by count because sorting by count is a ranking,
+    and this is the one cut that must not be ranked: the instrument's blind
+    spots are engine-shaped — what a reach leaves in a query slice depends on
+    how an engine spells its tools — so the split is not a behavioural
+    comparison. What it is for is locating the fan-outs to read by hand, which
+    ``names`` (``case/event/actor``, artifact-walk order, capped) then points
+    at.
+    """
+
+    cells: int = 0
+    fetch_cells: int = 0
+    fetches: int = 0
+    unreadable: int = 0
+    names: tuple[str, ...] = ()
+    by_actor: tuple[tuple[str, int, int], ...] = ()
+
+
+def render_self_provisioned_note(rollup: SelfProvisionedRollup | None) -> str:
+    """The run PR's note on the cells that fetched their own filings, or ``""``.
+
+    Silent on a run where no cell did — the same convention
+    :func:`render_throttle_note` and :func:`render_prior_availability_note`
+    keep, and for the same reason: a standing "0 self-provisioned" line on a
+    surface read once per run trains the eye to skip exactly the place the
+    warning will one day appear. The denominators therefore ride inside the
+    note rather than standing alone as a clean-run line.
+
+    What it states is a **record, not a finding**, and a record of a *reach*
+    rather than of an acquisition. Going outside a short record is not
+    misconduct and not leakage: a forward cell may retrieve without
+    restriction, and a predictor that recovers a brief the pipeline failed to
+    provision is doing the work well. What it costs is comparability, and only
+    against the cells beside it — so the note names the actors, gives each its
+    own denominator, and stops at the observation. No score, board or metric
+    reads any of this; stratifying one on it is separate, registered work.
+
+    Every caveat it carries is inside the note rather than in a doc it links
+    to, because the note is the quotable unit: its headline is what an excerpt
+    takes, so the headline says *outside the provisioned set* and never *the
+    record did not carry it*, which is the one thing the count cannot
+    establish.
+    """
+    if rollup is None or not rollup.fetch_cells:
+        return ""
+    # Each entry carries its own denominator and spells its unit: the split
+    # counts CELLS while the run total two clauses earlier counts reach ROWS,
+    # and a bare integer beside that total reads as rows. Actor order is the
+    # rollup's (alphabetical), never the renderer's — see the class docstring
+    # on why this cut must not be ranked.
+    split = ", ".join(
+        f"`{_md_id(actor)}` {count}/{total} cell(s)" for actor, count, total in rollup.by_actor
+    )
+    blind = (
+        f" {rollup.unreadable} further log(s) of this run could not be parsed and are in "
+        f"neither count."
+        if rollup.unreadable
+        else ""
+    )
+    return (
+        f"📄 **Cells reached outside the provisioned document set for a court filing**: "
+        f"{rollup.fetch_cells} of {rollup.cells} legible cell log(s) this run carry "
+        f"{rollup.fetches} such call(s) — {split} (actor order, not a ranking):{blind} "
+        f"{_named_cells(rollup.names)} (walk order, so the cap shows a prefix — a wider "
+        f"run's remainder is countable here but not nameable). **A comparability record, "
+        f"not a finding.** Retrieval is not fenced: a forward cell may retrieve without "
+        f"restriction, and a predictor that recovers a brief the pipeline failed to "
+        f"provision is doing the work well. What moves is the guaranteed-common input — "
+        f"where one cell of a fan-out went outside a short document set and another did "
+        f"not, their judgments were formed over different information and the comparison "
+        f"between them is not clean, on either seam: a predict fan-out's numbers and an "
+        f"evaluate fan-out's grades are read the same way here. Read the named cells' "
+        f"`flags.json`, which is where an agent that noticed a gap says so. **A reach, not an "
+        f"acquisition**: the row is the call, and whether anything came back is "
+        f"`result_status`'s business — on a shell row the engine's own failure marker "
+        f"rather than a read of the payload — so a refused fetch counts here and moved "
+        f"no information set. Nor does it say the record was actually short: a cell that "
+        f"re-fetched a filing it had been given counts the same, because the manifest "
+        f"that would separate them is thrown away with the runner. A floor besides, and "
+        f"an **engine-shaped** one: a filing URL past a row's 500-character query cut is "
+        f"unseen, a hosted web search carrying a bare URL is not counted, and a fetch "
+        f"tool called with a prompt beside its URL keeps the prompt in its query slice, "
+        f"so its whole channel leaves nothing to match. An engine that reaches through "
+        f"its shell is legible where one reaching through a prompted fetch tool is not — "
+        f"so read an absent or low actor as *no reach was legible*, never as *none "
+        f"happened*, and do not read the split as a behavioural difference between "
+        f"engines. Nothing scores or stratifies on any of it."
+    )
+
+
+@dataclass(frozen=True)
 class StakesReadRollup:
     """Whether this run's predictions carried a stakes read (``big_case_score``).
 
@@ -1265,6 +1397,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     expected: Sequence[ExpectedCell] = (),
     throttle: ThrottleRollup | None = None,
     prior_availability: PriorAvailabilityRollup | None = None,
+    self_provisioned: SelfProvisionedRollup | None = None,
     stakes_reads: StakesReadRollup | None = None,
 ) -> CollectPlan:
     """Partition a run's cells into one ready PR, one draft PR, and the skipped.
@@ -1330,6 +1463,13 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     where every attempt was served; the code-mode capture tripwire it carries
     beside that warning is not, because it reports on what could be seen rather
     than on what happened.
+
+    ``self_provisioned`` asks it of the **guaranteed-common input**: which cells
+    fetched a court filing from outside the provisioned document set, which is
+    the one way a fan-out silently stops being a comparison over one information
+    set. It rides the ready and draft bodies — not the facts-only one, which
+    belongs to a run that produced nothing to compare — and is silent on a run
+    where no cell fetched.
 
     ``stakes_reads`` turns the same lens on the run's own output: which of its
     predictions landed without a ``big_case_score``, split into the prompt's
@@ -1441,6 +1581,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
 
     throttle_md = render_throttle_note(throttle)
     prior_md = render_prior_availability_note(prior_availability)
+    self_provisioned_md = render_self_provisioned_note(self_provisioned)
     stakes_md = render_stakes_read_note(stakes_reads)
 
     # A wholesale-failed run — no ready PR and no draft — still has failure facts
@@ -1473,7 +1614,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     # because that is the frame a maintainer needs before reading the agents'
     # own accounts of what they found.
     ready_plan, partial_plan = _append_sections(
-        ready_plan, partial_plan, (throttle_md, prior_md, stakes_md, flags_md)
+        ready_plan, partial_plan, (throttle_md, prior_md, self_provisioned_md, stakes_md, flags_md)
     )
     return CollectPlan(
         ready=ready_plan,
@@ -1482,6 +1623,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
         flags_markdown=flags_md,
         throttle_markdown=throttle_md,
         prior_availability_markdown=prior_md,
+        self_provisioned_markdown=self_provisioned_md,
         stakes_read_markdown=stakes_md,
         feedback_comment=render_feedback_comment(role, run_id, flags_md),
         stalled=bool(cells) and not any(c.produced or c.agent_ok for c in cells),
@@ -1567,23 +1709,24 @@ def _append_sections(
 ) -> tuple[PrPlan | None, PrPlan | None]:
     """Append the run-level roll-ups to the run's primary PR body (ready, else draft).
 
-    The flag roll-up, the throttle note, the prior-availability note, and the
-    stakes-read census belong to the run, not a single cell, so they ride the
-    one PR a maintainer reviews — the auto-merging ready PR when there is one,
-    otherwise the draft. Empty sections are dropped, so a run with none leaves
-    the body untouched; with no PR at all each roll-up still travels on the plan
-    (``flags_markdown`` / ``throttle_markdown`` /
-    ``prior_availability_markdown`` / ``stakes_read_markdown``) and out through
+    The flag roll-up, the throttle note, the prior-availability note, the
+    self-provisioning record, and the stakes-read census belong to the run, not
+    a single cell, so they ride the one PR a maintainer reviews — the
+    auto-merging ready PR when there is one, otherwise the draft. Empty sections
+    are dropped, so a run with none leaves the body untouched; with no PR at all
+    each roll-up still travels on the plan (``flags_markdown`` /
+    ``throttle_markdown`` / ``prior_availability_markdown`` /
+    ``self_provisioned_markdown`` / ``stakes_read_markdown``) and out through
     ``collect-plan``'s JSON.
 
     They are not equally surfaced. The flag roll-up reaches the Actions summary
     and the agent-feedback issue, and the stakes census the Actions summary,
     because the collect action reads those off that JSON and echoes them — both
     behind the same secret-scan gates, since both name things an agent wrote.
-    The throttle and prior-availability notes reach the PR body alone until that
-    action is wired to echo them too, which is a change to the permission
-    surface and so a maintainer's to make. All four are on the JSON, so for
-    those two the wiring is the only thing missing.
+    The throttle, prior-availability and self-provisioning notes reach the PR
+    body alone until that action is wired to echo them too, which is a change to
+    the permission surface and so a maintainer's to make. All five are on the
+    JSON, so for those three the wiring is the only thing missing.
     """
     body = "\n\n".join(section for section in sections if section)
     if not body:

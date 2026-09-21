@@ -32,7 +32,8 @@ name: run-ops
 # back-test results, every metrics figure carrying its artifact's vintage. A
 # second job on the daily tick opens the **daily prediction-reading digest**:
 # one predicted event with every predictor side by side, on its own
-# `daily-digest` issue. That job shares nothing with the `ops` job but the
+# `daily-digest` issue — unless the maintainer's standing pause variable parks
+# it (see the job). That job shares nothing with the `ops` job but the
 # schedule — narrower permissions, no corpus, no branch write — which is why it
 # is a job rather than another step.
 #
@@ -259,14 +260,28 @@ jobs:
   # it reads the committed ledger and writes issues, and never touches the
   # ops-metrics branch, the run history, or the corpus.
   daily-digest:
-    # Deliberately ungated: it runs on every trigger this workflow has, and the
-    # command's own DAY marker makes it once-a-day rather than once-a-run. A
-    # schedule filter here would be fail-open (true for every cron string it
-    # does not name) and would also lose Monday's digest outright — the
-    # workflow-level `cancel-in-progress` lets the 08:30 weekly tick cancel an
-    # 08:00 run still retrying against a degraded API, and a filtered-out job
-    # cannot make that up. Running on the 08:30 tick too recovers it, and posts
-    # nothing on a day already digested.
+    # Gated on one thing only: the maintainer's standing pause. The repository
+    # variable DAILY_DIGEST_PAUSED set to `true` parks this job — the code, the
+    # command and the label all stay, and clearing the variable resumes it on
+    # the next tick — while the `ops` job and the weekly digest, which share
+    # only this workflow's schedule, keep running. Unset or any other value
+    # runs the job, so an absent variable is the live state, never a silent
+    # pause. The website's per-case board carries the same reading, which is
+    # what makes a daily issue optional. A manual dispatch does not bypass the
+    # pause: a dispatch is the recovery handle for the ops report, and it must
+    # not post a digest the maintainer parked — to force one, clear the
+    # variable, dispatch, and set it again, a visible act rather than an
+    # override.
+    #
+    # Not gated on the schedule: it runs on every trigger this workflow has,
+    # and the command's own DAY marker makes it once-a-day rather than
+    # once-a-run. A schedule filter here would be fail-open (true for every
+    # cron string it does not name) and would also lose Monday's digest
+    # outright — the workflow-level `cancel-in-progress` lets the 08:30 weekly
+    # tick cancel an 08:00 run still retrying against a degraded API, and a
+    # filtered-out job cannot make that up. Running on the 08:30 tick too
+    # recovers it, and posts nothing on a day already digested.
+    if: ${{ vars.DAILY_DIGEST_PAUSED != 'true' }}
     runs-on: ubuntu-latest
     # Setup plus a read of `data/`; the headroom is for the four bounded `gh`
     # calls the command can make (two listings, the label, the create), each

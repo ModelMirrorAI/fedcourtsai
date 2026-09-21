@@ -53,7 +53,13 @@ fields that mean the same thing at every stage:
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so
   a cell's provisioned inputs (the snapshot, `context.json`, and `documents/`)
   sit beside every event of the case rather than under the event being
-  predicted. The field is the agent's own string. The prompt contracts one
+  predicted. The staged `documents/` carry a `documents.json` manifest stating
+  each filing's extraction facts and whether its text was passed through the
+  contact-detail scrub — which is where a cell meeting
+  `[contact detail withheld]` in a filing can confirm the pipeline put it there
+  ([live-sources.md](live-sources.md)).
+
+  The `input_snapshot` field is the agent's own string. The prompt contracts one
   spelling — the file's bare basename `YYYY-MM-DD.json`, or the literal
   `missing` with the reason in `flags.json` where the cell found no snapshot at
   all — while the committed ledger predates that contract and spells one file
@@ -518,7 +524,11 @@ directory without knowing which part is which invites trusting the wrong half.
   of the source into rows marked `code_mode_source`, in source order: a
   manifest one named in the same `mcp__<server>__<tool>` spelling a direct item
   would carry, a builtin one under the name the code-mode surface exposes it
-  as. A lifted row is always `unobserved`: the freeform call returns one
+  as. A `codex-baseline` log whose rows all carry a null `call_source` is
+  row-blind — the calls its program made have no rows of their own — and a
+  leakage grading formed on it is read as unassessed rather than clean (*The
+  leakage exclusion* in `metrics/README.md`).
+  A lifted row is always `unobserved`: the freeform call returns one
   combined output for its whole program, and nothing says which part of it
   belongs to a given call. A single call *site* is not a single invocation —
   one inside a loop runs as
@@ -559,6 +569,50 @@ directory without knowing which part is which invites trusting the wrong half.
   Both reach an evaluator's information set unmasked, which is
   recorded as a masking-surface entry in
   [freeze-record.md](freeze-record.md).
+  `self_provisioned_fetches` is the log's third summary and the one about the
+  *guaranteed-common input*: how many of its calls **reached outside** the
+  provisioned `record/documents/` set for a **court filing** — a row carrying a
+  filing-document URL (the Court's own `DocketPDF` tree, or RECAP's document
+  store) through a tool that could have fetched with it — a dedicated fetch
+  tool, or a **manifest** tool, on their own; a shell call only where its
+  command names an HTTP client; and never a search, in either the engine's
+  vocabulary or the manifest's. The provisioned
+  document set is what every predictor in a fan-out is guaranteed to share, so
+  a cell that repairs a gap in it by live fetch and a cell that cannot have not
+  reasoned from one information set — and nothing else records the split, since
+  the fetch marks the log and not the prediction. A **record only**: no score,
+  board or metric reads it. It is a **reach, not an acquisition** — the row is
+  the call, and whether anything came back is `result_status`'s business, which
+  on a shell row is the engine's own failure marker rather than a read of the
+  payload, so a refused fetch counts and moved no information set. It does not
+  say the record was short what was fetched either, because the manifest that could say so is thrown away with the
+  runner and names document *kinds* where a row names a URL, so a re-fetch of a
+  provisioned filing counts the same as a recovery; read a non-zero count
+  beside the cell's own `flags.json`, which is where a predictor that noticed a
+  gap says so. A floor with four known holes, and an **engine-shaped**
+  one, which binds exactly where the reading is a comparison: a call that left
+  no row is absent, a URL past the row's query cut is unseen, a hosted web
+  search carrying a bare URL is not a fetch, and a fetch tool called with a
+  prompt beside its URL keeps the *prompt* in its query slice and so leaves that
+  whole channel unmatchable. The holes do not share a sign, so the residual
+  cannot be signed either. That fourth hole is a **capture** choice rather than
+  a limit of the predicate: a row's query slice is cut from the first params
+  key capture finds, and `prompt` sits ahead of `url` in that order, so the
+  slice keeps the instruction the cell wrote instead of the address it asked
+  for. Reversing the pair would make the channel legible and would cost the
+  leakage grading the prompt text it reads a fetch's *intent* from, which is
+  the trade, and it is not taken here. Excluded on other
+  grounds are the tools that can only have written the URL down — a file write,
+  read or search — and a shell row naming no HTTP client, which is what a patch
+  applying the cell's own note about a *failed* fetch looks like. Unlike the two
+  summaries above it is **baked at capture** and never re-derived, so a committed
+  log reads back exactly as written; a null is unasked rather than zero. It is
+  also the second field the blinding mask **drops** rather than staging, beside
+  `call_source` and for the same reason: what a fetch leaves in a query slice
+  depends on how an engine spells its tools, so the count is engine-shaped by
+  construction, and the grading reads the rows rather than any summary over
+  them. So it never reaches an evaluator, and the staged file's field set is
+  exactly what it was.
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
   One path removes a committed one: the `include-failed-attempts` widening on
@@ -575,9 +629,12 @@ directory without knowing which part is which invites trusting the wrong half.
   cell's mode, the cutoff it was placed at (the replay cutoff on a replay cell,
   the declared moment on a forward one; null where nothing placed it, as in the
   cert-baseline example above — and distinct from `decided_before`, the replay
-  clock beside it), **which rule bounded the entries inside that cutoff**
-  (`cut_kind`, with `cut_anchor_index` beside it), and the conditioning state
-  frozen at provisioning: the
+  clock beside it, which records the **October Term** the cell anchors statpack
+  rows behind and is what it was handed as `DECIDED_BEFORE`; the `cutoff` is
+  the day-level retrieval boundary, and on a dated replay cell it is what
+  `REPLAY_CUTOFF` carries), **which rule bounded the entries inside that
+  cutoff** (`cut_kind`, with `cut_anchor_index` beside it), and the
+  conditioning state frozen at provisioning: the
   salience band, the distribution count and CVSG date as at that cutoff (as at
   the snapshot where there is none), the Term, and — on an application cell only
   — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It

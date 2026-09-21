@@ -14,7 +14,9 @@ from fedcourtsai.backtest import (
     ConstantBacktester,
     PriorIndex,
     PriorVoteBacktester,
+    ReplayClock,
     default_backtesters,
+    parse_decided_before,
     run_backtest,
     select_backtest_set,
 )
@@ -22,6 +24,7 @@ from fedcourtsai.cli import app
 from fedcourtsai.pipeline.outcome import is_machine_readable
 from fedcourtsai.schemas import Backtest, Disposition
 from fedcourtsai.serialize import read_model
+from fedcourtsai.supremecourt import october_term_year
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -214,6 +217,73 @@ def test_prior_vote_never_predicts_an_unscoreable_label(tmp_path: Path) -> None:
     assert pred.probability_granted == 0.0
 
 
+def test_prior_vote_masks_on_the_replay_day_where_one_is_given(tmp_path: Path) -> None:
+    # In the cert replay the offline reference must be on the clock the engine
+    # cells are on, so it takes the same per-case cutoff — beside the trial's
+    # own Term, never a Term derived from the day. Here the Term (2026) admits
+    # a prior the cell's day (2026-06-30) removes.
+    db = tmp_path / "corpus.db"
+    _seed(
+        db,
+        [
+            _row(
+                "ca9/1",
+                Disposition.granted,
+                date_filed=date(2025, 1, 1),
+                date_decided=date(2026, 6, 30),
+            ),
+            _row(
+                "ca9/2",
+                Disposition.denied,
+                date_filed=date(2025, 1, 1),
+                date_decided=date(2026, 1, 1),
+            ),
+        ],
+    )
+    trial = _features("ca9/99")
+    with corpus.connect(db) as conn:
+        # No day: the Term rule alone, which votes over both 2025-filed priors.
+        plain = PriorVoteBacktester(conn).predict(trial)
+        clocked = PriorVoteBacktester(conn, replay_days={"ca9/99": date(2026, 6, 30)}).predict(
+            trial
+        )
+    assert plain.probability_granted == 0.5
+    # The grant resolved ON the day, so only the denial survives the day bar.
+    assert clocked.predicted_disposition == Disposition.denied
+    assert clocked.probability_granted == 0.0
+
+
+def test_the_mechanical_backtest_passes_no_replay_day(tmp_path: Path) -> None:
+    # `metrics/backtest.json`'s path must be numerically untouched by the cert
+    # replay's clock: with no day supplied every trial falls back to its own
+    # Term, so the reference baselines score exactly as they did.
+    db = tmp_path / "corpus.db"
+    _seed(
+        db,
+        [
+            _row(
+                "ca9/1",
+                Disposition.granted,
+                date_filed=date(2025, 1, 1),
+                date_decided=date(2026, 6, 30),
+            ),
+            _row(
+                "ca9/2",
+                Disposition.denied,
+                date_filed=date(2025, 1, 1),
+                date_decided=date(2026, 1, 1),
+            ),
+        ],
+    )
+    trial = _features("ca9/99")
+    with corpus.connect(db) as conn:
+        defaults = default_backtesters(conn)
+        vote = next(bt for bt in defaults if bt.id == "prior-vote")
+        assert isinstance(vote, PriorVoteBacktester)
+        assert vote.replay_days == {}
+        assert vote.predict(trial) == PriorVoteBacktester(conn).predict(trial)
+
+
 def test_prior_vote_reads_the_population_not_the_most_recent_slice(tmp_path: Path) -> None:
     # No judges, so relevance falls back to most-recent-decision order — the
     # SCOTUS case, where nothing narrows the pool. A capped vote reads the top of
@@ -240,6 +310,65 @@ def test_prior_vote_reads_the_population_not_the_most_recent_slice(tmp_path: Pat
     assert capped.probability_granted == 1.0
 
 
+# --- the replay clock's two spellings ------------------------------------------
+
+
+def test_october_term_year_pivots_on_october() -> None:
+    # The one date->Term rule: a Term opens in October and runs until the next.
+    assert october_term_year(date(2026, 9, 30)) == 2025
+    assert october_term_year(date(2026, 10, 1)) == 2026
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # The bare year, the clock's original spelling and what a hand
+        # invocation types, is that Term and carries no day.
+        ("2025", ReplayClock(term=2025)),
+        ("1998", ReplayClock(term=1998)),
+        # A date sets the day bar; the Term it falls in — the run's own
+        # example, 2026-06-30 inside OT2025 — rides along for a reader and is
+        # consulted by nothing. A replay cell never spells its clock this way:
+        # it passes its own Term here and its day through REPLAY_CUTOFF.
+        ("2026-06-30", ReplayClock(term=2025, day=date(2026, 6, 30))),
+        # The October pivot at its boundary. A Term opens in October, so the last
+        # day of September still belongs to the Term that opened the year before,
+        # and the first days of October open the next one.
+        ("2026-09-30", ReplayClock(term=2025, day=date(2026, 9, 30))),
+        ("2026-10-01", ReplayClock(term=2026, day=date(2026, 10, 1))),
+        ("2026-12-31", ReplayClock(term=2026, day=date(2026, 12, 31))),
+        # The no-cutoff spellings: the live, forward view.
+        ("", None),
+        ("0", None),
+    ],
+)
+def test_the_replay_clock_reads_a_year_or_a_date(raw: str, expected: ReplayClock | None) -> None:
+    assert parse_decided_before(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "2026-13-01",  # date-shaped but not a date
+        "2026-02-30",
+        "20260630",  # the basic ISO form, which would otherwise read as a year
+        "2026-06",
+        "last year",
+        "OT2025",
+        "-2025",
+        "25",  # a two-digit Term prefix is a mistyped year, not a clock
+        "202",
+        "1789-09-30",  # the day before the federal judiciary opened
+        "1788",  # and the same floor in the year spelling
+    ],
+)
+def test_an_unreadable_replay_clock_is_refused_rather_than_dropped(raw: str) -> None:
+    # Loudly, because a clock that fell through to "no cutoff" would hand a
+    # replay cell the unmasked corpus while looking as if it had been masked.
+    with pytest.raises(ValueError, match=r"replay clock|calendar date|federal judiciary"):
+        parse_decided_before(raw)
+
+
 # --- prior index parity with retrieve_priors -----------------------------------
 
 
@@ -248,9 +377,12 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
 
     Covers every semantic branch: pure recency order (no features), required judge
     overlap, required citation overlap, both filters combined (score sums), the
-    decided_before cutoff (alone and with overlap filters; a year-less row is
-    excluded under any cutoff), an undated-but-resolved row (sorts after dated
-    ones), unresolved rows excluded, a foreign court, and a no-match query.
+    replay clock in every shape it takes (the Term year alone, with overlap
+    filters; the day alone; and the two conjoined, which is what a replay cell
+    retrieves under — a year-less row is excluded under any Term bar and an
+    undated row rides the Term bar under any day), an undated-but-resolved row
+    (sorts after dated ones), unresolved rows excluded, a foreign court, and a
+    no-match query.
     """
     db = tmp_path / "corpus.db"
     _seed(
@@ -283,6 +415,16 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
             _row("ca9/4", Disposition.denied, judges=["alpha"], date_filed=None, date_decided=None),
             # Unresolved: never a prior.
             _row("ca9/5", None, judges=["alpha"]),
+            # Resolved by label with a derivable year but NO resolution date:
+            # the day bar cannot test it, so it rides the Term bar alone —
+            # under a day with no Term beside it, nothing screens it at all.
+            _row(
+                "ca9/9",
+                Disposition.granted,
+                judges=["beta"],
+                date_filed=date(2023, 2, 1),
+                date_decided=None,
+            ),
             # Another court: never mixed into ca9 retrievals.
             _row("ca1/6", Disposition.granted, court="ca1", judges=["alpha"]),
             # Decided but never disposition-labeled: `retrieve_priors` returns it
@@ -303,25 +445,41 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
             ),
         ],
     )
-    queries: list[tuple[str, tuple[str, ...], tuple[str, ...], int | None]] = [
-        ("ca9", (), (), None),
-        ("ca9", ("alpha",), (), None),
-        ("ca9", ("alpha", "gamma"), (), None),
-        ("ca9", (), ("1 U.S. 1",), None),
-        ("ca9", (), ("2 U.S. 2",), None),
-        ("ca9", ("beta",), ("1 U.S. 1",), None),
-        ("ca9", ("nobody",), (), None),
-        ("ca1", ("alpha",), (), None),
-        ("nowhere", (), (), None),
-        ("ca9", (), (), 2026),
-        ("ca9", (), (), 2024),
-        ("ca9", (), (), 1900),
-        ("ca9", ("alpha", "beta"), (), 2026),
-        ("ca9", ("beta",), ("1 U.S. 1",), 2025),
+    queries: list[tuple[str, tuple[str, ...], tuple[str, ...], int | None, date | None]] = [
+        ("ca9", (), (), None, None),
+        ("ca9", ("alpha",), (), None, None),
+        ("ca9", ("alpha", "gamma"), (), None, None),
+        ("ca9", (), ("1 U.S. 1",), None, None),
+        ("ca9", (), ("2 U.S. 2",), None, None),
+        ("ca9", ("beta",), ("1 U.S. 1",), None, None),
+        ("ca9", ("nobody",), (), None, None),
+        ("ca1", ("alpha",), (), None, None),
+        ("nowhere", (), (), None, None),
+        ("ca9", (), (), 2026, None),
+        ("ca9", (), (), 2024, None),
+        ("ca9", (), (), 1900, None),
+        ("ca9", ("alpha", "beta"), (), 2026, None),
+        ("ca9", ("beta",), ("1 U.S. 1",), 2025, None),
+        # The day bar alone (a hand date), which both paths must apply
+        # identically: after every dated resolution, on one of them, before all
+        # of them, and combined with an overlap filter.
+        ("ca9", (), (), None, date(2026, 6, 1)),
+        ("ca9", (), (), None, date(2026, 3, 1)),
+        ("ca9", (), (), None, date(2026, 2, 1)),
+        ("ca9", (), (), None, date(2025, 1, 1)),
+        ("ca9", ("beta",), (), None, date(2026, 6, 1)),
+        ("ca9", (), ("1 U.S. 1",), None, date(2026, 3, 1)),
+        # And the shape a replay cell retrieves under: both halves at once, the
+        # day narrowing what the Term admitted and the undated row riding the
+        # Term either way.
+        ("ca9", (), (), 2026, date(2026, 6, 1)),
+        ("ca9", (), (), 2026, date(2026, 2, 1)),
+        ("ca9", (), (), 2026, date(2025, 1, 1)),
+        ("ca9", ("beta",), (), 2026, date(2026, 2, 1)),
     ]
     with corpus.connect(db) as conn:
         index = PriorIndex.build(conn)
-        for court, judges, citations, decided_before in queries:
+        for court, judges, citations, decided_before, day in queries:
             # `None` is what the production caller passes, so parity has to hold
             # there and not only at the truncated limits.
             for limit in (1, 3, 10, None):
@@ -335,6 +493,7 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
                         judges=list(judges),
                         citations=list(citations),
                         decided_before=decided_before,
+                        decided_before_day=day,
                         resolved_only=True,
                     ),
                     limit=50,
@@ -344,12 +503,20 @@ def test_prior_index_matches_retrieve_priors(tmp_path: Path) -> None:
                     for r in wide
                     if r.disposition is not None and is_machine_readable(Disposition(r.disposition))
                 ][:limit]
-                got = index.top(court, judges, citations, limit, decided_before=decided_before)
+                got = index.top(
+                    court,
+                    judges,
+                    citations,
+                    limit,
+                    decided_before=decided_before,
+                    decided_before_day=day,
+                )
                 assert [c.case_id for c in got] == [r.case_id for r in expected], (
                     court,
                     judges,
                     citations,
                     decided_before,
+                    day,
                     limit,
                 )
         # Both asymmetries, pinned: the unlabeled decided row and the `other`

@@ -130,18 +130,87 @@ def test_a_free_text_search_argument_is_refused_with_the_interface(
 
 
 def test_a_bad_flag_value_is_refused_with_the_interface(fixture_corpus: FixtureCorpus) -> None:
-    # `--full` is a boolean, so a case name after it parses as a positional and
-    # `--decided-before` takes a year rather than a date: two spellings of the
-    # same wrong mental model, and both teach the same screen.
-    for argv in (
-        ["query", "--court", "scotus", "--full", "Jennings v. Rodriguez"],
-        ["query", "--court", "scotus", "--decided-before", "2026-06-30"],
-    ):
-        result = runner.invoke(app, argv)
-        assert result.exit_code == 2, argv
+    # `--full` is a boolean, so a case name after it parses as a positional —
+    # the wrong mental model this screen exists to correct.
+    result = runner.invoke(app, ["query", "--court", "scotus", "--full", "Jennings v. Rodriguez"])
+    assert result.exit_code == 2
+    out = _unwrapped(result.output)
+    assert "takes no free-text search argument" in out
+    assert "bare four-digit October-Term year (2025)" in out
+
+
+def test_the_replay_clock_takes_a_date_or_a_term_year(fixture_corpus: FixtureCorpus) -> None:
+    # Both ca9 priors are filed in 2022 (their best-known year) and decided in
+    # 2023 — ca9/101 on 09-18, ca9/102 on 11-30. A bare year screens on the
+    # best-known year; a date screens on the resolution date alone.
+    def ids(clock: str) -> list[object]:
+        result = runner.invoke(app, ["query", "--court", "ca9", "--decided-before", clock])
+        assert result.exit_code == 0, result.output
+        return [r["case_id"] for r in _rows(result.stdout)]
+
+    # Neither prior had been decided by mid-2023, so a date there empties the
+    # set — as the bare year 2022 does, for the unrelated reason that neither
+    # row's best-known year precedes 2022.
+    assert ids("2023-06-30") == ids("2022") == []
+    # The bare year 2023 admits both: it can only ask about the year. The date
+    # asks about the day, and drops the one not yet decided on 2023-10-02.
+    assert ids("2023") == ["ca9/102", "ca9/101"]
+    assert ids("2023-10-02") == ["ca9/101"]
+
+
+def test_query_reads_the_replay_cutoff_from_the_environment(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The cell contract: the prompt spells only `--decided-before "$DECIDED_BEFORE"`
+    # (its October Term), and the cutoff day reaches the mask through the
+    # environment. ca9/101 was decided 2023-09-18 and ca9/102 2023-11-30, both
+    # filed in 2022, so the Term bar 2023 admits both and a cutoff of 2023-10-02
+    # removes the one that had not been decided yet.
+    def ids(*, cutoff: str | None) -> tuple[list[object], str]:
+        monkeypatch.delenv("REPLAY_CUTOFF", raising=False)
+        if cutoff is not None:
+            monkeypatch.setenv("REPLAY_CUTOFF", cutoff)
+        result = runner.invoke(app, ["query", "--court", "ca9", "--decided-before", "2023"])
+        assert result.exit_code == 0, result.output
+        return [r["case_id"] for r in _rows(result.stdout)], _unwrapped(result.stderr)
+
+    plain, plain_err = ids(cutoff=None)
+    clocked, clocked_err = ids(cutoff="2023-10-02")
+    assert plain == ["ca9/102", "ca9/101"]
+    assert clocked == ["ca9/101"]
+    # And it says so, before the rows: a cell that did not pass the flag would
+    # otherwise read the narrower result as a thin corpus.
+    assert "replay cutoff" not in plain_err
+    assert "replay cutoff 2023-10-02 (from REPLAY_CUTOFF)" in clocked_err
+    # The interface screen names the variable too, so a caller reading the help
+    # learns where a day bar it never typed came from.
+    teach = _unwrapped(runner.invoke(app, ["query", "--court", "ca9", "nope"]).output)
+    assert "REPLAY_CUTOFF in its environment" in teach
+
+
+def test_an_unparseable_replay_cutoff_is_refused_not_ignored(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Falling through to "no day" would widen a replay cell's retrieval while
+    # looking masked — the same failure the argument's refusal exists to prevent.
+    monkeypatch.setenv("REPLAY_CUTOFF", "last June")
+    result = runner.invoke(app, ["query", "--court", "ca9", "--decided-before", "2023"])
+    assert result.exit_code == 2
+    out = _unwrapped(result.output)
+    assert "REPLAY_CUTOFF" in out and "ISO date" in out
+
+
+def test_an_unreadable_replay_clock_is_refused_with_the_interface(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # Refused rather than dropped: a clock that fell through to "no cutoff"
+    # would unmask a replay cell's retrieval while looking masked.
+    for clock in ("2026-13-01", "last year", "20260630", "25", "202", "1789-09-30"):
+        result = runner.invoke(app, ["query", "--court", "ca9", "--decided-before", clock])
+        assert result.exit_code == 2, clock
         out = _unwrapped(result.output)
-        assert "takes no free-text search argument" in out, argv
-        assert "a bare four-digit year, not a date" in out, argv
+        assert any(m in out for m in ("replay clock", "calendar date", "federal judiciary")), clock
+        assert "bare four-digit October-Term year" in out, clock
 
 
 def test_an_invented_era_is_refused_and_the_vocabulary_printed(
@@ -313,27 +382,37 @@ def test_query_service_backend_parity_with_replay_clock(
 ) -> None:
     # The replay clock and the overlap filters ride the forwarded PriorQuery
     # untouched: a flag-heavy invocation matches the local backend byte for byte.
-    args = [
-        "query",
-        "--court",
-        "ca9",
-        "--judge",
-        "smith",
-        "--decided-before",
-        "2023",
-        "--limit",
-        "3",
-    ]
-    local = runner.invoke(app, args)
+    # Both spellings, because the date carries a second field over the wire and a
+    # day that failed to serialize would unmask the sidecar's retrieval alone.
     server, url = _serve(fixture_corpus.db_path)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SERVICE_URL", url)
     try:
-        monkeypatch.setenv("FEDCOURTS_CORPUS_SERVICE_URL", url)
-        served = runner.invoke(app, [*args, "--corpus-backend", "service"])
+        for clock in ("2023", "2023-10-02"):
+            args = [
+                "query",
+                "--court",
+                "ca9",
+                "--judge",
+                "smith",
+                "--decided-before",
+                clock,
+                "--limit",
+                "3",
+            ]
+            local = runner.invoke(app, args)
+            served = runner.invoke(app, [*args, "--corpus-backend", "service"])
+            assert served.exit_code == 0, served.output
+            assert served.stdout == local.stdout, clock
     finally:
         server.shutdown()
         server.server_close()
-    assert served.exit_code == 0, served.output
-    assert served.stdout == local.stdout
+    # And the date really did narrow, or the parity above proves nothing: the
+    # last invocation was the dated one.
+    year_only = runner.invoke(
+        app,
+        ["query", "--court", "ca9", "--judge", "smith", "--decided-before", "2023", "--limit", "3"],
+    )
+    assert _rows(local.stdout) != _rows(year_only.stdout)
 
 
 def test_corpus_serve_rejects_env_inherited_service_backend(

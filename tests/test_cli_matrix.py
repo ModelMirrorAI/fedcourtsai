@@ -2037,7 +2037,7 @@ def test_predict_plan_enumerates_exactly_the_cells_predict_matrix_would_mint(
     assert ledger["dropped_already_predicted_cells"] == 2
     assert {d["actor_id"] for d in plan["dropped_already_predicted"]} == {"claude-baseline"}
     _assert_predict_balances(plan)
-    # The rates are pinned in code against docs/budget.md; a silent re-anchor
+    # The rates are pinned in code and are their own source; a silent re-anchor
     # re-prices every plan, so the literals are asserted rather than derived.
     assert plan["spend_estimate_basis"]["rates_usd_per_cell"] == {
         "claude-code": 4.27,
@@ -2148,7 +2148,7 @@ def test_evaluate_plan_enumerates_exactly_the_cells_evaluate_matrix_would_mint(
     # caveat carries the reason and not just the label: a stamped evaluate
     # measurement exists, and what disqualifies it from re-anchoring these
     # rates is its stage and its superseded digests. Pinned because the failure
-    # mode is silent — a caveat that goes stale against docs/budget.md still
+    # mode is silent — a caveat that goes stale against the rate table still
     # renders, and the approval report quotes it as the basis of a spend
     # decision.
     assert any(
@@ -2300,15 +2300,13 @@ def test_evaluate_plan_reports_already_graded_cells_and_what_force_would_change(
     _assert_evaluate_balances(forced_plan)
 
 
-def test_the_planning_rate_table_matches_the_budget_doc_per_event_totals() -> None:
-    """The rate table is a transcription of `docs/budget.md`, so pin its totals.
+def test_the_planning_rate_table_matches_the_per_event_totals() -> None:
+    """The rate table is the source for every priced plan, so pin its totals.
 
-    Predict: the whole-run row of *Per-cell cost is keyed on the stage* sums to
-    **$6.79 an event**. Evaluate: that section's `proc-v2` row scaled by the
-    predict move sums to **$8.18**, the upper anchor of the doc's $14.6-15.0
-    per-case band. Pinning the sums rather than only the columns means a
-    re-anchor of the doc lands here as a visible test edit instead of silently
-    re-pricing every plan.
+    Predict: the whole-run measurement sums to **$6.79 an event**. Evaluate: the
+    `proc-v2` pre-freeze anchor scaled by the predict move sums to **$8.18**.
+    Pinning the sums rather than only the columns means a re-anchor of the table
+    lands here as a visible test edit instead of silently re-pricing every plan.
     """
     assert round(sum(cli._PLANNING_RATES_USD_PER_CELL["predict"].values()), 2) == 6.79
     assert round(sum(cli._PLANNING_RATES_USD_PER_CELL["evaluate"].values()), 2) == 8.18

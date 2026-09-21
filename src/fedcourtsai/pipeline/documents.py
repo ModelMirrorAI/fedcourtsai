@@ -803,6 +803,280 @@ def extract_pdf_text(
         return ExtractedText(text="", pages=0, truncated=False)
 
 
+# --- Contact-detail scrub ---------------------------------------------------
+#
+# A cell's prose lands in the public git ledger, so the text staged for it is a
+# republication surface as well as an input. Most of what it carries is
+# institutional — counsel of record, a firm, a clerk's office — but a **pro se**
+# filer signs in person, and the caption and signature block of such a filing
+# carry that individual's own email, telephone and home or mailing address. The
+# filing is public; re-publishing the contact details out of it, aggregated with
+# whatever else the filing says about the person, is a different act. The scrub
+# below removes the shapes those details take from the staged text alone: the
+# source PDF and the stored corpus row are untouched, and the cell manifest
+# records that the text it names was scrubbed and by how many replacements.
+#
+# Every replacement is the same fixed token, so the document's structure — line
+# breaks, the signature block's shape, the sentence a detail sat in — survives a
+# scrub intact and a reading agent sees that something was withheld rather than
+# that a line was missing. No pattern below may span a newline, which is what
+# makes that structural claim true rather than aspirational: every intra-detail
+# gap is spelled `[ \t]`, never `\s`. A detail broken across two lines by the
+# extractor is therefore missed rather than taken along with the line break —
+# the cheaper of the two errors, since the other one silently deletes the line
+# a reader would use to notice.
+
+CONTACT_PLACEHOLDER = "[contact detail withheld]"
+"""The fixed token every scrubbed contact detail is replaced by."""
+
+# An address local part followed by a dotted domain. Deliberately narrower than
+# the addressing RFCs allow (no quoted local parts, no bare-IP domains): the
+# targets are the addresses people sign filings with, and a wider pattern buys
+# nothing but false positives over legal prose.
+_EMAIL_RE = re.compile(
+    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}\b"
+)
+
+# A North American telephone number, in the two spellings that carry their own
+# evidence of being one. Either the area code is **parenthesized**, which no
+# other figure in a filing is, or the two separators are punctuation and the
+# **same** punctuation — `202-555-0147`, `202.555.0147` — which a run of
+# unrelated numbers has no reason to be. The blank-separated spelling
+# (`202 555 0147`) is deliberately not read: an appendix index, a table of
+# authorities and an OCR'd column all emit 3-3-4 runs of blank-separated digits,
+# and the population this scrub runs over is disproportionately the scanned one,
+# so that arm would delete legal text from exactly the cells it exists to
+# protect. A `+1` prefix is accepted ahead of the punctuated spelling, where the
+# prefix itself is the evidence. The digit/hyphen guards on either side keep the
+# match out of the middle of a longer number, so a docket number (`23-1234`), an
+# ISO date (`2026-09-21`) and a ZIP+4 (`20543-0001`) are all structurally unable
+# to match.
+_PHONE_RE = re.compile(
+    r"(?<![\d-])"
+    r"(?:"
+    r"\(\d{3}\)[ .-]?\d{3}[ .-]?\d{4}"
+    r"|(?:\+?1[ .-])?\d{3}([.-])\d{3}\1\d{4}"
+    r")"
+    r"(?![\d-])"
+)
+
+# A post-office box, the mailing address a filer with no fixed street address
+# signs with. No ambiguity to trade off: the literal words carry the shape.
+_PO_BOX_RE = re.compile(r"\bP\.?[ \t]?O\.?[ \t]*Box[ \t]+[\w-]+", re.IGNORECASE)
+
+# The street types an address line ends on. Three common abbreviations are
+# deliberately absent, because in *these* documents the word is overwhelmingly
+# not naming a street at all: `Ct.` is the institution every filing is addressed
+# to, `Pl.` is the standard short form of "Plaintiff", and `Dr.` is a doctor —
+# which a medical or disability petition names on every page. Their absence
+# costs a street address spelled with one of them and buys immunity from three
+# words this corpus is made of. `Drive` spelled out stays, since nothing else
+# spells it that way.
+_STREET_SUFFIXES = (
+    "Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Circle|Cir|"
+    "Way|Place|Parkway|Pkwy|Highway|Hwy|Square|Trail|Trl|Plaza"
+)
+
+# A house number, at least one name token, and a street type — with an optional
+# unit designator after it, all on one line. The name token is required (an
+# address is never a bare number and a street type), which is what keeps the
+# pattern off a year or a page count that happens to precede a capitalized word.
+# The token **immediately before** the street type is required to be a word or
+# an ordinal rather than a bare number, which is the difference between "1234
+# 42nd Street" and a statute cite whose section number happens to be followed by
+# one of these words. Every gap is `[ \t]`, so a match cannot reach across a
+# line break and take one with it — a page number ending one line and a street
+# type opening the next is two facts, not an address. Each name token is length
+# bounded, which no street name notices and which keeps the backtracking linear
+# on the punctuation-dense runs an OCR'd page emits — the population this scrub
+# runs over is disproportionately the scanned one, so an unbounded token is a
+# stall waiting for its input.
+_STREET_RE = re.compile(
+    r"(?<![\w.-])\d{1,6}[ \t]+"
+    r"(?:[A-Z0-9][\w'.-]{0,40}[ \t]+){0,4}"
+    r"(?:[A-Z][\w'.-]{0,40}|\d{1,3}(?:st|nd|rd|th))[ \t]+"
+    rf"(?:{_STREET_SUFFIXES})\b\.?"
+    r"(?:[ \t]*,?[ \t]*(?:Apt|Apartment|Suite|Ste|Unit|Floor|Fl|Rm|Room|No)\.?[ \t]*[\w-]+"
+    r"|[ \t]*#[ \t]*[\w-]+)?"
+)
+
+# Applied in this order, and the order is load-bearing only at the first entry:
+# an email's domain can look like nothing else here, but scrubbing it first means
+# no later pattern reads part of one.
+_CONTACT_PATTERNS: tuple[re.Pattern[str], ...] = (
+    _EMAIL_RE,
+    _PHONE_RE,
+    _PO_BOX_RE,
+    _STREET_RE,
+)
+
+
+@dataclass(frozen=True)
+class ScrubbedText:
+    """Staged text with contact-detail shapes withheld, and how many were."""
+
+    text: str
+    replacements: int
+
+
+def scrub_contact_details(text: str) -> ScrubbedText:
+    """Replace every contact-detail shape in ``text`` with the fixed placeholder.
+
+    Four shapes: an email address, a North American telephone number, a
+    post-office box, and a street address (house number, name, street type, and
+    any unit after it). Nothing else is a target — a docket number, a date and a
+    reporter citation all lack the shapes above, which is why the patterns are
+    anchored on what a contact detail has and legal prose does not rather than
+    on where in the document it sits. No pattern spans a newline, so the
+    document's line structure is a property of the scrub rather than a hope.
+
+    A court or clerk address is scrubbed exactly as a party's is where it is
+    written with a street number, and survives where it is not (the Court's own
+    cover-page line carries no street number). Separating an institutional
+    street address from a personal one would need a directory of court
+    addresses, and the simpler rule costs only a line of boilerplate a cell has
+    no use for. The same holds one side over: on a pro se docket an opposition
+    filed by represented counsel is scrubbed too, withholding professional
+    contact details that were never the concern — acceptable, because the
+    alternative is a per-document reading of who signed it.
+
+    **What it does not reach**, stated so the scrub is not read as a covered
+    surface: a detail the extractor broke across two lines; a box spelled out in
+    full ("Post Office Box"); a telephone number written with a slash or with
+    no separators at all; a bare city/state/ZIP line, which is left alone
+    because the two-letter state and five-digit ZIP shape is also how the
+    Court's own address line is set; and an incarcerated filer's register number
+    beside an institution name, which has no shape at all. Measured against the
+    docket's own copy of what the filing prints — the counsel block's `Email`,
+    `Phone` and `Address` strings, matched verbatim in the staged text — the
+    pulled blob at the `2026-09-20` pull stamp gives 78 of 78 emails, 99 of 101
+    telephone numbers and 118 of 147 addresses. The scrub narrows what reaches
+    the ledger; it does not make a filing anonymous.
+    """
+    scrubbed = text
+    replacements = 0
+    for pattern in _CONTACT_PATTERNS:
+        scrubbed, count = pattern.subn(CONTACT_PLACEHOLDER, scrubbed)
+        replacements += count
+    return ScrubbedText(text=scrubbed, replacements=replacements)
+
+
+# --- Who signed the filing --------------------------------------------------
+#
+# The docket JSON names, per side, the attorney appearing for each party — and
+# a self-represented party is served as its **own** attorney, the same name in
+# `PartyName` and `Attorney`. There is no `pro se` string anywhere in the
+# upstream record, so that self-naming is the marker, read off a **served**
+# block: a block naming no attorney says the same thing, but a payload carrying
+# no petitioner-side block at all says nothing, and is read as nothing.
+
+# A party is served with suffixes an attorney name never carries — the joinder
+# tags a caption uses for a group of petitioners, and an alias clause. Cut the
+# name at the first of them so a party and their own attorney compare equal.
+_PARTY_SUFFIX_RE = re.compile(r",\s*(?:et\s+al|et\s+ux|et\s+vir|aka|a/k/a)\b.*\Z", re.IGNORECASE)
+# Generational suffixes are served on one side and not the other ("Raymond H.
+# Pierson" the party, "Raymond H. Pierson II" the attorney), so they are noise
+# in the comparison rather than part of the name.
+_NAME_TAIL_RE = re.compile(r"[,\s]+(?:jr|sr|i{1,3}|iv|v|vi)\.?\Z", re.IGNORECASE)
+
+
+def _comparable_name(raw: Any) -> frozenset[str]:
+    """A party or attorney name reduced to its first and last tokens, unordered.
+
+    Both reductions answer an observed spelling difference, and both err the one
+    way this comparison may err — toward reading the two sides as the same
+    person, since the opposite reading leaves a self-represented filer's staged
+    text unscrubbed. **The middle is dropped** because the two fields are filled
+    from different halves of the record and disagree there constantly: over the
+    pulled blob at the `2026-09-20` pull stamp, 86 petitioner-side blocks
+    carrying a prisoner register number — an incarcerated filer, appearing for
+    himself — differ between `PartyName` and `Attorney` by a middle name present
+    on one side only, a middle initial against a full middle name, or a middle
+    token missing altogether ("Jess Richard Smith" against "Jess R. Smith"), and
+    by nothing else. **The order is dropped** because a caption-order spelling
+    ("Doe, Jane") against a natural-order one costs the same error for the same
+    reason. What the pair still separates is two different people, which is what
+    it is for.
+    """
+    if not isinstance(raw, str):
+        return frozenset()
+    name = _PARTY_SUFFIX_RE.sub("", raw)
+    name = _NAME_TAIL_RE.sub("", name)
+    tokens = re.sub(r"[\s.,]+", " ", name).casefold().split()
+    return frozenset(tokens[:1] + tokens[-1:])
+
+
+def petitioner_is_unrepresented(payload: Mapping[str, Any]) -> bool:
+    """Whether the docket's petitioner-side counsel names nobody but the petitioner.
+
+    The question the contact scrub keys on, answered from the docket's own
+    counsel blocks and **only** from them. True where a petitioner-side block
+    exists and names nobody to write to but the party itself; False where one
+    names an attorney who is a different person, and False where the payload
+    carries no petitioner-side block at all.
+
+    That last arm is the one worth stating positively: an absent or empty
+    ``Petitioner`` list is **unknown**, not unrepresented. The snapshots key
+    space holds two payload shapes, and the other one — a CourtListener REST
+    docket, which carries ``docket_entries`` and no counsel blocks anywhere —
+    names nobody because it has nowhere to, not because nobody is named. Reading
+    that as self-representation would scrub the majority of every cohort on the
+    strength of a payload shape, which is a far wider change to what cells read
+    than the fact it is trying to act on. So the scrub fires on evidence rather
+    than on the absence of it, and a docket whose counsel the corpus does not
+    carry is left exactly as filed.
+
+    Three arms make it True, all of them positive readings of a served block:
+
+    - **Self-naming.** ``Attorney`` and ``PartyName`` are the same person. The
+      docket JSON never says "pro se" — this is upstream's spelling of it, and
+      over the pulled blob at the ``2026-09-20`` pull stamp 3,134 of the 16,838
+      SCOTUS rows carrying a petitioner-side block are spelled that way.
+    - **No attorney named.** The block is served with ``Attorney`` empty or
+      absent. No stored row in that blob spells it this way — upstream repeats
+      the party's name rather than leaving the field blank — but a block naming
+      nobody is the same fact as a block naming the party, so it is read the
+      same.
+    - **A prisoner register number.** ``PrisonerId`` on the block is upstream's
+      own positive marker for an incarcerated party writing from an institution:
+      the population whose filings carry a personal address most reliably, and
+      whose two name fields agree on it least. Taken whatever the attorney field
+      says, so the small number of incarcerated petitioners who do have counsel
+      are scrubbed too — that costs the counsel's professional details and
+      nothing else, which is the trade this predicate already makes.
+
+    Read off the **payload** rather than the corpus row, because that is what
+    provisioning has in hand under every backend — the casestore source serves a
+    case's snapshot and documents and no row at all — and because the payload is
+    what the cell itself reads. On a placed cell the blocks read are whichever
+    the placement served: point-in-time on a ``dated`` snapshot, as at the pull
+    on a ``truncated`` one, since the counsel blocks are undated and survive the
+    cut.
+
+    The petitioner side alone: the petitioner is the party whose own filing
+    every cert-stage cell reads, and widening the question to the respondent
+    side would answer True on every docket whose opposition has not been filed
+    yet. Any one qualifying block is enough — a docket carrying a represented
+    co-petitioner beside a self-represented one still stages that filer's
+    details, so the scrub runs.
+    """
+    blocks = payload.get("Petitioner")
+    if not isinstance(blocks, list):
+        return False
+    return any(_block_names_nobody_else(block) for block in blocks if isinstance(block, Mapping))
+
+
+def _block_names_nobody_else(block: Mapping[str, Any]) -> bool:
+    """Whether one petitioner-side counsel block names nobody but the party."""
+    if str(block.get("PrisonerId") or "").strip():
+        return True
+    attorney = _comparable_name(block.get("Attorney"))
+    if not attorney:
+        return True
+    return attorney == _comparable_name(block.get("PartyName"))
+
+
 def _is_toc_capture(capture: str) -> bool:
     """Whether a raw capture is a table-of-contents entry rather than a QP body.
 

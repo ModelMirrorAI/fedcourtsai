@@ -2011,3 +2011,231 @@ def test_a_rowless_backend_is_refused_by_name(
 
     assert result.exit_code == 2, result.output
     assert "serves no corpus rows" in result.output
+
+
+# The petitioner-side counsel block the contact scrub reads, in its two shapes.
+# Upstream serves a self-represented party as its own attorney; there is no
+# `pro se` string anywhere in the docket JSON.
+_PRO_SE_DOCKET: dict[str, Any] = {
+    "id": 305,
+    "docket_number": "25-1222",
+    "Petitioner": [{"PartyName": "Jane Doe", "Attorney": "Jane Doe"}],
+    "docket_entries": [{"id": 1, "description": "Petition for writ of certiorari filed."}],
+}
+_REPRESENTED_DOCKET: dict[str, Any] = {
+    "id": 305,
+    "docket_number": "25-1223",
+    "Petitioner": [{"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"}],
+    "docket_entries": [{"id": 1, "description": "Petition for writ of certiorari filed."}],
+}
+
+# A signature block of the shape the scrub exists for, and one line of the
+# petition's own prose that must survive it intact.
+_SIGNED_IN_PERSON = (
+    "The question presented arises under 28 U.S.C. 1254(1).\n"
+    + "See Brady v. Maryland, 373 U.S. 83 (1963).\n"
+    + "Respectfully submitted,\n"
+    + "Jane Doe, Petitioner Pro Se\n"
+    + "1234 Maple Street, Apt. 4B\n"
+    + "(713) 555-0147\n"
+    + "jane.doe@example.com\n"
+)
+
+
+def _seed_petition(fixture_corpus: FixtureCorpus, text: str) -> None:
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="petition",
+                    url="https://example/petition.pdf",
+                    entry_date="2026-07-01",
+                    fetched_at=date(2026, 7, 2),
+                    text=text,
+                )
+            ],
+        )
+
+
+def _documents_manifest(fixture_corpus: FixtureCorpus) -> dict[str, dict[str, Any]]:
+    manifest: list[dict[str, Any]] = json.loads(
+        CasePaths(fixture_corpus.data_root, "scotus", 305).documents_manifest.read_text()
+    )
+    return {entry["kind"]: entry for entry in manifest}
+
+
+def test_a_pro_se_dockets_staged_text_is_scrubbed_of_contact_details(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The republication concern: a cell's prose lands in the public ledger, and
+    # a filing signed in person carries its signer's own address, telephone and
+    # email in the caption and the signature block.
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _PRO_SE_DOCKET)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    staged = CasePaths(fixture_corpus.data_root, "scotus", 305).document("petition").read_text()
+    assert "jane.doe@example.com" not in staged
+    assert "(713) 555-0147" not in staged
+    assert "1234 Maple Street" not in staged
+    # The document's structure and its legal prose survive: only the details go.
+    assert "Jane Doe, Petitioner Pro Se" in staged
+    assert "28 U.S.C. 1254(1)" in staged
+    assert "Brady v. Maryland, 373 U.S. 83 (1963)" in staged
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrubbed"] is True
+    assert entry["contact_replacements"] == 3
+
+
+def test_the_scrub_does_not_reach_the_corpus_row_or_the_stored_text(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # Only the staged copy is scrubbed. The corpus keeps the filing as filed —
+    # the source of record for every later read — and the scrub is a property of
+    # what provisioning writes, not of what was stored.
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _PRO_SE_DOCKET)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+
+    assert _provision_cell().exit_code == 0
+
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        stored = {doc.kind: doc.text for doc in corpus.documents_for_case(conn, "scotus/305")}
+    assert stored["petition"] == _SIGNED_IN_PERSON
+
+
+def test_a_represented_dockets_staged_text_is_left_alone(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The docket names counsel for the petitioner, so what the filing carries is
+    # a firm's professional contact details — not the concern, and withholding
+    # them would change what every represented cell reads for nothing.
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _REPRESENTED_DOCKET)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    staged = CasePaths(fixture_corpus.data_root, "scotus", 305).document("petition").read_text()
+    assert "jane.doe@example.com" in staged
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrubbed"] is False
+    assert entry["contact_replacements"] == 0
+
+
+def test_a_scrubbed_document_with_nothing_to_withhold_still_says_it_was_scrubbed(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # `contact_scrubbed` names what provisioning did, and the count what it
+    # found. A cell reading `true, 0` knows the text it holds was passed through
+    # the scrub and carried nothing — a different statement from a document the
+    # scrub never saw.
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _PRO_SE_DOCKET)
+    _seed_petition(fixture_corpus, "QUESTION PRESENTED\n\nWhether the court of appeals erred.\n")
+
+    assert _provision_cell().exit_code == 0
+
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrubbed"] is True
+    assert entry["contact_replacements"] == 0
+    assert entry["empty_text"] is False
+
+
+def test_the_scrub_does_not_reach_the_provisioned_snapshot_payload(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The scrub is on the staged document text and nothing else. The snapshot
+    # written beside it is the payload as the corpus served it, counsel blocks
+    # and all — pinned here because the two files land from the same command and
+    # a scrub that leaked into the payload would be invisible in the manifest.
+    payload = {
+        **_PRO_SE_DOCKET,
+        "Petitioner": [
+            {
+                "PartyName": "Jane Doe",
+                "Attorney": "Jane Doe",
+                "Address": "1234 Maple Street",
+                "Phone": "713-555-0147",
+            }
+        ],
+    }
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+
+    assert _provision_cell().exit_code == 0
+
+    staged_payload = json.loads(
+        CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2026-07-20").read_text()
+    )
+    assert staged_payload["Petitioner"][0]["Address"] == "1234 Maple Street"
+    assert staged_payload["Petitioner"][0]["Phone"] == "713-555-0147"
+
+
+def test_one_docket_level_reading_scrubs_every_staged_kind(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The decision is the docket's, taken once, and the manifest says so for
+    # every kind: an opposition filed by counsel on a pro se docket is scrubbed
+    # with the petition, losing professional details rather than personal ones.
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _PRO_SE_DOCKET)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="petition",
+                    url="https://example/petition.pdf",
+                    entry_date="2026-07-01",
+                    fetched_at=date(2026, 7, 2),
+                    text=_SIGNED_IN_PERSON,
+                ),
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="brief-in-opposition",
+                    url="https://example/bio.pdf",
+                    entry_date="2026-07-10",
+                    fetched_at=date(2026, 7, 11),
+                    text="Counsel of Record\n700 Grand Ridge Road\n(202) 555-0100\n",
+                ),
+            ],
+        )
+
+    assert _provision_cell().exit_code == 0
+
+    manifest = _documents_manifest(fixture_corpus)
+    assert {kind: entry["contact_scrubbed"] for kind, entry in manifest.items()} == {
+        "petition": True,
+        "brief-in-opposition": True,
+    }
+    assert manifest["brief-in-opposition"]["contact_replacements"] == 2
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert "700 Grand Ridge Road" not in paths.document("brief-in-opposition").read_text()
+
+
+def test_the_run_log_reports_what_the_scrub_withheld(fixture_corpus: FixtureCorpus) -> None:
+    # The manifest that records the scrub is gitignored with the rest of
+    # `record/`, so the run log is the only surface on which a pattern that
+    # began matching legal prose would ever be visible.
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _PRO_SE_DOCKET)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    assert "contact scrub: 3 detail(s) withheld across 1 staged document(s)" in result.output
+
+
+def test_a_represented_docket_says_nothing_about_a_scrub_in_the_run_log(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _REPRESENTED_DOCKET)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    assert "contact scrub" not in result.output

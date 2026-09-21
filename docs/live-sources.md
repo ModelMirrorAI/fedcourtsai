@@ -302,7 +302,70 @@ the access-gated corpus — the per-case content store under the corpus split, t
 blob's `documents` table on a self-contained one — never the git ledger.
 `provision-snapshot` materializes it
 into the cell's gitignored `record/documents/` with a `documents.json`
-manifest, and the predict prompt points agents at it. A cell can route around
+manifest, and the predict prompt points agents at it.
+
+That staged copy is where the **contact-detail scrub** applies, and it applies
+to the copy alone: the source PDF and the stored row keep the filing as filed.
+A cell's prose lands in the public ledger, so the text it reads is a
+republication surface as well as an input — and where the provisioned snapshot
+serves a petitioner-side counsel block naming nobody but the petitioner to
+write to, the caption and signature block of what it reads are an individual's
+own. The docket JSON never says "pro se", so the reading is upstream's own, in
+three arms, all of them read off a **served** block: a self-represented party
+listed as its own attorney (compared on first and last name, since the two
+fields disagree on the middle constantly), a block naming no attorney at all,
+and a prisoner register number on the block — the incarcerated filer, whose own
+address a filing carries most reliably. Any one qualifying block is enough, so a
+docket carrying a represented co-petitioner beside a self-represented one is
+scrubbed. Every document staged
+for such a docket has its emails, telephone numbers, post-office boxes and
+street addresses replaced by the fixed token `[contact detail withheld]`, which
+keeps the document's structure and tells a reader that something was withheld
+rather than that a line is missing. The manifest entry carries both halves of
+what happened: `contact_scrubbed`, whether the scrub ran over this document's
+staged text, and `contact_replacements`, how many it withheld — so `true, 0`
+(scrubbed, nothing found) stays distinguishable from `false, 0` (a represented
+docket's text, untouched). An opposition filed by counsel on such a docket is
+scrubbed with the petition, since the reading is the docket's and taken once:
+the cost is a firm's switchboard number a cell had no use for.
+
+**A payload serving no petitioner-side block is unknown, not unrepresented**,
+and is left alone. The snapshots key space holds two payload shapes, and the
+other one — a CourtListener REST docket, which carries no counsel blocks
+anywhere — names nobody because it has nowhere to. Reading that as
+self-representation would scrub on the strength of a payload shape rather than
+of a fact about the docket, and over the stored payloads in the corpus it would
+take 1,984 of 2,925 cases rather than 623. So the scrub fires on evidence rather
+than on the absence of it, and a docket whose counsel the corpus does not carry
+stages its text as filed. What the scrub
+reads is **representation**, which is a different fact from the **fee** class
+the salience gate excludes at tier 0 ([salience.md](salience.md)) — that one is
+read off the docket serial, this one off the counsel blocks — so a paid docket
+can be self-represented, and the interim, replay and evaluate lanes sit outside
+that gate entirely.
+
+**What the scrub does not reach**, named so the section is not read as a covered
+surface. No pattern spans a newline — that is what makes the structural claim
+above true rather than aspirational, and it costs a detail the extractor broke
+across two lines. The blank-separated telephone spelling (`202 555 0147`) is
+deliberately not read at all: an appendix index and an OCR'd column emit exactly
+that shape, and the scrubbed population is disproportionately the scanned one,
+so reading it would delete legal text from the cells the scrub exists for. Nor
+are a box spelled out in full, a number written with a slash or with no
+separators, a bare city/state/ZIP line — that shape is also how the Court's own
+address line is set — or an incarcerated filer's register number beside an
+institution name, which has no shape at all. And it reaches the document text
+only: the `record/snapshots/<date>.json` staged beside it is the upstream
+payload verbatim, so on the same docket it carries the counsel blocks' own
+`Address` / `City` / `Zip` / `Phone` / `Email` / `PrisonerId` keys — the same
+details in a more quotable form, plus a register number no shape can match.
+Both files are gitignored and neither is uploaded, so what can reach public git
+is what a cell's prose quotes, which is the exposure
+[data-sources.md](data-sources.md) already names. The scrub narrows what reaches
+the ledger; it does not make a filing anonymous, and a cell with retrieval
+rights can reach the same PDF upstream whatever was withheld from its copy.
+
+A cell can route around
 an empty extraction — the prompt has it read the document as
 content-unavailable rather than absent — but nothing in the fetch path repairs
 one, so its size is a measured number rather than an impression: `fedcourts
@@ -622,7 +685,12 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   forecasting on — while the prompt's interim section tells it to read the
   escalation ladder off the docket and says nothing about the document. The
   input arrives before the instruction does, which is the argument for pairing
-  them on the next bless rather than letting either land alone.
+  them on the next bless rather than letting either land alone. **A third rides
+  with them**: the contact scrub stages text carrying
+  `[contact detail withheld]` and two manifest keys the prompt describes none
+  of — it has `documents.json` listing what is present, pages and truncation —
+  so until that re-bless a cell meeting the token has to account for it
+  unaided, and the likeliest cost is a `data-quality` flag spent on it.
 - **What follows a recovery.** A recovered **petition** re-derives its
   questions-presented row through the existing deriver — the pass's one
   follow-on write, and petitions alone have it, since no other recoverable kind

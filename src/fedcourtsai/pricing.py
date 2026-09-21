@@ -1,13 +1,23 @@
 """Model token rates and per-run cost estimation — the single place to keep prices.
 
-The dominant cost in this project is agentic model usage (see ``docs/budget.md``).
-The planning assumption there (~$1-2 per predict/evaluate run) is a guess; the
-``usage.json`` artifact records measured per-run tokens and applies the rates
-below to turn them into an estimated USD cost. Keep these rates in sync with
-``docs/budget.md`` — they are the one knob a maintainer updates when prices move.
+The dominant cost in this project is agentic model usage, and the rates below
+are the source for every USD figure the pipeline prints: the ``usage.json``
+artifact records measured per-run tokens and applies them to turn a run into an
+estimated cost, which ``fedcourts usage-summary`` rolls up. ``docs/budget.md``
+sizes the program from those measurements rather than supplying them, so these
+rates are the one knob a maintainer updates when prices move.
 
 Rates are USD per **one million** tokens, captured mid-2026; treat them as a
-snapshot and re-check the budget doc's linked sources before relying on a figure.
+snapshot and re-check each provider's published pricing before relying on a
+figure. The same snapshot caveat covers the search-fee shape below.
+
+Cost here is token-derived, so **hosted web search sits outside it**: all three
+providers charge a per-search fee, billed per thousand searches, that no token
+count carries. What the fee sits beside differs — Anthropic and OpenAI also bill
+the retrieved results as input tokens, which the ledger does see, while Google
+keeps retrieved search context out of the input-token count entirely, so on that
+engine both halves are invisible here. Either way a searching cell's recorded
+cost (``usage.json``, ``fedcourts usage-summary``) is a mild undercount.
 """
 
 from __future__ import annotations
@@ -17,7 +27,7 @@ from typing import Final
 
 # Prompt-cache multipliers applied to the input rate. Cached *reads* bill at a
 # deep discount; cache *creation* (writes) at a small premium. The numbers mirror
-# the discounts noted in docs/budget.md and are close enough for a cost estimate.
+# the providers' published cache pricing and are close enough for a cost estimate.
 CACHE_READ_MULTIPLIER: Final = 0.1
 CACHE_CREATION_MULTIPLIER: Final = 1.25
 
@@ -59,6 +69,12 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
     "claude-fable-5": ModelRate(10.0, 50.0),
     "claude-opus-4-8": ModelRate(5.0, 25.0),
     "claude-sonnet-4-6": ModelRate(3.0, 15.0),
+    # `run-analytics.yml` offers and defaults the qp-topic labeler's
+    # `label_model` to the dated id `claude-haiku-4-5-20251001`, which this
+    # table does not hold. The rate is the same, and the mismatch is latent only
+    # because a labeling run writes no `usage.json`: `record-usage` prices by
+    # exact key and exits non-zero on an id it cannot find, so labeler-shaped
+    # accounting needs the two spellings reconciled first.
     "claude-haiku-4-5": ModelRate(1.0, 5.0),
     "gpt-6-astra": ModelRate(10.0, 50.0),
     "gpt-5.6-sol": ModelRate(5.0, 30.0),

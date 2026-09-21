@@ -7,7 +7,8 @@ cohort's top-``N`` by score, plus the always-include carve-outs (CVSG petitions
 and anything at/above the salience floor), which sit *above* ``N``, plus the
 **interim reserve** — up to ``interim_reserve_slots`` pending substantive
 applications per pass, which lower the current conference's rank-fill limit by
-the slots in use, so the reserve is defined inside ``N`` (``docs/budget.md``).
+the slots in use, so the reserve is defined inside ``N`` (``docs/salience.md``,
+*The interim docket*).
 
 Two invariants make the pass safe to re-run over a live conference:
 
@@ -925,7 +926,8 @@ def plan_cohorts(
     the reserve is defined inside ``N``. It is sized to *spend* inside ``N``
     too: a lowered limit costs a cert pick wherever the eligible non-carve-out
     remainder exceeds it — near the typical cohort's eligible size, and not
-    yet measured at the shipped capacity (``docs/budget.md``). An unfilled
+    yet measured at the shipped capacity (``docs/salience.md``, *The interim
+    docket*). An unfilled
     reserve lowers nothing.
     """
     active = version if version is not None else scorer()

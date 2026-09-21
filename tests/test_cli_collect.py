@@ -264,6 +264,8 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         # Nor any cell that asked the corpus for priors, which is not a claim
         # that the priors arrived.
         "prior_availability": "",
+        # Nor any cell that could have fetched a filing the record was short.
+        "self_provisioned": "",
         # And no prediction to have placed the stakes or skipped them. The
         # census is silent on a clean run, so a bare "0 missing" line never
         # trains a reader to skip the place the warning will appear.
@@ -1243,3 +1245,110 @@ def test_a_no_artifact_run_emits_a_facts_only_pr_and_records_facts_from_the_matr
     )
     facts = list(data_root.glob("cases/scotus/1/events/evt-x/predictions/*/R/attempt.json"))
     assert {f.parent.parent.name for f in facts} == {"claude-baseline", "gemini-baseline"}
+
+
+def test_collect_plan_names_the_cells_that_fetched_their_own_filings(tmp_path: Path) -> None:
+    # The run-level half of the comparability record, read off the same walk
+    # and scoped and deduped exactly like the throttle count: every artifact
+    # carries the whole data/ tree, so an earlier run's fetches are not this
+    # run's and one cell's log riding in another's artifact is counted once.
+    bio = (
+        "https://www.supremecourt.gov/DocketPDF/25/25-901/412472/"
+        + "20260602165555690_StateBOR.pdf"
+    )
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    for name, actor in (("cell-a", "claude-baseline"), ("cell-b", "codex-baseline")):
+        _write_cell(
+            tmp_path, name, actor=actor, produced=True, validated=True, agent_ok=True, **base
+        )
+    _write_query_log(
+        tmp_path,
+        "cell-a",
+        "claude-baseline",
+        calls=[{"tool": "Bash", "query": f'curl -sL -o bio.pdf "{bio}"'}],
+    )
+    # The same cell's log riding along in the other artifact — counted once.
+    _write_query_log(
+        tmp_path,
+        "cell-b",
+        "claude-baseline",
+        calls=[{"tool": "Bash", "query": f'curl -sL -o bio.pdf "{bio}"'}],
+    )
+    _write_query_log(
+        tmp_path,
+        "cell-b",
+        "codex-baseline",
+        calls=[
+            {"tool": "exec_command", "query": '{"cmd": "curl -fsSL ' + bio + '"}'},
+            # A hosted search naming the same URL is not a fetch.
+            {"tool": "web_search_call", "query": bio},
+        ],
+    )
+    # A cell of this run that fetched nothing is in the denominator only.
+    _write_query_log(tmp_path, "cell-b", "gemini-baseline")
+    # A prior run's committed log, carried in every artifact — excluded.
+    _write_query_log(
+        tmp_path,
+        "cell-a",
+        "claude-baseline",
+        run_id="Q",
+        case="2",
+        calls=[{"tool": "Bash", "query": f'curl -sL "{bio}"'}],
+    )
+    # A log of this run that nothing can parse: carried as its own count rather
+    # than read as a cell that reached for nothing, and never fatal to the walk.
+    broken = _cell_dir(tmp_path, "cell-a", "broken-actor", run_id="R", case="1", event="evt-x")
+    (broken / "retrieval_log.json").write_text("{not json")
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    # The note leaves the process on the plan JSON as well as in the PR body,
+    # so the surface that echoes `flags` can echo this beside it.
+    assert (
+        "Cells reached outside the provisioned document set for a court filing"
+        in plan["self_provisioned"]
+    )
+    body = plan["ready"]["body"]
+    # Three legible logs, not four: one cell's log rides in both artifacts and
+    # is counted once, and the prior run's is out of scope entirely.
+    assert "2 of 3 legible cell log(s) this run carry 2 such call(s)" in body
+    # Every actor with a legible log appears, the clean one included, each
+    # against its OWN cells and in actor order: a numerator alone cannot tell
+    # 1 of 1 from 1 of 41, and count order would make this read as a ranking.
+    assert (
+        "`claude-baseline` 1/1 cell(s), `codex-baseline` 1/1 cell(s), "
+        "`gemini-baseline` 0/1 cell(s)" in body
+    )
+    assert "1 further log(s) of this run could not be parsed" in body
+    assert "scotus/1/evt-x/claude-baseline" in body
+
+
+def test_collect_plan_stays_quiet_where_no_cell_fetched_a_filing(tmp_path: Path) -> None:
+    # Same convention as the throttle and prior notes: a standing
+    # "0 self-provisioned" paragraph on a surface read once per run trains the
+    # eye to skip the place the warning will one day appear.
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="claude-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        court="scotus",
+        docket=1,
+        event_id="evt-x",
+        run_id="R",
+    )
+    _write_query_log(tmp_path, "cell-a", "claude-baseline")
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    plan = json.loads(result.stdout)
+    assert plan["self_provisioned"] == ""
+    assert "reached outside the provisioned" not in plan["ready"]["body"]

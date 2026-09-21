@@ -35,11 +35,7 @@ from .pipeline import moments as moment_registry
 from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
 from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from .pipeline.interim_signals import ApplicationKind
-from .pipeline.judgment import (
-    grant_term_year,
-    judgment_disturbed,
-    judgment_rode_the_grant_order,
-)
+from .pipeline.judgment import judgment_disturbed, judgment_rode_the_grant_order
 from .pipeline.outcome import granted_flag, is_machine_readable
 
 # The reference set's per-label support floor, read here for a second job the docket
@@ -96,7 +92,7 @@ from .schemas import (
 )
 from .serialize import read_model
 from .store import LedgerPrediction
-from .supremecourt import IFP_SERIAL_BASE, parse_scotus_docket_number
+from .supremecourt import IFP_SERIAL_BASE, october_term_year, parse_scotus_docket_number
 
 if TYPE_CHECKING:
     import sqlite3
@@ -1708,7 +1704,7 @@ def _accumulate_scotus_terms(
     if application_year is not None:
         interim_accs.setdefault(application_year, _InterimAcc()).add(row)
     if corpus.opens_merits_proceeding(row) and row.date_cert_granted is not None:
-        grant_year = grant_term_year(row.date_cert_granted)
+        grant_year = october_term_year(row.date_cert_granted)
         acc = merits_accs.setdefault(grant_year, _MeritsAcc())
         if _judgment_rode_its_grant_order(row):
             acc.exclude()
@@ -2230,9 +2226,11 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
         lines += [
             "",
             (
-                "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
-                + "anchor only on Term rows strictly preceding your clock — later Terms "
-                + "post-date what you are allowed to know._"
+                "_Replay/backtest cells: your anchoring clock is "
+                + "`record/context.json`'s `decided_before`, an October Term — anchor only "
+                + "on Term rows strictly preceding it, because later Terms post-date what "
+                + "you are allowed to know. These rows are keyed on the **docket-number** "
+                + "Term, so your own Term's row already contains your case._"
             ),
         ]
     if pack.interim is not None:
@@ -2288,7 +2286,8 @@ def _interim_lines(interim: StatPackInterim) -> list[str]:
             + "here conditions on them; the as-at-prediction values a conditioned rate would "
             + "need live on the cells' own frozen contexts. "
             + "Replay/backtest cells: the cert Term tables' self-selection rule applies here "
-            + "too — anchor only on Term rows strictly preceding your clock._"
+            + "too — anchor only on Term rows strictly preceding `record/context.json`'s "
+            + "`decided_before`, an October Term._"
         ),
         "",
         f"**{interim.applications}** application(s): {interim.extension} extension, "
@@ -2372,7 +2371,7 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
             + "This is not a salience-band product and carries "
             + "no salience version. Replay/backtest cells: the cert Term tables' "
             + "self-selection rule applies here too — anchor only on Term rows strictly "
-            + "preceding your clock._"
+            + "preceding `record/context.json`'s `decided_before`, an October Term._"
         ),
         "",
         _merits_cohort_line(merits),
@@ -2803,10 +2802,12 @@ def render_docket_markdown(pack: DocketPack) -> str:
         lines += [
             "",
             (
-                "_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): "
-                + "this document sits in the same checkout as the statpack and the same rule "
-                + "applies — anchor only on Term rows strictly preceding your clock, because "
-                + "later Terms post-date what you are allowed to know._"
+                "_Replay/backtest cells: this document sits in the same checkout as the "
+                + "statpack and the same rule applies — anchor only on Term rows strictly "
+                + "preceding `record/context.json`'s `decided_before`, an October Term, "
+                + "because later Terms post-date what you are allowed to know. These rows "
+                + "are keyed on the **docket-number** Term, so your own Term's row already "
+                + "contains your case._"
             ),
         ]
     lines += ["", "## Not yet included", ""]

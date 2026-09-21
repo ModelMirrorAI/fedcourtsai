@@ -996,6 +996,41 @@ are a declared superset
 (below). A figure there that differs from a board figure is two populations
 rather than an error in either.
 
+**A row-blind `codex-baseline` grading is "not assessed", never "clean".** A
+`codex-baseline` `retrieval_log.json` whose rows all carry a null `call_source`
+(the null's meaning is stated on `RetrievalCall.call_source` itself) records
+none of the calls its program made as rows of their own: no manifest search,
+document read or fetch inside the program has a tool class, a result marker or
+a `retrieved_doc_date` of its own. What such a log gives the grader is each
+wrapper row's head slice of program text, whatever date the combined output
+surfaced onto that row, and the prose. Those are exactly the `codex-baseline`
+logs from runs before `20260820T181919Z`; a zero-row log is unassessed for the
+same reason rather than by vacuity. The marker is sufficient for row-blindness,
+not necessary: a later log whose code-mode parent rows stand beside no lifted
+row (`fedcourtsai.collect.code_mode_lift_blind`) is a separate open case, and
+on the runs from `20260820T181919Z` through `20260825T231742Z`, before the
+builtin idiom was lifted, a program's shell calls still have no rows while its
+manifest calls do — half-blind on the channel most able to reach an outcome, so
+the rule below reads those gradings the same way. An unsuspected verdict on a
+row-blind or half-blind grading — `none`, or `not_applicable` — is read as a
+null bit: assessed nothing, scored, never evidence that the cell did not read
+its outcome. A `possible` or `likely` verdict on the same vintage
+stands, since a positive finding from the visible evidence is still evidence;
+and the distinction is not idle, because every row-blind grading on the ledger
+declares `mode: forward` and six of them read `likely` with outcome material
+retrieved, so the declared mode is not what settles a verdict. Two consequences
+bind any reading. The suspected share of a row-blind vintage is a **lower bound
+on leakage, not a rate**: its negatives are null bits, so there is no assessed
+denominator to divide by. And a cross-engine leakage comparison over cells
+before `20260820T181919Z` is not a comparison: the other engines' logs of that
+vintage carry their manifest calls as rows, so their unsuspected verdicts are
+real reads where codex's are null bits. `assessed` still counts such a
+grading — it counts gradings that recorded the bit, not gradings that could
+see — but only the all-versions build ever reaches one: no row-blind or
+half-blind prediction carries a frozen digest, so the frozen boards exclude
+them a gate earlier. The [freeze record](../docs/freeze-record.md) fixes their
+number, in the ledger and after the run collapse, and dates the rule.
+
 **The procedural stratum.** A cell whose outcome was mootness practice — a
 Munsingwear vacatur ("granted", but the wording tracks the Court's vacatur
 practice) or a dismissal as moot — segments into a third, `procedural` stratum
@@ -1193,7 +1228,41 @@ the rendered table) and
   dropping a petition a predictor would have got wrong raises the figure — so
   `rank` orders comparably only within one `events_scored`, and the rows below
   the full ones are a listing rather than a ranking. A **null** `provenance` means unknown, never offline: read
-  nothing from such a report. Produced by the
+  nothing from such a report. `provisioning` counts the replayed **petitions**
+  by the snapshot provenance each was given — `dated` (a snapshot the docket
+  really served before the cutoff), `truncated` (a later payload with its
+  post-cutoff entries removed), `blind` (no trajectory shown at all, from
+  either cause: no forward moment fixed a cutoff, or truncation left a
+  disposition visible and the fail-closed leakage guard withdrew the
+  trajectory) — and those are three information sets, so a score over their
+  union is a score over a mixture: a blind petition cannot observe its own
+  relist history, which is most of what a cert forecast turns on. The
+  always-deny floor is not one of the figures the information set moves — it is
+  the replayed set's own denial share, a property of the labels. What moves it
+  is **composition**: a docket with no distribution to show is the strongest
+  denial signal here, so the blind arm is selected on a feature that correlates
+  with the outcome and comes out denial-purer than the rest. A blind-heavy draw
+  therefore carries a *higher* pooled floor and dilutes every lift measured
+  over the union, rather than depressing them. Read the mix before the scores,
+  and read a shift in it between two fortnights the way you read a change of
+  dispatch. The weekly digest's cert back-test line carries the mix and the
+  dispatch beside the figure for that reason. Two things the mix does not
+  capture. The first is that the day bar narrows the **dated** cells'
+  retrieval and not the blind ones', so the two arms differ in what they could
+  *retrieve* as well as in what their snapshots showed — one more reason to
+  read the mix before the scores. The second is the offline `prior-vote` row:
+  it is masked on each dated cell's own cutoff day, the clock its engine cells
+  retrieved under, and only an **engine replay** provisions those cutoffs. So a
+  run with no replay at all (`--engine` unset) carries a prior-vote row masked
+  on the Terms alone, while any replay — a stub rehearsal included, since it
+  provisions the same cells — carries one masked on the days. That changes
+  `prior-vote`'s own accuracy, Brier and **lift**, because a narrower retrieved
+  set is a different vote; no other entry's figures move on account of the
+  mask, and the always-deny floor is not a clocked quantity at all — it is the
+  replayed set's denial share, a property of the labels. Do not compare
+  `prior-vote`'s top line between a replay run and a no-replay one regardless:
+  `--engine` also narrows the population to the replayable petitions, so the
+  two are scored over different sets and their floors are different floors. Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A
   real-engine replay spends tokens, so **the schedule asks and the hold
   spends**: no run spends without an explicit maintainer decision. The
@@ -1510,7 +1579,8 @@ the rendered table) and
   administrative dominance stays visible, but they never pool into any rate.
   The section carries no salience version, because it is not a salience-band
   product; the per-Term rows share the cert tables' replay self-selection
-  rule (anchor strictly before your clock).
+  rule (anchor strictly before the case's own docket Term,
+  `record/context.json`'s `decided_before`).
 
   **The arrival cohort's claim rule** (the caption-banded scorers'
   `cert@arrival` cells — the active `sal-v4`, and earlier versions' cells beside
@@ -1585,7 +1655,8 @@ the rendered table) and
   same population (the `procedural` stratum is keyed on mootness practice,
   which no merits outcome carries). The
   section carries no salience version, and the per-Term rows share the cert
-  tables' replay self-selection rule (anchor strictly before your clock).
+  tables' replay self-selection rule (anchor strictly before the case's own
+  docket Term, `record/context.json`'s `decided_before`).
 
 - `docket.json` / `docket.md` — the **court-facing docket pack**: facts about the
   dockets themselves, for a reader with no interest in whether this project's
@@ -2109,6 +2180,56 @@ log carrying no lifted rows is one capture never minted them for, not a cell
 that made no manifest call, so a ledger-wide cut pools stretches with
 categorically different coverage. Read a per-engine throttle number as scoped
 to the logs that could express one.
+
+**What may be claimed from `self_provisioned_fetches`: a comparison drawn by
+hand over the cells the run names, never a published number.** The log's third
+summary counts the calls through which a cell **reached outside** the
+provisioned `record/documents/` set for a court filing
+([predicted-artifacts.md](../docs/predicted-artifacts.md)), and the run PR's
+per-run note names those cells. Both are a **record** placed ahead of any use
+of it. No figure on any board reads the field: no stratum keys on it, no score
+is adjusted by it, and no cell is excluded or caveated because of it. That is
+deliberate rather than an omission: caveating or stratifying a scored board on
+self-provisioning changes what the boards claim, so it is pre-registered work —
+a dated entry in [freeze-record.md](../docs/freeze-record.md) before any figure
+moves — and the record exists first so that decision is made against evidence
+rather than an intuition. The one claim the counts support is *these cells
+**reached for** filing text the fan-out did not guarantee every cell*, which
+qualifies a comparison a reader draws by hand and no published number, because
+none is defined to depend on it. Four limits bind even that reading.
+
+It is a **reach, not an acquisition**. The row is the call; whether anything
+came back is `result_status`'s business, and on a shell row that is the
+engine's own failure marker rather than a read of the payload. A refused fetch
+counts and moved no information set, so condition on `result_status` before
+reading any count as text a cell actually got — on the committed ledger that
+distinction moves one engine's cell count by more than a third.
+
+It does **not** say the record was **short** what was fetched — the manifest
+that could say so is thrown away with the runner — so it counts recovery and
+re-fetch alike.
+
+It is a floor with **four** known holes, not one: a call that left no row, a
+URL past the row's 500-character query cut, a hosted web search carrying a bare
+filing URL (deliberately excluded, since a search is not a fetch and such a row
+captures no result either way), and a fetch tool called with a prompt beside
+its URL, whose query slice keeps the prompt and so leaves nothing to match.
+None of them is measurable from the rows, so the residual cannot be signed:
+the third hole cuts against one engine and the fourth against another.
+
+And the floor is **engine-shaped**, which is adjacent to the throttle
+denominator's unevenness rather than the same thing — and the difference
+decides what a reader may do about it. Throttle coverage is a *denominator*
+problem, so its remedy is to scope the figure to the logs that could express
+one. This is a *numerator* problem: what a reach leaves in a query slice
+depends on how an engine spells its tools, and there is no per-engine subset
+that could express it, so no scoping recovers a comparable figure. The
+per-actor split is therefore **not** a behavioural difference between engines
+and must not be differenced, ranked, or read as one — which is why the note
+renders it in actor order with each actor's own denominator rather than sorted
+by count. The by-hand comparison it supports runs over the cells the note
+**names**, and that list is capped, so on a wide run the remainder is countable
+but not nameable.
 
 **The backtest-as-iteration doctrine.** Backtests (the retrospective stratum,
 the replay runs, `backtest.json`, `cert-backtest.json`,

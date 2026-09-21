@@ -763,8 +763,17 @@ class PredictionContext(_Strict):
     )
     decided_before: str | None = Field(
         default=None,
-        description="The replay clock: retrieval about this case must not postdate "
-        "it. Null on a forward cell, whose outcome does not exist yet",
+        description="This cell's **docket-number Term**, and the one anchoring "
+        "clock: the statpack's and docket pack's per-Term rows may be read only "
+        "for Terms strictly preceding it. Those rows are keyed on the "
+        "docket-number Term, so this case's own Term row already contains its "
+        "disposition — which is why the clock is the docket Term and not the "
+        "Term the cutoff falls in, deliberately conservative for a petition held "
+        "over into a later Term. This is also what the cell was handed as "
+        "DECIDED_BEFORE, and what it passed to `fedcourts query`. The day-level "
+        "retrieval boundary is `cutoff` beside it, which is what REPLAY_CUTOFF "
+        "carries on a dated cell and what narrows that query further. Null on a "
+        "forward cell, whose outcome does not exist yet",
     )
     signals_observable: bool = Field(
         description="Whether the payload disclosed a proceedings list at all. False "
@@ -1832,7 +1841,7 @@ class ModelUsage(_Strict):
     ``input_tokens`` is fresh input, with cached reads and cache writes counted
     separately so ``estimated_cost_usd`` can apply the right rate to each (see
     ``fedcourtsai.pricing``). Summing these across runs replaces the planning
-    assumption in ``docs/budget.md`` with a measured \\$/run.
+    assumption with a measured \\$/run.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -1856,7 +1865,7 @@ class ModelUsage(_Strict):
     cache_read_input_tokens: int = Field(default=0, ge=0, description="Input served from cache")
     cache_creation_input_tokens: int = Field(default=0, ge=0, description="Input written to cache")
     estimated_cost_usd: float = Field(
-        ge=0.0, description="On-demand USD estimate from the budget-doc rates"
+        ge=0.0, description="On-demand USD estimate from the rates in fedcourtsai.pricing"
     )
 
 
@@ -2189,7 +2198,8 @@ class RetrievalCall(_Strict):
         "blinding mask DROPS rather than staging, since naming a row as lifted names the "
         "engine that lifts it. Null on records written before the field existed: "
         "provenance-unknown — and on a code-mode engine's log a null also marks a record "
-        "whose calls inside the program were never captured at all.",
+        "whose calls inside the program have no rows of their own (row-blind: only the "
+        "wrapping call's head slice of program text and combined output were captured).",
     )
 
     @model_validator(mode="after")
@@ -2270,6 +2280,247 @@ def _throttled_calls(calls: Sequence[RetrievalCall]) -> int | None:
     if not observed:
         return None
     return sum(1 for call in observed if call.result_status == "throttled")
+
+
+# Tool spellings that can carry a filing URL in their query slice without the
+# call having fetched anything — a web *search* whose query happens to be a URL,
+# a file write whose body quotes the link the cell recorded, a file read or
+# search over text that names it. Each is listed in **both** spellings a
+# committed row can carry: the engines' own names, and the engine-neutral class
+# `fedcourtsai.blinding.neutral_tool_class` respells them as on a blinded log.
+# The pair lets :func:`self_provisioned_fetches` answer the same over a staged
+# log as over the log it was masked from, exactly as :func:`normalize_call`'s
+# two MCP spellings do. Nothing depends on that today — the mask drops the
+# log-level count, and no caller runs this predicate over staged rows — so read
+# it as the cheap version of a property that would otherwise have to be
+# rediscovered, not as a load-bearing mechanism. Two entries deliberately break
+# it, and say so where they sit.
+# `test_the_non_fetch_tools_carry_both_spellings` pins the set against that map
+# in both directions, so a rename there fails a test rather than silently
+# admitting a row, and a stale entry here fails rather than lingering.
+#
+# Everything absent from this set reaches :func:`_fetched_with`'s remaining
+# tests rather than being screened here, the unclassified `other` included, and
+# that direction is deliberate. A blinded row spells every unmapped builtin
+# `other`, so screening `other` would drop exactly the code-mode
+# command-running builtins (`exec_command`, `write_stdin`) through which one
+# engine does most of its fetching — and would drop them on the blinded side
+# only, making the two views of one log disagree about a number neither is
+# supposed to change. What keeps that admission honest is the HTTP-client test
+# those rows then face (:data:`_HTTP_CLIENT`), not this set.
+_NON_FETCH_TOOLS: Final[frozenset[str]] = frozenset(
+    {
+        "websearch",
+        "web_search",
+        "web_search_call",
+        "google_web_search",
+        "web-search",
+        "read",
+        "read_file",
+        "read_many_files",
+        "file-read",
+        "write",
+        "write_file",
+        "edit",
+        "replace",
+        "apply_patch",
+        "file-write",
+        "glob",
+        "grep",
+        "grep_search",
+        "list_directory",
+        "search_file_content",
+        "file-search",
+        # The code-mode lift's two PROSE builtins, beside the `apply_patch`
+        # above. A code-mode program's plan step and image reference carry the
+        # program's own writing as their argument text, and that text becomes
+        # the row's query slice verbatim — so a plan step reading "curl the
+        # opposition brief at <url>" names both a filing URL and an HTTP
+        # client, and would be counted as the fetch it describes. The
+        # command-running pair beside them (`exec_command`, `write_stdin`) is
+        # deliberately NOT here: that is where a code-mode engine does its
+        # fetching.
+        #
+        # These two are the one place the raw and masked spellings disagree,
+        # because the neutral map has no entry for either and both stage as
+        # `other`, which must stay fetch-capable for the command-running pair.
+        # The disagreement is affordable precisely here: the log-level count
+        # never reaches a blinded log (the mask drops it), and no caller runs
+        # this predicate over staged rows. State it rather than trade a
+        # standing false positive for it.
+        "update_plan",
+        "view_image",
+    }
+)
+
+# A URL naming a **filed document** — the thing a provisioned
+# `record/documents/` carries, and the thing a cell reaches past the record to
+# get when that set is short one.
+#
+# Two trees, and the narrowness is the point. `supremecourt.gov/DocketPDF/` is
+# where the Court serves the parties' filings themselves (petition, brief in
+# opposition, reply, appendix, amicus), and it is the tree the cells' own flags
+# name when they report recovering a brief the record lacked. The Court's other
+# trees are deliberately outside it: `/opinions/` and `/orders/` are the Court's
+# own output rather than a party filing, `/ctrules/` and `/filingandrules/` are
+# the rulebook, and `/docket/` is the docket sheet the record already provides —
+# a cell reading any of them retrieved something, but not a filing its document
+# set was short of. `storage.courtlistener.com/recap/` is the same class of
+# object served by RECAP's document store.
+#
+# Matched against the row's query slice, which capture caps at 500 characters,
+# so a URL sitting past that cut is not seen: the count is a floor.
+_FILING_DOCUMENT_URL = re.compile(
+    r"https?://(?:www\.)?(?:supremecourt\.gov/DocketPDF/|storage\.courtlistener\.com/recap/)",
+    re.IGNORECASE,
+)
+
+# The engines' dedicated open-web fetch tools, in both spellings a committed row
+# can carry (the engines' own, and the blinding mask's neutral class). Such a
+# call *is* the retrieval, so a filing URL in its params is a fetch on its own.
+_FETCH_TOOLS: Final[frozenset[str]] = frozenset({"webfetch", "web_fetch", "web-fetch"})
+
+# An HTTP client named in a command line — the evidence a **shell** row asks
+# for before it is read as a fetch.
+#
+# A shell row is the commonest way a cell actually pulls a filing (`curl` into
+# `pdftotext`, a `python` heredoc around `httpx`), so it cannot be excluded; but
+# a shell row is also how a cell *writes prose about* a filing, and one command
+# in particular — the patch builtin applying a diff to the cell's own
+# `retrieval.md` — carries whole paragraphs naming the URL it tried and failed
+# to fetch. Counting that would record a cell that obtained nothing as one that
+# self-provisioned, which is the reading this exists to get right. So a shell
+# row must name a client in the same slice. The screen is on the command text
+# rather than on the tool, because the patch builtin arrives under the same
+# shell-running name a real `curl` does, and it errs toward missing a fetch
+# (a client past the 500-character cut, or one spelled some other way) rather
+# than inventing one.
+_HTTP_CLIENT = re.compile(
+    r"""\b(?:
+          curl | wget | httpx | urllib | urllib2 | urllib3 | requests | aiohttp
+        | http\.client | pycurl | invoke-webrequest
+    )\b""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# Where one command in a captured line ends and the next begins — the same cut
+# :func:`~fedcourtsai.collect.attempted_corpus_query` makes, because the
+# question is the same: only the segment the match sits in decides what ran.
+# Newlines are separators here, which is why the client is looked for across
+# the whole slice and only the *reader* screen below is segmented: a program
+# that imports `httpx` on one line and names the URL on another is one command,
+# and segmenting the client test would miss every such fetch.
+_SHELL_SEGMENT = re.compile(r"[\n;|&]+")
+# Commands that take a URL as *text to read* rather than as somewhere to go. A
+# cell grepping its own notes for the brief it failed to fetch names both the
+# URL and `curl`, which is the residual the client test alone leaves; the
+# sibling corpus-query predicate closes the same shape the same way.
+_READS_TEXT = re.compile(
+    r"\b(?:rg|ripgrep|grep|egrep|fgrep|sed|awk|less|head|tail|cat|echo|printf)\b",
+    re.IGNORECASE,
+)
+
+
+def _fetched_with(call: RetrievalCall, query: str) -> bool:
+    """Whether this row is one a filing could have been *fetched* through.
+
+    Three classes, and the third is the one that needs evidence:
+
+    * a :data:`_NON_FETCH_TOOLS` row never is — it can only have searched for
+      the URL or written it down;
+    * a dedicated fetch tool (:data:`_FETCH_TOOLS`) or a **manifest** tool
+      always is, because the call is itself a retrieval channel — except a
+      manifest *search*, held out on the same ground as an engine's own: a
+      search asks a question and a fetch takes a document, and the same
+      ``search`` in either vocabulary means the same thing. The held-out set is
+      decided by an underscore-delimited **token**, not a substring, so a tool
+      whose name merely contains the letters (``research_document``) is not
+      swept out with the searches;
+    * anything else — a shell call, a code-mode command-running builtin, an
+      unclassified builtin a blinded log spells ``other`` — is one only where
+      its command text names an HTTP client (:data:`_HTTP_CLIENT`) and the URL
+      does not sit in the arguments of a command that only *reads text*
+      (:data:`_READS_TEXT`), because both shapes carry a cell's own prose about
+      a fetch rather than the fetch.
+    """
+    lowered = call.tool.lower()
+    if lowered in _NON_FETCH_TOOLS:
+        return False
+    if lowered in _FETCH_TOOLS:
+        return True
+    normalized = normalize_call(call.tool)
+    if normalized is not None:
+        return "search" not in normalized.split(".", 1)[1].split("_")
+    if _HTTP_CLIENT.search(query) is None:
+        return False
+    match = _FILING_DOCUMENT_URL.search(query)
+    segment = _SHELL_SEGMENT.split(query[: match.start()])[-1] if match else query
+    return _READS_TEXT.search(segment) is None
+
+
+def self_provisioned_fetches(calls: Sequence[RetrievalCall]) -> list[RetrievalCall]:
+    """The calls through which this cell reached outside its record for a filing.
+
+    The provisioned snapshot is every predictor's guaranteed-common input, and
+    `record/documents/` is the filed text inside it. Where that set is short a
+    filing, some cells reach past the record and fetch it from the Court's own
+    document tree while others do not — so a fan-out that reads as one
+    comparison was run over two different information sets. Nothing else records
+    that: the fetch leaves a row in the cell's log and no mark on the
+    prediction. This is the predicate that finds those rows, and it is a
+    **record only** — no score, no metric and no board reads it. It records a
+    *reach*, not an acquisition: the row is the call, and whether anything came
+    back is ``result_status``'s business, so a refused fetch counts here and
+    moved no information set.
+
+    Two conditions, both on the row, and neither consults the record:
+
+    * the row's ``query`` slice carries a **filing-document URL**
+      (:data:`_FILING_DOCUMENT_URL`) — the Court's ``DocketPDF`` tree or
+      RECAP's document store, and not the opinion, order, rules or docket-sheet
+      trees beside them, which are not the filings a cell's document set is
+      short of;
+    * and the row is one the filing could have been **fetched through**
+      (:func:`_fetched_with`) — a dedicated fetch tool or a manifest tool on
+      its own, a shell call only where its command names an HTTP client, and a
+      web search, file read, file write or file search never.
+
+    What it does **not** do is ask whether the record already carried that
+    filing, and the reason is that nothing here can. The manifest that would
+    answer it, ``record/documents/documents.json``, lives in the cell's
+    workspace and is thrown away with the runner; it names document *kinds*
+    where a row names a URL, so even with both in hand the join is a guess. So
+    this counts any filing fetch rather than only a repairing one, and a cell
+    that fetched a filing it had been given counts alongside one that fetched a
+    filing it had not. Read a non-zero count as *this cell reached past the
+    provisioned set for filing text* and read the cell's own ``flags.json``
+    beside it, which is where a predictor that noticed a gap says so.
+
+    A floor, and unevenly so across engines, which is the limit that matters
+    most since the very reading this supports is a comparison between them.
+    Only a call that left a row can be seen. The row keeps 500 characters of
+    its params, so a URL — or the client name a shell row is read against —
+    past that cut is invisible. One engine's hosted web search carries a bare
+    URL as its query, which this declines to count, because a search is not a
+    fetch and such a row records no result either way. And a row's query slice
+    is cut from the **first** params key capture finds, so a fetch tool called
+    with a prompt beside its URL keeps the prompt: such a call is a fetch this
+    cannot see at all, however plainly it fetched. A cell that pulls filings
+    through the shell is therefore counted where one that pulls the same
+    filings through a prompted fetch tool is not — so read a zero as *no filing
+    fetch was legible here*, and read two engines' counts side by side only
+    with that in view. Nor does it claim the fetch **succeeded**: a row is evidence
+    that the cell reached for the filing, and the result it came back with is
+    ``result_status``'s business, which on a shell call is the engine's own
+    marker rather than a reading of the payload.
+    """
+    return [
+        call
+        for call in calls
+        if call.query is not None
+        and _FILING_DOCUMENT_URL.search(call.query) is not None
+        and _fetched_with(call, call.query)
+    ]
 
 
 CellMode = Literal["forward", "replay"]
@@ -2381,6 +2632,60 @@ class RetrievalLog(_Strict):
         "none of them was a throttle. Read any non-null count as a floor — the per-call "
         "predicate is biased against inventing a throttle, and calls the cell never got to "
         "make are not here at all.",
+    )
+
+    self_provisioned_fetches: int | None = Field(
+        default=None,
+        ge=0,
+        description="How many of this log's calls **reached outside the provisioned "
+        "document set for a court filing** — a row whose query slice carries a "
+        "filing-document URL (the Court's own `DocketPDF` tree, or RECAP's document store) "
+        "through a tool that could have fetched with it. The provisioned "
+        "`record/documents/` set is every "
+        "predictor's guaranteed-common input, so a cell that repairs a gap in it by live "
+        "fetch and a cell that cannot are not running on one information set, and nothing "
+        "else records the difference: the call marks the log and not the prediction. A "
+        "RECORD ONLY — no score, metric or board reads it, and stratifying one on it is "
+        "separate, registered work. A REACH, NOT AN ACQUISITION: the row is the call, and "
+        "whether anything came back is `result_status`'s business — on a shell row the "
+        "engine's own failure marker rather than a read of the payload — so a refused or "
+        "404'd fetch counts here and moved no information set. Condition on "
+        "`result_status` before reading a count as filing text the cell actually got. It "
+        "also does NOT say the record lacked what was fetched: "
+        "the manifest that could answer that is thrown away with the runner and names "
+        "document KINDS where a row names a URL, so a cell that re-fetched a filing it "
+        "already had counts the same as one that recovered a filing it never got. Read a "
+        "non-zero count as `this cell reached past the record for filing text` and "
+        "read its `flags.json` beside it. A floor, and UNEVENLY SO ACROSS ENGINES, which "
+        "bites exactly where the reading is a comparison between them: a call that left no "
+        "row is not here; a URL past the row's 500-character query cut is not seen; one "
+        "engine's hosted web search carries a bare URL as its query and is deliberately "
+        "not counted, since a search is not a fetch and such a row captures no result "
+        "either way; and a query slice is cut from the first params key capture finds, so "
+        "a fetch tool called with a prompt beside its URL keeps the prompt and its fetch "
+        "is invisible here however plainly it fetched. A cell pulling filings through the "
+        "shell is counted where one pulling the same filings through a prompted fetch tool "
+        "is not, so a 0 means `no filing fetch was legible`, never `none happened`. "
+        "Excluded on a different ground are the tools that can only have written the URL "
+        "down — a file write, read or search, and the code-mode lift's prose builtins "
+        "(a patch, a plan step, an image reference), whose argument text is the cell's "
+        "own writing about a fetch rather than the fetch — and a shell row whose command "
+        "either names no HTTP client or reads the URL as text (a `grep` of the cell's own "
+        "notes names both the client and the URL). Two residual doors are NOT closed: a "
+        "manifest tool that takes arbitrary text rather than an address (the citation "
+        "tools) counts if a pasted brief quotes a filing URL, and a search-paginating "
+        "tool is read as a fetch channel. Unlike `result_capture_coverage` and `throttled_calls` "
+        "this is BAKED AT CAPTURE and never re-derived on load, so a committed log reads "
+        "back exactly as written and a LEDGER-WIDE cut over these fields pools whatever "
+        "predicate each log was minted under. The collect job's per-run note is the other "
+        "case and reads the other way: it re-derives over the committed rows, so it "
+        "always speaks today's predicate and agrees with this field for any run captured "
+        "under the same one. The blinding mask DROPS this field rather than staging it, "
+        "so it never reaches an evaluator — what a reach leaves in a query slice depends "
+        "on how an engine spells its tools, and the grading reads the rows. Null on "
+        "records written before the field existed: "
+        "unasked, not zero — a real 0 is the stronger claim that the rows were read and "
+        "carried no such call.",
     )
 
     # Derives and replaces where `_check_coverage_denominator` raises, because
@@ -4568,15 +4873,20 @@ class CertBacktest(_Strict):
     )
     provisioning: dict[str, int] = Field(
         default_factory=dict,
-        description="How many replayed cells were provisioned under each "
+        description="How many replayed petitions were provisioned under each "
         "snapshot_provenance — 'dated' (a snapshot the docket really served before "
         "the cutoff), 'truncated' (a later payload with its post-cutoff entries "
-        "removed), 'blind' (no forward moment identifiable, so no trajectory was "
-        "shown). These are three different information sets, and a figure over "
-        "their union is a figure over a mixture: a blind cell cannot observe its "
-        "own relist history at all, which is most of what a cert forecast turns "
-        "on. Read the mix before reading the scores. Empty on reports written "
-        "before the split existed",
+        "removed), 'blind' (no trajectory shown at all, from either cause: no "
+        "forward moment fixed a cutoff, or truncation left a disposition visible "
+        "and the fail-closed leakage guard withdrew the trajectory). These are "
+        "three different information sets, and a figure over their union is a "
+        "figure over a mixture: a blind petition cannot observe its own relist "
+        "history at all, which is most of what a cert forecast turns on. The "
+        "mixture is not neutral either — a docket with no distribution to show is "
+        "the strongest denial signal here, so the blind arm is selected on an "
+        "outcome-correlated feature, which raises the pooled floor and dilutes "
+        "every lift measured over the union. Read the mix before reading the "
+        "scores. Empty on reports written before the split existed",
     )
     provenance: CertBacktestProvenance | None = Field(
         default=None,
@@ -4652,8 +4962,8 @@ class CostEstimate(_Strict):
     rate; model cost is the recorded usage ledger, both cumulatively and projected
     to 30 days from the ledger's own span; fixed monthly captures the infra not
     metered per run (CourtListener membership, S3). All figures are estimates
-    against the rates in ``docs/budget.md`` — check the provider billing dashboards
-    for ground truth.
+    against the rates in ``fedcourtsai.pricing`` and ``fedcourtsai.ops`` — check
+    the provider billing dashboards for ground truth.
 
     The model projection averages the ledger's full span, first record to last.
     A trailing idle tail (a paused tournament, an exhausted cap) falls outside
@@ -5654,7 +5964,14 @@ class StatPackTerm(_Strict):
     the denial sampling does not bias them); a Term known only from the discovery
     cursors still appears, carrying its census with zero ingested rows. **This is
     the replay self-selection surface**: a time-masked cell anchors only on Term
-    entries strictly preceding its ``DECIDED_BEFORE`` clock.
+    entries strictly preceding ``record/context.json``'s ``decided_before`` —
+    its own **docket-number** Term, which is what these entries are keyed on and
+    what the cell is handed as ``DECIDED_BEFORE``, so its own entry (which
+    already holds its disposition) is always behind the bar. The cell's
+    day-level *retrieval* boundary is a different field, ``cutoff``, which it
+    reads as ``REPLAY_CUTOFF``; no anchoring Term is ever derived from it,
+    because for a petition held over past its Term that day falls in a later
+    Term than the docket and a Term read off it would hand the cell its own row.
     """
 
     term: int = Field(description="The October-Term year, e.g. 2024")
@@ -5864,7 +6181,8 @@ class StatPackInterimTerm(_StatPackInterimCounts):
     The Term is read from the application's own docket number (``24A1099`` ->
     OT2024), so the split needs no dates. Like the cert Term entries, the array
     is a replay self-selection surface: a time-masked cell anchors only on Term
-    rows strictly preceding its clock.
+    rows strictly preceding ``record/context.json``'s ``decided_before`` — the
+    cell's own docket Term, never a Term derived from its retrieval boundary.
     """
 
     term: int = Field(description="The October-Term year the application was docketed in")
@@ -6008,7 +6326,8 @@ class StatPackMeritsTerm(_StatPackMeritsCounts):
     T+1, so identically labeled rows across the two tables cover different
     cohorts. Like the cert Term entries, the array is a replay self-selection
     surface: a time-masked cell anchors only on Term rows strictly preceding
-    its clock.
+    ``record/context.json``'s ``decided_before`` — the cell's own docket Term,
+    never a Term derived from its retrieval boundary.
     """
 
     term: int = Field(description="The October-Term year certiorari was granted in")

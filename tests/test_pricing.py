@@ -81,7 +81,7 @@ def test_cache_buckets_apply_their_multipliers() -> None:
 
 
 def test_planning_assumption_lands_in_dollar_range() -> None:
-    # ~200K input + 12K output (docs/budget.md) should land near the ~$1-2 guess.
+    # ~200K input + 12K output — a typical cell's shape — lands near the ~$1-2 guess.
     counts = TokenCounts(input_tokens=200_000, output_tokens=12_000)
     cost = estimate_cost_usd("claude-opus-4-8", counts)
     assert 1.0 <= cost <= 2.0

@@ -2,10 +2,11 @@ name: run-backtest
 
 # Cert back-test: replay the enabled predictors over the most recently decided
 # modern discretionary-cert petitions (outcomes hidden — redacted snapshots in a
-# scratch tree, never data/) and land the refreshed `metrics/cert-backtest.json`
-# as a **reviewed** PR — never a direct commit, never auto-merged. Retrospective
-# by construction: iteration signal, never claimable performance (see
-# metrics/README.md).
+# scratch tree, never data/, and the committed ledger removed from the working
+# tree for the replay so no outcome sits beside the cells) and land the
+# refreshed `metrics/cert-backtest.json` as a **reviewed** PR — never a direct
+# commit, never auto-merged. Retrospective by construction: iteration signal,
+# never claimable performance (see metrics/README.md).
 #
 # Replaying agentic engines SPENDS MODEL TOKENS (~one cell per predictor per
 # petition), so no run spends without an explicit maintainer decision. There are
@@ -97,8 +98,8 @@ permissions: {}
 # directly — an unresolved `inputs.limit` would pass an empty `--limit`.
 #
 # The pins are the standing measurement — 10 petitions, all three real engines,
-# the paid modern-cert population, spread across conference cohorts — and the
-# fortnightly budget line is written against exactly them.
+# the paid modern-cert population, spread across conference cohorts — and what a
+# fortnight costs is whatever the usage ledger measures against exactly them.
 #
 # `--scope paid` is the pin, not the wider `all`, because the population has to
 # carry signal at this sample size: the paid class resolves grant-or-GVR at
@@ -300,7 +301,14 @@ jobs:
             echo '```'
             uv run fedcourts predictors
             echo '```'
-            echo 'Nothing has spent yet. Releasing the `review` hold below is what spends: up to the limit above x the routable predictors, one cert cell each. What that costs is priced once, as the fortnightly driver line under *Backtest campaigns* in `docs/budget.md`. Declining the hold, or letting it expire, is a skipped fortnight — a first-class outcome of this lane, and the digest states the standing vintage either way.'
+            # The per-engine predict rates are pinned in the CLI rate table
+            # (fedcourtsai.cli._PLANNING_RATES_USD_PER_CELL). They are restated
+            # here because neither command this step runs prices a fan-out, and
+            # a maintainer judging the hold needs the number in front of them; a
+            # re-anchor of that table moves this line too.
+            bt_cost=$(awk -v n="$BT_LIMIT" 'BEGIN { printf "%.0f", n * 6.79 }')
+            printf 'Nothing has spent yet. Releasing the `review` hold below is what spends: up to the limit above x the routable predictors, one cert cell each. At the shipped predict rates as pinned in the CLI rate table ($4.27 claude-code + $1.88 codex + $0.64 gemini, about $6.79 an event across the three engines), %s petitions is on the order of $%s; the usage ledger (`fedcourts usage-summary`) measures what it actually spent. Declining the hold, or letting it expire, is a skipped fortnight — a first-class outcome of this lane, and the digest states the standing vintage either way.\n' \
+              "$BT_LIMIT" "$bt_cost"
             echo ""
             echo 'One operational consequence of leaving this pending: a run waiting on a hold counts as an in-flight back-test for the promotion gate'"'"'s quiescence check, so a parked fortnight blocks promotions until it is released or declined.'
           } >> "$GITHUB_STEP_SUMMARY"
@@ -401,7 +409,8 @@ jobs:
     # from burning six billable hours. It stays sized for the widest dispatch
     # rather than for the cron's pinned 10 petitions (~30 cells, well inside it):
     # a cap that killed a legitimately-running replay would waste the spend it
-    # had already made. This is the hard ceiling the budget line cites.
+    # had already made. This 330-minute cap is the hard ceiling the cadence
+    # guard and the cron slot's runway are both written against.
     timeout-minutes: 330
     environment: prod
     permissions:
@@ -461,12 +470,44 @@ jobs:
       # data/qp-topics membership encodes cert outcomes (docs/qp-topic.md), so
       # the prompts forbid cells from reading it. Replay cells are the ones the
       # oracle would actually inform, and they inherit this checkout as their
-      # working directory; deleting it leaves them nothing to read, while
-      # deliberate access through git history stays covered by the prompt
-      # prohibition and the logged-tool-call audit. Nothing here commits
-      # data/, so the deletion never propagates.
+      # working directory; deleting it leaves them nothing to read. Deliberate
+      # access through git history is covered by the prompt prohibition and by
+      # nothing else here: this job writes no retrieval log and uploads no
+      # transcript, so the agent's own stdout in the expiring run log is the
+      # only record a tool call leaves. Nothing here commits data/, so the
+      # deletion never propagates.
       - name: Remove the labeling-measurement oracle from the agent's tree
         run: rm -rf data/qp-topics
+
+      # The committed ledger is the other oracle this checkout carries, and the
+      # larger one: a replayed petition is decided, so
+      # `data/cases/<court>/<docket>/events/` can hold the very
+      # `evt-petition-disposition/outcome.json` the cell is being asked to
+      # forecast, or a merits event whose existence alone discloses the grant.
+      # The three engines read that tree on unequal terms — claude runs
+      # `bypassPermissions`, gemini's workspace is this checkout, codex's
+      # `workspace-write` sandbox is rooted here — and the harness probes only
+      # for stray *writes*, so nothing at run time would see the read. The
+      # replay needs none of it: `fedcourts cert-backtest` draws its population,
+      # its snapshots and the outcomes it scores against from the corpus, and
+      # provisions every cell under `--work-dir`. So the tree goes away for the
+      # duration, and the step below puts it back from the commit — the one
+      # source whose bytes no cell could have touched.
+      #
+      # The residual, stated: this checkout is full-depth, so the ledger stays
+      # one `git show HEAD:data/cases/...` away, and a tidy agent running `git
+      # checkout -- data/cases` would undo the fence unnoticed. The removal is
+      # therefore structural against an *incidental* read — a cell that opens
+      # what is in front of it. A deliberate one is covered by the kickoff's
+      # own prohibition ("do not read or write under the repository's data/
+      # directory at all", `_output_root_block` in pipeline/runner.py) and by
+      # nothing else at run time, for the same reason the qp-topics fence above
+      # names: no retrieval log, no transcript artifact, only an expiring run
+      # log. The misplaced-write probe is unaffected either way — an engine
+      # that follows the prompt template's `data/cases/...` path recreates the
+      # directory the probe looks for.
+      - name: Remove the committed ledger from the replay's tree
+        run: rm -rf data/cases
 
       # The replay provisions redacted snapshots from the corpus, so it must be
       # on disk; without a pointer there is nothing to back-test.
@@ -489,8 +530,10 @@ jobs:
           role-duration-seconds: "21600"
 
       # Gemini's replay cells read the same cell env contract as a live predict
-      # cell (COURT_ID/DOCKET_ID/... from `_cell_env`, plus DECIDED_BEFORE, the
-      # replay clock), but its sanitizer runs strict whenever GITHUB_SHA is set
+      # cell (COURT_ID/DOCKET_ID/... from `_cell_env`), plus both halves of the
+      # replay clock: DECIDED_BEFORE, the case's own October Term, on every
+      # replay cell, and REPLAY_CUTOFF, the provisioned cutoff day, on the dated
+      # ones. Gemini's sanitizer runs strict whenever GITHUB_SHA is set
       # and strips every custom var from the agent's shell — so `$COURT_ID`
       # expands empty and the cell cannot resolve its own provisioned snapshot,
       # silently degrading gemini's replay while claude and codex read the same
@@ -500,12 +543,22 @@ jobs:
       # allowlist anything matching /TOKEN|SECRET|KEY|AUTH|.../i regardless. No
       # MCP or telemetry block here: unlike the live workflows, the back-test
       # configures no MCP servers and parses no telemetry.
+      # The clock's env is its only channel on every engine — the kickoff
+      # inlines the six identifiers but not the clock, since the frozen prompt
+      # spells `--decided-before "$DECIDED_BEFORE"` — which is why the
+      # allowlist test pins the whole `_cell_env` contract. `fedcourts query`
+      # reads REPLAY_CUTOFF from the environment rather than from a flag, so a
+      # stripped variable is silent: the query falls back to the Term-only
+      # mask, the blind arm's own — the replayed case's outcome still never
+      # clears its own Term, but priors that had not resolved by the cutoff
+      # are readmitted. Claude and codex take the same contract straight from
+      # `_cell_env` through the subprocess environment and need no allowlist.
       - name: Configure the Gemini cell env allowlist
         if: env.BT_ENGINE == 'auto' && env.BT_REPLAY != 'salience-gate'
         run: |
           set -euo pipefail
           mkdir -p .gemini
-          printf '%s\n' '{"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE"]}}}' > .gemini/settings.json
+          printf '%s\n' '{"security":{"environmentVariableRedaction":{"allowed":["COURT_ID","DOCKET_ID","EVENT_ID","PREDICTOR_ID","EVALUATOR_ID","RUN_ID","MODEL_ID","DECIDED_BEFORE","REPLAY_CUTOFF"]}}}' > .gemini/settings.json
 
       # The codex replay sandbox (bubblewrap) needs unprivileged user
       # namespaces, which Ubuntu 24.04 runners restrict via AppArmor: without
@@ -562,26 +615,63 @@ jobs:
           # An empty `--skip-engines` runs every engine, and an unknown engine
           # name simply matches no predictor.
           if [ "$BT_SPREAD" = "true" ]; then SPREAD_FLAG=--spread; else SPREAD_FLAG=--no-spread; fi
-          # The work root must sit inside every engine's writable roots. codex
-          # runs `exec --sandbox workspace-write` from the checkout, whose roots
-          # are the cwd, /tmp and $TMPDIR (a codex default; re-check on any
-          # codex-version bump) — $RUNNER_TEMP is a sibling of the checkout and
-          # is not one, so a cell told to write there could not. /tmp is also
-          # where claude and gemini, unsandboxed, write when told. A fresh
-          # mktemp directory keeps the path unpredictable and unshared across
-          # runs on a non-ephemeral runner; run_id is inside every cell path
-          # anyway, so a stale cell could never be collected. The output root is
-          # what the kickoff names absolutely for every engine — the prompt's
-          # own path is relative to the working directory, which here is the
-          # checkout, not the work root. Inside this root the engines are not
-          # isolated from each other's cells: the back-test's cross-engine
-          # integrity rests on the first-party engine configs, as it already
-          # did for the unsandboxed engines.
+          # The work root must sit inside every engine's writable roots, or be
+          # admitted into them. codex runs `exec --sandbox workspace-write` from
+          # the checkout, whose roots are the cwd, /tmp and $TMPDIR (a codex
+          # default; re-check on any codex-version bump) — $RUNNER_TEMP is a
+          # sibling of the checkout and is not one, so a cell told to write
+          # there could not. claude, unsandboxed, writes anywhere it is told.
+          # gemini does not: its file tools are bounded to the launch directory
+          # (the checkout) and its own per-project temp dir, so the runner
+          # passes this root to the CLI as an extra workspace directory
+          # (`GeminiRunner.build_command`, `--include-directories`; re-check on
+          # any gemini-cli bump) and a gemini cell reaches it with write_file
+          # rather than only the shell. A fresh mktemp directory keeps the path
+          # unpredictable and unshared across runs on a non-ephemeral runner;
+          # run_id is inside every cell path anyway, so a stale cell could never
+          # be collected. The output root is what the kickoff names absolutely
+          # for every engine — the prompt's own path is relative to the working
+          # directory, which here is the checkout, not the work root. Inside
+          # this root the engines are not isolated from each other's cells, and
+          # for gemini the admitted root is a `GEMINI.md` context-file discovery
+          # root too (read at startup, and again whenever a file tool touches a
+          # path under it), so a cell that planted one would be instructing the
+          # cells that follow: accepted on the same terms as the shared root
+          # itself and as the checkout, which is a discovery root for every
+          # gemini cell already — the back-test's cross-engine integrity rests
+          # on the first-party engine configs and the committed prompts.
           work_dir="$(mktemp -d /tmp/fedcourts-backtest-cells.XXXXXXXX)"
           uv run fedcourts cert-backtest \
             --engine "$BT_ENGINE" --limit "$BT_LIMIT" --skip-engines "$BT_SKIP_ENGINES" \
             --scope "$BT_SCOPE" "$SPREAD_FLAG" \
             --work-dir "$work_dir"
+
+      # Put the ledger back before anything downstream runs in this checkout —
+      # the salience-gate arm and the review PR step both do. From the commit,
+      # which is the whole point: whatever a replay cell did while the agents
+      # held this tree, the bytes the rest of the job sees are the reviewed
+      # ones. The wipe before the checkout is what makes that cover untracked
+      # files — `git checkout --` restores tracked paths only, so a cell that
+      # wrote its own directory under data/cases would otherwise survive the
+      # restore — and the porcelain check refuses any residue left over.
+      - name: Restore the committed ledger and assert it is pristine
+        # `!cancelled()` so this runs, and records a real success/failure
+        # outcome, even when the replay failed: a run that both failed and
+        # wrote into the ledger should say which, and a skipped assertion says
+        # nothing. Idempotent and harmless on every early-exit path, not free:
+        # the rm tolerates a missing directory and the checkout always rewrites
+        # the tracked tree, whether or not the removal step ran.
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          rm -rf data/cases
+          git checkout -- data/cases
+          if [ -n "$(git status --porcelain -- data/cases)" ]; then
+            echo "::error::data/cases is not pristine after the restore"
+            git status --porcelain -- data/cases
+            exit 1
+          fi
+          echo "committed ledger restored pristine"
 
       # The salience-gate mode replays the deterministic gate, not the
       # predictors: `fedcourts salience-replay` runs offline over the pulled

@@ -23,8 +23,11 @@ from fedcourtsai.schemas import (
     BigCaseBoard,
     BigCaseCoverage,
     BigCaseRow,
+    CalibrationBin,
     CertBacktest,
     CertBacktestCellLoss,
+    CertBacktestDispatch,
+    CertBacktestEntry,
     CertBacktestProvenance,
     ClaimProbability,
     ClaimScoreBoard,
@@ -2678,36 +2681,196 @@ def test_the_weekly_digest_reports_the_missing_cert_backtest_honestly() -> None:
     assert "there is no number here to be stale" in md
 
 
-def test_the_weekly_digest_names_a_back_test_that_lost_cells() -> None:
+#: A whole-set calibration view: 8 of the 25 replayed petitions grant-family,
+#: which is the count `1 - always_denied_accuracy` cannot give (a dismissal is
+#: neither denied nor granted).
+_CERT_BINS = [
+    CalibrationBin(
+        lower=0.0, upper=0.5, predictions=17, mean_probability=0.1, observed_granted_rate=0.0
+    ),
+    CalibrationBin(
+        lower=0.5, upper=1.0, predictions=8, mean_probability=0.8, observed_granted_rate=1.0
+    ),
+]
+
+
+def _cert_entry(predictor_id: str, engine: str | None) -> CertBacktestEntry:
+    """One board row scored over the whole set; a null `engine` is a baseline."""
+    return CertBacktestEntry(
+        predictor_id=predictor_id,
+        rank=1,
+        events_scored=25,
+        accuracy=0.68,
+        granted_accuracy=0.68,
+        mean_brier_score=0.2,
+        lift_over_always_denied=0.08,
+        calibration=_CERT_BINS,
+        engine=engine,
+        model="a-model" if engine else None,
+    )
+
+
+def _cert_dispatch(**overrides: object) -> CertBacktestProvenance:
+    """A provenance block whose dispatch defaults to the first real report's."""
+    dispatch = {"engine": "auto", "limit": 25, "scope": "all", "spread": False} | overrides
+    return CertBacktestProvenance(dispatch=CertBacktestDispatch(**dispatch))
+
+
+def _cert_backtest(
+    *,
+    entries: list[CertBacktestEntry] | None = None,
+    provisioning: dict[str, int] | None = None,
+    provenance: CertBacktestProvenance | None = None,
+) -> CertBacktest:
+    """The shape of the first landed report: 3 engine predictors, 2 baselines."""
+    if entries is None:
+        entries = [_cert_entry(f"predictor-{i}", "claude-code") for i in range(3)]
+        entries += [_cert_entry(f"baseline-{i}", None) for i in range(2)]
+    return CertBacktest(
+        events_scored=25,
+        predictors_evaluated=len(entries),
+        salience_version="sal-v4",
+        always_denied_accuracy=0.6,
+        provisioning={"blind": 5, "truncated": 20, "dated": 0}
+        if provisioning is None
+        else provisioning,
+        provenance=_cert_dispatch() if provenance is None else provenance,
+        entries=entries,
+    )
+
+
+def _cert_bullet(report: CertBacktest | None) -> str:
+    """The one rendered line the caveats have to be on to travel with the figure."""
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(cert_backtest=report))
+    return next(line for line in md.splitlines() if line.startswith("- **Cert back-test**"))
+
+
+def test_the_weekly_digest_qualifies_the_cert_backtest_in_its_own_bullet() -> None:
+    """The stratum, the dispatch, and the provisioning mix travel with the figure.
+
+    A caveat one bullet away does not travel when the line is quoted, and this
+    is the most-quoted surface the report reaches: the stratum makes it an
+    iteration instrument rather than a performance figure, the dispatch is the
+    population definition two reports are only comparable across when it
+    matches, and the three snapshot provenances are three information sets
+    whose composition moves the floor.
+    """
+    bullet = _cert_bullet(_cert_backtest())
+
+    # The board is two populations of entry, and only one of them ran a model.
+    assert "3 engine predictor(s) and 2 reference baseline(s) over 25 petition(s)" in bullet
+    # The granted side, which `1 - floor` would overstate by the dismissals.
+    assert "8 of 25 grant-family; always-deny floor 60.0%" in bullet
+    assert "`retrospective` by construction" in bullet
+    assert "**iteration instrument**" in bullet
+    assert "engine `auto` over scope `all` (no scope filter), limit 25" in bullet
+    assert "spread off (the 25 most recently decided" in bullet
+    assert "5 blind, 20 truncated, 0 dated petition(s)" in bullet
+    assert "raises the pooled floor and dilutes every lift" in bullet
+    # Nothing was opted out or lost, and "none" would read as a finding.
+    assert "opted out" not in bullet
+    assert "cell(s) lost" not in bullet
+    assert "dropped at run time" not in bullet
+
+
+def test_the_weekly_digest_names_the_engines_a_back_test_opted_out_of() -> None:
+    """The backend routing, because predictor ids say nothing about what ran.
+
+    A `stub` rehearsal writes entries named for real predictors, so the engine
+    is what separates a token-spending replay from a mechanics run; and a board
+    silently short one engine is a different comparison from the one it looks
+    like, which the opt-out names.
+    """
+    bullet = _cert_bullet(
+        _cert_backtest(
+            provenance=_cert_dispatch(
+                engine="stub", limit=10, scope="paid", spread=True, skip_engines=["codex", "gemini"]
+            )
+        )
+    )
+
+    assert "engine `stub` (offline rehearsal — no model ran)" in bullet
+    assert "scope `paid` (IFP dropped), limit 10, spread on (drawn across conference cohorts)" in (
+        bullet
+    )
+    assert "engines opted out: codex, gemini" in bullet
+
+
+def test_the_weekly_digest_puts_the_cert_backtest_coverage_losses_on_the_same_line() -> None:
     """`N predictor(s) over M petition(s)` reads as a product; losses break it.
 
     A predictor short some cells was scored over fewer petitions than the set,
-    so the two counts no longer multiply out to what ran — and the digest is
-    the most-quoted surface this report reaches, which is where the caveat has
-    to be rather than one artifact away.
+    and a predictor dropped whole is missing from the comparison altogether —
+    so both ride the bullet the counts are in rather than the artifact.
     """
-    report = CertBacktest(
-        events_scored=10,
-        predictors_evaluated=3,
-        always_denied_accuracy=0.9,
+    lossy = _cert_backtest(
         provenance=CertBacktestProvenance(
+            dispatch=CertBacktestDispatch(engine="auto", limit=25, scope="all"),
+            dropped_predictors=["gemini-baseline"],
             lost_cells=[
                 CertBacktestCellLoss(
                     predictor_id="codex-baseline",
                     case_id="scotus/1",
                     reason="wrote-outside-work-root",
                 )
-            ]
-        ),
+            ],
+        )
     )
-    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(cert_backtest=report))
-    assert "1 cell(s) lost" in md
-    assert "scored over fewer petitions than the set" in md
+    bullet = _cert_bullet(lossy)
 
-    # A clean report says nothing about losses rather than "0 lost".
-    clean = CertBacktest(events_scored=10, predictors_evaluated=3, always_denied_accuracy=0.9)
-    unlost = ops.render_weekly_digest(_empty_report(), analytics=_analytics(cert_backtest=clean))
-    assert "cell(s) lost" not in unlost
+    assert "1 predictor(s) dropped at run time" in bullet
+    assert "`provenance.dropped_predictors`" in bullet
+    assert "1 cell(s) lost" in bullet
+    assert "scored over fewer petitions than the set" in bullet
+    # Every clause is on the one line: the figure, the caveats, the coverage.
+    assert "always-deny floor 60.0%" in bullet
+    assert "engine `auto`" in bullet
+    assert "5 blind, 20 truncated, 0 dated" in bullet
+
+
+def test_the_weekly_digest_calls_a_provenance_less_cert_backtest_unknown() -> None:
+    # A null provenance means unknown, never offline and never the dispatch
+    # defaults — so the line says the population is unreadable rather than
+    # printing a scope nobody chose.
+    # `model_copy` because the builder reads `provenance=None` as "the default
+    # block", and this test is precisely about the report that has none.
+    no_block = _cert_backtest(provisioning={}).model_copy(update={"provenance": None})
+    bullet = _cert_bullet(no_block)
+
+    assert "Dispatch **unknown**" in bullet
+    assert "Dispatched with" not in bullet
+    assert "scope `all`" not in bullet
+    assert "Provisioning mix **unknown**" in bullet
+    assert "`retrospective` by construction" in bullet
+
+
+def test_the_weekly_digest_reads_an_offline_cert_backtest_as_provisioning_nothing() -> None:
+    # An empty `--engine` ran only the offline reference baselines, which are
+    # pure functions of the corpus: there were no cells to provision, which is
+    # a fact about the run rather than a gap in the record.
+    bullet = _cert_bullet(_cert_backtest(provenance=_cert_dispatch(engine=""), provisioning={}))
+
+    assert "No petition was provisioned" in bullet
+    assert "Provisioning mix **unknown**" not in bullet
+    assert "no engine (the offline reference baselines only)" in bullet
+
+
+def test_the_weekly_digest_counts_an_unrecognised_snapshot_provenance() -> None:
+    # The counts are read as a total, so a provenance this renderer does not
+    # know about is printed after the three it does rather than dropped.
+    bullet = _cert_bullet(_cert_backtest(provisioning={"truncated": 3, "as-stored": 2, "blind": 1}))
+
+    assert "Provisioned 1 blind, 3 truncated, 2 as-stored petition(s)" in bullet
+
+
+def test_the_weekly_digest_reports_an_empty_cert_backtest_board() -> None:
+    # The CLI writes a report with no entries where nothing could be replayed.
+    # A floor over nothing is not a number, so the line prints none.
+    bullet = _cert_bullet(_cert_backtest(entries=[]))
+
+    assert "empty — 25 petition(s) in the set and no predictor scored over them" in bullet
+    assert "always-deny floor" not in bullet
+    assert "grant-family" not in bullet
 
 
 def test_the_weekly_digest_names_the_scorer_a_replay_was_produced_under() -> None:

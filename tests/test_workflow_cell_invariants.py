@@ -8,6 +8,16 @@ of them while every gate stays green:
   checkout deletes the directory first (the labeler in `run-analytics` instead
   moves it aside and restores from the commit, because its measure step needs
   the reference set back);
+* the **back-test ledger fence** — a replayed petition is decided, so the
+  committed `data/cases/` tree in the replay's own checkout can hold the
+  outcome its cells are forecasting; `run-backtest` removes it before the cells
+  and restores it from the commit before anything downstream reads the
+  checkout, and every clause of that is step order and one restore source;
+* the **qp labels push guard** — the labeler's PR step refuses a push whose
+  batch ledger does not strictly extend `main`'s or whose labeler-sourced rows
+  do not contain `main`'s byte for byte, reading both operands from files
+  (the row arrays outgrow one argv string) and treating a jq that could not
+  run as a refusal on its own terms, never as the condition failing;
 * the **qp frame count** — the size of the labeling frame crosses from the
   extract job to the measure step as a job output, one integer, while the
   `.batch.json` sidecar it is read from stays on the extract runner: the count
@@ -57,6 +67,12 @@ of them while every gate stays green:
   line count, leave the runner on every outcome it survives, because a
   labeling step killed at its cap writes no execution log and the count is
   then the only record of how far it got;
+* the **gemini context-file surface** — every directory admitted to a gemini
+  cell's workspace (the checkout it launches in, and the back-test work root
+  `GeminiRunner.build_command` adds) is also a `GEMINI.md` discovery root, read
+  at startup and again whenever a file tool touches a path beneath it, so a
+  context file anywhere in the tree would be standing instructions to every
+  gemini cell that no prompt, config or schema records;
 * the **run-surface retry** — the run-record steps and the handoff writes both
   route their `gh` calls through `scripts/gh_retry.sh`'s `gh_retry`; the steps
   that cannot safely source it carry an inline copy, which only stays a copy
@@ -74,6 +90,7 @@ import re
 import textwrap
 import tomllib
 from contextlib import redirect_stdout
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -91,7 +108,7 @@ from fedcourtsai.config import Settings
 from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
 from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
-from fedcourtsai.pipeline.runner import CodexRunner, RunRequest
+from fedcourtsai.pipeline.runner import CodexRunner, RunRequest, _cell_env
 from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
 from fedcourtsai.schemas import UsageRole
 from fedcourtsai.watchdog_telemetry import _CHANNEL_LABELS, CHANNELS
@@ -306,6 +323,126 @@ def test_the_labeler_diverts_and_restores_the_oracle() -> None:
     )
 
 
+#: Every workflow that writes gemini's env-redaction allowlist, and whether the
+#: cells it configures carry the back-test replay clock. The sanitizer strips
+#: every custom var, so for that engine the allowlist *is* the cell env contract.
+GEMINI_ALLOWLIST_WORKFLOWS = (
+    ("run-backtest.yml", True),
+    ("run-predict.yml", False),
+    ("run-evaluate.yml", False),
+    ("integration-test.yml", False),
+)
+
+
+def _gemini_allowlist(name: str) -> set[str]:
+    """The `security.environmentVariableRedaction.allowed` set one workflow writes."""
+    text = (WORKFLOWS / name).read_text(encoding="utf-8")
+    settings = [
+        json.loads(match)
+        for match in re.findall(r"printf '%s\\n' '(\{.*?\})'", text)
+        if "environmentVariableRedaction" in match
+    ]
+    assert len(settings) == 1, f"expected exactly one allowlist writer in {name}"
+    allowed = settings[0]["security"]["environmentVariableRedaction"]["allowed"]
+    return set(allowed)
+
+
+def test_every_gemini_allowlist_covers_its_own_cell_env_contract() -> None:
+    """Gemini's sanitizer strips every custom var, so the allowlist *is* the cell
+    env contract for that engine — and a variable missing from it is silent.
+    `REPLAY_CUTOFF` is the sharpest case: `fedcourts query` reads it from the
+    environment rather than from a flag, so a stripped one narrows nothing and
+    says nothing. Asserted against the `_cell_env` the runner actually builds,
+    so a variable added to the contract cannot reach claude and codex while
+    gemini quietly loses it. The live lanes carry no replay clock at all, and
+    their allowlists are checked against a clock-free request on the same
+    footing rather than being exempted — they may still name `DECIDED_BEFORE`,
+    a harmless superset, but nothing requires them to name the cutoff day.
+    """
+    for name, replays in GEMINI_ALLOWLIST_WORKFLOWS:
+        allowed = _gemini_allowlist(name)
+        clock: dict[str, object] = (
+            {"decided_before": 2024, "replay_cutoff": date(2026, 6, 30)} if replays else {}
+        )
+        request = RunRequest(
+            role=UsageRole.predictor,
+            court_id="scotus",
+            docket_id=1,
+            event_id="evt-petition-disposition",
+            actor_id="claude-baseline",
+            run_id="20260706T000000Z",
+            prompt=Path(".github/prompts/predict.md"),
+            data_root=Path("data"),
+            **clock,  # type: ignore[arg-type]
+        )
+        assert set(_cell_env(request, "model")) <= allowed, name
+        if replays:
+            # Named explicitly on the one lane that sets them, so a rename in
+            # `_cell_env` cannot satisfy the subset check with the wrong pair.
+            assert {"DECIDED_BEFORE", "REPLAY_CUTOFF"} <= allowed, name
+
+
+def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> None:
+    """A replayed petition is decided, so the committed ledger in the same
+    checkout can hold the `outcome.json` the cell is being asked to forecast —
+    or a merits event whose existence alone discloses the grant. The three
+    engines read that tree on unequal terms and the harness probes only for
+    stray *writes*, so the whole fence is step *order* and one restore source:
+    nothing at runtime notices a removal that stopped happening, a restore
+    reinstating bytes a cell could have written, or a restore that landed after
+    a consumer of the tree. `cert-backtest` itself reads nothing under the
+    ledger — its population, snapshots and scored outcomes come from the
+    corpus, and its cells are provisioned under `--work-dir` — which is what
+    makes the fence free.
+    """
+    steps = _load("run-backtest.yml")["jobs"]["backtest"]["steps"]
+    runs = [str(step.get("run") or "") for step in steps]
+
+    def index(needle: str) -> int:
+        found = [i for i, run in enumerate(runs) if needle in run]
+        assert len(found) == 1, f"expected exactly one step running {needle!r}, found {found}"
+        return found[0]
+
+    # The fence step runs the removal and nothing else, which is also what
+    # tells it apart from the restore step's own wipe of the same path.
+    fences = [i for i, run in enumerate(runs) if run.strip() == "rm -rf data/cases"]
+    assert len(fences) == 1, f"expected exactly one bare data/cases removal, found {fences}"
+    remove = fences[0]
+    # The cell step, named by the scratch root only its invocation passes:
+    # `cert-backtest` alone also matches the PR step's `cert-backtest-plan`.
+    cells = index('--work-dir "$work_dir"')
+    assert "fedcourts cert-backtest" in runs[cells]
+    restore = index("git checkout -- data/cases")
+    # Likewise pinned to the invocation, not the PR body's echo of it.
+    salience = index('fedcourts salience-replay --terms "$BT_TERMS"')
+    pr = index("gh pr create")
+
+    assert remove < cells, "the ledger leaves the tree before the replay cells run"
+    assert cells < restore < salience, (
+        "the restore is the first post-cell step and precedes the salience-gate arm"
+    )
+    assert restore < pr, "the review PR step runs against a restored tree"
+    # The wipe before the checkout is what makes the restore cover untracked
+    # files: `git checkout --` restores tracked paths only, so a cell that
+    # wrote its own directory under data/cases would survive a bare restore.
+    wipe = runs[restore].find("rm -rf data/cases")
+    assert 0 <= wipe < runs[restore].index("git checkout -- data/cases"), (
+        "the restore must wipe data/cases before checking it out"
+    )
+    assert "git status --porcelain -- data/cases" in runs[restore], (
+        "the pristine assertion must refuse untracked residue under data/cases"
+    )
+    # Unconditional, like the oracle fence beside it: a condition that
+    # evaluates false re-admits the ledger with every check still green. That
+    # holds on the salience-gate path too, which runs no cells but shares the
+    # checkout.
+    assert "if" not in steps[remove]
+    # The restore, by contrast, must run behind a failed or timed-out replay
+    # too — the steps after it read this checkout either way.
+    assert steps[restore].get("if") == "${{ !cancelled() }}"
+    assert "continue-on-error" not in steps[restore]
+
+
 def test_the_qp_labels_push_guard_checks_rows_not_ledger_counts() -> None:
     """A run exactly one batch behind lands a same-length ledger with identical
     {batch, labeler, published} tuples — every batch is ceiling-sized — so a
@@ -314,11 +451,28 @@ def test_the_qp_labels_push_guard_checks_rows_not_ledger_counts() -> None:
     the guard must deliver it mechanically: ledger strict extension plus
     byte-identical containment of every labeler-sourced row main publishes."""
     runs = _run_blocks(_load("run-analytics.yml"))
-    guard = next(run for run in runs if "qp-topics/refresh" in run or "stale or divergent" in run)
+    guard = next(run for run in runs if "stale or divergent" in run)
     assert 'select(.source == "labeler")' in guard
     assert "($a - $b) | length == 0" in guard, "row containment, not counts, is the check"
     assert "($b | length) > ($a | length)" in guard, (
         "the ledger must strictly extend main's — an equal ledger is a settled rerun"
+    )
+    # The operands travel as files. The row arrays are the artifact's whole
+    # labeler-sourced content, past the kernel's 128 KiB per-argument cap from
+    # the second batch on, so an `--argjson` carrying them never starts jq;
+    # `-se` reads them as files and makes jq's own exit the verdict. Every
+    # assertion below reads the block's code, not its comments, so prose
+    # naming the rejected form cannot satisfy or defeat one.
+    code = "\n".join(line for line in guard.splitlines() if not line.lstrip().startswith("#"))
+    assert "--argjson" not in code, "the row sets do not fit one argv string"
+    assert 'jq -se "$2" "$3" "$4"' in code
+    assert '"$RUNNER_TEMP/landed-ledger.json" "$RUNNER_TEMP/incoming-ledger.json"' in code
+    assert '"$RUNNER_TEMP/landed-rows.json" "$RUNNER_TEMP/incoming-rows.json"' in code
+    # Fail closed on the check's own terms: a jq that could not run (exit
+    # above 1 — missing file, malformed operand, program error) must end the
+    # step on its own message, never fall through as the condition failing.
+    assert "|| rc=$?" in code and '[ "$rc" -gt 1 ]' in code and 'exit "$rc"' in code, (
+        "an unrunnable check must refuse as unrunnable, not as a false condition"
     )
     # The prior is read from the fetched ref, not the work tree: `checkout -f`
     # leaves untracked files in place, so while main does not carry the
@@ -658,6 +812,36 @@ def _joined_run_blocks(name: str) -> list[str]:
     """Every ``run:`` block with whitespace collapsed, so a cosmetic re-wrap
     cannot split a flag off the command it belongs to."""
     return [" ".join(block.split()) for block in _run_blocks(_load(name))]
+
+
+# gemini-cli discovers context files by name in every workspace directory: the
+# default `GEMINI.md`, and `MEMORY.md` where a project-memory directory is in
+# play. `context.fileName` in a settings file cannot retire either — the CLI
+# unions the configured name with the built-in one rather than replacing it —
+# so the only control on this channel is that no such file is in the tree.
+GEMINI_CONTEXT_FILENAMES = ("GEMINI.md", "MEMORY.md")
+
+
+def test_no_file_in_the_checkout_is_a_gemini_context_file() -> None:
+    """The checkout is a context-file discovery root for every gemini cell.
+
+    A gemini cell launches in the checkout, and the back-test additionally
+    admits its work root, so anything named like a context file inside either
+    tree is read into the model's context before the prompt contract is —
+    instructions with none of a prompt's review, no process-digest input, and
+    no artifact. Nothing in this repository is meant to be one; the pin is that
+    nothing becomes one by accident, under any directory, including a path an
+    agent's own tooling might drop one in.
+    """
+    found = sorted(
+        path.relative_to(REPO_ROOT).as_posix()
+        for name in GEMINI_CONTEXT_FILENAMES
+        for path in REPO_ROOT.rglob(name)
+        if ".git/" not in path.as_posix() and path.is_file()
+    )
+    assert found == [], (
+        "these files are read into every gemini cell's context by name: " + ", ".join(found)
+    )
 
 
 def test_the_codex_mcp_wiring_agrees_across_the_cells_and_the_smoke() -> None:
@@ -3186,6 +3370,25 @@ def test_the_daily_digest_job_keeps_its_narrow_permission_surface() -> None:
     assert "secrets." not in yaml.safe_dump(job), "the digest job needs no secret"
 
 
+def test_the_daily_digest_job_is_parked_by_the_pause_variable_and_nothing_else() -> None:
+    """The job's only gate is the maintainer's standing pause variable.
+
+    The digest is optional reading once the website carries every prediction,
+    so it parks on a repository variable rather than by deleting the job: the
+    code and the label stay, and clearing the variable resumes it. The gate
+    must fail open — an absent variable runs the job, so a pause is always an
+    explicit act — and must not key on the schedule string, which would be
+    true for every cron it does not name and would drop Monday's digest when
+    the weekly tick cancels the daily one.
+    """
+    job = _load("run-ops.yml")["jobs"]["daily-digest"]
+    # The whole expression, not substrings: a second disjunct — a dispatch
+    # bypass, a schedule test — would pass a looser check while making the
+    # gate two rules, and a dispatch is the ops report's recovery handle, which
+    # must never post a digest the maintainer parked.
+    assert job["if"] == "${{ vars.DAILY_DIGEST_PAUSED != 'true' }}"
+
+
 def test_no_workflow_triggers_on_a_digest_label() -> None:
     """Every label the reporting surfaces create must stay non-triggering.
 
@@ -3353,8 +3556,8 @@ def test_the_back_test_cron_path_pins_every_parameter_it_replays_under() -> None
     every job reads from there — the plan the hold is judged on and the command
     the release runs cannot describe different spends. The pinned values are the
     standing measurement: consecutive fortnights are comparable only because
-    nothing about the dispatch moves between them, and the fortnightly budget
-    line in `docs/budget.md` is written against exactly this limit, scope and
+    nothing about the dispatch moves between them, and what a fortnight costs is
+    whatever the usage ledger measures against exactly this limit, scope and
     engine.
     """
     workflow = _load("run-backtest.yml")

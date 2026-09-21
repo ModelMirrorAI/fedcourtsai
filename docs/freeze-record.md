@@ -4653,3 +4653,259 @@ freeze commit is recorded here.
   `proc-v8` and the same six digests — this commit moves no constant, no
   prompt byte and no registry field, so a moved digest would mean something
   else rode along.
+
+- **Row-blind `codex-baseline` leakage gradings read as unassessed,
+  2026-09-21.** No freeze commit and no label bump: nothing here moves a prompt
+  byte, a registry field, a stamp or a score. What it adds is a reading rule,
+  in `metrics/README.md` (*The leakage exclusion*), for gradings already on
+  the ledger. The code-mode lift bullet in the 2026-08-15 entry's rides-along
+  list states that the code-mode cells committed before the lift carry no
+  lifted rows and never can, that the partition holds three capture regimes,
+  and that nothing in a committed artifact names the regime a cell was minted
+  under. The regimes are settled here by measurement, and the first gets the
+  consequence that bullet left implicit.
+
+  **Regimes**, over every committed `codex-baseline` `retrieval_log.json` at
+  `main` `a0a871953` (339 logs). *Row-blind:* `call_source` is null on every
+  row of all **180** logs from runs `20260713T190721Z` through
+  `20260816T173750Z`, the runs before the lift's carrying promotion
+  (`promotion/2026-08-20`, merged `2026-08-20T18:13:40Z`). Those logs carry
+  `exec`, `wait`, `send_message` and `wait_agent` rows; each `exec` row's query
+  is the program's head slice, cut at 500 characters on 648 rows, naming a
+  manifest tool on 527 rows across 127 logs, and 293 rows carry a
+  `retrieved_doc_date` surfaced from the combined output — what the grader
+  had, with no row per call inside the program. *Manifest-lifted:* the marker
+  is set on every row of the **28** logs from `20260820T181919Z` through
+  `20260825T231742Z`, the runs between that promotion and
+  `promotion/2026-08-26` (merged `2026-08-26T14:46:40Z`, carrying the builtin
+  lift), where a program's manifest calls have rows and its builtin calls do
+  not. *Both idioms lifted:* the **131** logs from `20260827T155120Z` onward.
+  No mixed log exists, so on a `codex-baseline` log the marker's absence is
+  the row-blind regime's name; the other two are separated by run id alone.
+
+  **Population.** **30** gradings of **7** row-blind `codex-baseline`
+  predictions across four runs (`20260714T120628Z`, `20260716T205846Z`,
+  `20260717T214313Z`, `20260816T173750Z`; ten each by `claude-judge`,
+  `codex-judge` and `gemini-judge`), every one declaring `mode: forward`.
+  **24** read `not_applicable` with no outcome material retrieved, none reads
+  `none`, and **6** read `likely` with outcome material retrieved — two
+  predictions, all three judges — so within this vintage the declared mode
+  did not settle the verdict. Over those seven logs the head slices name a
+  manifest tool on 9 rows and 5 rows carry a `retrieved_doc_date`. The
+  manifest-lifted regime holds a further **30** gradings of **7** predictions
+  (29 `not_applicable`, one `none` — the only `none` in the codex ledger), all
+  forward: half-blind, since a program's shell calls, the channel most able to
+  reach an outcome, have no rows there.
+
+  **The rule.** An unsuspected verdict on a row-blind or half-blind grading is
+  read as a null bit — assessed nothing, scored — never as a clean read; a
+  suspected verdict stands. Six of thirty on the ledger (six of twenty-one after the run
+  collapse below) is a lower bound on leakage over the vintage, not a rate. A cross-engine leakage comparison over cells before
+  `20260820T181919Z` is not a comparison: `claude-baseline` and
+  `gemini-baseline` logs of that vintage carry their manifest calls as rows.
+
+  **What moves: nothing rendered.** The leaderboard and claim-score boards
+  render their frozen empty state, and none of these predictions can ever
+  enter them: the row-blind runs carry no process stamp or `proc-v3`, the
+  half-blind ones `proc-v3` to `proc-v5`, none of them a frozen digest. The
+  all-versions build is where they count — `fedcourts leaderboard
+  --all-versions` reads `assessed: 183, excluded: 20` at `main` `a0a871953` — and that
+  count is taken **after the run collapse**, so the ledger counts above do not
+  subtract from it: of the 30 row-blind gradings, 21 survive the collapse (15
+  unsuspected, 6 inside `excluded`), and of the 30 half-blind, 21 (20
+  unsuspected, one inside neither). Whether `assessed` should stop counting
+  the unsuspected ones moves a published denominator — to 168 on the row-blind
+  cut, 147 with the half-blind cut — so it is left open here, to be decided
+  with a stats review before the first leakage-conditioned figure ships.
+  Either cut falls on `codex-baseline` alone.
+
+  The runnable effect check, for the promotion carrying this:
+  `grep -c "A row-blind" metrics/README.md` reads `1`, and
+  `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+  six digests — this entry moves no digest input.
+
+- **A docket naming nobody but the petitioner has its staged filed-document
+  text scrubbed of contact details, 2026-09-21.** A **conditioning** entry in
+  the *what the pipeline provisions* class, with the properties that class
+  carries: no prompt byte and no registry field moves, so no digest moves —
+  `uv run fedcourts process-digest --all` at this commit is byte-identical to
+  the same command on `staging`, `proc-v8` and the same six digests — and there
+  is **no data-visible boundary at all**, because what a cell was provisioned
+  with lives in its gitignored `record/documents/` and `prediction.json` carries
+  no field separating a cell that read a signature block from one that read a
+  placeholder where it stood.
+  The boundary exists only here, cells minted on the affected dockets before and
+  after it may not be pooled, and a stamped cell resolves to a side of it by
+  asking whether its `process_version.pipeline_sha` is an ancestor of the
+  carrying promotion's merge commit.
+
+  **What changed.** `provision-snapshot` passes the filed-document text it
+  stages under `record/documents/` through a contact-detail scrub before writing
+  it, on every document staged for a cell whose provisioned snapshot names
+  nobody but the petitioner to write to. Four shapes are replaced by
+  the fixed token `[contact detail withheld]` — an email address, a North
+  American telephone number, a post-office box, and a street address with any
+  unit after it. Nothing else is: a docket number, a date, a reporter citation
+  and a court address line written without a street number all survive. Two
+  narrowings carry most of that, and both are the kind a corpus of legal prose
+  forces: `Ct.`, `Pl.` and `Dr.` are absent from the street-type list, because
+  in these filings those words are the institution, the plaintiff and a doctor;
+  and the blank-separated telephone spelling is not read at all, because an
+  appendix index and an OCR'd column emit 3-3-4 runs of blank-separated digits
+  and the scrubbed population is disproportionately the scanned one — a
+  narrowing that costs nothing, since it removes no match the ground-truth check
+  below finds. No pattern spans a newline, so a match can never take a line
+  break with it.
+
+  The scrub is on the staged copy alone — the source PDF, the corpus row and the
+  per-case content store are untouched — and each manifest entry carries
+  `contact_scrubbed` (whether the scrub ran over this document's staged text)
+  and `contact_replacements` (how many details it withheld), so `true, 0` stays
+  distinguishable from `false, 0`.
+
+  **What the trigger reads, and why it is not the fee class.** The docket JSON
+  never says "pro se": upstream serves a self-represented party as its own
+  attorney, the same name in `PartyName` and `Attorney` on the petitioner-side
+  block, compared on its first and last tokens so a middle name present on one
+  side only does not hide the repeat. The predicate reads that; reads a block
+  served with **no** attorney the same way, which is the same fact spelled as a
+  gap; and reads a `PrisonerId` on the block as a third
+  arm, upstream's own positive marker for an incarcerated party writing from an
+  institution — the population whose filings carry a personal address most
+  reliably and whose two name fields agree on it least. Any one qualifying block
+  is enough. It reads **representation**, which is not the **fee** class
+  `salience`'s tier 0 excludes: that one is the docket serial, so a paid
+  docket can be self-represented, and the interim, replay and evaluate lanes sit
+  outside that gate entirely.
+
+  **All three arms are read off a block the payload actually served**, and that
+  bound is the registrable part. An absent or empty `Petitioner` list is
+  **unknown**, not unrepresented: the snapshots key space holds two payload
+  shapes and the other one, a CourtListener REST docket, carries no counsel
+  blocks anywhere — it names nobody because it has nowhere to. Reading that as
+  self-representation would key the scrub on a payload shape rather than on a
+  fact about the docket, and would take **1,984 of the 2,925** cases below
+  instead of **623** — a change to what most cells read, resting on an absence.
+  So the scrub fires on evidence rather than on the lack of it, and a docket
+  whose counsel the corpus does not carry stages its text as filed.
+
+  **The population, and the route it was read by.** The blob's newest pull stamp
+  is `2026-09-20` and its newest stored snapshot `2026-07-13`; the blob on disk
+  is not the committed pointer's, so these are the pulled blob's figures rather
+  than the committed ref's. The real predicate was run — not a
+  re-implementation — over the latest stored payload of every case the blob's
+  `snapshots` table holds: of **2,925** such cases, **1,562** carry a
+  petitioner-side counsel block and **1,363** carry none. **623 of the 1,562**
+  read unrepresented, and those 623 are the whole scrubbed population — the
+  1,363 carrying no block read represented, by the bound above. **274** of the
+  block-carrying cases mark an incarcerated filer, which is the arm that reaches
+  a population the name comparison alone does not. Independently, over the whole
+  blob rather
+  than the stored payloads, **3,134** of the **16,838** SCOTUS rows carrying a
+  petitioner-side entry in the normalized `counsel` list name the party as its
+  own attorney — the same reading one level down, and the gradient runs the way
+  representation predicts (16.1% of paid cert-form rows with a block, 39.6% of
+  IFP ones).
+
+  **What a scrubbed cell loses, run over the real text rather than argued.** All
+  **1,562** block-carrying cases in the blob carry at least one of the upstream
+  `Email`, `Phone` and `Address` fields on that block, which is the measured
+  form of the concern: on a self-represented docket those are an individual's
+  own, and the same strings are what the caption and signature block of the
+  filing repeat. The scrub itself was then run — the real function, not a
+  re-implementation — over every stored document of a case reading
+  unrepresented: **924** documents, **389** of which had anything withheld at
+  all and **535** nothing, for **1,830** replacements (657 street addresses, 612
+  telephone numbers, 405 emails, 156 post-office boxes). The per-document count
+  is 1 or 2 on most of the 389 and reaches 52 on a brief carrying a service list
+  of firm addresses. Every match in a 100-span sample, and every street and
+  telephone match in the heaviest document, is an address or a number — none is
+  prose. That census is the bound on the false-positive risk, which is the risk
+  that matters here: a pattern matching legal text would delete it from the
+  input of the cells this exists to protect, and the manifest would report it as
+  a detail withheld.
+
+  **And what it misses, measured the same way**, because a scrub's recall is as
+  registrable as its precision and a later reader must not take this entry for a
+  coverage claim. The block's own `Email` / `Phone` / `Address` strings are
+  ground truth — upstream's copy of what the filing prints — so the check is
+  whether the scrub removes them from the staged text that contains them
+  verbatim: **78 of 78** emails, **99 of 101** telephone numbers and **118 of
+  147** addresses. The address misses are rural-route and highway forms, prison
+  unit names, and street types outside the list; the two telephone misses are an
+  international number and a separator-free digit run. What a cell loses is the
+  strings that were matched and nothing else — the prose around them, the
+  citations and the document's line structure survive, the last of them because
+  no pattern may span a newline.
+
+  **The staged snapshot beside it is out of scope, and that is the larger
+  residual.** `record/snapshots/<date>.json` is the upstream payload verbatim,
+  and every petitioner-side block in it carries `Address`, `City`, `Zip`,
+  `Phone`, `Email` and `PrisonerId` as labelled keys — so on a scrubbed docket
+  the cell holds, one file over and in a more quotable form, the details the
+  document text no longer carries, plus a register number no shape-based scrub
+  could ever match. Both files are gitignored and neither is uploaded, so the
+  exposure is the one `docs/data-sources.md` already names: what a piece of
+  reasoning quotes. This entry registers the boundary it moves and no more;
+  closing the snapshot half is a separate change over a different file, and it
+  would carry its own entry.
+
+  **The cohort this lands over, named because it is the one in flight.** The
+  long-conference cohort is the 111 SCOTUS dockets carrying a `claude-baseline`
+  cell under a `2026-09-16`/`17`/`18` run id. **108 of them have no payload in
+  this blob at all** — the corpus split puts snapshots in the per-case content
+  store — so the reading for them is taken one level down, off the blob's
+  derived `counsel` column, which is `pipeline.ingest._live_counsel`'s
+  normalization of the same per-side blocks: it keeps party, attorney and side
+  and **drops `PrisonerId`**, so it answers the first two arms for every cohort
+  docket and is blind to the third. On that reading **21 of the 111** read
+  unrepresented, every one of them a natural person listed as their own
+  attorney: `scotus/73246321`, `scotus/73272489`, `scotus/73291758`,
+  `scotus/73292885`, `scotus/73303792`, `scotus/73318133`, `scotus/73318742`,
+  `scotus/73335108`, `scotus/73361381`, `scotus/73363408`, `scotus/73369987`,
+  `scotus/73374809`, `scotus/73378855`, `scotus/73389313`, `scotus/73391039`,
+  `scotus/73500218`, `scotus/73500231`, `scotus/73500232`, `scotus/73500245`,
+  `scotus/73500263`, `scotus/9026000173`. Because the third arm is invisible to
+  this route, 21 is a floor rather than the count. **Two** further cohort
+  dockets carry no petitioner-side entry at all and are not scrubbed: they are
+  the whole cohort-level cost of bounding the trigger to a served block, against
+  the 88 a payload-shape reading would have swept in.
+
+  **The expected-skill corollary, in the direction this one runs.** A
+  post-change cell on an affected docket reads strictly **less** than a
+  pre-change one: a placeholder where a contact detail stood. No skill movement
+  is predicted, since none of the withheld shapes bears on whether certiorari is
+  granted — but a movement in **either** direction across this boundary may not
+  be read as a model effect. The negative form is deliberate here too: the
+  design supports excluding one reading, not asserting a cause.
+
+  **What does not move.** No base rate re-prices — `pipeline.salience` and
+  `pipeline.base_rates` read no document text. No membership rule and no scored
+  figure moves. `empty_text` is unchanged in meaning: it is still read off the
+  stored text, before the scrub, so `corpus-info --text-coverage` keeps counting
+  the same predicate provisioning stamps. Nothing is written to the corpus, so
+  the blob and the content store are byte-for-byte what they were.
+
+  **The amendment debt, smaller in kind than the selector entries above.** The
+  predict prompt describes `documents.json` as listing what is present, pages
+  and truncation, and says nothing about either new key or about the token a
+  cell will meet in the text. The prompt is frozen bytes, so the reading rule
+  rides the next re-bless, alongside the two `record/documents/` rules already
+  owed. It carries **no ordering constraint**: a cell meeting the token loses
+  nothing it could have acted on, and the worst it costs is a `data-quality`
+  flag spent accounting for a placeholder — unlike the merits-brief debt above,
+  where the prompt tells a cell something about its record that is false.
+
+  The runnable effect check, for the promotion carrying this: `uv run pytest
+  tests/test_documents.py tests/test_cli_provision.py` green, and `uv run
+  fedcourts process-digest --all` still printing `proc-v8` and the same six
+  digests — this commit moves no constant, no prompt byte and no registry field,
+  so a moved digest would mean something else rode along. The scrub's own effect
+  is read on the first cell provisioned from a docket naming no petitioner-side
+  counsel: the provisioning step echoes `contact scrub: N detail(s) withheld
+  across M staged document(s)` to the run log, and
+  `record/documents/documents.json` carries `contact_scrubbed: true` for every
+  staged document of that cell with a non-zero `contact_replacements` on the
+  ones whose filing carried details. The log line is the surface a pathological
+  count would be visible on, the manifest being gitignored with the rest of
+  `record/`.
