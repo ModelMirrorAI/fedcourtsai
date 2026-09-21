@@ -27,8 +27,8 @@ name: run-ops
 # The reading surfaces are digests a maintainer closes, not a standing body this
 # job edits in place: an unread digest is an open issue, so the backlog is
 # visible without a reading-state store. The Monday schedule opens the **weekly
-# performance digest** as its own `weekly-digest` issue — the health questions,
-# the committed boards' state, the week's cells and measured spend, and the
+# performance digest** as its own `weekly-digest` issue — the cells and measured
+# spend produced over the week, the trailing month and the Term to date, and the
 # back-test results, every metrics figure carrying its artifact's vintage. A
 # second job on the daily tick opens the **daily prediction-reading digest**:
 # one predicted event with every predictor side by side, on its own

@@ -86,17 +86,29 @@ class SpendVerdict:
 
 
 def spend_over(
-    usage: Iterable[ModelUsage], *, window_days: int, now: datetime | None = None
+    usage: Iterable[ModelUsage],
+    *,
+    window_days: int,
+    now: datetime | None = None,
+    since: datetime | None = None,
 ) -> tuple[float, int]:
-    """Estimated cost and cell count among ``usage`` inside the trailing window.
+    """Estimated cost and cell count among ``usage`` inside the window.
 
     The pure half of :func:`trailing_spend`, for a caller that has already read
-    the ledger and would otherwise walk it again — the weekly digest prices two
-    different windows and counts a census over the same records, and three walks
-    of a growing tree for one report is three times the work and one more chance
-    for the three figures to disagree about what they cover.
+    the ledger and would otherwise walk it again — the weekly digest prices
+    several windows and counts a census over the same records, and a walk per
+    figure over a growing tree is that many times the work and that many more
+    chances for the figures to disagree about what they cover.
+
+    ``since`` pins the cutoff to an instant instead of deriving it from
+    ``window_days``, for a window whose start is a calendar boundary rather than
+    a count of days back: an October Term opens at midnight on 1 October, and a
+    cutoff taken as *N* days before a mid-morning digest would drop the Term's
+    own first morning. ``window_days`` still names the span the caller reports.
     """
-    cutoff = (now or datetime.now(UTC)) - timedelta(days=window_days)
+    cutoff = (
+        since if since is not None else (now or datetime.now(UTC)) - timedelta(days=window_days)
+    )
     total = 0.0
     cells = 0
     for record in usage:

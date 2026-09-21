@@ -38,17 +38,13 @@ from .schemas import (
     AgentToolingFeedback,
     Backtest,
     BacktestEntry,
-    BigCaseBoard,
     CertBacktest,
-    ClaimScoreBoard,
     CostEstimate,
     DataHealth,
     Evaluation,
     FlagsDigest,
     FlagSeverity,
     ForwardClaimRecord,
-    FrozenProcessRecord,
-    Leaderboard,
     LeakageDigest,
     LeakageExclusionRecord,
     LiveFrontier,
@@ -520,109 +516,6 @@ def render_substance(digest: SubstanceDigest) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _health_questions(report: OpsReport) -> list[str]:
-    """The digest's fixed interrogative bullets, with this week's answers.
-
-    Deliberately short and interrogative — the numbers demand a reaction rather
-    than sit available for inspection, which is what the daily ops report they
-    are drawn from already does. Renders from whatever the report holds, with
-    explicit absences.
-    """
-    substance = report.substance
-    lines: list[str] = []
-
-    # A frozen scope with no scored cells is the shakedown state (nothing blessed
-    # yet), not a stalled machine — so the "what is blocking?" framing below would
-    # misread. Detect it once and reframe those questions honestly.
-    frozen_shakedown = (
-        substance is not None
-        and substance.process_scope == "frozen"
-        and substance.cells.evaluations_forward == 0
-        and substance.cells.evaluations_retrospective == 0
-    )
-
-    if substance is not None and substance.calibration.sample:
-        cal = substance.calibration
-        lift = (
-            "lift unavailable (no base rate)"
-            if cal.lift_over_always_deny is None
-            else f"lift **{cal.lift_over_always_deny:+.1%}** over always-deny"
-        )
-        skill = (
-            ""
-            if cal.mean_brier_skill is None
-            else f", Brier skill **{cal.mean_brier_skill:+.3f}** vs the segment base rate"
-        )
-        lines.append(
-            f"- **Replay calibration on {cal.sample} scored cell(s): {lift}{skill} — "
-            "do you believe it?**"
-        )
-    elif frozen_shakedown:
-        lines.append(
-            "- **No frozen-process cells yet — the headline is scoped to the frozen "
-            "process; run `--all-versions` for the shakedown pool.**"
-        )
-    else:
-        lines.append("- **No scored replay cells yet — what is blocking the first batch?**")
-
-    if substance is not None:
-        c = substance.cells
-        weekly = (
-            f"{c.evaluations_forward_delta:+d} this week, {c.evaluations_forward} total"
-            if c.evaluations_forward_delta is not None
-            else f"{c.evaluations_forward} total, no prior snapshot to diff"
-        )
-        question = (
-            "still shakedown, none frozen yet"
-            if frozen_shakedown
-            else "is the live frontier producing?"
-        )
-        lines.append(
-            f"- **Forward cells scored ({substance.process_scope}): {weekly} — {question}**"
-        )
-        frontier = substance.live_frontier
-        if frontier is not None and not frontier.skipped:
-            upcoming = (
-                f"{frontier.next_conference_petitions} petition(s) distributed for "
-                f"**{frontier.next_conference}**"
-                if frontier.next_conference is not None
-                else "no upcoming conference on the calendar"
-            )
-            lines.append(
-                f"- **Watchlist vs next conference: {upcoming}; documents on "
-                f"{frontier.documents_provisioned}/{frontier.watchlist} — ready?**"
-            )
-        else:
-            lines.append("- **Watchlist vs next conference: no published snapshot — why not?**")
-
-    if report.open_triggers:
-        oldest = report.open_triggers[0]
-        lines.append(
-            f"- **Oldest stale fan-out label: `{oldest.label}` "
-            f"({_age(oldest.created_at, report.generated_at)} old) — clear it?**"
-        )
-    else:
-        lines.append("- **Stale fan-out labels: none.**")
-
-    monthly = (
-        "—"
-        if report.cost.estimated_monthly_usd is None
-        else f"${report.cost.estimated_monthly_usd:,.0f}/mo"
-    )
-    # Name the model rate here, not just the all-in total: the cumulative figure
-    # next to a total that used to exclude it was the misreading this line invited.
-    model_rate = (
-        "unrated"
-        if report.cost.model_monthly_usd is None
-        else f"~${report.cost.model_monthly_usd:,.0f}/mo"
-    )
-    lines.append(
-        f"- **Spend vs budget: ${report.spend.estimated_cost_usd:,.2f} model spend cumulative "
-        f"({model_rate} while running), ~{monthly} projected all-in — within plan?**"
-    )
-    return lines
-
-
 @dataclass(frozen=True)
 class Vintaged[T]:
     """A committed metrics artifact and the vintage the figures in it carry.
@@ -642,7 +535,11 @@ class Vintaged[T]:
 
 @dataclass(frozen=True)
 class WeeklyAnalytics:
-    """The committed metrics artifacts the weekly digest reports, each vintaged.
+    """The committed replay artifacts the weekly digest's back-test block reports.
+
+    Each is vintaged: none of them is refreshed on the digest's own schedule, so a
+    figure without the vintage of the artifact it came from silently claims to be
+    this week's.
 
     ``salience_version_in_force`` is the scorer the pipeline runs **today**, not
     the one the replay was produced under: a per-band figure means something only
@@ -651,10 +548,6 @@ class WeeklyAnalytics:
     is looking at.
     """
 
-    leaderboard: Vintaged[Leaderboard]
-    claim_scores: Vintaged[ClaimScoreBoard]
-    big_cases: Vintaged[BigCaseBoard]
-    statpack: Vintaged[StatPack]
     backtest: Vintaged[Backtest]
     salience_replay: Vintaged[SalienceReplay]
     cert_backtest: Vintaged[CertBacktest]
@@ -662,21 +555,21 @@ class WeeklyAnalytics:
 
 
 @dataclass(frozen=True)
-class WeeklyProduction:
-    """What the ledger recorded this week: cells produced, and what they cost.
+class ProducedWindow:
+    """One window of production: the cells the ledger recorded, and what they cost.
 
     ``census`` and ``spend_usd`` are taken over the *same* window and the same
-    usage records, so the two numbers describe one set of cells. ``backstop`` is
-    the ex-post spend gate's own verdict over its own (longer) window, carried
-    whole rather than reduced to a fraction — an unenforced ceiling has no
-    fraction, and a digest that printed one anyway would invent a budget.
+    usage records, so the two numbers describe one set of cells. ``title`` is the
+    heading the window renders under. ``term`` is set on the October Term window
+    only, which names the Term it covers beside its bounds.
     """
 
+    title: str
     census: RecentCells
     spend_usd: float
-    backstop: SpendVerdict | None
     window_start: date | None = None
     window_end: date | None = None
+    term: int | None = None
 
     @property
     def window(self) -> str:
@@ -685,14 +578,42 @@ class WeeklyProduction:
         "last 7d" alone is not recoverable by a reader: the Monday tick titles its
         issue for the ISO week that *starts* that morning while the census covers
         the seven days before it, so without the bounds the section silently
-        describes the previous week under this week's heading.
+        describes the previous week under this week's heading. The Term window
+        leads with the Term it names and the day that Term opened — the boundary a
+        reader checks first — and still carries the far bound and the day count, so
+        all three windows read the same way.
         """
         if self.window_start is None or self.window_end is None:
             return f"last {self.census.window_days}d"
+        if self.term is not None:
+            return (
+                f"OT{self.term}, since {self.window_start.isoformat()} — "
+                f"{self.census.window_days}d to {self.window_end.isoformat()}"
+            )
         return (
             f"{self.window_start.isoformat()} to {self.window_end.isoformat()}, "
             f"the {self.census.window_days}d before this digest"
         )
+
+
+@dataclass(frozen=True)
+class WeeklyProduction:
+    """What the ledger recorded over the digest's three windows, and the spend gate.
+
+    Three windows of one shape — the week, the trailing month, and the October
+    Term to date — because one week's count alone cannot distinguish a quiet week
+    inside a producing Term from a pipeline that has stopped. ``backstop`` is the
+    ex-post spend gate's own verdict, carried whole rather than reduced to a
+    fraction: an unenforced ceiling has no fraction, and a digest that printed one
+    anyway would invent a budget. It renders under ``month``, whose window is the
+    backstop's own, so the verdict and the census printed beside it cover exactly
+    the same period.
+    """
+
+    week: ProducedWindow
+    month: ProducedWindow
+    term: ProducedWindow
+    backstop: SpendVerdict | None = None
 
 
 def _cell(value: str) -> str:
@@ -717,212 +638,15 @@ def _sourced(filename: str, vintaged: Vintaged[object]) -> str:
     return f"`metrics/{filename}`, {vintage}"
 
 
-def _leaderboard_lines(vintaged: Vintaged[Leaderboard], generated_at: str) -> list[str]:
-    """The standings, or the honest reason there are none."""
-    board = vintaged.value
-    where = _sourced("leaderboard.json", vintaged)
-    if board is None:
-        return ["- **Leaderboard**: `metrics/leaderboard.json` has never landed."]
-    if not board.entries:
-        return [
-            f"- **Leaderboard** ({where}): **no predictor ranked** — "
-            f"{_empty_headline_reason(board.frozen_process, generated_at)} "
-            f"{board.evaluations_total} evaluation(s) in the `{board.process_scope}` "
-            f"scope, {board.events_scored} event(s) scored; `--all-versions` is where "
-            "the shakedown pool shows."
-        ]
-    versions = (
-        f" · banded by {', '.join(f'`{v}`' for v in board.salience_versions)}"
-        if board.salience_versions
-        else ""
-    )
-    regrades = (
-        f" · {board.superseded_gradings} superseded grading(s) collapsed away"
-        if board.superseded_gradings
-        else ""
-    )
-    rows = [
-        f"- **Leaderboard** ({where}): {board.predictors_ranked} predictor(s) over "
-        f"{board.events_scored} event(s), scope `{board.process_scope}`{versions}"
-        f"{regrades}. Rank is forward accuracy, then forward Brier.",
-        "",
-        # `evaluators` is the panel depth — how many judges scored the predictor —
-        # not a cell count. Labelling it "cells" would publish "2 cells over 37
-        # events", which is not a thing the board says.
-        "| Rank | Predictor | Judges | Events |",
-        "| ---: | --- | ---: | ---: |",
-    ]
-    rows += [
-        f"| {entry.rank} | {_cell(entry.predictor_id)} | {entry.evaluators} "
-        f"| {entry.events_scored} |"
-        for entry in board.entries
-    ]
-    return rows
-
-
-def _empty_headline_reason(frozen: FrozenProcessRecord | None, generated_at: str) -> str:
-    """Why an empty frozen board is empty — which is two different states.
-
-    A freeze instant in the *future* means the counting window has not opened:
-    the headline is empty by construction and no grading could have reached it
-    however well the pipeline ran. Once the instant has passed, an empty board
-    means the window is open and nothing has been graded into it — a fact about
-    production. Collapsing the two into "nothing has been graded yet" reports the
-    first as the second, which is the same bare-zero misreading the branch exists
-    to avoid.
-    """
-    if frozen is None or frozen.since is None:
-        return "the board records no freeze instant, so nothing is in scope to rank."
-    since = frozen.since.date().isoformat()
-    now = parse_iso(generated_at)
-    if now is not None and _as_utc(now) < _as_utc(frozen.since):
-        return f"the frozen counting window opens **{since}**, so it is empty by construction."
-    return (
-        f"the frozen counting window opened {since} and no stamped grading has "
-        "reached the ranked population."
-    )
-
-
-def _claim_score_lines(vintaged: Vintaged[ClaimScoreBoard]) -> list[str]:
-    """The claim-score board's state, empty or otherwise."""
-    board = vintaged.value
-    where = _sourced("claim-scores.json", vintaged)
-    if board is None:
-        return ["- **Claim scores**: `metrics/claim-scores.json` has never landed."]
-    if not board.entries:
-        return [
-            f"- **Claim scores** ({where}): **suppressed** — "
-            f"{board.cells_with_claims} cell(s) carry a claims block inside the "
-            f"`{board.process_scope}` scope and this surface's population, so no "
-            "coefficient is computed."
-        ]
-    return [
-        f"- **Claim scores** ({where}): {len(board.entries)} predictor(s) over "
-        f"{board.cells_with_claims} cell(s) carrying claims."
-    ]
-
-
-def _big_case_lines(vintaged: Vintaged[BigCaseBoard]) -> list[str]:
-    """The big-case board's denominators — and the carve-out that keeps them read right.
-
-    No case is named. The digest is the surface most often quoted out of, and a
-    case beside a number reads as a finding about that case, which a stakes read
-    cannot support. The coverage split is the informative part anyway: it says how
-    many of the board's means rest on the full panel.
-    """
-    board = vintaged.value
-    where = _sourced("big-cases.json", vintaged)
-    if board is None:
-        return ["- **Big-case board**: `metrics/big-cases.json` has never landed."]
-    if not board.rows:
-        # What "empty" means depends on the scope the board was built at, and the
-        # two are not the same report: version-blind it says the ledger carries no
-        # stakes read at all, while at `frozen` it is the honest "no
-        # frozen-process stakes reads yet" state and says nothing about the ledger.
-        reason = (
-            "no committed prediction carries a stakes read"
-            if board.process_scope == "all"
-            else "no frozen-process stakes reads yet — the ledger may hold plenty, and "
-            "`--process-scope all` is the census"
-        )
-        return [
-            f"- **Big-case board** ({where}, `process_scope: {board.process_scope}`): "
-            f"empty — {reason}."
-        ]
-    # The coverage distribution rather than a "full panel" count: `predictors` is
-    # read off the cells, so one stray cell from a fourth engine — or a retired
-    # third — would move a derived count and report a coverage collapse that did
-    # not happen. The distribution says the same thing and cannot lie that way.
-    split = ", ".join(f"{entry.n}→{entry.cases}" for entry in board.coverage)
-    leakage = (
-        f" {board.rows_with_leakage_flag} row(s) rest partly on a leakage-flagged read."
-        if board.rows_with_leakage_flag
-        else ""
-    )
-    # The scope travels with the count because the two scopes rank different
-    # populations: a reader comparing this line across builds without it would
-    # read a selected hold-out as cases the panel stopped caring about.
-    held = (
-        f" {board.cases_out_of_scope} case(s) held off by the scope."
-        if board.cases_out_of_scope
-        else ""
-    )
-    return [
-        f"- **Big-case board** ({where}, `process_scope: {board.process_scope}`): "
-        f"{board.cases} case(s) ranked over "
-        f"{board.scored_reads} scored stakes read(s) of {board.current_reads} from "
-        f"{len(board.predictors)} predictor(s); cases by scoring predictors {split}."
-        f"{held}{leakage} A panel opinion about stakes — neither scored nor ranked, and "
-        "not a statement about cert likelihood."
-    ]
-
-
-def _base_rate_lines(vintaged: Vintaged[StatPack]) -> list[str]:
-    """The statpack's two headline rates, each with its own denominator and its limit.
-
-    **Neither anchors a scored cell**, and the line says so. A forward cert cell
-    is scored against its own salience band's strictly-prior-Term risk-set rate;
-    the pack-wide band rate here pools every band over the whole walked range with
-    no own-Term exclusion, which ``docs/salience.md`` registers as a fit
-    diagnostic for the ranking constant and *not* a scoring baseline — quoting it
-    as a forecast anchor would breach the leakage guard registered there. The
-    always-deny figure is the whole modern-cert slice's, not the predicted
-    segment's, so it is an orientation for reading an accuracy, not a floor any
-    scored cell is measured against.
-    """
-    pack = vintaged.value
-    where = _sourced("statpack.json", vintaged)
-    if pack is None:
-        return ["- **Base rates**: `metrics/statpack.json` has never landed."]
-    deny, deny_cases = _deny_base_rate(pack)
-    grant, grant_cases = _segment_base_rate(pack)
-    deny_text = (
-        f"always-deny **{deny:.0%}** (est. over {deny_cases:,} resolved modern-cert "
-        "petitions, denial-reweighted)"
-        if deny is not None and deny_cases is not None
-        else "always-deny **—** (no cert-stage disposition section)"
-    )
-    grant_text = (
-        f"pooled salience-band grant **{grant:.0%}** (over {grant_cases:,} resolved "
-        "petitions of the scored segment, every band pooled)"
-        if grant is not None and grant_cases is not None
-        else "pooled band grant **—** (no salience-band section)"
-    )
-    return [
-        f"- **Base rates** ({where}): {deny_text}; {grant_text}. Pack coverage: "
-        f"{pack.coverage.live_slice_resolved:,} resolved of "
-        f"{pack.coverage.live_slice_rows:,} live-slice rows.",
-        "  _Neither figure anchors a scored cell. A forward cert cell is scored "
-        + "against its own band's strictly-prior-Term risk-set rate; the pooled band "
-        + "rate is a fit diagnostic for the ranking constant, not a scoring baseline "
-        + "(`docs/salience.md`), and the always-deny rate is taken over a different, "
-        + "much wider population than the one the gate predicts — an orientation "
-        + "rather than an effect size._",
-    ]
-
-
-def _render_analytics_state(analytics: WeeklyAnalytics, generated_at: str) -> list[str]:
-    """Section 1: what the committed boards say, and what they honestly cannot."""
-    return [
-        "",
-        "## Analytics state",
-        "",
-        *_leaderboard_lines(analytics.leaderboard, generated_at),
-        *_claim_score_lines(analytics.claim_scores),
-        *_big_case_lines(analytics.big_cases),
-        *_base_rate_lines(analytics.statpack),
-    ]
-
-
-def _render_production(production: WeeklyProduction) -> list[str]:
-    """Section 2: cells produced this week, and the measured cost of producing them."""
-    census = production.census
+def _render_produced(window: ProducedWindow) -> list[str]:
+    """One production block: the cells that ran inside a window, and their cost."""
+    census = window.census
     lines = [
         "",
-        f"## Produced this week ({production.window})",
+        f"## {window.title} ({window.window})",
         "",
         f"**{census.cells}** cell(s) over **{census.events}** event(s), and "
-        f"**${production.spend_usd:,.2f}** of measured model spend over the same "
+        f"**${window.spend_usd:,.2f}** of measured model spend over the same "
         "records — the recorded `usage.json` ledger, which lags: a cell's usage "
         "reaches `data/` only when its run's collect PR merges, so this is a floor "
         "on what was spent, not a real-time figure.",
@@ -936,30 +660,57 @@ def _render_production(production: WeeklyProduction) -> list[str]:
         ]
     else:
         lines += ["", "_No cell landed in the window._"]
+    return lines
 
-    backstop = production.backstop
+
+def _render_backstop(backstop: SpendVerdict | None) -> list[str]:
+    """The ex-post spend gate's verdict, closing the block whose window it shares."""
     if backstop is None:
-        lines += ["", "_Spend backstop: not evaluated this run._"]
-    elif not backstop.enforced:
-        lines += [
+        return ["", "_Spend backstop: not evaluated this run._"]
+    if not backstop.enforced:
+        return [
             "",
             "_Spend backstop: **no ceiling configured**, so nothing is measured "
             + "against one and nothing would be deferred._",
         ]
-    else:
-        share = backstop.spent_usd / backstop.ceiling_usd if backstop.ceiling_usd else 0.0
-        verdict = (
-            "**BREACHED** — a plan seam would defer its matrix" if backstop.breached else "clear"
-        )
-        lines += [
-            "",
-            f"Spend backstop: **${backstop.spent_usd:,.2f}** of "
-            f"**${backstop.ceiling_usd:,.2f}** over the trailing "
-            f"{backstop.window_days}d window (**{share:.0%}** consumed, "
-            f"${backstop.remaining_usd:,.2f} left, {backstop.cells} cell(s)) — {verdict} "
-            "on a lagging ledger, so the verdict is a floor too.",
-        ]
-    return lines
+    share = backstop.spent_usd / backstop.ceiling_usd if backstop.ceiling_usd else 0.0
+    verdict = "**BREACHED** — a plan seam would defer its matrix" if backstop.breached else "clear"
+    return [
+        "",
+        f"Spend backstop: **${backstop.spent_usd:,.2f}** of "
+        f"**${backstop.ceiling_usd:,.2f}** over the trailing "
+        f"{backstop.window_days}d window (**{share:.0%}** consumed, "
+        f"${backstop.remaining_usd:,.2f} left, {backstop.cells} cell(s)) — {verdict} "
+        "on a lagging ledger, so the verdict is a floor too.",
+    ]
+
+
+def _frozen_cells_line(substance: SubstanceDigest | None) -> list[str]:
+    """Forward cells scored under the process in force, closing the Term block.
+
+    The Term is the period this count is worth reading over: a forward cell is
+    minted once at its event and never again, so a week's delta alone cannot say
+    whether the scored population is growing or standing still. Stated as a
+    figure — the boards are where a reader interrogates it.
+    """
+    if substance is None:
+        return []
+    cells = substance.cells
+    counted = (
+        f"{cells.evaluations_forward_delta:+d} this week, {cells.evaluations_forward} total"
+        if cells.evaluations_forward_delta is not None
+        else f"{cells.evaluations_forward} total, no prior snapshot to diff"
+    )
+    # A frozen scope with nothing scored in *either* stratum is the shakedown
+    # state — nothing blessed yet — not a stalled machine, and a bare zero reads
+    # as the latter. Name it.
+    shakedown = (
+        substance.process_scope == "frozen"
+        and cells.evaluations_forward == 0
+        and cells.evaluations_retrospective == 0
+    )
+    tail = " No frozen-process cells yet — still shakedown." if shakedown else ""
+    return ["", f"Forward cells scored ({substance.process_scope}): {counted}.{tail}"]
 
 
 #: The court whose rows the digest publishes beside the pooled figure. Pooling
@@ -1272,7 +1023,7 @@ def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
 
 
 def _render_backtests(analytics: WeeklyAnalytics) -> list[str]:
-    """Section 3: what the replays say, and which replay has never been run."""
+    """The last block: what the replays say, and which replay has never been run."""
     return [
         "",
         "## Backtest results",
@@ -1344,25 +1095,26 @@ def render_weekly_digest(
 ) -> str:
     """The weekly performance digest: the week's substance, on its own issue.
 
-    Four blocks, in the order a reader needs them. The **health questions** are
-    short and interrogative — numbers that demand a reaction rather than sit
-    available for inspection. **Analytics state** says what the committed boards
-    hold, with each empty one explaining *why* it is empty rather than showing a
-    bare zero. **Produced this week** counts the cells that ran and what they
-    cost, over one window and one set of records. **Backtest results** reports
-    the replays, and says plainly that the cert back-test has never been run
-    rather than leaving its absence to be inferred from a missing line.
+    Four blocks, in the order a reader needs them. **Produced this week** counts
+    the cells that ran and what they cost, over one window and one set of
+    ``usage.json`` records. **Produced this month** is the same shape over the
+    trailing window the ex-post spend backstop uses, and closes with that
+    backstop's own verdict — the census and the verdict beside it then cover
+    exactly one period. **Produced this term** is the same shape again over the
+    October Term to date, closing with the forward cells scored under the process
+    in force, which is the period that count is worth reading over. **Backtest
+    results** reports the replays, and says plainly that the cert back-test has
+    never been run rather than leaving its absence to be inferred from a missing
+    line.
 
-    In the analytics and back-test blocks every figure carries the vintage of
-    the artifact it came from, because none of those artifacts is refreshed on
-    this schedule: a board is byte-stable and a statpack moves only when the
-    corpus does, so a figure without its vintage silently claims to be this
-    week's. The health questions keep the ops report's un-vintaged framing —
-    they are the same bullets that surface there, read as questions rather than
-    as figures to quote.
+    Every figure in the back-test block carries the vintage of the artifact it
+    came from, because none of those artifacts is refreshed on this schedule: a
+    board is byte-stable, so a figure without its vintage silently claims to be
+    this week's. The production blocks need none — they are computed from the
+    committed ledger at render time.
 
-    ``analytics`` and ``production`` are optional so the digest degrades to its
-    questions rather than failing when a feed is absent.
+    ``analytics`` and ``production`` are optional so the digest degrades to the
+    blocks it can fill rather than failing when a feed is absent.
     """
     lines = [
         weekly_digest_marker(report.generated_at),
@@ -1370,22 +1122,21 @@ def render_weekly_digest(
         "",
         f"_Generated {report.generated_at}. Close this issue once you have read it — the "
         "open `weekly-digest` issues are the unread backlog._",
-        "",
-        "## Health questions",
-        "",
-        *_health_questions(report),
     ]
-    if analytics is not None:
-        lines += _render_analytics_state(analytics, report.generated_at)
     if production is not None:
-        lines += _render_production(production)
+        lines += _render_produced(production.week)
+        lines += _render_produced(production.month)
+        lines += _render_backstop(production.backstop)
+        lines += _render_produced(production.term)
+        lines += _frozen_cells_line(report.substance)
     if analytics is not None:
         lines += _render_backtests(analytics)
     # The marker line stays verbatim; everything below it is defused in one pass,
     # exactly as the daily digest's body is. Almost all of this document is
-    # harness-computed figures, but the predictor ids threaded through the board
-    # tables are free-form strings from the ledger, and a field added later would
-    # otherwise arrive untreated.
+    # harness-computed figures, but the role and stage labels threaded through the
+    # census tables — and the predictor ids in the back-test ones — are free-form
+    # strings off the ledger, and a field added later would otherwise arrive
+    # untreated.
     prose = _defuse_comments("\n".join(lines[WEEKLY_DIGEST_MARKER_LINES:]))
     document = "\n".join([*lines[:WEEKLY_DIGEST_MARKER_LINES], prose]) + "\n"
     if len(document) > _DIGEST_MAX_CHARS:
