@@ -518,7 +518,11 @@ directory without knowing which part is which invites trusting the wrong half.
   of the source into rows marked `code_mode_source`, in source order: a
   manifest one named in the same `mcp__<server>__<tool>` spelling a direct item
   would carry, a builtin one under the name the code-mode surface exposes it
-  as. A lifted row is always `unobserved`: the freeform call returns one
+  as. A `codex-baseline` log whose rows all carry a null `call_source` is
+  row-blind — the calls its program made have no rows of their own — and a
+  leakage grading formed on it is read as unassessed rather than clean (*The
+  leakage exclusion* in `metrics/README.md`).
+  A lifted row is always `unobserved`: the freeform call returns one
   combined output for its whole program, and nothing says which part of it
   belongs to a given call. A single call *site* is not a single invocation —
   one inside a loop runs as

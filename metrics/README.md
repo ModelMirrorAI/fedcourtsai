@@ -996,6 +996,41 @@ are a declared superset
 (below). A figure there that differs from a board figure is two populations
 rather than an error in either.
 
+**A row-blind `codex-baseline` grading is "not assessed", never "clean".** A
+`codex-baseline` `retrieval_log.json` whose rows all carry a null `call_source`
+(the null's meaning is stated on `RetrievalCall.call_source` itself) records
+none of the calls its program made as rows of their own: no manifest search,
+document read or fetch inside the program has a tool class, a result marker or
+a `retrieved_doc_date` of its own. What such a log gives the grader is each
+wrapper row's head slice of program text, whatever date the combined output
+surfaced onto that row, and the prose. Those are exactly the `codex-baseline`
+logs from runs before `20260820T181919Z`; a zero-row log is unassessed for the
+same reason rather than by vacuity. The marker is sufficient for row-blindness,
+not necessary: a later log whose code-mode parent rows stand beside no lifted
+row (`fedcourtsai.collect.code_mode_lift_blind`) is a separate open case, and
+on the runs from `20260820T181919Z` through `20260825T231742Z`, before the
+builtin idiom was lifted, a program's shell calls still have no rows while its
+manifest calls do — half-blind on the channel most able to reach an outcome, so
+the rule below reads those gradings the same way. An unsuspected verdict on a
+row-blind or half-blind grading — `none`, or `not_applicable` — is read as a
+null bit: assessed nothing, scored, never evidence that the cell did not read
+its outcome. A `possible` or `likely` verdict on the same vintage
+stands, since a positive finding from the visible evidence is still evidence;
+and the distinction is not idle, because every row-blind grading on the ledger
+declares `mode: forward` and six of them read `likely` with outcome material
+retrieved, so the declared mode is not what settles a verdict. Two consequences
+bind any reading. The suspected share of a row-blind vintage is a **lower bound
+on leakage, not a rate**: its negatives are null bits, so there is no assessed
+denominator to divide by. And a cross-engine leakage comparison over cells
+before `20260820T181919Z` is not a comparison: the other engines' logs of that
+vintage carry their manifest calls as rows, so their unsuspected verdicts are
+real reads where codex's are null bits. `assessed` still counts such a
+grading — it counts gradings that recorded the bit, not gradings that could
+see — but only the all-versions build ever reaches one: no row-blind or
+half-blind prediction carries a frozen digest, so the frozen boards exclude
+them a gate earlier. The [freeze record](../docs/freeze-record.md) fixes their
+number, in the ledger and after the run collapse, and dates the rule.
+
 **The procedural stratum.** A cell whose outcome was mootness practice — a
 Munsingwear vacatur ("granted", but the wording tracks the Court's vacatur
 practice) or a dismissal as moot — segments into a third, `procedural` stratum
