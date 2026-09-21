@@ -22,6 +22,7 @@ from fedcourtsai.pipeline.documents import (
     _QP_END_RE,
     _QP_MIN_CHARS,
     BIO_URL_JOIN,
+    CONTACT_PLACEHOLDER,
     KIND_APPLICATION,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_MERITS_BRIEF_PETITIONER,
@@ -39,8 +40,10 @@ from fedcourtsai.pipeline.documents import (
     extract_questions_presented,
     fetch_case_documents,
     merits_entry_matched,
+    petitioner_is_unrepresented,
     questions_presented_extract,
     reset_document_fetch_losses,
+    scrub_contact_details,
     select_documents,
 )
 from fedcourtsai.pipeline.live import LiveDiscovery
@@ -3361,3 +3364,355 @@ def test_corpus_info_text_coverage_self_limits_when_the_store_serves_nothing(
         "2 of 2 queued interim application docket(s) hold no application document" in result.stdout
     )
     assert "text source: the per-case content store" in result.stdout
+
+
+# --- Contact-detail scrub ---------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        "jane.doe@example.com",
+        "j.doe99@mail.example.co.uk",
+        "JANE_DOE+scotus@example.org",
+    ],
+)
+def test_the_scrub_withholds_an_email_address(detail: str) -> None:
+    scrubbed = scrub_contact_details(f"Respectfully submitted,\nJane Doe\n{detail}\n")
+
+    assert detail not in scrubbed.text
+    assert CONTACT_PLACEHOLDER in scrubbed.text
+    assert scrubbed.replacements == 1
+    # The placeholder stands where the detail did, so the signature block still
+    # reads as a signature block.
+    assert scrubbed.text.startswith("Respectfully submitted,\nJane Doe\n")
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        "(202) 555-0147",
+        "(202)555-0147",
+        "(202) 555 0147",
+        "202-555-0147",
+        "202.555.0147",
+        "+1 202-555-0147",
+        "1-800-555-0147",
+    ],
+)
+def test_the_scrub_withholds_a_telephone_number(detail: str) -> None:
+    scrubbed = scrub_contact_details(f"Telephone: {detail}")
+
+    assert scrubbed.text == f"Telephone: {CONTACT_PLACEHOLDER}"
+    assert scrubbed.replacements == 1
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        "1234 Maple Street",
+        "1234 Maple St.",
+        "1234 42nd Street",
+        "88 North Cascade Avenue, Apt. 4B",
+        "700 Grand Ridge Road",
+        "17 Willow Lane #3",
+        "P.O. Box 4417",
+        "PO Box 4417",
+    ],
+)
+def test_the_scrub_withholds_a_mailing_address(detail: str) -> None:
+    scrubbed = scrub_contact_details(f"{detail}\nHouston, Texas\n")
+
+    assert detail not in scrubbed.text
+    assert scrubbed.replacements == 1
+    assert scrubbed.text.endswith("\nHouston, Texas\n")
+
+
+def test_the_scrub_counts_every_detail_it_withheld() -> None:
+    # The count is what the manifest carries, so a document with several details
+    # in one block has to report all of them rather than "scrubbed".
+    # Three details, four lines: the street address and the unit after it are
+    # one detail, the telephone and the email one each.
+    block = (
+        "Jane Doe, Petitioner Pro Se\n"
+        + "1234 Maple Street, Apt. 4B\n"
+        + "Houston, TX\n"
+        + "(713) 555-0147\n"
+        + "jane.doe@example.com\n"
+    )
+
+    scrubbed = scrub_contact_details(block)
+
+    assert scrubbed.replacements == 3
+    assert "Jane Doe, Petitioner Pro Se" in scrubbed.text
+
+
+@pytest.mark.parametrize(
+    "survivor",
+    [
+        # A docket number, in both the paid and the IFP spellings.
+        "No. 25-1222",
+        "No. 25-5001",
+        # The lower court's docket number.
+        "No. 1:21-cv-00345-ABC",
+        # Dates, in the two spellings a filing uses.
+        "Filed 2026-09-21",
+        "Filed September 21, 2026",
+        # Reporter citations.
+        "Roe v. Wade, 410 U.S. 113, 153 (1973)",
+        "Brady v. Maryland, 373 U.S. 83 (1963)",
+        "28 U.S.C. 1254(1)",
+        # The court's own address line, which carries no street number.
+        "Supreme Court of the United States, Washington, D.C. 20543",
+        # A page and word count from a certificate of compliance.
+        "This petition contains 8,142 words and 22 pages.",
+        # The institution, which shares a word with a street type the scrub
+        # deliberately does not carry.
+        "The 2019 Supreme Court decision",
+        "Pl. Br. 14",
+    ],
+)
+def test_the_scrub_leaves_everything_that_is_not_a_contact_detail(survivor: str) -> None:
+    scrubbed = scrub_contact_details(survivor)
+
+    assert scrubbed.text == survivor
+    assert scrubbed.replacements == 0
+
+
+def test_the_scrub_of_text_with_nothing_to_withhold_is_the_identity() -> None:
+    text = "QUESTION PRESENTED\n\nWhether the court of appeals erred.\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == text
+    assert scrubbed.replacements == 0
+
+
+def test_a_docket_naming_counsel_for_the_petitioner_reads_represented() -> None:
+    payload = {
+        "Petitioner": [
+            {"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"},
+        ],
+        "Respondent": [{"PartyName": "United States", "Attorney": "D. John Sauer"}],
+    }
+
+    assert petitioner_is_unrepresented(payload) is False
+
+
+def test_a_petitioner_served_as_their_own_attorney_reads_unrepresented() -> None:
+    # The upstream convention: a self-represented party is served with its own
+    # name in the attorney field. The docket JSON never says "pro se".
+    payload = {
+        "Petitioner": [{"PartyName": "John Edward Kuplen", "Attorney": "John Edward Kuplen"}]
+    }
+
+    assert petitioner_is_unrepresented(payload) is True
+
+
+@pytest.mark.parametrize(
+    ("party", "attorney"),
+    [
+        ("Leo Kramer, et ux.", "Leo Kramer"),
+        ("Kevin Cichowski, et al.", "Kevin Cichowski"),
+        ("Zhi Guo, aka Han Gao", "Zhi  Guo"),
+        ("Raymond H. Pierson", "Raymond H. Pierson III"),
+        ("Delaney E. Smith", "Delaney E. Smith Jr."),
+    ],
+)
+def test_the_caption_suffixes_a_party_carries_do_not_hide_self_representation(
+    party: str, attorney: str
+) -> None:
+    # The two sides are served from different fields and are spelled differently:
+    # the party carries the caption's joinder and alias tags, the attorney a
+    # generational suffix. Neither is part of the name being compared.
+    payload = {"Petitioner": [{"PartyName": party, "Attorney": attorney}]}
+
+    assert petitioner_is_unrepresented(payload) is True
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"Petitioner": [{"PartyName": "Jane Doe", "Attorney": None}]},
+        {"Petitioner": [{"PartyName": "Jane Doe", "Attorney": "   "}]},
+        {"Petitioner": [{"PartyName": "Jane Doe"}]},
+    ],
+)
+def test_a_served_block_naming_no_attorney_reads_unrepresented(
+    payload: dict[str, object],
+) -> None:
+    # A block that was served and names nobody says the same thing the
+    # self-naming block says: there is no one on this docket to write to but the
+    # party.
+    assert petitioner_is_unrepresented(payload) is True
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"Petitioner": []},
+        {"Petitioner": None},
+        {"Petitioner": ["not a block"]},
+        {"Respondent": [{"PartyName": "United States", "Attorney": "D. John Sauer"}]},
+    ],
+)
+def test_a_payload_serving_no_petitioner_block_reads_represented(
+    payload: dict[str, object],
+) -> None:
+    # An absent block is **unknown**, not unrepresented, and the scrub fires on
+    # evidence rather than on the absence of it. Reading a missing block as
+    # self-representation would scrub on the strength of a payload shape — a
+    # CourtListener docket names nobody because it has nowhere to — which is a
+    # far wider change to what cells read than the fact it acts on.
+    assert petitioner_is_unrepresented(payload) is False
+
+
+@pytest.mark.parametrize(
+    "survivor",
+    [
+        # A page number ending one line and a street type opening the next: two
+        # facts, and a scrub that joined them would take the line break with it.
+        "page 12\nThe Ninth Circuit Way held",
+        "filed 1234\nMaple Street",
+        # An appendix index, and the shape an OCR'd column of one comes out as:
+        # 3-3-4 runs of blank-separated digits, which is why the blank-separated
+        # telephone spelling is not read at all.
+        "Pet. App. 100 101 1023",
+        "the 100 200 3000 series",
+        "Appendix\n12 101 1023\n13 102 1024\n",
+        "202 555 0147",
+        # A statute cite whose section number precedes a word that is elsewhere
+        # a street type.
+        "28 U. S. C. 2254 Way",
+        # The doctor a medical or disability petition names on every page.
+        "Exhibit 12 Report Dr. Smith",
+    ],
+)
+def test_the_scrub_leaves_the_shapes_an_extracted_filing_is_full_of(survivor: str) -> None:
+    # The cost of a false positive here is legal text silently gone from the
+    # input of the cells this exists to protect — and pro se filings are
+    # disproportionately the scanned ones, so the OCR shapes matter most.
+    scrubbed = scrub_contact_details(survivor)
+
+    assert scrubbed.text == survivor
+    assert scrubbed.replacements == 0
+
+
+def test_no_scrub_ever_spans_a_line_break() -> None:
+    # The structural guarantee, stated as a property rather than as cases: the
+    # staged text keeps its line count whatever was withheld from it.
+    block = (
+        "IN THE SUPREME COURT OF THE UNITED STATES\n"
+        + "No. 25-1222\n"
+        + "Jane Doe, Petitioner Pro Se\n"
+        + "1234 Maple Street, Apt. 4B\n"
+        + "Houston, TX 77002\n"
+        + "(713) 555-0147\n"
+        + "jane.doe@example.com\n"
+        + "P.O. Box 4417\n"
+    )
+
+    scrubbed = scrub_contact_details(block)
+
+    assert scrubbed.replacements == 4
+    assert scrubbed.text.count("\n") == block.count("\n")
+    assert [line.strip() == "" for line in scrubbed.text.splitlines()] == [
+        line.strip() == "" for line in block.splitlines()
+    ]
+
+
+def test_a_courtlistener_shaped_payload_is_unknown_rather_than_unrepresented() -> None:
+    # The snapshots key space holds two payload shapes, and provisioning reads
+    # whichever the case has. A CourtListener REST docket carries no counsel
+    # blocks anywhere, so it names nobody because it has nowhere to — which is
+    # not a reading about representation and must not stage a scrub.
+    payload = {
+        "id": 305,
+        "docket_number": "24-12",
+        "docket_entries": [{"id": 1, "description": "Petition for writ of certiorari filed."}],
+    }
+
+    assert petitioner_is_unrepresented(payload) is False
+
+
+def test_one_self_represented_co_petitioner_is_enough_to_scrub() -> None:
+    # Any one qualifying block: a docket carrying a represented co-petitioner
+    # beside a self-represented one still stages that filer's own details.
+    payload = {
+        "Petitioner": [
+            {"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"},
+            {"PartyName": "Jane Doe", "Attorney": "Jane Doe"},
+        ]
+    }
+
+    assert petitioner_is_unrepresented(payload) is True
+
+
+def test_a_party_and_their_own_attorney_compare_equal_in_either_name_order() -> None:
+    # The two fields are served from different halves of the record, so a
+    # caption-order spelling against a natural-order one must not read as
+    # representation — that is the one error direction the scrub is designed
+    # against.
+    payload = {"Petitioner": [{"PartyName": "Doe, Jane", "Attorney": "Jane Doe"}]}
+
+    assert petitioner_is_unrepresented(payload) is True
+
+
+@pytest.mark.parametrize(
+    ("party", "attorney"),
+    [
+        # The shapes an incarcerated filer's two name fields actually take: a
+        # middle name on one side only, an initial against a full middle name,
+        # and a middle token missing altogether.
+        ("Bryon K. Creech", "Bryon Keith Creech"),
+        ("Jess Richard Smith", "Jess R. Smith"),
+        ("Terry Lee", "Terry Antonio Lee"),
+    ],
+)
+def test_a_middle_name_on_one_side_does_not_hide_self_representation(
+    party: str, attorney: str
+) -> None:
+    payload = {"Petitioner": [{"PartyName": party, "Attorney": attorney}]}
+
+    assert petitioner_is_unrepresented(payload) is True
+
+
+def test_a_prisoner_register_number_reads_unrepresented_on_its_own() -> None:
+    # Upstream's own positive marker for a party writing from an institution,
+    # taken whatever the attorney field says: the population whose filings carry
+    # a personal address most reliably, and whose two name fields agree least.
+    payload = {
+        "Petitioner": [
+            {
+                "PartyName": "Alberto Granados",
+                "Attorney": "Elena A. Paremsky",
+                "PrisonerId": "#A76-1485",
+            }
+        ]
+    }
+
+    assert petitioner_is_unrepresented(payload) is True
+
+
+@pytest.mark.parametrize("empty", ["", "   ", None])
+def test_an_empty_prisoner_field_is_not_a_register_number(empty: str | None) -> None:
+    payload = {
+        "Petitioner": [
+            {
+                "PartyName": "Cascade School District",
+                "Attorney": "Kannon K. Shanmugam",
+                "PrisonerId": empty,
+            }
+        ]
+    }
+
+    assert petitioner_is_unrepresented(payload) is False
+
+
+def test_two_different_people_still_read_as_representation() -> None:
+    # What the first/last reduction must keep separating, or the predicate would
+    # answer True on every docket and stop being a reading at all.
+    payload = {"Petitioner": [{"PartyName": "Silas Salyers", "Attorney": "Elena A. Paremsky"}]}
+
+    assert petitioner_is_unrepresented(payload) is False

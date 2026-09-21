@@ -252,12 +252,39 @@ material**:
 
 - **We ingest only what is already in the public upstream records** — no separate
   collection, enrichment, or de-anonymization, and no redaction beyond what
-  CourtListener already applies to the public records.
+  CourtListener already applies to the public records. Narrowing on privacy
+  grounds happens one step later instead, on the copy staged for a cell
+  (below), so the stored record stays the record as ingested.
 - **Raw facts stay access-gated.** The corpus that holds the full docket detail
   lives in the private S3 estate — the snapshot payloads in its per-case content
   store, the scannable index beside them — not public git. The only PII that can
   reach public git is whatever a piece of reasoning quotes from a public docket
   while explaining a prediction.
+- **A petition filed in person is scrubbed before a cell reads it.** Where the
+  provisioned snapshot serves a petitioner-side counsel block naming nobody but
+  the petitioner to write to — no attorney, the petitioner as their own, or a
+  prisoner register number — the
+  filed-document text staged under a cell's `record/documents/` has its
+  contact-detail shapes — emails, telephone numbers, post-office boxes, street
+  addresses — replaced by a fixed placeholder, and the cell's manifest records
+  that it was ([live-sources.md](live-sources.md)). The question is asked on the
+  **petitioner** side alone, so a self-represented respondent's opposition on a
+  counselled docket is staged as filed: widening it to the respondent side would
+  read "unrepresented" on every docket whose opposition has not been filed yet.
+  It is asked of a **served** block, too: a payload carrying no petitioner-side
+  counsel is unknown rather than unrepresented, and is left alone.
+  This is the one narrowing applied on privacy grounds, and it applies to the
+  staged copy of the **document text** alone: the source PDF and the corpus row
+  are untouched, and so is the snapshot staged beside the documents, which
+  carries the docket's counsel blocks as served — including the address,
+  telephone, email and prisoner-register fields that on such a docket are the
+  filer's own. The filing
+  is public, so the concern is re-publication and aggregation rather than
+  disclosure — a self-represented filer's home address reaching the public
+  ledger beside whatever else their petition says about them. It narrows the
+  default path rather than sealing the material: a cell holding retrieval rights
+  can reach the same public PDF upstream, and what the scrub removes is the
+  detail that would otherwise arrive unasked-for in the cell's own record.
 - **Sealed, privileged, or otherwise sensitive material is never fed into the
   pipeline** — asserted in [SECURITY.md](../SECURITY.md) and restated here. The
   scope is public-record federal appellate and Supreme Court dockets only.

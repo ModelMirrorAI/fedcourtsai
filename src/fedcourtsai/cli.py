@@ -235,7 +235,9 @@ from .pipeline.documents import (
     backfill_questions_presented,
     document_fetch_losses,
     document_text_coverage,
+    petitioner_is_unrepresented,
     questions_presented_extract,
+    scrub_contact_details,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.ingest import UNSAMPLED_WEIGHT
@@ -10166,7 +10168,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     one was filed — fetched pipeline-side by the live poller) is
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
-    fetch rights.
+    fetch rights. That staged text is passed through the **contact-detail
+    scrub** where the snapshot names nobody but the petitioner to write to:
+    emails, telephone numbers, post-office boxes and street
+    addresses replaced by ``[contact detail withheld]``, with
+    ``contact_scrubbed`` and ``contact_replacements`` on each manifest entry
+    recording that it ran and what it withheld. The stored row and the source
+    PDF are untouched — the staged copy is the one a cell can quote into the
+    public ledger.
 
     "Most recent" is the answer only for a cell that has no declared moment of
     its own. Where ``--event`` names one (and ``--moment-cutoff`` is on, which is
@@ -10312,8 +10321,23 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     )
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}){placed} -> {dest}")
     if documents:
-        for doc in documents:
-            write_text(paths.document(doc.kind), doc.text)
+        # The contact-detail scrub, keyed on the docket-level reading that
+        # separates a filing signed by counsel from one signed in person:
+        # whether the snapshot names anyone but the petitioner to write to.
+        # Where it does not, every document staged for this cell has
+        # its contact-detail shapes withheld — the whole docket rather than the
+        # petition alone, since deciding per document who signed it would be a
+        # second reading with its own failure mode, and an opposition filed by
+        # counsel loses only professional details the cell has no use for. The
+        # corpus row and the source PDF are untouched: the scrub is on the copy
+        # staged under `record/`, which is the copy a cell can quote into the
+        # public ledger.
+        scrubbing = petitioner_is_unrepresented(payload)
+        staged = [
+            (doc, scrub_contact_details(doc.text) if scrubbing else None) for doc in documents
+        ]
+        for doc, scrubbed in staged:
+            write_text(paths.document(doc.kind), doc.text if scrubbed is None else scrubbed.text)
         write_raw_json(
             paths.documents_manifest,
             [
@@ -10329,13 +10353,36 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
                     # pages/truncated alone; flag it so the cell distinguishes
                     # "no document" / "document present but no text layer" /
                     # "text present". Derived here, not stored on the row.
+                    # Read off the stored text, so the flag keeps naming what the
+                    # extraction produced — a scrub replaces a contact detail
+                    # with a placeholder and can never empty text that had any.
                     "empty_text": not doc.text.strip(),
+                    # Whether the scrub ran over this document's staged text, and
+                    # how many details it withheld. The two are separate facts: a
+                    # scrubbed document with nothing to withhold reads `true, 0`,
+                    # which is a different statement from a document the scrub
+                    # never saw, and a cell that meets the placeholder in the text
+                    # can tell from here that the pipeline put it there.
+                    "contact_scrubbed": scrubbed is not None,
+                    "contact_replacements": 0 if scrubbed is None else scrubbed.replacements,
                 }
-                for doc in documents
+                for doc, scrubbed in staged
             ],
         )
         kinds = ", ".join(doc.kind for doc in documents)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
+        if scrubbing:
+            # Echoed for the same reason the cut counts are: the size of a
+            # scrub is itself a signal. A pattern that began matching legal
+            # prose would show up here as a count no signature block could
+            # produce, and the run log is the only place it could show up at
+            # all — the manifest that records it is gitignored with the rest of
+            # `record/`.
+            withheld = sum(0 if done is None else done.replacements for _, done in staged)
+            typer.echo(
+                f"{case} contact scrub: {withheld} detail(s) withheld across "
+                f"{len(staged)} staged document(s) (no attorney named for the petitioner)"
+            )
 
 
 def _clear_opinion_slot(paths: CasePaths) -> None:
