@@ -628,11 +628,12 @@ def _cell(value: str) -> str:
 def _sourced(filename: str, vintaged: Vintaged[object]) -> str:
     """``` `metrics/x.json`, vintage YYYY-MM-DD ``` — the artifact and when it moved.
 
-    Every metrics-derived figure carries this, because none of these artifacts is
-    refreshed on the digest's own schedule: a board is byte-stable and a statpack
-    moves only when the corpus does, so a figure without its vintage silently
-    claims to be this week's. An unknown vintage says so rather than being
-    omitted — the reader still needs to know the number's age is unestablished.
+    Every back-test figure carries this, because none of those artifacts is
+    refreshed on the digest's own schedule: a replay board is byte-stable and the
+    cert back-test moves only when a maintainer dispatches one, so a figure
+    without its vintage silently claims to be this week's. An unknown vintage
+    says so rather than being omitted — the reader still needs to know the
+    number's age is unestablished.
     """
     vintage = f"vintage {vintaged.vintage}" if vintaged.vintage else "vintage unknown"
     return f"`metrics/{filename}`, {vintage}"
@@ -688,9 +689,11 @@ def _render_backstop(backstop: SpendVerdict | None) -> list[str]:
 def _frozen_cells_line(substance: SubstanceDigest | None) -> list[str]:
     """Forward cells scored under the process in force, closing the Term block.
 
-    The Term is the period this count is worth reading over: a forward cell is
-    minted once at its event and never again, so a week's delta alone cannot say
-    whether the scored population is growing or standing still. Stated as a
+    The count is cumulative over the whole ledger, not the Term's, and the
+    rendered line says so, because a line under a Term heading is quoted
+    without it. It sits in the Term block because a forward cell is minted once
+    at its event and never again, so the Term is the period it is worth reading
+    beside; the delta is against the prior ops-metrics snapshot. Stated as a
     figure — the boards are where a reader interrogates it.
     """
     if substance is None:
@@ -710,7 +713,10 @@ def _frozen_cells_line(substance: SubstanceDigest | None) -> list[str]:
         and cells.evaluations_retrospective == 0
     )
     tail = " No frozen-process cells yet — still shakedown." if shakedown else ""
-    return ["", f"Forward cells scored ({substance.process_scope}): {counted}.{tail}"]
+    return [
+        "",
+        f"Forward cells scored ({substance.process_scope}, ledger to date): {counted}.{tail}",
+    ]
 
 
 #: The court whose rows the digest publishes beside the pooled figure. Pooling
@@ -1133,10 +1139,10 @@ def render_weekly_digest(
         lines += _render_backtests(analytics)
     # The marker line stays verbatim; everything below it is defused in one pass,
     # exactly as the daily digest's body is. Almost all of this document is
-    # harness-computed figures, but the role and stage labels threaded through the
-    # census tables — and the predictor ids in the back-test ones — are free-form
-    # strings off the ledger, and a field added later would otherwise arrive
-    # untreated.
+    # harness-computed figures (the census tables' role and stage labels are
+    # enum-valued), but the predictor ids threaded through the back-test tables
+    # are free-form strings off the ledger, and a field added later would
+    # otherwise arrive untreated.
     prose = _defuse_comments("\n".join(lines[WEEKLY_DIGEST_MARKER_LINES:]))
     document = "\n".join([*lines[:WEEKLY_DIGEST_MARKER_LINES], prose]) + "\n"
     if len(document) > _DIGEST_MAX_CHARS:

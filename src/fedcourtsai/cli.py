@@ -7920,12 +7920,13 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     to stdout (the run-ops job's Actions step summary); ``--json`` writes the
     structured ``OpsReport``.
 
-    ``--digest-out`` renders the **weekly performance digest** — the health
-    questions, the committed boards' state with each empty one saying why it is
-    empty, the week's cells and measured spend, and the back-test results,
-    every metrics-derived figure carrying the vintage of the artifact it came
-    from. ``--digest-post-repo`` additionally opens it as a `weekly-digest`
-    issue, once per ISO week.
+    ``--digest-out`` renders the **weekly performance digest** — the cells and
+    measured spend produced over the week, the trailing month (closing with the
+    spend backstop's verdict) and the Term to date (closing with the forward
+    cells scored under the process in force), then the back-test results, each
+    back-test figure carrying the vintage of the artifact it came from.
+    ``post-weekly-digest`` is the separate command that opens it as a
+    `weekly-digest` issue, once per ISO week.
 
     Unlike the leaderboard/back-test roll-ups it is a point-in-time snapshot, so
     it is surfaced, not committed.

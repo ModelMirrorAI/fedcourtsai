@@ -128,11 +128,14 @@ Four blocks, in the order a reader needs them:
   from the 1 October that Term opened to the day the digest is generated. The
   cutoff is pinned to that instant rather than counted back in days, or a
   mid-morning render would cut the Term's own first morning out of its census.
-  It closes with the forward cells scored under the process in force — the Term
-  is the period that count is worth reading over, since a forward cell is minted
-  once at its event and never again. A frozen scope with nothing scored in
-  either stratum is named as the shakedown state rather than shown as a bare
-  zero.
+  It closes with the forward cells scored under the process in force. That
+  count is cumulative over the whole ledger, not the Term's, with a delta
+  against the prior ops-metrics snapshot (a week when the dated snapshot
+  exists, shorter when the job fell back to the latest one); it sits in the
+  Term block because a forward cell is minted once at its event and never
+  again, so the Term is the period it is worth reading beside. A frozen scope
+  with nothing scored in either stratum is named as the shakedown state rather
+  than shown as a bare zero.
 - **Backtest results** — the historical replay **per court**, with each court's
   own always-deny floor beside its accuracy and the pooled row labelled as the
   mixture it is (`granted` means cert on a SCOTUS row and a motion granted on a

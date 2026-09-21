@@ -2842,6 +2842,8 @@ def _commit_usage(data_root: Path, *, docket: int, cost: float, created_at: date
         # reports the outgoing Term — the long-conference cohort's own Term.
         ("2026-09-21T08:30:00+00:00", 2025, "2025-10-01", 355),
         ("2026-10-05T08:30:00+00:00", 2026, "2026-10-01", 4),
+        # The Term's first morning: the window is the day itself, 0d wide.
+        ("2026-10-01T08:30:00+00:00", 2026, "2026-10-01", 0),
     ],
 )
 def test_the_term_block_rolls_on_the_first_of_october(
@@ -2895,8 +2897,8 @@ def test_the_month_window_is_the_spend_backstops_own(tmp_path: Path) -> None:
 
 
 def test_the_three_windows_are_counted_over_one_walk_of_the_ledger(tmp_path: Path) -> None:
-    # One cell inside each nested window: the week's count must not leak into a
-    # narrower one, and every window must see what falls inside it.
+    # One cell inside each nested window: a wider window must see everything the
+    # narrower ones do and only what falls inside its own bounds.
     now = datetime(2026, 9, 21, 8, 30, tzinfo=UTC)
     _commit_usage(tmp_path / "data", docket=1, cost=1.0, created_at=now - timedelta(days=2))
     _commit_usage(tmp_path / "data", docket=2, cost=2.0, created_at=now - timedelta(days=20))
@@ -2908,6 +2910,25 @@ def test_the_three_windows_are_counted_over_one_walk_of_the_ledger(tmp_path: Pat
     assert (production.week.census.cells, production.week.spend_usd) == (1, 1.0)
     assert (production.month.census.cells, production.month.spend_usd) == (2, 3.0)
     assert (production.term.census.cells, production.term.spend_usd) == (3, 7.0)
+
+
+def test_the_month_block_and_the_backstop_count_the_same_records(tmp_path: Path) -> None:
+    # The verdict renders at the end of the month block; both are one window over
+    # one walk, so a ledger with rows inside and outside it must give the census
+    # and the verdict identical cells and dollars.
+    now = datetime(2026, 9, 21, 8, 30, tzinfo=UTC)
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    (config_root / "tracking.yaml").write_text("spend:\n  ceiling_usd: 100.0\n  window_days: 30\n")
+    _commit_usage(tmp_path / "data", docket=1, cost=1.0, created_at=now - timedelta(days=2))
+    _commit_usage(tmp_path / "data", docket=2, cost=2.0, created_at=now - timedelta(days=20))
+    _commit_usage(tmp_path / "data", docket=3, cost=4.0, created_at=now - timedelta(days=200))
+
+    production = cli._weekly_production(tmp_path / "data", config_root, now)
+
+    assert production.backstop is not None and production.backstop.enforced
+    assert production.month.spend_usd == production.backstop.spent_usd == 3.0
+    assert production.month.census.cells == production.backstop.cells == 2
 
 
 def test_the_term_block_closes_with_the_forward_cells_scored() -> None:
@@ -2929,7 +2950,9 @@ def test_the_term_block_closes_with_the_forward_cells_scored() -> None:
 
     lines = ops.render_weekly_digest(report, production=_production()).splitlines()
 
-    figure = lines.index("Forward cells scored (frozen): 1 total, no prior snapshot to diff.")
+    figure = lines.index(
+        "Forward cells scored (frozen, ledger to date): 1 total, no prior snapshot to diff."
+    )
     assert lines.index("## Produced this term (last 355d)") < figure
     assert not any(line.startswith("## ") for line in lines[figure:])
 
@@ -2961,7 +2984,7 @@ def test_the_forward_cell_figure_carries_the_week_over_week_delta() -> None:
 
     md = ops.render_weekly_digest(report, production=_production())
 
-    assert "Forward cells scored (frozen): +2 this week, 3 total." in md
+    assert "Forward cells scored (frozen, ledger to date): +2 this week, 3 total." in md
 
 
 def test_the_term_block_names_the_shakedown_state_rather_than_a_bare_zero() -> None:
@@ -2981,7 +3004,7 @@ def test_the_term_block_names_the_shakedown_state_rather_than_a_bare_zero() -> N
     md = ops.render_weekly_digest(report, production=_production())
 
     assert (
-        "Forward cells scored (frozen): 0 total, no prior snapshot to diff. "
+        "Forward cells scored (frozen, ledger to date): 0 total, no prior snapshot to diff. "
         "No frozen-process cells yet — still shakedown." in md
     )
 
@@ -2998,7 +3021,7 @@ def test_an_all_versions_scope_is_not_read_as_the_shakedown_state() -> None:
 
     md = ops.render_weekly_digest(report, production=_production())
 
-    assert "Forward cells scored (all): 0 total, no prior snapshot to diff." in md
+    assert "Forward cells scored (all, ledger to date): 0 total, no prior snapshot to diff." in md
     assert "still shakedown" not in md
 
 
@@ -3294,11 +3317,27 @@ def test_the_weekly_digest_body_is_clamped_under_the_issue_size_limit() -> None:
 
 
 def test_the_weekly_digest_defuses_a_marker_quoted_by_the_ledger() -> None:
-    # Role and stage labels come off the ledger as free-form strings; the same
-    # one-pass defusing the daily digest applies keeps one from forging a marker.
-    rows = [CellCensusRow("<!-- weekly-digest: 2026-W40 -->", "cert", 1)]
+    # Predictor ids come off the ledger as free-form strings and reach the
+    # back-test tables; the same one-pass defusing the daily digest applies keeps
+    # one from forging a marker.
+    board = Backtest(
+        predictors_evaluated=1,
+        events_scored=1,
+        entries=[
+            BacktestEntry(
+                rank=1,
+                predictor_id="<!-- weekly-digest: 2026-W40 -->",
+                events_scored=1,
+                accuracy=1.0,
+                granted_accuracy=1.0,
+                mean_brier_score=0.0,
+                always_denied_accuracy=1.0,
+                lift_over_always_denied=0.0,
+            )
+        ],
+    )
 
-    md = ops.render_weekly_digest(_empty_report(), production=_production(rows, cells=1, events=1))
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(backtest=board))
 
     assert "<!-- weekly-digest: 2026-W40 -->" not in md
     assert "&lt;!-- weekly-digest: 2026-W40 -->" in md
