@@ -53,7 +53,13 @@ fields that mean the same thing at every stage:
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so
   a cell's provisioned inputs (the snapshot, `context.json`, and `documents/`)
   sit beside every event of the case rather than under the event being
-  predicted. The field is the agent's own string. The prompt contracts one
+  predicted. The staged `documents/` carry a `documents.json` manifest stating
+  each filing's extraction facts and whether its text was passed through the
+  contact-detail scrub — which is where a cell meeting
+  `[contact detail withheld]` in a filing can confirm the pipeline put it there
+  ([live-sources.md](live-sources.md)).
+
+  The `input_snapshot` field is the agent's own string. The prompt contracts one
   spelling — the file's bare basename `YYYY-MM-DD.json`, or the literal
   `missing` with the reason in `flags.json` where the cell found no snapshot at
   all — while the committed ledger predates that contract and spells one file
