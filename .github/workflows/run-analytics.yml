@@ -139,6 +139,7 @@ on:
           - claude-haiku-4-5-20251001
           - claude-sonnet-4-6
           - claude-fable-5
+          - claude-opus-5-5
         default: claude-haiku-4-5-20251001
       # corpus-stats inputs (ignored by every other mode). All are optional; an
       # empty value means "no filter" / "no grouping".
@@ -1233,9 +1234,11 @@ jobs:
       # instead — the same npm pattern run-backtest.yml and integration-test.yml
       # prove on these runners, kept in version step with both — and hand the
       # action the executable, which skips its own install path entirely. The
-      # action bundles a slightly newer CLI for the cells it installs itself;
-      # if the labeler ever misbehaves under this pin, matching the bundled
-      # version is the first lever.
+      # pin runs ahead of the CLI the action bundles, because it is the floor
+      # the newest `label_model` choice needs (an older CLI refuses the model
+      # id). If the labeler ever misbehaves under this pin, the first lever is
+      # an action release whose bundled agent SDK matches it — not a rollback,
+      # which would drop that choice.
       - name: Install the pinned Claude Code CLI for the labeler
         id: claude-cli
         timeout-minutes: 5
@@ -1248,7 +1251,7 @@ jobs:
         # executing the agent itself carries.
         run: |
           set -euo pipefail
-          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.259
+          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.280
           # Claude's native binary is placed by its postinstall, which
           # --ignore-scripts suppresses; run the pinned package's own
           # installer explicitly.

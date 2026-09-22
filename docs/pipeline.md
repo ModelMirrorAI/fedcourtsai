@@ -471,6 +471,7 @@ queues behind the production run of the same mode. The modes:
   the measured block still reaches the step summary, and the job fails. The
   `label_model` dispatch input picks the labeler's model; a ceiling-sized run
   overrides the default for `claude-fable-5`, the one tier measured to finish.
+  `claude-opus-5-5` is offered too, with no measured pace or cost yet.
   See [qp-topic.md](qp-topic.md).
 
 ## `integration-test` — the infrastructure preflight
