@@ -25,11 +25,16 @@ Model spend is `events × cost per event`, and two dials set it:
   runs rather than the `P + 3P` a per-(predictor, evaluator) grading would cost:
   adding a predictor buys one more prediction run and makes each of the three
   grading runs a little larger. So `P` raises the cost *per event*, by an amount
-  that depends on which model is added: measured prediction runs span roughly
-  $0.60 to $4.30 across the current three.
+  that depends on which model is added: prediction runs span roughly $0.60 to
+  $3.00 across the current three.
 
 At today's `P = 3` with three evaluators, one fully predicted and evaluated
-event costs roughly **$15–17**. The evaluator count holds at 3 as `P` grows.
+event costs roughly **$10**. The claude pair's share of that is priced rather
+than measured: its cells run Claude Opus 5.5, priced at the token counts the
+pair recorded on the Fable tier it replaced — about $1.35 a prediction (122
+runs) and $1.30–1.40 a grading (27 runs) — on the assumption that Opus spends
+the same tokens, which the first round's `fedcourts usage-summary` replaces
+with a measurement. The evaluator count holds at 3 as `P` grows.
 Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled
 up by `fedcourts usage-summary`), so the rates can be re-anchored from
 measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned
@@ -49,8 +54,9 @@ merits event it leads to — on the order of 850–1,100 events a Term.
 | **Total** | **$2,600** | **$31,200** |
 
 The model line is the **envelope**, not today's run rate: 850–1,100 events at
-$15–17 is ≈$13–19K, and the headroom above it carries the moments milestone 1
-adds ([milestones.md](milestones.md)).
+about $10 is ≈$9–11K, and the headroom above it carries the moments milestone 1
+adds ([milestones.md](milestones.md)) and the re-forecast a process re-bless
+owes on every still-open event ([process-version.md](process-version.md)).
 
 ## Scenario 2: Scaling
 

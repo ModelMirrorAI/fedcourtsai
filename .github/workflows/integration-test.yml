@@ -954,11 +954,14 @@ jobs:
         # pinned claude package's own installer, which fetches the native
         # binary from the vendor's release endpoint — the same vendor trust
         # executing the agent itself carries. Keep the pins in lockstep with
-        # run-predict, run-evaluate, and run-backtest.
+        # the workflows that install the same CLIs: run-predict and
+        # run-evaluate (gemini), run-backtest (all three), and run-analytics's
+        # labeler (claude). Production claude cells run the CLI their action
+        # bundles instead, which the engine-actions-smoke leg exercises.
         run: |
           set -euo pipefail
           case "$ENGINE" in
-            claude-code) package="@anthropic-ai/claude-code@2.1.259" binary=claude ;;
+            claude-code) package="@anthropic-ai/claude-code@2.1.280" binary=claude ;;
             codex) package="@openai/codex@0.144.1" binary=codex ;;
             gemini) package="@google/gemini-cli@0.49.0" binary=gemini ;;
           esac
@@ -2085,7 +2088,7 @@ jobs:
         # Far below the cell step's 50: one word is one turn, and a bound that
         # tight is what keeps a hung invocation from eating the job budget.
         timeout-minutes: 10
-        uses: anthropics/claude-code-action@9c5ddab2e6d17b83ea679153b31f1d5f023cf636 # v1.0.217
+        uses: anthropics/claude-code-action@9ca9355b36297178e28d37c799d1c9c8a28e6507 # v1.0.231+1 (main 2026-09-22; bundles Claude Code 2.1.280)
         with:
           allowed_bots: "fedcourtsai-data[bot]"
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -2868,7 +2871,7 @@ jobs:
         # expressible for `npm i -g`.
         run: |
           set -euo pipefail
-          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.259
+          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.280
           node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
           claude --version
           path=$(command -v claude)
@@ -2896,7 +2899,7 @@ jobs:
         # and AGENTS.md — plus five short rows with margin; the job cap at 25
         # holds the setup steps beside it.
         timeout-minutes: 15
-        uses: anthropics/claude-code-action@9c5ddab2e6d17b83ea679153b31f1d5f023cf636 # v1.0.217
+        uses: anthropics/claude-code-action@9ca9355b36297178e28d37c799d1c9c8a28e6507 # v1.0.231+1 (main 2026-09-22; bundles Claude Code 2.1.280)
         env:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl

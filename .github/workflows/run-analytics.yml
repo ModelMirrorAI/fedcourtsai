@@ -139,6 +139,7 @@ on:
           - claude-haiku-4-5-20251001
           - claude-sonnet-4-6
           - claude-fable-5
+          - claude-opus-5-5
         default: claude-haiku-4-5-20251001
       # corpus-stats inputs (ignored by every other mode). All are optional; an
       # empty value means "no filter" / "no grouping".
@@ -1233,9 +1234,9 @@ jobs:
       # instead — the same npm pattern run-backtest.yml and integration-test.yml
       # prove on these runners, kept in version step with both — and hand the
       # action the executable, which skips its own install path entirely. The
-      # action bundles a slightly newer CLI for the cells it installs itself;
-      # if the labeler ever misbehaves under this pin, matching the bundled
-      # version is the first lever.
+      # pin matches the CLI the action bundles for the predict/evaluate cells,
+      # where it installs its own, and is the floor the newest `label_model` choice needs (an
+      # older CLI refuses the model id), so it never rolls back below that.
       - name: Install the pinned Claude Code CLI for the labeler
         id: claude-cli
         timeout-minutes: 5
@@ -1248,7 +1249,7 @@ jobs:
         # executing the agent itself carries.
         run: |
           set -euo pipefail
-          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.259
+          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.280
           # Claude's native binary is placed by its postinstall, which
           # --ignore-scripts suppresses; run the pinned package's own
           # installer explicitly.
@@ -1280,7 +1281,7 @@ jobs:
         # and leave nothing to report.
         id: label
         timeout-minutes: 40
-        uses: anthropics/claude-code-action@9c5ddab2e6d17b83ea679153b31f1d5f023cf636 # v1.0.217
+        uses: anthropics/claude-code-action@9ca9355b36297178e28d37c799d1c9c8a28e6507 # v1.0.231+1 (main 2026-09-22; bundles Claude Code 2.1.280)
         env:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl

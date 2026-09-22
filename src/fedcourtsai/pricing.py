@@ -36,27 +36,32 @@ _PER_MILLION: Final = 1_000_000
 
 @dataclass(frozen=True)
 class ModelRate:
-    """On-demand USD rate per one million input / output tokens."""
+    """On-demand USD rate per one million input / output tokens.
+
+    ``cache_read_per_mtok`` is the model's published cache-read rate where it
+    departs from ``CACHE_READ_MULTIPLIER`` times the input rate by enough to
+    matter; ``None`` applies the multiplier.
+    """
 
     input_per_mtok: float
     output_per_mtok: float
+    cache_read_per_mtok: float | None = None
 
 
 # Keyed by the model id the engine actually ran. The production models are
-# claude-fable-5-1 (predict/evaluate), claude-opus-4-8 (earlier ledger
-# records), gpt-6-astra, and gemini-3.1-pro-preview (the Pro tier is the
-# like-for-like comparator against the other engines' frontier defaults); the
-# Gemini Pro rate is the standard <=200k-context tier and the Astra rate the
-# <=272k-input tier (both step up beyond that). The table is
-# deliberately wider than what the registries route: the cheaper tier of each
+# claude-opus-5-5 (predict/evaluate), gpt-6-astra, and gemini-3.1-pro-preview
+# (the Pro tier is the like-for-like comparator against the other engines'
+# frontier defaults); the Gemini Pro rate is the standard <=200k-context tier
+# and the Astra rate the <=272k-input tier (both step up beyond that). The
+# table is deliberately wider than what the registries route: the cheaper tier of each
 # engine is priced too — claude-sonnet-4-6 and claude-haiku-4-5, gpt-5.6-terra
 # and gpt-5.6-luna, gemini-3.7-flash (the newest stable Flash) and the
 # gemini-3.6-flash it succeeds — because those are the plausible routes for a
 # task that does not need a frontier model, and record-usage refuses a model it
 # cannot price rather than recording a zero. Both Flash rates are promotional;
 # re-check them after 2026-12-31, when the promotion is scheduled to end.
-# Superseded production models (claude-fable-5, gpt-5.6-sol, gpt-5.5,
-# gemini-3.5-flash) keep
+# Superseded production models (claude-fable-5-1, claude-fable-5,
+# claude-opus-4-8, gpt-5.6-sol, gpt-5.5, gemini-3.5-flash) keep
 # their rates for the same reason: a re-recorded old cell (record-usage with an
 # explicit --model) must still price, and the committed ledger holds cells that
 # ran on each of them.
@@ -65,6 +70,10 @@ class ModelRate:
 # looks like: the point release did not move the published rate, and a test
 # asserts both rows rather than the newer one alone.
 MODEL_RATES: Final[dict[str, ModelRate]] = {
+    # Priced with its own cache-read rate: prompt-cache reads are the largest
+    # share of a claude cell's input, and the multiplier would bill them at
+    # twice the published $0.20.
+    "claude-opus-5-5": ModelRate(4.0, 20.0, cache_read_per_mtok=0.20),
     "claude-fable-5-1": ModelRate(10.0, 50.0),
     "claude-fable-5": ModelRate(10.0, 50.0),
     "claude-opus-4-8": ModelRate(5.0, 25.0),
@@ -89,14 +98,14 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
 
 # The model each engine runs when a predictor/evaluator pins no explicit override
 # (registry ``model: null``). These are the predict/evaluate defaults the matrix
-# resolves into each cell (and record-usage falls back on); the claude-fable-5
-# and claude-opus-4-8 rates stay so earlier ledger records still price. No
+# resolves into each cell (and record-usage falls back on); the superseded
+# claude rates stay so earlier ledger records still price. No
 # registered actor pins an override, so this map *is* what the fleet runs — and
 # it is a process-digest input through ``process_version._resolved_model``, so
 # moving a value here de-blesses that engine's actors and needs a re-bless in
 # the same commit (``docs/process-version.md``).
 DEFAULT_MODELS: Final[dict[str, str]] = {
-    "claude-code": "claude-fable-5-1",
+    "claude-code": "claude-opus-5-5",
     "codex": "gpt-6-astra",
     "gemini": "gemini-3.1-pro-preview",
 }
@@ -107,7 +116,8 @@ class TokenCounts:
     """A run's token usage, split into the buckets that bill at different rates.
 
     ``input_tokens`` is fresh (uncached) input; ``cache_read_input_tokens`` is
-    input served from the prompt cache (billed at ``CACHE_READ_MULTIPLIER``); and
+    input served from the prompt cache (billed at ``CACHE_READ_MULTIPLIER``, or
+    the model's own cache-read rate where ``ModelRate`` carries one); and
     ``cache_creation_input_tokens`` is input written to the cache (billed at
     ``CACHE_CREATION_MULTIPLIER``). Engines report these under different names and
     conventions; the parsers in ``fedcourtsai.usage`` normalize to this shape so
@@ -136,9 +146,14 @@ def estimate_cost_usd(model: str, counts: TokenCounts) -> float:
     decide whether an unknown model is fatal or merely skips cost capture.
     """
     rate = MODEL_RATES[model]
+    cache_read = (
+        rate.cache_read_per_mtok
+        if rate.cache_read_per_mtok is not None
+        else rate.input_per_mtok * CACHE_READ_MULTIPLIER
+    )
     return (
         counts.input_tokens * rate.input_per_mtok
-        + counts.cache_read_input_tokens * rate.input_per_mtok * CACHE_READ_MULTIPLIER
+        + counts.cache_read_input_tokens * cache_read
         + counts.cache_creation_input_tokens * rate.input_per_mtok * CACHE_CREATION_MULTIPLIER
         + counts.output_tokens * rate.output_per_mtok
     ) / _PER_MILLION
