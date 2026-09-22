@@ -4909,3 +4909,90 @@ freeze commit is recorded here.
   ones whose filing carried details. The log line is the surface a pathological
   count would be visible on, the manifest being gitignored with the rest of
   `record/`.
+
+- **proc-v9: the claude pair moves to Claude Opus 5.5, a predictor-half
+  re-bless over counted cells, ‹landing date›.** *(Drafted 2026-09-22 and held
+  until `results/ot2026-longconf` is minted; the landing date, every figure,
+  every digest and the step-0 grep below are re-read against the tree at the
+  rebase that lands it.)*
+  The **third supersession shape** in `docs/process-version.md`, and the only
+  one that de-counts.
+
+  **What moves.** One process input, on the claude pair only: the resolved
+  model, `claude-fable-5-1` → `claude-opus-5-5`. No registered actor pins a
+  `model:` override, so `pricing.DEFAULT_MODELS["claude-code"]` *is* what a
+  claude cell runs, and `process_version._resolved_model` hashes it. No prompt
+  byte and no registry field moves, so the codex and gemini digests are
+  byte-identical to proc-v8's and keep its bless moment. The prompts' `MODEL_ID`
+  row still names `claude-fable-5-1` as its example, left deliberately: its
+  bytes are hashed, and correcting an illustration would move all six digests.
+  The claude action pin moves to ‹the first tagged claude-code-action release
+  bundling Claude Code 2.1.280 or later›, the first CLI that accepts the model
+  id; the action pin is not a digest input.
+
+  **The digest table** — the two retired, and the four carried forward:
+
+  - `claude-baseline`, predictor:
+    `sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a`
+    → `sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734`
+  - `claude-judge`, evaluator:
+    `sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13`
+    → `sha256:57299c1a7f87b0b8f104d5456c39a083da0e88145d8b8dc911b3c55e2872f3e6`
+  - `codex-baseline`, `gemini-baseline`, `codex-judge`, `gemini-judge`:
+    unchanged from proc-v8.
+
+  Read off `fedcourts process-digest --all` against this tree.
+
+  **Step 0.** On `origin/main` at `2666786a7`, neither newly blessed digest
+  appears in any cell (`git grep -l '<digest>' origin/main -- data/cases`, 0
+  and 0).
+
+  **What this de-counts.** Every predictor digest the instant governs, not
+  only the claude one: `FROZEN_SINCE` is one boundary for the whole fleet, and
+  a predictor digest moving means it must sit at or after the carrying
+  promotion. At drafting time that is **366 proc-v8 predictions**, 122 per
+  engine (`claude-baseline` under the retired digest, and `codex-baseline` /
+  `gemini-baseline` under digests this label keeps but whose cells predate the
+  new instant), and **0** evaluations under any of the three proc-v8 evaluator
+  digests. `graded_post_freeze` drops every evaluation stamped before the
+  instant, on all three judges, so by the rebase the long-conference gradings
+  make the evaluation count large; both counts are restated then. The cells
+  keep their stamps and stay replayable under `--all-versions`; no claim pools
+  across the boundary in either direction.
+
+  **The release comes first, as a gate.** The long-conference release counts
+  proc-v8 cells, and its evidence commands read the live frozen scope. This
+  entry's promotion therefore waits until `results/ot2026-longconf` is minted;
+  after it lands, that tag is the only place the release's figures reproduce.
+
+  **The declaration this rests on.** The shape is pre-registered only if a
+  dated entry, committed while the de-counted window's outcomes are still
+  unknown, closes the window. That is ‹the declaration entry, its date and its
+  carrying promotion›, which closed the proc-v8 counted window at the proc-v9
+  instant, before any cohort event resolved: counted for the long-conference
+  release, out of the live board's scope from the instant on, with proc-v9's
+  cells the counted record after it.
+
+  **The re-forecast this owes.** The pre-freeze re-predict rule re-owes every
+  still-open event the proc-v8 cells covered, on **all three engines**: the
+  codex and gemini digests are unchanged, but their cells fail `is_frozen`'s
+  time limb once the instant moves. It is bounded by the moments still open
+  when this lands, and its size is stated here at the rebase, before any of
+  its outcomes are observable.
+
+  **The bless moment and the instant.** The two new entries carry step 2's
+  forecast, the freeze commit's date; the instant is guessed late, past the
+  write-up window. Both are corrected at step 4 against the carrying merge,
+  `git log -1 --format=%cI promotion/<YYYY-MM-DD>`: the bless moments to it,
+  and the instant to it where the guess sits later — or bumped past it in a
+  follow-up promotion, before `prereg/proc-v9` is tagged, where the merge
+  lands after the guess.
+
+  **The runnable effect check, for the promotion carrying this.** That the
+  engine accepts the model: `gh workflow run integration-test.yml --repo
+  ModelMirrorAI/fedcourtsai --ref main -f scenario=engine-actions-smoke -f
+  engine=claude-code -f deploy-environment=prod`, green, with the resolve
+  step naming `claude-opus-5-5`. And that the fleet stamps the new process:
+  the first claude predict and evaluate cells minted after the promotion carry
+  `process_version.label` `proc-v9` and a digest from the table above, with
+  `usage.json` recording `"model": "claude-opus-5-5"`.

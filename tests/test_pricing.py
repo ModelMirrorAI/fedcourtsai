@@ -56,13 +56,13 @@ def test_cheaper_tiers_are_priceable_at_their_published_rates() -> None:
 
 
 def test_claude_default_model_and_rate() -> None:
-    # Predict/evaluate default to Fable 5.1. The point release holds the Fable
-    # 5 rate, and both rows are asserted rather than the newer one alone: two
-    # identical rates are also what a duplicated line looks like. claude-fable-5
-    # and claude-opus-4-8 stay priceable so earlier ledger records still price.
-    assert DEFAULT_MODELS["claude-code"] == "claude-fable-5-1"
-    rate = MODEL_RATES["claude-fable-5-1"]
-    assert (rate.input_per_mtok, rate.output_per_mtok) == (10.0, 50.0)
+    # Predict/evaluate default to Opus 5.5. The superseded claude models stay
+    # priceable so earlier ledger records still price; both Fable rows are
+    # asserted rather than one alone, since two identical rates are also what a
+    # duplicated line looks like.
+    assert DEFAULT_MODELS["claude-code"] == "claude-opus-5-5"
+    assert MODEL_RATES["claude-opus-5-5"] == ModelRate(4.0, 20.0, cache_read_per_mtok=0.20)
+    assert MODEL_RATES["claude-fable-5-1"] == ModelRate(10.0, 50.0)
     assert MODEL_RATES["claude-fable-5"] == ModelRate(10.0, 50.0)
     assert "claude-opus-4-8" in MODEL_RATES
 
@@ -100,3 +100,11 @@ def test_total_tokens_sums_all_buckets() -> None:
         cache_creation_input_tokens=8,
     )
     assert counts.total_tokens == 15
+
+
+def test_a_model_cache_read_rate_overrides_the_multiplier() -> None:
+    # 1M cache-read tokens on claude-opus-5-5 bill at its published $0.20, not
+    # the multiplier's $0.40; a model without its own rate keeps the multiplier.
+    reads = TokenCounts(cache_read_input_tokens=1_000_000)
+    assert estimate_cost_usd("claude-opus-5-5", reads) == pytest.approx(0.20)
+    assert estimate_cost_usd("claude-opus-4-8", reads) == pytest.approx(0.50)
