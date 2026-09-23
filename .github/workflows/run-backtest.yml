@@ -30,9 +30,10 @@ on:
   schedule:
     # 06:23 UTC on Saturdays. The slot is chosen for the runway behind it, not
     # for the corpus in front of it: a released fortnight has to derive its
-    # plan, wait however long the hold takes, run up to its 330-minute cap, and
-    # then land a **reviewed** PR before the Monday 08:30 digest tick reads the
-    # report — roughly 50 hours, which no weekday slot leaves. It opens after
+    # plan, wait however long the hold takes, run up to its 330-minute cap (the
+    # pinned ten petitions expect well under an hour of it), and then land a
+    # **reviewed** PR before the Monday 08:30 digest tick reads the report —
+    # roughly 50 hours, which no weekday slot leaves. It opens after
     # run-pull's 04:47 live window (35-minute cap) has committed and closes well
     # before the 07:17 ingestion window; the replay only ever reads the corpus
     # and takes no `corpus-write` lock, so an overlap would cost a staler read
@@ -403,14 +404,21 @@ jobs:
     concurrency:
       group: run-backtest
       cancel-in-progress: false
-    # Headroom for ~25 petitions x 3 routable predictors of real agent cells
-    # (claude-code, codex, gemini), run strictly sequentially, plus the corpus
-    # pull — ~75 cells at the dispatch default, which is what keeps a hung engine
-    # from burning six billable hours. It stays sized for the widest dispatch
-    # rather than for the cron's pinned 10 petitions (~30 cells, well inside it):
-    # a cap that killed a legitimately-running replay would waste the spend it
-    # had already made. This 330-minute cap is the hard ceiling the cadence
-    # guard and the cron slot's runway are both written against.
+    # The cap on ~25 petitions x 3 routable predictors of real agent cells
+    # (claude-code, codex, gemini), plus the corpus pull — ~75 cells at the
+    # dispatch default — which is what keeps a hung engine from burning six
+    # billable hours. The cells run in one lane per engine: each engine's cells
+    # in series, the three lanes at once (`fedcourts cert-backtest`), so the
+    # replay's wall clock is the slowest lane's, not the sum. On the measured
+    # serial rates — codex a median 2.3 min/cell and gemini ~9 on the first
+    # 25-petition campaign (300 minutes, all 75 cells in series), gemini ~3.8
+    # after its work-root fix (15 cells in 57 minutes) — the gemini lane sets it:
+    # ~95 minutes at 25 petitions, ~40 at the cron's pinned 10, before whatever
+    # three engines sharing one runner costs each. The cap is deliberately not
+    # lowered to that: a cap that killed a legitimately-running replay would
+    # waste the spend it had already made, and one slow or retrying engine
+    # stretches its lane alone. This 330-minute cap is the hard ceiling the
+    # cadence guard and the cron slot's runway are both written against.
     timeout-minutes: 330
     environment: prod
     permissions:

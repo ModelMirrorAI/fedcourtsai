@@ -4623,7 +4623,12 @@ class CertBacktestDispatch(_Strict):
 #: inline ``Literal`` because the replay code classifies a loss before it builds
 #: one, and a second spelling of the vocabulary is a second thing to keep in step.
 CertBacktestLossReason = Literal[
-    "missing", "wrote-outside-work-root", "invalid", "engine-failed", "quota-exhausted"
+    "missing",
+    "wrote-outside-work-root",
+    "invalid",
+    "engine-failed",
+    "quota-exhausted",
+    "harness-error",
 ]
 
 
@@ -4658,8 +4663,16 @@ class CertBacktestCellLoss(_Strict):
       the same campaign carries this reason without being attempted, since the
       attempt is a paid-for certainty of the same failure.
 
-    The last two are distinct because they say different things about the run:
-    one cell hit a fault, against one engine being finished for the day.
+    - ``harness-error`` — the harness itself raised something no engine fault
+      explains while running or reading this cell, or an earlier cell of the
+      same engine's lane. The cause is unknown and may be systemic, so the lane
+      stops there: that cell and every later one of its engine carry this
+      reason, the later ones without being attempted, while the other engines'
+      lanes run on. The run log names the exception.
+
+    ``engine-failed`` and ``quota-exhausted`` are distinct because they say
+    different things about the run: one cell hit a fault, against one engine
+    being finished for the day.
     """
 
     predictor_id: str = Field(description="The predictor whose cell was lost")

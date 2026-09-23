@@ -5369,11 +5369,12 @@ def _report_replay_drops(
         # An engine that ran out of quota did not produce unreadable cells — most
         # of them it never attempted — so the drop line says which of the two
         # happened rather than defaulting to the artifact-shaped wording.
-        cause = (
-            "its engine's quota was exhausted"
-            if "quota-exhausted" in reasons
-            else "every one of its cells was lost"
-        )
+        if "quota-exhausted" in reasons:
+            cause = "its engine's quota was exhausted"
+        elif "harness-error" in reasons:
+            cause = "its engine's lane stopped on a harness fault"
+        else:
+            cause = "every one of its cells was lost"
         typer.echo(f"dropped predictor {pid}: {cause}", err=True)
     for predictor in roster:
         if (
@@ -5451,6 +5452,16 @@ def cert_backtest_cmd(
             "cells (default: a temporary directory). Never data/."
         ),
     ] = None,
+    workers: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Engine lanes to run at once. Each engine's cells always run one after "
+            "another in its own lane; 0 (the default) runs every engine's lane at once, "
+            "and 1 runs the lanes one after another, which is what debugging one wants. "
+            "The report is the same either way.",
+        ),
+    ] = 0,
 ) -> None:
     """Back-test cert predictors over decided petitions into ``metrics/cert-backtest.json``.
 
@@ -5570,6 +5581,7 @@ def cert_backtest_cmd(
                 engine_override=None if engine == "auto" else engine,
                 skip_engines=skipped_engines,
                 run_id=replay_run_id,
+                workers=workers,
             )
             provisioning, lost_cells = outcome.provisioning, outcome.lost_cells
             disclosures, tally = outcome.disclosures, outcome.disclosure_tally

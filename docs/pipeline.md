@@ -1774,6 +1774,26 @@ cell, which lands on that ledger like any other. What bounds this lane is the
 fortnightly cadence, that pinned `--limit`, the manual hold, and the job's
 `timeout-minutes` — not `spend.ceiling_usd`.
 
+The campaign runs its cells in **engine lanes**. Every petition's case tree is
+provisioned first, serially; then one worker per engine walks every petition's
+cells for that engine in the dispatched order, and the three lanes run at once.
+An engine's own cells never overlap — codex logs in per cell into one
+per-process auth home, which two concurrent cells would race on — and each
+provider still sees one cell at a time, so the concurrency costs no provider
+more than a serial walk did. A spent quota or a missing binary is a fact only
+its own lane reads, and the lanes' results are merged after all of them finish
+and sorted, so the report is the one a serial walk writes whichever lane
+finishes first. The wall clock is the slowest lane's rather than the sum: at
+the measured serial rates — codex a median 2.3 minutes a cell, claude about 3,
+gemini about 3.8 once its file tools reached the work root (15 cells in 57
+minutes) — the gemini lane sets it, so the cron's ten petitions should take
+about 40 minutes and a 25-petition dispatch about 95, against the job's
+330-minute cap, which stays sized for a hung engine rather than for the
+expected run. Those are serial rates carried over, not yet a lane measurement:
+three engines sharing one runner may run each a little slower. Every line a lane writes to the
+log, the engine's own output included, carries the engine as a prefix, since
+the three interleave.
+
 Such a campaign accounts for its losses rather than ending on one, so a report
 always lands. An engine whose CLI binary is missing drops that predictor whole.
 A cell whose engine exited non-zero, and a cell that left no readable
@@ -1786,11 +1806,15 @@ invocation is a paid-for certainty of the same failure. That is where it parts
 company with a missing binary, which also drops its predictor for the rest of
 the run but skips the remaining cells **silently** — an engine that was never
 installed had no cells to lose, while one that ran out did, so those cells are
-named. All of
+named. A lane that raises something no engine fault explains stops the same
+way and for a kindred reason — the cause is unknown and may repeat, and every
+attempt costs — so that cell and the engine's remaining ones are recorded lost
+as `harness-error` without being attempted, while the other lanes run on. All of
 them are printed to the run log and all ride `metrics/cert-backtest.json` — the
 whole-predictor ones in `provenance.dropped_predictors`, the per-cell ones in
 `provenance.lost_cells` with the reason (`missing`, `invalid`,
-`wrote-outside-work-root`, `engine-failed`, or `quota-exhausted`) — because the
+`wrote-outside-work-root`, `engine-failed`, `quota-exhausted`, or
+`harness-error`) — because the
 run log expires and the artifact does not, and the review PR body names the
 per-cell losses outright. An engine whose quota ran out is never reported as an
 unavailable binary: the two are different facts about the run. A predictor
