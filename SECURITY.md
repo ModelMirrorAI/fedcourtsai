@@ -436,9 +436,9 @@ runbook, [docs/security.md](docs/security.md).
   role, its own engine keys for the pre-promotion integration runs, the
   staging read-write role, the staging telemetry App's client id and
   private key — the Issues-only App the repro leg's rehearsal record is
-  minted from — and the staging copy of the case-summary lane's key. A third,
-  `review`, holds no secret, no role, and no branch policy: its entire content
-  is a required-reviewer rule, and it exists only as the audit-logged hold
+  minted from. A third, `review`, holds no secret and no role and admits
+  `main` and `staging`; beyond that its content is a required-reviewer rule,
+  and it exists only as the audit-logged hold
   between a plan that would spend and the spend — run-predict, run-evaluate,
   run-backtest and summarize all bind it; one environment serves every spend
   hold rather than each minting its own. What each hold covers differs by what

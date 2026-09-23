@@ -69,6 +69,12 @@ The prompt is `.github/prompts/summarize.md`. Its rules:
   passing. The repository holds no site glossary, so the prompt defines each
   term itself, minimally; a site glossary, once it exists, is the definition to
   align the prompt with.
+- **Accurate to the record.** An allegation only one side's filing makes is
+  attributed to that filing; a question presented is restated without changing
+  who made the rule, whom it binds, or which way it cuts; routine docket
+  entries are left out, and one that matters to the posture is named as the
+  docket names it; a request the docket shows only as filed is not reported
+  as granted; dates and counts are as the entries give them.
 - **People.** Named only as the caption and filings name them; initials stay
   initials; no personal detail beyond the dispute.
 
@@ -243,12 +249,18 @@ shortest GitHub offers, one day. It rides the qp-topic extract's footing —
 supremecourt.gov content only, since the plan and `summarize` both refuse a
 CourtListener REST snapshot ([data-sources.md](data-sources.md)) — and is
 wider than the extract in one way: every stored filing of each planned case
-rather than one section of each petition. A race keeps a small residual: a
-REST snapshot stored between the plan and the stage for the same day is staged
-(and then refused by `summarize`), so it crosses the artifact once. Closing
-the channel outright means encrypting the staged tree to a key only the
-generate job holds, or staging in the same job as generation with step-scoped
-corpus credentials.
+rather than one section of each petition. Staging runs after the review hold
+and provisions whatever snapshot is newest by then, so the plan's screen alone
+would let a REST snapshot stored in between reach the artifact. The stage job
+therefore re-applies it to what it actually staged, before the upload and on
+the side of the job boundary that holds the corpus credentials
+(`summary-stage-check`), as an allowlist: a case crosses only if it was
+planned and its tree holds exactly what provisioning writes — the planned day's
+snapshot in the Court's own shape, `context.json`, and the documents manifest
+with one text file per listed document, each fetched from supremecourt.gov. A
+symlink removes the case rather than being followed, and anything else under
+the stage root is removed. A removed case is reported skipped and planned again
+by the next run.
 
 **The written summaries are a public artifact for a week.** The
 `case-summaries` artifact carries the generated files, after the jail and the

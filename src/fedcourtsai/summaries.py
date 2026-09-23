@@ -29,11 +29,13 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 import yaml
@@ -319,6 +321,127 @@ class StagedDocument:
     text: str
     entry_date: str | None = None
     stored_truncated: bool = False
+
+
+def prune_stage(plan: SummaryPlan, stage_root: Path) -> list[tuple[str, str]]:
+    """Remove every staged record that may not leave the stage job.
+
+    The staged tree crosses to the generate job as a run artifact, which on a
+    public repository any signed-in user can download while it exists, so it
+    may carry the Court's own docket JSON and filings and nothing else. The plan
+    screened each case's newest snapshot, but staging runs later — after the
+    review hold — and provisions whatever is newest then, so a CourtListener
+    REST snapshot stored in between would be staged. This re-applies the screen
+    to what was actually staged, on the side of the job boundary that holds the
+    corpus credentials, as an allowlist: a case is kept only if the plan names
+    it and its tree holds exactly what provisioning writes — the planned day's
+    snapshot in the Court's shape, ``context.json``, and the documents manifest
+    with one text file per listed document, each fetched from supremecourt.gov.
+    Everything else under the stage root is removed, and a symlink anywhere
+    removes the case rather than being followed. Returns ``(path, reason)`` for
+    each removal.
+    """
+    planned = {(c.court_id, str(c.docket_id)): c for c in plan.cases}
+    removed: list[tuple[str, str]] = []
+    if not stage_root.is_dir() or stage_root.is_symlink():
+        return removed
+    cases_root = stage_root / "cases"
+    for entry in sorted(stage_root.iterdir()):
+        if entry != cases_root or entry.is_symlink() or not entry.is_dir():
+            _remove(entry)
+            removed.append((entry.name, "not a case tree"))
+    if not cases_root.is_dir():
+        return removed
+    for court_dir in sorted(cases_root.iterdir()):
+        if court_dir.is_symlink() or not court_dir.is_dir():
+            _remove(court_dir)
+            removed.append((court_dir.name, "not a court directory"))
+            continue
+        for case_dir in sorted(court_dir.iterdir()):
+            label = f"{court_dir.name}/{case_dir.name}"
+            case = planned.get((court_dir.name, case_dir.name))
+            reason = "not planned" if case is None else _stage_problem(case_dir, case)
+            if reason:
+                _remove(case_dir)
+                removed.append((label, reason))
+    return removed
+
+
+def _stage_problem(case_dir: Path, case: SummaryPlanCase) -> str:
+    """Why one planned case's staged tree may not cross the artifact, or ``""``."""
+    if case_dir.is_symlink() or not case_dir.is_dir():
+        return "not a case directory"
+    files: set[str] = set()
+    for path in case_dir.rglob("*"):
+        if path.is_symlink():
+            return f"symlink {path.relative_to(case_dir)}"
+        if path.is_file():
+            files.add(path.relative_to(case_dir).as_posix())
+    snapshot = f"record/snapshots/{case.snapshot.isoformat()}.json"
+    problem = _snapshot_problem(case_dir, snapshot, files)
+    if problem:
+        return problem
+    documents, problem = _staged_documents(case_dir)
+    if problem:
+        return problem
+    extra = sorted(files - {snapshot, "record/context.json"} - documents)
+    return f"unexpected staged file {extra[0]}" if extra else ""
+
+
+def _snapshot_problem(case_dir: Path, snapshot: str, files: set[str]) -> str:
+    """Whether the planned day's snapshot is staged, alone, in the Court's shape."""
+    if snapshot not in files:
+        others = sorted(f for f in files if f.startswith("record/snapshots/"))
+        if others:
+            return f"staged snapshot {others[0]} is not the planned {Path(snapshot).stem}"
+        return "no staged snapshot"
+    try:
+        payload = json.loads((case_dir / snapshot).read_text())
+    except (OSError, ValueError):
+        return "staged snapshot is unreadable"
+    if not isinstance(payload, dict) or LIVE_SHAPE_KEY not in payload:
+        return "staged snapshot is not the Court's own docket JSON"
+    return ""
+
+
+def _staged_documents(case_dir: Path) -> tuple[set[str], str]:
+    """The document files the staged manifest accounts for, or why it cannot cross.
+
+    Each listed document must have been fetched from supremecourt.gov (every
+    ``|``-joined part of its ``url``); a case with no manifest stages no documents.
+    """
+    manifest = "record/documents/documents.json"
+    if not (case_dir / manifest).is_file():
+        return set(), ""
+    try:
+        entries = json.loads((case_dir / manifest).read_text())
+    except (OSError, ValueError):
+        return set(), "documents manifest is unreadable"
+    if not isinstance(entries, list):
+        return set(), "documents manifest is not a list"
+    allowed = {manifest}
+    for entry in entries:
+        kind = entry.get("kind") if isinstance(entry, dict) else None
+        if not isinstance(kind, str):
+            return set(), "documents manifest entry has no kind"
+        if not all(_is_court_url(url) for url in str(entry.get("url", "")).split("|")):
+            return set(), f"document {kind!r} was not fetched from supremecourt.gov"
+        allowed.add(f"record/documents/{kind}.txt")
+    return allowed, ""
+
+
+def _is_court_url(url: str) -> bool:
+    host = (urlsplit(url.strip()).hostname or "").lower()
+    return urlsplit(url.strip()).scheme == "https" and (
+        host == "supremecourt.gov" or host.endswith(".supremecourt.gov")
+    )
+
+
+def _remove(path: Path) -> None:
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    else:
+        path.unlink(missing_ok=True)
 
 
 def read_staged_record(
