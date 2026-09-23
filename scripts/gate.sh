@@ -13,7 +13,9 @@
 #   scripts/gate.sh lint     ruff format --check + ruff check
 #   scripts/gate.sh types    mypy
 #   scripts/gate.sh test     pytest, fanned across cores (set GATE_COV=1 for
-#                            coverage, as CI does; GATE_TEST_WORKERS=1 for a
+#                            coverage, as CI does, measured under Python's
+#                            sys.monitoring — COVERAGE_CORE overrides the core
+#                            for a comparison run; GATE_TEST_WORKERS=1 for a
 #                            serial run when debugging)
 #   scripts/gate.sh data     validate data + corpus-status
 #   scripts/gate.sh schemas  export-schemas + schema-drift check
@@ -68,7 +70,13 @@ test_stage() {
   # would break the serial path — the one this script promises a debugger — on a
   # Mac's system bash while leaving the default path working.
   if [ "${GATE_COV:-0}" = "1" ]; then
-    uv run pytest ${fanout[@]+"${fanout[@]}"} --cov --cov-report=term-missing
+    # sys.monitoring rather than coverage.py's default C tracer: about a third of
+    # the wall time for the same line-coverage result. What it cannot do on 3.12
+    # — branch coverage, dynamic contexts, non-thread concurrency — this
+    # project's coverage config does not use; configuring one makes coverage
+    # warn and fall back to the C tracer, slower but not failing.
+    COVERAGE_CORE="${COVERAGE_CORE:-sysmon}" \
+      uv run pytest ${fanout[@]+"${fanout[@]}"} --cov --cov-report=term-missing
   else
     uv run pytest ${fanout[@]+"${fanout[@]}"}
   fi
