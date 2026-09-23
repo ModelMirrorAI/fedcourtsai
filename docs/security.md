@@ -410,8 +410,11 @@ below; `summarize`'s publish job, which runs on `main` only, is the literal
 deliberate exceptions, by environment. The `approval` jobs of run-predict,
 run-evaluate, run-backtest and summarize declare
 **`review`**, an environment that exists *only* for its required reviewers.
-It carries no secrets, no variables, no role, and no deployment-branch
-policy; each job it gates runs one echo under `permissions: {}`, so the
+It carries no secrets, no variables and no role, and its deployment branches
+are `main` and `staging` — `staging` so that summarize's staging rehearsal
+(the one held lane whose jobs resolve their environment from the ref) passes
+the same hold its production run does;
+each job it gates runs one echo under `permissions: {}`, so the
 environment grants nothing and merely withholds the spend behind it — a
 fan-out's matrix, the back-test's fortnightly replay, or a case-summary
 run — until
@@ -461,8 +464,9 @@ the ~8 known shapes) would pass. Relatedly, never put anything sensitive in a
 on the `staging` environment, whose policy is load-bearing twice over: the
 read-only role's trust names it, and so does the one write-capable role
 outside `prod`); `review`
-deliberately carries no branch policy, since it holds nothing a branch could
-take. A job can read the environment's
+admits `main` and `staging` — it holds nothing a branch could take, so its
+policy only decides which refs may request a spend hold, and a staging
+rehearsal of a held lane must be among them. A job can read the environment's
 secrets only when it runs from `main`, so a workflow authored on a PR branch runs
 **without** the App key, agent tokens, or S3 role: a malicious or prompt-injected
 workflow added in a PR cannot exfiltrate secrets on its own PR run; the change
