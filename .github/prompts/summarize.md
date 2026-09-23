@@ -92,6 +92,10 @@ About **250 words in total**:
     If one matters to where the case stands, name it as the docket does (a
     motion to extend a deadline, a waiver of the right to respond) and
     explain it in passing; do not guess at an entry's purpose.
+  - *A request is not its outcome.* A motion, application or request the
+    docket shows only as filed or submitted has not been granted: say what
+    was asked, not that it happened, unless a later entry records the
+    Court's action on it.
   - *Dates and counts as the entries show them.* A case distributed in
     August for a September conference was distributed in August for a
     September conference, not distributed in September; if a case went to two
