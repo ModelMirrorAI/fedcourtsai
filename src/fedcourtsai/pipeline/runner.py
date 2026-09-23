@@ -562,6 +562,18 @@ class EngineFailed(RuntimeError):
     """The engine CLI exited non-zero for a cell."""
 
 
+class EngineQuotaExhausted(EngineFailed):
+    """The engine CLI exited non-zero because the provider's quota is spent.
+
+    A subclass rather than a message convention: a caller that absorbs a failed
+    cell has to tell an ordinary failure from one that every *later* cell on
+    the same engine will repeat, and reading that off an exception's prose is
+    how a message edit silently changes behavior. An ordinary ``EngineFailed``
+    says this cell failed; this says the engine will fail the next one too,
+    until whatever window its allowance is measured over rolls over.
+    """
+
+
 @dataclass(frozen=True)
 class EngineCommand:
     """One agent invocation: the argv to run and the cell env vars to set."""
@@ -885,11 +897,44 @@ _TRANSIENT_FAILURE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+# The provider wording that marks a quota as *spent* rather than throttled, which
+# the transient set above cannot tell apart on its own: a daily allowance arrives
+# as the same 429 a momentary throttle does, and only the message says which. Each
+# alternative is quoted from an engine's real output, with the engine named, since
+# a guessed marker either never fires or fires on an ordinary throttle.
+_TERMINAL_QUOTA = re.compile(
+    r"""
+      TerminalQuotaError   # gemini CLI's own terminal-quota error class
+    # gemini again, the prose it prints with it: "You have exhausted your daily
+    # quota on this model".
+    | exhausted[\s_-]*your[\s_-]*daily[\s_-]*quota
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
 # A server-advertised backoff hint on stderr — an HTTP ``Retry-After`` header (or
 # a provider message echoing it), in whole seconds. Honored in place of the
 # computed backoff when present (still capped at ``backoff_max_seconds``), since
 # the server's own hint is better than a blind exponential guess.
 _RETRY_AFTER = re.compile(r"retry[\s_-]*after[\s:=]+(\d+)", re.IGNORECASE)
+
+
+def _failure_is_terminal_quota(result: CommandResult) -> bool:
+    """Whether a failed cell's stderr says the engine's quota is spent for good.
+
+    A throttle clears within the retry budget and a spent daily allowance does
+    not, yet both arrive as a 429 — so the ordinary 429 the transient set reads
+    would spend the whole backoff budget on a certain failure, per cell, for the
+    rest of a campaign. These markers are the provider's own terminal wording,
+    and each is quoted from a message an engine actually emitted rather than
+    guessed at: the ``gemini`` CLI raises ``TerminalQuotaError`` and prints "You
+    have exhausted your daily quota on this model". The other two engines are
+    absent because no observed message of theirs draws the distinction; until
+    one does, their quota faults stay on the ordinary transient path, which is
+    the conservative reading (a retried throttle costs backoff, a
+    misclassified one costs the cell).
+    """
+    return bool(_TERMINAL_QUOTA.search(result.stderr))
 
 
 def _failure_is_transient(result: CommandResult) -> bool:
@@ -899,7 +944,14 @@ def _failure_is_transient(result: CommandResult) -> bool:
     (429 / 5xx / timeout are transient; a deterministic client error is not).
     Matches known-transient provider signatures on stderr; an unrecognized or
     empty stderr reads as permanent, so an unclassifiable failure is not retried.
+
+    A terminal quota (:func:`_failure_is_terminal_quota`) overrides the whole
+    transient set, because its message carries the ordinary throttle signatures
+    too — a 429, the word quota — and matching those first would retry the one
+    fault that cannot clear.
     """
+    if _failure_is_terminal_quota(result):
+        return False
     return bool(_TRANSIENT_FAILURE.search(result.stderr))
 
 
@@ -1006,6 +1058,12 @@ class AgenticRunner:
         ``max_attempts`` total tries; a permanent fault, or the attempt cap, is a
         hard failure (:class:`EngineFailed`). The same command and env are reused
         across attempts — the cell contract is identical each try.
+
+        A **terminal quota** is the one throttle-shaped fault on the permanent
+        side (:func:`_failure_is_terminal_quota`): it fails on the first attempt,
+        with no backoff, as :class:`EngineQuotaExhausted` — a subclass a caller
+        can catch ahead of :class:`EngineFailed` to stop attempting that engine
+        at all.
         """
         command = self.build_command(request)
         env = {**_agent_base_env(self.auth_vars), **extra_env, **command.env}
@@ -1021,6 +1079,15 @@ class AgenticRunner:
                 f"{self.backend} exited {result.returncode} "
                 f"for cell {request.actor_id}/{request.event_id}"
             )
+            if _failure_is_terminal_quota(result):
+                # The allowance is spent, not throttled: the backoff budget would
+                # buy three identical failures, and every later cell on this
+                # engine would buy three more. Named apart so a caller can stop
+                # attempting that engine instead of re-learning this per cell.
+                raise EngineQuotaExhausted(
+                    f"{base} (terminal quota: the engine's quota is exhausted "
+                    "and no retry can clear it)"
+                )
             if not _failure_is_transient(result):
                 # Deterministic fault (content filter, context length, auth): a
                 # retry would burn the same tokens for the same failure.

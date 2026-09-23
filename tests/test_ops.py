@@ -1,7 +1,7 @@
 import json
 import re
 from collections.abc import Sequence
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -20,17 +20,14 @@ from fedcourtsai.schemas import (
     BacktestCourtScore,
     BacktestEntry,
     BaseRateBucket,
-    BigCaseBoard,
-    BigCaseCoverage,
-    BigCaseRow,
     CalibrationBin,
     CertBacktest,
     CertBacktestCellLoss,
+    CertBacktestDisclosureTally,
     CertBacktestDispatch,
     CertBacktestEntry,
     CertBacktestProvenance,
     ClaimProbability,
-    ClaimScoreBoard,
     ConferenceBucket,
     CorpusCheck,
     CorpusValidation,
@@ -42,10 +39,7 @@ from fedcourtsai.schemas import (
     EventKind,
     FlagCategory,
     FlagSeverity,
-    FrozenProcessRecord,
     GroupBy,
-    Leaderboard,
-    LeaderboardEntry,
     LeakageAssessment,
     LedgerValidation,
     LiveFrontier,
@@ -357,12 +351,8 @@ def test_render_surfaces_the_model_rate_not_just_the_cumulative_total() -> None:
     assert "$60.00 cumulative over 6.0d of ledger" in body
     assert f"Run-rate **~${all_in}/mo** projected" in body
 
-    digest = ops.render_weekly_digest(report)
-    assert "(~$300/mo while running)" in digest
-    assert f"~${all_in}/mo projected all-in" in digest
 
-
-def test_render_digest_says_unrated_rather_than_implying_zero_spend() -> None:
+def test_render_markdown_says_unrated_rather_than_implying_zero_spend() -> None:
     """The None branch must read as 'not computed', never as a small number."""
     report = ops.build_ops_report(
         generated_at="2026-06-26T12:00:00+00:00",
@@ -371,9 +361,8 @@ def test_render_digest_says_unrated_rather_than_implying_zero_spend() -> None:
     )
     assert report.cost.estimated_monthly_usd is None
 
-    digest = ops.render_weekly_digest(report)
-    assert "$500.00 model spend cumulative (unrated while running)" in digest
-    assert "~— projected all-in" in digest
+    body = ops.render_markdown(report)
+    assert "Run-rate **~—** projected · model —" in body
 
 
 def test_render_markdown_smoke() -> None:
@@ -1364,93 +1353,6 @@ def test_render_markdown_includes_substance_when_present() -> None:
 # --- the weekly digest ----------------------------------------------------------
 
 
-def test_render_weekly_digest_asks_the_fixed_questions() -> None:
-    report = ops.build_ops_report(
-        generated_at="2026-07-11T00:00:00+00:00",
-        runs=[],
-        usage=[_usage("a", 1.5)],
-        substance=ops.summarize_substance(
-            cell_counts=(6, 4, 3),
-            stratified_evaluations=[
-                (_evaluation("p", correct=1), "retrospective"),
-                (_evaluation("p", correct=1, run_id="20260702T000000Z"), "forward"),
-            ],
-            statpack=_statpack_with_cert_section(denied=95, granted=5),
-            live_frontier=LiveFrontier(
-                generated_on=date(2026, 7, 11),
-                watchlist=40,
-                next_conference=date(2026, 9, 29),
-                next_conference_petitions=35,
-                documents_provisioned=28,
-            ),
-        ),
-        open_triggers=ops.summarize_trigger_issues(
-            [
-                {
-                    "number": 9,
-                    "title": "evaluate: 1 case(s)",
-                    "labels": [{"name": "run:evaluate"}],
-                    "createdAt": "2026-07-08T09:00:00Z",
-                }
-            ]
-        ),
-    )
-    md = ops.render_weekly_digest(report)
-    assert md.startswith("<!-- weekly-digest: 2026-W28 -->")
-    assert "# Weekly performance digest" in md
-    assert "## Health questions" in md
-    assert "Replay calibration on 1 scored cell(s)" in md and "do you believe it?" in md
-    assert "Forward cells scored (frozen): 1 total, no prior snapshot to diff" in md
-    assert "35 petition(s) distributed for **2026-09-29**" in md and "28/40" in md
-    assert "Oldest stale fan-out label: `run:evaluate` (2d old) — clear it?" in md
-    assert "Spend vs budget: $1.50" in md
-
-
-def test_weekly_digest_reports_the_segment_brier_skill_when_present() -> None:
-    report = ops.build_ops_report(
-        generated_at="2026-07-11T00:00:00+00:00",
-        runs=[],
-        usage=[],
-        substance=ops.summarize_substance(
-            cell_counts=(2, 1, 2),
-            stratified_evaluations=[
-                (_evaluation("p", correct=1, brier_skill=0.3), "retrospective")
-            ],
-            statpack=_statpack_with_salience_section({"high": (30, 70)}),
-        ),
-    )
-    md = ops.render_weekly_digest(report)
-    assert "Brier skill **+0.300** vs the segment base rate" in md
-
-
-def test_render_weekly_digest_all_absent_still_asks() -> None:
-    report = ops.build_ops_report(generated_at="2026-07-11T00:00:00+00:00", runs=[], usage=[])
-    md = ops.render_weekly_digest(report)
-    assert "No scored replay cells yet" in md
-    assert "Stale fan-out labels: none" in md
-    assert "within plan?" in md
-
-
-def test_weekly_digest_reframes_the_shakedown_state_honestly() -> None:
-    """The frozen-empty shakedown must not read as a stalled machine: the digest's
-    'what is blocking?' / 'is the frontier producing?' questions would mislead when
-    the answer is just 'nothing frozen yet'."""
-    report = ops.build_ops_report(
-        generated_at="2026-07-11T00:00:00+00:00",
-        runs=[],
-        usage=[],
-        # Predictions committed (version-blind census), zero frozen evaluations.
-        substance=ops.summarize_substance(
-            cell_counts=(410, 137, 5), stratified_evaluations=[], process_scope="frozen"
-        ),
-    )
-    md = ops.render_weekly_digest(report)
-    assert "No frozen-process cells yet" in md
-    assert "what is blocking the first batch" not in md
-    assert "still shakedown, none frozen yet" in md
-    assert "is the live frontier producing?" not in md
-
-
 # --- lenient prior snapshots ------------------------------------------------------
 
 
@@ -1517,7 +1419,7 @@ def test_ops_report_writes_the_digest_and_reads_the_frontier(tmp_path: Path) -> 
     body = digest_out.read_text()
     assert body.startswith("<!-- weekly-digest: ")
     assert "# Weekly performance digest" in body
-    assert "3 petition(s) distributed for **2026-09-29**" in body
+    assert "## Produced this week (2026-07-04 to 2026-07-11, the 7d before this digest)" in body
 
 
 # --- the live-frontier snapshot CLI ------------------------------------------------
@@ -2478,19 +2380,15 @@ def test_daily_digest_cli_refuses_an_unreadable_prior_issues_file(tmp_path: Path
     assert "--prior-issues" in plain
 
 
-# --- the weekly performance digest's three substantive sections -------------------
+# --- the weekly performance digest's substantive blocks -------------------
 
 
 def _empty_report(generated_at: str = "2026-09-02T08:30:00+00:00") -> OpsReport:
     return ops.build_ops_report(generated_at=generated_at, runs=[], usage=[])
 
 
-def _analytics(  # noqa: PLR0913 - one keyword per committed board the digest reports
+def _analytics(
     *,
-    leaderboard: Leaderboard | None = None,
-    claim_scores: ClaimScoreBoard | None = None,
-    big_cases: BigCaseBoard | None = None,
-    statpack: StatPack | None = None,
     backtest: Backtest | None = None,
     salience_replay: SalienceReplay | None = None,
     cert_backtest: CertBacktest | None = None,
@@ -2499,14 +2397,37 @@ def _analytics(  # noqa: PLR0913 - one keyword per committed board the digest re
 ) -> ops.WeeklyAnalytics:
     """A `WeeklyAnalytics` whose every artifact carries the same stated vintage."""
     return ops.WeeklyAnalytics(
-        leaderboard=ops.Vintaged(leaderboard, vintage),
-        claim_scores=ops.Vintaged(claim_scores, vintage),
-        big_cases=ops.Vintaged(big_cases, vintage),
-        statpack=ops.Vintaged(statpack, vintage),
         backtest=ops.Vintaged(backtest, vintage),
         salience_replay=ops.Vintaged(salience_replay, vintage),
         cert_backtest=ops.Vintaged(cert_backtest, vintage),
         salience_version_in_force=in_force,
+    )
+
+
+def _produced(  # noqa: PLR0913 - one keyword per field of the window under test
+    title: str = "Produced this week",
+    rows: list[CellCensusRow] | None = None,
+    *,
+    cells: int = 29,
+    events: int = 10,
+    spend: float = 60.69,
+    window_days: int = 7,
+    start: date | None = None,
+    end: date | None = None,
+    term: int | None = None,
+) -> ops.ProducedWindow:
+    return ops.ProducedWindow(
+        title=title,
+        census=RecentCells(
+            rows=rows if rows is not None else [CellCensusRow("predictor", "cert", 29)],
+            cells=cells,
+            events=events,
+            window_days=window_days,
+        ),
+        spend_usd=spend,
+        window_start=start,
+        window_end=end,
+        term=term,
     )
 
 
@@ -2518,116 +2439,17 @@ def _production(
     spend: float = 60.69,
     backstop: SpendVerdict | None = None,
 ) -> ops.WeeklyProduction:
+    """The three-window feed; the arguments describe the week block."""
     return ops.WeeklyProduction(
-        census=RecentCells(
-            rows=rows if rows is not None else [CellCensusRow("predictor", "cert", 29)],
-            cells=cells,
-            events=events,
-            window_days=7,
+        week=_produced(rows=rows, cells=cells, events=events, spend=spend),
+        month=_produced(
+            "Produced this month", rows=[], cells=0, events=0, spend=0.0, window_days=30
         ),
-        spend_usd=spend,
+        term=_produced(
+            "Produced this term", rows=[], cells=0, events=0, spend=0.0, window_days=355, term=2025
+        ),
         backstop=backstop,
     )
-
-
-def test_the_weekly_digest_explains_an_empty_leaderboard_rather_than_showing_a_zero() -> None:
-    # An empty frozen board is the registered shakedown state, not a regression.
-    # A bare "0 predictors ranked" reads as the latter, which is exactly the
-    # misreading metrics/README.md warns about.
-    board = Leaderboard(
-        process_scope="frozen",
-        predictors_ranked=0,
-        evaluations_total=0,
-        events_scored=0,
-        frozen_process=FrozenProcessRecord(
-            since=datetime(2026, 8, 1, tzinfo=UTC), digests=["sha256:abc"]
-        ),
-    )
-
-    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
-
-    assert "**no predictor ranked**" in md
-    assert "no stamped grading has reached the ranked population" in md
-    assert "the frozen counting window opened 2026-08-01" in md
-    assert "`--all-versions` is where the shakedown pool shows" in md
-    assert "`metrics/leaderboard.json`, vintage 2026-08-29" in md
-
-
-def test_the_weekly_digest_distinguishes_an_absent_board_from_an_empty_one() -> None:
-    # "Never landed" and "landed and empty" are different facts about the
-    # pipeline, and only one of them is a reason to look at the refresh.
-    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics())
-
-    assert "**Leaderboard**: `metrics/leaderboard.json` has never landed." in md
-    assert "**no predictor ranked**" not in md
-    # An artifact that never landed carries no vintage: there is no commit to
-    # date, and printing "vintage unknown" beside it would suggest there is.
-    assert "leaderboard.json`, vintage" not in md
-
-
-def test_the_weekly_digest_reports_the_big_case_board_without_naming_a_case() -> None:
-    # The digest is quoted out of more than any other surface here, so the line
-    # carries denominators and the carve-out and no case name at all.
-    board = BigCaseBoard(
-        cases=2,
-        predictors=["claude-baseline", "codex-baseline"],
-        current_reads=4,
-        scored_reads=3,
-        missing_reads=1,
-        coverage=[BigCaseCoverage(n=2, cases=1), BigCaseCoverage(n=1, cases=1)],
-        rows=[
-            BigCaseRow(
-                case_id="scotus/1",
-                court_id="scotus",
-                docket_id=1,
-                caption="A famous case",
-                caption_event_id="evt-petition-disposition",
-                status="pending",
-                mean_big_case_score=0.8,
-                n=2,
-                score_min=0.7,
-                score_max=0.9,
-                score_range=0.2,
-            )
-        ],
-    )
-    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(big_cases=board))
-
-    assert (
-        "**Big-case board** (`metrics/big-cases.json`, vintage 2026-08-29, `process_scope: all`)"
-    ) in md
-    assert "2 case(s) ranked over 3 scored stakes read(s) of 4" in md
-    assert "cases by scoring predictors 2→1, 1→1" in md
-    assert "neither scored nor ranked" in md
-    assert "A famous case" not in md
-    # The scope travels with the count, and a frozen build says what it held out
-    # — two scopes rank different populations, so a bare count read across builds
-    # would compare a selected hold-out against a census.
-    frozen = ops.render_weekly_digest(
-        _empty_report(),
-        analytics=_analytics(
-            big_cases=board.model_copy(update={"process_scope": "frozen", "cases_out_of_scope": 7})
-        ),
-    )
-    assert "`process_scope: frozen`" in frozen
-    assert "7 case(s) held off by the scope." in frozen
-
-
-def test_the_weekly_digest_separates_an_absent_board_from_an_empty_one() -> None:
-    assert "**Big-case board**: `metrics/big-cases.json` has never landed." in (
-        ops.render_weekly_digest(_empty_report(), analytics=_analytics())
-    )
-    assert "empty — no committed prediction carries a stakes read" in (
-        ops.render_weekly_digest(_empty_report(), analytics=_analytics(big_cases=BigCaseBoard()))
-    )
-    # An empty frozen build says something different and must not be read as the
-    # first: the ledger may hold plenty of stakes reads, none of them blessed yet.
-    frozen = ops.render_weekly_digest(
-        _empty_report(),
-        analytics=_analytics(big_cases=BigCaseBoard(process_scope="frozen")),
-    )
-    assert "no frozen-process stakes reads yet" in frozen
-    assert "no committed prediction carries a stakes read" not in frozen
 
 
 def test_the_weekly_digest_carries_a_vintage_beside_every_metrics_figure() -> None:
@@ -2636,25 +2458,12 @@ def test_the_weekly_digest_carries_a_vintage_beside_every_metrics_figure() -> No
     md = ops.render_weekly_digest(
         _empty_report(),
         analytics=_analytics(
-            leaderboard=Leaderboard(
-                process_scope="frozen", predictors_ranked=0, evaluations_total=0, events_scored=0
-            ),
-            claim_scores=ClaimScoreBoard(
-                process_scope="frozen", evaluations_total=0, cells_with_claims=0
-            ),
-            statpack=_statpack_with_cert_section(denied=95, granted=5),
             backtest=Backtest(predictors_evaluated=0, events_scored=0),
             salience_replay=SalienceReplay(salience_version="sal-v4", cells_evaluated=0),
         ),
     )
 
-    for artifact in (
-        "leaderboard.json",
-        "claim-scores.json",
-        "statpack.json",
-        "backtest.json",
-        "salience-replay.json",
-    ):
+    for artifact in ("backtest.json", "salience-replay.json"):
         assert f"`metrics/{artifact}`, vintage 2026-08-29" in md
 
 
@@ -2664,11 +2473,11 @@ def test_the_weekly_digest_says_when_a_vintage_is_unknown() -> None:
     md = ops.render_weekly_digest(
         _empty_report(),
         analytics=_analytics(
-            statpack=_statpack_with_cert_section(denied=95, granted=5), vintage=None
+            backtest=Backtest(predictors_evaluated=0, events_scored=0), vintage=None
         ),
     )
 
-    assert "`metrics/statpack.json`, vintage unknown" in md
+    assert "`metrics/backtest.json`, vintage unknown" in md
 
 
 def test_the_weekly_digest_reports_the_missing_cert_backtest_honestly() -> None:
@@ -2954,6 +2763,21 @@ def test_the_weekly_digest_places_the_spend_backstop_window() -> None:
     assert "clear" in md
 
 
+def test_the_spend_backstop_closes_the_month_block_not_the_week_or_the_term() -> None:
+    # The verdict is a trailing-window reading, and the month block's window is
+    # the backstop's own: printed anywhere else it would sit beside a census of a
+    # different period and read as that period's verdict.
+    lines = ops.render_weekly_digest(
+        _empty_report(),
+        production=_production(backstop=SpendVerdict(688.12, 2500.0, 30, 300, enforced=True)),
+    ).splitlines()
+
+    month = lines.index("## Produced this month (last 30d)")
+    term = lines.index("## Produced this term (last 355d)")
+    backstop = next(i for i, line in enumerate(lines) if line.startswith("Spend backstop:"))
+    assert lines.index("## Produced this week (last 7d)") < month < backstop < term
+
+
 def test_the_weekly_digest_invents_no_budget_when_none_is_configured() -> None:
     # An unenforced ceiling has no fraction; printing one would report a budget
     # that does not exist.
@@ -2966,13 +2790,246 @@ def test_the_weekly_digest_invents_no_budget_when_none_is_configured() -> None:
     assert "consumed" not in md
 
 
-def test_the_weekly_digest_degrades_to_its_questions_without_the_feeds() -> None:
-    md = ops.render_weekly_digest(_empty_report())
+def test_the_weekly_digest_degrades_to_the_blocks_it_can_fill() -> None:
+    # A missing feed costs its own blocks and nothing else — the digest still
+    # opens, still carries its week marker, and still posts.
+    bare = ops.render_weekly_digest(_empty_report())
 
-    assert "## Health questions" in md
-    assert "## Analytics state" not in md
-    assert "## Produced this week" not in md
-    assert "## Backtest results" not in md
+    assert bare.startswith("<!-- weekly-digest: 2026-W36 -->")
+    assert "# Weekly performance digest" in bare
+    for heading in ("## Produced this", "## Backtest results"):
+        assert heading not in bare
+
+    backtests_only = ops.render_weekly_digest(_empty_report(), analytics=_analytics())
+
+    assert "## Backtest results" in backtests_only
+    assert "## Produced this" not in backtests_only
+
+
+def _commit_usage(data_root: Path, *, docket: int, cost: float, created_at: datetime) -> None:
+    """Commit one `usage.json` at the ledger path `iter_usage` globs."""
+    run_id = created_at.strftime("%Y%m%dT%H%M%SZ")
+    write_json(
+        data_root
+        / "cases"
+        / "scotus"
+        / str(docket)
+        / "events"
+        / "evt-petition-disposition"
+        / "predictions"
+        / "claude-baseline"
+        / run_id
+        / "usage.json",
+        ModelUsage(
+            case_id=f"scotus/{docket}",
+            event_id="evt-petition-disposition",
+            run_id=run_id,
+            role=UsageRole.predictor,
+            actor_id="claude-baseline",
+            engine=Engine.claude_code,
+            model="claude-fable-5",
+            created_at=created_at,
+            input_tokens=1_000,
+            output_tokens=100,
+            estimated_cost_usd=cost,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("when", "term", "start", "days"),
+    [
+        # The pivot is the calendar month, so a late-September digest still
+        # reports the outgoing Term — the long-conference cohort's own Term.
+        ("2026-09-21T08:30:00+00:00", 2025, "2025-10-01", 355),
+        ("2026-10-05T08:30:00+00:00", 2026, "2026-10-01", 4),
+        # The Term's first morning: the window is the day itself, 0d wide.
+        ("2026-10-01T08:30:00+00:00", 2026, "2026-10-01", 0),
+    ],
+)
+def test_the_term_block_rolls_on_the_first_of_october(
+    tmp_path: Path, when: str, term: int, start: str, days: int
+) -> None:
+    production = cli._weekly_production(
+        tmp_path / "data", tmp_path / "config", datetime.fromisoformat(when)
+    )
+
+    assert production.term.term == term
+    assert production.term.window_start == date.fromisoformat(start)
+    assert production.term.census.window_days == days
+    assert production.term.window == f"OT{term}, since {start} — {days}d to {when[:10]}"
+
+
+def test_the_term_census_keeps_the_terms_own_first_morning(tmp_path: Path) -> None:
+    # The cutoff is the instant the Term opened, not a count of days back from a
+    # mid-morning render — which would drop 1 October before 08:30 out of the
+    # Term whose census it belongs in, and pull in 30 September instead.
+    _commit_usage(
+        tmp_path / "data", docket=1, cost=3.0, created_at=datetime(2025, 10, 1, 2, 0, tzinfo=UTC)
+    )
+    _commit_usage(
+        tmp_path / "data", docket=2, cost=5.0, created_at=datetime(2025, 9, 30, 23, 0, tzinfo=UTC)
+    )
+
+    production = cli._weekly_production(
+        tmp_path / "data", tmp_path / "config", datetime(2026, 9, 21, 8, 30, tzinfo=UTC)
+    )
+
+    assert production.term.census.cells == 1
+    assert production.term.spend_usd == 3.0
+
+
+def test_the_month_window_is_the_spend_backstops_own(tmp_path: Path) -> None:
+    # The backstop's verdict renders at the end of the month block, so a month
+    # window derived independently would print a verdict over one period beside a
+    # census over another.
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    (config_root / "tracking.yaml").write_text("spend:\n  ceiling_usd: 100.0\n  window_days: 21\n")
+
+    production = cli._weekly_production(
+        tmp_path / "data", config_root, datetime(2026, 9, 21, 8, 30, tzinfo=UTC)
+    )
+
+    assert production.month.census.window_days == 21
+    assert production.backstop is not None
+    assert production.backstop.window_days == 21
+    assert production.week.census.window_days == 7
+
+
+def test_the_three_windows_are_counted_over_one_walk_of_the_ledger(tmp_path: Path) -> None:
+    # One cell inside each nested window: a wider window must see everything the
+    # narrower ones do and only what falls inside its own bounds.
+    now = datetime(2026, 9, 21, 8, 30, tzinfo=UTC)
+    _commit_usage(tmp_path / "data", docket=1, cost=1.0, created_at=now - timedelta(days=2))
+    _commit_usage(tmp_path / "data", docket=2, cost=2.0, created_at=now - timedelta(days=20))
+    _commit_usage(tmp_path / "data", docket=3, cost=4.0, created_at=now - timedelta(days=200))
+    _commit_usage(tmp_path / "data", docket=4, cost=8.0, created_at=now - timedelta(days=400))
+
+    production = cli._weekly_production(tmp_path / "data", tmp_path / "config", now)
+
+    assert (production.week.census.cells, production.week.spend_usd) == (1, 1.0)
+    assert (production.month.census.cells, production.month.spend_usd) == (2, 3.0)
+    assert (production.term.census.cells, production.term.spend_usd) == (3, 7.0)
+
+
+def test_the_month_block_and_the_backstop_count_the_same_records(tmp_path: Path) -> None:
+    # The verdict renders at the end of the month block; both are one window over
+    # one walk, so a ledger with rows inside and outside it must give the census
+    # and the verdict identical cells and dollars.
+    now = datetime(2026, 9, 21, 8, 30, tzinfo=UTC)
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    (config_root / "tracking.yaml").write_text("spend:\n  ceiling_usd: 100.0\n  window_days: 30\n")
+    _commit_usage(tmp_path / "data", docket=1, cost=1.0, created_at=now - timedelta(days=2))
+    _commit_usage(tmp_path / "data", docket=2, cost=2.0, created_at=now - timedelta(days=20))
+    _commit_usage(tmp_path / "data", docket=3, cost=4.0, created_at=now - timedelta(days=200))
+
+    production = cli._weekly_production(tmp_path / "data", config_root, now)
+
+    assert production.backstop is not None and production.backstop.enforced
+    assert production.month.spend_usd == production.backstop.spent_usd == 3.0
+    assert production.month.census.cells == production.backstop.cells == 2
+
+
+def test_the_term_block_closes_with_the_forward_cells_scored() -> None:
+    # A forward cell is minted once at its event and never again, so the Term is
+    # the period the count is worth reading over — and it is a figure, not a
+    # question: the boards are where a reader interrogates it.
+    report = ops.build_ops_report(
+        generated_at="2026-09-21T08:30:00+00:00",
+        runs=[],
+        usage=[],
+        substance=ops.summarize_substance(
+            cell_counts=(6, 4, 3),
+            stratified_evaluations=[
+                (_evaluation("p", correct=1), "retrospective"),
+                (_evaluation("p", correct=1, run_id="20260702T000000Z"), "forward"),
+            ],
+        ),
+    )
+
+    lines = ops.render_weekly_digest(report, production=_production()).splitlines()
+
+    figure = lines.index(
+        "Forward cells scored (frozen, ledger to date): 1 total, no prior snapshot to diff."
+    )
+    assert lines.index("## Produced this term (last 355d)") < figure
+    assert not any(line.startswith("## ") for line in lines[figure:])
+
+
+def test_the_forward_cell_figure_carries_the_week_over_week_delta() -> None:
+    prior = ops.build_ops_report(
+        generated_at="2026-09-14T08:30:00+00:00",
+        runs=[],
+        usage=[],
+        substance=ops.summarize_substance(
+            cell_counts=(6, 4, 3),
+            stratified_evaluations=[(_evaluation("p", correct=1, run_id="a"), "forward")],
+        ),
+    )
+    report = ops.build_ops_report(
+        generated_at="2026-09-21T08:30:00+00:00",
+        runs=[],
+        usage=[],
+        substance=ops.summarize_substance(
+            cell_counts=(9, 6, 4),
+            stratified_evaluations=[
+                (_evaluation("p", correct=1, run_id="a"), "forward"),
+                (_evaluation("p", correct=1, run_id="b"), "forward"),
+                (_evaluation("p", correct=1, run_id="c"), "forward"),
+            ],
+            previous=prior,
+        ),
+    )
+
+    md = ops.render_weekly_digest(report, production=_production())
+
+    assert "Forward cells scored (frozen, ledger to date): +2 this week, 3 total." in md
+
+
+def test_the_term_block_names_the_shakedown_state_rather_than_a_bare_zero() -> None:
+    # A frozen scope with nothing scored in either stratum is the registered
+    # shakedown state — nothing blessed yet — and a bare zero reads as a stalled
+    # machine instead.
+    report = ops.build_ops_report(
+        generated_at="2026-09-21T08:30:00+00:00",
+        runs=[],
+        usage=[],
+        # Predictions committed (the census is version-blind), zero frozen evaluations.
+        substance=ops.summarize_substance(
+            cell_counts=(410, 137, 5), stratified_evaluations=[], process_scope="frozen"
+        ),
+    )
+
+    md = ops.render_weekly_digest(report, production=_production())
+
+    assert (
+        "Forward cells scored (frozen, ledger to date): 0 total, no prior snapshot to diff. "
+        "No frozen-process cells yet — still shakedown." in md
+    )
+
+
+def test_an_all_versions_scope_is_not_read_as_the_shakedown_state() -> None:
+    report = ops.build_ops_report(
+        generated_at="2026-09-21T08:30:00+00:00",
+        runs=[],
+        usage=[],
+        substance=ops.summarize_substance(
+            cell_counts=(410, 137, 5), stratified_evaluations=[], process_scope="all"
+        ),
+    )
+
+    md = ops.render_weekly_digest(report, production=_production())
+
+    assert "Forward cells scored (all, ledger to date): 0 total, no prior snapshot to diff." in md
+    assert "still shakedown" not in md
+
+
+def test_the_term_block_omits_the_figure_without_a_substance_section() -> None:
+    md = ops.render_weekly_digest(_empty_report(), production=_production())
+
+    assert "Forward cells scored" not in md
 
 
 def test_the_weekly_digest_marker_is_one_per_iso_week() -> None:
@@ -2987,10 +3044,10 @@ def test_the_weekly_digest_marker_is_one_per_iso_week() -> None:
 
 
 def test_ops_report_renders_every_weekly_section_over_the_committed_tree(tmp_path: Path) -> None:
-    # The acceptance dry-run, against the repo's own `metrics/` and `data/`: all
-    # three sections, the honest-empty leaderboard state, the missing
-    # cert-backtest line, and a vintage beside every metrics-derived figure.
-    if not Path("metrics/leaderboard.json").exists():  # pragma: no cover - it is committed
+    # The acceptance dry-run, against the repo's own `metrics/` and `data/`: every
+    # block, the missing cert-backtest line, and a vintage beside every
+    # metrics-derived figure.
+    if not Path("metrics/backtest.json").exists():  # pragma: no cover - it is committed
         pytest.skip("no committed metrics in this checkout")
     out = tmp_path / "digest.md"
 
@@ -3003,17 +3060,17 @@ def test_ops_report_renders_every_weekly_section_over_the_committed_tree(tmp_pat
     md = out.read_text()
     assert md.startswith("<!-- weekly-digest: 2026-W36 -->")
     for heading in (
-        "## Health questions",
-        "## Analytics state",
-        "## Produced this week",
+        "## Produced this week (2026-08-26 to 2026-09-02, the 7d before this digest)",
+        "## Produced this month (",
+        "## Produced this term (OT2025, since 2025-10-01 — ",
         "## Backtest results",
     ):
         assert heading in md
-    # Structural only. Asserting the *current* contents of `metrics/` — the empty
-    # leaderboard, the absent cert back-test — would turn each of those milestones
-    # into a red required check on `main` the day it is reached; the honest-empty
-    # and missing-report branches are pinned synthetically above instead.
-    for artifact in ("leaderboard.json", "claim-scores.json", "statpack.json", "backtest.json"):
+    # Structural only. Asserting the *current* contents of `metrics/` — the absent
+    # cert back-test — would turn that milestone into a red required check on
+    # `main` the day it is reached; the missing-report branch is pinned
+    # synthetically above instead.
+    for artifact in ("backtest.json", "salience-replay.json"):
         assert f"`metrics/{artifact}`, " in md
     assert len(md) <= 60_000
 
@@ -3119,47 +3176,6 @@ def test_artifact_vintage_of_an_absent_file_is_unknown(tmp_path: Path) -> None:
     assert cli._artifact_vintage(tmp_path / "never-landed.json") is None
 
 
-def test_the_weekly_digest_says_the_frozen_window_has_not_opened_yet() -> None:
-    # An empty board has two causes and only one of them is about production. A
-    # freeze instant in the future means the counting window has not opened, so
-    # no grading could have reached it however well the pipeline ran; reporting
-    # that as "nothing has been graded" is the bare-zero misreading again.
-    board = Leaderboard(
-        process_scope="frozen",
-        predictors_ranked=0,
-        evaluations_total=0,
-        events_scored=0,
-        frozen_process=FrozenProcessRecord(
-            since=datetime(2026, 9, 5, tzinfo=UTC), digests=["sha256:abc"]
-        ),
-    )
-    before = ops.render_weekly_digest(
-        _empty_report("2026-09-02T08:30:00+00:00"), analytics=_analytics(leaderboard=board)
-    )
-    after = ops.render_weekly_digest(
-        _empty_report("2026-09-12T08:30:00+00:00"), analytics=_analytics(leaderboard=board)
-    )
-
-    assert "the frozen counting window opens **2026-09-05**" in before
-    assert "empty by construction" in before
-    assert "the frozen counting window opened 2026-09-05 and no stamped grading" in after
-
-
-def test_the_weekly_digest_refuses_to_anchor_a_score_on_a_pooled_base_rate() -> None:
-    # docs/salience.md registers the pooled band rate as a fit diagnostic for the
-    # ranking constant, not a scoring baseline: quoting one as a forecast anchor
-    # would breach the leakage guard registered there.
-    md = ops.render_weekly_digest(
-        _empty_report(),
-        analytics=_analytics(statpack=_statpack_with_cert_section(denied=95, granted=5)),
-    )
-
-    assert "Neither figure anchors a scored cell" in md
-    assert "strictly-prior-Term risk-set rate" in md
-    assert "orientation" in md
-    assert "anchors every score" not in md
-
-
 def test_the_weekly_digest_publishes_the_predicted_courts_row_not_only_the_pooled_one() -> None:
     # A pooled lift can be bought entirely on a docket this pipeline never
     # predicts: the SCOTUS floor is ~82% and the appellate floors near zero, so
@@ -3241,39 +3257,60 @@ def test_the_weekly_digest_dates_the_window_it_counted() -> None:
     # it, so without bounds the section describes the previous week under this
     # week's heading.
     production = ops.WeeklyProduction(
-        census=RecentCells(rows=[], cells=0, events=0, window_days=7),
-        spend_usd=0.0,
-        backstop=None,
-        window_start=date(2026, 8, 26),
-        window_end=date(2026, 9, 2),
+        week=_produced(
+            "Produced this week",
+            rows=[],
+            cells=11,
+            events=4,
+            spend=12.5,
+            start=date(2026, 8, 26),
+            end=date(2026, 9, 2),
+        ),
+        month=_produced(
+            "Produced this month",
+            rows=[],
+            cells=48,
+            events=19,
+            spend=61.25,
+            window_days=30,
+            start=date(2026, 8, 3),
+            end=date(2026, 9, 2),
+        ),
+        term=_produced(
+            "Produced this term",
+            rows=[],
+            cells=402,
+            events=173,
+            spend=910.4,
+            window_days=336,
+            start=date(2025, 10, 1),
+            end=date(2026, 9, 2),
+            term=2025,
+        ),
     )
 
     md = ops.render_weekly_digest(_empty_report(), production=production)
 
-    assert "## Produced this week (2026-08-26 to 2026-09-02, the 7d before this digest)" in md
+    assert [line for line in md.splitlines() if line.startswith("## ")] == [
+        "## Produced this week (2026-08-26 to 2026-09-02, the 7d before this digest)",
+        "## Produced this month (2026-08-03 to 2026-09-02, the 30d before this digest)",
+        "## Produced this term (OT2025, since 2025-10-01 — 336d to 2026-09-02)",
+    ]
+    # Each block prices its own window over its own records.
+    assert "**11** cell(s) over **4** event(s), and **$12.50**" in md
+    assert "**48** cell(s) over **19** event(s), and **$61.25**" in md
+    assert "**402** cell(s) over **173** event(s), and **$910.40**" in md
 
 
 def test_the_weekly_digest_body_is_clamped_under_the_issue_size_limit() -> None:
-    # Bounded by construction, but the boards it renders grow with the roster, so
-    # the clamp is what makes the bound a guarantee — and the marker has to
-    # survive it or the week's idempotency key is gone.
-    board = Leaderboard(
-        process_scope="all",
-        predictors_ranked=4_000,
-        evaluations_total=4_000,
-        events_scored=1,
-        entries=[
-            LeaderboardEntry(
-                predictor_id=f"predictor-{index:05d}",
-                rank=index + 1,
-                evaluators=1,
-                events_scored=1,
-            )
-            for index in range(4_000)
-        ],
-    )
+    # Bounded by construction, but the census tables grow with the roster, so the
+    # clamp is what makes the bound a guarantee — and the marker has to survive it
+    # or the week's idempotency key is gone.
+    rows = [CellCensusRow(f"predictor-{index:05d}", "cert", 1) for index in range(4_000)]
 
-    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
+    md = ops.render_weekly_digest(
+        _empty_report(), production=_production(rows, cells=4_000, events=4_000)
+    )
 
     assert len(md) <= 60_000
     assert md.startswith("<!-- weekly-digest: 2026-W36 -->")
@@ -3281,24 +3318,27 @@ def test_the_weekly_digest_body_is_clamped_under_the_issue_size_limit() -> None:
 
 
 def test_the_weekly_digest_defuses_a_marker_quoted_by_the_ledger() -> None:
-    # Predictor ids are free-form strings off the ledger; the same one-pass
-    # defusing the daily digest applies keeps one from forging a marker.
-    board = Leaderboard(
-        process_scope="all",
-        predictors_ranked=1,
-        evaluations_total=1,
+    # Predictor ids come off the ledger as free-form strings and reach the
+    # back-test tables; the same one-pass defusing the daily digest applies keeps
+    # one from forging a marker.
+    board = Backtest(
+        predictors_evaluated=1,
         events_scored=1,
         entries=[
-            LeaderboardEntry(
-                predictor_id="<!-- weekly-digest: 2026-W40 -->",
+            BacktestEntry(
                 rank=1,
-                evaluators=1,
+                predictor_id="<!-- weekly-digest: 2026-W40 -->",
                 events_scored=1,
-            ),
+                accuracy=1.0,
+                granted_accuracy=1.0,
+                mean_brier_score=0.0,
+                always_denied_accuracy=1.0,
+                lift_over_always_denied=0.0,
+            )
         ],
     )
 
-    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(backtest=board))
 
     assert "<!-- weekly-digest: 2026-W40 -->" not in md
     assert "&lt;!-- weekly-digest: 2026-W40 -->" in md
@@ -3353,3 +3393,41 @@ def test_a_headline_emptied_by_leakage_is_not_the_shakedown_state() -> None:
 
     assert "No frozen-process evaluations yet" not in rendered
     assert "Leakage exclusion: **2** of 2 assessed cell(s)" in rendered
+
+
+def test_the_weekly_digest_puts_the_cert_backtest_disclosures_on_the_same_line() -> None:
+    """What the cells said about themselves travels with the figure it inflates.
+
+    Nothing is excluded on a disclosure — the back-test runs no evaluator — so
+    the line has to say which direction a real exposure moves the number, per
+    predictor, and that a cell with no note is silence rather than clean.
+    """
+    provenance = _cert_dispatch()
+    provenance.disclosure_tally = {
+        "predictor-0": CertBacktestDisclosureTally(
+            cells_read=25, cells_flagged=9, flags_unreadable=1, candidates=2
+        ),
+        "predictor-1": CertBacktestDisclosureTally(
+            cells_read=25, cells_flagged=0, flags_unreadable=0, candidates=0
+        ),
+    }
+    bullet = _cert_bullet(_cert_backtest(provenance=provenance))
+
+    assert (
+        "`predictor-0` 9/25 cell(s) flagged, 2 exposure candidate(s), 1 unreadable; "
+        + "`predictor-1` 0/25 cell(s) flagged, 0 exposure candidate(s)"
+    ) in bullet
+    assert "Nothing is excluded" in bullet
+    assert "can only bias that predictor's accuracy and lift upward" in bullet
+    assert "an unmarked note is not a cleared one" in bullet
+    assert "not the same as clean" in bullet
+    # Still the one line: the figure is on it too.
+    assert "always-deny floor 60.0%" in bullet
+
+
+def test_the_weekly_digest_calls_a_replay_without_a_disclosure_tally_unrecorded() -> None:
+    # A replayed board with no tally cannot say whether any cell disclosed an
+    # exposure; an offline one has no cell to have said anything.
+    assert "Cell disclosures **unrecorded**" in _cert_bullet(_cert_backtest())
+    offline = _cert_backtest(entries=[_cert_entry("baseline-0", None)])
+    assert "Cell disclosures" not in _cert_bullet(offline)

@@ -16,12 +16,16 @@ from fedcourtsai.schemas import (
     CalibrationBin,
     CertBacktest,
     CertBacktestCellLoss,
+    CertBacktestDisclosure,
     CertBacktestEntry,
+    CertBacktestFlag,
     CertBacktestProvenance,
     ClaimJudgeAgreement,
     ClaimScoreBoard,
     DocketPack,
     DocketPackTerm,
+    FlagCategory,
+    FlagSeverity,
     GroupBy,
     Leaderboard,
     LeaderboardEntry,
@@ -410,6 +414,10 @@ def test_render_backtest_pr_names_the_lost_cells(tmp_path: Path) -> None:
     assert pr is not None
     assert "1 cell(s) lost" in pr.body
     assert "`codex-baseline` — scotus/73275187 (wrote-outside-work-root)" in pr.body
+    # The gloss covers every reason in the vocabulary, including the cells a
+    # spent quota meant were never attempted: a body asserting they ran would
+    # be false about most of a quota-truncated campaign.
+    assert "no score — unreadable, failed, or not attempted after a spent quota" in pr.body
     # A clean run says nothing at all, rather than "0 lost".
     clean = CertBacktest(events_scored=10, predictors_evaluated=0, entries=[])
     (tmp_path / "cert-backtest.json").write_text(clean.model_dump_json())
@@ -650,3 +658,87 @@ def test_artifacts_are_matched_on_path_not_basename(tmp_path: Path) -> None:
     cannot be mistaken for a refreshed artifact."""
     _metrics_dir(tmp_path)
     assert render_refresh_pr(["somewhere/else/leaderboard.json"], tmp_path, "RID") is None
+
+
+def test_render_backtest_pr_names_the_exposure_candidates(tmp_path: Path) -> None:
+    """A cell whose note may disclose its outcome is named, on the headline too.
+
+    The back-test excludes nothing on a disclosure, so the review PR is where a
+    reader learns which cells to read the run log for — and the headline entry's
+    own count rides the headline, since a caveat a line away does not travel
+    when the headline is quoted. Never the note's text: the report keeps none.
+    """
+
+    def candidate(predictor_id: str, case_id: str) -> CertBacktestDisclosure:
+        return CertBacktestDisclosure(
+            predictor_id=predictor_id,
+            case_id=case_id,
+            scored=True,
+            flags=[
+                CertBacktestFlag(
+                    category=FlagCategory.data_quality,
+                    severity=FlagSeverity.warning,
+                    outcome_exposure_candidate=True,
+                )
+            ],
+        )
+
+    report = CertBacktest(
+        events_scored=10,
+        predictors_evaluated=1,
+        always_denied_accuracy=0.6,
+        provenance=CertBacktestProvenance(
+            disclosures=[
+                candidate("claude-baseline", "scotus/72484159"),
+                CertBacktestDisclosure(
+                    predictor_id="codex-baseline",
+                    case_id="scotus/73275179",
+                    scored=True,
+                    unreadable=True,
+                ),
+                # A lost cell's candidate: in no figure, but named on the line.
+                CertBacktestDisclosure(
+                    predictor_id="gemini-baseline",
+                    case_id="scotus/1",
+                    scored=False,
+                    flags=candidate("gemini-baseline", "scotus/1").flags,
+                ),
+            ]
+        ),
+        entries=[
+            CertBacktestEntry(
+                predictor_id="claude-baseline",
+                rank=1,
+                events_scored=10,
+                accuracy=0.7,
+                granted_accuracy=0.7,
+                mean_brier_score=0.2,
+                lift_over_always_denied=0.1,
+            )
+        ],
+    )
+    (tmp_path / "cert-backtest.json").write_text(report.model_dump_json())
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert (
+        "of its scored cells, 1 raised a possible outcome-exposure note**, still counted "
+        + "in this figure, which a real exposure can only bias upward"
+    ) in pr.body
+    assert "1 scored cell(s) raised a note" in pr.body
+    assert "`claude-baseline` — scotus/72484159 (data-quality)" in pr.body
+    # The lost cell's candidate is named apart: in no figure, but its petition's
+    # inputs are the ones every scored cell beside it read.
+    assert "1 lost cell(s) did too" in pr.body
+    assert "`gemini-baseline` — scotus/1 (data-quality)" in pr.body
+    assert "1 cell(s) left an unreadable `flags.json`: `codex-baseline` — scotus/73275179" in (
+        pr.body
+    )
+    assert "nothing is excluded" in pr.body
+    assert "an unmarked note is not a cleared one" in pr.body
+    # A run whose cells raised neither says nothing at all.
+    quiet = report.model_copy(update={"provenance": CertBacktestProvenance()})
+    (tmp_path / "cert-backtest.json").write_text(quiet.model_dump_json())
+    plain = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert plain is not None
+    assert "Cell disclosures" not in plain.body
+    assert "outcome-exposure" not in plain.body

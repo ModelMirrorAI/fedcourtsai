@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, NamedTuple, cast, get_args
 from urllib.parse import quote
 
+import httpx
 import typer
 import yaml
 from pydantic import BaseModel, ValidationError
@@ -62,6 +63,7 @@ from . import (
     retrieval,
     scope_manifest,
     secretscan,
+    summaries,
     tool_usage,
 )
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
@@ -131,6 +133,7 @@ from .config import (
     load_salience_config,
     load_spend_config,
     load_statpack_config,
+    load_summaries_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
 from .disposition_convergence import converge_disposition_labels
@@ -185,6 +188,7 @@ from .ops import (
     DAILY_DIGEST_MARKER_LINES,
     WEEKLY_DIGEST_LABEL,
     WEEKLY_DIGEST_MARKER_LINES,
+    ProducedWindow,
     Vintaged,
     WeeklyAnalytics,
     WeeklyProduction,
@@ -301,15 +305,15 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     Backtest,
-    BigCaseBoard,
     CellFailure,
     CellMode,
     CertBacktest,
     CertBacktestCellLoss,
+    CertBacktestDisclosure,
+    CertBacktestDisclosureTally,
     CertBacktestDispatch,
     CertBacktestProvenance,
     ClaimScoreBlock,
-    ClaimScoreBoard,
     ConferenceBucket,
     CorpusValidation,
     DataHealth,
@@ -341,6 +345,7 @@ from .schemas import (
     StagedOpinion,
     StatPack,
     Stratum,
+    SummaryPlan,
     UsageRole,
     observed_mcp_conditions,
     self_provisioned_fetches,
@@ -5328,10 +5333,11 @@ def _report_replay_drops(
     one predictor short the petitions another was scored over — is a different
     comparison from the one it looks like. Three distinct losses, named apart
     rather than pooled, since they say different things about the run: an
-    engine whose CLI was missing, a predictor every one of whose cells came
-    back unreadable, and a predictor whose engine has no registered runner at
-    all. The deliberate `--skip-engines` opt-out is none of them and is
-    recorded on the dispatch instead.
+    engine whose CLI was missing, a predictor every one of whose cells was
+    lost (named apart again where the cause was its engine's spent quota), and
+    a predictor whose engine has no registered runner at all. The deliberate
+    `--skip-engines` opt-out is none of them and is recorded on the dispatch
+    instead.
 
     A predictor that lost only *some* of its cells is not dropped: it is on the
     board, scored over the petitions that came back, and its cells are in
@@ -5343,7 +5349,7 @@ def _report_replay_drops(
         # printed when it happened: a run whose losses scrolled past an hour of
         # cell output deserves both.
         typer.echo(
-            f"lost {len(outcome.lost_cells)} cell(s) that produced no readable prediction: "
+            f"lost {len(outcome.lost_cells)} cell(s) that produced no score: "
             + ", ".join(
                 f"{loss.predictor_id} on {loss.case_id} ({loss.reason})"
                 for loss in outcome.lost_cells
@@ -5363,9 +5369,17 @@ def _report_replay_drops(
     )
     for pid in sorted(lost_whole):
         dropped.append(pid)
-        typer.echo(
-            f"dropped predictor {pid}: every one of its cells came back unreadable", err=True
-        )
+        reasons = {loss.reason for loss in outcome.lost_cells if loss.predictor_id == pid}
+        # An engine that ran out of quota did not produce unreadable cells — most
+        # of them it never attempted — so the drop line says which of the two
+        # happened rather than defaulting to the artifact-shaped wording.
+        if "quota-exhausted" in reasons:
+            cause = "its engine's quota was exhausted"
+        elif "harness-error" in reasons:
+            cause = "its engine's lane stopped on a harness fault"
+        else:
+            cause = "every one of its cells was lost"
+        typer.echo(f"dropped predictor {pid}: {cause}", err=True)
     for predictor in roster:
         if (
             predictor.id not in replayed_ids
@@ -5380,6 +5394,24 @@ def _report_replay_drops(
                 err=True,
             )
     return dropped
+
+
+def _annotate_harness_faults(lost_cells: list[CertBacktestCellLoss]) -> None:
+    """Turn a replay's harness faults into an Actions error annotation.
+
+    Our own code failed there, not an upstream: the report is still written —
+    its cells were paid for — and the command still exits zero, so the step
+    does not fail and the review PR still opens. What the annotation adds is
+    visibility: the run page lists the fault where a maintainer looks, rather
+    than leaving the stderr lines as the only trace.
+    """
+    faults = sum(1 for loss in lost_cells if loss.reason == "harness-error")
+    if faults:
+        typer.echo(
+            f"::error::cert-backtest: {faults} cell(s) lost to a harness fault "
+            "(reason harness-error); the report is written, and the run log names "
+            "the exception under its engine's lane prefix"
+        )
 
 
 @app.command("cert-backtest")
@@ -5442,6 +5474,16 @@ def cert_backtest_cmd(
             "cells (default: a temporary directory). Never data/."
         ),
     ] = None,
+    workers: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Engine lanes to run at once. Each engine's cells always run one after "
+            "another in its own lane; 0 (the default) runs every engine's lane at once, "
+            "and 1 runs the lanes one after another, which is what debugging one wants. "
+            "The report is the same either way.",
+        ),
+    ] = 0,
 ) -> None:
     """Back-test cert predictors over decided petitions into ``metrics/cert-backtest.json``.
 
@@ -5522,7 +5564,9 @@ def cert_backtest_cmd(
         provisioning: dict[str, int] = {}  # empty unless an agentic replay ran
         replay_run_id: str | None = None  # null unless one did: baselines have no run
         dropped: list[str] = []  # predictors lost at run time, not opted out
-        lost_cells: list[CertBacktestCellLoss] = []  # cells that came back unreadable
+        lost_cells: list[CertBacktestCellLoss] = []  # cells that produced no score
+        disclosures: list[CertBacktestDisclosure] = []  # the cells' own flags.json notes
+        tally: dict[str, CertBacktestDisclosureTally] = {}  # their per-predictor counts
         replayed: list[Backtester] = []  # the engine cells' backtesters, if any ran
         clock_days: dict[str, date] = {}  # each dated cell's cutoff; empty offline
         if engine:
@@ -5559,8 +5603,10 @@ def cert_backtest_cmd(
                 engine_override=None if engine == "auto" else engine,
                 skip_engines=skipped_engines,
                 run_id=replay_run_id,
+                workers=workers,
             )
             provisioning, lost_cells = outcome.provisioning, outcome.lost_cells
+            disclosures, tally = outcome.disclosures, outcome.disclosure_tally
             clock_days = outcome.clock_days
             dropped = _report_replay_drops(
                 outcome,
@@ -5597,9 +5643,12 @@ def cert_backtest_cmd(
                 base_rate_lookback_terms=salience_cfg.base_rate_lookback_terms,
                 dropped_predictors=sorted(dropped),
                 lost_cells=lost_cells,
+                disclosures=disclosures,
+                disclosure_tally=tally,
             ),
         )
     write_json(destination, report)
+    _annotate_harness_faults(lost_cells)
     typer.echo(
         f"cert-backtest: {report.predictors_evaluated} predictor(s) over "
         f"{report.events_scored} decided petition(s); always-deny floor "
@@ -7739,12 +7788,8 @@ def _vintaged[T: BaseModel](path: Path, model: type[T]) -> Vintaged[T]:
 
 
 def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
-    """The committed boards the weekly digest reports, each with its own vintage."""
+    """The committed replay artifacts the weekly digest's back-test block reports."""
     return WeeklyAnalytics(
-        leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
-        claim_scores=_vintaged(metrics_root / "claim-scores.json", ClaimScoreBoard),
-        big_cases=_vintaged(metrics_root / "big-cases.json", BigCaseBoard),
-        statpack=_vintaged(metrics_root / "statpack.json", StatPack),
         backtest=_vintaged(metrics_root / "backtest.json", Backtest),
         salience_replay=_vintaged(metrics_root / "salience-replay.json", SalienceReplay),
         # Never produced by the scheduled refresh — a real-engine replay spends
@@ -7780,29 +7825,66 @@ def _parse_when(stamp: str) -> datetime:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
-#: The window the weekly digest's production census and its spend figure share.
-#: A week, because that is the period the digest covers; the spend *backstop*
-#: keeps its own, longer window, which is why the two are reported separately
-#: rather than one being derived from the other.
+#: The window the digest's first production block covers. A week, because that is
+#: the period the digest is opened for; the month block takes its own window from
+#: the spend backstop's config instead, so the backstop's verdict and the census
+#: printed beside it can never describe different periods.
 _WEEKLY_WINDOW_DAYS = 7
 
 
-def _weekly_production(data_root: Path, config_root: Path, when: datetime) -> WeeklyProduction:
-    """The week's cells and cost, plus the spend backstop's own verdict.
+def _produced_over(
+    usage: Sequence[ModelUsage],
+    title: str,
+    *,
+    window_days: int,
+    when: datetime,
+    since: datetime | None = None,
+    term: int | None = None,
+) -> ProducedWindow:
+    """One production block's census and spend, over one window of the ledger."""
+    return ProducedWindow(
+        title=title,
+        census=cell_census(usage, window_days=window_days, now=when, since=since),
+        spend_usd=spend_over(usage, window_days=window_days, now=when, since=since)[0],
+        window_start=(since or when - timedelta(days=window_days)).date(),
+        window_end=when.date(),
+        term=term,
+    )
 
-    One walk of the ledger for all three figures: the census, the week's spend,
-    and the backstop's own longer window read the same records, so they cannot
-    disagree about what they cover and the growing tree is scanned once.
+
+def _weekly_production(data_root: Path, config_root: Path, when: datetime) -> WeeklyProduction:
+    """The digest's three production windows, plus the spend backstop's verdict.
+
+    One walk of the ledger for every figure: the three censuses, their three
+    spend totals, and the backstop's own window all read the same records, so
+    they cannot disagree about what they cover and the growing tree is scanned
+    once.
+
+    The Term window is pinned to the instant its Term opened rather than counted
+    back in days — an October Term opens at midnight on 1 October and the digest
+    renders mid-morning, so a day count would cut the Term's own first morning
+    out of its census.
     """
     usage = iter_usage(data_root)
-    census = cell_census(usage, window_days=_WEEKLY_WINDOW_DAYS, now=when)
-    spent, _cells = spend_over(usage, window_days=_WEEKLY_WINDOW_DAYS, now=when)
+    spend_config = load_spend_config(config_root)
+    term = october_term_year(when.date())
+    term_start = datetime(term, 10, 1, tzinfo=UTC)
     return WeeklyProduction(
-        census=census,
-        spend_usd=spent,
-        backstop=verdict_over(usage, load_spend_config(config_root), now=when),
-        window_start=(when - timedelta(days=_WEEKLY_WINDOW_DAYS)).date(),
-        window_end=when.date(),
+        week=_produced_over(
+            usage, "Produced this week", window_days=_WEEKLY_WINDOW_DAYS, when=when
+        ),
+        month=_produced_over(
+            usage, "Produced this month", window_days=spend_config.window_days, when=when
+        ),
+        term=_produced_over(
+            usage,
+            "Produced this term",
+            window_days=(when.date() - term_start.date()).days,
+            when=when,
+            since=term_start,
+            term=term,
+        ),
+        backstop=verdict_over(usage, spend_config, now=when),
     )
 
 
@@ -7888,12 +7970,13 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     to stdout (the run-ops job's Actions step summary); ``--json`` writes the
     structured ``OpsReport``.
 
-    ``--digest-out`` renders the **weekly performance digest** — the health
-    questions, the committed boards' state with each empty one saying why it is
-    empty, the week's cells and measured spend, and the back-test results,
-    every metrics-derived figure carrying the vintage of the artifact it came
-    from. ``--digest-post-repo`` additionally opens it as a `weekly-digest`
-    issue, once per ISO week.
+    ``--digest-out`` renders the **weekly performance digest** — the cells and
+    measured spend produced over the week, the trailing month (closing with the
+    spend backstop's verdict) and the Term to date (closing with the forward
+    cells scored under the process in force), then the back-test results, each
+    back-test figure carrying the vintage of the artifact it came from.
+    ``post-weekly-digest`` is the separate command that opens it as a
+    `weekly-digest` issue, once per ISO week.
 
     Unlike the leaderboard/back-test roll-ups it is a point-in-time snapshot, so
     it is surfaced, not committed.
@@ -10391,6 +10474,184 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
                 f"{case} contact scrub: {withheld} detail(s) withheld across "
                 f"{len(staged)} staged document(s) (no attorney named for the petitioner)"
             )
+
+
+@app.command("summarize-plan")
+def summarize_plan_cmd(
+    limit: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Plan at most this many owed cases, cases without any summary first "
+            "(0, the default, plans every owed case). The rest are counted as deferred "
+            "and re-derived by the next run.",
+        ),
+    ] = 0,
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the plan JSON here (default: stdout)."),
+    ] = None,
+    report: Annotated[
+        Path | None,
+        typer.Option(help="Write the markdown plan report the review hold is judged on."),
+    ] = None,
+    report_run_url: Annotated[
+        str, typer.Option(help="Actions run URL named in the plan report.")
+    ] = "",
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Dry run of the case-summary lane: which cases are owed a summary, at what cost.
+
+    Eligible cases carry at least one committed prediction. Each one's newest
+    corpus record (snapshot plus stored documents) is read and digested, and a
+    case is owed a summary when that digest differs from the one its newest
+    committed ``summaries/<day>.md`` was written from, or when it has none.
+    Writes nothing under ``data/`` and calls no model; the plan it prints is what
+    ``summarize`` consumes, so the run writes what the hold released.
+    """
+    settings = get_settings()
+    config = load_summaries_config(settings.config_root)
+    if config.model not in MODEL_RATES:
+        typer.echo(f"summaries.model {config.model!r} has no rate in pricing.MODEL_RATES", err=True)
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    backend = _provision_backend(corpus_backend)
+    eligible = sorted({ref.case_id for ref in iter_predicted_events(settings.data_root)})
+
+    def read(case_id: str) -> summaries.CaseRecord | None:
+        found = _read_cell_inputs(backend, db_path, case_id, "", want_row=False, cut=False)
+        if found.latest is None:
+            return None
+        day, payload = found.latest
+        return summaries.CaseRecord(
+            snapshot=day,
+            payload=payload,
+            documents=[(doc.kind, doc.text) for doc in found.documents],
+        )
+
+    plan = summaries.plan_summaries(settings.data_root, eligible, read, config, limit=limit)
+    document = json.dumps(plan.model_dump(mode="json"), indent=2, sort_keys=True) + "\n"
+    if out is None:
+        typer.echo(document, nl=False)
+    else:
+        write_text(out, document)
+    if report is not None:
+        write_text(report, summaries.render_plan_report(plan, run_url=report_run_url))
+    typer.echo(
+        f"summaries: {plan.eligible} eligible, {plan.up_to_date} up to date, "
+        f"{len(plan.cases)} planned, {plan.deferred} deferred, "
+        f"{len(plan.no_snapshot)} without a snapshot, "
+        f"{len(plan.not_live_shaped)} not live-shaped; estimated "
+        f"${plan.estimated_cost_usd_low:.2f} to ${plan.estimated_cost_usd_high:.2f}",
+        err=True,
+    )
+
+
+@app.command("summarize")
+def summarize_cmd(
+    plan_file: Annotated[
+        Path, typer.Option("--plan", help="The plan JSON `summarize-plan` wrote.")
+    ],
+    staged: Annotated[
+        Path,
+        typer.Option(
+            help="The data root `provision-snapshot` staged the planned cases under "
+            "(each case's record/ tree). Read only; summaries are written under the "
+            "configured data root."
+        ),
+    ],
+    report: Annotated[
+        Path | None,
+        typer.Option(help="Write the markdown result report (written, skipped, cost)."),
+    ] = None,
+    budget_minutes: Annotated[
+        float,
+        typer.Option(
+            min=0,
+            help="Stop starting new cases after this many minutes and report the rest "
+            "as deferred (0, the default, is no budget). Set it below the calling "
+            "step's timeout so the run returns, and what it wrote is collected, "
+            "rather than being killed mid-plan.",
+        ),
+    ] = 0,
+) -> None:
+    """Write the planned case summaries: one Messages API call per case, no tools.
+
+    Each call carries the summarizer prompt and the case's staged record and
+    nothing else. A response is written to ``summaries/<snapshot day>.md`` only
+    if it ends normally, carries exactly the three contract sections in order,
+    sits in the length band, opens no paragraph with "Whether", and passes the
+    secret scan; anything else, and any call that still fails after bounded
+    retries, is reported as skipped. The API key is read from the environment
+    variable ``summaries.API_KEY_ENV`` names. Exits 1 when
+    the plan held cases and none was written, so a dead key or a broken prompt
+    fails the run rather than reading as an empty success.
+    """
+    settings = get_settings()
+    api_key = os.environ.get(summaries.API_KEY_ENV, "")
+    if not api_key:
+        typer.echo(f"{summaries.API_KEY_ENV} is unset; nothing to call the API with", err=True)
+        raise typer.Exit(code=2)
+    if not summaries.PROMPT_PATH.is_file():
+        typer.echo(f"prompt {summaries.PROMPT_PATH} not found (run from the repo root)", err=True)
+        raise typer.Exit(code=2)
+    config = load_summaries_config(settings.config_root)
+    plan = SummaryPlan.model_validate_json(plan_file.read_text())
+    deadline = datetime.now(UTC) + timedelta(minutes=budget_minutes) if budget_minutes > 0 else None
+    try:
+        with httpx.Client(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
+            outcome = summaries.summarize_plan(
+                plan,
+                stage_root=staged,
+                data_root=settings.data_root,
+                config=config,
+                prompt_bytes=summaries.PROMPT_PATH.read_bytes(),
+                client=client,
+                api_key=api_key,
+                deadline=deadline,
+            )
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    rendered = summaries.render_outcome_report(outcome, len(plan.cases))
+    typer.echo(rendered, nl=False)
+    if report is not None:
+        write_text(report, rendered)
+    if plan.cases and not outcome.written:
+        typer.echo("no summary was written from a non-empty plan", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command("summary-paths")
+def summary_paths_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to read.")
+    ],
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict",
+            help="Refuse (exit 1, with ::error:: lines) when any change is not an "
+            "addition or modification of a case summary file.",
+        ),
+    ] = False,
+) -> None:
+    """Print the case summary files a change set writes; with --strict, the lane's jail.
+
+    The summaries lane writes one kind of file — ``data/cases/<court>/<docket>/
+    summaries/<YYYY-MM-DD>.md`` — so its branch may carry nothing else. Without
+    ``--strict`` this is the filter the workflow uses to carry an open refresh
+    PR's summaries forward (other paths are ignored); with it, the check that
+    refuses to publish a change set holding anything but summaries.
+    """
+    changes = [(c.status, c.path) for c in parse_name_status(name_status_file.read_text())]
+    writes, violations = summaries.summary_changes(changes)
+    if strict and violations:
+        for violation in violations:
+            typer.echo(f"::error::not a case summary write: {violation}", err=True)
+        raise typer.Exit(code=1)
+    for path in writes:
+        typer.echo(path)
 
 
 def _clear_opinion_slot(paths: CasePaths) -> None:

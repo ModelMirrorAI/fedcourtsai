@@ -30,7 +30,8 @@ convention `AGENTS.md` carries, not something identity enforces):
   PR`, so the writers push corpus facts straight to `main`.
 - **dev App** — used by the agent workflows `run-predict` /
   `run-evaluate`, the reviewed-PR openers (`run-backtest`, and
-  `run-analytics`'s metrics-refresh and qp-topic-label jobs),
+  `run-analytics`'s metrics-refresh and qp-topic-label jobs, and
+  `summarize`'s publish job),
   `run-analytics`'s big-cases job (the one PR opener here that auto-merges),
   `sync-staging`,
   and `integration-test`'s application-repro leg (watchdog telemetry only).
@@ -73,6 +74,7 @@ environment-scoped one correctly resolves empty. Each workflow mints a token sco
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
 | `run-analytics` (big-cases job only) | dev | contents, pull-requests | open the **auto-merging** big-case-board PR — the one PR opener in this repo that is not reviewed by a human, which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
 | `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — and on `main`-branch (prod-bound) runs only, so a rehearsal that reaches the labeler runs the full agent posture and the gate with no App token in the job at all — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
+| `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
@@ -383,7 +385,9 @@ Every secret and the two production S3 role ARNs live on the `prod`
 environment — the dev and data Apps'
 credentials (the staging telemetry App's pair lives on `staging`, and the
 engine keys have per-environment twins there; both exceptions are recorded
-where those holders are described), the Anthropic API key, the Codex/OpenAI key, the Gemini API key,
+where those holders are described), the Anthropic API key (which the case-summary
+lane also spends on, held in `summarize` by its generate job alone), the
+Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion; by the MCP
 sidecar composite's launch step — the cells', `integration-test`'s
 engine-smoke **codex** leg, its engine-actions-smoke legs and each
@@ -398,17 +402,19 @@ deployment environment and the sole corpus address every lane resolves, since
 both store halves and the corpus-split mode follow from it; its value is
 out of band, never committed, and an environment missing it has no corpus at
 all rather than half of one. Every job that needs any of
-them declares an environment, and every job outside `integration-test` and
-`run-analytics` declares `prod` — those two resolve the environment from the
-dispatching ref instead (the branch-resolution paragraph below), which is what
-makes their staging dispatches rehearsals — with two deliberate exceptions, by
-environment. The `approval` jobs of run-predict,
-run-evaluate and run-backtest declare
+them declares an environment, and every job outside `integration-test`,
+`run-analytics` and `summarize` declares `prod` — those three resolve the
+environment from the dispatching ref instead (the branch-resolution paragraph
+below; `summarize`'s publish job, which runs on `main` only, is the literal
+`prod`), which is what makes their staging dispatches rehearsals — with two
+deliberate exceptions, by environment. The `approval` jobs of run-predict,
+run-evaluate, run-backtest and summarize declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables, no role, and no deployment-branch
 policy; each job it gates runs one echo under `permissions: {}`, so the
 environment grants nothing and merely withholds the spend behind it — a
-fan-out's matrix, or the back-test's fortnightly replay — until
+fan-out's matrix, the back-test's fortnightly replay, or a case-summary
+run — until
 a named reviewer releases it; one environment serves every spend hold
 rather than each minting its own. It must be
 created **with required reviewers configured before the gate promotes**:
@@ -421,7 +427,7 @@ here, not two-person control, a call to revisit if a second maintainer
 joins. `staging-corpus-refresh` declares **`staging`** — the same environment
 the integration scenarios bind, because the staging read-write role's trust
 deliberately names it (see *The staging corpus* below). And among the fan-out
-workflows and on run-backtest, the `rejected` reporters declare no environment
+workflows, on run-backtest and on summarize, the `rejected` reporters declare no environment
 at all and run under
 `permissions: {}`: writing "the hold did not release" to the run's Actions
 summary needs no secret and no token, and the step must work even when nothing
@@ -493,6 +499,14 @@ non-dispatch trigger, the schedule, always lands on `prod` — and its
 publish steps (the two dev-App mints, the git identities, the review-PR
 steps) are additionally fenced to `main`-branch runs, so a staging-bound
 dispatch is a read-and-spend rehearsal that can open nothing.
+
+**`summarize` resolves its plan, stage and generate jobs the same way** — no
+input override, `main` (and the daily schedule) to `prod`, `staging` to
+`staging`, anything else to the empty auto-created environment — so a
+staging dispatch reads the staging corpus pair and spends on staging's
+Anthropic key, behind the same `review` hold. Its publish job is the
+literal `prod` and runs only on `refs/heads/main`, so a rehearsal ends with
+the summaries in a run artifact and nothing opened.
 
 **`staging` is restricted to the `staging` branch, and carries no reviewer
 rule** — the same shape as `prod`, one branch lower. The branch policy is the
@@ -876,6 +890,8 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
+| `summarize` — plan, stage                 | read-only     | the case-summary plan (full `corpus-pull`, then each predicted case's newest snapshot and document texts from the content store) and the staging of each planned case's record with `provision-snapshot`, handed to the generate job as a one-day artifact |
+| `summarize` — generate, publish           | none          | generate holds the environment's Anthropic API key, assumes no role, has no `id-token: write`, and asserts both the AWS and the OIDC variables are absent first; publish holds the dev App token on `main` only |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent. What leaves it is one artifact of invented question texts — the labels the smoke produced — published only past a containment check against the engine key |
 | `integration-test` — codex-freeze-probe family (`codex-freeze-probe`, `codex-freeze-probe-unprivuser`) | none          | the freeze probe assumes no role and holds no `id-token`: it reads no corpus, and its reach is the telemetry mint plus the engine key one trivial turn spends — the ceiling for both members, which mint, arm and spend alike. The base `codex-freeze-probe` turn keeps `safety-strategy: drop-sudo` to reproduce the wedge, which is why it is held out of the cross-surface lockstep pin. The `codex-freeze-probe-unprivuser` member runs its codex turn under `safety-strategy: unprivileged-user` as a separate unprivileged UNIX user the job provisions (nologin, no sudo, no supplementary groups; its home relaxed to 0755, and its boot-probe session rollout copied into the workspace for the shared assertion), so the runner account is never mutated and the model key never enters that user's environment or any file it can read — the other lockstep-exempt turn, and the same `unprivileged-user` posture the production cells run. The job's MCP sidecar is launched deliberately **token-free** — the turn uses no tools, so an unauthenticated server that handshakes is the whole requirement, and no CourtListener token reaches the agent's env or any config file it can read |
@@ -1073,6 +1089,20 @@ least-privilege line that carries the threat model is the one the role already
 holds: **no write or delete** (append-only remote, explicit deny, versioning
 on), the cell-blast-radius bound stated above.
 
+The case-summary lane adds two run artifacts to the same public channel,
+argued in [case-summaries.md](case-summaries.md). `summary-stage`, one day,
+carries each planned case's staged record between the stage and generate
+jobs — the newest snapshot and every stored document's text, after the
+contact-detail scrub. The lane plans only cases whose newest snapshot is the
+Court's own docket JSON, so what it carries is supremecourt.gov content, on
+the footing the qp-topic extract is argued on: the plan refuses a
+CourtListener REST snapshot, and so does `summarize` if one is staged. It
+widens that footing in one way the extract does not: the extract carries one
+section of each petition, while this carries every stored filing of each
+planned case. `case-summaries`, seven days, carries the generated summaries
+after the jail and the secret scan and before any human review — on a staging
+rehearsal, the only place those summaries go.
+
 On the bucket: **Versioning on** (recover from any accidental overwrite/delete),
 a **lifecycle rule** expiring noncurrent versions after a recovery window, an
 age-based **storage-class transition** on the index prefix, and **Block Public
@@ -1241,9 +1271,9 @@ the repoint. Read step 5's two ordering notes before doing either.
    consumer otherwise resolves the committed `corpus/corpus.db.ref`, whose
    digest names the production blob, and content addressing means a lean
    slice can never publish under that digest. With both set, the
-   integration scenarios and the `run-analytics` rehearsals dispatched from
-   `staging` run split-on against the
-   staging corpus rather than production's (`run-analytics`'s corpus jobs
+   integration scenarios and the `run-analytics` and `summarize` rehearsals
+   dispatched from `staging` run split-on against the
+   staging corpus rather than production's (the two lanes' corpus jobs
    forward the pointer fenced off `main`, so for them a stray wider-scoped
    value is inert on `prod`-bound runs by construction; the warning below
    still binds for the scenarios).

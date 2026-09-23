@@ -1213,21 +1213,90 @@ the rendered table) and
   `mean_brier_skill`, is scored against — it sits in no process digest, so
   without it here a per-band comparison across two reports is not one).
   `dropped_predictors` names the predictors lost at run time (no registered
-  runner, a missing CLI binary, or every one of its cells unreadable — the ids
+  runner, a missing CLI binary, or every one of its cells lost — the ids
   carry no cause, which the run log states) as against the deliberate
   `skip_engines` opt-out, since a board silently short one engine is not the
   three-engine comparison it looks like. `lost_cells` is the per-cell
-  counterpart: a (petition, predictor) cell that ran and produced no readable
-  prediction, with its reason (`missing`, `invalid`, or
-  `wrote-outside-work-root`). It is a reading rule, not bookkeeping — a
-  predictor short *some* cells is scored, and its lift floored, over the
-  petitions that came back, so its `events_scored` is below the set and its top
-  line is not measured over the same sample as an entry that lost none; one
-  short every cell has no entry at all and is in `dropped_predictors` instead.
+  counterpart: a (petition, predictor) cell that produced no score, with its
+  reason — `missing`, `invalid`, `wrote-outside-work-root` (the cell ran and
+  what came back was absent, malformed, or written outside the work root),
+  `engine-failed` (the engine exited non-zero for that cell),
+  `quota-exhausted` (the engine's own quota was spent, so that cell failed and
+  the engine's remaining cells were recorded lost without being attempted,
+  every further invocation being a paid-for certainty of the same failure — so
+  exactly one of an engine's `quota-exhausted` cells was a model call and the
+  rest were not, which is why the count is a coverage figure and not an attempt
+  count), or `harness-error` (the harness itself raised something no engine
+  fault explains while running or reading that cell or an earlier one of its
+  engine, so that engine's lane stopped and its remaining cells were recorded
+  lost without being attempted, while the other engines ran on — the same
+  coverage-not-attempts reading). Read the whole-predictor drops apart here: a
+  predictor dropped because its engine's quota ran out, or because its lane
+  stopped on a harness fault, carries a `lost_cells` entry for every petition
+  (the tail under that reason), while one dropped for a missing CLI binary carries
+  entries only for the cells it had already lost — its remaining ones were
+  never attempted and
+  are not counted as losses, so a shortfall with no entries behind it is that
+  case. It is a reading
+  rule, not bookkeeping — a predictor short *some* cells is scored, and its
+  lift floored, over the petitions that came back, so its `events_scored` is
+  below the set and its top line is not measured over the same sample as an
+  entry that lost none; one short every cell has no entry at all and is in
+  `dropped_predictors` instead. **A `quota-exhausted` or `harness-error`
+  truncation is not a scattered subsample**: each engine walks the petitions in
+  the dispatched order, and once its allowance trips or its lane stops every
+  later cell of that engine is lost, so
+  what survives is the *prefix* of that order — under `--spread` the cohorts
+  the round-robin had already reached, otherwise the most recent decisions.
+  That is a differently composed slice, not merely a smaller one: its denial
+  share (so its floor), its band mix (so its `segment_base_rate` and per-band
+  skill) and the `provisioning` mix that applies to it all follow from the
+  prefix rather than from the dispatched population. `lost_cells` names the
+  case ids, so reconstruct the surviving set before reading such an entry's
+  numbers, and do not compare it with a full entry even as a listing.
   The board keeps a short entry below every full one whatever its lift —
   dropping a petition a predictor would have got wrong raises the figure — so
   `rank` orders comparably only within one `events_scored`, and the rows below
-  the full ones are a listing rather than a ranking. A **null** `provenance` means unknown, never offline: read
+  the full ones are a listing rather than a ranking. **No leakage exclusion
+  applies to this board.** The back-test runs no evaluator, so the leakage
+  bit that takes a graded ledger cell out of every scored figure (*The
+  leakage exclusion*, above) is never set here, and the only exposure
+  evidence a replay has is what each cell said about itself in `flags.json`.
+  That is recorded, not acted on: `provenance.disclosures` lists every
+  replayed cell that left one in the work root — scored or lost, since a lost
+  cell's note can explain its loss — with each note's category, severity and
+  an `outcome_exposure_candidate` bit, and `provenance.disclosure_tally`
+  counts, per predictor on the board and over its scored cells, how many were
+  read, flagged, unreadable, and candidates. The bit is a triage highlighter
+  over free text, not a judgment: a note is a candidate when some clause of
+  it — split at sentence and clause punctuation (commas included) and before
+  *but*, *although*, *though*, *however*, *yet* and *whereas* — carries an
+  exposure cue (leak, contaminat…, outcome-revealing, surfaced, encountered,
+  saw, seen, reveal, exposed or exposure, snippet, unsuitable, show or
+  showed, found, included), an outcome term (outcome, disposition, granted,
+  denied, granting, denying, GVR, order list, grant language, grant order,
+  "cert was") and no negator (no, not, none, nothing, never, neither, nor,
+  without, cannot, *-n't*). It over-calls on a retrieved prior's disposition,
+  and misses a disclosure worded outside its cues, one sharing its clause
+  with its own denial, and one whose cue and outcome term a comma separates —
+  so **an unmarked note is not a cleared one**. That is why it changes
+  nothing: a text rule deciding which cells stay scored would demote a
+  predictor for its candour, unevenly across engines that write notes
+  differently. So read the board with the direction stated — **a disclosed
+  exposure left in the scores can only bias that predictor's accuracy and
+  lift upward**, an undisclosed one is invisible here, and a cell with no
+  `flags.json` said nothing, which is silence rather than a clean bill. The
+  tally is read within one predictor, never as a cross-engine leakage
+  comparison. The notes' text is deliberately not in the report: `metrics/`
+  sits beside later replay cells, and a note naming what outcome material it
+  saw is outcome text keyed by case id. It is printed to the run log as each
+  cell is read (`flag from <predictor> on <case>`, credential runs redacted,
+  candidates marked; `unreadable flags.json from <predictor> on <case>` for
+  a note that does not parse). The review PR names every candidate cell — a
+  lost one in a clause of its own, since it is in no figure but every
+  predictor on that petition read the same provisioned inputs — and every
+  unreadable note, and marks the headline itself when the headline entry has
+  either. A **null** `provenance` means unknown, never offline: read
   nothing from such a report. `provisioning` counts the replayed **petitions**
   by the snapshot provenance each was given — `dated` (a snapshot the docket
   really served before the cutoff), `truncated` (a later payload with its
@@ -2248,4 +2317,8 @@ takes a contaminated cell out of every scored figure (*The leakage exclusion*
 above). Timing alone cannot: it is the control over what a cell was *placed*
 to see, and a mis-provisioned cell that claims `forward` is precisely the case
 where the placement is not what the record says. The two mechanisms are
-complementary and neither substitutes for the other.
+complementary and neither substitutes for the other. The cert back-test's
+scratch-tree cells have the timing half alone: no evaluator grades them, so
+the only exposure record they leave is their own `flags.json` disclosures,
+which the report carries and which exclude nothing (the `cert-backtest.json`
+entry above states the direction).

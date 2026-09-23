@@ -390,7 +390,9 @@ Three consequences bind every use of the set:
   public records of the Court, outside the CC BY-ND term that
   `docs/data-sources.md` applies to CourtListener's own content and that keeps
   the rest of the corpus access-gated. It is *not* accepted as a general route
-  for corpus content into Actions artifacts, and it is the reason the extract
+  for corpus content into Actions artifacts — the one other lane on this
+  footing, the case-summary lane (`docs/case-summaries.md`), is argued there
+  and holds itself to supremecourt.gov content — and it is the reason the extract
   command refuses to write anywhere inside the checkout: the run artifacts are the
   sanctioned copies, and they are meant to be short-lived. Encrypting it under a
   run-scoped key, or collapsing the two jobs behind step-scoped credentials so

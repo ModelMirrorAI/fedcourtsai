@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import os
+import sys
+import threading
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from typer.testing import CliRunner
@@ -30,14 +33,30 @@ from fedcourtsai.cli import app
 from fedcourtsai.config import load_salience_config
 from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest
 from fedcourtsai.pipeline.asof import replay_cutoff
-from fedcourtsai.pipeline.runner import EngineUnavailable, RunRequest, StubRunner, get_runner
+from fedcourtsai.pipeline.runner import (
+    AgenticRunner,
+    CommandResult,
+    EngineFailed,
+    EngineQuotaExhausted,
+    EngineUnavailable,
+    Runner,
+    RunRequest,
+    StubRunner,
+    get_runner,
+)
 from fedcourtsai.pricing import DEFAULT_MODELS
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import (
+    AgentFlag,
+    AgentFlags,
     CertBacktest,
     CertBacktestCellLoss,
+    CertBacktestDisclosureTally,
     Disposition,
+    FlagCategory,
     PredictionContext,
+    PredictorConfig,
+    UsageRole,
 )
 from fedcourtsai.serialize import read_model
 from tests.conftest import FixtureCorpus
@@ -973,6 +992,192 @@ def test_a_malformed_cell_is_a_loss_rather_than_a_crash(tmp_path: Path) -> None:
     assert lost.reason == "invalid"
 
 
+class _FailingRunner:
+    """A stub that raises one backend's engine failure and serves the rest.
+
+    The engine ran and exited non-zero — the fault the campaign used to die of.
+    ``failure`` is the exception that backend raises, so one double covers both
+    an ordinary failure and a terminal quota.
+    """
+
+    def __init__(
+        self,
+        backend: str,
+        failing: str,
+        failure: EngineFailed,
+        calls: list[tuple[str, str]],
+    ) -> None:
+        self._backend = backend
+        self._failing = failing
+        self._failure = failure
+        self._calls = calls
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        self._calls.append((self._backend, request.actor_id))
+        if self._backend == self._failing:
+            raise self._failure
+        return self._stub.run(request)
+
+
+def _failing_get_runner(
+    failing: str, failure: EngineFailed, calls: list[tuple[str, str]]
+) -> object:
+    """A `get_runner` double whose ``failing`` backend raises ``failure``."""
+
+    def factory(backend: str = "stub") -> _FailingRunner:
+        return _FailingRunner(backend, failing, failure, calls)
+
+    return factory
+
+
+def test_an_engine_failure_is_one_lost_cell_not_a_lost_campaign(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A cell whose engine exited non-zero costs that cell and nothing else.
+
+    The cells already paid for on the other engines are the whole reason: an
+    exception escaping here discards them with the work root and lands no
+    report at all, which is strictly worse than a report naming one loss.
+    """
+    calls: list[tuple[str, str]] = []
+    failure = EngineFailed(
+        "gemini exited 1 for cell gemini-baseline/evt-petition-disposition "
+        + "after 3 attempts (transient failure, retry budget exhausted)"
+    )
+    monkeypatch.setattr(cert_backtest, "get_runner", _failing_get_runner("gemini", failure, calls))
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    outcome = cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    assert outcome.unavailable == []  # the binary was there; the call failed
+    assert [(c.predictor_id, c.reason) for c in outcome.lost_cells] == [
+        ("gemini-baseline", "engine-failed")
+    ]
+    assert {b.id for b in outcome.backtesters} == {"claude-baseline", "codex-baseline"}
+    report = run_cert_backtest(outcome.backtesters, items)
+    assert {e.predictor_id for e in report.entries} == {"claude-baseline", "codex-baseline"}
+
+
+def test_a_terminal_quota_is_lost_under_its_own_reason(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Named apart from the plain failure because it says something different
+    # about the run — and because it is the one that generalizes to the
+    # engine's remaining cells.
+    calls: list[tuple[str, str]] = []
+    failure = EngineQuotaExhausted(
+        "gemini exited 1 for cell gemini-baseline/evt-petition-disposition "
+        + "(terminal quota: the engine's quota is exhausted and no retry can clear it)"
+    )
+    monkeypatch.setattr(cert_backtest, "get_runner", _failing_get_runner("gemini", failure, calls))
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    outcome = cert_backtest.replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    assert [(c.predictor_id, c.reason) for c in outcome.lost_cells] == [
+        ("gemini-baseline", "quota-exhausted")
+    ]
+    # The exhausted engine is not "unavailable": its CLI was there and answered.
+    assert outcome.unavailable == []
+    assert {b.id for b in outcome.backtesters} == {"claude-baseline", "codex-baseline"}
+
+
+def _provisioned(
+    work_root: Path, dockets: tuple[int, ...]
+) -> list[cert_backtest._ProvisionedPetition]:
+    """Cell contracts for SCOTUS petitions, as the provisioning phase hands them on."""
+    return [
+        cert_backtest._ProvisionedPetition(
+            case_id=f"scotus/{docket}",
+            cell=RunRequest(
+                role=UsageRole.predictor,
+                court_id="scotus",
+                docket_id=docket,
+                event_id="evt-petition-disposition",
+                actor_id="",
+                prompt=Path(),
+                run_id="20260706T000000Z",
+                data_root=work_root,
+            ),
+            stray_paths=None,
+        )
+        for docket in dockets
+    ]
+
+
+def test_a_spent_quota_skips_that_engines_later_cells_and_records_them(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Once the quota is known spent, the engine's later cells are not attempted.
+
+    Two petitions through the engine lanes directly — the fixture corpus
+    replays a single petition, and what is under test is precisely what carries
+    *across* them, inside the one lane that owns the engine. Each skipped cell
+    is still recorded as lost, so the report's counts say why the predictor is
+    short rather than leaving the gap unexplained.
+    """
+    calls: list[tuple[str, str]] = []
+    failure = EngineQuotaExhausted("gemini exited 1 for a cell (terminal quota: exhausted)")
+    monkeypatch.setattr(cert_backtest, "get_runner", _failing_get_runner("gemini", failure, calls))
+    pairs = cert_backtest._runners_by_predictor(Path("config"), None)
+    engines = {predictor.id: str(predictor.engine) for predictor, _ in pairs}
+    merged = cert_backtest._merged(
+        cert_backtest._run_lanes(
+            cert_backtest._engine_lanes(pairs, engines),
+            _provisioned(tmp_path / "replay", (304, 305)),
+            engines=engines,
+            workers=0,
+        )
+    )
+    losses, collected, unavailable = merged.losses, merged.collected, merged.unavailable
+    # One attempt on gemini, ever: the second petition's cell was skipped rather
+    # than paid for in backoff.
+    assert [actor for backend, actor in calls if backend == "gemini"] == ["gemini-baseline"]
+    # Both cells are on the report, under the reason that explains the gap.
+    assert [(c.case_id, c.predictor_id, c.reason) for c in losses] == [
+        ("scotus/304", "gemini-baseline", "quota-exhausted"),
+        ("scotus/305", "gemini-baseline", "quota-exhausted"),
+    ]
+    # The other engines are untouched by one engine's quota, on both petitions.
+    assert collected["claude-baseline"].keys() == {"scotus/304", "scotus/305"}
+    assert collected["codex-baseline"].keys() == {"scotus/304", "scotus/305"}
+    assert unavailable == set()  # a spent quota is never a missing binary
+
+
+def test_the_cli_names_a_quota_drop_as_that(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # End to end: the campaign lands a report, and the predictor whose engine ran
+    # out is dropped as that rather than as cells that came back unreadable.
+    calls: list[tuple[str, str]] = []
+    failure = EngineQuotaExhausted("gemini exited 1 for a cell (terminal quota: exhausted)")
+    monkeypatch.setattr(cert_backtest, "get_runner", _failing_get_runner("gemini", failure, calls))
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(out), "--engine", "auto", "--work-dir", str(tmp_path / "w")],
+    )
+    assert result.exit_code == 0, result.output
+    report = read_model(out, CertBacktest)
+    assert report.provenance is not None
+    assert [(c.predictor_id, c.reason) for c in report.provenance.lost_cells] == [
+        ("gemini-baseline", "quota-exhausted")
+    ]
+    assert "gemini-baseline" in report.provenance.dropped_predictors
+    assert "dropped predictor gemini-baseline: its engine's quota was exhausted" in result.stderr
+
+
 def test_a_partly_lost_predictor_is_scored_over_what_came_back() -> None:
     """An entry short some cells is scored, and floored, over the ones it has.
 
@@ -1060,7 +1265,7 @@ def test_the_cli_report_carries_the_lost_cells(
     ]
     # It lost its only cell, so it is dropped — as that, not as a missing runner.
     assert "codex-baseline" in report.provenance.dropped_predictors
-    assert "every one of its cells came back unreadable" in result.stderr
+    assert "every one of its cells was lost" in result.stderr
     assert "codex-baseline" not in {e.predictor_id for e in report.entries}
 
 
@@ -1702,3 +1907,685 @@ def test_the_report_carries_the_provisioning_mix() -> None:
     assert report.provisioning == {"truncated": 7, "blind": 2}
     # Absent rather than fabricated where no replay ran.
     assert run_cert_backtest([], []).provisioning == {}
+
+
+# --- The cells' own flags.json: recorded, never a filter --------------------
+
+# Real notes from the first real-engine campaign, verbatim: the negated
+# boilerplate the engines write into almost every flag. None may read as an
+# exposure candidate — codex writes these on nearly every cell, so a rule that
+# tripped on them would mark one engine wholesale.
+_BENIGN_REAL_NOTES = [
+    "Replay context supplies cutoff 2026-06-30 alongside decided_before 2025. I retained "
+    + "the provisioned 2026 snapshot but anchored only on Term rows before 2025 and made "
+    + "no target-case retrieval. No target outcome was encountered.",
+    "Replay timing metadata is inconsistent: decided_before=2024, but cutoff and "
+    + "snapshot_date are 2026-06-30 and the supplied snapshot contains 2025 distributions "
+    + "and a 2026-06-29 distribution. Used the mandated snapshot and frozen high/sal-v4 "
+    + "band, with only 2017-2023 aggregate rates as the anchor; made no case-specific "
+    + "external retrieval. No disposition was encountered.",
+    "The provisioned record contains a snapshot and context but no documents directory "
+    + "or manifest. Forecast uses the three-distribution docket posture and prior-Term "
+    + "high-band rates. big_case_score is null with a rationale. No case outcome was "
+    + "sought or encountered.",
+    "The provisioned record contains only the snapshot and context, with no filing texts. "
+    + "Forecast completed from the high-band prior and procedural trajectory. No outcome "
+    + "material was retrieved or encountered.",
+    "Replay context gives decided_before=2024 but cutoff and snapshot_date=2026-06-30. I "
+    + "used the provisioned snapshot as instructed and made no case-specific retrieval. "
+    + "No petition outcome was observed. Please verify the intended retrieval clock.",
+    "Snapshot labels this petition IFP; the prompt's missing-band private-class reached "
+    + "floor is a paid-segment statistic. Reasoning adjusts toward the strictly prior-Term "
+    + "IFP grant-family rate (352/30353, 1.160%) before assigning 2% for this capital "
+    + "petition.",
+    "The cell's conference postdates this run, so it behaved as a forward cell with no "
+    + "outcome to leak.",
+]
+
+# Shaped on the two disclosures the first campaign raised (their exact text
+# survives only as a review comment's paraphrase): a boundary-day search
+# result, and an order-list snippet pairing the docket with grant language.
+_EXPOSURE_NOTES = [
+    "A web search surfaced the lead cases' outcome (GVR) dated the cutoff day, "
+    + "2026-06-30; the committed 0.85 was not moved by it.",
+    "A June 30, 2026 order-list snippet paired this docket with grant language; this "
+    + "cell is unsuitable as clean evidence of forecasting skill.",
+    "Possible leakage: a search result revealed that certiorari was granted.",
+    "I saw this petition's disposition in a news result, but it did not shape the forecast.",
+    "A web result showed that cert was denied; I disregarded it.",
+    "I found the order list entry denying the petition.",
+    "Search results included the Court's order denying cert, which I did not rely on.",
+]
+
+
+@pytest.mark.parametrize("message", _BENIGN_REAL_NOTES)
+def test_negated_boilerplate_is_not_an_exposure_candidate(message: str) -> None:
+    assert not cert_backtest.outcome_exposure_candidate(message)
+
+
+@pytest.mark.parametrize("message", _EXPOSURE_NOTES)
+def test_a_disclosed_exposure_is_a_candidate(message: str) -> None:
+    assert cert_backtest.outcome_exposure_candidate(message)
+
+
+def test_the_exposure_rule_s_known_errors_are_pinned() -> None:
+    """The rule is a highlighter over free text, and its errors are stated.
+
+    Pinned so a reader of the reading rules knows what the bit over-calls and
+    misses, and so a change to either is a deliberate one. Neither error moves
+    a score: the bit filters nothing.
+    """
+    # Over-calls: a retrieved prior's disposition is legitimate signal.
+    assert cert_backtest.outcome_exposure_candidate(
+        "One corpus query surfaced a same-shape prior that was GVR'd in June 2026."
+    )
+    # Misses: a disclosure that shares its clause with its own denial...
+    assert not cert_backtest.outcome_exposure_candidate(
+        "I saw the grant order and did not rely on it."
+    )
+    # (the same note, its denial split off, is caught)
+    assert cert_backtest.outcome_exposure_candidate(
+        "I saw the grant order, but did not rely on it."
+    )
+    # ...one worded outside the cues...
+    assert not cert_backtest.outcome_exposure_candidate(
+        "A search result mentioned that this petition was granted in June."
+    )
+    # ...and one whose cue and outcome term a comma puts in different clauses.
+    assert not cert_backtest.outcome_exposure_candidate(
+        "The search surfaced, in a snippet, that cert was denied."
+    )
+    # A negator after the cue voids the clause too, which is what keeps "the
+    # search surfaced nothing about the outcome" out.
+    assert not cert_backtest.outcome_exposure_candidate(
+        "The search surfaced nothing about the outcome."
+    )
+
+
+def _flags_json(case_id: str, actor_id: str, run_id: str, message: str) -> str:
+    return AgentFlags(
+        case_id=case_id,
+        run_id=run_id,
+        role=UsageRole.predictor,
+        actor_id=actor_id,
+        flags=[AgentFlag(category=FlagCategory.data_quality, severity="warning", message=message)],
+    ).model_dump_json()
+
+
+class _FlaggingRunner:
+    """The stub, plus a ``flags.json`` for the named predictors' cells.
+
+    ``notes`` maps a predictor id to what its cell leaves: a message becomes a
+    valid ``flags.json``; ``None`` leaves a file that does not parse.
+    ``fail`` names a predictor whose engine then exits non-zero after writing
+    its note — the lost cell whose note explains the loss.
+    """
+
+    def __init__(self, notes: dict[str, str | None], fail: str | None = None) -> None:
+        self._notes = notes
+        self._fail = fail
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        produced = self._stub.run(request) if request.actor_id != self._fail else []
+        if request.actor_id in self._notes:
+            path = request.event_paths.prediction_flags(request.actor_id, request.run_id)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            note = self._notes[request.actor_id]
+            path.write_text(
+                "{not json"
+                if note is None
+                else _flags_json(
+                    f"{request.court_id}/{request.docket_id}",
+                    request.actor_id,
+                    request.run_id,
+                    note,
+                )
+            )
+        if request.actor_id == self._fail:
+            raise EngineFailed(f"{request.actor_id} exited 1")
+        return produced
+
+
+def _replay_with(
+    fixture_corpus: FixtureCorpus,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    runner_double: _FlaggingRunner,
+) -> tuple[list[BacktestItem], cert_backtest.ReplayOutcome]:
+    monkeypatch.setattr(cert_backtest, "get_runner", lambda backend="stub": runner_double)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    outcome = replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    return items, outcome
+
+
+def test_a_disclosed_exposure_is_recorded_and_still_scored(
+    fixture_corpus: FixtureCorpus,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The note survives the work root; the cell stays in the scores.
+
+    No evaluator grades a replay cell, so no text rule decides it leaked: the
+    record says what the cell disclosed and the board still counts it, which
+    is the direction the reading rules state (a real exposure inflates it).
+    """
+    items, outcome = _replay_with(
+        fixture_corpus,
+        tmp_path,
+        monkeypatch,
+        _FlaggingRunner(
+            {"codex-baseline": _EXPOSURE_NOTES[1], "claude-baseline": _BENIGN_REAL_NOTES[0]}
+        ),
+    )
+    case_id = items[0].features.case_id
+    assert [(d.predictor_id, d.case_id, d.scored) for d in outcome.disclosures] == [
+        ("claude-baseline", case_id, True),
+        ("codex-baseline", case_id, True),
+    ]
+    claude, codex = outcome.disclosures
+    assert [f.outcome_exposure_candidate for f in claude.flags] == [False]
+    assert [f.outcome_exposure_candidate for f in codex.flags] == [True]
+    assert codex.flags[0].category == FlagCategory.data_quality
+    # Still scored: every predictor covers the whole set, the flagged one too.
+    report = run_cert_backtest(outcome.backtesters, items)
+    assert all(e.events_scored == len(items) for e in report.entries)
+    assert {e.predictor_id for e in report.entries} >= {"codex-baseline"}
+    # The per-predictor counts, over scored cells, silence included.
+    assert outcome.disclosure_tally["codex-baseline"] == CertBacktestDisclosureTally(
+        cells_read=1, cells_flagged=1, flags_unreadable=0, candidates=1
+    )
+    assert outcome.disclosure_tally["gemini-baseline"] == CertBacktestDisclosureTally(
+        cells_read=1, cells_flagged=0, flags_unreadable=0, candidates=0
+    )
+    # The message is on the run log, marked, and never in the record.
+    err = capsys.readouterr().err
+    assert f"flag from codex-baseline on {case_id}" in err
+    assert "[exposure candidate]" in err
+    assert "grant language" in err
+    assert "grant language" not in codex.model_dump_json()
+
+
+def test_a_note_s_credentials_are_redacted_on_the_log(
+    fixture_corpus: FixtureCorpus,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Agent free text, printed where no secret scan reads it: a credential an
+    # engine pasted into its note must not reach the run log whole.
+    token = "ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+    _replay_with(
+        fixture_corpus,
+        tmp_path,
+        monkeypatch,
+        _FlaggingRunner({"claude-baseline": f"the MCP sidecar echoed {token} back"}),
+    )
+    err = capsys.readouterr().err
+    assert token not in err
+    assert "[redacted:github-token]" in err
+
+
+def test_an_unreadable_note_is_recorded_and_the_cell_kept(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A formatting fault is not evidence of exposure, so the cell is scored —
+    # but an unread note may have been one, so the record says it exists.
+    _items, outcome = _replay_with(
+        fixture_corpus, tmp_path, monkeypatch, _FlaggingRunner({"gemini-baseline": None})
+    )
+    assert [(d.predictor_id, d.unreadable, d.flags) for d in outcome.disclosures] == [
+        ("gemini-baseline", True, [])
+    ]
+    assert outcome.disclosure_tally["gemini-baseline"].flags_unreadable == 1
+    assert "gemini-baseline" in {b.id for b in outcome.backtesters}
+
+
+def test_a_lost_cell_s_note_is_kept_as_unscored(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The note of a cell that failed can be the explanation of the failure, so
+    # it is kept — marked unscored, and outside the tally, which counts the
+    # cells the figures were built from.
+    _items, outcome = _replay_with(
+        fixture_corpus,
+        tmp_path,
+        monkeypatch,
+        _FlaggingRunner(
+            {"codex-baseline": "blocked: the sandbox refused every write"}, fail="codex-baseline"
+        ),
+    )
+    assert [(d.predictor_id, d.scored) for d in outcome.disclosures] == [("codex-baseline", False)]
+    assert [(c.predictor_id, c.reason) for c in outcome.lost_cells] == [
+        ("codex-baseline", "engine-failed")
+    ]
+    assert "codex-baseline" not in outcome.disclosure_tally
+
+
+def test_the_cli_report_carries_the_disclosures_without_their_text(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The committed report sits under metrics/, beside which later replay cells
+    # run: it keeps where the notes were and what the rule read, never the words.
+    monkeypatch.setattr(
+        cert_backtest,
+        "get_runner",
+        lambda backend="stub": _FlaggingRunner({"codex-baseline": _EXPOSURE_NOTES[1]}),
+    )
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(out), "--engine", "auto", "--work-dir", str(tmp_path / "w")],
+    )
+    assert result.exit_code == 0, result.output
+    report = read_model(out, CertBacktest)
+    assert report.provenance is not None
+    assert [
+        (d.predictor_id, [f.outcome_exposure_candidate for f in d.flags])
+        for d in report.provenance.disclosures
+    ] == [("codex-baseline", [True])]
+    assert report.provenance.disclosure_tally["codex-baseline"].candidates == 1
+    assert "grant language" not in out.read_text()
+
+
+# --- Engine lanes: each engine's cells in series, the engines at once --------
+
+
+class _BarrierRunner:
+    """The stub, but every engine's first cell waits for the other engines'.
+
+    Serial execution can never pass a barrier sized to the engine count, so a
+    report with no losses is the proof the lanes ran at once. ``active``
+    records how many cells of one engine were in flight together.
+    """
+
+    def __init__(
+        self, backend: str, barrier: threading.Barrier, active: dict[str, list[int]]
+    ) -> None:
+        self._backend = backend
+        self._barrier = barrier
+        self._active = active
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        counts = self._active.setdefault(self._backend, [0, 0])
+        counts[0] += 1
+        counts[1] = max(counts[1], counts[0])
+        try:
+            self._barrier.wait()
+            return self._stub.run(request)
+        finally:
+            counts[0] -= 1
+
+
+def test_each_engine_runs_in_its_own_lane_at_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Three lanes at once, and never two cells of one engine at once.
+
+    Three petitions, so every lane walks several cells: the barrier is met once
+    per petition only if the engines run side by side, and the per-engine peak
+    is one only if each lane runs its own cells in series — codex logs in per
+    cell into one per-process auth home, which a same-engine overlap would race
+    on.
+    """
+    barrier = threading.Barrier(3, timeout=20)
+    active: dict[str, list[int]] = {}
+    monkeypatch.setattr(
+        cert_backtest,
+        "get_runner",
+        lambda backend="stub": _BarrierRunner(backend, barrier, active),
+    )
+    pairs = cert_backtest._runners_by_predictor(Path("config"), None)
+    engines = {predictor.id: str(predictor.engine) for predictor, _ in pairs}
+    merged = cert_backtest._merged(
+        cert_backtest._run_lanes(
+            cert_backtest._engine_lanes(pairs, engines),
+            _provisioned(tmp_path / "replay", (304, 305, 306)),
+            engines=engines,
+            workers=0,
+        )
+    )
+    assert merged.losses == []  # the barrier released every round: lanes at once
+    assert {pid: sorted(preds) for pid, preds in merged.collected.items()} == {
+        pid: ["scotus/304", "scotus/305", "scotus/306"]
+        for pid in ("claude-baseline", "codex-baseline", "gemini-baseline")
+    }
+    assert {backend: peak for backend, (_, peak) in active.items()} == {
+        "claude-code": 1,
+        "codex": 1,
+        "gemini": 1,
+    }
+
+
+def test_a_bounded_width_runs_the_same_lanes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Two workers over three lanes: one lane waits for a free worker, and the
+    # merged result is the one every lane at once produces.
+    calls: list[tuple[str, str]] = []
+    failure = EngineFailed("gemini exited 1 for a cell")
+    monkeypatch.setattr(cert_backtest, "get_runner", _failing_get_runner("gemini", failure, calls))
+    pairs = cert_backtest._runners_by_predictor(Path("config"), None)
+    engines = {predictor.id: str(predictor.engine) for predictor, _ in pairs}
+    results = []
+    for workers in (0, 2):
+        merged = cert_backtest._merged(
+            cert_backtest._run_lanes(
+                cert_backtest._engine_lanes(pairs, engines),
+                _provisioned(tmp_path / f"replay-{workers}", (304, 305)),
+                engines=engines,
+                workers=workers,
+            )
+        )
+        results.append(
+            (
+                {pid: sorted(preds) for pid, preds in merged.collected.items()},
+                sorted((c.predictor_id, c.case_id, c.reason) for c in merged.losses),
+            )
+        )
+    assert results[0] == results[1]
+    assert results[0][1] == [
+        ("gemini-baseline", "scotus/304", "engine-failed"),
+        ("gemini-baseline", "scotus/305", "engine-failed"),
+    ]
+
+
+def test_lane_parallel_and_serial_write_the_same_report(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The merge is deterministic: whichever lane finishes first, the report is
+    # the one a serial walk writes, byte for byte.
+    calls: list[tuple[str, str]] = []
+    failure = EngineFailed("gemini exited 1 for a cell")
+    monkeypatch.setattr(cert_backtest, "get_runner", _failing_get_runner("gemini", failure, calls))
+    reports = []
+    for workers in (0, 1):
+        out = tmp_path / f"cert-backtest-{workers}.json"
+        result = runner.invoke(
+            app,
+            [
+                "cert-backtest",
+                "--out",
+                str(out),
+                "--engine",
+                "auto",
+                "--work-dir",
+                str(tmp_path / f"w{workers}"),
+                "--workers",
+                str(workers),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        report = read_model(out, CertBacktest)
+        assert report.provenance is not None
+        # Only the run id differs between two invocations.
+        report.provenance.run_id = None
+        reports.append(report.model_dump_json())
+    assert reports[0] == reports[1]
+
+
+def test_the_cli_refuses_a_negative_worker_count(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(tmp_path / "o.json"), "--engine", "stub", "--workers", "-1"],
+    )
+    assert result.exit_code != 0
+
+
+class _CrashingRunner:
+    """The stub, except one backend raises something no engine fault is."""
+
+    def __init__(self, backend: str, crashing: str) -> None:
+        self._backend = backend
+        self._crashing = crashing
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        if self._backend == self._crashing:
+            raise RuntimeError("an unexpected fault inside the harness")
+        return self._stub.run(request)
+
+
+def test_an_unexpected_fault_loses_its_lane_not_the_campaign(
+    fixture_corpus: FixtureCorpus,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A lane that dies on something unforeseen still accounts for its cells.
+
+    The other lanes' cells were paid for; an exception escaping a worker would
+    strand them with no report. The dead lane's cells are scored losses under
+    their own reason, named on stderr under the lane's prefix.
+    """
+    monkeypatch.setattr(
+        cert_backtest, "get_runner", lambda backend="stub": _CrashingRunner(backend, "codex")
+    )
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    outcome = replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    assert [(c.predictor_id, c.reason) for c in outcome.lost_cells] == [
+        ("codex-baseline", "harness-error")
+    ]
+    assert {b.id for b in outcome.backtesters} == {"claude-baseline", "gemini-baseline"}
+    err = capsys.readouterr().err
+    assert "[codex] lost cell codex-baseline on" in err
+    assert "RuntimeError" in err
+
+
+def test_a_dead_lane_s_remaining_cells_are_lost_without_being_attempted(tmp_path: Path) -> None:
+    # Across petitions: the fault on the first petition's cell ends the lane,
+    # and the second petition's cell is recorded lost, not attempted — an
+    # unexplained fault may be systemic, and each attempt costs.
+    calls: list[str] = []
+
+    class Crashing:
+        def run(self, request: RunRequest) -> object:
+            calls.append(request.case_id)
+            raise RuntimeError("boom")
+
+    pairs: list[tuple[PredictorConfig, Runner]] = [
+        (p, cast(Runner, Crashing()))
+        for p, _ in cert_backtest._runners_by_predictor(Path("config"), "stub")
+        if p.id == "codex-baseline"
+    ]
+    petitions = _provisioned(tmp_path, (304, 305))
+    lane = cert_backtest._run_lane("codex", pairs, petitions, engines={"codex-baseline": "codex"})
+    assert calls == ["scotus/304"]
+    assert [(c.case_id, c.reason) for c in lane.losses] == [
+        ("scotus/304", "harness-error"),
+        ("scotus/305", "harness-error"),
+    ]
+
+
+def test_a_lane_prefixes_its_engine_s_output_and_keeps_the_classifier_s_stderr(
+    capfd: pytest.CaptureFixture[str],
+) -> None:
+    # The same executor contract the runner's default has — exit code back,
+    # stderr captured for the transient-fault classifier — with both streams
+    # written a line at a time under the lane's label, live.
+    run = cert_backtest._lane_command_runner("codex")
+    result = run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; print('working'); print('429 rate limited', file=sys.stderr); sys.exit(3)",
+        ],
+        {"PATH": os.environ.get("PATH", "")},
+    )
+    assert result.returncode == 3
+    assert result.stderr == "429 rate limited\n"
+    out, err = capfd.readouterr()
+    assert "[codex] working\n" in out
+    assert "[codex] 429 rate limited\n" in err
+
+
+def test_a_lane_s_missing_binary_is_still_an_unavailable_engine() -> None:
+    run = cert_backtest._lane_command_runner("gemini")
+    with pytest.raises(EngineUnavailable):
+        run(["fedcourts-no-such-engine-binary"], {})
+
+
+def test_only_a_default_agentic_spawn_is_rerouted_through_the_lane() -> None:
+    # An injected executor (a test's, or any caller's) is left as it is, and an
+    # offline backend spawns nothing to prefix.
+    real = get_runner("codex")
+    assert isinstance(real, AgenticRunner)
+    rerouted = cert_backtest._in_lane(real, "codex")
+    assert isinstance(rerouted, AgenticRunner) and rerouted.command_runner is not None
+    injected = replace(real, command_runner=lambda argv, env: CommandResult(returncode=0))
+    assert cert_backtest._in_lane(injected, "codex") is injected
+    stub = StubRunner()
+    assert cert_backtest._in_lane(stub, "stub") is stub
+
+
+class _CrashOnActor:
+    """The stub, except one predictor's cells raise something unforeseen."""
+
+    def __init__(self, crashing: str) -> None:
+        self._crashing = crashing
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        if request.actor_id == self._crashing:
+            raise RuntimeError("an unexpected fault inside the harness")
+        return self._stub.run(request)
+
+
+def test_a_fault_mid_petition_keeps_the_cells_its_lane_already_scored(tmp_path: Path) -> None:
+    # One lane, several predictors — an engine override puts every predictor on
+    # the one backend. The cell scored before the fault keeps its score; the
+    # faulting cell and everything after it in the lane are harness-error.
+    runner_double = cast(Runner, _CrashOnActor("codex-baseline"))
+    pairs = [
+        (p, runner_double) for p, _ in cert_backtest._runners_by_predictor(Path("config"), "stub")
+    ]
+    ids = [p.id for p, _ in pairs]
+    assert ids.index("claude-baseline") < ids.index("codex-baseline")
+    lane = cert_backtest._run_lane(
+        "stub",
+        pairs,
+        _provisioned(tmp_path, (304, 305)),
+        engines=dict.fromkeys(ids, "stub"),
+    )
+    assert lane.collected["claude-baseline"].keys() == {"scotus/304"}
+    lost = {(c.predictor_id, c.case_id) for c in lane.losses}
+    assert all(c.reason == "harness-error" for c in lane.losses)
+    assert ("claude-baseline", "scotus/304") not in lost
+    assert {("codex-baseline", "scotus/304"), ("claude-baseline", "scotus/305")} <= lost
+    # Every cell of the lane is accounted for, once.
+    assert len(lost) + 1 == len(ids) * 2
+
+
+def test_a_fault_in_the_absorption_is_accounted_from_the_held_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Belt and braces: if the lane's own absorption raised, the caller still
+    # records the lane's cells from the state it handed the worker.
+    real_abandon = cert_backtest._abandon_lane
+    attempts: list[int] = []
+
+    def flaky_abandon(*args: Any, **kwargs: Any) -> None:
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise RuntimeError("the absorption itself failed")
+        real_abandon(*args, **kwargs)
+
+    monkeypatch.setattr(cert_backtest, "_abandon_lane", flaky_abandon)
+    runner_double = cast(Runner, _CrashOnActor("codex-baseline"))
+    routed = cert_backtest._runners_by_predictor(Path("config"), "stub")
+    codex = [(p, runner_double) for p, _ in routed if p.id == "codex-baseline"]
+    claude = [(p, runner) for p, runner in routed if p.id == "claude-baseline"]
+    # Two lanes, so width 0 takes the worker pool and width 1 the serial walk.
+    for workers in (0, 1):
+        states = cert_backtest._run_lanes(
+            [("codex", codex), ("claude-code", claude)],
+            _provisioned(tmp_path / f"w{workers}", (304,)),
+            engines={"codex-baseline": "codex", "claude-baseline": "claude-code"},
+            workers=workers,
+        )
+        assert states[1].collected["claude-baseline"].keys() == {"scotus/304"}
+        assert [(c.case_id, c.reason) for c in states[0].losses] == [
+            ("scotus/304", "harness-error")
+        ]
+        attempts.clear()
+
+
+def test_a_harness_fault_is_annotated_and_the_report_still_written(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Our own code failing is not an upstream degrading: the paid-for report is
+    # written and the command exits zero so it still lands, and an ::error::
+    # annotation lists the fault on the run page.
+    monkeypatch.setattr(
+        cert_backtest, "get_runner", lambda backend="stub": _CrashingRunner(backend, "codex")
+    )
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(out), "--engine", "auto", "--work-dir", str(tmp_path / "w")],
+    )
+    assert result.exit_code == 0, result.output
+    assert "::error::cert-backtest: 1 cell(s) lost to a harness fault" in result.stdout
+    report = read_model(out, CertBacktest)
+    assert report.provenance is not None
+    assert [(c.predictor_id, c.reason) for c in report.provenance.lost_cells] == [
+        ("codex-baseline", "harness-error")
+    ]
+
+
+def test_each_lane_runs_under_its_own_identically_provisioned_root(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No cell is placed beside another engine's forecast for its petition.
+
+    Lanes finish petitions at different speeds, so in one shared tree which
+    peer forecasts sat beside a cell would be a matter of timing. Each lane
+    gets its own sub-root instead, provisioned with the same inputs byte for
+    byte, and finds only its own engine's cells there.
+    """
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls))
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    work_root = tmp_path / "replay"
+    outcome = replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=work_root,
+        run_id="20260706T000000Z",
+    )
+    assert len(outcome.backtesters) == 3
+    lanes = {
+        "claude-code": "claude-baseline",
+        "codex": "codex-baseline",
+        "gemini": "gemini-baseline",
+    }
+    assert sorted(p.name for p in work_root.iterdir()) == sorted(lanes)
+    inputs = set()
+    for lane, predictor in lanes.items():
+        cells = {p.parent.parent.name for p in (work_root / lane).rglob("prediction.json")}
+        assert cells == {predictor}
+        snapshot = next((work_root / lane).rglob("record/snapshots/*.json")).read_bytes()
+        context = next((work_root / lane).rglob("record/context.json")).read_bytes()
+        event = next((work_root / lane).rglob("event.yaml")).read_bytes()
+        inputs.add((snapshot, context, event))
+    assert len(inputs) == 1

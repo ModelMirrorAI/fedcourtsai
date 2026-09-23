@@ -17,8 +17,8 @@ a maintainer-merged promotion put on `main`; a `workflow_dispatch` is refused by
 GitHub to anyone without repository write; and every privileged job binds a
 deployment environment whose branch policy pins the ref it may run from (`prod`
 to `main`, `staging` to `staging`) — a job naming one as a literal is refused at
-the deployment gate from any other ref before a step runs, and the two
-branch-resolving workflows (`integration-test`, `run-analytics`) resolve an
+the deployment gate from any other ref before a step runs, and the three
+branch-resolving workflows (`integration-test`, `run-analytics`, `summarize`) resolve an
 off-list ref to an auto-created empty environment holding no role variables and
 no keys, failing closed at the first credential instead (the carve-out is in
 [security.md](security.md)). The trigger decides only
@@ -38,6 +38,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
+| `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the manual `review` release | script; one Messages API call per case, no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, qp-labeler-smoke one labeling agent over a synthetic extract, and each codex-freeze-probe member one trivial codex turn with the watchdog armed around it |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
@@ -47,7 +48,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 trigger for one to judge. `tests/test_workflow_auth_gate.py` locks that shape in
 — it sweeps the whole workflow directory for any trigger class an actor without
 repository write could fire (`issues`, `issue_comment`, `pull_request_target`,
-`workflow_run` and their kin), pins the four privileged lanes to the
+`workflow_run` and their kin), pins the five privileged lanes to the
 platform-gated two, requires every job that mints a token, assumes the S3
 role, or runs an agent to bind one of the branch-policied environments, and
 holds the `pull_request` workflows to a shape with nothing in it to reach. So a workflow added
@@ -112,25 +113,30 @@ unread backlog.
 
 Four blocks, in the order a reader needs them:
 
-- **Health questions** — the fixed interrogative bullets (replay calibration,
-  forward cells scored, watchlist vs next conference, oldest stalled trigger,
-  spend vs budget): numbers as questions demanding a reaction. These carry the
-  ops report's un-vintaged framing, which is why the vintage rule below is
-  scoped to the two blocks that publish figures to quote.
-- **Analytics state** — what the committed boards hold. An empty one names the
-  condition that empties it — which cells the frozen headline ranks, and how
-  many have reached it — rather than showing a bare zero, and an artifact that
-  has never landed reads differently from one that landed empty. Plus the
-  statpack's two headline rates — stated with each one's own denominator, and
-  with the plain statement that **neither anchors a scored cell**: a forward
-  cert cell is scored against its own band's strictly-prior-Term risk-set rate,
-  and the pooled band rate is a fit diagnostic for the ranking constant rather
-  than a scoring baseline ([salience.md](salience.md)).
 - **Produced this week** — cells landed by role and stage, how many events they
   covered, and the week's measured spend, all over one window and one set of
-  `usage.json` records; then the spend backstop's own (longer) window and how
-  much of its ceiling the trailing period has consumed. An unenforced ceiling
-  says so instead of reporting a fraction of a budget that does not exist.
+  `usage.json` records. The window's bounds are in the heading: the Monday tick
+  titles its issue for the ISO week that *starts* that morning while the census
+  covers the seven days before it, so without them the block would describe the
+  previous week under this week's heading.
+- **Produced this month** — the same shape over the trailing window the ex-post
+  spend backstop is configured with, closing with that backstop's own verdict
+  and how much of its ceiling the period has consumed. The window is the
+  backstop's own precisely so the census and the verdict beside it cannot
+  describe different periods. An unenforced ceiling says so instead of reporting
+  a fraction of a budget that does not exist.
+- **Produced this term** — the same shape again over the October Term to date,
+  from the 1 October that Term opened to the day the digest is generated. The
+  cutoff is pinned to that instant rather than counted back in days, or a
+  mid-morning render would cut the Term's own first morning out of its census.
+  It closes with the forward cells scored under the process in force. That
+  count is cumulative over the whole ledger, not the Term's, with a delta
+  against the prior ops-metrics snapshot (a week when the dated snapshot
+  exists, shorter when the job fell back to the latest one); it sits in the
+  Term block because a forward cell is minted once at its event and never
+  again, so the Term is the period it is worth reading beside. A frozen scope
+  with nothing scored in either stratum is named as the shakedown state rather
+  than shown as a bare zero.
 - **Backtest results** — the historical replay **per court**, with each court's
   own always-deny floor beside its accuracy and the pooled row labelled as the
   mixture it is (`granted` means cert on a SCOTUS row and a motion granted on a
@@ -157,10 +163,12 @@ Four blocks, in the order a reader needs them:
   the number is in, because a caveat one bullet away does not travel when the
   line is quoted. A board with no entries says so and prints no floor.
 
-**In the analytics and back-test blocks, every figure carries the vintage of the
-artifact it came from.** None of those artifacts is refreshed on this schedule —
-a board is byte-stable and a statpack moves only when the corpus does — so a
-figure without its vintage would silently claim to be this week's. The vintage
+**In the back-test block, every figure carries the vintage of the artifact it
+came from.** None of those artifacts is refreshed on this schedule — a board is
+byte-stable, and the cert back-test moves only when a maintainer dispatches one —
+so a figure without its vintage would silently claim to be this week's. The
+production blocks need no vintage: they are computed from the committed ledger at
+render time. The vintage
 is the commit that last wrote the file, and a **shallow** checkout yields none:
 in a depth-1 clone the one grafted commit matches every path, so a pathspec'd
 `git log` would stamp every board with today's date — the exact misreading the
@@ -464,7 +472,24 @@ queues behind the production run of the same mode. The modes:
   the measured block still reaches the step summary, and the job fails. The
   `label_model` dispatch input picks the labeler's model; a ceiling-sized run
   overrides the default for `claude-fable-5`, the one tier measured to finish.
+  `claude-opus-5-5` is offered too, with no measured pace or cost yet.
   See [qp-topic.md](qp-topic.md).
+
+## `summarize` — plain-language case summaries
+
+`summarize` writes the committed plain-language account of each predicted case
+(`data/cases/<court>/<docket>/summaries/<day>.md`) the site shows beside the
+forecasts. It is level-triggered like the other lanes: `fedcourts
+summarize-plan` derives the owed cases from committed state — a case with a
+committed prediction whose newest corpus record differs, by content digest,
+from the one its newest summary was written from — so a run that was declined
+or never fired is simply re-derived by the next. Every run holds on `review`
+before it spends. The corpus role and the Anthropic API key never share
+a job; on `main` the result lands as one reviewed PR from the fixed branch
+`summaries/refresh`, never auto-merged, which later runs update in place until
+it merges. A `staging` dispatch is a rehearsal whose summaries stay in the run
+artifact. The contract, selection rule, credential split and residuals are in
+[case-summaries.md](case-summaries.md).
 
 ## `integration-test` — the infrastructure preflight
 
@@ -1384,7 +1409,8 @@ The mechanics:
   only on a PR to `main` whose head is not `staging` or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, and salience-replay PRs, the qp-topic
-  labeling run's `qp-topics/refresh` PR, and the big-case board's
+  labeling run's `qp-topics/refresh` PR, the case-summary lane's
+  `summaries/refresh` PR, and the big-case board's
   `metrics/big-cases` PR); on those
   legitimate lanes it reports `skipped`, which satisfies the requirement. Its
   definition lives in `main`'s own ci.yml, so the context reports on every
@@ -1766,24 +1792,86 @@ cell, which lands on that ledger like any other. What bounds this lane is the
 fortnightly cadence, that pinned `--limit`, the manual hold, and the job's
 `timeout-minutes` — not `spend.ceiling_usd`.
 
-Such a campaign accounts for its losses rather than ending on one. Two run-time
-faults are absorbed: an engine whose CLI
-binary is missing drops that predictor whole, and a cell that ran and left no
-readable `prediction.json` where the runner reads it is a loss for that
-(petition, predictor) pair alone. Both are printed to the run log and both ride
-`metrics/cert-backtest.json` — the whole-predictor ones in
-`provenance.dropped_predictors`, the per-cell ones in `provenance.lost_cells`
-with the reason (`missing`, `invalid`, or `wrote-outside-work-root`) — because
-the run log expires and the artifact does not, and the review PR body names the
-per-cell losses outright. A predictor short some cells stays on the board scored
-over the petitions that came back, which is why the losses have to be readable
-beside its numbers; one short *every* cell leaves the board and is dropped. The
+The campaign runs its cells in **engine lanes**. Every petition's case tree is
+provisioned first, serially, under each lane's own sub-root of the work root
+(`<work-dir>/<engine>/`, the same inputs byte for byte); then one worker per
+engine walks every petition's cells for that engine in the dispatched order,
+and the lanes — three on the cron path — run at once. The sub-roots are what
+keep cell placement independent of timing: lanes finish petitions at different
+speeds, so in one shared tree which other engines' forecasts sat beside a cell
+would depend on which lane was ahead. They are placement rather than a wall —
+the sub-roots are siblings, and an engine that reads outside its own can still
+see another's cells.
+An engine's own cells never overlap — codex logs in per cell into one
+per-process auth home, which two concurrent cells would race on — and each
+provider still sees one cell at a time, so the concurrency costs no provider
+more than a serial walk did. A spent quota or a missing binary is a fact only
+its own lane reads, and the lanes' results are merged after all of them finish
+and sorted, so the report's bookkeeping is the one a serial walk writes
+whichever lane finishes first. The wall clock is the slowest lane's rather than the sum. The
+measured serial rates: on the first 25-petition campaign (2026-09-20, all 75
+cells in series, 300 minutes) codex took a median 2.3 minutes a cell and each
+gemini cell with the claude cell after it about 9, claude about 3 of that; on
+the 2026-09-21 validation dispatch, with gemini's file tools admitted to the
+work root, gemini took 15 cells in 57 minutes, about 3.8 a cell. So the gemini
+lane sets the wall clock: on that one 15-cell dispatch the cron's ten
+petitions should take about 40 minutes and a 25-petition dispatch about 95,
+or about 60 and 150 if gemini runs at the roughly 6 a cell the first campaign
+implies — against the job's 330-minute cap, which stays sized for a hung
+engine rather than for the expected run. Those are serial rates carried over,
+not yet a lane measurement: three engines sharing one runner may each run a
+little slower, and a lane absorbs its engine's retry backoff. A hung engine is still the
+cap's to end — its lane never finishes, and the report waits on every lane.
+Every line the harness and each engine's agent run write to the log carries
+the engine as a prefix, since the lanes interleave; codex's one-line login
+confirmation is the exception.
+
+Such a campaign accounts for its losses rather than ending on one, so a report
+always lands. An engine whose CLI binary is missing drops that predictor whole.
+A cell whose engine exited non-zero, and a cell that left no readable
+`prediction.json` where the runner reads it, are each a loss for that
+(petition, predictor) pair alone. An engine that reports its own allowance
+exhausted — a fault the runner classifies as terminal rather than retrying it
+through the backoff budget — has its remaining cells recorded as lost without
+being attempted: the engine is finished for this campaign, so every further
+invocation is a paid-for certainty of the same failure. That is where it parts
+company with a missing binary, which also drops its predictor for the rest of
+the run but skips the remaining cells **silently** — an engine that was never
+installed had no cells to lose, while one that ran out did, so those cells are
+named. A lane that raises something no engine fault explains stops the same
+way and for a kindred reason — the cause is unknown and may repeat, and every
+attempt costs — so that cell and the engine's remaining ones are recorded lost
+as `harness-error` without being attempted, while the other lanes run on. All of
+them are printed to the run log and all ride `metrics/cert-backtest.json` — the
+whole-predictor ones in `provenance.dropped_predictors`, the per-cell ones in
+`provenance.lost_cells` with the reason (`missing`, `invalid`,
+`wrote-outside-work-root`, `engine-failed`, `quota-exhausted`, or
+`harness-error`) — because the
+run log expires and the artifact does not, and the review PR body names the
+per-cell losses outright. An engine whose quota ran out is never reported as an
+unavailable binary: the two are different facts about the run. A predictor
+short some cells stays on the board scored over the petitions that came back,
+which is why the losses have to be readable beside its numbers; one short
+*every* cell leaves the board and is dropped. The
 engine cells are told their output directory absolutely whenever it is not the
 repository's `data/`: the kickoff the runner composes overrides the prompt
 template's repo-relative output path for every engine, so an engine has one
 path to follow rather than two readings of the same instruction — which makes
 `wrote-outside-work-root` a diagnosis of an engine ignoring its kickoff rather
 than of an ambiguous one.
+
+What a replay cell says about itself outlives the work root the same way. The
+campaign reads every attempted cell's `flags.json` back from the work root
+beside its `prediction.json` and records it on the report as
+`provenance.disclosures` (category, severity, and a text rule's
+exposure-candidate reading per note) with a per-predictor tally, and prints
+each note's text to the run log with credential-shaped runs redacted. The text
+itself stays out of the committed report, since `metrics/` sits beside later
+replay cells and a note about outcome-revealing material names the case it saw
+it for. Nothing there excludes a cell: the back-test runs no evaluator, so the
+reading rules state the direction instead (`metrics/README.md`), and the review
+PR names every exposure-candidate cell, scored or lost, and every unreadable
+note.
 
 The replay's leakage fence reaches past the snapshot to the checkout the cells
 sit in. A replayed petition is decided, so its committed ledger directory can

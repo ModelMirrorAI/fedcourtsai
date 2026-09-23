@@ -731,7 +731,11 @@ class RunnerConfig(BaseModel):
     failure. A *permanent* fault (a content-filter trip, a context-length blowout,
     an auth error) is deterministic and is never retried, so no cap here touches
     it — the split mirrors :func:`fedcourtsai.courtlistener.is_transient` and the
-    ``pull`` governor's ``max_consecutive_transient_failures``.
+    ``pull`` governor's ``max_consecutive_transient_failures``. A **terminal
+    quota** is permanent although it arrives throttle-shaped: an engine saying
+    its own allowance is spent fails after one attempt
+    (:class:`fedcourtsai.pipeline.runner.EngineQuotaExhausted`), since no wait
+    inside this budget can clear it.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -771,3 +775,36 @@ def load_runner_config(config_root: Path) -> RunnerConfig:
     path = config_root / TRACKING_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
     return RunnerConfig.model_validate((data or {}).get("runner", {}))
+
+
+class SummariesConfig(BaseModel):
+    """The ``summaries`` section of ``config/tracking.yaml`` — the case-summary lane.
+
+    The plain-language summaries (``docs/case-summaries.md``) are display
+    material produced by one model outside the prediction panel. The model is
+    config rather than code so that changing it is a reviewed one-line diff, and
+    every summary written afterwards names it in its own front matter.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # The Messages API model id. Must have a row in `pricing.MODEL_RATES`, since
+    # the plan prices the run and each call's cost is recorded from its usage.
+    model: str = "claude-sonnet-5"
+    # Output cap per summary. A ~250-word summary is a few hundred tokens; the
+    # cap is headroom, and a response that reaches it is rejected rather than
+    # written (a summary cut mid-section is not a summary).
+    max_output_tokens: int = Field(default=2000, ge=256)
+    # Per-document character cap on what is sent to the model. Bounds the cost
+    # of one outsized filing; the cut is marked in the text the model reads.
+    max_document_chars: int = Field(default=100_000, ge=1_000)
+
+
+def load_summaries_config(config_root: Path) -> SummariesConfig:
+    """Read the summary lane's settings from ``config_root/tracking.yaml``.
+
+    Falls back to the defaults if the file or its ``summaries`` section is absent.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return SummariesConfig.model_validate((data or {}).get("summaries", {}))

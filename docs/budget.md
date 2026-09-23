@@ -36,6 +36,18 @@ measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned
 rate table the plans price against, never a drift: the figures move when someone
 moves them.
 
+**The plain-language case summaries also spend outside `events × cost per
+event`** ([case-summaries.md](case-summaries.md)). It is one non-agentic
+call per predicted case on Claude Sonnet 5, written only when a case's record
+changes, on the environment's Anthropic key behind the `review` hold.
+Measured basis: a median
+staged record of ~120k characters (≈50k tokens) puts a summary at
+≈$0.10–0.20. The backfill of ~195 predicted cases is ≈$20–40 once; about 4% of
+predicted cases' records change on a given day (8 of 185 sampled day-pairs),
+so steady state is roughly 5–10 summaries a day, ≈$1–2 a day or ≈$30–60 a
+month — inside the model-spend envelope's headroom below, and bounded by the
+key's cap whatever a plan owes.
+
 ## Scenario 1: Bootstrapping
 
 The current state. Three predictors (Anthropic, OpenAI, Google) forecast a

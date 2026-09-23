@@ -26,14 +26,18 @@ axes the cert task demands:
 
 from __future__ import annotations
 
+import re
 import sqlite3
+import subprocess
 import sys
+import threading
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
-from typing import Any, Literal
+from typing import IO, Any, Literal, TextIO
 
 from . import corpus
 from .analytics import _is_scored_segment_row
@@ -56,7 +60,17 @@ from .pipeline.outcome import (
     is_machine_readable,
     snapshot_shows_disposition,
 )
-from .pipeline.runner import AgenticRunner, EngineUnavailable, Runner, RunRequest, get_runner
+from .pipeline.runner import (
+    AgenticRunner,
+    CommandResult,
+    CommandRunner,
+    EngineFailed,
+    EngineQuotaExhausted,
+    EngineUnavailable,
+    Runner,
+    RunRequest,
+    get_runner,
+)
 from .pipeline.salience import (
     SALIENCE_VERSION,
     salience_band,
@@ -65,11 +79,16 @@ from .pipeline.salience import (
 )
 from .registry import enabled_predictors
 from .schemas import (
+    AgentFlags,
     CalibrationBin,
     CertBacktest,
     CertBacktestBigCase,
     CertBacktestCellLoss,
+    CertBacktestDisclosure,
+    CertBacktestDisclosureTally,
     CertBacktestEntry,
+    CertBacktestFlag,
+    CertBacktestLossReason,
     CertBacktestProvenance,
     CertBacktestSegment,
     Disposition,
@@ -81,6 +100,7 @@ from .schemas import (
     StatPack,
     UsageRole,
 )
+from .secretscan import redact_credentials
 from .serialize import read_model, write_raw_json, write_yaml
 
 # Mirrors the leaderboard's tie-break: entries rank by lift (desc) then Brier
@@ -435,9 +455,10 @@ def replayable_items(
     front is what makes one report internally comparable: every backtester,
     offline baselines included, starts from the same kept set, and the caller
     can name what was skipped instead of failing the whole run on the first bare
-    row. A replayed predictor can still end up short of that set — a cell that
-    came back unreadable (:func:`_read_replayed_cell`) — which is why the entry
-    publishes its own ``events_scored`` and is floored over it.
+    row. A replayed predictor can still end up short of that set — a cell lost to
+    a failed engine, a spent quota or an unreadable artifact
+    (:func:`_replay_item_cells`) — which is why the entry publishes its own
+    ``events_scored`` and is floored over it.
     """
     kept: list[BacktestItem] = []
     skipped: list[str] = []
@@ -500,9 +521,11 @@ class ReplayOutcome:
     Three of the fields exist because a campaign that spends real money per
     cell must finish and account for itself rather than crash: ``unavailable``
     names the predictors whose engine binary went missing mid-run,
-    ``lost_cells`` the individual cells that ran and came back unreadable, and
-    ``provisioning`` the information-set mix the scores were produced over.
-    Everything there rides the report — stderr does not survive the runner.
+    ``lost_cells`` the individual cells that produced no score — the engine
+    failed, the engine's quota was spent, or what came back was unreadable,
+    each under its own reason — and ``provisioning`` the information-set mix
+    the scores were produced over. Everything there rides the report — stderr
+    does not survive the runner.
 
     ``clock_days`` maps each dated cell's case id to the cutoff day it was
     clocked on, and carries no entry for a blind cell. It is what puts the
@@ -519,6 +542,12 @@ class ReplayOutcome:
     pool either: the prior index screens to the machine-readable disposition
     subset a vote can be scored over, which a cell's own ``fedcourts query``
     does not (:class:`fedcourtsai.backtest.PriorIndex`).
+
+    ``disclosures`` and ``disclosure_tally`` are what the cells said about
+    themselves in ``flags.json`` (:func:`_read_replayed_flags`), carried to the
+    report because the work root they were written into is discarded with the
+    runner. They are a record, never a filter: no disclosure moves a cell out
+    of the scores.
     """
 
     backtesters: list[Backtester]
@@ -526,6 +555,129 @@ class ReplayOutcome:
     provisioning: dict[str, int]
     lost_cells: list[CertBacktestCellLoss]
     clock_days: dict[str, date] = field(default_factory=dict)
+    disclosures: list[CertBacktestDisclosure] = field(default_factory=list)
+    disclosure_tally: dict[str, CertBacktestDisclosureTally] = field(default_factory=dict)
+
+
+# Which engine lane the current thread is running, for the log prefix. Set by
+# the lane worker for its own thread and nowhere else, so provisioning and the
+# offline paths print unprefixed.
+_LANE = threading.local()
+# One lock for every line this module writes while lanes run: a line is the
+# unit a reader follows an engine by, so two lanes must never split one.
+_LOG_LOCK = threading.Lock()
+
+
+def _say(message: str, *, stream: TextIO | None = None) -> None:
+    """Write one line, prefixed with the engine lane that produced it.
+
+    Lanes run concurrently and their lines interleave in the run log; the
+    prefix is what lets a reader follow one engine through it.
+    """
+    label: str | None = getattr(_LANE, "label", None)
+    line = f"[{label}] {message}" if label else message
+    with _LOG_LOCK:
+        print(line, file=stream if stream is not None else sys.stderr, flush=True)
+
+
+# How long a lane waits, once its engine has exited, for the output pumps to
+# reach end of stream. A process the engine left running can hold the pipe open
+# indefinitely; the cell is over when the engine is, so the lane moves on.
+_PUMP_DRAIN_SECONDS = 10.0
+
+
+def _pump(source: IO[str], sink: TextIO, label: str, keep: list[str] | None) -> None:
+    """Copy an engine's output stream to ``sink`` line by line, lane-prefixed.
+
+    Keeps draining ``source`` even when a write to ``sink`` fails: a pump that
+    stopped reading would leave the engine blocked on a full pipe.
+    """
+    for line in source:
+        if keep is not None:
+            keep.append(line)
+        text = f"[{label}] {line}" if line.endswith("\n") else f"[{label}] {line}\n"
+        with _LOG_LOCK:
+            try:
+                sink.write(text)
+                sink.flush()
+            except (OSError, ValueError):
+                continue
+
+
+def _lane_command_runner(label: str) -> CommandRunner:
+    """The engine spawn for one lane: the runner's own, with its output prefixed.
+
+    Same contract as the runner's default executor — the agent's stdout streams
+    to the log, its stderr is captured for the transient-fault classifier and
+    echoed, a missing binary is :class:`EngineUnavailable` — except that both
+    streams are read through a pipe and written a line at a time under the
+    lane's label, live, so three engines running at once stay legible. Only a
+    back-test lane uses it; every other caller keeps the runner's default.
+    """
+
+    def run(argv: Sequence[str], env: Mapping[str, str]) -> CommandResult:
+        try:
+            proc = subprocess.Popen(
+                list(argv),
+                env=dict(env),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                errors="replace",
+            )
+        except FileNotFoundError as exc:
+            raise EngineUnavailable(str(argv[0])) from exc
+        assert proc.stdout is not None and proc.stderr is not None  # both piped above
+        captured: list[str] = []
+        pumps = [
+            threading.Thread(
+                target=_pump, args=(proc.stdout, sys.stdout, label, None), daemon=True
+            ),
+            threading.Thread(
+                target=_pump, args=(proc.stderr, sys.stderr, label, captured), daemon=True
+            ),
+        ]
+        for pump in pumps:
+            pump.start()
+        returncode = proc.wait()
+        # Bounded: a process the engine left behind can hold a pipe open past
+        # the engine's own exit, and an unbounded join would stall the lane —
+        # and with it the report — until the job's cap. Daemon pumps, so one
+        # still attached to such a process never holds the command open either.
+        # The cost, in that case only: stderr still unread when the bound runs
+        # out is missing from what the fault classifier reads, so a late quota
+        # message could classify as a plain engine failure.
+        for pump in pumps:
+            pump.join(timeout=_PUMP_DRAIN_SECONDS)
+        return CommandResult(returncode=returncode, stderr="".join(list(captured)))
+
+    return run
+
+
+def _in_lane(runner: Runner, label: str) -> Runner:
+    """``runner``, spawning its engine through the lane's prefixed executor.
+
+    Left alone where it already carries an executor (a test's injected one) or
+    is not an agentic runner at all (the offline backends spawn nothing).
+    """
+    if isinstance(runner, AgenticRunner) and runner.command_runner is None:
+        return replace(runner, command_runner=_lane_command_runner(label))
+    return runner
+
+
+def _lost_cell(
+    predictor_id: str, case_id: str, reason: CertBacktestLossReason, detail: str
+) -> CertBacktestCellLoss:
+    """Record one lost cell on the report and name it on stderr as it happens.
+
+    Every loss is printed where it occurred rather than summarized at the end: a
+    long campaign can still die of something else, and a loss named when it
+    occurs is in the run log either way. The reason is the report's closed
+    vocabulary; ``detail`` is the part only the log carries — a validation
+    error's text, the path that was read, the engine's exit message.
+    """
+    _say(f"lost cell {predictor_id} on {case_id} ({reason}): {detail}")
+    return CertBacktestCellLoss(predictor_id=predictor_id, case_id=case_id, reason=reason)
 
 
 def _read_replayed_cell(
@@ -551,9 +703,7 @@ def _read_replayed_cell(
     provisioned, and scoring a file out of the ledger instead would make the
     board's inputs depend on which cells escaped into it.
 
-    Every loss is printed as it happens rather than summarized at the end: a
-    long campaign can still die of something else, and a loss named when it
-    occurs is in the run log either way.
+    The loss is printed as it happens by :func:`_lost_cell`.
     """
     reason: Literal["missing", "wrote-outside-work-root", "invalid"]
     try:
@@ -576,47 +726,261 @@ def _read_replayed_cell(
             cell.probability,
             big_case_score=cell.big_case_score,
         )
-    print(f"lost cell {predictor_id} on {case_id} ({reason}): {detail}", file=sys.stderr)
-    return CertBacktestCellLoss(predictor_id=predictor_id, case_id=case_id, reason=reason)
+    return _lost_cell(predictor_id, case_id, reason, detail)
+
+
+# The exposure-candidate rule's three vocabularies, casefolded. Kept short and
+# literal on purpose: the rule is a triage highlighter a reader can re-apply by
+# eye to a message, and every word added is a new false positive to explain.
+# A cue says something was *seen*; an outcome term says what it was about.
+_EXPOSURE_CUES = re.compile(
+    r"leak|contaminat|outcome[- ]revealing|\bsurfaced\b|\bencountered\b|\bsaw\b"
+    r"|\bseen\b|\breveal(?:ed|s)?\b|\bexpos(?:ed|ure)\b|\bsnippets?\b|\bunsuitable\b"
+    r"|\bshow(?:ed|ing|s)?\b|\bfound\b|\bincluded\b"
+)
+_OUTCOME_TERMS = re.compile(
+    r"\boutcomes?\b|\bdispositions?\b|\bgranted\b|\bdenied\b|\bgranting\b|\bdenying\b"
+    r"|\bgvr|\border[- ]lists?\b|\bgrant (?:language|order)\b|\bcert was\b"
+)
+# The boilerplate the engines write into nearly every note ("No outcome was
+# sought or encountered") is negated, so a negator anywhere in the clause voids
+# it. Which means a positive disclosure that shares a clause with its own
+# denial ("surfaced the grant and did not use it") is missed — the prompt asks
+# for exactly that sentence, so the clause split below is what keeps it: the
+# denial usually sits after a comma, a semicolon or a "but".
+_NEGATORS = re.compile(
+    r"\b(?:no|not|none|nothing|never|neither|nor|without|cannot)\b"  # the words
+    r"|n['\u2019]t\b"  # and the contraction, straight or curly apostrophe
+)
+_CLAUSE_BREAK = re.compile(
+    r"[.;:!?,\n—]+\s*"  # sentence and clause punctuation
+    r"|\s+(?:but|although|though|however|yet|whereas)\b"  # and a turning conjunction
+)
+
+
+def outcome_exposure_candidate(message: str) -> bool:
+    """Whether a replay cell's flag message might disclose its own outcome.
+
+    The rule, stated once and applied as written: split the message into
+    clauses at sentence and clause punctuation (``. ; : ! ? ,``, a newline, an
+    em dash) and before ``but``/``although``/``though``/``however``/``yet``/
+    ``whereas``; a clause is a candidate when it carries an **exposure cue**
+    (leak, contaminat…, outcome-revealing, surfaced, encountered, saw, seen,
+    reveal/revealed/reveals, exposed/exposure, snippet, unsuitable,
+    show/showed/showing/shows, found, included), an **outcome term** (outcome,
+    disposition, granted, denied, granting, denying, GVR…, order list, grant
+    language, grant order, "cert was") and **no negator** (no, not, none,
+    nothing, never, neither, nor, without, cannot, -n't). The message is a
+    candidate when any clause is.
+
+    A highlighter, never a filter: nothing reads this bit to move a cell out of
+    the scores. Free text defeats any rule this simple in both directions, and
+    the known shapes are pinned in the tests — it over-calls a retrieved
+    prior's disposition ("a query surfaced a prior that was GVR'd"), and it
+    misses a disclosure worded outside its cues, one whose only clause also
+    carries its denial, and one whose cue and outcome term a comma puts in
+    different clauses ("surfaced, in a snippet, that cert was denied"). So an
+    unmarked note is not a cleared one. The frozen prompt reserves no category
+    for a replay cell's exposure note, which is why the rule reads the message
+    at all.
+    """
+    for clause in _CLAUSE_BREAK.split(message.casefold()):
+        if (
+            _EXPOSURE_CUES.search(clause)
+            and _OUTCOME_TERMS.search(clause)
+            and not _NEGATORS.search(clause)
+        ):
+            return True
+    return False
+
+
+def _read_replayed_flags(
+    flags_path: Path, *, predictor_id: str, case_id: str, scored: bool
+) -> CertBacktestDisclosure | None:
+    """Read one replayed cell's ``flags.json`` into the report's disclosure record.
+
+    ``None`` where the cell left none. A file that does not parse is recorded
+    as ``unreadable`` rather than dropped: the cell tried to say something,
+    and a reader should know that an unread note exists. The cell stays in the
+    scores either way — nothing here is a filter.
+
+    The messages themselves go to stderr, credential-shaped runs redacted,
+    and never into the returned record: the report is committed under
+    ``metrics/``, beside which later replay cells run, and a note that says
+    what outcome-revealing material it saw is outcome text keyed by case id.
+    The exposure-candidate reading is taken on the redacted text, so a reader
+    of the run log can re-derive it from what the log shows.
+    """
+    if not flags_path.is_file():
+        return None
+    try:
+        raised = AgentFlags.model_validate_json(flags_path.read_text())
+    except (OSError, ValueError) as exc:
+        _say(f"unreadable flags.json from {predictor_id} on {case_id}: {type(exc).__name__}")
+        return CertBacktestDisclosure(
+            predictor_id=predictor_id, case_id=case_id, scored=scored, unreadable=True
+        )
+    flags: list[CertBacktestFlag] = []
+    for flag in raised.flags:
+        message = redact_credentials(flag.message)
+        candidate = outcome_exposure_candidate(message)
+        flags.append(
+            CertBacktestFlag(
+                category=flag.category,
+                severity=flag.severity,
+                outcome_exposure_candidate=candidate,
+            )
+        )
+        marker = " [exposure candidate]" if candidate else ""
+        _say(
+            f"flag from {predictor_id} on {case_id} ({flag.category}, {flag.severity})"
+            f"{marker}: {' '.join(message.split())}"
+        )
+    return CertBacktestDisclosure(
+        predictor_id=predictor_id, case_id=case_id, scored=scored, flags=flags
+    )
+
+
+def _settled(
+    disclosures: list[CertBacktestDisclosure], backtesters: list[Backtester]
+) -> list[CertBacktestDisclosure]:
+    """The campaign's disclosures, sorted, with ``scored`` settled against the board.
+
+    ``scored`` is decided cell by cell as each is read back, but a predictor
+    whose engine went missing later in the campaign leaves the board with the
+    cells it had already scored, and those are then in no figure either.
+    """
+    on_board = {b.id for b in backtesters}
+    settled = [
+        d if d.predictor_id in on_board else d.model_copy(update={"scored": False})
+        for d in disclosures
+    ]
+    return sorted(settled, key=lambda d: (d.predictor_id, d.case_id))
+
+
+def disclosure_tally(
+    backtesters: list[Backtester], disclosures: list[CertBacktestDisclosure]
+) -> dict[str, CertBacktestDisclosureTally]:
+    """Per-predictor disclosure counts over each replayed predictor's scored cells."""
+    tally: dict[str, CertBacktestDisclosureTally] = {}
+    for backtester in backtesters:
+        if not isinstance(backtester, ReplayedBacktester):
+            continue
+        own = [d for d in disclosures if d.predictor_id == backtester.id and d.scored]
+        tally[backtester.id] = CertBacktestDisclosureTally(
+            cells_read=len(backtester.predictions),
+            cells_flagged=sum(1 for d in own if not d.unreadable),
+            flags_unreadable=sum(1 for d in own if d.unreadable),
+            candidates=sum(1 for d in own if any(f.outcome_exposure_candidate for f in d.flags)),
+        )
+    return tally
+
+
+@dataclass(frozen=True)
+class _ProvisionedPetition:
+    """One petition whose case tree is written and whose cells are ready to run.
+
+    ``cell`` is the shared contract for the petition — the case, the event, the
+    run, the work root, and the replay clock — with the two per-cell slots
+    (``actor_id``, ``prompt``) left open for each predictor's turn.
+    ``stray_paths`` is the event's directory under the repository ledger, for
+    the misplaced-write probe (:func:`_read_replayed_cell`), or ``None`` where
+    there is no separate ledger. ``case_id`` is the item's own spelling, which
+    is what the scorer looks a prediction up by.
+    """
+
+    case_id: str
+    cell: RunRequest
+    stray_paths: EventPaths | None
+
+
+@dataclass
+class _Lane:
+    """What one engine lane produced, owned by that lane's worker alone.
+
+    Nothing here is shared between lanes — each worker fills its own and the
+    caller merges them after every lane has finished — so no lane ever reads
+    another's state mid-run. That is also what makes the engine-scoped facts
+    safe: a spent quota or a missing binary is recorded by the only lane that
+    runs that engine, and read back by nothing else.
+    """
+
+    collected: dict[str, dict[str, BacktestPrediction]]
+    losses: list[CertBacktestCellLoss] = field(default_factory=list)
+    unavailable: set[str] = field(default_factory=set)
+    quota_exhausted: set[str] = field(default_factory=set)
+    disclosures: list[CertBacktestDisclosure] = field(default_factory=list)
 
 
 def _replay_item_cells(
     pairs: list[tuple[PredictorConfig, Runner]],
-    cell: RunRequest,
-    stray_paths: EventPaths | None,
+    petition: _ProvisionedPetition,
     *,
-    case_id: str,
-    unavailable: set[str],
-    collected: dict[str, dict[str, BacktestPrediction]],
-) -> list[CertBacktestCellLoss]:
-    """Run one provisioned petition's cell on every routed predictor, and read it back.
+    engines: Mapping[str, str],
+    lane: _Lane,
+) -> None:
+    """Run one provisioned petition's cell on each of a lane's predictors, and read it back.
 
-    ``cell`` is the shared contract for this petition — the case, the event, the
-    run, the work root, and the replay clock — with the two per-cell slots
-    (``actor_id``, ``prompt``) left open and filled from ``pairs`` as each
-    predictor's turn comes. Scored predictions land in ``collected`` and
-    predictors whose engine binary turns out to be missing land in
-    ``unavailable``; the cells that ran and came back unreadable are returned.
+    Each cell fills ``petition.cell``'s two open slots from ``pairs``. Scored
+    predictions land in ``lane.collected``, predictors whose engine binary
+    turns out to be missing in ``lane.unavailable``, and engines whose quota
+    turns out to be spent in ``lane.quota_exhausted`` (keyed by the backend
+    label in ``engines``, since the quota belongs to the engine and not to the
+    one predictor that happened to hit it); every cell that produced no score
+    lands in ``lane.losses``.
 
-    Both failure modes are absorbed rather than raised, and they are absorbed at
-    different widths: a missing CLI binary is a property of the engine, so it
-    drops that predictor from the rest of the campaign, while an unreadable
-    ``prediction.json`` is a property of this one cell and costs only this
-    petition. Neither ends a campaign that has already spent real money on the
-    cells behind it.
+    No run-time failure is raised, and they are absorbed at three different
+    widths, because they are facts about three different things. A missing CLI
+    binary is a property of the **engine**, so it drops that predictor from the
+    rest of the campaign. A spent quota is also a property of the engine, but a
+    different one: the engine is there and answering, so its remaining cells are
+    recorded as lost rather than silently dropped, and they are not attempted —
+    the engine is finished for this campaign, so every further invocation is a
+    paid-for certainty of the same failure. An engine failure on one cell, and
+    an unreadable ``prediction.json``, are properties of **this cell** and cost
+    only this petition — with one shape to read for what it is: a deterministic
+    fault that belongs to the engine rather than the cell (a rejected engine
+    login, say) fails every petition the same way, and shows up as one
+    ``engine-failed`` loss per petition rather than as one fact about the
+    engine. The count in ``lost_cells`` is what says so. None of them ends a
+    campaign that has already spent real money on the cells behind it.
 
-    ``stray_paths`` is this event's directory under the repository ledger, for
-    the misplaced-write probe in :func:`_read_replayed_cell`; ``None`` where
-    there is no separate ledger to probe.
-
-    ``case_id`` is the item's own id rather than ``cell.case_id``, which is the
-    same id re-composed from the parts the request carries: what is collected
-    has to key on the spelling the scorer looks it up by.
+    Every cell the engine was actually invoked for is also read for its
+    ``flags.json`` (:func:`_read_replayed_flags`) — a lost cell's too, whose
+    note can explain the loss — and what it said lands in ``lane.disclosures``.
+    A cell not attempted (a spent quota, a missing binary) wrote nothing to read.
     """
-    losses: list[CertBacktestCellLoss] = []
+    cell, stray_paths, case_id = petition.cell, petition.stray_paths, petition.case_id
+    losses, collected, disclosures = lane.losses, lane.collected, lane.disclosures
+    unavailable, quota_exhausted = lane.unavailable, lane.quota_exhausted
+
+    def disclose(predictor_id: str, *, scored: bool) -> None:
+        found = _read_replayed_flags(
+            cell.event_paths.prediction_flags(predictor_id, cell.run_id),
+            predictor_id=predictor_id,
+            case_id=case_id,
+            scored=scored,
+        )
+        if found is not None:
+            disclosures.append(found)
+
     for predictor, engine_runner in pairs:
         if predictor.id in unavailable:
             continue  # this engine's binary was already found missing
+        engine = engines[predictor.id]
+        if engine in quota_exhausted:
+            # Not attempted, and said so: the cell is still absent from this
+            # predictor's scores, and a report that omitted it would show a
+            # shorter `events_scored` with nothing behind it.
+            losses.append(
+                _lost_cell(
+                    predictor.id,
+                    case_id,
+                    "quota-exhausted",
+                    f"{engine}'s quota was already exhausted in this campaign; not attempted",
+                )
+            )
+            continue
         request = replace(cell, actor_id=predictor.id, prompt=Path(predictor.prompt))
         try:
             engine_runner.run(request)
@@ -626,6 +990,23 @@ def _replay_item_cells(
             # other engines already made. The caller reports the drop loudly.
             unavailable.add(predictor.id)
             continue
+        except EngineQuotaExhausted as exc:
+            # Before the bare EngineFailed clause, which is this one's base
+            # class. The engine is finished for this campaign, so stop spending
+            # backoff on it — but it stays on the report under its own reason,
+            # because an engine that ran out of quota and one whose binary was
+            # never there are different facts about the run.
+            quota_exhausted.add(engine)
+            losses.append(_lost_cell(predictor.id, case_id, "quota-exhausted", str(exc)))
+            disclose(predictor.id, scored=False)
+            continue
+        except EngineFailed as exc:
+            # The cell failed and wrote nothing: one lost cell, exactly as an
+            # unreadable artifact is. Crashing here would strand the spend
+            # already made on every cell before it and produce no report at all.
+            losses.append(_lost_cell(predictor.id, case_id, "engine-failed", str(exc)))
+            disclose(predictor.id, scored=False)
+            continue
         scored = _read_replayed_cell(
             request.event_paths.prediction(predictor.id, cell.run_id),
             stray_paths.prediction(predictor.id, cell.run_id) if stray_paths is not None else None,
@@ -634,9 +1015,203 @@ def _replay_item_cells(
         )
         if isinstance(scored, CertBacktestCellLoss):
             losses.append(scored)
+            disclose(predictor.id, scored=False)
             continue
         collected[predictor.id][case_id] = scored
-    return losses
+        disclose(predictor.id, scored=True)
+
+
+def _settled_cell(lane: _Lane, predictor_id: str, case_id: str) -> bool:
+    """Whether a lane already accounts for this cell — scored, lost, or dropped."""
+    return (
+        case_id in lane.collected.get(predictor_id, {})
+        or predictor_id in lane.unavailable
+        or any(
+            loss.predictor_id == predictor_id and loss.case_id == case_id for loss in lane.losses
+        )
+    )
+
+
+def _abandon_lane(
+    lane: _Lane,
+    pairs: list[tuple[PredictorConfig, Runner]],
+    petitions: Sequence[_ProvisionedPetition],
+    fault: BaseException,
+) -> None:
+    """Record every cell a lane had not accounted for as lost to a harness fault.
+
+    Reached only on an exception no engine fault explains — the runner and
+    read-back classify every expected one — so its cause is unknown and may be
+    systemic. The lane therefore stops: the cell that raised and every later
+    cell of this engine are recorded ``harness-error`` without being attempted,
+    because each further attempt costs and the fault may repeat. Cells the lane
+    had already settled keep what they have.
+    """
+    detail = f"{type(fault).__name__}: {fault}"
+    first = True
+    for petition in petitions:
+        for predictor, _ in pairs:
+            if _settled_cell(lane, predictor.id, petition.case_id):
+                continue
+            lane.losses.append(
+                _lost_cell(
+                    predictor.id,
+                    petition.case_id,
+                    "harness-error",
+                    detail if first else f"not attempted after the lane's fault ({detail})",
+                )
+            )
+            first = False
+
+
+def _run_lane(
+    label: str,
+    pairs: list[tuple[PredictorConfig, Runner]],
+    petitions: Sequence[_ProvisionedPetition],
+    *,
+    engines: Mapping[str, str],
+    lane: _Lane | None = None,
+) -> _Lane:
+    """Walk every petition's cells for one engine's predictors, in order, serially.
+
+    One lane per engine is what the concurrency is built on. Cells of one
+    engine never overlap — the codex runner logs in per cell into one
+    per-process auth home, which two concurrent cells would race on — and an
+    engine's quota or binary is a fact only its own lane ever reads, so the
+    check before each cell and the record after it cannot interleave with
+    another worker's. An exception nothing classifies is absorbed here
+    (:func:`_abandon_lane`) rather than escaping the worker: a lane that dies
+    still accounts for every one of its cells, and the other lanes' paid-for
+    cells still reach the report.
+
+    ``lane`` lets the caller hold the state before the worker starts, so even
+    a fault in the absorption itself leaves it something to account from.
+
+    A lane that **hangs** is not absorbed: a runner call with no deadline blocks
+    its worker, and the merge waits on every lane, so a hung engine still holds
+    the report until the job's cap ends the run — as it did when the cells ran
+    in series.
+    """
+    state = lane if lane is not None else _Lane(collected={p.id: {} for p, _ in pairs})
+    _LANE.label = label
+    try:
+        for index, petition in enumerate(petitions):
+            try:
+                _replay_item_cells(pairs, petition, engines=engines, lane=state)
+            except Exception as fault:  # everything expected is classified below this
+                _abandon_lane(state, pairs, petitions[index:], fault)
+                break
+    finally:
+        _LANE.label = None
+    return state
+
+
+def _engine_lanes(
+    pairs: list[tuple[PredictorConfig, Runner]], engines: Mapping[str, str]
+) -> list[tuple[str, list[tuple[PredictorConfig, Runner]]]]:
+    """Group the routed predictors by the backend that runs them, in routing order.
+
+    The backend, not the predictor's configured engine: under an
+    ``engine_override`` every predictor runs on the one named backend, and they
+    share a lane — one engine's cells never overlap, whoever they are for.
+    """
+    lanes: dict[str, list[tuple[PredictorConfig, Runner]]] = {}
+    for predictor, runner in pairs:
+        lanes.setdefault(engines[predictor.id], []).append((predictor, runner))
+    return list(lanes.items())
+
+
+def _merged(lanes: list[_Lane]) -> _Lane:
+    """Every lane's results as one, in lane order.
+
+    Each predictor runs in exactly one lane, so the collected predictions never
+    collide; the loss and disclosure lists are concatenated here and sorted by
+    the caller, which is what makes the report independent of completion order.
+    """
+    merged = _Lane(collected={})
+    for lane in lanes:
+        merged.collected.update(lane.collected)
+        merged.unavailable |= lane.unavailable
+        merged.losses.extend(lane.losses)
+        merged.disclosures.extend(lane.disclosures)
+    return merged
+
+
+def _run_lanes(
+    lanes: list[tuple[str, list[tuple[PredictorConfig, Runner]]]],
+    petitions: Sequence[_ProvisionedPetition],
+    *,
+    engines: Mapping[str, str],
+    workers: int,
+    lane_roots: Mapping[str, Path] | None = None,
+) -> list[_Lane]:
+    """Run every engine lane — at once by default, ``workers`` at a time if bounded.
+
+    Returns each lane's state in lane order, never in completion order, so what
+    the caller merges is the same whichever lane finished first. ``workers``
+    of ``1`` runs the lanes one after another in this thread, which is what
+    debugging a single lane wants; ``0`` gives every lane its own worker.
+    Each worker's runners spawn through the lane's prefixed executor
+    (:func:`_in_lane`), so the three engines' interleaved output stays legible.
+    ``lane_roots`` re-roots each lane's cells at its own provisioned sub-root;
+    without it every lane writes where the petitions' contracts say.
+    """
+    states = [_Lane(collected={p.id: {} for p, _ in lane_pairs}) for _, lane_pairs in lanes]
+    routed = [
+        (label, [(p, _in_lane(runner, label)) for p, runner in lane_pairs])
+        for label, lane_pairs in lanes
+    ]
+
+    def rooted(label: str) -> Sequence[_ProvisionedPetition]:
+        if lane_roots is None:
+            return petitions
+        return [
+            replace(petition, cell=replace(petition.cell, data_root=lane_roots[label]))
+            for petition in petitions
+        ]
+
+    def settle(
+        label: str, lane_pairs: list[tuple[PredictorConfig, Runner]], state: _Lane, fault: Exception
+    ) -> None:
+        # A fault in the absorption itself: account from the state the caller holds.
+        _LANE.label = label
+        try:
+            _abandon_lane(state, lane_pairs, petitions, fault)
+        finally:
+            _LANE.label = None
+
+    width = len(lanes) if workers <= 0 else min(workers, len(lanes))
+    if width <= 1:
+        for (label, lane_pairs), state in zip(routed, states, strict=True):
+            try:
+                _run_lane(label, lane_pairs, rooted(label), engines=engines, lane=state)
+            except Exception as fault:
+                settle(label, lane_pairs, state, fault)
+        return states
+    with ThreadPoolExecutor(max_workers=width, thread_name_prefix="backtest-lane") as pool:
+        futures = [
+            pool.submit(_run_lane, label, lane_pairs, rooted(label), engines=engines, lane=state)
+            for (label, lane_pairs), state in zip(routed, states, strict=True)
+        ]
+        for (label, lane_pairs), state, future in zip(routed, states, futures, strict=True):
+            try:
+                future.result()
+            except Exception as fault:
+                settle(label, lane_pairs, state, fault)
+    return states
+
+
+def _write_case_tree(
+    case_paths: CasePaths,
+    snapshot_date: date,
+    snapshot: dict[str, Any],
+    context: dict[str, Any],
+    definition: PredictableEvent,
+) -> None:
+    """Write one petition's provisioned inputs — snapshot, cell context, event."""
+    write_raw_json(case_paths.snapshot(snapshot_date.isoformat()), snapshot)
+    write_raw_json(case_paths.cell_context, context)
+    write_yaml(case_paths.event(definition.event_id).event_file, definition)
 
 
 def replay_predictors(
@@ -648,6 +1223,7 @@ def replay_predictors(
     run_id: str,
     engine_override: str | None = None,
     skip_engines: frozenset[str] = frozenset(),
+    workers: int = 0,
 ) -> ReplayOutcome:
     """Replay every routable enabled predictor over ``items``, each through its
     own configured engine.
@@ -655,8 +1231,9 @@ def replay_predictors(
     For each petition this provisions what a live predict cell reads — the
     latest snapshot (**redacted**, see :func:`redact_snapshot`) and the event
     definition **as it looked while open** (``resolved: false``, so nothing in
-    the working tree says the matter is decided) — under ``work_root`` (a
-    scratch tree, never the ``data/`` ledger), then runs each predictor's cell
+    the working tree says the matter is decided) — under each engine lane's
+    own sub-root of ``work_root`` (a scratch tree, never the ``data/``
+    ledger), then runs each predictor's cell
     via its own engine's runner (see :func:`_runners_by_predictor`; a predictor
     whose engine has no registered runner is absent from the result rather than
     mislabeled through another engine, and ``engine_override`` forces one
@@ -675,26 +1252,50 @@ def replay_predictors(
     **unavailable** mid-run, the per-cell losses, the provisioning mix, and
     each dated cell's clock day.
 
-    Two run-time faults are absorbed rather than raised, for the same reason: a
+    Every run-time fault is absorbed rather than raised, for the same reason: a
     campaign that crashes strands the spend already made on every other cell and
     produces no report at all. An **unavailable** engine — the workflow installs
     every one, so this is a safety net for config drift (a missing CLI binary) —
-    drops that predictor whole. A cell whose ``prediction.json`` is missing or
-    does not validate is a loss for that (petition, predictor) pair alone
-    (:func:`_read_replayed_cell`): the predictor stays on the board, scored over
+    drops that predictor whole. A cell that failed on its engine, or whose
+    ``prediction.json`` is missing or does not validate, is a loss for that
+    (petition, predictor) pair alone (:func:`_replay_item_cells`,
+    :func:`_read_replayed_cell`): the predictor stays on the board, scored over
     the petitions that did come back, and the loss rides the report so the
-    smaller ``events_scored`` has a reason attached. Both are reported
-    **loudly** — the losses to stderr as they happen, and everything to the
-    caller. A real engine spends tokens per cell.
+    smaller ``events_scored`` has a reason attached. A **spent quota** reaches
+    forward like an unavailable binary does, but is accounted for unlike one:
+    once an engine says its allowance is exhausted, the rest of its cells are
+    recorded lost for that reason without being attempted — every further
+    invocation being a paid-for certainty of the same failure — where an
+    unavailable engine's remaining cells are skipped silently, having never
+    been the campaign's to lose. All of them are reported **loudly** — the losses to stderr
+    as they happen, and everything to the caller. A real engine spends tokens
+    per cell.
     Callers filter the set through :func:`replayable_items` first; a petition
     with no snapshot or petition event here is an internal-invariant error.
 
     Each returned backtester carries the backend that ran it and that backend's
     model (:func:`replay_model`), so the report can state what produced a number
     instead of only which predictor it is named for.
+
+    The work runs in two phases. Every petition's case tree — snapshot, cell
+    context, event definition — is provisioned first, serially, before any cell
+    runs. Then the cells run in **engine lanes** (:func:`_run_lanes`): one
+    worker per backend, each walking every petition's cells for its own
+    predictors in order, the lanes at once unless ``workers`` bounds them. A
+    campaign's wall clock is therefore its slowest engine's lane rather than
+    the sum of all three, and each provider still sees one cell at a time. The
+    lanes' results are merged after all of them finish and sorted as a serial
+    walk would leave them, so the report does not depend on which lane
+    finished first. A fault no engine failure explains ends only its own lane,
+    whose unaccounted cells are recorded ``harness-error`` losses.
+
+    What each cell said about itself in ``flags.json`` rides the outcome too —
+    category, severity and the exposure-candidate reading per note, the
+    messages themselves only on stderr (:func:`_read_replayed_flags`) — and it
+    is a record, not a filter: a cell that disclosed seeing its own outcome is
+    still scored, because the back-test has no grader to decide it leaked.
     """
     pairs = _runners_by_predictor(config_root, engine_override, skip_engines)
-    collected: dict[str, dict[str, BacktestPrediction]] = {p.id: {} for p, _ in pairs}
     # What ran each predictor, captured at routing time rather than inferred from
     # the result: under `engine_override` every predictor runs on the named
     # backend whatever its registry entry says, and that discrepancy is exactly
@@ -703,8 +1304,20 @@ def replay_predictors(
     ran_on: dict[str, tuple[str, str | None]] = {
         p.id: (engine_override or str(p.engine), replay_model(runner)) for p, runner in pairs
     }
-    unavailable: set[str] = set()
-    lost: list[CertBacktestCellLoss] = []
+    # The backend each predictor is actually routed through, which under
+    # `engine_override` is the override rather than the registry entry — the
+    # same resolution `ran_on` records, and the key a spent quota belongs to.
+    engines = {pid: backend for pid, (backend, _) in ran_on.items()}
+    # One sub-root per engine lane, each provisioned with identical inputs. A
+    # lane's cells then find only their own engine's outputs beside them, so no
+    # cell is placed next to another engine's forecast for its petition — which
+    # lanes running at different speeds would otherwise make a matter of timing
+    # — and gemini's admitted directory, a context-file discovery root, holds
+    # only gemini's own cells. Placement, not a wall: the sub-roots are
+    # siblings, and an engine that reads outside its own is not stopped.
+    lanes = _engine_lanes(pairs, engines)
+    lane_roots = {label: work_root / label for label, _ in lanes}
+    provisioned: list[_ProvisionedPetition] = []
     # The repository ledger, for the stray-write probe only (see
     # :func:`_read_replayed_cell`). None where the replay is writing into the
     # ledger itself, which the workflow never does but a local invocation can:
@@ -721,7 +1334,6 @@ def replay_predictors(
     for item in items:
         court, _, docket_raw = item.features.case_id.partition("/")
         docket = int(docket_raw)
-        case_paths = CasePaths(work_root, court, docket)
         ledger_paths = CasePaths(ledger_root, court, docket) if probe_ledger else None
         with corpus.connect_readonly(corpus_db_path) as conn:
             found = corpus.latest_snapshot(conn, item.features.case_id)
@@ -787,7 +1399,6 @@ def replay_predictors(
         provisioning[provenance] += 1
         if cutoff is not None:
             clock_days[item.features.case_id] = cutoff
-        write_raw_json(case_paths.snapshot(snapshot_date.isoformat()), redacted)
         # The cell's mode context: a replay cell runs with the same tools
         # as a forward one — etiquette, logging, and the cross-evaluator's leakage
         # grading replace walls — so the prompt contract needs the mode stated, not
@@ -795,55 +1406,54 @@ def replay_predictors(
         # that truncation leaves a docket to derive one from: a replay cell that can
         # see its own trajectory can be scored against the rate that trajectory
         # implies, instead of one keyed on where the petition ended up.
-        write_raw_json(
-            case_paths.cell_context,
-            cell_context.build(
-                item.features.case_id,
-                snapshot_date,
-                redacted,
-                "replay",
-                provenance=provenance,
-                cutoff=cutoff,
-                # The plain date rule, stated rather than left null: this
-                # provisioner replays the cert baseline, whose trigger is a
-                # conference rather than a docket entry, so there is no intra-day
-                # tail to exclude and no anchor to record. Saying so keeps
-                # `cut_kind` non-null wherever `cutoff` is, which is what lets the
-                # prompt contract and the leakage clock read one field for the
-                # boundary instead of inferring it from the absence of another.
-                # The blind arm is the converse: its proceedings are removed
-                # wholesale and its cutoff is null, which is neither rule, so it
-                # carries no kind.
-                boundary=(arrival_cut.CutBoundary(kind="date") if cutoff is not None else None),
-                # The record's clock is the Term year even where the exported
-                # one is a date: `cutoff` beside it already carries the day, and
-                # this field is what the statpack's and docket's per-Term
-                # anchoring rule is read against — a Term row either precedes a
-                # Term year or it does not, with nothing to resolve.
-                decided_before=str(item.features.year),
-            ).model_dump(mode="json"),
-        )
+        context = cell_context.build(
+            item.features.case_id,
+            snapshot_date,
+            redacted,
+            "replay",
+            provenance=provenance,
+            cutoff=cutoff,
+            # The plain date rule, stated rather than left null: this
+            # provisioner replays the cert baseline, whose trigger is a
+            # conference rather than a docket entry, so there is no intra-day
+            # tail to exclude and no anchor to record. Saying so keeps
+            # `cut_kind` non-null wherever `cutoff` is, which is what lets the
+            # prompt contract and the leakage clock read one field for the
+            # boundary instead of inferring it from the absence of another.
+            # The blind arm is the converse: its proceedings are removed
+            # wholesale and its cutoff is null, which is neither rule, so it
+            # carries no kind.
+            boundary=(arrival_cut.CutBoundary(kind="date") if cutoff is not None else None),
+            # The record's clock is the Term year even where the exported
+            # one is a date: `cutoff` beside it already carries the day, and
+            # this field is what the statpack's and docket's per-Term
+            # anchoring rule is read against — a Term row either precedes a
+            # Term year or it does not, with nothing to resolve.
+            decided_before=str(item.features.year),
+        ).model_dump(mode="json")
         event = petitions[0]
-        write_yaml(
-            case_paths.event(event.event_id).event_file,
-            PredictableEvent(
-                event_id=event.event_id,
-                case_id=event.case_id,
-                kind=event.kind,
-                stage=event.stage,
-                moment=event.moment,
-                title=event.title or event.case_id,
-                description=event.description,
-                opened_at=event.opened_at,
-                decision_target=event.decision_target,
-                resolved=False,  # the pre-decision view: the outcome stays hidden
-            ),
+        definition = PredictableEvent(
+            event_id=event.event_id,
+            case_id=event.case_id,
+            kind=event.kind,
+            stage=event.stage,
+            moment=event.moment,
+            title=event.title or event.case_id,
+            description=event.description,
+            opened_at=event.opened_at,
+            decision_target=event.decision_target,
+            resolved=False,  # the pre-decision view: the outcome stays hidden
         )
-        # One petition's cells, every enabled predictor on its own engine.
-        lost.extend(
-            _replay_item_cells(
-                pairs,
-                RunRequest(
+        # The same inputs, byte for byte, under every lane's own root.
+        for lane_root in lane_roots.values():
+            _write_case_tree(
+                CasePaths(lane_root, court, docket), snapshot_date, redacted, context, definition
+            )
+        # One petition's cell contract, run later in every engine's lane.
+        provisioned.append(
+            _ProvisionedPetition(
+                case_id=item.features.case_id,
+                cell=RunRequest(
                     role=UsageRole.predictor,
                     court_id=court,
                     docket_id=docket,
@@ -852,6 +1462,7 @@ def replay_predictors(
                     actor_id="",
                     prompt=Path(),
                     run_id=run_id,
+                    # Each lane re-roots this at its own sub-root.
                     data_root=work_root,
                     # The replay clock, in the two halves the cell reads as
                     # DECIDED_BEFORE and REPLAY_CUTOFF. The Term is the case's
@@ -863,19 +1474,29 @@ def replay_predictors(
                     decided_before=item.features.year,
                     replay_cutoff=cutoff,
                 ),
-                ledger_paths.event(event.event_id) if ledger_paths is not None else None,
-                case_id=item.features.case_id,
-                unavailable=unavailable,
-                collected=collected,
+                stray_paths=(
+                    ledger_paths.event(event.event_id) if ledger_paths is not None else None
+                ),
             )
         )
+    # Every case tree is on disk; now the cells, one lane per engine. Merged in
+    # lane order and sorted below, so completion order never reaches the report.
+    merged = _merged(
+        _run_lanes(lanes, provisioned, engines=engines, workers=workers, lane_roots=lane_roots)
+    )
+    collected, unavailable, lost, disclosures = (
+        merged.collected,
+        merged.unavailable,
+        merged.losses,
+        merged.disclosures,
+    )
     backtesters: list[Backtester] = [
         ReplayedBacktester(id=pid, predictions=preds, engine=ran_on[pid][0], model=ran_on[pid][1])
         for pid, preds in collected.items()
-        # `preds`: a predictor every one of whose cells came back unreadable has
-        # nothing to be scored over, so it leaves the board entirely rather than
-        # appearing at an accuracy of zero over zero petitions. Its cells are on
-        # the report as losses, and the caller names it as dropped.
+        # `preds`: a predictor every one of whose cells was lost has nothing to
+        # be scored over, so it leaves the board entirely rather than appearing
+        # at an accuracy of zero over zero petitions. Its cells are on the
+        # report as losses, and the caller names it as dropped.
         if pid not in unavailable and preds
     ]
     return ReplayOutcome(
@@ -889,6 +1510,8 @@ def replay_predictors(
         # facts about the run. Why the predictor has no entry is
         # `unavailable`'s to say, not this list's to omit.
         lost_cells=sorted(lost, key=lambda loss: (loss.predictor_id, loss.case_id)),
+        disclosures=_settled(disclosures, backtesters),
+        disclosure_tally=disclosure_tally(backtesters, disclosures),
     )
 
 
@@ -1031,9 +1654,9 @@ def _big_case_distribution(scores: list[float]) -> CertBacktestBigCase | None:
 def _predicted(backtester: Backtester, item: BacktestItem) -> BacktestPrediction | None:
     """This backtester's forecast for one petition, or ``None`` where it has none.
 
-    Only a replayed backtester can be short a petition — a cell that ran and
-    came back unreadable (:func:`_read_replayed_cell`) — and it is then scored
-    over what did come back rather than over a guess in place of it. The offline
+    Only a replayed backtester can be short a petition — a lost cell
+    (:func:`_replay_item_cells`) — and it is then scored over what did come
+    back rather than over a guess in place of it. The offline
     reference baselines are pure functions of the features and always answer.
     """
     if isinstance(backtester, ReplayedBacktester):

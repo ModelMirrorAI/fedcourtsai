@@ -30,9 +30,11 @@ on:
   schedule:
     # 06:23 UTC on Saturdays. The slot is chosen for the runway behind it, not
     # for the corpus in front of it: a released fortnight has to derive its
-    # plan, wait however long the hold takes, run up to its 330-minute cap, and
-    # then land a **reviewed** PR before the Monday 08:30 digest tick reads the
-    # report — roughly 50 hours, which no weekday slot leaves. It opens after
+    # plan, wait however long the hold takes, run up to its 330-minute cap (the
+    # pinned ten petitions' cells come to ~40-60 minutes at the measured serial
+    # rates, not yet measured as lanes), and then land a
+    # **reviewed** PR before the Monday 08:30 digest tick reads the report —
+    # roughly 50 hours, which no weekday slot leaves. It opens after
     # run-pull's 04:47 live window (35-minute cap) has committed and closes well
     # before the 07:17 ingestion window; the replay only ever reads the corpus
     # and takes no `corpus-write` lock, so an overlap would cost a staler read
@@ -403,14 +405,26 @@ jobs:
     concurrency:
       group: run-backtest
       cancel-in-progress: false
-    # Headroom for ~25 petitions x 3 routable predictors of real agent cells
-    # (claude-code, codex, gemini), run strictly sequentially, plus the corpus
-    # pull — ~75 cells at the dispatch default, which is what keeps a hung engine
-    # from burning six billable hours. It stays sized for the widest dispatch
-    # rather than for the cron's pinned 10 petitions (~30 cells, well inside it):
+    # Sized as headroom for ~25 petitions x 3 routable predictors of real agent
+    # cells (claude-code, codex, gemini) plus the corpus pull (~75 cells at the
+    # dispatch default); the cap is what keeps a hung engine from burning six
+    # billable hours. The cells run in one lane per engine: each engine's cells
+    # in series, the three lanes at once (`fedcourts cert-backtest`), so the
+    # replay's wall clock is the slowest lane's, not the sum. Measured serial
+    # rates: the first 25-petition campaign (all 75 cells in series, 300
+    # minutes) — codex a median 2.3 min/cell, each gemini cell with the claude
+    # cell after it ~9, claude ~3 of that; the 2026-09-21 validation dispatch,
+    # with gemini's file tools admitted to the work root — gemini 15 cells in 57
+    # minutes, ~3.8/cell. So the gemini lane sets it: ~95 minutes at 25
+    # petitions and ~40 at the cron's pinned 10 on that one 15-cell dispatch,
+    # or ~150 and ~60 if gemini runs at the ~6/cell the first campaign implies,
+    # before whatever three engines sharing one runner cost each and any
+    # retry backoff a lane absorbs. The cap is deliberately not lowered to that:
     # a cap that killed a legitimately-running replay would waste the spend it
-    # had already made. This 330-minute cap is the hard ceiling the cadence
-    # guard and the cron slot's runway are both written against.
+    # had already made, and a slow or retrying engine stretches only its own
+    # lane — though a hung one still holds the report, which waits on every
+    # lane, until this cap ends the job. This 330-minute cap is the hard ceiling
+    # the cadence guard and the cron slot's runway are both written against.
     timeout-minutes: 330
     environment: prod
     permissions:
@@ -457,7 +471,7 @@ jobs:
         run: |
           set -euo pipefail
           npm install --silent --no-audit --ignore-scripts --global \
-            @anthropic-ai/claude-code@2.1.259 @openai/codex@0.144.1 \
+            @anthropic-ai/claude-code@2.1.280 @openai/codex@0.144.1 \
             @google/gemini-cli@0.49.0
           # Claude's native binary is placed by its postinstall, which
           # --ignore-scripts suppresses; run the pinned package's own
@@ -623,23 +637,29 @@ jobs:
           # there could not. claude, unsandboxed, writes anywhere it is told.
           # gemini does not: its file tools are bounded to the launch directory
           # (the checkout) and its own per-project temp dir, so the runner
-          # passes this root to the CLI as an extra workspace directory
+          # passes the cell's root to the CLI as an extra workspace directory
           # (`GeminiRunner.build_command`, `--include-directories`; re-check on
           # any gemini-cli bump) and a gemini cell reaches it with write_file
-          # rather than only the shell. A fresh mktemp directory keeps the path
+          # rather than only the shell. Each engine's lane runs under its own
+          # sub-root of this one (`<work_dir>/<engine>/`), provisioned with the
+          # same inputs, so the root gemini is given holds gemini's cells alone.
+          # A fresh mktemp directory keeps the path
           # unpredictable and unshared across runs on a non-ephemeral runner;
           # run_id is inside every cell path anyway, so a stale cell could never
           # be collected. The output root is what the kickoff names absolutely
           # for every engine — the prompt's own path is relative to the working
-          # directory, which here is the checkout, not the work root. Inside
-          # this root the engines are not isolated from each other's cells, and
-          # for gemini the admitted root is a `GEMINI.md` context-file discovery
-          # root too (read at startup, and again whenever a file tool touches a
-          # path under it), so a cell that planted one would be instructing the
-          # cells that follow: accepted on the same terms as the shared root
-          # itself and as the checkout, which is a discovery root for every
-          # gemini cell already — the back-test's cross-engine integrity rests
-          # on the first-party engine configs and the committed prompts.
+          # directory, which here is the checkout, not the work root. The
+          # sub-roots are placement, not isolation: they are siblings, claude
+          # reads anywhere and codex's sandbox bounds writes rather than reads,
+          # so an engine that looks outside its own lane can still read another
+          # engine's cells. For gemini the admitted sub-root is a `GEMINI.md`
+          # context-file discovery root too (read at startup, and again whenever
+          # a file tool touches a path under it), so a gemini cell that planted
+          # one would be instructing the gemini cells after it in its lane:
+          # accepted on the same terms as the shared tree itself and as the
+          # checkout, which is a discovery root for every gemini cell already —
+          # the back-test's cross-engine integrity rests on the first-party
+          # engine configs and the committed prompts.
           work_dir="$(mktemp -d /tmp/fedcourts-backtest-cells.XXXXXXXX)"
           uv run fedcourts cert-backtest \
             --engine "$BT_ENGINE" --limit "$BT_LIMIT" --skip-engines "$BT_SKIP_ENGINES" \

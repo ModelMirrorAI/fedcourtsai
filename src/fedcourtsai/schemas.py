@@ -4619,18 +4619,34 @@ class CertBacktestDispatch(_Strict):
     )
 
 
-class CertBacktestCellLoss(_Strict):
-    """One replayed cell that produced no readable prediction, and why.
+#: Why a replayed back-test cell produced no score. A named alias rather than an
+#: inline ``Literal`` because the replay code classifies a loss before it builds
+#: one, and a second spelling of the vocabulary is a second thing to keep in step.
+CertBacktestLossReason = Literal[
+    "missing",
+    "wrote-outside-work-root",
+    "invalid",
+    "engine-failed",
+    "quota-exhausted",
+    "harness-error",
+]
 
-    A replay cell is a model call that was paid for; when the file the runner
-    reads back is missing or does not validate, the petition is simply absent
-    from that predictor's scores. Recording it keeps the absence legible: the
-    entry's own ``events_scored`` already differs, and this says which petitions
-    are behind the difference and what went wrong, rather than leaving a board
-    whose predictors were scored over silently unequal sets.
+
+class CertBacktestCellLoss(_Strict):
+    """One back-test cell that produced no score, and why.
+
+    A replay cell is a model call that was paid for; when it fails, or the file
+    the runner reads back is missing or does not validate, the petition is
+    simply absent from that predictor's scores. Recording it keeps the absence
+    legible: the entry's own ``events_scored`` already differs, and this says
+    which petitions are behind the difference and what went wrong, rather than
+    leaving a board whose predictors were scored over silently unequal sets. A
+    cell the campaign declined to attempt is recorded the same way and for the
+    same reason — it is absent from the scores either way.
 
     ``reason`` is a closed vocabulary, not prose — the run log carries the
-    detail (a validation error's text, the path that was read):
+    detail (a validation error's text, the path that was read, the engine's own
+    stderr):
 
     - ``missing`` — nothing readable at the cell's path under the replay's work
       root: the file is absent, or the filesystem refused it.
@@ -4639,12 +4655,111 @@ class CertBacktestCellLoss(_Strict):
       the prompt template's ``data/cases/...`` path instead of the work root it
       was given.
     - ``invalid`` — a file was there and is not a valid ``Prediction``.
+    - ``engine-failed`` — the engine CLI exited non-zero for the cell and wrote
+      nothing to read back: a deterministic fault, or a transient one that
+      outlasted the runner's retry budget.
+    - ``quota-exhausted`` — the engine's own quota is spent, so the cell failed
+      and no retry could have cleared it. Every later cell on that engine in
+      the same campaign carries this reason without being attempted, since the
+      attempt is a paid-for certainty of the same failure.
+    - ``harness-error`` — the harness itself raised something no engine fault
+      explains while running or reading this cell, or an earlier cell of the
+      same engine's lane. The cause is unknown and may be systemic, so the lane
+      stops there: that cell and every later one of its engine carry this
+      reason, the later ones without being attempted, while the other engines'
+      lanes run on. The run log names the exception.
+
+    ``engine-failed`` and ``quota-exhausted`` are distinct because they say
+    different things about the run: one cell hit a fault, against one engine
+    being finished for the day.
     """
 
     predictor_id: str = Field(description="The predictor whose cell was lost")
     case_id: str = Field(description="The petition the lost cell was replaying")
-    reason: Literal["missing", "wrote-outside-work-root", "invalid"] = Field(
+    reason: CertBacktestLossReason = Field(
         description="Why the cell produced no score, from the closed vocabulary above"
+    )
+
+
+class CertBacktestFlag(_Strict):
+    """One note a replay cell raised in its ``flags.json``, as the report keeps it.
+
+    The note's category and severity — never its message. A replay cell's note
+    about outcome-revealing material names what it saw next to the case it is
+    about, and this report is committed under ``metrics/``, which later replay
+    cells run beside and are pointed into; so the free text goes to the run log
+    (credential-shaped runs redacted) and the report keeps only what a reader
+    needs to find and weigh it.
+    """
+
+    category: FlagCategory
+    severity: FlagSeverity
+    outcome_exposure_candidate: bool = Field(
+        description="True where a deliberately simple text rule "
+        "(`fedcourtsai.cert_backtest.outcome_exposure_candidate`) reads the note's "
+        "message as possibly disclosing that the cell saw its own petition's outcome. "
+        "A triage highlighter over free text, not a judgment: it over-calls on some "
+        "shapes (a retrieved prior's GVR, for one) and misses others, so an unmarked note "
+        "is not a cleared one — and it never changes which cells are scored"
+    )
+
+
+class CertBacktestDisclosure(_Strict):
+    """What one replayed cell disclosed in its ``flags.json``, kept past the runner.
+
+    The work root a replay cell writes into is scratch and is discarded with the
+    runner, and the back-test runs no evaluator and writes no retrieval log — so
+    without this record a cell's note that it saw outcome-revealing material
+    would survive only in an expiring run log. One entry per cell that left a
+    ``flags.json`` at all, scored or lost; a cell that wrote none disclosed
+    nothing, which is silence rather than a clean bill.
+    """
+
+    predictor_id: str = Field(description="The predictor whose cell raised the notes")
+    case_id: str = Field(description="The petition the cell was replaying")
+    scored: bool = Field(
+        description="Whether this cell's prediction is in its predictor's figures. "
+        "False for a lost cell, whose notes are kept because they can explain the loss — "
+        "and can matter to the other predictors' cells on the same petition, which read "
+        "the same provisioned inputs — and for every cell of a predictor that left the board"
+    )
+    unreadable: bool = Field(
+        default=False,
+        description="The cell wrote a `flags.json` that does not parse as `AgentFlags`, "
+        "so what it disclosed is unknown and `flags` is empty. The cell stays scored: "
+        "a formatting fault is not evidence of exposure, and an unread note may still "
+        "have been one",
+    )
+    flags: list[CertBacktestFlag] = Field(
+        default_factory=list, description="The cell's notes, in the order it wrote them"
+    )
+
+
+class CertBacktestDisclosureTally(_Strict):
+    """One predictor's disclosure counts over its **scored** replay cells.
+
+    Nothing is excluded on a disclosure: the back-test has no evaluator to grade
+    one, and a text rule deciding who stays in the scored set would demote a
+    predictor for its candour. So these counts are the reading aid instead — a
+    disclosed exposure left in the scores inflates that predictor's accuracy and
+    lift, and an undisclosed one is invisible here.
+    """
+
+    cells_read: int = Field(
+        ge=0,
+        description="The denominator: this predictor's cells that came back scoreable "
+        "and were read for a `flags.json`",
+    )
+    cells_flagged: int = Field(
+        ge=0, description="Of those, the cells that left a readable `flags.json`"
+    )
+    flags_unreadable: int = Field(
+        ge=0, description="Of those, the cells whose `flags.json` did not parse"
+    )
+    candidates: int = Field(
+        ge=0,
+        description="Of those, the cells carrying at least one note the text rule marks "
+        "`outcome_exposure_candidate` — cells to read the run log for, not a leak count",
     )
 
 
@@ -4703,8 +4818,8 @@ class CertBacktestProvenance(_Strict):
         default_factory=list,
         description="Enabled predictors that produced no entry for a **run-time** "
         "reason, sorted: their engine had no registered runner, its CLI binary "
-        "turned out to be missing mid-run, or every one of its cells came back "
-        "unreadable (`lost_cells`). The ids carry no cause — the run log names "
+        "turned out to be missing mid-run, or every one of its cells was lost "
+        "(`lost_cells`). The ids carry no cause — the run log names "
         "which. The deliberate opt-out is "
         "`dispatch.skip_engines` instead. Recorded because a board silently short "
         "one engine is a different comparison from the three-engine one it looks "
@@ -4712,8 +4827,9 @@ class CertBacktestProvenance(_Strict):
     )
     lost_cells: list[CertBacktestCellLoss] = Field(
         default_factory=list,
-        description="Individual (petition, predictor) cells that ran and produced "
-        "no readable prediction, sorted. The per-cell counterpart of "
+        description="Individual (petition, predictor) cells that produced no "
+        "score, sorted — the cell failed, was declined once its engine's "
+        "quota was spent, or came back unreadable. The per-cell counterpart of "
         "`dropped_predictors`, which loses a predictor whole: a predictor short "
         "**some** of its cells is still on the board, scored over the petitions "
         "that did come back — so its `events_scored` is smaller than the set, "
@@ -4723,6 +4839,23 @@ class CertBacktestProvenance(_Strict):
         "here. Read this before comparing two entries. Empty on a run where "
         "every cell came back, and on an offline baseline-only run, which has "
         "no cells",
+    )
+    disclosures: list[CertBacktestDisclosure] = Field(
+        default_factory=list,
+        description="Every replayed cell that left a `flags.json`, sorted by predictor "
+        "then petition — the cells' own notes, kept as category, severity and the text "
+        "rule's exposure-candidate reading, never the message. **Nothing here changes "
+        "a score**: the back-test runs no evaluator, so a cell that disclosed seeing its "
+        "own outcome is still in its predictor's figures, where it biases accuracy and "
+        "lift upward. Empty on an offline run, and on a replay where no cell wrote one — "
+        "which is silence, not a clean bill",
+    )
+    disclosure_tally: dict[str, CertBacktestDisclosureTally] = Field(
+        default_factory=dict,
+        description="Per-predictor disclosure counts over the scored cells, keyed by "
+        "predictor id, for every replayed predictor on the board. Engines differ "
+        "in how often and how they write notes, so a count is read within one predictor, "
+        "never as a cross-engine leakage comparison",
     )
 
 
@@ -8381,6 +8514,112 @@ class EvaluatorConfig(_Strict):
     )
 
 
+_SHA256_DIGEST = r"^sha256:[0-9a-f]{64}$"
+
+
+class CaseSummaryUsage(_Strict):
+    """The token usage of the one call that wrote a case summary."""
+
+    input_tokens: int = Field(ge=0, description="Uncached input tokens billed")
+    output_tokens: int = Field(ge=0, description="Output tokens billed")
+    estimated_cost_usd: float = Field(
+        ge=0,
+        description="The call's on-demand cost at `pricing.MODEL_RATES` for `model` — "
+        + "an estimate at the rate table's snapshot, like every figure it prices",
+    )
+
+
+class CaseSummaryFrontMatter(_Strict):
+    """The YAML front matter of ``data/cases/<court>/<docket>/summaries/<day>.md``.
+
+    Written by the harness, never by the model: provenance a reader can check
+    the body against. ``record_digest`` is what makes the selection rule
+    content-keyed — a case needs a new summary exactly when the digest of its
+    newest record differs from the one its newest summary carries
+    (``docs/case-summaries.md``).
+    """
+
+    case_id: str = Field(description="The case the summary describes, `<court>/<docket>`")
+    snapshot: date = Field(
+        description="The corpus snapshot day the summary was generated from; the "
+        + "file is named for it"
+    )
+    record_digest: str = Field(
+        pattern=_SHA256_DIGEST,
+        description="sha256 over the canonical newest snapshot payload (generation "
+        + "stamps removed) and the sorted (kind, text sha256) pairs of the case's "
+        + "stored documents — the record the summary was written from",
+    )
+    model: str = Field(description="The Messages API model id that wrote the body")
+    prompt_digest: str = Field(
+        pattern=_SHA256_DIGEST,
+        description="sha256 of `.github/prompts/summarize.md` as sent",
+    )
+    generated_at: datetime = Field(description="When the harness wrote the file (UTC)")
+    usage: CaseSummaryUsage | None = Field(
+        default=None, description="The writing call's token usage, where the response carried it"
+    )
+
+
+class SummaryPlanCase(_Strict):
+    """One case a summary run would write, with the record it would read."""
+
+    case_id: str
+    court_id: str
+    docket_id: int
+    snapshot: date = Field(description="The newest snapshot day; the summary's filename")
+    record_digest: str = Field(pattern=_SHA256_DIGEST)
+    reason: Literal["new", "record-changed"] = Field(
+        description="new: the case has no committed summary; record-changed: its "
+        + "newest summary was written from a different record"
+    )
+    documents: int = Field(ge=0, description="Stored documents the record carries")
+    input_chars: int = Field(
+        ge=0,
+        description="Characters the model would read: the snapshot plus each "
+        + "document up to the per-document cap",
+    )
+
+    @model_validator(mode="after")
+    def _ids_agree(self) -> SummaryPlanCase:
+        """The case id, court and docket name one case, since the summary's path
+        is built from the latter two and its front matter from the first."""
+        if self.case_id != f"{self.court_id}/{self.docket_id}":
+            raise ValueError(
+                f"case_id {self.case_id!r} does not match {self.court_id}/{self.docket_id}"
+            )
+        return self
+
+
+class SummaryPlan(_Strict):
+    """``fedcourts summarize-plan`` output — what a summary run would write and cost.
+
+    The plan-and-hold document: rendered before the review hold so the release
+    is judged on it, and handed to ``fedcourts summarize`` so the run writes
+    exactly what was approved.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    model: str
+    eligible: int = Field(ge=0, description="Cases with at least one committed prediction")
+    up_to_date: int = Field(
+        ge=0, description="Eligible cases whose newest summary matches their newest record"
+    )
+    no_snapshot: list[str] = Field(
+        default_factory=list, description="Eligible cases the corpus holds no snapshot for"
+    )
+    not_live_shaped: list[str] = Field(
+        default_factory=list,
+        description="Eligible cases whose newest snapshot is a CourtListener REST docket "
+        + "rather than the supremecourt.gov docket JSON; not summarized, because the "
+        + "lane stages and publishes only public-record Court content",
+    )
+    deferred: int = Field(ge=0, description="Cases owed a summary that the limit held back")
+    cases: list[SummaryPlanCase]
+    estimated_cost_usd_low: float = Field(ge=0)
+    estimated_cost_usd_high: float = Field(ge=0)
+
+
 # Maps on-disk filename -> the model that validates it. Used by `fedcourts validate`.
 FILENAME_MODELS: dict[str, type[_Strict]] = {
     "case.yaml": TrackedCase,
@@ -8433,4 +8672,6 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "retrieval_log": RetrievalLog,
     "qp_topic_reference": QpTopicReference,
     "qp_topics": QpTopicLabels,
+    "case_summary_front_matter": CaseSummaryFrontMatter,
+    "summary_plan": SummaryPlan,
 }
