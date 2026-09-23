@@ -385,10 +385,9 @@ Every secret and the two production S3 role ARNs live on the `prod`
 environment — the dev and data Apps'
 credentials (the staging telemetry App's pair lives on `staging`, and the
 engine keys have per-environment twins there; both exceptions are recorded
-where those holders are described), the Anthropic API key, the case-summary
-lane's own Anthropic API key (`SUMMARIES_ANTHROPIC_API_KEY` — a separate key
-with its own provider-side spend cap, held by `summarize`'s generate job alone,
-with a twin on `staging` for rehearsals), the Codex/OpenAI key, the Gemini API key,
+where those holders are described), the Anthropic API key (which the case-summary
+lane also spends on, held in `summarize` by its generate job alone), the
+Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion; by the MCP
 sidecar composite's launch step — the cells', `integration-test`'s
 engine-smoke **codex** leg, its engine-actions-smoke legs and each
@@ -504,8 +503,8 @@ dispatch is a read-and-spend rehearsal that can open nothing.
 **`summarize` resolves its plan, stage and generate jobs the same way** — no
 input override, `main` (and the daily schedule) to `prod`, `staging` to
 `staging`, anything else to the empty auto-created environment — so a
-staging dispatch reads the staging corpus pair and spends on the staging twin
-of the lane's key, behind the same `review` hold. Its publish job is the
+staging dispatch reads the staging corpus pair and spends on staging's
+Anthropic key, behind the same `review` hold. Its publish job is the
 literal `prod` and runs only on `refs/heads/main`, so a rehearsal ends with
 the summaries in a run artifact and nothing opened.
 
@@ -892,7 +891,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `summarize` — plan, stage                 | read-only     | the case-summary plan (full `corpus-pull`, then each predicted case's newest snapshot and document texts from the content store) and the staging of each planned case's record with `provision-snapshot`, handed to the generate job as a one-day artifact |
-| `summarize` — generate, publish           | none          | generate holds the lane's own model API key, assumes no role, has no `id-token: write`, and asserts both the AWS and the OIDC variables are absent first; publish holds the dev App token on `main` only |
+| `summarize` — generate, publish           | none          | generate holds the environment's Anthropic API key, assumes no role, has no `id-token: write`, and asserts both the AWS and the OIDC variables are absent first; publish holds the dev App token on `main` only |
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent. What leaves it is one artifact of invented question texts — the labels the smoke produced — published only past a containment check against the engine key |
 | `integration-test` — codex-freeze-probe family (`codex-freeze-probe`, `codex-freeze-probe-unprivuser`) | none          | the freeze probe assumes no role and holds no `id-token`: it reads no corpus, and its reach is the telemetry mint plus the engine key one trivial turn spends — the ceiling for both members, which mint, arm and spend alike. The base `codex-freeze-probe` turn keeps `safety-strategy: drop-sudo` to reproduce the wedge, which is why it is held out of the cross-surface lockstep pin. The `codex-freeze-probe-unprivuser` member runs its codex turn under `safety-strategy: unprivileged-user` as a separate unprivileged UNIX user the job provisions (nologin, no sudo, no supplementary groups; its home relaxed to 0755, and its boot-probe session rollout copied into the workspace for the shared assertion), so the runner account is never mutated and the model key never enters that user's environment or any file it can read — the other lockstep-exempt turn, and the same `unprivileged-user` posture the production cells run. The job's MCP sidecar is launched deliberately **token-free** — the turn uses no tools, so an unauthenticated server that handshakes is the whole requirement, and no CourtListener token reaches the agent's env or any config file it can read |

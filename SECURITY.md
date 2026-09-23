@@ -347,9 +347,9 @@ runbook, [docs/security.md](docs/security.md).
   one-day run artifact, which on this public repository any signed-in user
   can download while it exists, and which the lane therefore fills only with
   supremecourt.gov content. The model call carries no tools, so the model reaches
-  nothing but the record it is sent. The key is the lane's own, with its own
-  provider-side spend cap, so the lane cannot draw on the cells' quota, and
-  every run spends only behind the `review` hold.
+  nothing but the record it is sent. The key is the bound environment's
+  Anthropic key, held in this lane by the generate job alone and shared with the
+  cells' spend limit, so every run spends only behind the `review` hold.
   `tests/test_workflow_summarize.py` pins the split; the lane's contract is
   [docs/case-summaries.md](docs/case-summaries.md).
 - **One scoped exception: developer corpus access from Codespaces.** Two

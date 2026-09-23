@@ -10,8 +10,8 @@ run-name: "summarize @ ${{ github.ref_name == 'main' && 'prod' || github.ref_nam
 # nothing scores a summary, and no metric or board reads one.
 #
 # Its own workflow, not a mode on run-analytics, for two reasons that are each a
-# different class: it spends model tokens on a dedicated API key with its own
-# spend cap (a spend lane behind the `review` hold), and it runs daily on its
+# different class: it spends model tokens (a spend lane behind the `review`
+# hold, on the bound environment's Anthropic key), and it runs daily on its
 # own schedule. The jobs keep the two credentials it touches apart — no job,
 # and so no step, holds both:
 #
@@ -26,7 +26,8 @@ run-name: "summarize @ ${{ github.ref_name == 'main' && 'prod' || github.ref_nam
 #   stage     read-only corpus role. `provision-snapshot` stages each planned
 #             case's record — the same staged record, and the same
 #             contact-detail scrub, a predict cell reads — under $RUNNER_TEMP.
-#   generate  the summaries API key and no cloud credential (asserted). One
+#   generate  the environment's Anthropic key and no cloud credential
+#             (asserted). One
 #             Messages API call per case with no tools; the harness validates
 #             each body and writes the file. Jails, validates and secret-scans
 #             the written files before anything leaves the runner.
@@ -100,8 +101,9 @@ jobs:
       # for days, and standing down behind it would stall this lane with it —
       # and the check runs at plan time only, so a round that starts after this
       # run's hold releases can overlap its generate job. Nothing breaks if
-      # they overlap: the corpus reads are read-only and the model calls are
-      # this lane's own; the rule keeps the lanes' logs and spend legible. A
+      # they overlap: the corpus reads are read-only and the model calls go
+      # to a model outside the panel, whose provider rate limits are separate
+      # from the cells'; the rule keeps the lanes' logs and spend legible. A
       # run that stands down exits cleanly with a notice — the next day's run
       # re-derives the plan. Fail-closed: an API error reads as "busy", since
       # the cost of a skipped day is a day.
@@ -331,7 +333,7 @@ jobs:
       - uses: ./.github/actions/setup-python-env
 
       # The credential split's tripwire, copied from the qp-topic labeler: this
-      # job holds the summaries API key, so it must hold no cloud credential and
+      # job holds the environment's Anthropic key, so it must hold no cloud credential and
       # no way to mint one. It assumes no role; this proves it stays that way.
       - name: Assert no cloud credential in this job
         run: |
@@ -364,7 +366,7 @@ jobs:
       - name: Write the summaries
         timeout-minutes: 165
         env:
-          SUMMARIES_ANTHROPIC_API_KEY: ${{ secrets.SUMMARIES_ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
           # The budget sits under this step's cap, so a slow run stops starting
@@ -392,7 +394,7 @@ jobs:
       - name: Jail, validate and scan the written summaries
         id: collect
         env:
-          SUMMARIES_ANTHROPIC_API_KEY: ${{ secrets.SUMMARIES_ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
           {
@@ -404,7 +406,7 @@ jobs:
           uv run fedcourts validate data
           uv run fedcourts scan-diff-for-secrets \
             --name-status-file "$RUNNER_TEMP/changes.txt" \
-            --known-secret-env SUMMARIES_ANTHROPIC_API_KEY \
+            --known-secret-env ANTHROPIC_API_KEY \
             --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           mkdir -p "$RUNNER_TEMP/out"
           while IFS= read -r path; do

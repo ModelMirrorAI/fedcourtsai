@@ -10545,7 +10545,7 @@ def summarize_cmd(
     sits in the length band, opens no paragraph with "Whether", and passes the
     secret scan; anything else, and any call that still fails after bounded
     retries, is reported as skipped. The API key is read from the environment
-    variable the summaries lane defines (``summaries.API_KEY_ENV``). Exits 1 when
+    variable ``summaries.API_KEY_ENV`` names. Exits 1 when
     the plan held cases and none was written, so a dead key or a broken prompt
     fails the run rather than reading as an empty success.
     """

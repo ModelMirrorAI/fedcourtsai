@@ -145,8 +145,8 @@ run's cost.
 
 ## The workflow
 
-`.github/workflows/summarize.yml` — its own workflow, because it spends on its
-own API key behind its own hold and runs on its own daily schedule (03:43 UTC,
+`.github/workflows/summarize.yml` — its own workflow, because it spends model
+tokens behind its own hold and runs on its own daily schedule (03:43 UTC,
 clear of `run-predict` and `run-evaluate`). One run per ref at a time. Six
 jobs:
 
@@ -155,7 +155,7 @@ jobs:
 | `plan` | read-only corpus role | stands down (a notice, no work) while a `run-predict` or `run-evaluate` run is executing — a round parked on its own hold or queued does not count, and the check is at plan time only, so a round can still start while this run's generate job works; counts an open `summaries/refresh` PR's summaries as written; `fedcourts summarize-plan` → the plan and the report the hold is judged on |
 | `approval` | nothing (`review` environment) | the spend hold |
 | `stage` | read-only corpus role | `provision-snapshot` for each planned case, into a data root under `$RUNNER_TEMP` |
-| `generate` | the summaries API key, and asserts it holds no cloud credential | `fedcourts summarize`; jails, validates and secret-scans the written files; uploads them as the `case-summaries` artifact |
+| `generate` | the environment's Anthropic key, and asserts it holds no cloud credential | `fedcourts summarize`; jails, validates and secret-scans the written files; uploads them as the `case-summaries` artifact |
 | `publish` | dev App token (`main` only) | opens or updates one reviewed PR from `summaries/refresh` |
 | `rejected` | nothing (no environment, `permissions: {}`) | records on the run page that the hold did not release |
 
@@ -170,10 +170,16 @@ job if any AWS credential or OIDC minting is reachable), and the staged record
 crosses between them as a one-day run artifact.
 `tests/test_workflow_summarize.py` pins the split.
 
-**Its own key.** The API key is a dedicated secret with its own spend cap on
-the provider console, so this lane cannot draw on the quota the predict and
-evaluate cells run on, and a runaway plan is bounded by the cap as well as the
-hold.
+**The environment's key.** The lane spends on the bound environment's
+Anthropic key — prod's on main, staging's on a staging rehearsal — the one the
+other Claude lanes use. It does not compete with the cells for throughput:
+provider rate limits are per model and the lane's model is outside the
+prediction panel, and its plan stands down while a predict or evaluate round
+is running (checked at plan time, so a hold released later can overlap a
+round, harmlessly). It does share the key's provider spend limit with the
+cells, so what bounds a runaway plan is the `review` hold in front of every
+run and the per-document cap; [budget.md](budget.md) carries the expected
+spend.
 
 **Staged like a cell.** The record a summary reads is the one a forward predict
 cell reads — `provision-snapshot`'s latest snapshot and stored documents, with
@@ -202,7 +208,7 @@ who edits a summary's `record_digest` to match the current record marks that
 case up to date — a collaborator-only lever whose result is itself reviewed.
 
 **Rehearsal.** A dispatch from `staging` binds the staging environment — its
-read-only role, corpus pair and its own summaries key — plans, holds, stages
+read-only role, corpus pair and Anthropic key — plans, holds, stages
 and generates, and leaves the summaries in the `case-summaries` run artifact.
 It opens no PR. The artifact is still public (below), so a rehearsal's
 summaries are downloadable for its retention.
@@ -275,8 +281,8 @@ Sonnet 5 and the plan priced the backfill at $13–21. The budget carries the
 backfill at ≈$20–40, a margin over that estimate — the plan's range assumes
 2.5–3.5 characters per token and a typical-to-capped output — until a run's
 recorded usage replaces both. At ~4% of records changing a day, steady state is
-roughly 5–10 summaries a day, ≈$1–2 a day or ≈$30–60 a month, bounded by the
-key's spend cap. See [budget.md](budget.md).
+roughly 5–10 summaries a day, ≈$1–2 a day or ≈$30–60 a month, each run
+behind the `review` hold. See [budget.md](budget.md).
 
 ## Non-goals
 

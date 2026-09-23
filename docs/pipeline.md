@@ -484,7 +484,7 @@ summarize-plan` derives the owed cases from committed state — a case with a
 committed prediction whose newest corpus record differs, by content digest,
 from the one its newest summary was written from — so a run that was declined
 or never fired is simply re-derived by the next. Every run holds on `review`
-before it spends. The corpus role and the lane's dedicated API key never share
+before it spends. The corpus role and the Anthropic API key never share
 a job; on `main` the result lands as one reviewed PR from the fixed branch
 `summaries/refresh`, never auto-merged, which later runs update in place until
 it merges. A `staging` dispatch is a rehearsal whose summaries stay in the run

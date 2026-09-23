@@ -39,7 +39,8 @@ moves them.
 **The plain-language case summaries also spend outside `events × cost per
 event`** ([case-summaries.md](case-summaries.md)). It is one non-agentic
 call per predicted case on Claude Sonnet 5, written only when a case's record
-changes, on its own API key with its own spend cap. Measured basis: a median
+changes, on the environment's Anthropic key behind the `review` hold.
+Measured basis: a median
 staged record of ~120k characters (≈50k tokens) puts a summary at
 ≈$0.10–0.20. The backfill of ~195 predicted cases is ≈$20–40 once; about 4% of
 predicted cases' records change on a given day (8 of 185 sampled day-pairs),

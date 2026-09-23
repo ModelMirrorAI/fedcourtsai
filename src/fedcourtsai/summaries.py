@@ -79,10 +79,12 @@ WORD_BAND: tuple[int, int] = (120, 450)
 API_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 
-#: The environment variable the summarize command reads its API key from. A key
-#: of its own, with its own spend cap, so this lane cannot draw on the quota the
-#: predict and evaluate cells run on.
-API_KEY_ENV = "SUMMARIES_ANTHROPIC_API_KEY"
+#: The environment variable the summarize command reads its API key from: the
+#: environment's Anthropic key, the one the other Claude lanes spend on. The
+#: lane's calls are on a model outside the prediction panel, whose provider rate
+#: limits are separate from the cells'; the spend limit is shared, which the
+#: workflow's `review` hold bounds.
+API_KEY_ENV = "ANTHROPIC_API_KEY"
 
 #: The marker a capped document ends with, in the text the model reads.
 TRUNCATION_MARKER = "[truncated: {shown} of {total} characters shown]"

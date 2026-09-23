@@ -1,8 +1,8 @@
 """The case-summary lane's workflow shape: credential separation and the spend hold.
 
-`summarize.yml` touches two credentials — the read-only corpus role and a
-dedicated model API key — and the lane's security rests on no job holding
-both: a step that could read the corpus and call the model could send the
+`summarize.yml` touches two credentials — the read-only corpus role and the
+environment's Anthropic API key — and the lane's security rests on no job
+holding both: a step that could read the corpus and call the model could send the
 corpus anywhere the model's output reaches. These tests pin that split, the
 `review` hold in front of every spend, and the publication fence, so an edit
 that merges two jobs or drops the hold fails here rather than in a run.
@@ -15,7 +15,7 @@ import yaml
 
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 NAME = "summarize.yml"
-KEY_SECRET = "secrets.SUMMARIES_ANTHROPIC_API_KEY"
+KEY_SECRET = "secrets.ANTHROPIC_API_KEY"
 
 
 def _load(name: str = NAME) -> dict[Any, Any]:
@@ -66,12 +66,25 @@ def test_the_generate_job_asserts_it_holds_no_cloud_credential_first() -> None:
     assert _jobs()["generate"]["permissions"] == {"contents": "read"}
 
 
-def test_the_lane_uses_its_own_key_not_the_cells() -> None:
+def test_the_key_reaches_only_the_two_generate_steps_that_need_it() -> None:
+    """The key is shared with the other Claude lanes, so what this lane owns is
+    how far it reaches here: the summarize call, and the scan that looks for it
+    in what that call wrote — no other step, in any job."""
+    holders = [
+        (name, str(step.get("name", "")))
+        for name, job in _jobs().items()
+        for step in job.get("steps") or []
+        if KEY_SECRET in yaml.safe_dump(step)
+    ]
+    assert holders == [
+        ("generate", "Write the summaries"),
+        ("generate", "Jail, validate and scan the written summaries"),
+    ]
+    for name, job in _jobs().items():
+        assert KEY_SECRET not in yaml.safe_dump(job.get("env") or {}), f"{name} job-level env"
+    assert KEY_SECRET not in yaml.safe_dump(_load().get("env") or {})
     text = (WORKFLOWS / NAME).read_text()
-    assert "secrets.ANTHROPIC_API_KEY" not in text
-    for other in sorted(WORKFLOWS.glob("*.y*ml")):
-        if other.name != NAME:
-            assert KEY_SECRET not in other.read_text(), f"{other.name} reaches the summaries key"
+    assert "secrets[" not in text and "toJSON(secrets" not in text, "no indirect secret access"
 
 
 def test_every_spending_job_waits_on_the_review_hold() -> None:
@@ -117,7 +130,7 @@ def test_the_generate_job_gates_its_artifact_on_the_jail_and_the_scan() -> None:
     run = collect["run"]
     assert "summary-paths --strict" in run
     assert "fedcourts validate data" in run
-    assert "--known-secret-env SUMMARIES_ANTHROPIC_API_KEY" in run
+    assert "--known-secret-env ANTHROPIC_API_KEY" in run
     upload = next(step for step in steps if step.get("name") == "Upload the summaries")
     assert "steps.collect.outputs.written" in upload["if"]
 
