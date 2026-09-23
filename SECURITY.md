@@ -339,6 +339,19 @@ runbook, [docs/security.md](docs/security.md).
   labeling job needs neither, and assumes no role. Which mechanism covers which
   job, and the residual the back-test's shape leaves: *Agent shells hold no
   cloud credential* in [docs/security.md](docs/security.md).
+- **The case-summary lane never holds its model key and a corpus credential
+  together.** `summarize` reads the corpus in its `plan` and `stage` jobs
+  (read-only role) and calls the model in its `generate` job, which assumes no
+  role, holds no `id-token`, and fails before its first key-bearing step if an
+  AWS credential or OIDC minting is reachable; the staged record crosses as a
+  one-day run artifact, which on this public repository any signed-in user
+  can download while it exists, and which the lane therefore fills only with
+  supremecourt.gov content. The model call carries no tools, so the model reaches
+  nothing but the record it is sent. The key is the bound environment's
+  Anthropic key, held in this lane by the generate job alone and shared with the
+  cells' spend limit, so every run spends only behind the `review` hold.
+  `tests/test_workflow_summarize.py` pins the split; the lane's contract is
+  [docs/case-summaries.md](docs/case-summaries.md).
 - **One scoped exception: developer corpus access from Codespaces.** Two
   developer flows, both read-only, both fed by **user-scoped** Codespaces
   secrets (never repo-level, never committed): the maintainer via IAM Identity
@@ -361,8 +374,9 @@ runbook, [docs/security.md](docs/security.md).
   environment whose branch policy pins the ref it may run from — `prod` to
   `main`, `staging` to `staging` (below) — so a dispatch from any other ref
   holds no role, no secret, no agent: a job naming an environment as a literal
-  is refused at the deployment-branch gate before a step runs, and the two
-  branch-resolving workflows (`integration-test`, `run-analytics` — the
+  is refused at the deployment-branch gate before a step runs, and the three
+  branch-resolving workflows (`integration-test`, `run-analytics`,
+  `summarize` — the
   carve-out `docs/security.md` describes) resolve an off-list ref to an empty
   auto-created environment the role trusts do not name, failing closed at the
   first credential instead. That is why no lane carries an actor gate of its
@@ -375,7 +389,7 @@ runbook, [docs/security.md](docs/security.md).
   reaches nothing. Privilege and outside reachability are disjoint here, not
   merely rare together.
   `tests/test_workflow_auth_gate.py` sweeps the whole workflow
-  directory for a reachable trigger, pins the four privileged lanes to those
+  directory for a reachable trigger, pins the five privileged lanes to those
   two, and requires every job that mints a token, assumes a role, or runs an
   agent to bind one of the branch-policied environments — so a workflow added
   later inherits the boundary. Behind all of it the `review` hold remains the
@@ -420,15 +434,16 @@ runbook, [docs/security.md](docs/security.md).
   workflow authored on a PR branch runs without them. A second environment,
   `staging`, is restricted to the `staging` branch and holds the read-only
   role, its own engine keys for the pre-promotion integration runs, the
-  staging read-write role, and the staging telemetry App's client id and
+  staging read-write role, the staging telemetry App's client id and
   private key — the Issues-only App the repro leg's rehearsal record is
-  minted from. A third,
+  minted from — and the staging copy of the case-summary lane's key. A third,
   `review`, holds no secret, no role, and no branch policy: its entire content
   is a required-reviewer rule, and it exists only as the audit-logged hold
-  between a plan that would spend and the spend — run-predict, run-evaluate and
-  run-backtest all bind it; one environment serves every spend hold rather
-  than each minting its own. What each hold covers differs by what the trigger
-  already gates: the two fan-outs put every round behind it, while run-backtest
+  between a plan that would spend and the spend — run-predict, run-evaluate,
+  run-backtest and summarize all bind it; one environment serves every spend
+  hold rather than each minting its own. What each hold covers differs by what
+  the trigger already gates: the two fan-outs and summarize put every run
+  behind it, scheduled or dispatched, while run-backtest
   holds its **scheduled** fortnight and lets a `workflow_dispatch` through, since
   a dispatch is a human choosing the parameters and its `engine` input defaults
   to the free offline stub. The promotion gate's

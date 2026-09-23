@@ -69,6 +69,10 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
     "claude-fable-5": ModelRate(10.0, 50.0),
     "claude-opus-4-8": ModelRate(5.0, 25.0),
     "claude-sonnet-4-6": ModelRate(3.0, 15.0),
+    # The case-summary lane's model (`config/tracking.yaml` `summaries.model`),
+    # outside the prediction panel: the summarize command prices its plan and
+    # each call's recorded usage from this row.
+    "claude-sonnet-5": ModelRate(2.0, 10.0),
     # `run-analytics.yml` offers and defaults the qp-topic labeler's
     # `label_model` to the dated id `claude-haiku-4-5-20251001`, which this
     # table does not hold. The rate is the same, and the mismatch is latent only

@@ -24,6 +24,7 @@ lane never calls writes it.
         record/snapshots/<YYYY-MM-DD>.json   # provisioned from the corpus (gitignored)
         record/blinded/<alias>/              # the evaluate cell's blinded candidates (gitignored)
         record/opinion/                      # the evaluate cell's majority opinion (gitignored)
+        summaries/<YYYY-MM-DD>.md            # plain-language case summary, per record (committed)
         events/<event_id>/
             event.yaml
             outcome.json
@@ -31,6 +32,13 @@ lane never calls writes it.
                                                 predicted_reasoning.md?,flags.json?}
             evaluations/<evaluator_id>/<predictor_id>/<run_id>/{evaluation.json,evaluation.md}
             evaluations/<evaluator_id>/<run_id>/flags.json?
+
+``summaries/`` sits beside ``record/`` rather than inside it because it is
+committed: ``record/`` is gitignored so that a snapshot can never be
+committed, and a summary is display material the site publishes
+(``docs/case-summaries.md``). Being under ``data/cases/`` is also what hides it
+from a back-test replay cell, whose workflow removes that whole tree before the
+agent runs — a summary of a decided case states the outcome.
 
 The ``flags.json`` files are optional: a cell writes one only when it has a
 durable, structured note to surface for maintainer triage, and the harness
@@ -309,6 +317,16 @@ class CasePaths:
         # corpus row carries. Written only alongside a body, so its presence is
         # the "a body is staged" signal a grader keys on.
         return self.opinion_dir / "opinion.json"
+
+    @property
+    def summaries_dir(self) -> Path:
+        # The case's committed plain-language summaries, one per snapshot day a
+        # summary was generated from. Outside `record/` because that tree is
+        # gitignored; a summary is read by the site, never by a scored artifact.
+        return self.base / "summaries"
+
+    def summary(self, day: str) -> Path:
+        return self.summaries_dir / f"{day}.md"
 
     @property
     def events_dir(self) -> Path:

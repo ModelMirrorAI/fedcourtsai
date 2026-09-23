@@ -1,0 +1,142 @@
+{
+  "$defs": {
+    "SummaryPlanCase": {
+      "additionalProperties": false,
+      "description": "One case a summary run would write, with the record it would read.",
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "court_id": {
+          "title": "Court Id",
+          "type": "string"
+        },
+        "docket_id": {
+          "title": "Docket Id",
+          "type": "integer"
+        },
+        "documents": {
+          "description": "Stored documents the record carries",
+          "minimum": 0,
+          "title": "Documents",
+          "type": "integer"
+        },
+        "input_chars": {
+          "description": "Characters the model would read: the snapshot plus each document up to the per-document cap",
+          "minimum": 0,
+          "title": "Input Chars",
+          "type": "integer"
+        },
+        "reason": {
+          "description": "new: the case has no committed summary; record-changed: its newest summary was written from a different record",
+          "enum": [
+            "new",
+            "record-changed"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "record_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Record Digest",
+          "type": "string"
+        },
+        "snapshot": {
+          "description": "The newest snapshot day; the summary's filename",
+          "format": "date",
+          "title": "Snapshot",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "court_id",
+        "docket_id",
+        "snapshot",
+        "record_digest",
+        "reason",
+        "documents",
+        "input_chars"
+      ],
+      "title": "SummaryPlanCase",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``fedcourts summarize-plan`` output \u2014 what a summary run would write and cost.\n\nThe plan-and-hold document: rendered before the review hold so the release\nis judged on it, and handed to ``fedcourts summarize`` so the run writes\nexactly what was approved.",
+  "properties": {
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/SummaryPlanCase"
+      },
+      "title": "Cases",
+      "type": "array"
+    },
+    "deferred": {
+      "description": "Cases owed a summary that the limit held back",
+      "minimum": 0,
+      "title": "Deferred",
+      "type": "integer"
+    },
+    "eligible": {
+      "description": "Cases with at least one committed prediction",
+      "minimum": 0,
+      "title": "Eligible",
+      "type": "integer"
+    },
+    "estimated_cost_usd_high": {
+      "minimum": 0,
+      "title": "Estimated Cost Usd High",
+      "type": "number"
+    },
+    "estimated_cost_usd_low": {
+      "minimum": 0,
+      "title": "Estimated Cost Usd Low",
+      "type": "number"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "no_snapshot": {
+      "description": "Eligible cases the corpus holds no snapshot for",
+      "items": {
+        "type": "string"
+      },
+      "title": "No Snapshot",
+      "type": "array"
+    },
+    "not_live_shaped": {
+      "description": "Eligible cases whose newest snapshot is a CourtListener REST docket rather than the supremecourt.gov docket JSON; not summarized, because the lane stages and publishes only public-record Court content",
+      "items": {
+        "type": "string"
+      },
+      "title": "Not Live Shaped",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "up_to_date": {
+      "description": "Eligible cases whose newest summary matches their newest record",
+      "minimum": 0,
+      "title": "Up To Date",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "model",
+    "eligible",
+    "up_to_date",
+    "deferred",
+    "cases",
+    "estimated_cost_usd_low",
+    "estimated_cost_usd_high"
+  ],
+  "title": "SummaryPlan",
+  "type": "object"
+}

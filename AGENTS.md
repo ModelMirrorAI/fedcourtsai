@@ -403,6 +403,7 @@ task-specific instructions: the prompt file named in your run
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
 | What does one prediction actually consist of, file by file? | `docs/predicted-artifacts.md` |
 | What does a cell agent have to produce? | `.github/prompts/` |
+| What are the plain-language case summaries, which cases get one, and who writes them? | `docs/case-summaries.md` |
 | How do I test this, and what does CI run? | `docs/testing.md` |
 | What does a run cost, and where is the project headed? | `docs/budget.md`, `docs/milestones.md` |
 | What must the long-conference release write-up state, and what produces each number? (a skeleton with pre-written disclosure prose; every figure is still a placeholder naming its command) | `docs/release-ot2026-long-conference.md` |

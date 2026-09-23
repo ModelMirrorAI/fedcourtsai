@@ -202,7 +202,7 @@ _DATE_KEYED_FIELDS: tuple[str, ...] = (
 )
 
 #: The payload's own generation stamp — a fact about the *pull*, not the docket.
-_GENERATION_STAMPS: tuple[str, ...] = ("sJsonCreationDate",)
+GENERATION_STAMPS: tuple[str, ...] = ("sJsonCreationDate",)
 
 
 def cut_dated_fields(payload: Mapping[str, Any], cutoff: date) -> dict[str, Any]:
@@ -236,7 +236,7 @@ def cut_dated_fields(payload: Mapping[str, Any], cutoff: date) -> dict[str, Any]
         value = cert_signals.entry_date(str(out[key]) if out[key] is not None else None)
         if value is None or value >= cutoff:
             del out[key]
-    for key in _GENERATION_STAMPS:
+    for key in GENERATION_STAMPS:
         out.pop(key, None)
     return out
 

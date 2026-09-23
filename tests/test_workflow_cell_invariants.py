@@ -107,6 +107,7 @@ from fedcourtsai.collect import BOARD_ARTIFACTS, BOARD_BRANCH, BOARD_JAIL_PATHS
 from fedcourtsai.config import Settings
 from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
 from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest, _cell_env
 from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
@@ -443,6 +444,19 @@ def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> Non
     assert "continue-on-error" not in steps[restore]
 
 
+def test_case_summaries_sit_inside_the_backtest_ledger_fence() -> None:
+    """A committed case summary of a decided petition states its outcome, so a
+    replay cell must not read one. No fence of its own does that: the summary
+    path sits under `data/cases/`, which the back-test removes whole before its
+    cells run (the test above pins the step). This pins the other half — that
+    the summary layout stays inside the removed tree — so moving summaries out
+    of `data/cases/` fails here instead of quietly re-admitting outcomes."""
+    summary = CasePaths(Path("data"), "scotus", 1).summary("2026-09-20")
+    assert summary.is_relative_to(Path("data/cases"))
+    steps = _load("run-backtest.yml")["jobs"]["backtest"]["steps"]
+    assert any(str(step.get("run") or "").strip() == "rm -rf data/cases" for step in steps)
+
+
 def test_the_qp_labels_push_guard_checks_rows_not_ledger_counts() -> None:
     """A run exactly one batch behind lands a same-length ledger with identical
     {batch, labeler, published} tuples — every batch is ceiling-sized — so a
@@ -528,6 +542,7 @@ BASE_URL_WORKFLOWS = {
     "run-pull.yml",
     "run-repair.yml",
     "run-seed.yml",
+    "summarize.yml",
 }
 
 
@@ -765,8 +780,14 @@ def test_sidecar_call_sites_pass_the_pointer_with_the_same_spelling() -> None:
                 )
 
 
+# The lanes whose corpus jobs resolve their environment from the dispatching
+# ref, so a staging dispatch rehearses against the staging pair.
+REHEARSABLE_CORPUS_LANES = frozenset({"run-analytics.yml", "summarize.yml"})
+
+
 def test_corpus_readonly_call_sites_carry_the_pointer_only_on_the_rehearsable_lane() -> None:
-    """run-analytics's corpus pulls forward the out-of-band pointer as the
+    """The rehearsable lanes' corpus pulls (run-analytics, summarize) forward
+    the out-of-band pointer as the
     composite's fenced explicit input — resolution alone would leave a
     staging-bound pull resolving the committed production digest against the
     staging remote — and no production lane passes one at all: a pointer on
@@ -778,7 +799,7 @@ def test_corpus_readonly_call_sites_carry_the_pointer_only_on_the_rehearsable_la
                 if not str(step.get("uses", "")).endswith("actions/corpus-readonly"):
                     continue
                 pointer = (step.get("with") or {}).get("corpus-pointer")
-                if name == "run-analytics.yml":
+                if name in REHEARSABLE_CORPUS_LANES:
                     assert pointer == FENCED_POINTER_INPUT_EXPRESSION, (
                         f"{name}: job {job_id}: corpus-readonly must forward the fenced "
                         f"pointer, got {pointer!r}"

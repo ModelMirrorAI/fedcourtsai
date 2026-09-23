@@ -439,6 +439,27 @@ runner:
   # retry-after — so a retrying cell cannot sleep its way into the CI job timeout.
   backoff_max_seconds: 30.0
 
+# summaries = the plain-language case summaries (docs/case-summaries.md): one
+# markdown file per predicted case per snapshot record, written by the
+# summarize workflow for the site. Display material only — nothing scores
+# them and no metric or board reads them — produced by a model outside the
+# prediction panel, on the environment's Anthropic key. Changing the model is a
+# reviewed edit here, and
+# every summary written after it names the new model in its front matter.
+summaries:
+  # Claude Sonnet 5: $2/MTok in, $10/MTok out (pricing.MODEL_RATES). The task
+  # is a faithful restatement of a record, which a mid-tier model does well at a
+  # fifth of the frontier rate.
+  model: claude-sonnet-5
+  # Output cap per summary. ~250 words is a few hundred tokens; a response that
+  # reaches the cap is rejected, never written.
+  max_output_tokens: 2000
+  # Per-document character cap on what reaches the model, marked in the text it
+  # reads, so one outsized filing cannot set a summary's cost. The plan over
+  # the live store read a median of 105k characters per case with the cap
+  # applied (docs/case-summaries.md).
+  max_document_chars: 100000
+
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener
   # court id. pull keeps these current. District courts are intentionally out
