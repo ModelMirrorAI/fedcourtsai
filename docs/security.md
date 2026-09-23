@@ -406,9 +406,9 @@ all rather than half of one. Every job that needs any of
 them declares an environment, and every job outside `integration-test`,
 `run-analytics` and `summarize` declares `prod` — those three resolve the
 environment from the dispatching ref instead (the branch-resolution paragraph
-below), which is what makes their staging dispatches rehearsals; `summarize`'s
-publish job, which runs on `main` only, declares `prod` — with two deliberate
-exceptions, by environment. The `approval` jobs of run-predict,
+below; `summarize`'s publish job, which runs on `main` only, is the literal
+`prod`), which is what makes their staging dispatches rehearsals — with two
+deliberate exceptions, by environment. The `approval` jobs of run-predict,
 run-evaluate, run-backtest and summarize declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables, no role, and no deployment-branch
@@ -1090,6 +1090,20 @@ least-privilege line that carries the threat model is the one the role already
 holds: **no write or delete** (append-only remote, explicit deny, versioning
 on), the cell-blast-radius bound stated above.
 
+The case-summary lane adds two run artifacts to the same public channel,
+argued in [case-summaries.md](case-summaries.md). `summary-stage`, one day,
+carries each planned case's staged record between the stage and generate
+jobs — the newest snapshot and every stored document's text, after the
+contact-detail scrub. The lane plans only cases whose newest snapshot is the
+Court's own docket JSON, so what it carries is supremecourt.gov content, on
+the footing the qp-topic extract is argued on: the plan refuses a
+CourtListener REST snapshot, and so does `summarize` if one is staged. It
+widens that footing in one way the extract does not: the extract carries one
+section of each petition, while this carries every stored filing of each
+planned case. `case-summaries`, seven days, carries the generated summaries
+after the jail and the secret scan and before any human review — on a staging
+rehearsal, the only place those summaries go.
+
 On the bucket: **Versioning on** (recover from any accidental overwrite/delete),
 a **lifecycle rule** expiring noncurrent versions after a recovery window, an
 age-based **storage-class transition** on the index prefix, and **Block Public
@@ -1258,9 +1272,9 @@ the repoint. Read step 5's two ordering notes before doing either.
    consumer otherwise resolves the committed `corpus/corpus.db.ref`, whose
    digest names the production blob, and content addressing means a lean
    slice can never publish under that digest. With both set, the
-   integration scenarios and the `run-analytics` rehearsals dispatched from
-   `staging` run split-on against the
-   staging corpus rather than production's (`run-analytics`'s corpus jobs
+   integration scenarios and the `run-analytics` and `summarize` rehearsals
+   dispatched from `staging` run split-on against the
+   staging corpus rather than production's (the two lanes' corpus jobs
    forward the pointer fenced off `main`, so for them a stray wider-scoped
    value is inert on `prod`-bound runs by construction; the warning below
    still binds for the scenarios).

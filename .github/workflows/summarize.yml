@@ -94,12 +94,17 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/setup-python-env
 
-      # A summary run never overlaps a predict or evaluate round. Its key and
-      # corpus reads are its own, so nothing breaks if it did; the rule keeps
-      # the lanes' logs and spend legible one at a time. A run that stands down
-      # exits cleanly with a notice — the next day's run re-derives the plan.
-      # Fail-closed: an API error reads as "busy", since the cost of a skipped
-      # day is a day.
+      # A summary run does not start planning while a predict or evaluate round
+      # is executing (`in_progress`). A round parked on its own review hold
+      # (`waiting`) or queued behind its group does not count — a hold can park
+      # for days, and standing down behind it would stall this lane with it —
+      # and the check runs at plan time only, so a round that starts after this
+      # run's hold releases can overlap its generate job. Nothing breaks if
+      # they overlap: the corpus reads are read-only and the model calls are
+      # this lane's own; the rule keeps the lanes' logs and spend legible. A
+      # run that stands down exits cleanly with a notice — the next day's run
+      # re-derives the plan. Fail-closed: an API error reads as "busy", since
+      # the cost of a skipped day is a day.
       - name: Stand down while a predict or evaluate round is running
         id: guard
         env:
@@ -152,12 +157,13 @@ jobs:
             exit 0
           fi
           git fetch --no-tags -q origin "$BRANCH"
-          git diff --name-status HEAD...FETCH_HEAD > carried.txt
-          uv run fedcourts summary-paths --name-status-file carried.txt > carried-paths.txt
+          git diff --name-status HEAD...FETCH_HEAD > "$RUNNER_TEMP/carried.txt"
+          uv run fedcourts summary-paths --name-status-file "$RUNNER_TEMP/carried.txt" \
+            > "$RUNNER_TEMP/carried-paths.txt"
           while IFS= read -r path; do
             git checkout FETCH_HEAD -- "$path"
-          done < carried-paths.txt
-          echo "carried $(wc -l < carried-paths.txt) summary file(s) from the open ${BRANCH} PR"
+          done < "$RUNNER_TEMP/carried-paths.txt"
+          echo "carried $(wc -l < "$RUNNER_TEMP/carried-paths.txt") summary file(s) from the open ${BRANCH} PR"
 
       - uses: ./.github/actions/corpus-readonly
         if: ${{ steps.guard.outputs.proceed == 'true' }}
@@ -361,7 +367,10 @@ jobs:
           SUMMARIES_ANTHROPIC_API_KEY: ${{ secrets.SUMMARIES_ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
-          uv run fedcourts summarize \
+          # The budget sits under this step's cap, so a slow run stops starting
+          # cases, returns, and the collect step below still carries off what
+          # it wrote; the deferred cases are owed and re-planned next run.
+          uv run fedcourts summarize --budget-minutes 140 \
             --plan "$RUNNER_TEMP/plan/summary-plan.json" \
             --staged "$RUNNER_TEMP/stage" \
             --report "$RUNNER_TEMP/summary-result.md"
@@ -369,6 +378,7 @@ jobs:
       - name: Report the result
         if: ${{ !cancelled() }}
         run: |
+          set -euo pipefail
           if [ -f "$RUNNER_TEMP/summary-result.md" ]; then
             cat "$RUNNER_TEMP/summary-result.md" >> "$GITHUB_STEP_SUMMARY"
           else
@@ -410,8 +420,11 @@ jobs:
           path: ${{ runner.temp }}/out
           if-no-files-found: error
           # Long enough to spot-check a rehearsal against its filings. The files
-          # are publication-bound display text that passed the scan above.
-          retention-days: 14
+          # are publication-bound display text that passed the jail and the
+          # scan above, but they are unreviewed model output, and this public
+          # repository's artifacts are downloadable by any signed-in user while
+          # they exist (docs/case-summaries.md) — so a week, not longer.
+          retention-days: 7
 
       - name: Note the rehearsal boundary (publish fenced off this ref)
         if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
@@ -423,6 +436,7 @@ jobs:
     needs: [plan, generate]
     if: >-
       ${{ needs.generate.result == 'success'
+      && needs.generate.outputs.written != ''
       && needs.generate.outputs.written != '0'
       && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
@@ -511,7 +525,11 @@ jobs:
             "HEAD:refs/heads/${BRANCH}"
           if [ "$open" != "0" ]; then
             number=$(gh api "repos/${REPO}/pulls?state=open&base=main&head=${OWNER}:${BRANCH}" \
-              --jq '.[0].number')
+              --jq '.[0].number // empty')
+            if [ -z "$number" ]; then
+              echo "::error::the open ${BRANCH} PR closed during this run; the branch is pushed and the next run opens a PR"
+              exit 1
+            fi
             gh pr edit "$number" --repo "$REPO" --title "$title" --body-file "$RUNNER_TEMP/pr-body.md"
             echo "Updated review PR #${number} in place." | tee -a "$GITHUB_STEP_SUMMARY"
           else

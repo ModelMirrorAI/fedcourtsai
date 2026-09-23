@@ -8469,6 +8469,16 @@ class SummaryPlanCase(_Strict):
         + "document up to the per-document cap",
     )
 
+    @model_validator(mode="after")
+    def _ids_agree(self) -> SummaryPlanCase:
+        """The case id, court and docket name one case, since the summary's path
+        is built from the latter two and its front matter from the first."""
+        if self.case_id != f"{self.court_id}/{self.docket_id}":
+            raise ValueError(
+                f"case_id {self.case_id!r} does not match {self.court_id}/{self.docket_id}"
+            )
+        return self
+
 
 class SummaryPlan(_Strict):
     """``fedcourts summarize-plan`` output — what a summary run would write and cost.
@@ -8486,6 +8496,12 @@ class SummaryPlan(_Strict):
     )
     no_snapshot: list[str] = Field(
         default_factory=list, description="Eligible cases the corpus holds no snapshot for"
+    )
+    not_live_shaped: list[str] = Field(
+        default_factory=list,
+        description="Eligible cases whose newest snapshot is a CourtListener REST docket "
+        + "rather than the supremecourt.gov docket JSON; not summarized, because the "
+        + "lane stages and publishes only public-record Court content",
     )
     deferred: int = Field(ge=0, description="Cases owed a summary that the limit held back")
     cases: list[SummaryPlanCase]

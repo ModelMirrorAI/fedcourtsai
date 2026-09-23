@@ -90,6 +90,14 @@ def test_every_spending_job_waits_on_the_review_hold() -> None:
     assert jobs["rejected"]["permissions"] == {}
 
 
+def test_the_credential_jobs_bind_the_branch_resolved_environment() -> None:
+    # Pinned here because the auth-gate sweep keys on action markers, and
+    # neither the corpus-readonly composite nor a raw key reference is one.
+    resolved = "${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+    for name in ("plan", "stage", "generate"):
+        assert _jobs()[name]["environment"] == resolved, name
+
+
 def test_publication_is_fenced_to_main() -> None:
     publish = _jobs()["publish"]
     assert "github.ref == 'refs/heads/main'" in " ".join(str(publish["if"]).split())

@@ -441,8 +441,8 @@ runner:
 
 # summaries = the plain-language case summaries (docs/case-summaries.md): one
 # markdown file per predicted case per snapshot record, written by the
-# summarize workflow for the site. Display material only — nothing scores or
-# reads them — produced by a model outside the prediction panel, on its own API
+# summarize workflow for the site. Display material only — nothing scores
+# them and no metric or board reads them — produced by a model outside the prediction panel, on its own API
 # key with its own spend cap. Changing the model is a reviewed edit here, and
 # every summary written after it names the new model in its front matter.
 summaries:
@@ -454,8 +454,9 @@ summaries:
   # reaches the cap is rejected, never written.
   max_output_tokens: 2000
   # Per-document character cap on what reaches the model, marked in the text it
-  # reads. Median staged record ~120k characters, the largest ~225k, so the cap
-  # binds only on an outsized filing.
+  # reads, so one outsized filing cannot set a summary's cost. The plan over
+  # the live store read a median of 105k characters per case with the cap
+  # applied (docs/case-summaries.md).
   max_document_chars: 100000
 
 courts:

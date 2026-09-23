@@ -10502,7 +10502,8 @@ def summarize_plan_cmd(
     typer.echo(
         f"summaries: {plan.eligible} eligible, {plan.up_to_date} up to date, "
         f"{len(plan.cases)} planned, {plan.deferred} deferred, "
-        f"{len(plan.no_snapshot)} without a snapshot; estimated "
+        f"{len(plan.no_snapshot)} without a snapshot, "
+        f"{len(plan.not_live_shaped)} not live-shaped; estimated "
         f"${plan.estimated_cost_usd_low:.2f} to ${plan.estimated_cost_usd_high:.2f}",
         err=True,
     )
@@ -10525,6 +10526,16 @@ def summarize_cmd(
         Path | None,
         typer.Option(help="Write the markdown result report (written, skipped, cost)."),
     ] = None,
+    budget_minutes: Annotated[
+        float,
+        typer.Option(
+            min=0,
+            help="Stop starting new cases after this many minutes and report the rest "
+            "as deferred (0, the default, is no budget). Set it below the calling "
+            "step's timeout so the run returns, and what it wrote is collected, "
+            "rather than being killed mid-plan.",
+        ),
+    ] = 0,
 ) -> None:
     """Write the planned case summaries: one Messages API call per case, no tools.
 
@@ -10548,6 +10559,7 @@ def summarize_cmd(
         raise typer.Exit(code=2)
     config = load_summaries_config(settings.config_root)
     plan = SummaryPlan.model_validate_json(plan_file.read_text())
+    deadline = datetime.now(UTC) + timedelta(minutes=budget_minutes) if budget_minutes > 0 else None
     try:
         with httpx.Client(timeout=httpx.Timeout(300.0, connect=10.0)) as client:
             outcome = summaries.summarize_plan(
@@ -10558,6 +10570,7 @@ def summarize_cmd(
                 prompt_bytes=summaries.PROMPT_PATH.read_bytes(),
                 client=client,
                 api_key=api_key,
+                deadline=deadline,
             )
     except ValueError as exc:
         typer.echo(str(exc), err=True)

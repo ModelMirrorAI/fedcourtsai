@@ -170,7 +170,13 @@ model-generated predictions, outcomes, and evaluations, keyed by case id, plus t
 reasoning text that explains them — and the two qp-topic artifacts
 (`docs/qp-topic.md`), the hand-labeled reference set and the accrued per-case
 labels: subject-matter judgments keyed by case id and public-record
-docket number, republishing no source text. There is also a **non-git** public
+docket number, republishing no source text — and the plain-language case
+summaries (`docs/case-summaries.md`), model-written restatements of a case's
+record. Those are written only from records whose snapshot is the Court's own
+supremecourt.gov docket JSON and whose documents are supremecourt.gov filings,
+so what they restate is public-record Court content outside the CC BY-ND term,
+and the prompt asks for a summary in the model's own words rather than
+quotation. There is also a **non-git** public
 channel that carries corpus-derived text: `run-analytics`' five one-day
 GitHub Actions artifacts, which on a public repository any logged-in user can
 download for their retention window. What each one
@@ -179,7 +185,9 @@ discloses is inventoried once, in *S3 / the private stores* in
 carry stored questions-presented text and are argued in `docs/qp-topic.md`.
 That text is derived from petition PDFs fetched from supremecourt.gov — public
 records, outside the CC BY-ND term above — and that channel is accepted for the
-labeling run alone, not as a route for corpus content generally. The other
+labeling run and, on the same footing, the case-summary lane's staged records
+(supremecourt.gov docket JSON and filings only; the lane refuses a
+CourtListener REST snapshot), not as a route for corpus content generally. The other
 three republish no document text. Prediction reasoning may quote or summarize
 public-record docket facts in the course of explaining a prediction, and may
 characterize what a provisioned filing argues — a petition, a brief in

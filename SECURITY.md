@@ -344,7 +344,9 @@ runbook, [docs/security.md](docs/security.md).
   (read-only role) and calls the model in its `generate` job, which assumes no
   role, holds no `id-token`, and fails before its first key-bearing step if an
   AWS credential or OIDC minting is reachable; the staged record crosses as a
-  one-day artifact. The model call carries no tools, so the model reaches
+  one-day run artifact, which on this public repository any signed-in user
+  can download while it exists, and which the lane therefore fills only with
+  supremecourt.gov content. The model call carries no tools, so the model reaches
   nothing but the record it is sent. The key is the lane's own, with its own
   provider-side spend cap, so the lane cannot draw on the cells' quota, and
   every run spends only behind the `review` hold.
@@ -432,15 +434,16 @@ runbook, [docs/security.md](docs/security.md).
   workflow authored on a PR branch runs without them. A second environment,
   `staging`, is restricted to the `staging` branch and holds the read-only
   role, its own engine keys for the pre-promotion integration runs, the
-  staging read-write role, and the staging telemetry App's client id and
+  staging read-write role, the staging telemetry App's client id and
   private key — the Issues-only App the repro leg's rehearsal record is
-  minted from. A third,
+  minted from — and the staging copy of the case-summary lane's key. A third,
   `review`, holds no secret, no role, and no branch policy: its entire content
   is a required-reviewer rule, and it exists only as the audit-logged hold
-  between a plan that would spend and the spend — run-predict, run-evaluate and
-  run-backtest all bind it; one environment serves every spend hold rather
-  than each minting its own. What each hold covers differs by what the trigger
-  already gates: the two fan-outs put every round behind it, while run-backtest
+  between a plan that would spend and the spend — run-predict, run-evaluate,
+  run-backtest and summarize all bind it; one environment serves every spend
+  hold rather than each minting its own. What each hold covers differs by what
+  the trigger already gates: the two fan-outs and summarize put every run
+  behind it, scheduled or dispatched, while run-backtest
   holds its **scheduled** fortnight and lets a `workflow_dispatch` through, since
   a dispatch is a human choosing the parameters and its `engine` input defaults
   to the free offline stub. The promotion gate's

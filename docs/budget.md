@@ -36,8 +36,8 @@ measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned
 rate table the plans price against, never a drift: the figures move when someone
 moves them.
 
-**One lane spends outside `events × cost per event`: the plain-language case
-summaries** ([case-summaries.md](case-summaries.md)). It is one non-agentic
+**The plain-language case summaries also spend outside `events × cost per
+event`** ([case-summaries.md](case-summaries.md)). It is one non-agentic
 call per predicted case on Claude Sonnet 5, written only when a case's record
 changes, on its own API key with its own spend cap. Measured basis: a median
 staged record of ~120k characters (≈50k tokens) puts a summary at

@@ -107,6 +107,14 @@
       "title": "No Snapshot",
       "type": "array"
     },
+    "not_live_shaped": {
+      "description": "Eligible cases whose newest snapshot is a CourtListener REST docket rather than the supremecourt.gov docket JSON; not summarized, because the lane stages and publishes only public-record Court content",
+      "items": {
+        "type": "string"
+      },
+      "title": "Not Live Shaped",
+      "type": "array"
+    },
     "schema_version": {
       "const": "1.0",
       "default": "1.0",

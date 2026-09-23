@@ -101,10 +101,11 @@ BRANCH_RESOLVED_ENVIRONMENT = "${{ github.ref_name == 'main' && 'prod' || github
 # Which workflow may carry which computed form — per-workflow, never global: a
 # production lane's prod job quietly becoming branch-resolvable (its corpus
 # role assumable from a staging ref) must fail this sweep, not pass under a
-# form admitted for the two rehearsable lanes.
+# form admitted for the rehearsable lanes.
 COMPUTED_ENVIRONMENTS = {
     "integration-test.yml": COMPUTED_ENVIRONMENT,
     "run-analytics.yml": BRANCH_RESOLVED_ENVIRONMENT,
+    "summarize.yml": BRANCH_RESOLVED_ENVIRONMENT,
 }
 
 # Step markers that mean "privileged work has started": minting an App token,

@@ -542,6 +542,7 @@ BASE_URL_WORKFLOWS = {
     "run-pull.yml",
     "run-repair.yml",
     "run-seed.yml",
+    "summarize.yml",
 }
 
 
@@ -779,8 +780,14 @@ def test_sidecar_call_sites_pass_the_pointer_with_the_same_spelling() -> None:
                 )
 
 
+# The lanes whose corpus jobs resolve their environment from the dispatching
+# ref, so a staging dispatch rehearses against the staging pair.
+REHEARSABLE_CORPUS_LANES = frozenset({"run-analytics.yml", "summarize.yml"})
+
+
 def test_corpus_readonly_call_sites_carry_the_pointer_only_on_the_rehearsable_lane() -> None:
-    """run-analytics's corpus pulls forward the out-of-band pointer as the
+    """The rehearsable lanes' corpus pulls (run-analytics, summarize) forward
+    the out-of-band pointer as the
     composite's fenced explicit input — resolution alone would leave a
     staging-bound pull resolving the committed production digest against the
     staging remote — and no production lane passes one at all: a pointer on
@@ -792,7 +799,7 @@ def test_corpus_readonly_call_sites_carry_the_pointer_only_on_the_rehearsable_la
                 if not str(step.get("uses", "")).endswith("actions/corpus-readonly"):
                     continue
                 pointer = (step.get("with") or {}).get("corpus-pointer")
-                if name == "run-analytics.yml":
+                if name in REHEARSABLE_CORPUS_LANES:
                     assert pointer == FENCED_POINTER_INPUT_EXPRESSION, (
                         f"{name}: job {job_id}: corpus-readonly must forward the fenced "
                         f"pointer, got {pointer!r}"

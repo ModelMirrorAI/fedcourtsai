@@ -14,12 +14,12 @@ import yaml
 from tenacity import wait_none
 from typer.testing import CliRunner
 
-from fedcourtsai import summaries
+from fedcourtsai import corpus, summaries
 from fedcourtsai.cli import app
 from fedcourtsai.config import SummariesConfig, load_summaries_config
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pricing import MODEL_RATES, ModelRate
-from fedcourtsai.schemas import CaseSummaryFrontMatter, SummaryPlan
+from fedcourtsai.schemas import CaseSummaryFrontMatter, SummaryPlan, SummaryPlanCase
 from fedcourtsai.validate import validate_ledger
 from tests.conftest import FixtureCorpus
 
@@ -156,13 +156,29 @@ def test_summarize_plan_cli_reads_only_predicted_cases(fixture_corpus: FixtureCo
     marker.parent.mkdir(parents=True)
     marker.write_text("{}")
 
+    # The fixture's newest snapshot for the case is a REST docket: counted, not planned.
     result = runner.invoke(app, ["summarize-plan", "--corpus-backend", "local"])
-
     assert result.exit_code == 0, result.output
     plan = SummaryPlan.model_validate_json(result.stdout)
     assert plan.eligible == 1
+    assert plan.cases == []
+    assert plan.not_live_shaped == ["scotus/305"]
+
+    # A newer supremecourt.gov docket JSON makes it summarizable.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 9, 22), PAYLOAD)
+    result = runner.invoke(app, ["summarize-plan", "--corpus-backend", "local"])
+    assert result.exit_code == 0, result.output
+    plan = SummaryPlan.model_validate_json(result.stdout)
     assert [c.case_id for c in plan.cases] == ["scotus/305"]
-    assert plan.cases[0].snapshot == date(2025, 3, 3)
+    assert plan.cases[0].snapshot == date(2026, 9, 22)
+
+
+def test_plan_does_not_summarize_a_rest_shaped_record(tmp_path: Path) -> None:
+    rest = {"docket_number": "25-100", "docket_entries": []}
+    plan = _plan(tmp_path, {"scotus/1": _record(rest)})
+    assert plan.cases == []
+    assert plan.not_live_shaped == ["scotus/1"]
 
 
 # --- the model call -------------------------------------------------------------
@@ -263,8 +279,26 @@ def test_summarize_writes_the_file_with_harness_front_matter(tmp_path: Path) -> 
         "## What happened\n\nShort.\n\n## What the Court is being asked\n\nShort."
         + "\n\n## Where it stands\n\nShort.",
         GOOD_BODY + "\n\nThe key is " + FAKE_KEY,
+        GOOD_BODY + '\n\n<script src="x"></script>',
+        GOOD_BODY + "\n\nSee [the docket](https://example.com).",
+        GOOD_BODY + "\n\n![pixel](x.png)",
+        GOOD_BODY + "\n\nRead more at www.example.com today.",
+        GOOD_BODY.replace("## Where it stands\n\n", "## Where it stands\n\n- The petition "),
+        GOOD_BODY.replace("The petition is waiting", "The petition is **waiting**"),
     ],
-    ids=["no-sections", "wrong-heading", "whether", "too-short", "secret"],
+    ids=[
+        "no-sections",
+        "wrong-heading",
+        "whether",
+        "too-short",
+        "secret",
+        "html",
+        "link",
+        "image",
+        "url",
+        "list",
+        "bold",
+    ],
 )
 def test_summarize_rejects_a_body_off_the_contract(tmp_path: Path, body: str) -> None:
     outcome, _ = _run(tmp_path, lambda request: _response(body))
@@ -308,6 +342,84 @@ def test_summarize_skips_a_case_that_keeps_failing(tmp_path: Path) -> None:
     assert outcome.written == []
     assert outcome.skipped == [("scotus/1", "HTTP 500", 0.0)]
     assert len(calls) == 5
+
+
+def test_summarize_defers_cases_past_the_time_budget(tmp_path: Path) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    deadline = datetime(2026, 9, 23, 4, 0, tzinfo=UTC)
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return _response(GOOD_BODY)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        outcome = summaries.summarize_plan(
+            plan,
+            stage_root=stage,
+            data_root=tmp_path / "data",
+            config=CONFIG,
+            prompt_bytes=b"p",
+            client=client,
+            api_key=FAKE_KEY,
+            now=lambda: deadline,
+            deadline=deadline,
+        )
+    assert calls == []
+    assert outcome.skipped == [("scotus/1", "deferred: time budget reached", 0.0)]
+
+
+def test_a_throttle_retry_after_is_honoured_under_the_cap() -> None:
+    wait = summaries._WaitRetryAfter()
+
+    def state(headers: dict[str, str]) -> Any:
+        request = httpx.Request("POST", summaries.API_URL)
+        exc = httpx.HTTPStatusError(
+            "429", request=request, response=httpx.Response(429, headers=headers, request=request)
+        )
+
+        class _Outcome:
+            def exception(self) -> BaseException:
+                return exc
+
+        class _State:
+            outcome = _Outcome()
+            attempt_number = 1
+
+        return _State()
+
+    assert wait(state({"retry-after": "7"})) == 7.0
+    assert wait(state({"retry-after": "3600"})) == summaries.MAX_BACKOFF_SECONDS
+
+
+def test_a_plan_case_must_name_one_case() -> None:
+    with pytest.raises(ValueError, match="does not match"):
+        SummaryPlanCase(
+            case_id="scotus/2",
+            court_id="scotus",
+            docket_id=1,
+            snapshot=date(2026, 9, 22),
+            record_digest="sha256:" + "a" * 64,
+            reason="new",
+            documents=0,
+            input_chars=0,
+        )
+
+
+def test_summarize_skips_an_unreadable_response_body(tmp_path: Path) -> None:
+    outcome, _ = _run(tmp_path, lambda request: httpx.Response(200, text="not json"))
+    assert outcome.written == []
+    assert "unreadable response body" in outcome.skipped[0][1]
+
+
+def test_validate_rejects_markup_in_a_committed_summary(tmp_path: Path) -> None:
+    path = _commit_summary(tmp_path, "scotus/1", "2026-09-20", "sha256:" + "a" * 64)
+    path.write_text(path.read_text() + '\n<img src="https://example.com/x.png">\n')
+    result = validate_ledger(tmp_path)
+    assert not result.ok
+    assert "carries an HTML tag" in "\n".join(result.problems)
 
 
 def test_summarize_does_not_retry_a_client_error(tmp_path: Path) -> None:

@@ -39,6 +39,7 @@ import httpx
 import yaml
 from pydantic import ValidationError
 from tenacity import (
+    RetryCallState,
     Retrying,
     retry_if_exception,
     stop_after_attempt,
@@ -57,6 +58,7 @@ from .schemas import (
     SummaryPlan,
     SummaryPlanCase,
 )
+from .serialize import write_text
 
 #: The summarizer's system prompt, relative to the repository root.
 PROMPT_PATH = Path(".github/prompts/summarize.md")
@@ -92,6 +94,14 @@ TRUNCATION_MARKER = "[truncated: {shown} of {total} characters shown]"
 _CHARS_PER_TOKEN_LOW_COST = 3.5
 _CHARS_PER_TOKEN_HIGH_COST = 2.5
 _TYPICAL_OUTPUT_TOKENS = 500
+
+#: The key only the supremecourt.gov docket JSON carries (its proceedings
+#: list), the same discriminator ``casestore.read_latest_live_snapshot`` reads.
+#: The lane summarizes only records whose snapshot has this shape: the Court's
+#: own docket and filings are public records, while a CourtListener REST
+#: docket is CC BY-ND content that no public surface of this project carries
+#: (docs/data-sources.md), and the staged record crosses a public artifact.
+LIVE_SHAPE_KEY = "ProceedingsandOrder"
 
 _SUMMARY_NAME = re.compile(r"^(\d{4}-\d{2}-\d{2})\.md$")
 _FRONT_MATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
@@ -134,7 +144,7 @@ def prompt_digest(prompt_bytes: bytes) -> str:
 
 def input_chars(payload: Mapping[str, Any], documents: Iterable[tuple[str, str]], cap: int) -> int:
     """Characters of record the model would read for one case, documents capped."""
-    snapshot = len(json.dumps(payload, indent=2, sort_keys=True))
+    snapshot = len(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False))
     return snapshot + sum(min(len(text), cap) for _, text in documents)
 
 
@@ -189,6 +199,7 @@ def plan_summaries(
     owed: list[SummaryPlanCase] = []
     up_to_date = 0
     no_snapshot: list[str] = []
+    not_live_shaped: list[str] = []
     eligible = sorted(set(case_ids))
     for case_id in eligible:
         court_id, docket = case_id.split("/", 1)
@@ -196,6 +207,9 @@ def plan_summaries(
         record = read(case_id)
         if record is None:
             no_snapshot.append(case_id)
+            continue
+        if LIVE_SHAPE_KEY not in record.payload:
+            not_live_shaped.append(case_id)
             continue
         digest = record_digest(record.payload, record.documents)
         newest = newest_summary(data_root, court_id, docket_id)
@@ -225,6 +239,7 @@ def plan_summaries(
         eligible=len(eligible),
         up_to_date=up_to_date,
         no_snapshot=no_snapshot,
+        not_live_shaped=not_live_shaped,
         deferred=len(owed) - len(planned),
         cases=planned,
         estimated_cost_usd_low=round(low, 2),
@@ -270,6 +285,8 @@ def render_plan_report(plan: SummaryPlan, *, run_url: str = "") -> str:
         f"- owed and planned: **{len(plan.cases)}**"
         + (f" ({plan.deferred} more deferred by the limit)" if plan.deferred else ""),
         f"- no corpus snapshot: {len(plan.no_snapshot)}",
+        "- newest snapshot not the Court's own docket JSON (not summarized): "
+        + f"{len(plan.not_live_shaped)}",
         f"- estimated cost: **${plan.estimated_cost_usd_low:.2f}"
         + f" to ${plan.estimated_cost_usd_high:.2f}**",
         "",
@@ -309,7 +326,11 @@ def read_staged_record(
 
     Reads the snapshot for ``day`` exactly: a staged snapshot of another day
     means the corpus moved between the plan and the stage, and the case is
-    skipped rather than summarized under a digest it no longer matches. The
+    skipped rather than summarized under a digest it no longer matches. A move
+    that keeps the day — documents landing between the plan and the stage — is
+    not caught here: the summary is written from the newer documents under the
+    plan's digest, so the next plan sees a changed record and writes it once
+    more. The cost of that is one extra summary, never a stale one kept. The
     documents are the staged copies, so the contact-detail scrub provisioning
     applies has already run over them.
     """
@@ -379,6 +400,30 @@ def is_transient(exc: BaseException) -> bool:
     return isinstance(exc, httpx.RequestError)
 
 
+#: The longest single backoff wait, seconds — including one a server's
+#: ``retry-after`` asks for — so one throttled case cannot sleep its way through
+#: the run's time budget.
+MAX_BACKOFF_SECONDS = 60.0
+
+
+class _WaitRetryAfter(wait_base):
+    """Honour a numeric ``retry-after`` (capped), else back off exponentially."""
+
+    def __init__(self) -> None:
+        self._fallback = wait_exponential(multiplier=2, min=2, max=MAX_BACKOFF_SECONDS)
+
+    def __call__(self, retry_state: RetryCallState) -> float:
+        outcome = retry_state.outcome
+        exc = outcome.exception() if outcome is not None else None
+        if isinstance(exc, httpx.HTTPStatusError):
+            header = exc.response.headers.get("retry-after", "")
+            try:
+                return min(max(float(header), 0.0), MAX_BACKOFF_SECONDS)
+            except ValueError:
+                pass
+        return float(self._fallback(retry_state))
+
+
 def build_request(config: SummariesConfig, system: str, record: str) -> dict[str, Any]:
     """The request body: the system prompt and the record, and nothing else.
 
@@ -412,6 +457,9 @@ def call_messages_api(
 ) -> CallResult:
     """POST one Messages request, retrying transient faults with bounded backoff.
 
+    A throttle's ``retry-after`` is honoured up to :data:`MAX_BACKOFF_SECONDS`;
+    otherwise the wait is exponential under the same cap.
+
     Raises :class:`SummaryCallError` when the call cannot succeed — a
     non-retryable status, or a transient one that outlived every attempt.
     """
@@ -428,7 +476,7 @@ def call_messages_api(
 
     retrying = Retrying(
         stop=stop_after_attempt(attempts),
-        wait=wait if wait is not None else wait_exponential(multiplier=2, min=2, max=60),
+        wait=wait if wait is not None else _WaitRetryAfter(),
         retry=retry_if_exception(is_transient),
         reraise=True,
     )
@@ -438,11 +486,16 @@ def call_messages_api(
         raise SummaryCallError(f"HTTP {exc.response.status_code}") from exc
     except httpx.RequestError as exc:
         raise SummaryCallError(f"request failed: {type(exc).__name__}") from exc
-    data = response.json()
-    text = "".join(
-        block.get("text", "") for block in data.get("content", []) if block.get("type") == "text"
-    )
-    usage = data.get("usage") or {}
+    try:
+        data = response.json()
+        text = "".join(
+            str(block.get("text", ""))
+            for block in data.get("content", [])
+            if block.get("type") == "text"
+        )
+        usage = data.get("usage") or {}
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise SummaryCallError(f"unreadable response body: {type(exc).__name__}") from exc
     return CallResult(
         text=text,
         stop_reason=str(data.get("stop_reason", "")),
@@ -474,9 +527,26 @@ def _sections(body: str) -> tuple[list[str], list[str], str]:
     return headings, ["\n".join(s).strip() for s in sections], "\n".join(preamble).strip()
 
 
+# Markup a summary body may not carry, because the body reaches a public page
+# and its text derives from third-party filings a model read: an injected
+# instruction that survived into the output could otherwise place a script, a
+# frame, a tracking image or a link there. The contract is three headings and
+# plain paragraphs, so every construct below is off-contract whatever it says.
+_MARKUP: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("an HTML tag or autolink", re.compile(r"<\s*[A-Za-z/!?]")),
+    ("a markdown link or image", re.compile(r"\]\(|!\[")),
+    ("a URL", re.compile(r"\b(?:https?|ftp)://|\bwww\.", re.IGNORECASE)),
+    ("a list item", re.compile(r"^\s*(?:[-*+]|\d+[.)])\s", re.MULTILINE)),
+    ("emphasis markup", re.compile(r"\*\*|__|`")),
+)
+
+
 def body_problems(body: str, *, check_length: bool = True) -> list[str]:
     """Why a summary body breaks the contract; empty when it meets it."""
     problems: list[str] = []
+    for label, pattern in _MARKUP:
+        if pattern.search(body):
+            problems.append(f"carries {label}")
     headings, sections, preamble = _sections(body)
     if preamble:
         problems.append("text before the first section heading")
@@ -648,6 +718,8 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
             f"no staged snapshot for {case.snapshot.isoformat()} (corpus moved since the plan?)",
         )
     payload, documents = staged
+    if LIVE_SHAPE_KEY not in payload:
+        return CaseResult(None, "staged snapshot is not the Court's own docket JSON")
     record = render_record(
         case.case_id, case.snapshot.isoformat(), payload, documents, config.max_document_chars
     )
@@ -658,16 +730,9 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
     except SummaryCallError as exc:
         return CaseResult(None, str(exc))
     cost = estimate_cost_usd(config.model, result.usage)
-    if result.stop_reason != "end_turn":
-        return CaseResult(None, f"stop_reason {result.stop_reason!r}", cost)
-    problems = body_problems(result.text)
-    findings = secretscan.scan_lines(
-        str(target), result.text.split("\n"), [api_key] if api_key else []
-    )
-    if findings:
-        problems.append(f"secret scan: {len(findings)} finding(s)")
-    if problems:
-        return CaseResult(None, "rejected: " + "; ".join(problems), cost)
+    refusal = _refusal(result, str(target), api_key)
+    if refusal:
+        return CaseResult(None, refusal, cost)
     front = CaseSummaryFrontMatter(
         case_id=case.case_id,
         snapshot=case.snapshot,
@@ -681,9 +746,19 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
             estimated_cost_usd=round(cost, 6),
         ),
     )
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(render_summary(front, result.text))
+    write_text(target, render_summary(front, result.text))
     return CaseResult(target, cost_usd=cost)
+
+
+def _refusal(result: CallResult, rel: str, api_key: str) -> str:
+    """Why a response is not written; empty when it meets the contract."""
+    if result.stop_reason != "end_turn":
+        return f"stop_reason {result.stop_reason!r}"
+    problems = body_problems(result.text)
+    findings = secretscan.scan_lines(rel, result.text.split("\n"), [api_key] if api_key else [])
+    if findings:
+        problems.append(f"secret scan: {len(findings)} finding(s)")
+    return "rejected: " + "; ".join(problems) if problems else ""
 
 
 def summarize_plan(  # noqa: PLR0913 - the run's inputs, each load-bearing
@@ -697,8 +772,14 @@ def summarize_plan(  # noqa: PLR0913 - the run's inputs, each load-bearing
     api_key: str,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     wait: wait_base | None = None,
+    deadline: datetime | None = None,
 ) -> SummarizeOutcome:
     """Summarize every planned case; a case that fails is skipped, never fatal.
+
+    ``deadline`` is the run's time budget: once ``now()`` passes it, every case
+    not yet started is skipped as deferred rather than begun, so the run
+    returns in time for its caller to collect what was written. A deferred case
+    is still owed, and the next plan picks it up.
 
     Refuses a plan written for another model than the configured one: the plan
     was approved at that model's price, and a config change since is a new plan.
@@ -713,6 +794,9 @@ def summarize_plan(  # noqa: PLR0913 - the run's inputs, each load-bearing
     prompt_sha = prompt_digest(prompt_bytes)
     outcome = SummarizeOutcome()
     for case in plan.cases:
+        if deadline is not None and now() >= deadline:
+            outcome.skipped.append((case.case_id, "deferred: time budget reached", 0.0))
+            continue
         result = summarize_case(
             case,
             stage_root=stage_root,
