@@ -69,6 +69,11 @@ The prompt is `.github/prompts/summarize.md`. Its rules:
   passing. The repository holds no site glossary, so the prompt defines each
   term itself, minimally; a site glossary, once it exists, is the definition to
   align the prompt with.
+- **Accurate to the record.** An allegation only one side's filing makes is
+  attributed to that filing; a question presented is restated without changing
+  who made the rule, whom it binds, or which way it cuts; routine docket
+  entries are left out, and one that matters to the posture is named as the
+  docket names it; dates and counts are as the entries give them.
 - **People.** Named only as the caption and filings name them; initials stay
   initials; no personal detail beyond the dispute.
 
