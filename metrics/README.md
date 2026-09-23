@@ -1220,25 +1220,32 @@ the rendered table) and
   counterpart: a (petition, predictor) cell that produced no score, with its
   reason — `missing`, `invalid`, `wrote-outside-work-root` (the cell ran and
   what came back was absent, malformed, or written outside the work root),
-  `engine-failed` (the engine exited non-zero for that cell), or
+  `engine-failed` (the engine exited non-zero for that cell),
   `quota-exhausted` (the engine's own quota was spent, so that cell failed and
   the engine's remaining cells were recorded lost without being attempted,
   every further invocation being a paid-for certainty of the same failure — so
   exactly one of an engine's `quota-exhausted` cells was a model call and the
   rest were not, which is why the count is a coverage figure and not an attempt
-  count). Read the two whole-predictor drops apart here: a predictor dropped
-  because its engine's quota ran out carries a `lost_cells` entry for every
-  petition, while one dropped for a missing CLI binary carries entries only for
-  the cells it had already lost — its remaining ones were never attempted and
+  count), or `harness-error` (the harness itself raised something no engine
+  fault explains while running or reading that cell or an earlier one of its
+  engine, so that engine's lane stopped and its remaining cells were recorded
+  lost without being attempted, while the other engines ran on — the same
+  coverage-not-attempts reading). Read the whole-predictor drops apart here: a
+  predictor dropped because its engine's quota ran out, or because its lane
+  stopped on a harness fault, carries a `lost_cells` entry for every petition
+  (the tail under that reason), while one dropped for a missing CLI binary carries
+  entries only for the cells it had already lost — its remaining ones were
+  never attempted and
   are not counted as losses, so a shortfall with no entries behind it is that
   case. It is a reading
   rule, not bookkeeping — a predictor short *some* cells is scored, and its
   lift floored, over the petitions that came back, so its `events_scored` is
   below the set and its top line is not measured over the same sample as an
   entry that lost none; one short every cell has no entry at all and is in
-  `dropped_predictors` instead. **A `quota-exhausted` truncation is not a
-  scattered subsample**: petitions are replayed in the dispatched order, and
-  once an engine's allowance trips every later cell of that engine is lost, so
+  `dropped_predictors` instead. **A `quota-exhausted` or `harness-error`
+  truncation is not a scattered subsample**: each engine walks the petitions in
+  the dispatched order, and once its allowance trips or its lane stops every
+  later cell of that engine is lost, so
   what survives is the *prefix* of that order — under `--spread` the cohorts
   the round-robin had already reached, otherwise the most recent decisions.
   That is a differently composed slice, not merely a smaller one: its denial

@@ -5373,11 +5373,12 @@ def _report_replay_drops(
         # An engine that ran out of quota did not produce unreadable cells — most
         # of them it never attempted — so the drop line says which of the two
         # happened rather than defaulting to the artifact-shaped wording.
-        cause = (
-            "its engine's quota was exhausted"
-            if "quota-exhausted" in reasons
-            else "every one of its cells was lost"
-        )
+        if "quota-exhausted" in reasons:
+            cause = "its engine's quota was exhausted"
+        elif "harness-error" in reasons:
+            cause = "its engine's lane stopped on a harness fault"
+        else:
+            cause = "every one of its cells was lost"
         typer.echo(f"dropped predictor {pid}: {cause}", err=True)
     for predictor in roster:
         if (
@@ -5393,6 +5394,24 @@ def _report_replay_drops(
                 err=True,
             )
     return dropped
+
+
+def _annotate_harness_faults(lost_cells: list[CertBacktestCellLoss]) -> None:
+    """Turn a replay's harness faults into an Actions error annotation.
+
+    Our own code failed there, not an upstream: the report is still written —
+    its cells were paid for — and the command still exits zero, so the step
+    does not fail and the review PR still opens. What the annotation adds is
+    visibility: the run page lists the fault where a maintainer looks, rather
+    than leaving the stderr lines as the only trace.
+    """
+    faults = sum(1 for loss in lost_cells if loss.reason == "harness-error")
+    if faults:
+        typer.echo(
+            f"::error::cert-backtest: {faults} cell(s) lost to a harness fault "
+            "(reason harness-error); the report is written, and the run log names "
+            "the exception under its engine's lane prefix"
+        )
 
 
 @app.command("cert-backtest")
@@ -5455,6 +5474,16 @@ def cert_backtest_cmd(
             "cells (default: a temporary directory). Never data/."
         ),
     ] = None,
+    workers: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Engine lanes to run at once. Each engine's cells always run one after "
+            "another in its own lane; 0 (the default) runs every engine's lane at once, "
+            "and 1 runs the lanes one after another, which is what debugging one wants. "
+            "The report is the same either way.",
+        ),
+    ] = 0,
 ) -> None:
     """Back-test cert predictors over decided petitions into ``metrics/cert-backtest.json``.
 
@@ -5574,6 +5603,7 @@ def cert_backtest_cmd(
                 engine_override=None if engine == "auto" else engine,
                 skip_engines=skipped_engines,
                 run_id=replay_run_id,
+                workers=workers,
             )
             provisioning, lost_cells = outcome.provisioning, outcome.lost_cells
             disclosures, tally = outcome.disclosures, outcome.disclosure_tally
@@ -5618,6 +5648,7 @@ def cert_backtest_cmd(
             ),
         )
     write_json(destination, report)
+    _annotate_harness_faults(lost_cells)
     typer.echo(
         f"cert-backtest: {report.predictors_evaluated} predictor(s) over "
         f"{report.events_scored} decided petition(s); always-deny floor "
