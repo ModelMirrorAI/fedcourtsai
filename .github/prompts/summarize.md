@@ -96,6 +96,14 @@ About **250 words in total**:
     docket shows only as filed or submitted has not been granted: say what
     was asked, not that it happened, unless a later entry records the
     Court's action on it.
+  - *The snapshot day is "now".* A conference dated before the snapshot day
+    has already happened. If no later entry records what the Court did, say
+    the petition was considered at that conference and the docket shows no
+    action on it since; do not describe that conference as upcoming, and do
+    not guess at an outcome — a grant, a hold, a denial — that no entry
+    records. A distribution that was followed by a request for a response is
+    still a distribution: say the Court asked for a response after
+    considering the petition, not that it was never distributed.
   - *Dates and counts as the entries show them.* A case distributed in
     August for a September conference was distributed in August for a
     September conference, not distributed in September; if a case went to two
