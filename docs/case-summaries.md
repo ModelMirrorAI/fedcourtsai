@@ -74,7 +74,10 @@ The prompt is `.github/prompts/summarize.md`. Its rules:
   who made the rule, whom it binds, or which way it cuts; routine docket
   entries are left out, and one that matters to the posture is named as the
   docket names it; a request the docket shows only as filed is not reported
-  as granted; dates and counts are as the entries give them.
+  as granted; a conference dated before the snapshot day is past, and one
+  with no recorded action since is reported as considered without action, not
+  as upcoming and not with a guessed outcome; dates and counts are as the
+  entries give them.
 - **People.** Named only as the caption and filings name them; initials stay
   initials; no personal detail beyond the dispute.
 
