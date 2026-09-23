@@ -1776,23 +1776,29 @@ fortnightly cadence, that pinned `--limit`, the manual hold, and the job's
 
 The campaign runs its cells in **engine lanes**. Every petition's case tree is
 provisioned first, serially; then one worker per engine walks every petition's
-cells for that engine in the dispatched order, and the three lanes run at once.
+cells for that engine in the dispatched order, and the lanes — three on the
+cron path — run at once.
 An engine's own cells never overlap — codex logs in per cell into one
 per-process auth home, which two concurrent cells would race on — and each
 provider still sees one cell at a time, so the concurrency costs no provider
 more than a serial walk did. A spent quota or a missing binary is a fact only
 its own lane reads, and the lanes' results are merged after all of them finish
 and sorted, so the report is the one a serial walk writes whichever lane
-finishes first. The wall clock is the slowest lane's rather than the sum: at
-the measured serial rates — codex a median 2.3 minutes a cell, claude about 3,
-gemini about 3.8 once its file tools reached the work root (15 cells in 57
-minutes) — the gemini lane sets it, so the cron's ten petitions should take
-about 40 minutes and a 25-petition dispatch about 95, against the job's
-330-minute cap, which stays sized for a hung engine rather than for the
-expected run. Those are serial rates carried over, not yet a lane measurement:
-three engines sharing one runner may run each a little slower. Every line a lane writes to the
-log, the engine's own output included, carries the engine as a prefix, since
-the three interleave.
+finishes first. The wall clock is the slowest lane's rather than the sum. The
+measured serial rates: on the first 25-petition campaign (2026-09-20, all 75
+cells in series, 300 minutes) codex took a median 2.3 minutes a cell and each
+gemini cell with the claude cell after it about 9, claude about 3 of that; on
+the 2026-09-21 validation dispatch, with gemini's file tools admitted to the
+work root, gemini took 15 cells in 57 minutes, about 3.8 a cell. So the gemini
+lane sets the wall clock: the cron's ten petitions should take about 40
+minutes and a 25-petition dispatch about 95, against the job's 330-minute cap,
+which stays sized for a hung engine rather than for the expected run. Those
+are serial rates carried over, not yet a lane measurement: three engines
+sharing one runner may each run a little slower. A hung engine is still the
+cap's to end — its lane never finishes, and the report waits on every lane.
+Every line the harness and each engine's agent run write to the log carries
+the engine as a prefix, since the lanes interleave; codex's one-line login
+confirmation is the exception.
 
 Such a campaign accounts for its losses rather than ending on one, so a report
 always lands. An engine whose CLI binary is missing drops that predictor whole.

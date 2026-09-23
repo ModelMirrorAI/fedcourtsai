@@ -5392,6 +5392,22 @@ def _report_replay_drops(
     return dropped
 
 
+def _annotate_harness_faults(lost_cells: list[CertBacktestCellLoss]) -> None:
+    """Turn a replay's harness faults into an Actions error annotation.
+
+    Our own code failed there, not an upstream: the report is still written —
+    its cells were paid for — but the run says so where a maintainer looks,
+    rather than landing green with the stderr lines as the only trace.
+    """
+    faults = sum(1 for loss in lost_cells if loss.reason == "harness-error")
+    if faults:
+        typer.echo(
+            f"::error::cert-backtest: {faults} cell(s) lost to a harness fault "
+            "(reason harness-error); the report is written, and the run log names "
+            "the exception under its engine's lane prefix"
+        )
+
+
 @app.command("cert-backtest")
 def cert_backtest_cmd(
     out: Annotated[
@@ -5626,6 +5642,7 @@ def cert_backtest_cmd(
             ),
         )
     write_json(destination, report)
+    _annotate_harness_faults(lost_cells)
     typer.echo(
         f"cert-backtest: {report.predictors_evaluated} predictor(s) over "
         f"{report.events_scored} decided petition(s); always-deny floor "

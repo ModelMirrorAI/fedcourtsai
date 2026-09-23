@@ -4662,7 +4662,6 @@ class CertBacktestCellLoss(_Strict):
       and no retry could have cleared it. Every later cell on that engine in
       the same campaign carries this reason without being attempted, since the
       attempt is a paid-for certainty of the same failure.
-
     - ``harness-error`` — the harness itself raised something no engine fault
       explains while running or reading this cell, or an earlier cell of the
       same engine's lane. The cause is unknown and may be systemic, so the lane

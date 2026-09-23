@@ -580,14 +580,28 @@ def _say(message: str, *, stream: TextIO | None = None) -> None:
         print(line, file=stream if stream is not None else sys.stderr, flush=True)
 
 
+# How long a lane waits, once its engine has exited, for the output pumps to
+# reach end of stream. A process the engine left running can hold the pipe open
+# indefinitely; the cell is over when the engine is, so the lane moves on.
+_PUMP_DRAIN_SECONDS = 10.0
+
+
 def _pump(source: IO[str], sink: TextIO, label: str, keep: list[str] | None) -> None:
-    """Copy an engine's output stream to ``sink`` line by line, lane-prefixed."""
+    """Copy an engine's output stream to ``sink`` line by line, lane-prefixed.
+
+    Keeps draining ``source`` even when a write to ``sink`` fails: a pump that
+    stopped reading would leave the engine blocked on a full pipe.
+    """
     for line in source:
         if keep is not None:
             keep.append(line)
+        text = f"[{label}] {line}" if line.endswith("\n") else f"[{label}] {line}\n"
         with _LOG_LOCK:
-            sink.write(f"[{label}] {line}" if line.endswith("\n") else f"[{label}] {line}\n")
-            sink.flush()
+            try:
+                sink.write(text)
+                sink.flush()
+            except (OSError, ValueError):
+                continue
 
 
 def _lane_command_runner(label: str) -> CommandRunner:
@@ -616,15 +630,23 @@ def _lane_command_runner(label: str) -> CommandRunner:
         assert proc.stdout is not None and proc.stderr is not None  # both piped above
         captured: list[str] = []
         pumps = [
-            threading.Thread(target=_pump, args=(proc.stdout, sys.stdout, label, None)),
-            threading.Thread(target=_pump, args=(proc.stderr, sys.stderr, label, captured)),
+            threading.Thread(
+                target=_pump, args=(proc.stdout, sys.stdout, label, None), daemon=True
+            ),
+            threading.Thread(
+                target=_pump, args=(proc.stderr, sys.stderr, label, captured), daemon=True
+            ),
         ]
         for pump in pumps:
             pump.start()
         returncode = proc.wait()
+        # Bounded: a process the engine left behind can hold a pipe open past
+        # the engine's own exit, and an unbounded join would stall the lane —
+        # and with it the report — until the job's cap. Daemon pumps, so one
+        # still attached to such a process never holds the command open either.
         for pump in pumps:
-            pump.join()
-        return CommandResult(returncode=returncode, stderr="".join(captured))
+            pump.join(timeout=_PUMP_DRAIN_SECONDS)
+        return CommandResult(returncode=returncode, stderr="".join(list(captured)))
 
     return run
 
@@ -1061,6 +1083,11 @@ def _run_lane(
 
     ``lane`` lets the caller hold the state before the worker starts, so even
     a fault in the absorption itself leaves it something to account from.
+
+    A lane that **hangs** is not absorbed: a runner call with no deadline blocks
+    its worker, and the merge waits on every lane, so a hung engine still holds
+    the report until the job's cap ends the run — as it did when the cells ran
+    in series.
     """
     state = lane if lane is not None else _Lane(collected={p.id: {} for p, _ in pairs})
     _LANE.label = label

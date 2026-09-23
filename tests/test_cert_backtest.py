@@ -2227,8 +2227,16 @@ class _BarrierRunner:
 
 
 def test_each_engine_runs_in_its_own_lane_at_once(
-    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Three lanes at once, and never two cells of one engine at once.
+
+    Three petitions, so every lane walks several cells: the barrier is met once
+    per petition only if the engines run side by side, and the per-engine peak
+    is one only if each lane runs its own cells in series — codex logs in per
+    cell into one per-process auth home, which a same-engine overlap would race
+    on.
+    """
     barrier = threading.Barrier(3, timeout=20)
     active: dict[str, list[int]] = {}
     monkeypatch.setattr(
@@ -2236,28 +2244,59 @@ def test_each_engine_runs_in_its_own_lane_at_once(
         "get_runner",
         lambda backend="stub": _BarrierRunner(backend, barrier, active),
     )
-    with corpus.connect(fixture_corpus.db_path) as conn:
-        items = select_cert_backtest_set(conn)
-    outcome = replay_predictors(
-        items,
-        corpus_db_path=fixture_corpus.db_path,
-        config_root=Path("config"),
-        work_root=tmp_path / "replay",
-        run_id="20260706T000000Z",
+    pairs = cert_backtest._runners_by_predictor(Path("config"), None)
+    engines = {predictor.id: str(predictor.engine) for predictor, _ in pairs}
+    merged = cert_backtest._merged(
+        cert_backtest._run_lanes(
+            cert_backtest._engine_lanes(pairs, engines),
+            _provisioned(tmp_path / "replay", (304, 305, 306)),
+            engines=engines,
+            workers=0,
+        )
     )
-    assert outcome.lost_cells == []  # the barrier released: three lanes at once
-    assert {b.id for b in outcome.backtesters} == {
-        "claude-baseline",
-        "codex-baseline",
-        "gemini-baseline",
+    assert merged.losses == []  # the barrier released every round: lanes at once
+    assert {pid: sorted(preds) for pid, preds in merged.collected.items()} == {
+        pid: ["scotus/304", "scotus/305", "scotus/306"]
+        for pid in ("claude-baseline", "codex-baseline", "gemini-baseline")
     }
-    # Never two cells of one engine at once — codex logs in per cell into one
-    # per-process auth home, so a same-engine overlap would race on it.
     assert {backend: peak for backend, (_, peak) in active.items()} == {
         "claude-code": 1,
         "codex": 1,
         "gemini": 1,
     }
+
+
+def test_a_bounded_width_runs_the_same_lanes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Two workers over three lanes: one lane waits for a free worker, and the
+    # merged result is the one every lane at once produces.
+    calls: list[tuple[str, str]] = []
+    failure = EngineFailed("gemini exited 1 for a cell")
+    monkeypatch.setattr(cert_backtest, "get_runner", _failing_get_runner("gemini", failure, calls))
+    pairs = cert_backtest._runners_by_predictor(Path("config"), None)
+    engines = {predictor.id: str(predictor.engine) for predictor, _ in pairs}
+    results = []
+    for workers in (0, 2):
+        merged = cert_backtest._merged(
+            cert_backtest._run_lanes(
+                cert_backtest._engine_lanes(pairs, engines),
+                _provisioned(tmp_path / f"replay-{workers}", (304, 305)),
+                engines=engines,
+                workers=workers,
+            )
+        )
+        results.append(
+            (
+                {pid: sorted(preds) for pid, preds in merged.collected.items()},
+                sorted((c.predictor_id, c.case_id, c.reason) for c in merged.losses),
+            )
+        )
+    assert results[0] == results[1]
+    assert results[0][1] == [
+        ("gemini-baseline", "scotus/304", "engine-failed"),
+        ("gemini-baseline", "scotus/305", "engine-failed"),
+    ]
 
 
 def test_lane_parallel_and_serial_write_the_same_report(
@@ -2415,3 +2454,97 @@ def test_only_a_default_agentic_spawn_is_rerouted_through_the_lane() -> None:
     assert cert_backtest._in_lane(injected, "codex") is injected
     stub = StubRunner()
     assert cert_backtest._in_lane(stub, "stub") is stub
+
+
+class _CrashOnActor:
+    """The stub, except one predictor's cells raise something unforeseen."""
+
+    def __init__(self, crashing: str) -> None:
+        self._crashing = crashing
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        if request.actor_id == self._crashing:
+            raise RuntimeError("an unexpected fault inside the harness")
+        return self._stub.run(request)
+
+
+def test_a_fault_mid_petition_keeps_the_cells_its_lane_already_scored(tmp_path: Path) -> None:
+    # One lane, several predictors — an engine override puts every predictor on
+    # the one backend. The cell scored before the fault keeps its score; the
+    # faulting cell and everything after it in the lane are harness-error.
+    runner_double = cast(Runner, _CrashOnActor("codex-baseline"))
+    pairs = [
+        (p, runner_double) for p, _ in cert_backtest._runners_by_predictor(Path("config"), "stub")
+    ]
+    ids = [p.id for p, _ in pairs]
+    assert ids.index("claude-baseline") < ids.index("codex-baseline")
+    lane = cert_backtest._run_lane(
+        "stub",
+        pairs,
+        _provisioned(tmp_path, (304, 305)),
+        engines=dict.fromkeys(ids, "stub"),
+    )
+    assert lane.collected["claude-baseline"].keys() == {"scotus/304"}
+    lost = {(c.predictor_id, c.case_id) for c in lane.losses}
+    assert all(c.reason == "harness-error" for c in lane.losses)
+    assert ("claude-baseline", "scotus/304") not in lost
+    assert {("codex-baseline", "scotus/304"), ("claude-baseline", "scotus/305")} <= lost
+    # Every cell of the lane is accounted for, once.
+    assert len(lost) + 1 == len(ids) * 2
+
+
+def test_a_fault_in_the_absorption_is_accounted_from_the_held_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Belt and braces: if the lane's own absorption raised, the caller still
+    # records the lane's cells from the state it handed the worker.
+    real_abandon = cert_backtest._abandon_lane
+    attempts: list[int] = []
+
+    def flaky_abandon(*args: Any, **kwargs: Any) -> None:
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise RuntimeError("the absorption itself failed")
+        real_abandon(*args, **kwargs)
+
+    monkeypatch.setattr(cert_backtest, "_abandon_lane", flaky_abandon)
+    runner_double = cast(Runner, _CrashOnActor("codex-baseline"))
+    routed = cert_backtest._runners_by_predictor(Path("config"), "stub")
+    codex = [(p, runner_double) for p, _ in routed if p.id == "codex-baseline"]
+    claude = [(p, runner) for p, runner in routed if p.id == "claude-baseline"]
+    # Two lanes, so width 0 takes the worker pool and width 1 the serial walk.
+    for workers in (0, 1):
+        states = cert_backtest._run_lanes(
+            [("codex", codex), ("claude-code", claude)],
+            _provisioned(tmp_path / f"w{workers}", (304,)),
+            engines={"codex-baseline": "codex", "claude-baseline": "claude-code"},
+            workers=workers,
+        )
+        assert states[1].collected["claude-baseline"].keys() == {"scotus/304"}
+        assert [(c.case_id, c.reason) for c in states[0].losses] == [
+            ("scotus/304", "harness-error")
+        ]
+        attempts.clear()
+
+
+def test_a_harness_fault_turns_the_run_red_and_still_writes_the_report(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Our own code failing is not an upstream degrading: the paid-for report is
+    # written, and an ::error:: annotation says what happened.
+    monkeypatch.setattr(
+        cert_backtest, "get_runner", lambda backend="stub": _CrashingRunner(backend, "codex")
+    )
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(out), "--engine", "auto", "--work-dir", str(tmp_path / "w")],
+    )
+    assert result.exit_code == 0, result.output
+    assert "::error::cert-backtest: 1 cell(s) lost to a harness fault" in result.stdout
+    report = read_model(out, CertBacktest)
+    assert report.provenance is not None
+    assert [(c.predictor_id, c.reason) for c in report.provenance.lost_cells] == [
+        ("codex-baseline", "harness-error")
+    ]
