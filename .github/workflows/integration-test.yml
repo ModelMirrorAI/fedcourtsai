@@ -487,7 +487,7 @@ jobs:
 
       - name: Configure AWS credentials (read-only)
         if: ${{ env.RESOLVE_CASE == 'true' }}
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -659,7 +659,7 @@ jobs:
       # composite, whose pull serves jobs that read the local file.
       - name: Configure AWS credentials (read-only)
         if: ${{ matrix.scenario == 'ranged-reads' || matrix.scenario == 'stub-cascade' }}
-        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -2088,7 +2088,7 @@ jobs:
         # Far below the cell step's 50: one word is one turn, and a bound that
         # tight is what keeps a hung invocation from eating the job budget.
         timeout-minutes: 10
-        uses: anthropics/claude-code-action@9c5ddab2e6d17b83ea679153b31f1d5f023cf636 # v1.0.217
+        uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1.0.231
         with:
           allowed_bots: "fedcourtsai-data[bot]"
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -2899,7 +2899,7 @@ jobs:
         # and AGENTS.md — plus five short rows with margin; the job cap at 25
         # holds the setup steps beside it.
         timeout-minutes: 15
-        uses: anthropics/claude-code-action@9c5ddab2e6d17b83ea679153b31f1d5f023cf636 # v1.0.217
+        uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1.0.231
         env:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
