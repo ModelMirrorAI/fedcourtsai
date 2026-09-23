@@ -47,7 +47,12 @@ does and additionally honours `@pytest.mark.xdist_group`, so a test that ever do
 need to run beside its siblings on one worker can say so where it lives instead of
 needing the gate changed underneath it. Coverage is unaffected: under `GATE_COV=1`
 each worker measures its own slice and pytest-cov combines them into the single
-`.coverage` file the CI job's summary step reads.
+`.coverage` file the CI job's summary step reads. The stage measures through
+Python's `sys.monitoring` (`COVERAGE_CORE=sysmon`) rather than coverage.py's
+default C tracer, which cuts most of coverage's overhead for the same line-coverage
+result. What sysmon cannot do on 3.12 — branch coverage, dynamic contexts,
+non-thread concurrency — is not configured; configuring one makes coverage warn
+and fall back to the C tracer, so the gate slows rather than fails. Set `COVERAGE_CORE` to override the core for a comparison run.
 
 Parallel workers are the wrong shape for debugging one failure — a worker has no
 terminal for `breakpoint()`, and output from several interleaves — so the worker count
