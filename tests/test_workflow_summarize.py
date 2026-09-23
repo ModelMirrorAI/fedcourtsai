@@ -147,3 +147,18 @@ def test_its_own_serializing_group_and_a_free_cron_minute() -> None:
         on = _load(other.name).get(True) or {}
         for entry in (on.get("schedule") or []) if isinstance(on, dict) else []:
             assert entry["cron"].split()[0] != minute, f"{other.name} shares minute {minute}"
+
+
+def test_the_staged_records_are_checked_before_they_leave_the_stage_job() -> None:
+    steps = _jobs()["stage"]["steps"]
+    names = [str(step.get("name", "")) for step in steps]
+    stage = names.index("Stage each planned case's record")
+    check = names.index("Check the staged records before they leave this job")
+    upload = names.index("Upload the staged records")
+    assert stage < check < upload
+    assert "fedcourts summary-stage-check" in steps[check]["run"]
+    assert "set -euo pipefail" in steps[check]["run"]
+    assert "if" not in steps[check], "the check must be unconditional"
+    # A failed check must stop the upload: no step-level override lets it run anyway.
+    assert "if" not in steps[upload]
+    assert "continue-on-error" not in steps[check]

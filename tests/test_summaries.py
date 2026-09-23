@@ -191,7 +191,16 @@ def _stage(stage_root: Path, court: str = "scotus", docket: int = 1) -> None:
     paths.documents_dir.mkdir(parents=True)
     paths.document("petition").write_text("P" * 150_000)
     paths.documents_manifest.write_text(
-        json.dumps([{"kind": "petition", "entry_date": "Jan 02 2026", "truncated": False}])
+        json.dumps(
+            [
+                {
+                    "kind": "petition",
+                    "url": "https://www.supremecourt.gov/DocketPDF/26/26-1/1/petition.pdf",
+                    "entry_date": "Jan 02 2026",
+                    "truncated": False,
+                }
+            ]
+        )
     )
 
 
@@ -572,3 +581,125 @@ def test_summary_paths_admits_only_summary_writes(tmp_path: Path) -> None:
 def test_the_paths_helper_and_the_jail_agree() -> None:
     path = CasePaths(Path("data"), "scotus", 9026000239).summary("2026-09-20")
     assert summaries.is_summary_path(path.as_posix())
+
+
+# --- the stage check -------------------------------------------------------------
+
+
+def test_stage_check_keeps_a_planned_case_staged_as_planned(tmp_path: Path) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    assert summaries.prune_stage(plan, stage) == []
+    assert CasePaths(stage, "scotus", 1).snapshot("2026-09-22").is_file()
+
+
+def test_stage_check_removes_a_courtlistener_snapshot_staged_after_the_plan(
+    tmp_path: Path,
+) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    # The corpus moved after the plan: the newest snapshot is now a REST docket,
+    # on the same day (overwriting) or a later one (beside it).
+    paths = CasePaths(stage, "scotus", 1)
+    paths.snapshot("2026-09-22").write_text(json.dumps({"docket_entries": []}))
+    removed = summaries.prune_stage(plan, stage)
+    assert removed == [("scotus/1", "staged snapshot is not the Court's own docket JSON")]
+    assert not paths.base.exists()
+
+    _stage(stage)
+    paths.snapshot("2026-09-23").write_text(json.dumps({"docket_entries": []}))
+    removed = summaries.prune_stage(plan, stage)
+    assert removed == [("scotus/1", "unexpected staged file record/snapshots/2026-09-23.json")]
+    assert not paths.base.exists()
+
+
+def test_stage_check_removes_what_was_not_planned(tmp_path: Path) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    _stage(stage, docket=2)
+    (stage / "stray.txt").write_text("x")
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    removed = summaries.prune_stage(plan, stage)
+    assert sorted(removed) == [("scotus/2", "not planned"), ("stray.txt", "not a case tree")]
+    assert CasePaths(stage, "scotus", 1).snapshot("2026-09-22").is_file()
+    assert not (stage / "stray.txt").exists()
+
+
+def test_stage_check_removes_an_unreadable_snapshot(tmp_path: Path) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    CasePaths(stage, "scotus", 1).snapshot("2026-09-22").write_text("{not json")
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    assert summaries.prune_stage(plan, stage) == [("scotus/1", "staged snapshot is unreadable")]
+
+
+def test_stage_check_does_not_let_a_padded_docket_name_pass_as_a_planned_one(
+    tmp_path: Path,
+) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    padded = stage / "cases" / "scotus" / "01" / "record" / "snapshots"
+    padded.mkdir(parents=True)
+    (padded / "2026-09-22.json").write_text(json.dumps({"docket_entries": []}))
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    assert summaries.prune_stage(plan, stage) == [("scotus/01", "not planned")]
+    assert CasePaths(stage, "scotus", 1).snapshot("2026-09-22").is_file()
+
+
+def test_stage_check_holds_a_kept_case_to_what_provisioning_writes(tmp_path: Path) -> None:
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    stage = tmp_path / "stage"
+    _stage(stage)
+    (CasePaths(stage, "scotus", 1).base / "extra.json").write_text("{}")
+    assert summaries.prune_stage(plan, stage) == [("scotus/1", "unexpected staged file extra.json")]
+
+    _stage(stage)
+    paths = CasePaths(stage, "scotus", 1)
+    paths.cell_context.write_text("{}")  # provisioning writes it; it is allowed
+    assert summaries.prune_stage(plan, stage) == []
+
+    manifest = json.loads(paths.documents_manifest.read_text())
+    manifest[0]["url"] = "https://www.courtlistener.com/docket/1/"
+    paths.documents_manifest.write_text(json.dumps(manifest))
+    assert summaries.prune_stage(plan, stage) == [
+        ("scotus/1", "document 'petition' was not fetched from supremecourt.gov")
+    ]
+
+
+def test_stage_check_removes_a_case_holding_a_symlink(tmp_path: Path) -> None:
+    outside = tmp_path / "outside.json"
+    outside.write_text("{}")
+    stage = tmp_path / "stage"
+    _stage(stage)
+    (CasePaths(stage, "scotus", 1).record / "link.json").symlink_to(outside)
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    assert summaries.prune_stage(plan, stage) == [("scotus/1", "symlink record/link.json")]
+    assert outside.is_file()
+
+
+def test_summary_stage_check_command_warns_and_counts(tmp_path: Path) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    _stage(stage, docket=2)
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text(plan.model_dump_json())
+    summary = tmp_path / "summary.md"
+    result = CliRunner().invoke(
+        app,
+        [
+            "summary-stage-check",
+            "--plan",
+            str(plan_file),
+            "--staged",
+            str(stage),
+            "--summary",
+            str(summary),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "::warning::removed scotus/2 from the staged records: not planned" in result.output
+    assert "stage check: 1 staged case record(s) kept, 1 removed" in result.output
+    assert summary.read_text() == "stage check: 1 staged case record(s) kept, 1 removed\n"
