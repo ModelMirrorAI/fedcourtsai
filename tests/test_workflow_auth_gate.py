@@ -33,6 +33,7 @@ PRIVILEGED_LANES = (
     "run-evaluate.yml",
     "run-pull.yml",
     "run-backtest.yml",
+    "summarize.yml",
 )
 
 # The agent fan-outs, whose cells spend model tokens behind the `review` hold.

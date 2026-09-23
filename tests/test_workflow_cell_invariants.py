@@ -107,6 +107,7 @@ from fedcourtsai.collect import BOARD_ARTIFACTS, BOARD_BRANCH, BOARD_JAIL_PATHS
 from fedcourtsai.config import Settings
 from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
 from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest, _cell_env
 from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
@@ -441,6 +442,19 @@ def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> Non
     # too — the steps after it read this checkout either way.
     assert steps[restore].get("if") == "${{ !cancelled() }}"
     assert "continue-on-error" not in steps[restore]
+
+
+def test_case_summaries_sit_inside_the_backtest_ledger_fence() -> None:
+    """A committed case summary of a decided petition states its outcome, so a
+    replay cell must not read one. No fence of its own does that: the summary
+    path sits under `data/cases/`, which the back-test removes whole before its
+    cells run (the test above pins the step). This pins the other half — that
+    the summary layout stays inside the removed tree — so moving summaries out
+    of `data/cases/` fails here instead of quietly re-admitting outcomes."""
+    summary = CasePaths(Path("data"), "scotus", 1).summary("2026-09-20")
+    assert summary.is_relative_to(Path("data/cases"))
+    steps = _load("run-backtest.yml")["jobs"]["backtest"]["steps"]
+    assert any(str(step.get("run") or "").strip() == "rm -rf data/cases" for step in steps)
 
 
 def test_the_qp_labels_push_guard_checks_rows_not_ledger_counts() -> None:

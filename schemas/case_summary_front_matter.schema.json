@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "CaseSummaryUsage": {
+      "additionalProperties": false,
+      "description": "The token usage of the one call that wrote a case summary.",
+      "properties": {
+        "estimated_cost_usd": {
+          "description": "The call's on-demand cost at `pricing.MODEL_RATES` for `model` \u2014 an estimate at the rate table's snapshot, like every figure it prices",
+          "minimum": 0,
+          "title": "Estimated Cost Usd",
+          "type": "number"
+        },
+        "input_tokens": {
+          "description": "Uncached input tokens billed",
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "description": "Output tokens billed",
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "estimated_cost_usd"
+      ],
+      "title": "CaseSummaryUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The YAML front matter of ``data/cases/<court>/<docket>/summaries/<day>.md``.\n\nWritten by the harness, never by the model: provenance a reader can check\nthe body against. ``record_digest`` is what makes the selection rule\ncontent-keyed \u2014 a case needs a new summary exactly when the digest of its\nnewest record differs from the one its newest summary carries\n(``docs/case-summaries.md``).",
+  "properties": {
+    "case_id": {
+      "description": "The case the summary describes, `<court>/<docket>`",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "generated_at": {
+      "description": "When the harness wrote the file (UTC)",
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "model": {
+      "description": "The Messages API model id that wrote the body",
+      "title": "Model",
+      "type": "string"
+    },
+    "prompt_digest": {
+      "description": "sha256 of `.github/prompts/summarize.md` as sent",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Prompt Digest",
+      "type": "string"
+    },
+    "record_digest": {
+      "description": "sha256 over the canonical newest snapshot payload (generation stamps removed) and the sorted (kind, text sha256) pairs of the case's stored documents \u2014 the record the summary was written from",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Record Digest",
+      "type": "string"
+    },
+    "snapshot": {
+      "description": "The corpus snapshot day the summary was generated from; the file is named for it",
+      "format": "date",
+      "title": "Snapshot",
+      "type": "string"
+    },
+    "usage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CaseSummaryUsage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The writing call's token usage, where the response carried it"
+    }
+  },
+  "required": [
+    "case_id",
+    "snapshot",
+    "record_digest",
+    "model",
+    "prompt_digest",
+    "generated_at"
+  ],
+  "title": "CaseSummaryFrontMatter",
+  "type": "object"
+}

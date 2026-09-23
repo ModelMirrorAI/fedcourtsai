@@ -293,6 +293,11 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/
     evaluation.md
 ```
 
+Beside `events/`, each predicted case carries its plain-language summaries,
+`data/cases/<court_id>/<docket_id>/summaries/<YYYY-MM-DD>.md` — display
+material for the site, one per record, written by the `summarize` lane and
+scored by nothing ([`docs/case-summaries.md`](docs/case-summaries.md)).
+
 What each of those files holds — every field of `prediction.json` at each of
 the three stages, the two prose documents, and the sidecars a cell writes (or
 does not) — is walked with worked examples in

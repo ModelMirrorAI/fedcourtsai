@@ -1,0 +1,521 @@
+name: summarize
+
+# The run list must tell a staging rehearsal from a production run at a glance;
+# the environment half is the same branch resolution the jobs bind.
+run-name: "summarize @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+
+# Plain-language case summaries (docs/case-summaries.md): one markdown file per
+# predicted case per record, at data/cases/<court>/<docket>/summaries/<day>.md,
+# for readers of the site who do not already know the case. Display material —
+# nothing scores a summary, and no metric or board reads one.
+#
+# Its own workflow, not a mode on run-analytics, for two reasons that are each a
+# different class: it spends model tokens on a dedicated API key with its own
+# spend cap (a spend lane behind the `review` hold), and it runs daily on its
+# own schedule. The jobs keep the two credentials it touches apart — no job,
+# and so no step, holds both:
+#
+#   plan      read-only corpus role. Stands down while a predict or evaluate
+#             round is running, derives the owed cases (`summarize-plan`:
+#             content-keyed against the committed summaries) and renders the
+#             report the hold is judged on.
+#   approval  the `review` hold. Every run holds, scheduled or dispatched, as
+#             run-predict's rounds do: the hold is the one human gate before
+#             spend, and a daily release costs a click while an unheld lane
+#             spends on whatever a plan happens to owe.
+#   stage     read-only corpus role. `provision-snapshot` stages each planned
+#             case's record — the same staged record, and the same
+#             contact-detail scrub, a predict cell reads — under $RUNNER_TEMP.
+#   generate  the summaries API key and no cloud credential (asserted). One
+#             Messages API call per case with no tools; the harness validates
+#             each body and writes the file. Jails, validates and secret-scans
+#             the written files before anything leaves the runner.
+#   publish   main only: the dev App token, opening or updating one reviewed
+#             PR from the fixed `summaries/refresh` branch. Never auto-merged —
+#             the collect jails do not cover this branch family, and an
+#             auto-merge would need a jail of its own.
+#
+# Every environment-binding job but `publish` resolves its environment from the
+# dispatching ref, as run-analytics does: `main` (and the schedule, which runs
+# only there) binds `prod`; `staging` binds the staging environment, whose
+# read-only role and key point the lane at the staging corpus pair; any other
+# ref names no configured environment and binds nothing — fail-closed. A
+# staging dispatch is therefore a rehearsal: it plans, holds, stages and
+# generates, uploads the summaries as a run artifact, and publishes nothing.
+on:
+  schedule:
+    # 03:43 UTC daily. After run-pull's 01:17 window (45-minute cap) and
+    # run-seed's 02:31 walk have committed, before the 04:47 live window, and
+    # well clear of run-predict (14:12, 17:32) and run-evaluate (15:39). Only
+    # the plan runs at this minute; spend waits on the hold. The minute is off
+    # every other workflow's so the repo's offset grid stays legible.
+    - cron: "43 3 * * *"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Plan at most this many owed cases, cases without a summary first (0 = every owed case)."
+        type: number
+        default: 0
+
+permissions: {}
+
+# One run per ref at a time. `cancel-in-progress: false` protects a run parked
+# on the hold; a newer arrival waits behind it and loses nothing, since the plan
+# is level-triggered and re-derived from committed state.
+concurrency:
+  group: summarize-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    # A full index pull plus a few content-store reads per predicted case.
+    timeout-minutes: 30
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    env:
+      FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role
+      # The stand-down guard reads whether a predict or evaluate run is in
+      # progress (run metadata only).
+      actions: read
+      # Whether an unmerged summaries PR is open, so its summaries count as done
+      # (PR metadata only).
+      pull-requests: read
+    outputs:
+      has_cases: ${{ steps.plan.outputs.has_cases }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history: carrying the open refresh PR's summaries diffs its
+          # branch against the merge base with this checkout.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-python-env
+
+      # A summary run never overlaps a predict or evaluate round. Its key and
+      # corpus reads are its own, so nothing breaks if it did; the rule keeps
+      # the lanes' logs and spend legible one at a time. A run that stands down
+      # exits cleanly with a notice — the next day's run re-derives the plan.
+      # Fail-closed: an API error reads as "busy", since the cost of a skipped
+      # day is a day.
+      - name: Stand down while a predict or evaluate round is running
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          busy=""
+          for wf in run-predict.yml run-evaluate.yml; do
+            if ! count=$(gh api "repos/${REPO}/actions/workflows/${wf}/runs?status=in_progress&per_page=1" \
+                  --jq '.total_count'); then
+              busy="${busy} ${wf}(unreadable)"
+              continue
+            fi
+            if [ "$count" != "0" ]; then
+              busy="${busy} ${wf}"
+            fi
+          done
+          if [ -n "$busy" ]; then
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::standing down: in progress or unreadable:${busy}"
+            {
+              echo "## summarize — stood down"
+              echo ""
+              echo "A predict or evaluate round is in progress (or its status could not be read):${busy}. Nothing was planned or spent; the next run re-derives the plan."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Summaries already written into the open, unmerged refresh PR count as
+      # done: the plan compares against committed summaries, and without this
+      # every daily run would re-spend on the cases that PR already carries.
+      # Only summary files are carried (`summary-paths` is the filter), only
+      # from this repository's own branch (the owner-qualified head), and only
+      # on main — a rehearsal plans against its own ref and publishes nothing.
+      - name: Count the open refresh PR's summaries as written
+        if: ${{ steps.guard.outputs.proceed == 'true' && github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          BRANCH: summaries/refresh
+        run: |
+          set -euo pipefail
+          open=$(gh api "repos/${REPO}/pulls?state=open&base=main&head=${OWNER}:${BRANCH}" \
+            --jq 'length')
+          if [ "$open" = "0" ]; then
+            echo "no open ${BRANCH} PR; planning against main alone"
+            exit 0
+          fi
+          git fetch --no-tags -q origin "$BRANCH"
+          git diff --name-status HEAD...FETCH_HEAD > carried.txt
+          uv run fedcourts summary-paths --name-status-file carried.txt > carried-paths.txt
+          while IFS= read -r path; do
+            git checkout FETCH_HEAD -- "$path"
+          done < carried-paths.txt
+          echo "carried $(wc -l < carried-paths.txt) summary file(s) from the open ${BRANCH} PR"
+
+      - uses: ./.github/actions/corpus-readonly
+        if: ${{ steps.guard.outputs.proceed == 'true' }}
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          # The out-of-band staging index pointer, forwarded only off `main`,
+          # exactly as run-analytics's corpus jobs forward it: a staging-bound
+          # pull resolves the staging pair's own digest.
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
+
+      - name: Plan the owed summaries
+        id: plan
+        if: ${{ steps.guard.outputs.proceed == 'true' }}
+        env:
+          LIMIT: ${{ inputs.limit }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          limit="${LIMIT:-0}"
+          case "$limit" in
+            ''|*[!0-9]*) echo "::error::limit must be a whole number, got '${limit}'"; exit 1 ;;
+          esac
+          uv run fedcourts summarize-plan --limit "$limit" \
+            --out "$RUNNER_TEMP/summary-plan.json" \
+            --report "$RUNNER_TEMP/summary-plan.md" \
+            --report-run-url "$RUN_URL"
+          cat "$RUNNER_TEMP/summary-plan.md" >> "$GITHUB_STEP_SUMMARY"
+          count=$(jq '.cases | length' "$RUNNER_TEMP/summary-plan.json")
+          if [ "$count" -gt 0 ]; then
+            echo "has_cases=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_cases=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload the plan
+        if: ${{ steps.plan.outputs.has_cases == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: summary-plan
+          path: ${{ runner.temp }}/summary-plan.json
+          if-no-files-found: error
+          # Case ids, snapshot days and digests only — no record text.
+          retention-days: 7
+
+  # The hold: no code, no token, no permissions — the `review` environment's
+  # required reviewers gate it, so nothing below spends until a named reviewer
+  # releases this run's plan.
+  approval:
+    needs: plan
+    if: needs.plan.outputs.has_cases == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: review
+    permissions: {}
+    steps:
+      - name: Release the held summary run
+        run: echo "the review hold released — the planned summaries may spend."
+
+  # A hold that did not release leaves its record on the same run page as the
+  # plan it was judged on. No token and no permissions: a step summary needs
+  # neither.
+  rejected:
+    needs: [plan, approval]
+    if: ${{ always() && needs.plan.outputs.has_cases == 'true' && needs.approval.result != 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Record that the hold did not release
+        env:
+          RESULT: ${{ needs.approval.result }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## summarize — the review hold did not release"
+            echo ""
+            echo "The \`review\` hold ended as \`${RESULT}\`, so nothing was staged or spent. The plan report on the \`plan\` job is the record of what was declined. Nothing has to be re-filed: the owed summaries are still owed, so the next run plans them again."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  stage:
+    needs: [plan, approval]
+    if: ${{ needs.approval.result == 'success' }}
+    runs-on: ubuntu-latest
+    # One content-store read per planned case.
+    timeout-minutes: 30
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    env:
+      FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+      - name: Download the plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: summary-plan
+          path: ${{ runner.temp }}/plan
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
+
+      # The same provisioning a forward predict cell gets — latest snapshot,
+      # stored documents, the contact-detail scrub — pointed at a data root
+      # under $RUNNER_TEMP so nothing staged can reach the checkout. No
+      # `--event`, so no moment cut: a summary describes the newest record. A
+      # case that fails to stage is left out and reported by `summarize` as
+      # skipped; one bad case does not cost the rest.
+      - name: Stage each planned case's record
+        env:
+          FEDCOURTS_DATA_ROOT: ${{ runner.temp }}/stage
+        run: |
+          set -euo pipefail
+          jq -r '.cases[] | "\(.court_id) \(.docket_id)"' "$RUNNER_TEMP/plan/summary-plan.json" \
+            > "$RUNNER_TEMP/cases.txt"
+          staged=0
+          failed=0
+          while read -r court docket; do
+            if uv run fedcourts provision-snapshot --court "$court" --docket "$docket" < /dev/null; then
+              staged=$((staged + 1))
+            else
+              failed=$((failed + 1))
+              echo "::warning::could not stage ${court}/${docket}; summarize will report it skipped"
+            fi
+          done < "$RUNNER_TEMP/cases.txt"
+          echo "staged ${staged} case record(s), ${failed} failed" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the staged records
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: summary-stage
+          path: ${{ runner.temp }}/stage
+          if-no-files-found: error
+          # One day: the staged records carry filed-document text and exist
+          # only to hand it to the next job. This repository is public, so a
+          # run artifact is downloadable by any signed-in user while it exists
+          # — the residual docs/case-summaries.md states.
+          retention-days: 1
+
+  generate:
+    needs: [plan, stage]
+    if: ${{ needs.stage.result == 'success' }}
+    runs-on: ubuntu-latest
+    # ~200 cases at tens of seconds each, plus bounded retries; the summarize
+    # step carries its own cap inside this one so a slow run still reaches the
+    # scan and the upload.
+    timeout-minutes: 180
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    permissions:
+      contents: read
+    outputs:
+      written: ${{ steps.collect.outputs.written }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+
+      # The credential split's tripwire, copied from the qp-topic labeler: this
+      # job holds the summaries API key, so it must hold no cloud credential and
+      # no way to mint one. It assumes no role; this proves it stays that way.
+      - name: Assert no cloud credential in this job
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables leaked into the job env"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from this job"
+            exit 1
+          fi
+          echo "no cloud credential in the generate job"
+
+      - name: Download the plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: summary-plan
+          path: ${{ runner.temp }}/plan
+      - name: Download the staged records
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: summary-stage
+          path: ${{ runner.temp }}/stage
+
+      # No agent runs here: each summary is one HTTP request whose response the
+      # tested harness validates before writing, so the model has no tool, no
+      # shell and no file access, and the checkout it writes into is written by
+      # this command alone.
+      - name: Write the summaries
+        timeout-minutes: 165
+        env:
+          SUMMARIES_ANTHROPIC_API_KEY: ${{ secrets.SUMMARIES_ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts summarize \
+            --plan "$RUNNER_TEMP/plan/summary-plan.json" \
+            --staged "$RUNNER_TEMP/stage" \
+            --report "$RUNNER_TEMP/summary-result.md"
+
+      - name: Report the result
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f "$RUNNER_TEMP/summary-result.md" ]; then
+            cat "$RUNNER_TEMP/summary-result.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "summarize wrote no result report (see its step log)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Publish-gating, before anything leaves the runner: the change set holds
+      # summary files and nothing else, every artifact under data/ validates,
+      # and no written file carries a credential — the API key literally, or any
+      # credential shape. A failure here withholds both the artifact and the PR.
+      - name: Jail, validate and scan the written summaries
+        id: collect
+        env:
+          SUMMARIES_ANTHROPIC_API_KEY: ${{ secrets.SUMMARIES_ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          {
+            git ls-files --others --exclude-standard -- data | awk '{print "A\t" $0}'
+            git diff --name-status -- data
+          } > "$RUNNER_TEMP/changes.txt"
+          uv run fedcourts summary-paths --strict \
+            --name-status-file "$RUNNER_TEMP/changes.txt" > "$RUNNER_TEMP/written.txt"
+          uv run fedcourts validate data
+          uv run fedcourts scan-diff-for-secrets \
+            --name-status-file "$RUNNER_TEMP/changes.txt" \
+            --known-secret-env SUMMARIES_ANTHROPIC_API_KEY \
+            --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          mkdir -p "$RUNNER_TEMP/out"
+          while IFS= read -r path; do
+            cp --parents "$path" "$RUNNER_TEMP/out/"
+          done < "$RUNNER_TEMP/written.txt"
+          echo "written=$(wc -l < "$RUNNER_TEMP/written.txt")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the summaries
+        if: ${{ steps.collect.outputs.written != '' && steps.collect.outputs.written != '0' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: case-summaries
+          path: ${{ runner.temp }}/out
+          if-no-files-found: error
+          # Long enough to spot-check a rehearsal against its filings. The files
+          # are publication-bound display text that passed the scan above.
+          retention-days: 14
+
+      - name: Note the rehearsal boundary (publish fenced off this ref)
+        if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
+        run: |
+          echo "summarize rehearsal: the summaries are in the case-summaries run artifact; the review PR is fenced to main-branch runs — nothing published from this dispatch." \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    needs: [plan, generate]
+    if: >-
+      ${{ needs.generate.result == 'success'
+      && needs.generate.outputs.written != '0'
+      && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: prod
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-python-env
+      - name: Download the summaries
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: case-summaries
+          path: ${{ runner.temp }}/out
+
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # The branch is cut fresh from main each run, then carries the open PR's
+      # summaries forward (the plan counted them as written) and adds this
+      # run's — so one reviewed PR accrues until it merges. The jail, the
+      # validator and the scan run over the whole change set against main
+      # before the push.
+      - name: Open or update the review PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          BRANCH: summaries/refresh
+          WRITTEN: ${{ needs.generate.outputs.written }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git fetch --no-tags -q origin main
+          git checkout -q -f -B "$BRANCH" origin/main
+          open=$(gh api "repos/${REPO}/pulls?state=open&base=main&head=${OWNER}:${BRANCH}" \
+            --jq 'length')
+          if [ "$open" != "0" ]; then
+            git fetch --no-tags -q origin "$BRANCH"
+            git diff --name-status origin/main...FETCH_HEAD > "$RUNNER_TEMP/carried.txt"
+            uv run fedcourts summary-paths --name-status-file "$RUNNER_TEMP/carried.txt" \
+              > "$RUNNER_TEMP/carried-paths.txt"
+            while IFS= read -r path; do
+              git checkout FETCH_HEAD -- "$path"
+            done < "$RUNNER_TEMP/carried-paths.txt"
+          fi
+          cp -R "$RUNNER_TEMP/out/data/." data/
+          git add -A data
+          git diff --cached --name-status origin/main > "$RUNNER_TEMP/changes.txt"
+          uv run fedcourts summary-paths --strict \
+            --name-status-file "$RUNNER_TEMP/changes.txt" > /dev/null
+          uv run fedcourts validate data
+          uv run fedcourts scan-diff-for-secrets \
+            --name-status-file "$RUNNER_TEMP/changes.txt" \
+            --run-url "https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}"
+          if git diff --cached --quiet; then
+            echo "Summaries identical to main; nothing to open." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          total=$(wc -l < "$RUNNER_TEMP/changes.txt")
+          title="data(summaries): ${total} plain-language case summar$([ "$total" = 1 ] && echo y || echo ies)"
+          {
+            printf '%s\n\n' "Plain-language case summaries (docs/case-summaries.md): ${WRITTEN} written by this run, ${total} in this PR in all (an open PR's earlier summaries are carried forward). Display material — nothing scores them — so review is a read for factual errors and slant against the filings, not a number."
+            printf '%s\n\n' "Every file passed the summary jail, \`fedcourts validate\`, and the secret scan before this push. Each file's front matter names the model, the prompt digest and the record digest it was written from."
+            printf '%s\n' "Run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}"
+          } > "$RUNNER_TEMP/pr-body.md"
+          git commit -q -m "$title"
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${BRANCH}"
+          if [ "$open" != "0" ]; then
+            number=$(gh api "repos/${REPO}/pulls?state=open&base=main&head=${OWNER}:${BRANCH}" \
+              --jq '.[0].number')
+            gh pr edit "$number" --repo "$REPO" --title "$title" --body-file "$RUNNER_TEMP/pr-body.md"
+            echo "Updated review PR #${number} in place." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh pr create --repo "$REPO" --base main --head "$BRANCH" \
+              --title "$title" --body-file "$RUNNER_TEMP/pr-body.md")
+            echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi

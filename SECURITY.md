@@ -339,6 +339,17 @@ runbook, [docs/security.md](docs/security.md).
   labeling job needs neither, and assumes no role. Which mechanism covers which
   job, and the residual the back-test's shape leaves: *Agent shells hold no
   cloud credential* in [docs/security.md](docs/security.md).
+- **The case-summary lane never holds its model key and a corpus credential
+  together.** `summarize` reads the corpus in its `plan` and `stage` jobs
+  (read-only role) and calls the model in its `generate` job, which assumes no
+  role, holds no `id-token`, and fails before its first key-bearing step if an
+  AWS credential or OIDC minting is reachable; the staged record crosses as a
+  one-day artifact. The model call carries no tools, so the model reaches
+  nothing but the record it is sent. The key is the lane's own, with its own
+  provider-side spend cap, so the lane cannot draw on the cells' quota, and
+  every run spends only behind the `review` hold.
+  `tests/test_workflow_summarize.py` pins the split; the lane's contract is
+  [docs/case-summaries.md](docs/case-summaries.md).
 - **One scoped exception: developer corpus access from Codespaces.** Two
   developer flows, both read-only, both fed by **user-scoped** Codespaces
   secrets (never repo-level, never committed): the maintainer via IAM Identity
@@ -361,8 +372,9 @@ runbook, [docs/security.md](docs/security.md).
   environment whose branch policy pins the ref it may run from — `prod` to
   `main`, `staging` to `staging` (below) — so a dispatch from any other ref
   holds no role, no secret, no agent: a job naming an environment as a literal
-  is refused at the deployment-branch gate before a step runs, and the two
-  branch-resolving workflows (`integration-test`, `run-analytics` — the
+  is refused at the deployment-branch gate before a step runs, and the three
+  branch-resolving workflows (`integration-test`, `run-analytics`,
+  `summarize` — the
   carve-out `docs/security.md` describes) resolve an off-list ref to an empty
   auto-created environment the role trusts do not name, failing closed at the
   first credential instead. That is why no lane carries an actor gate of its
@@ -375,7 +387,7 @@ runbook, [docs/security.md](docs/security.md).
   reaches nothing. Privilege and outside reachability are disjoint here, not
   merely rare together.
   `tests/test_workflow_auth_gate.py` sweeps the whole workflow
-  directory for a reachable trigger, pins the four privileged lanes to those
+  directory for a reachable trigger, pins the five privileged lanes to those
   two, and requires every job that mints a token, assumes a role, or runs an
   agent to bind one of the branch-policied environments — so a workflow added
   later inherits the boundary. Behind all of it the `review` hold remains the

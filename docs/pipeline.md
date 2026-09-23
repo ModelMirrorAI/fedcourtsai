@@ -17,8 +17,8 @@ a maintainer-merged promotion put on `main`; a `workflow_dispatch` is refused by
 GitHub to anyone without repository write; and every privileged job binds a
 deployment environment whose branch policy pins the ref it may run from (`prod`
 to `main`, `staging` to `staging`) — a job naming one as a literal is refused at
-the deployment gate from any other ref before a step runs, and the two
-branch-resolving workflows (`integration-test`, `run-analytics`) resolve an
+the deployment gate from any other ref before a step runs, and the three
+branch-resolving workflows (`integration-test`, `run-analytics`, `summarize`) resolve an
 off-list ref to an auto-created empty environment holding no role variables and
 no keys, failing closed at the first credential instead (the carve-out is in
 [security.md](security.md)). The trigger decides only
@@ -38,6 +38,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
+| `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the manual `review` release | script; one Messages API call per case, no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, qp-labeler-smoke one labeling agent over a synthetic extract, and each codex-freeze-probe member one trivial codex turn with the watchdog armed around it |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
@@ -47,7 +48,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 trigger for one to judge. `tests/test_workflow_auth_gate.py` locks that shape in
 — it sweeps the whole workflow directory for any trigger class an actor without
 repository write could fire (`issues`, `issue_comment`, `pull_request_target`,
-`workflow_run` and their kin), pins the four privileged lanes to the
+`workflow_run` and their kin), pins the five privileged lanes to the
 platform-gated two, requires every job that mints a token, assumes the S3
 role, or runs an agent to bind one of the branch-policied environments, and
 holds the `pull_request` workflows to a shape with nothing in it to reach. So a workflow added
@@ -473,6 +474,22 @@ queues behind the production run of the same mode. The modes:
   overrides the default for `claude-fable-5`, the one tier measured to finish.
   `claude-opus-5-5` is offered too, with no measured pace or cost yet.
   See [qp-topic.md](qp-topic.md).
+
+## `summarize` — plain-language case summaries
+
+`summarize` writes the committed plain-language account of each predicted case
+(`data/cases/<court>/<docket>/summaries/<day>.md`) the site shows beside the
+forecasts. It is level-triggered like the other lanes: `fedcourts
+summarize-plan` derives the owed cases from committed state — a case with a
+committed prediction whose newest corpus record differs, by content digest,
+from the one its newest summary was written from — so a run that was declined
+or never fired is simply re-derived by the next. Every run holds on `review`
+before it spends. The corpus role and the lane's dedicated API key never share
+a job; on `main` the result lands as one reviewed PR from the fixed branch
+`summaries/refresh`, never auto-merged, which later runs update in place until
+it merges. A `staging` dispatch is a rehearsal whose summaries stay in the run
+artifact. The contract, selection rule, credential split and residuals are in
+[case-summaries.md](case-summaries.md).
 
 ## `integration-test` — the infrastructure preflight
 
@@ -1392,7 +1409,8 @@ The mechanics:
   only on a PR to `main` whose head is not `staging` or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, and salience-replay PRs, the qp-topic
-  labeling run's `qp-topics/refresh` PR, and the big-case board's
+  labeling run's `qp-topics/refresh` PR, the case-summary lane's
+  `summaries/refresh` PR, and the big-case board's
   `metrics/big-cases` PR); on those
   legitimate lanes it reports `skipped`, which satisfies the requirement. Its
   definition lives in `main`'s own ci.yml, so the context reports on every

@@ -82,6 +82,7 @@ from .schemas import (
     ScopeUnclassified,
     Stage,
 )
+from .summaries import summary_file_problems
 
 # Bounded sample of matched case ids per exclusion, so the scope audit stays small.
 _MAX_SAMPLE = 10
@@ -287,13 +288,24 @@ def validate_ledger(path: Path) -> LedgerValidation:
     the true failure count.
 
     Scoped to the committed ledger: the gitignored ``record/`` provisioning trees
-    are skipped (:func:`_in_provisioning_tree`).
+    are skipped (:func:`_in_provisioning_tree`). A case's committed
+    ``summaries/`` files are checked too, against the summary contract
+    (:func:`fedcourtsai.summaries.summary_file_problems`).
     """
     problems: list[str] = []
     checked = 0
     for file in sorted(path.rglob("*")):
+        if not file.is_file() or _in_provisioning_tree(file, path):
+            continue
+        # A case's summaries are markdown named for a day, so no filename keys
+        # them; they are matched by position under the case instead.
+        summary = summary_file_problems(file, path)
+        if summary is not None:
+            checked += 1
+            problems.extend(f"{file}: {problem}" for problem in summary)
+            continue
         model = FILENAME_MODELS.get(file.name)
-        if model is None or not file.is_file() or _in_provisioning_tree(file, path):
+        if model is None:
             continue
         checked += 1
         try:

@@ -1,0 +1,242 @@
+# Case summaries
+
+A plain-language account of each predicted case — what happened, what the
+Court is being asked, where it stands — for site readers who do not already
+know the case. The forecasts assume a reader who does; a summary is the page
+that makes them legible. Summaries are **display material**: nothing scores
+one, and no metric, leaderboard or board artifact reads one.
+
+## The artifact
+
+One markdown file per case per record:
+
+```
+data/cases/<court_id>/<docket_id>/summaries/<YYYY-MM-DD>.md
+```
+
+named for the corpus snapshot day it was generated from
+(`CasePaths.summary`). It sits beside `record/`, not inside it: `record/` is
+gitignored so a snapshot can never be committed, while a summary is committed
+and published.
+
+The front matter is written by the harness, never by the model
+(`CaseSummaryFrontMatter`, exported as
+`schemas/case_summary_front_matter.schema.json`):
+
+```yaml
+---
+case_id: scotus/9026000239
+snapshot: '2026-09-20'
+record_digest: sha256:…     # the record the body was written from
+model: claude-sonnet-5
+prompt_digest: sha256:…     # .github/prompts/summarize.md as sent
+generated_at: '2026-09-23T04:02:11Z'
+usage:
+  input_tokens: 48210
+  output_tokens: 391
+  estimated_cost_usd: 0.100330
+---
+```
+
+The body carries exactly three sections, in this order, about 250 words in
+all:
+
+- `## What happened` — the dispute and how it reached the Court (~100 words).
+- `## What the Court is being asked` — the question, restated without a
+  "Whether…" construction or citations.
+- `## Where it stands` — the posture in one or two sentences.
+
+`fedcourts validate data` checks every committed summary: the name is a day,
+the front matter validates, its `case_id` and `snapshot` match the path, and
+the three headings are present in order.
+
+## The summarizer's contract
+
+The prompt is `.github/prompts/summarize.md`. Its rules:
+
+- **Grounded in the record only.** The request carries the prompt and the
+  staged record — the snapshot and the stored documents — and nothing else: no
+  tools, no retrieval, thinking off. So a summary cannot carry a post-snapshot
+  development, commentary, or an outcome the record does not show; the model is
+  also told not to add what it may know from training.
+- **Neutral.** Both sides' positions; no prediction, no view on the merits, no
+  characterisation of the case's importance.
+- **Glossary terms.** Where a legal term is unavoidable, one of cert, relist,
+  CVSG, GVR, emergency application, merits, reverse/vacate, explained in
+  passing. The repository holds no site glossary, so the prompt defines each
+  term itself, minimally; a site glossary, once it exists, is the definition to
+  align the prompt with.
+- **People.** Named only as the caption and filings name them; initials stay
+  initials; no personal detail beyond the dispute.
+
+`record/context.json` is **not** sent. It carries the pipeline's conditioning
+state for a cell — the salience band among it — which is not a fact about the
+case, and a band is exactly the importance signal the neutrality rule keeps out
+of a summary.
+
+The harness accepts a response only if it ended normally (`end_turn`), has
+exactly the three headings in order with nothing before the first, runs
+120–450 words (a tolerant band around the 250 asked for), opens no paragraph
+with "Whether", and passes the secret scan. Anything else is not written; the
+case is reported skipped with the reason, and the cost of the call is still
+counted.
+
+## Which cases, and when
+
+**Eligible:** every case with at least one committed prediction
+(`store.iter_predicted_events`).
+
+**Owed a summary:** when the `record_digest` of its newest corpus record
+differs from the `record_digest` in its newest committed summary's front
+matter — or it has no summary. The digest is sha256 over the newest snapshot
+payload in canonical JSON with its generation stamps removed
+(`provision.GENERATION_STAMPS`: the pull's own timestamp), plus the sorted
+`(kind, sha256(text))` pair of each stored document. Documents are in the
+digest because they arrive days after the docket entry that links them, so a
+record whose docket is unchanged but whose petition text has just landed is a
+new record to summarize.
+
+The rule is keyed on content, not on the snapshot day, because of what the
+corpus actually holds: measured on 2026-09-23, about 100 of the 195 predicted
+cases gained a new dated snapshot every day, but 177 of 185 consecutive-day
+snapshot pairs were identical once the generation stamp was ignored. A
+day-keyed rule would pay to rewrite an unchanged summary for half the ledger
+every day; the content-keyed one writes for the ~4% of records that changed.
+
+The run is idempotent: over an up-to-date ledger the plan is empty and nothing
+is written. The first run on `main` is the backfill — every eligible case,
+about 195 — and each later run writes only for changed records. Planned cases
+are ordered cases-without-a-summary first, then changed records, so a
+`limit` spends on the cases a reader has nothing for.
+
+## The model
+
+`summaries.model` in `config/tracking.yaml`: **Claude Sonnet 5**
+(`claude-sonnet-5`, $2 / $10 per million input / output tokens,
+`pricing.MODEL_RATES`). The task is a faithful restatement of a record, which
+a mid-tier model does well at a fifth of the frontier rate, and it is outside
+the prediction panel, so no summary is written by a model being scored.
+
+Changing it is a reviewed config edit. The plan names the model it priced, and
+`summarize` refuses a plan made for another model than the configured one; every
+summary written after the change names the new model in its front matter, and
+earlier summaries keep theirs. A model the rate table cannot price is refused
+at plan time. The same section holds `max_output_tokens` (a response that
+reaches it is rejected, not written) and `max_document_chars`, the
+per-document cap on what the model reads, marked in the text with
+`[truncated: N of M characters shown]` so one outsized brief cannot blow up a
+run's cost.
+
+## The workflow
+
+`.github/workflows/summarize.yml` — its own workflow, because it spends on its
+own API key behind its own hold and runs on its own daily schedule (03:43 UTC,
+clear of `run-predict` and `run-evaluate`). One run per ref at a time. Five
+jobs:
+
+| Job | Holds | Does |
+|---|---|---|
+| `plan` | read-only corpus role | stands down (a notice, no work) while a `run-predict` or `run-evaluate` run is in progress; counts an open `summaries/refresh` PR's summaries as written; `fedcourts summarize-plan` → the plan and the report the hold is judged on |
+| `approval` | nothing (`review` environment) | the spend hold |
+| `stage` | read-only corpus role | `provision-snapshot` for each planned case, into a data root under `$RUNNER_TEMP` |
+| `generate` | the summaries API key, and asserts it holds no cloud credential | `fedcourts summarize`; jails, validates and secret-scans the written files; uploads them as the `case-summaries` artifact |
+| `publish` | dev App token (`main` only) | opens or updates one reviewed PR from `summaries/refresh` |
+
+**Every run holds**, scheduled or dispatched, as `run-predict`'s rounds do: the
+hold is the lane's one human gate before spend, and the plan report states the
+case count and an estimated cost range.
+
+**Credential separation.** The corpus credentials and the API key never share a
+job, so no step holds both: the plan and stage jobs assume the read-only role,
+the generate job holds the key and assumes nothing (its first step fails the
+job if any AWS credential or OIDC minting is reachable), and the staged record
+crosses between them as a one-day run artifact.
+`tests/test_workflow_summarize.py` pins the split.
+
+**Its own key.** The API key is a dedicated secret with its own spend cap on
+the provider console, so this lane cannot draw on the quota the predict and
+evaluate cells run on, and a runaway plan is bounded by the cap as well as the
+hold.
+
+**Staged like a cell.** The record a summary reads is the one a forward predict
+cell reads — `provision-snapshot`'s latest snapshot and stored documents, with
+its contact-detail scrub applied to the staged text — taken without a moment
+cut, since a summary describes the newest record.
+
+**Publication.** Before anything leaves the runner, the change set must hold
+summary files and nothing else (`fedcourts summary-paths --strict`), `data/`
+must validate, and `scan-diff-for-secrets` must pass with the API key as a
+known secret; a failure withholds both the artifact and the PR. On `main` the
+`publish` job cuts `summaries/refresh` from `main`, carries the open PR's
+summaries forward, adds the run's, re-runs the jail, the validator and the scan
+over the whole change set, force-pushes and opens or updates the PR. It is
+**never auto-merged**: the collect jails do not cover this branch family, so an
+auto-merge needs a jail of its own first. `ci.yml`'s `main-base` routing admits
+the branch.
+
+**Rehearsal.** A dispatch from `staging` binds the staging environment — its
+read-only role, corpus pair and its own summaries key — plans, holds, stages
+and generates, and leaves the summaries in the `case-summaries` run artifact.
+It publishes nothing.
+
+## Leakage
+
+**Back-test replay cells cannot read a summary.** A summary of a decided case
+states the outcome. `run-backtest` removes `data/cases/` whole before its cells
+run, and summaries live under it;
+`tests/test_workflow_cell_invariants.py` pins that the summary path stays
+inside the removed tree.
+
+**Forward predict and evaluate cells can.** `run-predict` and `run-evaluate`
+check out the ledger with summaries in it, and nothing fences them off. That is
+a stated residual rather than an oversight. A summary describes the case's
+newest record, which can be later than the information set a moment-placed
+forward cell is provisioned with (a brief in opposition filed after the
+arrival moment, say). But a forward cell may retrieve without restriction —
+the live docket carries the same later record — and the site publishes every
+summary, so a checkout fence would withhold nothing a cell could not fetch. The
+moment cut bounds what a cell is *handed*, not what it can find. Every
+predictor reads the same checkout, so a summary is common input rather than one
+engine's advantage.
+
+**The staged record is a public artifact for a day.** The `summary-stage`
+artifact carries filed-document text (after the contact-detail scrub) between
+the stage and generate jobs. This repository is public, so any signed-in user
+can download a run artifact while it exists; its retention is the shortest
+GitHub offers, one day, the same residual the qp-topic extract carries. The
+documents are public court filings.
+
+## Commands
+
+- `fedcourts summarize-plan [--limit N] [--out plan.json] [--report plan.md]` —
+  the dry run: eligible, up-to-date and owed counts, the planned cases, and an
+  estimated cost range. Reads the corpus; writes nothing under `data/`; calls no
+  model.
+- `fedcourts summarize --plan plan.json --staged <root> [--report result.md]` —
+  writes the planned summaries. Exits 1 if the plan held cases and none was
+  written, so a dead key reads as a failure rather than an empty success.
+- `fedcourts summary-paths --name-status-file <f> [--strict]` — the lane's path
+  filter and, with `--strict`, its publish jail.
+
+## Cost
+
+Measured record sizes: the median staged record is ~120k characters of
+documents (≈50k tokens at ~2.5 characters per token on the current
+tokenizer), the largest ~225k, plus a ~8KB snapshot — ≈$0.10–0.20 per summary
+on Sonnet 5. The backfill of ~195 cases is ≈$20–40 once (`summarize-plan` over
+the live content store on 2026-09-23 planned all 195, median 105k capped input
+characters, largest 289k, and estimated $13–21 — its range assumes 2.5–3.5
+characters per token, so the conservative figure stands until a run's measured
+usage replaces both); at ~4% of records
+changing a day, steady state is roughly 5–10 summaries a day, ≈$1–2 a day or
+≈$30–60 a month, bounded by the key's spend cap. See
+[budget.md](budget.md).
+
+## Non-goals
+
+- **Grading summaries.** They are display material; nothing is scored on them.
+- **Summaries of earlier snapshots.** Only the newest record is summarized; a
+  superseded summary stays as written, dated by its snapshot.
+- **Short captions and docket numbers.** Tracked separately with the big-case
+  board's `short_caption`; whether this lane should produce one is a question
+  for when both exist.

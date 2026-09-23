@@ -8403,6 +8403,96 @@ class EvaluatorConfig(_Strict):
     )
 
 
+_SHA256_DIGEST = r"^sha256:[0-9a-f]{64}$"
+
+
+class CaseSummaryUsage(_Strict):
+    """The token usage of the one call that wrote a case summary."""
+
+    input_tokens: int = Field(ge=0, description="Uncached input tokens billed")
+    output_tokens: int = Field(ge=0, description="Output tokens billed")
+    estimated_cost_usd: float = Field(
+        ge=0,
+        description="The call's on-demand cost at `pricing.MODEL_RATES` for `model` — "
+        + "an estimate at the rate table's snapshot, like every figure it prices",
+    )
+
+
+class CaseSummaryFrontMatter(_Strict):
+    """The YAML front matter of ``data/cases/<court>/<docket>/summaries/<day>.md``.
+
+    Written by the harness, never by the model: provenance a reader can check
+    the body against. ``record_digest`` is what makes the selection rule
+    content-keyed — a case needs a new summary exactly when the digest of its
+    newest record differs from the one its newest summary carries
+    (``docs/case-summaries.md``).
+    """
+
+    case_id: str = Field(description="The case the summary describes, `<court>/<docket>`")
+    snapshot: date = Field(
+        description="The corpus snapshot day the summary was generated from; the "
+        + "file is named for it"
+    )
+    record_digest: str = Field(
+        pattern=_SHA256_DIGEST,
+        description="sha256 over the canonical newest snapshot payload (generation "
+        + "stamps removed) and the sorted (kind, text sha256) pairs of the case's "
+        + "stored documents — the record the summary was written from",
+    )
+    model: str = Field(description="The Messages API model id that wrote the body")
+    prompt_digest: str = Field(
+        pattern=_SHA256_DIGEST,
+        description="sha256 of `.github/prompts/summarize.md` as sent",
+    )
+    generated_at: datetime = Field(description="When the harness wrote the file (UTC)")
+    usage: CaseSummaryUsage | None = Field(
+        default=None, description="The writing call's token usage, where the response carried it"
+    )
+
+
+class SummaryPlanCase(_Strict):
+    """One case a summary run would write, with the record it would read."""
+
+    case_id: str
+    court_id: str
+    docket_id: int
+    snapshot: date = Field(description="The newest snapshot day; the summary's filename")
+    record_digest: str = Field(pattern=_SHA256_DIGEST)
+    reason: Literal["new", "record-changed"] = Field(
+        description="new: the case has no committed summary; record-changed: its "
+        + "newest summary was written from a different record"
+    )
+    documents: int = Field(ge=0, description="Stored documents the record carries")
+    input_chars: int = Field(
+        ge=0,
+        description="Characters the model would read: the snapshot plus each "
+        + "document up to the per-document cap",
+    )
+
+
+class SummaryPlan(_Strict):
+    """``fedcourts summarize-plan`` output — what a summary run would write and cost.
+
+    The plan-and-hold document: rendered before the review hold so the release
+    is judged on it, and handed to ``fedcourts summarize`` so the run writes
+    exactly what was approved.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    model: str
+    eligible: int = Field(ge=0, description="Cases with at least one committed prediction")
+    up_to_date: int = Field(
+        ge=0, description="Eligible cases whose newest summary matches their newest record"
+    )
+    no_snapshot: list[str] = Field(
+        default_factory=list, description="Eligible cases the corpus holds no snapshot for"
+    )
+    deferred: int = Field(ge=0, description="Cases owed a summary that the limit held back")
+    cases: list[SummaryPlanCase]
+    estimated_cost_usd_low: float = Field(ge=0)
+    estimated_cost_usd_high: float = Field(ge=0)
+
+
 # Maps on-disk filename -> the model that validates it. Used by `fedcourts validate`.
 FILENAME_MODELS: dict[str, type[_Strict]] = {
     "case.yaml": TrackedCase,
@@ -8455,4 +8545,6 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "retrieval_log": RetrievalLog,
     "qp_topic_reference": QpTopicReference,
     "qp_topics": QpTopicLabels,
+    "case_summary_front_matter": CaseSummaryFrontMatter,
+    "summary_plan": SummaryPlan,
 }
