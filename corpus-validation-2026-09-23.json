@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2153112,
-      "detail": "2153112 rows vs baseline 2153110",
+      "checked": 2153125,
+      "detail": "2153125 rows vs baseline 2153112",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4309425,
+      "checked": 4309451,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2153112,
+      "checked": 2153125,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -49,7 +49,7 @@
       "problems": []
     },
     {
-      "checked": 2153112,
+      "checked": 2153125,
       "detail": "0 future-dated, 22 decided-before-filed vs accepted baseline 50 (as of 2026-09-23); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
       "failures": 22,
       "name": "case_dates_ordered",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4306352,
+      "checked": 4306378,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4309425,
+      "checked": 4309451,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 13968,
+      "checked": 13969,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -174,7 +174,7 @@
       "problems": []
     },
     {
-      "checked": 12698,
+      "checked": 12699,
       "detail": "",
       "failures": 0,
       "name": "outcome_votes_await_a_registered_source",
@@ -190,7 +190,7 @@
       "problems": []
     },
     {
-      "checked": 12698,
+      "checked": 12699,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
@@ -198,8 +198,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2153240,
-  "corpus_rows": 2153112,
+  "corpus_events": 2153253,
+  "corpus_rows": 2153125,
   "ok": true,
   "schema_version": "1.0",
   "skipped": false
