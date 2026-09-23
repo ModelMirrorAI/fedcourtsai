@@ -2528,11 +2528,12 @@ def test_a_fault_in_the_absorption_is_accounted_from_the_held_state(
         attempts.clear()
 
 
-def test_a_harness_fault_turns_the_run_red_and_still_writes_the_report(
+def test_a_harness_fault_is_annotated_and_the_report_still_written(
     fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Our own code failing is not an upstream degrading: the paid-for report is
-    # written, and an ::error:: annotation says what happened.
+    # written and the command exits zero so it still lands, and an ::error::
+    # annotation lists the fault on the run page.
     monkeypatch.setattr(
         cert_backtest, "get_runner", lambda backend="stub": _CrashingRunner(backend, "codex")
     )
@@ -2548,3 +2549,43 @@ def test_a_harness_fault_turns_the_run_red_and_still_writes_the_report(
     assert [(c.predictor_id, c.reason) for c in report.provenance.lost_cells] == [
         ("codex-baseline", "harness-error")
     ]
+
+
+def test_each_lane_runs_under_its_own_identically_provisioned_root(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No cell is placed beside another engine's forecast for its petition.
+
+    Lanes finish petitions at different speeds, so in one shared tree which
+    peer forecasts sat beside a cell would be a matter of timing. Each lane
+    gets its own sub-root instead, provisioned with the same inputs byte for
+    byte, and finds only its own engine's cells there.
+    """
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(cert_backtest, "get_runner", _fake_get_runner(calls))
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    work_root = tmp_path / "replay"
+    outcome = replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=work_root,
+        run_id="20260706T000000Z",
+    )
+    assert len(outcome.backtesters) == 3
+    lanes = {
+        "claude-code": "claude-baseline",
+        "codex": "codex-baseline",
+        "gemini": "gemini-baseline",
+    }
+    assert sorted(p.name for p in work_root.iterdir()) == sorted(lanes)
+    inputs = set()
+    for lane, predictor in lanes.items():
+        cells = {p.parent.parent.name for p in (work_root / lane).rglob("prediction.json")}
+        assert cells == {predictor}
+        snapshot = next((work_root / lane).rglob("record/snapshots/*.json")).read_bytes()
+        context = next((work_root / lane).rglob("record/context.json")).read_bytes()
+        event = next((work_root / lane).rglob("event.yaml")).read_bytes()
+        inputs.add((snapshot, context, event))
+    assert len(inputs) == 1

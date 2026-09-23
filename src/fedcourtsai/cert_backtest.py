@@ -644,6 +644,9 @@ def _lane_command_runner(label: str) -> CommandRunner:
         # the engine's own exit, and an unbounded join would stall the lane —
         # and with it the report — until the job's cap. Daemon pumps, so one
         # still attached to such a process never holds the command open either.
+        # The cost, in that case only: stderr still unread when the bound runs
+        # out is missing from what the fault classifier reads, so a late quota
+        # message could classify as a plain engine failure.
         for pump in pumps:
             pump.join(timeout=_PUMP_DRAIN_SECONDS)
         return CommandResult(returncode=returncode, stderr="".join(list(captured)))
@@ -1140,6 +1143,7 @@ def _run_lanes(
     *,
     engines: Mapping[str, str],
     workers: int,
+    lane_roots: Mapping[str, Path] | None = None,
 ) -> list[_Lane]:
     """Run every engine lane — at once by default, ``workers`` at a time if bounded.
 
@@ -1149,12 +1153,22 @@ def _run_lanes(
     debugging a single lane wants; ``0`` gives every lane its own worker.
     Each worker's runners spawn through the lane's prefixed executor
     (:func:`_in_lane`), so the three engines' interleaved output stays legible.
+    ``lane_roots`` re-roots each lane's cells at its own provisioned sub-root;
+    without it every lane writes where the petitions' contracts say.
     """
     states = [_Lane(collected={p.id: {} for p, _ in lane_pairs}) for _, lane_pairs in lanes]
     routed = [
         (label, [(p, _in_lane(runner, label)) for p, runner in lane_pairs])
         for label, lane_pairs in lanes
     ]
+
+    def rooted(label: str) -> Sequence[_ProvisionedPetition]:
+        if lane_roots is None:
+            return petitions
+        return [
+            replace(petition, cell=replace(petition.cell, data_root=lane_roots[label]))
+            for petition in petitions
+        ]
 
     def settle(
         label: str, lane_pairs: list[tuple[PredictorConfig, Runner]], state: _Lane, fault: Exception
@@ -1170,13 +1184,13 @@ def _run_lanes(
     if width <= 1:
         for (label, lane_pairs), state in zip(routed, states, strict=True):
             try:
-                _run_lane(label, lane_pairs, petitions, engines=engines, lane=state)
+                _run_lane(label, lane_pairs, rooted(label), engines=engines, lane=state)
             except Exception as fault:
                 settle(label, lane_pairs, state, fault)
         return states
     with ThreadPoolExecutor(max_workers=width, thread_name_prefix="backtest-lane") as pool:
         futures = [
-            pool.submit(_run_lane, label, lane_pairs, petitions, engines=engines, lane=state)
+            pool.submit(_run_lane, label, lane_pairs, rooted(label), engines=engines, lane=state)
             for (label, lane_pairs), state in zip(routed, states, strict=True)
         ]
         for (label, lane_pairs), state, future in zip(routed, states, futures, strict=True):
@@ -1185,6 +1199,19 @@ def _run_lanes(
             except Exception as fault:
                 settle(label, lane_pairs, state, fault)
     return states
+
+
+def _write_case_tree(
+    case_paths: CasePaths,
+    snapshot_date: date,
+    snapshot: dict[str, Any],
+    context: dict[str, Any],
+    definition: PredictableEvent,
+) -> None:
+    """Write one petition's provisioned inputs — snapshot, cell context, event."""
+    write_raw_json(case_paths.snapshot(snapshot_date.isoformat()), snapshot)
+    write_raw_json(case_paths.cell_context, context)
+    write_yaml(case_paths.event(definition.event_id).event_file, definition)
 
 
 def replay_predictors(
@@ -1204,8 +1231,9 @@ def replay_predictors(
     For each petition this provisions what a live predict cell reads — the
     latest snapshot (**redacted**, see :func:`redact_snapshot`) and the event
     definition **as it looked while open** (``resolved: false``, so nothing in
-    the working tree says the matter is decided) — under ``work_root`` (a
-    scratch tree, never the ``data/`` ledger), then runs each predictor's cell
+    the working tree says the matter is decided) — under each engine lane's
+    own sub-root of ``work_root`` (a scratch tree, never the ``data/``
+    ledger), then runs each predictor's cell
     via its own engine's runner (see :func:`_runners_by_predictor`; a predictor
     whose engine has no registered runner is absent from the result rather than
     mislabeled through another engine, and ``engine_override`` forces one
@@ -1280,6 +1308,15 @@ def replay_predictors(
     # `engine_override` is the override rather than the registry entry — the
     # same resolution `ran_on` records, and the key a spent quota belongs to.
     engines = {pid: backend for pid, (backend, _) in ran_on.items()}
+    # One sub-root per engine lane, each provisioned with identical inputs. A
+    # lane's cells then find only their own engine's outputs beside them, so no
+    # cell is placed next to another engine's forecast for its petition — which
+    # lanes running at different speeds would otherwise make a matter of timing
+    # — and gemini's admitted directory, a context-file discovery root, holds
+    # only gemini's own cells. Placement, not a wall: the sub-roots are
+    # siblings, and an engine that reads outside its own is not stopped.
+    lanes = _engine_lanes(pairs, engines)
+    lane_roots = {label: work_root / label for label, _ in lanes}
     provisioned: list[_ProvisionedPetition] = []
     # The repository ledger, for the stray-write probe only (see
     # :func:`_read_replayed_cell`). None where the replay is writing into the
@@ -1297,7 +1334,6 @@ def replay_predictors(
     for item in items:
         court, _, docket_raw = item.features.case_id.partition("/")
         docket = int(docket_raw)
-        case_paths = CasePaths(work_root, court, docket)
         ledger_paths = CasePaths(ledger_root, court, docket) if probe_ledger else None
         with corpus.connect_readonly(corpus_db_path) as conn:
             found = corpus.latest_snapshot(conn, item.features.case_id)
@@ -1363,7 +1399,6 @@ def replay_predictors(
         provisioning[provenance] += 1
         if cutoff is not None:
             clock_days[item.features.case_id] = cutoff
-        write_raw_json(case_paths.snapshot(snapshot_date.isoformat()), redacted)
         # The cell's mode context: a replay cell runs with the same tools
         # as a forward one — etiquette, logging, and the cross-evaluator's leakage
         # grading replace walls — so the prompt contract needs the mode stated, not
@@ -1371,50 +1406,49 @@ def replay_predictors(
         # that truncation leaves a docket to derive one from: a replay cell that can
         # see its own trajectory can be scored against the rate that trajectory
         # implies, instead of one keyed on where the petition ended up.
-        write_raw_json(
-            case_paths.cell_context,
-            cell_context.build(
-                item.features.case_id,
-                snapshot_date,
-                redacted,
-                "replay",
-                provenance=provenance,
-                cutoff=cutoff,
-                # The plain date rule, stated rather than left null: this
-                # provisioner replays the cert baseline, whose trigger is a
-                # conference rather than a docket entry, so there is no intra-day
-                # tail to exclude and no anchor to record. Saying so keeps
-                # `cut_kind` non-null wherever `cutoff` is, which is what lets the
-                # prompt contract and the leakage clock read one field for the
-                # boundary instead of inferring it from the absence of another.
-                # The blind arm is the converse: its proceedings are removed
-                # wholesale and its cutoff is null, which is neither rule, so it
-                # carries no kind.
-                boundary=(arrival_cut.CutBoundary(kind="date") if cutoff is not None else None),
-                # The record's clock is the Term year even where the exported
-                # one is a date: `cutoff` beside it already carries the day, and
-                # this field is what the statpack's and docket's per-Term
-                # anchoring rule is read against — a Term row either precedes a
-                # Term year or it does not, with nothing to resolve.
-                decided_before=str(item.features.year),
-            ).model_dump(mode="json"),
-        )
+        context = cell_context.build(
+            item.features.case_id,
+            snapshot_date,
+            redacted,
+            "replay",
+            provenance=provenance,
+            cutoff=cutoff,
+            # The plain date rule, stated rather than left null: this
+            # provisioner replays the cert baseline, whose trigger is a
+            # conference rather than a docket entry, so there is no intra-day
+            # tail to exclude and no anchor to record. Saying so keeps
+            # `cut_kind` non-null wherever `cutoff` is, which is what lets the
+            # prompt contract and the leakage clock read one field for the
+            # boundary instead of inferring it from the absence of another.
+            # The blind arm is the converse: its proceedings are removed
+            # wholesale and its cutoff is null, which is neither rule, so it
+            # carries no kind.
+            boundary=(arrival_cut.CutBoundary(kind="date") if cutoff is not None else None),
+            # The record's clock is the Term year even where the exported
+            # one is a date: `cutoff` beside it already carries the day, and
+            # this field is what the statpack's and docket's per-Term
+            # anchoring rule is read against — a Term row either precedes a
+            # Term year or it does not, with nothing to resolve.
+            decided_before=str(item.features.year),
+        ).model_dump(mode="json")
         event = petitions[0]
-        write_yaml(
-            case_paths.event(event.event_id).event_file,
-            PredictableEvent(
-                event_id=event.event_id,
-                case_id=event.case_id,
-                kind=event.kind,
-                stage=event.stage,
-                moment=event.moment,
-                title=event.title or event.case_id,
-                description=event.description,
-                opened_at=event.opened_at,
-                decision_target=event.decision_target,
-                resolved=False,  # the pre-decision view: the outcome stays hidden
-            ),
+        definition = PredictableEvent(
+            event_id=event.event_id,
+            case_id=event.case_id,
+            kind=event.kind,
+            stage=event.stage,
+            moment=event.moment,
+            title=event.title or event.case_id,
+            description=event.description,
+            opened_at=event.opened_at,
+            decision_target=event.decision_target,
+            resolved=False,  # the pre-decision view: the outcome stays hidden
         )
+        # The same inputs, byte for byte, under every lane's own root.
+        for lane_root in lane_roots.values():
+            _write_case_tree(
+                CasePaths(lane_root, court, docket), snapshot_date, redacted, context, definition
+            )
         # One petition's cell contract, run later in every engine's lane.
         provisioned.append(
             _ProvisionedPetition(
@@ -1428,6 +1462,7 @@ def replay_predictors(
                     actor_id="",
                     prompt=Path(),
                     run_id=run_id,
+                    # Each lane re-roots this at its own sub-root.
                     data_root=work_root,
                     # The replay clock, in the two halves the cell reads as
                     # DECIDED_BEFORE and REPLAY_CUTOFF. The Term is the case's
@@ -1447,7 +1482,7 @@ def replay_predictors(
     # Every case tree is on disk; now the cells, one lane per engine. Merged in
     # lane order and sorted below, so completion order never reaches the report.
     merged = _merged(
-        _run_lanes(_engine_lanes(pairs, engines), provisioned, engines=engines, workers=workers)
+        _run_lanes(lanes, provisioned, engines=engines, workers=workers, lane_roots=lane_roots)
     )
     collected, unavailable, lost, disclosures = (
         merged.collected,

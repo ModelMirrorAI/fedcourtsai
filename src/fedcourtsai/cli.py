@@ -5396,8 +5396,10 @@ def _annotate_harness_faults(lost_cells: list[CertBacktestCellLoss]) -> None:
     """Turn a replay's harness faults into an Actions error annotation.
 
     Our own code failed there, not an upstream: the report is still written —
-    its cells were paid for — but the run says so where a maintainer looks,
-    rather than landing green with the stderr lines as the only trace.
+    its cells were paid for — and the command still exits zero, so the step
+    does not fail and the review PR still opens. What the annotation adds is
+    visibility: the run page lists the fault where a maintainer looks, rather
+    than leaving the stderr lines as the only trace.
     """
     faults = sum(1 for loss in lost_cells if loss.reason == "harness-error")
     if faults:

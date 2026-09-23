@@ -1233,7 +1233,7 @@ the rendered table) and
   coverage-not-attempts reading). Read the whole-predictor drops apart here: a
   predictor dropped because its engine's quota ran out, or because its lane
   stopped on a harness fault, carries a `lost_cells` entry for every petition
-  (under that reason), while one dropped for a missing CLI binary carries
+  (the tail under that reason), while one dropped for a missing CLI binary carries
   entries only for the cells it had already lost — its remaining ones were
   never attempted and
   are not counted as losses, so a shortfall with no entries behind it is that
