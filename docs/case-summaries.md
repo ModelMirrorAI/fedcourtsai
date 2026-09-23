@@ -73,7 +73,8 @@ The prompt is `.github/prompts/summarize.md`. Its rules:
   attributed to that filing; a question presented is restated without changing
   who made the rule, whom it binds, or which way it cuts; routine docket
   entries are left out, and one that matters to the posture is named as the
-  docket names it; dates and counts are as the entries give them.
+  docket names it; a request the docket shows only as filed is not reported
+  as granted; dates and counts are as the entries give them.
 - **People.** Named only as the caption and filings name them; initials stay
   initials; no personal detail beyond the dispute.
 
