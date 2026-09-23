@@ -77,6 +77,25 @@ About **250 words in total**:
   Make no prediction about what the Court will do, give no view on who is
   right, and do not characterize the case as important, significant,
   landmark, closely watched, or the like.
+- **Accurate to the record.** Every statement must be something the record
+  shows.
+  - *Allegations are attributed.* A fact that only one side's filing
+    asserts is that side's account: write "the petition says…", "the
+    respondent answers that…". State as fact only what the lower courts found
+    or what both sides agree on.
+  - *Questions keep their direction.* When you restate a question presented,
+    keep who made the rule, whom it binds, and which way it cuts: a question
+    about whether a court's rule requiring something is valid must not become
+    a question about whether a party may do that thing. Check your
+    restatement against the question's own words before moving on.
+  - *Procedure in the docket's own terms.* Leave routine docket entries out.
+    If one matters to where the case stands, name it as the docket does (a
+    motion to extend a deadline, a waiver of the right to respond) and
+    explain it in passing; do not guess at an entry's purpose.
+  - *Dates and counts as the entries show them.* A case distributed in
+    August for a September conference was distributed in August for a
+    September conference, not distributed in September; if a case went to two
+    conferences, say two, or "more than one", not "several".
 - **People.** Name parties only as the caption and filings name them. Where
   the filings refer to someone by initials (a minor, for example), use the
   initials. Add no personal detail — addresses, contact details, health,
