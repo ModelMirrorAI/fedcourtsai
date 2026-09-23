@@ -23,6 +23,7 @@ from fedcourtsai.schemas import (
     CalibrationBin,
     CertBacktest,
     CertBacktestCellLoss,
+    CertBacktestDisclosureTally,
     CertBacktestDispatch,
     CertBacktestEntry,
     CertBacktestProvenance,
@@ -3392,3 +3393,40 @@ def test_a_headline_emptied_by_leakage_is_not_the_shakedown_state() -> None:
 
     assert "No frozen-process evaluations yet" not in rendered
     assert "Leakage exclusion: **2** of 2 assessed cell(s)" in rendered
+
+
+def test_the_weekly_digest_puts_the_cert_backtest_disclosures_on_the_same_line() -> None:
+    """What the cells said about themselves travels with the figure it inflates.
+
+    Nothing is excluded on a disclosure — the back-test runs no evaluator — so
+    the line has to say which direction a real exposure moves the number, per
+    predictor, and that a cell with no note is silence rather than clean.
+    """
+    provenance = _cert_dispatch()
+    provenance.disclosure_tally = {
+        "predictor-0": CertBacktestDisclosureTally(
+            cells_read=25, cells_flagged=9, flags_unreadable=1, candidates=2
+        ),
+        "predictor-1": CertBacktestDisclosureTally(
+            cells_read=25, cells_flagged=0, flags_unreadable=0, candidates=0
+        ),
+    }
+    bullet = _cert_bullet(_cert_backtest(provenance=provenance))
+
+    assert (
+        "`predictor-0` 9/25 cell(s) flagged, 2 exposure candidate(s), 1 unreadable; "
+        + "`predictor-1` 0/25 cell(s) flagged, 0 exposure candidate(s)"
+    ) in bullet
+    assert "Nothing is excluded" in bullet
+    assert "inflates that predictor's accuracy and lift" in bullet
+    assert "not the same as clean" in bullet
+    # Still the one line: the figure is on it too.
+    assert "always-deny floor 60.0%" in bullet
+
+
+def test_the_weekly_digest_calls_a_replay_without_a_disclosure_tally_unrecorded() -> None:
+    # A replayed board with no tally cannot say whether any cell disclosed an
+    # exposure; an offline one has no cell to have said anything.
+    assert "Cell disclosures **unrecorded**" in _cert_bullet(_cert_backtest())
+    offline = _cert_backtest(entries=[_cert_entry("baseline-0", None)])
+    assert "Cell disclosures" not in _cert_bullet(offline)

@@ -985,6 +985,43 @@ def _cert_backtest_losses(report: CertBacktest) -> str:
     return clauses
 
 
+def _cert_backtest_disclosures(report: CertBacktest) -> str:
+    """What the replayed cells said about themselves, and what that does not mean.
+
+    The back-test runs no evaluator, so no leakage exclusion applies: a cell
+    that disclosed seeing its own outcome is still in its predictor's figures,
+    where it inflates accuracy and lift. The clause rides the same bullet as the
+    figure for the reason every other caveat here does — it has to travel when
+    the line is quoted. Per predictor, because engines differ in how much and how
+    they write notes, so a pooled count would read as a cross-engine comparison.
+    """
+    provenance = report.provenance
+    if provenance is None or not any(entry.engine for entry in report.entries):
+        return ""  # no replayed cell to have said anything
+    tally = provenance.disclosure_tally
+    if not tally:
+        return (
+            " Cell disclosures **unrecorded** — the report carries no `flags.json` "
+            "tally, so whether any replayed cell said it saw its own outcome is unknown."
+        )
+    parts = []
+    for predictor_id, counts in sorted(tally.items()):
+        part = (
+            f"`{predictor_id}` {counts.cells_flagged}/{counts.cells_read} cell(s) flagged, "
+            f"{counts.candidates} exposure candidate(s)"
+        )
+        if counts.flags_unreadable:
+            part += f", {counts.flags_unreadable} unreadable"
+        parts.append(part)
+    return (
+        f" Cell disclosures ({'; '.join(parts)}): a candidate is a note a text rule "
+        "that over-calls reads as possibly disclosing the cell's own outcome. Nothing is "
+        "excluded — the back-test runs no evaluator — so a real exposure left in inflates "
+        "that predictor's accuracy and lift, and a cell with no note said nothing, which "
+        "is not the same as clean."
+    )
+
+
 def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
     """The cert back-test, whose absence is the honest thing to report."""
     report = vintaged.value
@@ -1025,6 +1062,7 @@ def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
         "instrument**: nothing here is a claimable performance figure "
         f"(`metrics/README.md`).{_cert_backtest_dispatch(report)}"
         f"{_cert_backtest_provisioning(report)}{_cert_backtest_losses(report)}"
+        f"{_cert_backtest_disclosures(report)}"
     ]
 
 

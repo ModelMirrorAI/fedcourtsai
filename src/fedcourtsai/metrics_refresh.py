@@ -409,6 +409,63 @@ def _backtest_losses_line(report: CertBacktest) -> str:
     )
 
 
+def _candidate_cells(report: CertBacktest, predictor_id: str) -> int:
+    """How many of one predictor's scored cells raised an exposure-candidate note."""
+    if report.provenance is None:
+        return 0
+    return sum(
+        1
+        for d in report.provenance.disclosures
+        if d.predictor_id == predictor_id
+        and d.scored
+        and any(f.outcome_exposure_candidate for f in d.flags)
+    )
+
+
+def _backtest_disclosures_line(report: CertBacktest) -> str:
+    """The PR body's line naming the cells whose notes may disclose their outcome.
+
+    Names each exposure-candidate cell — predictor, petition, the note's
+    category — and each unreadable ``flags.json``, since an unread note may
+    have been one. Never a message: the report does not carry them (they are
+    outcome text keyed by case id, and ``metrics/`` sits beside later replay
+    cells), so the line points at the run log, where each note was printed as
+    it was read. Empty where no scored cell raised either.
+    """
+    if report.provenance is None:
+        return ""
+    candidates = [
+        d
+        for d in report.provenance.disclosures
+        if d.scored and any(f.outcome_exposure_candidate for f in d.flags)
+    ]
+    unreadable = [d for d in report.provenance.disclosures if d.scored and d.unreadable]
+    if not candidates and not unreadable:
+        return ""
+    clauses = []
+    if candidates:
+        named = "; ".join(
+            f"`{d.predictor_id}` — {d.case_id} ("
+            + ", ".join(sorted({str(f.category) for f in d.flags if f.outcome_exposure_candidate}))
+            + ")"
+            for d in candidates
+        )
+        clauses.append(
+            f"{len(candidates)} scored cell(s) raised a note a text rule reads as a "
+            f"possible outcome exposure: {named}"
+        )
+    if unreadable:
+        named = ", ".join(f"`{d.predictor_id}` — {d.case_id}" for d in unreadable)
+        clauses.append(f"{len(unreadable)} scored cell(s) left an unreadable `flags.json`: {named}")
+    return (
+        f"- **Cell disclosures**: {'; and '.join(clauses)}. Read each note in this run's "
+        "log (`flag from <predictor> on <case>`) before reading the board: nothing is "
+        "excluded — the back-test runs no evaluator — so a real exposure is still in its "
+        "predictor's figures and inflates its accuracy and lift, while the rule both "
+        "over-calls and misses.\n"
+    )
+
+
 def render_backtest_pr(
     metrics_root: Path, run_id: str, *, limit: int, engine: str
 ) -> MetricsRefreshPr | None:
@@ -452,6 +509,14 @@ def render_backtest_pr(
             f"**{full.lift_over_always_denied:+.1%}** over always-deny "
             f"(accuracy {full.accuracy:.0%}, Brier {full.mean_brier_score:.3f})"
         )
+        # On the headline itself, not only in the line below it: a caveat one
+        # line away does not travel when the headline is quoted.
+        exposed = _candidate_cells(report, full.predictor_id)
+        if exposed:
+            headline += (
+                f" — **{exposed} of its scored cell(s) raised a possible outcome-exposure "
+                "note**, still counted in this figure (see the disclosures below)"
+            )
     title = f"metrics: cert back-test over {report.events_scored} petition(s)"
     granted_line = (
         f" ({granted} granted-side outcome(s) in {report.events_scored})"
@@ -471,7 +536,8 @@ def render_backtest_pr(
         f"- always-deny floor: **{report.always_denied_accuracy:.0%}** over this set"
         f"{granted_line}\n"
         f"- predictors on the board: {report.predictors_evaluated}\n"
-        f"{_backtest_losses_line(report)}\n"
+        f"{_backtest_losses_line(report)}"
+        f"{_backtest_disclosures_line(report)}\n"
         "Review and merge — this PR is intentionally **not** auto-merged; a "
         "later run force-pushes this same branch and the PR updates in place.\n"
     )

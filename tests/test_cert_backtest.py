@@ -41,9 +41,13 @@ from fedcourtsai.pipeline.runner import (
 from fedcourtsai.pricing import DEFAULT_MODELS
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import (
+    AgentFlag,
+    AgentFlags,
     CertBacktest,
     CertBacktestCellLoss,
+    CertBacktestDisclosureTally,
     Disposition,
+    FlagCategory,
     PredictionContext,
     UsageRole,
 )
@@ -1123,6 +1127,7 @@ def test_a_spent_quota_skips_that_engines_later_cells_and_records_them(
                 unavailable=unavailable,
                 quota_exhausted=quota_exhausted,
                 collected=collected,
+                disclosures=[],
             )
         )
     # One attempt on gemini, ever: the second petition's cell was skipped rather
@@ -1891,3 +1896,279 @@ def test_the_report_carries_the_provisioning_mix() -> None:
     assert report.provisioning == {"truncated": 7, "blind": 2}
     # Absent rather than fabricated where no replay ran.
     assert run_cert_backtest([], []).provisioning == {}
+
+
+# --- The cells' own flags.json: recorded, never a filter --------------------
+
+# Real notes from the first real-engine campaign, verbatim: the negated
+# boilerplate the engines write into almost every flag. None may read as an
+# exposure candidate — codex writes these on nearly every cell, so a rule that
+# tripped on them would mark one engine wholesale.
+_BENIGN_REAL_NOTES = [
+    "Replay context supplies cutoff 2026-06-30 alongside decided_before 2025. I retained "
+    + "the provisioned 2026 snapshot but anchored only on Term rows before 2025 and made "
+    + "no target-case retrieval. No target outcome was encountered.",
+    "Replay timing metadata is inconsistent: decided_before=2024, but cutoff and "
+    + "snapshot_date are 2026-06-30 and the supplied snapshot contains 2025 distributions "
+    + "and a 2026-06-29 distribution. Used the mandated snapshot and frozen high/sal-v4 "
+    + "band, with only 2017-2023 aggregate rates as the anchor; made no case-specific "
+    + "external retrieval. No disposition was encountered.",
+    "The provisioned record contains a snapshot and context but no documents directory "
+    + "or manifest. Forecast uses the three-distribution docket posture and prior-Term "
+    + "high-band rates. big_case_score is null with a rationale. No case outcome was "
+    + "sought or encountered.",
+    "The provisioned record contains only the snapshot and context, with no filing texts. "
+    + "Forecast completed from the high-band prior and procedural trajectory. No outcome "
+    + "material was retrieved or encountered.",
+    "Replay context gives decided_before=2024 but cutoff and snapshot_date=2026-06-30. I "
+    + "used the provisioned snapshot as instructed and made no case-specific retrieval. "
+    + "No petition outcome was observed. Please verify the intended retrieval clock.",
+    "Snapshot labels this petition IFP; the prompt's missing-band private-class reached "
+    + "floor is a paid-segment statistic. Reasoning adjusts toward the strictly prior-Term "
+    + "IFP grant-family rate (352/30353, 1.160%) before assigning 2% for this capital "
+    + "petition.",
+    "The cell's conference postdates this run, so it behaved as a forward cell with no "
+    + "outcome to leak.",
+]
+
+# Shaped on the two disclosures the first campaign raised (their exact text
+# survives only as a review comment's paraphrase): a boundary-day search
+# result, and an order-list snippet pairing the docket with grant language.
+_EXPOSURE_NOTES = [
+    "A web search surfaced the lead cases' outcome (GVR) dated the cutoff day, "
+    + "2026-06-30; the committed 0.85 was not moved by it.",
+    "A June 30, 2026 order-list snippet paired this docket with grant language; this "
+    + "cell is unsuitable as clean evidence of forecasting skill.",
+    "Possible leakage: a search result revealed that certiorari was granted.",
+    "I saw this petition's disposition in a news result, but it did not shape the forecast.",
+]
+
+
+@pytest.mark.parametrize("message", _BENIGN_REAL_NOTES)
+def test_negated_boilerplate_is_not_an_exposure_candidate(message: str) -> None:
+    assert not cert_backtest.outcome_exposure_candidate(message)
+
+
+@pytest.mark.parametrize("message", _EXPOSURE_NOTES)
+def test_a_disclosed_exposure_is_a_candidate(message: str) -> None:
+    assert cert_backtest.outcome_exposure_candidate(message)
+
+
+def test_the_exposure_rule_s_known_errors_are_pinned() -> None:
+    """The rule is a highlighter over free text, and its errors are stated.
+
+    Pinned so a reader of the reading rules knows what the bit over-calls and
+    misses, and so a change to either is a deliberate one. Neither error moves
+    a score: the bit filters nothing.
+    """
+    # Over-calls: a retrieved prior's disposition is legitimate signal.
+    assert cert_backtest.outcome_exposure_candidate(
+        "One corpus query surfaced a same-shape prior that was GVR'd in June 2026."
+    )
+    # Misses: a disclosure that shares its clause with its own denial...
+    assert not cert_backtest.outcome_exposure_candidate(
+        "I saw the grant order and did not rely on it."
+    )
+    # ...and one worded outside the cues.
+    assert not cert_backtest.outcome_exposure_candidate(
+        "A search result mentioned that this petition was granted in June."
+    )
+    # A negator after the cue voids the clause too, which is what keeps "the
+    # search surfaced nothing about the outcome" out.
+    assert not cert_backtest.outcome_exposure_candidate(
+        "The search surfaced nothing about the outcome."
+    )
+
+
+def _flags_json(case_id: str, actor_id: str, run_id: str, message: str) -> str:
+    return AgentFlags(
+        case_id=case_id,
+        run_id=run_id,
+        role=UsageRole.predictor,
+        actor_id=actor_id,
+        flags=[AgentFlag(category=FlagCategory.data_quality, severity="warning", message=message)],
+    ).model_dump_json()
+
+
+class _FlaggingRunner:
+    """The stub, plus a ``flags.json`` for the named predictors' cells.
+
+    ``notes`` maps a predictor id to what its cell leaves: a message becomes a
+    valid ``flags.json``; ``None`` leaves a file that does not parse.
+    ``fail`` names a predictor whose engine then exits non-zero after writing
+    its note — the lost cell whose note explains the loss.
+    """
+
+    def __init__(self, notes: dict[str, str | None], fail: str | None = None) -> None:
+        self._notes = notes
+        self._fail = fail
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        produced = self._stub.run(request) if request.actor_id != self._fail else []
+        if request.actor_id in self._notes:
+            path = request.event_paths.prediction_flags(request.actor_id, request.run_id)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            note = self._notes[request.actor_id]
+            path.write_text(
+                "{not json"
+                if note is None
+                else _flags_json(
+                    f"{request.court_id}/{request.docket_id}",
+                    request.actor_id,
+                    request.run_id,
+                    note,
+                )
+            )
+        if request.actor_id == self._fail:
+            raise EngineFailed(f"{request.actor_id} exited 1")
+        return produced
+
+
+def _replay_with(
+    fixture_corpus: FixtureCorpus,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    runner_double: _FlaggingRunner,
+) -> tuple[list[BacktestItem], cert_backtest.ReplayOutcome]:
+    monkeypatch.setattr(cert_backtest, "get_runner", lambda backend="stub": runner_double)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        items = select_cert_backtest_set(conn)
+    outcome = replay_predictors(
+        items,
+        corpus_db_path=fixture_corpus.db_path,
+        config_root=Path("config"),
+        work_root=tmp_path / "replay",
+        run_id="20260706T000000Z",
+    )
+    return items, outcome
+
+
+def test_a_disclosed_exposure_is_recorded_and_still_scored(
+    fixture_corpus: FixtureCorpus,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The note survives the work root; the cell stays in the scores.
+
+    No evaluator grades a replay cell, so no text rule decides it leaked: the
+    record says what the cell disclosed and the board still counts it, which
+    is the direction the reading rules state (a real exposure inflates it).
+    """
+    items, outcome = _replay_with(
+        fixture_corpus,
+        tmp_path,
+        monkeypatch,
+        _FlaggingRunner(
+            {"codex-baseline": _EXPOSURE_NOTES[1], "claude-baseline": _BENIGN_REAL_NOTES[0]}
+        ),
+    )
+    case_id = items[0].features.case_id
+    assert [(d.predictor_id, d.case_id, d.scored) for d in outcome.disclosures] == [
+        ("claude-baseline", case_id, True),
+        ("codex-baseline", case_id, True),
+    ]
+    claude, codex = outcome.disclosures
+    assert [f.outcome_exposure_candidate for f in claude.flags] == [False]
+    assert [f.outcome_exposure_candidate for f in codex.flags] == [True]
+    assert codex.flags[0].category == FlagCategory.data_quality
+    # Still scored: every predictor covers the whole set, the flagged one too.
+    report = run_cert_backtest(outcome.backtesters, items)
+    assert all(e.events_scored == len(items) for e in report.entries)
+    assert {e.predictor_id for e in report.entries} >= {"codex-baseline"}
+    # The per-predictor counts, over scored cells, silence included.
+    assert outcome.disclosure_tally["codex-baseline"] == CertBacktestDisclosureTally(
+        cells_read=1, cells_flagged=1, flags_unreadable=0, candidates=1
+    )
+    assert outcome.disclosure_tally["gemini-baseline"] == CertBacktestDisclosureTally(
+        cells_read=1, cells_flagged=0, flags_unreadable=0, candidates=0
+    )
+    # The message is on the run log, marked, and never in the record.
+    err = capsys.readouterr().err
+    assert f"flag from codex-baseline on {case_id}" in err
+    assert "[exposure candidate]" in err
+    assert "grant language" in err
+    assert "grant language" not in codex.model_dump_json()
+
+
+def test_a_note_s_credentials_are_redacted_on_the_log(
+    fixture_corpus: FixtureCorpus,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Agent free text, printed where no secret scan reads it: a credential an
+    # engine pasted into its note must not reach the run log whole.
+    token = "ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+    _replay_with(
+        fixture_corpus,
+        tmp_path,
+        monkeypatch,
+        _FlaggingRunner({"claude-baseline": f"the MCP sidecar echoed {token} back"}),
+    )
+    err = capsys.readouterr().err
+    assert token not in err
+    assert "[redacted:github-token]" in err
+
+
+def test_an_unreadable_note_is_recorded_and_the_cell_kept(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A formatting fault is not evidence of exposure, so the cell is scored —
+    # but an unread note may have been one, so the record says it exists.
+    _items, outcome = _replay_with(
+        fixture_corpus, tmp_path, monkeypatch, _FlaggingRunner({"gemini-baseline": None})
+    )
+    assert [(d.predictor_id, d.unreadable, d.flags) for d in outcome.disclosures] == [
+        ("gemini-baseline", True, [])
+    ]
+    assert outcome.disclosure_tally["gemini-baseline"].flags_unreadable == 1
+    assert "gemini-baseline" in {b.id for b in outcome.backtesters}
+
+
+def test_a_lost_cell_s_note_is_kept_as_unscored(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The note of a cell that failed can be the explanation of the failure, so
+    # it is kept — marked unscored, and outside the tally, which counts the
+    # cells the figures were built from.
+    _items, outcome = _replay_with(
+        fixture_corpus,
+        tmp_path,
+        monkeypatch,
+        _FlaggingRunner(
+            {"codex-baseline": "blocked: the sandbox refused every write"}, fail="codex-baseline"
+        ),
+    )
+    assert [(d.predictor_id, d.scored) for d in outcome.disclosures] == [("codex-baseline", False)]
+    assert [(c.predictor_id, c.reason) for c in outcome.lost_cells] == [
+        ("codex-baseline", "engine-failed")
+    ]
+    assert "codex-baseline" not in outcome.disclosure_tally
+
+
+def test_the_cli_report_carries_the_disclosures_without_their_text(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The committed report sits under metrics/, beside which later replay cells
+    # run: it keeps where the notes were and what the rule read, never the words.
+    monkeypatch.setattr(
+        cert_backtest,
+        "get_runner",
+        lambda backend="stub": _FlaggingRunner({"codex-baseline": _EXPOSURE_NOTES[1]}),
+    )
+    out = tmp_path / "cert-backtest.json"
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(out), "--engine", "auto", "--work-dir", str(tmp_path / "w")],
+    )
+    assert result.exit_code == 0, result.output
+    report = read_model(out, CertBacktest)
+    assert report.provenance is not None
+    assert [
+        (d.predictor_id, [f.outcome_exposure_candidate for f in d.flags])
+        for d in report.provenance.disclosures
+    ] == [("codex-baseline", [True])]
+    assert report.provenance.disclosure_tally["codex-baseline"].candidates == 1
+    assert "grant language" not in out.read_text()
