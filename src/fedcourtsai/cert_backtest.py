@@ -26,6 +26,7 @@ axes the cert task demands:
 
 from __future__ import annotations
 
+import re
 import sqlite3
 import sys
 from collections import Counter
@@ -73,11 +74,15 @@ from .pipeline.salience import (
 )
 from .registry import enabled_predictors
 from .schemas import (
+    AgentFlags,
     CalibrationBin,
     CertBacktest,
     CertBacktestBigCase,
     CertBacktestCellLoss,
+    CertBacktestDisclosure,
+    CertBacktestDisclosureTally,
     CertBacktestEntry,
+    CertBacktestFlag,
     CertBacktestLossReason,
     CertBacktestProvenance,
     CertBacktestSegment,
@@ -90,6 +95,7 @@ from .schemas import (
     StatPack,
     UsageRole,
 )
+from .secretscan import redact_credentials
 from .serialize import read_model, write_raw_json, write_yaml
 
 # Mirrors the leaderboard's tie-break: entries rank by lift (desc) then Brier
@@ -531,6 +537,12 @@ class ReplayOutcome:
     pool either: the prior index screens to the machine-readable disposition
     subset a vote can be scored over, which a cell's own ``fedcourts query``
     does not (:class:`fedcourtsai.backtest.PriorIndex`).
+
+    ``disclosures`` and ``disclosure_tally`` are what the cells said about
+    themselves in ``flags.json`` (:func:`_read_replayed_flags`), carried to the
+    report because the work root they were written into is discarded with the
+    runner. They are a record, never a filter: no disclosure moves a cell out
+    of the scores.
     """
 
     backtesters: list[Backtester]
@@ -538,6 +550,8 @@ class ReplayOutcome:
     provisioning: dict[str, int]
     lost_cells: list[CertBacktestCellLoss]
     clock_days: dict[str, date] = field(default_factory=dict)
+    disclosures: list[CertBacktestDisclosure] = field(default_factory=list)
+    disclosure_tally: dict[str, CertBacktestDisclosureTally] = field(default_factory=dict)
 
 
 def _lost_cell(
@@ -604,7 +618,158 @@ def _read_replayed_cell(
     return _lost_cell(predictor_id, case_id, reason, detail)
 
 
-def _replay_item_cells(
+# The exposure-candidate rule's three vocabularies, casefolded. Kept short and
+# literal on purpose: the rule is a triage highlighter a reader can re-apply by
+# eye to a message, and every word added is a new false positive to explain.
+# A cue says something was *seen*; an outcome term says what it was about.
+_EXPOSURE_CUES = re.compile(
+    r"leak|contaminat|outcome[- ]revealing|\bsurfaced\b|\bencountered\b|\bsaw\b"
+    r"|\bseen\b|\breveal(?:ed|s)?\b|\bexpos(?:ed|ure)\b|\bsnippets?\b|\bunsuitable\b"
+    r"|\bshow(?:ed|ing|s)?\b|\bfound\b|\bincluded\b"
+)
+_OUTCOME_TERMS = re.compile(
+    r"\boutcomes?\b|\bdispositions?\b|\bgranted\b|\bdenied\b|\bgranting\b|\bdenying\b"
+    r"|\bgvr|\border[- ]lists?\b|\bgrant (?:language|order)\b|\bcert was\b"
+)
+# The boilerplate the engines write into nearly every note ("No outcome was
+# sought or encountered") is negated, so a negator anywhere in the clause voids
+# it. Which means a positive disclosure that shares a clause with its own
+# denial ("surfaced the grant and did not use it") is missed — the prompt asks
+# for exactly that sentence, so the clause split below is what keeps it: the
+# denial usually sits after a comma, a semicolon or a "but".
+_NEGATORS = re.compile(
+    r"\b(?:no|not|none|nothing|never|neither|nor|without|cannot)\b"  # the words
+    r"|n['\u2019]t\b"  # and the contraction, straight or curly apostrophe
+)
+_CLAUSE_BREAK = re.compile(
+    r"[.;:!?,\n—]+\s*"  # sentence and clause punctuation
+    r"|\s+(?:but|although|though|however|yet|whereas)\b"  # and a turning conjunction
+)
+
+
+def outcome_exposure_candidate(message: str) -> bool:
+    """Whether a replay cell's flag message might disclose its own outcome.
+
+    The rule, stated once and applied as written: split the message into
+    clauses at sentence and clause punctuation (``. ; : ! ? ,``, a newline, an
+    em dash) and before ``but``/``although``/``though``/``however``/``yet``/
+    ``whereas``; a clause is a candidate when it carries an **exposure cue**
+    (leak, contaminat…, outcome-revealing, surfaced, encountered, saw, seen,
+    reveal/revealed/reveals, exposed/exposure, snippet, unsuitable,
+    show/showed/showing/shows, found, included), an **outcome term** (outcome,
+    disposition, granted, denied, granting, denying, GVR…, order list, grant
+    language, grant order, "cert was") and **no negator** (no, not, none,
+    nothing, never, neither, nor, without, cannot, -n't). The message is a
+    candidate when any clause is.
+
+    A highlighter, never a filter: nothing reads this bit to move a cell out of
+    the scores. Free text defeats any rule this simple in both directions, and
+    the known shapes are pinned in the tests — it over-calls a retrieved
+    prior's disposition ("a query surfaced a prior that was GVR'd"), and it
+    misses a disclosure worded outside its cues, one whose only clause also
+    carries its denial, and one whose cue and outcome term a comma puts in
+    different clauses ("surfaced, in a snippet, that cert was denied"). So an
+    unmarked note is not a cleared one. The frozen prompt reserves no category
+    for a replay cell's exposure note, which is why the rule reads the message
+    at all.
+    """
+    for clause in _CLAUSE_BREAK.split(message.casefold()):
+        if (
+            _EXPOSURE_CUES.search(clause)
+            and _OUTCOME_TERMS.search(clause)
+            and not _NEGATORS.search(clause)
+        ):
+            return True
+    return False
+
+
+def _read_replayed_flags(
+    flags_path: Path, *, predictor_id: str, case_id: str, scored: bool
+) -> CertBacktestDisclosure | None:
+    """Read one replayed cell's ``flags.json`` into the report's disclosure record.
+
+    ``None`` where the cell left none. A file that does not parse is recorded
+    as ``unreadable`` rather than dropped: the cell tried to say something,
+    and a reader should know that an unread note exists. The cell stays in the
+    scores either way — nothing here is a filter.
+
+    The messages themselves go to stderr, credential-shaped runs redacted,
+    and never into the returned record: the report is committed under
+    ``metrics/``, beside which later replay cells run, and a note that says
+    what outcome-revealing material it saw is outcome text keyed by case id.
+    The exposure-candidate reading is taken on the redacted text, so a reader
+    of the run log can re-derive it from what the log shows.
+    """
+    if not flags_path.is_file():
+        return None
+    try:
+        raised = AgentFlags.model_validate_json(flags_path.read_text())
+    except (OSError, ValueError) as exc:
+        print(
+            f"unreadable flags.json from {predictor_id} on {case_id}: {type(exc).__name__}",
+            file=sys.stderr,
+        )
+        return CertBacktestDisclosure(
+            predictor_id=predictor_id, case_id=case_id, scored=scored, unreadable=True
+        )
+    flags: list[CertBacktestFlag] = []
+    for flag in raised.flags:
+        message = redact_credentials(flag.message)
+        candidate = outcome_exposure_candidate(message)
+        flags.append(
+            CertBacktestFlag(
+                category=flag.category,
+                severity=flag.severity,
+                outcome_exposure_candidate=candidate,
+            )
+        )
+        marker = " [exposure candidate]" if candidate else ""
+        print(
+            f"flag from {predictor_id} on {case_id} ({flag.category}, {flag.severity})"
+            f"{marker}: {' '.join(message.split())}",
+            file=sys.stderr,
+        )
+    return CertBacktestDisclosure(
+        predictor_id=predictor_id, case_id=case_id, scored=scored, flags=flags
+    )
+
+
+def _settled(
+    disclosures: list[CertBacktestDisclosure], backtesters: list[Backtester]
+) -> list[CertBacktestDisclosure]:
+    """The campaign's disclosures, sorted, with ``scored`` settled against the board.
+
+    ``scored`` is decided cell by cell as each is read back, but a predictor
+    whose engine went missing later in the campaign leaves the board with the
+    cells it had already scored, and those are then in no figure either.
+    """
+    on_board = {b.id for b in backtesters}
+    settled = [
+        d if d.predictor_id in on_board else d.model_copy(update={"scored": False})
+        for d in disclosures
+    ]
+    return sorted(settled, key=lambda d: (d.predictor_id, d.case_id))
+
+
+def disclosure_tally(
+    backtesters: list[Backtester], disclosures: list[CertBacktestDisclosure]
+) -> dict[str, CertBacktestDisclosureTally]:
+    """Per-predictor disclosure counts over each replayed predictor's scored cells."""
+    tally: dict[str, CertBacktestDisclosureTally] = {}
+    for backtester in backtesters:
+        if not isinstance(backtester, ReplayedBacktester):
+            continue
+        own = [d for d in disclosures if d.predictor_id == backtester.id and d.scored]
+        tally[backtester.id] = CertBacktestDisclosureTally(
+            cells_read=len(backtester.predictions),
+            cells_flagged=sum(1 for d in own if not d.unreadable),
+            flags_unreadable=sum(1 for d in own if d.unreadable),
+            candidates=sum(1 for d in own if any(f.outcome_exposure_candidate for f in d.flags)),
+        )
+    return tally
+
+
+def _replay_item_cells(  # noqa: PLR0913 - the campaign state it threads, each named
     pairs: list[tuple[PredictorConfig, Runner]],
     cell: RunRequest,
     stray_paths: EventPaths | None,
@@ -614,6 +779,7 @@ def _replay_item_cells(
     unavailable: set[str],
     quota_exhausted: set[str],
     collected: dict[str, dict[str, BacktestPrediction]],
+    disclosures: list[CertBacktestDisclosure],
 ) -> list[CertBacktestCellLoss]:
     """Run one provisioned petition's cell on every routed predictor, and read it back.
 
@@ -650,8 +816,24 @@ def _replay_item_cells(
     ``case_id`` is the item's own id rather than ``cell.case_id``, which is the
     same id re-composed from the parts the request carries: what is collected
     has to key on the spelling the scorer looks it up by.
+
+    Every cell the engine was actually invoked for is also read for its
+    ``flags.json`` (:func:`_read_replayed_flags`) — a lost cell's too, whose
+    note can explain the loss — and what it said lands in ``disclosures``. A
+    cell not attempted (a spent quota, a missing binary) wrote nothing to read.
     """
     losses: list[CertBacktestCellLoss] = []
+
+    def disclose(predictor_id: str, *, scored: bool) -> None:
+        found = _read_replayed_flags(
+            cell.event_paths.prediction_flags(predictor_id, cell.run_id),
+            predictor_id=predictor_id,
+            case_id=case_id,
+            scored=scored,
+        )
+        if found is not None:
+            disclosures.append(found)
+
     for predictor, engine_runner in pairs:
         if predictor.id in unavailable:
             continue  # this engine's binary was already found missing
@@ -686,12 +868,14 @@ def _replay_item_cells(
             # never there are different facts about the run.
             quota_exhausted.add(engine)
             losses.append(_lost_cell(predictor.id, case_id, "quota-exhausted", str(exc)))
+            disclose(predictor.id, scored=False)
             continue
         except EngineFailed as exc:
             # The cell failed and wrote nothing: one lost cell, exactly as an
             # unreadable artifact is. Crashing here would strand the spend
             # already made on every cell before it and produce no report at all.
             losses.append(_lost_cell(predictor.id, case_id, "engine-failed", str(exc)))
+            disclose(predictor.id, scored=False)
             continue
         scored = _read_replayed_cell(
             request.event_paths.prediction(predictor.id, cell.run_id),
@@ -701,8 +885,10 @@ def _replay_item_cells(
         )
         if isinstance(scored, CertBacktestCellLoss):
             losses.append(scored)
+            disclose(predictor.id, scored=False)
             continue
         collected[predictor.id][case_id] = scored
+        disclose(predictor.id, scored=True)
     return losses
 
 
@@ -766,6 +952,12 @@ def replay_predictors(
     Each returned backtester carries the backend that ran it and that backend's
     model (:func:`replay_model`), so the report can state what produced a number
     instead of only which predictor it is named for.
+
+    What each cell said about itself in ``flags.json`` rides the outcome too —
+    category, severity and the exposure-candidate reading per note, the
+    messages themselves only on stderr (:func:`_read_replayed_flags`) — and it
+    is a record, not a filter: a cell that disclosed seeing its own outcome is
+    still scored, because the back-test has no grader to decide it leaked.
     """
     pairs = _runners_by_predictor(config_root, engine_override, skip_engines)
     collected: dict[str, dict[str, BacktestPrediction]] = {p.id: {} for p, _ in pairs}
@@ -787,6 +979,7 @@ def replay_predictors(
     # allowance are different facts, and the report says which.
     quota_exhausted: set[str] = set()
     lost: list[CertBacktestCellLoss] = []
+    disclosures: list[CertBacktestDisclosure] = []
     # The repository ledger, for the stray-write probe only (see
     # :func:`_read_replayed_cell`). None where the replay is writing into the
     # ledger itself, which the workflow never does but a local invocation can:
@@ -951,6 +1144,7 @@ def replay_predictors(
                 unavailable=unavailable,
                 quota_exhausted=quota_exhausted,
                 collected=collected,
+                disclosures=disclosures,
             )
         )
     backtesters: list[Backtester] = [
@@ -973,6 +1167,8 @@ def replay_predictors(
         # facts about the run. Why the predictor has no entry is
         # `unavailable`'s to say, not this list's to omit.
         lost_cells=sorted(lost, key=lambda loss: (loss.predictor_id, loss.case_id)),
+        disclosures=_settled(disclosures, backtesters),
+        disclosure_tally=disclosure_tally(backtesters, disclosures),
     )
 
 

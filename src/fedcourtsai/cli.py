@@ -309,6 +309,8 @@ from .schemas import (
     CellMode,
     CertBacktest,
     CertBacktestCellLoss,
+    CertBacktestDisclosure,
+    CertBacktestDisclosureTally,
     CertBacktestDispatch,
     CertBacktestProvenance,
     ClaimScoreBlock,
@@ -5534,6 +5536,8 @@ def cert_backtest_cmd(
         replay_run_id: str | None = None  # null unless one did: baselines have no run
         dropped: list[str] = []  # predictors lost at run time, not opted out
         lost_cells: list[CertBacktestCellLoss] = []  # cells that produced no score
+        disclosures: list[CertBacktestDisclosure] = []  # the cells' own flags.json notes
+        tally: dict[str, CertBacktestDisclosureTally] = {}  # their per-predictor counts
         replayed: list[Backtester] = []  # the engine cells' backtesters, if any ran
         clock_days: dict[str, date] = {}  # each dated cell's cutoff; empty offline
         if engine:
@@ -5572,6 +5576,7 @@ def cert_backtest_cmd(
                 run_id=replay_run_id,
             )
             provisioning, lost_cells = outcome.provisioning, outcome.lost_cells
+            disclosures, tally = outcome.disclosures, outcome.disclosure_tally
             clock_days = outcome.clock_days
             dropped = _report_replay_drops(
                 outcome,
@@ -5608,6 +5613,8 @@ def cert_backtest_cmd(
                 base_rate_lookback_terms=salience_cfg.base_rate_lookback_terms,
                 dropped_predictors=sorted(dropped),
                 lost_cells=lost_cells,
+                disclosures=disclosures,
+                disclosure_tally=tally,
             ),
         )
     write_json(destination, report)

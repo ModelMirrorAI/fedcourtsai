@@ -4669,6 +4669,88 @@ class CertBacktestCellLoss(_Strict):
     )
 
 
+class CertBacktestFlag(_Strict):
+    """One note a replay cell raised in its ``flags.json``, as the report keeps it.
+
+    The note's category and severity — never its message. A replay cell's note
+    about outcome-revealing material names what it saw next to the case it is
+    about, and this report is committed under ``metrics/``, which later replay
+    cells run beside and are pointed into; so the free text goes to the run log
+    (credential-shaped runs redacted) and the report keeps only what a reader
+    needs to find and weigh it.
+    """
+
+    category: FlagCategory
+    severity: FlagSeverity
+    outcome_exposure_candidate: bool = Field(
+        description="True where a deliberately simple text rule "
+        "(`fedcourtsai.cert_backtest.outcome_exposure_candidate`) reads the note's "
+        "message as possibly disclosing that the cell saw its own petition's outcome. "
+        "A triage highlighter over free text, not a judgment: it over-calls on some "
+        "shapes (a retrieved prior's GVR, for one) and misses others, so an unmarked note "
+        "is not a cleared one — and it never changes which cells are scored"
+    )
+
+
+class CertBacktestDisclosure(_Strict):
+    """What one replayed cell disclosed in its ``flags.json``, kept past the runner.
+
+    The work root a replay cell writes into is scratch and is discarded with the
+    runner, and the back-test runs no evaluator and writes no retrieval log — so
+    without this record a cell's note that it saw outcome-revealing material
+    would survive only in an expiring run log. One entry per cell that left a
+    ``flags.json`` at all, scored or lost; a cell that wrote none disclosed
+    nothing, which is silence rather than a clean bill.
+    """
+
+    predictor_id: str = Field(description="The predictor whose cell raised the notes")
+    case_id: str = Field(description="The petition the cell was replaying")
+    scored: bool = Field(
+        description="Whether this cell's prediction is in its predictor's figures. "
+        "False for a lost cell, whose notes are kept because they can explain the loss — "
+        "and can matter to the other predictors' cells on the same petition, which read "
+        "the same provisioned inputs — and for every cell of a predictor that left the board"
+    )
+    unreadable: bool = Field(
+        default=False,
+        description="The cell wrote a `flags.json` that does not parse as `AgentFlags`, "
+        "so what it disclosed is unknown and `flags` is empty. The cell stays scored: "
+        "a formatting fault is not evidence of exposure, and an unread note may still "
+        "have been one",
+    )
+    flags: list[CertBacktestFlag] = Field(
+        default_factory=list, description="The cell's notes, in the order it wrote them"
+    )
+
+
+class CertBacktestDisclosureTally(_Strict):
+    """One predictor's disclosure counts over its **scored** replay cells.
+
+    Nothing is excluded on a disclosure: the back-test has no evaluator to grade
+    one, and a text rule deciding who stays in the scored set would demote a
+    predictor for its candour. So these counts are the reading aid instead — a
+    disclosed exposure left in the scores inflates that predictor's accuracy and
+    lift, and an undisclosed one is invisible here.
+    """
+
+    cells_read: int = Field(
+        ge=0,
+        description="The denominator: this predictor's cells that came back scoreable "
+        "and were read for a `flags.json`",
+    )
+    cells_flagged: int = Field(
+        ge=0, description="Of those, the cells that left a readable `flags.json`"
+    )
+    flags_unreadable: int = Field(
+        ge=0, description="Of those, the cells whose `flags.json` did not parse"
+    )
+    candidates: int = Field(
+        ge=0,
+        description="Of those, the cells carrying at least one note the text rule marks "
+        "`outcome_exposure_candidate` — cells to read the run log for, not a leak count",
+    )
+
+
 class CertBacktestProvenance(_Strict):
     """What produced a cert back-test report: the run, its dispatch, and its config.
 
@@ -4745,6 +4827,23 @@ class CertBacktestProvenance(_Strict):
         "here. Read this before comparing two entries. Empty on a run where "
         "every cell came back, and on an offline baseline-only run, which has "
         "no cells",
+    )
+    disclosures: list[CertBacktestDisclosure] = Field(
+        default_factory=list,
+        description="Every replayed cell that left a `flags.json`, sorted by predictor "
+        "then petition — the cells' own notes, kept as category, severity and the text "
+        "rule's exposure-candidate reading, never the message. **Nothing here changes "
+        "a score**: the back-test runs no evaluator, so a cell that disclosed seeing its "
+        "own outcome is still in its predictor's figures, where it biases accuracy and "
+        "lift upward. Empty on an offline run, and on a replay where no cell wrote one — "
+        "which is silence, not a clean bill",
+    )
+    disclosure_tally: dict[str, CertBacktestDisclosureTally] = Field(
+        default_factory=dict,
+        description="Per-predictor disclosure counts over the scored cells, keyed by "
+        "predictor id, for every replayed predictor on the board. Engines differ "
+        "in how often and how they write notes, so a count is read within one predictor, "
+        "never as a cross-engine leakage comparison",
     )
 
 

@@ -146,6 +146,86 @@
       "title": "CertBacktestCellLoss",
       "type": "object"
     },
+    "CertBacktestDisclosure": {
+      "additionalProperties": false,
+      "description": "What one replayed cell disclosed in its ``flags.json``, kept past the runner.\n\nThe work root a replay cell writes into is scratch and is discarded with the\nrunner, and the back-test runs no evaluator and writes no retrieval log \u2014 so\nwithout this record a cell's note that it saw outcome-revealing material\nwould survive only in an expiring run log. One entry per cell that left a\n``flags.json`` at all, scored or lost; a cell that wrote none disclosed\nnothing, which is silence rather than a clean bill.",
+      "properties": {
+        "case_id": {
+          "description": "The petition the cell was replaying",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "flags": {
+          "description": "The cell's notes, in the order it wrote them",
+          "items": {
+            "$ref": "#/$defs/CertBacktestFlag"
+          },
+          "title": "Flags",
+          "type": "array"
+        },
+        "predictor_id": {
+          "description": "The predictor whose cell raised the notes",
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "scored": {
+          "description": "Whether this cell's prediction is in its predictor's figures. False for a lost cell, whose notes are kept because they can explain the loss \u2014 and can matter to the other predictors' cells on the same petition, which read the same provisioned inputs \u2014 and for every cell of a predictor that left the board",
+          "title": "Scored",
+          "type": "boolean"
+        },
+        "unreadable": {
+          "default": false,
+          "description": "The cell wrote a `flags.json` that does not parse as `AgentFlags`, so what it disclosed is unknown and `flags` is empty. The cell stays scored: a formatting fault is not evidence of exposure, and an unread note may still have been one",
+          "title": "Unreadable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "case_id",
+        "scored"
+      ],
+      "title": "CertBacktestDisclosure",
+      "type": "object"
+    },
+    "CertBacktestDisclosureTally": {
+      "additionalProperties": false,
+      "description": "One predictor's disclosure counts over its **scored** replay cells.\n\nNothing is excluded on a disclosure: the back-test has no evaluator to grade\none, and a text rule deciding who stays in the scored set would demote a\npredictor for its candour. So these counts are the reading aid instead \u2014 a\ndisclosed exposure left in the scores inflates that predictor's accuracy and\nlift, and an undisclosed one is invisible here.",
+      "properties": {
+        "candidates": {
+          "description": "Of those, the cells carrying at least one note the text rule marks `outcome_exposure_candidate` \u2014 cells to read the run log for, not a leak count",
+          "minimum": 0,
+          "title": "Candidates",
+          "type": "integer"
+        },
+        "cells_flagged": {
+          "description": "Of those, the cells that left a readable `flags.json`",
+          "minimum": 0,
+          "title": "Cells Flagged",
+          "type": "integer"
+        },
+        "cells_read": {
+          "description": "The denominator: this predictor's cells that came back scoreable and were read for a `flags.json`",
+          "minimum": 0,
+          "title": "Cells Read",
+          "type": "integer"
+        },
+        "flags_unreadable": {
+          "description": "Of those, the cells whose `flags.json` did not parse",
+          "minimum": 0,
+          "title": "Flags Unreadable",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cells_read",
+        "cells_flagged",
+        "flags_unreadable",
+        "candidates"
+      ],
+      "title": "CertBacktestDisclosureTally",
+      "type": "object"
+    },
     "CertBacktestDispatch": {
       "additionalProperties": false,
       "description": "The ``fedcourts cert-backtest`` parameters one report was produced under.\n\nRecorded because these options *are* the population definition and the engine\nrouting, and neither is recoverable from the scores. ``scope``/``spread``/\n``limit`` choose which decided petitions were replayed \u2014 and the always-deny\nfloor a ``lift_over_always_denied`` is measured against moves with them, so\ntwo reports dispatched differently are two different samples whose top\nlines are not comparable. ``engine``/``skip_engines`` say which backends were\nasked for, which is what makes a board's absences legible as a dispatch\nchoice rather than a config gap.",
@@ -302,6 +382,30 @@
       "title": "CertBacktestEntry",
       "type": "object"
     },
+    "CertBacktestFlag": {
+      "additionalProperties": false,
+      "description": "One note a replay cell raised in its ``flags.json``, as the report keeps it.\n\nThe note's category and severity \u2014 never its message. A replay cell's note\nabout outcome-revealing material names what it saw next to the case it is\nabout, and this report is committed under ``metrics/``, which later replay\ncells run beside and are pointed into; so the free text goes to the run log\n(credential-shaped runs redacted) and the report keeps only what a reader\nneeds to find and weigh it.",
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/FlagCategory"
+        },
+        "outcome_exposure_candidate": {
+          "description": "True where a deliberately simple text rule (`fedcourtsai.cert_backtest.outcome_exposure_candidate`) reads the note's message as possibly disclosing that the cell saw its own petition's outcome. A triage highlighter over free text, not a judgment: it over-calls on some shapes (a retrieved prior's GVR, for one) and misses others, so an unmarked note is not a cleared one \u2014 and it never changes which cells are scored",
+          "title": "Outcome Exposure Candidate",
+          "type": "boolean"
+        },
+        "severity": {
+          "$ref": "#/$defs/FlagSeverity"
+        }
+      },
+      "required": [
+        "category",
+        "severity",
+        "outcome_exposure_candidate"
+      ],
+      "title": "CertBacktestFlag",
+      "type": "object"
+    },
     "CertBacktestProvenance": {
       "additionalProperties": false,
       "description": "What produced a cert back-test report: the run, its dispatch, and its config.\n\nThe report's self-identification, and the reason it exists: predictor ids are\nidentical under every backend \u2014 a ``--engine stub`` replay of\n``claude-baseline`` writes entries named ``claude-baseline`` \u2014 so without this\nblock an offline mechanics rehearsal and a token-spending real-engine replay\nare the same document, and a reader would render stub numbers under real\npredictor names. It records what ran; refusing or labelling a rehearsal is\nthe reader's own job, and each reader has to do it.\n\nThe **authority on what ran** is each entry's own ``engine``/``model`` pair;\nthis block records the invocation and the resolved config around them. It is\ndeliberately not only the CLI options: ``salience_floor`` and\n``base_rate_lookback_terms`` move the population and the segment baselines\nunder an identical dispatch string, so a decomposition that had only the\ndispatch would be comparing samples it could not tell apart.",
@@ -319,6 +423,22 @@
           "default": null,
           "description": "The base-rate lookback window the run resolved (config; 0 is unbounded). It sets every entry's `segment_base_rate` and so every `mean_brier_skill`, and it rides in no process digest \u2014 so without it here, per-band skill across two reports is not a comparison. Null only where no segment context was built (the empty report)",
           "title": "Base Rate Lookback Terms"
+        },
+        "disclosure_tally": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CertBacktestDisclosureTally"
+          },
+          "description": "Per-predictor disclosure counts over the scored cells, keyed by predictor id, for every replayed predictor on the board. Engines differ in how often and how they write notes, so a count is read within one predictor, never as a cross-engine leakage comparison",
+          "title": "Disclosure Tally",
+          "type": "object"
+        },
+        "disclosures": {
+          "description": "Every replayed cell that left a `flags.json`, sorted by predictor then petition \u2014 the cells' own notes, kept as category, severity and the text rule's exposure-candidate reading, never the message. **Nothing here changes a score**: the back-test runs no evaluator, so a cell that disclosed seeing its own outcome is still in its predictor's figures, where it biases accuracy and lift upward. Empty on an offline run, and on a replay where no cell wrote one \u2014 which is silence, not a clean bill",
+          "items": {
+            "$ref": "#/$defs/CertBacktestDisclosure"
+          },
+          "title": "Disclosures",
+          "type": "array"
         },
         "dispatch": {
           "$ref": "#/$defs/CertBacktestDispatch",
@@ -439,6 +559,28 @@
       ],
       "title": "CertBacktestSegment",
       "type": "object"
+    },
+    "FlagCategory": {
+      "description": "What kind of thing an agent flag is about, for maintainer triage.",
+      "enum": [
+        "data-quality",
+        "scope",
+        "ambiguous-event",
+        "blocked",
+        "other"
+      ],
+      "title": "FlagCategory",
+      "type": "string"
+    },
+    "FlagSeverity": {
+      "description": "How loud an agent flag is. ``blocker`` means the cell could not finish cleanly.",
+      "enum": [
+        "info",
+        "warning",
+        "blocker"
+      ],
+      "title": "FlagSeverity",
+      "type": "string"
     }
   },
   "additionalProperties": false,
