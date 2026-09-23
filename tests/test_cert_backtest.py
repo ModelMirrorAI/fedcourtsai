@@ -1941,6 +1941,9 @@ _EXPOSURE_NOTES = [
     + "cell is unsuitable as clean evidence of forecasting skill.",
     "Possible leakage: a search result revealed that certiorari was granted.",
     "I saw this petition's disposition in a news result, but it did not shape the forecast.",
+    "A web result showed that cert was denied; I disregarded it.",
+    "I found the order list entry denying the petition.",
+    "Search results included the Court's order denying cert, which I did not rely on.",
 ]
 
 
@@ -1969,9 +1972,17 @@ def test_the_exposure_rule_s_known_errors_are_pinned() -> None:
     assert not cert_backtest.outcome_exposure_candidate(
         "I saw the grant order and did not rely on it."
     )
-    # ...and one worded outside the cues.
+    # (the same note, its denial split off, is caught)
+    assert cert_backtest.outcome_exposure_candidate(
+        "I saw the grant order, but did not rely on it."
+    )
+    # ...one worded outside the cues...
     assert not cert_backtest.outcome_exposure_candidate(
         "A search result mentioned that this petition was granted in June."
+    )
+    # ...and one whose cue and outcome term a comma puts in different clauses.
+    assert not cert_backtest.outcome_exposure_candidate(
+        "The search surfaced, in a snippet, that cert was denied."
     )
     # A negator after the cue voids the clause too, which is what keeps "the
     # search surfaced nothing about the outcome" out.

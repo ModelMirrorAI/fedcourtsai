@@ -38,6 +38,7 @@ from .schemas import (
     Backtest,
     BigCaseBoard,
     CertBacktest,
+    CertBacktestDisclosure,
     ClaimScoreBoard,
     DocketPack,
     Leaderboard,
@@ -409,16 +410,32 @@ def _backtest_losses_line(report: CertBacktest) -> str:
     )
 
 
-def _candidate_cells(report: CertBacktest, predictor_id: str) -> int:
-    """How many of one predictor's scored cells raised an exposure-candidate note."""
+def _is_candidate(disclosure: CertBacktestDisclosure) -> bool:
+    return any(f.outcome_exposure_candidate for f in disclosure.flags)
+
+
+def _headline_disclosures(report: CertBacktest, predictor_id: str) -> str:
+    """The headline entry's own candidate and unreadable-note counts, or ``""``.
+
+    On the headline itself, not only in the line below it: a caveat one line
+    away does not travel when the headline is quoted — and with its direction,
+    since that is what makes it actionable.
+    """
     if report.provenance is None:
-        return 0
-    return sum(
-        1
-        for d in report.provenance.disclosures
-        if d.predictor_id == predictor_id
-        and d.scored
-        and any(f.outcome_exposure_candidate for f in d.flags)
+        return ""
+    own = [d for d in report.provenance.disclosures if d.predictor_id == predictor_id and d.scored]
+    candidates = sum(1 for d in own if _is_candidate(d))
+    unreadable = sum(1 for d in own if d.unreadable)
+    if not candidates and not unreadable:
+        return ""
+    counts = []
+    if candidates:
+        counts.append(f"{candidates} raised a possible outcome-exposure note")
+    if unreadable:
+        counts.append(f"{unreadable} left an unreadable one")
+    return (
+        f" — **of its scored cells, {' and '.join(counts)}**, still counted in this "
+        "figure, which a real exposure can only bias upward (see the disclosures below)"
     )
 
 
@@ -427,42 +444,53 @@ def _backtest_disclosures_line(report: CertBacktest) -> str:
 
     Names each exposure-candidate cell — predictor, petition, the note's
     category — and each unreadable ``flags.json``, since an unread note may
-    have been one. Never a message: the report does not carry them (they are
-    outcome text keyed by case id, and ``metrics/`` sits beside later replay
-    cells), so the line points at the run log, where each note was printed as
-    it was read. Empty where no scored cell raised either.
+    have been one. A **lost** cell's candidate is named too, in its own clause:
+    it is in no figure, but every predictor on that petition read the same
+    provisioned inputs, so a leak through them reaches the scored cells beside
+    it. Never a message: the report does not carry them (they are outcome text
+    keyed by case id, and ``metrics/`` sits beside later replay cells), so the
+    line points at the run log, where each note was printed as it was read.
+    Empty where no cell raised either.
     """
     if report.provenance is None:
         return ""
-    candidates = [
-        d
-        for d in report.provenance.disclosures
-        if d.scored and any(f.outcome_exposure_candidate for f in d.flags)
-    ]
-    unreadable = [d for d in report.provenance.disclosures if d.scored and d.unreadable]
-    if not candidates and not unreadable:
+    disclosures = report.provenance.disclosures
+    scored = [d for d in disclosures if d.scored and _is_candidate(d)]
+    lost = [d for d in disclosures if not d.scored and _is_candidate(d)]
+    unreadable = [d for d in disclosures if d.unreadable]
+    if not scored and not lost and not unreadable:
         return ""
-    clauses = []
-    if candidates:
-        named = "; ".join(
+
+    def named(cells: list[CertBacktestDisclosure]) -> str:
+        return "; ".join(
             f"`{d.predictor_id}` — {d.case_id} ("
             + ", ".join(sorted({str(f.category) for f in d.flags if f.outcome_exposure_candidate}))
             + ")"
-            for d in candidates
+            for d in cells
         )
+
+    clauses = []
+    if scored:
         clauses.append(
-            f"{len(candidates)} scored cell(s) raised a note a text rule reads as a "
-            f"possible outcome exposure: {named}"
+            f"{len(scored)} scored cell(s) raised a note a text rule reads as a possible "
+            f"outcome exposure: {named(scored)}"
+        )
+    if lost:
+        clauses.append(
+            f"{len(lost)} lost cell(s) did too — in no figure, but read them for a leak "
+            f"through the petition's shared inputs: {named(lost)}"
         )
     if unreadable:
-        named = ", ".join(f"`{d.predictor_id}` — {d.case_id}" for d in unreadable)
-        clauses.append(f"{len(unreadable)} scored cell(s) left an unreadable `flags.json`: {named}")
+        cells = ", ".join(
+            f"`{d.predictor_id}` — {d.case_id}{'' if d.scored else ' (lost)'}" for d in unreadable
+        )
+        clauses.append(f"{len(unreadable)} cell(s) left an unreadable `flags.json`: {cells}")
     return (
         f"- **Cell disclosures**: {'; and '.join(clauses)}. Read each note in this run's "
-        "log (`flag from <predictor> on <case>`) before reading the board: nothing is "
-        "excluded — the back-test runs no evaluator — so a real exposure is still in its "
-        "predictor's figures and inflates its accuracy and lift, while the rule both "
-        "over-calls and misses.\n"
+        "log (`flag from <predictor> on <case>`, or `unreadable flags.json from …`) before "
+        "reading the board: nothing is excluded — the back-test runs no evaluator — so a "
+        "real exposure is still in its predictor's figures, which it can only bias upward. "
+        "The rule both over-calls and misses, so an unmarked note is not a cleared one.\n"
     )
 
 
@@ -509,14 +537,7 @@ def render_backtest_pr(
             f"**{full.lift_over_always_denied:+.1%}** over always-deny "
             f"(accuracy {full.accuracy:.0%}, Brier {full.mean_brier_score:.3f})"
         )
-        # On the headline itself, not only in the line below it: a caveat one
-        # line away does not travel when the headline is quoted.
-        exposed = _candidate_cells(report, full.predictor_id)
-        if exposed:
-            headline += (
-                f" — **{exposed} of its scored cell(s) raised a possible outcome-exposure "
-                "note**, still counted in this figure (see the disclosures below)"
-            )
+        headline += _headline_disclosures(report, full.predictor_id)
     title = f"metrics: cert back-test over {report.events_scored} petition(s)"
     granted_line = (
         f" ({granted} granted-side outcome(s) in {report.events_scored})"

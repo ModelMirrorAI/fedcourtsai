@@ -990,7 +990,7 @@ def _cert_backtest_disclosures(report: CertBacktest) -> str:
 
     The back-test runs no evaluator, so no leakage exclusion applies: a cell
     that disclosed seeing its own outcome is still in its predictor's figures,
-    where it inflates accuracy and lift. The clause rides the same bullet as the
+    which it can only bias upward. The clause rides the same bullet as the
     figure for the reason every other caveat here does — it has to travel when
     the line is quoted. Per predictor, because engines differ in how much and how
     they write notes, so a pooled count would read as a cross-engine comparison.
@@ -1014,10 +1014,11 @@ def _cert_backtest_disclosures(report: CertBacktest) -> str:
             part += f", {counts.flags_unreadable} unreadable"
         parts.append(part)
     return (
-        f" Cell disclosures ({'; '.join(parts)}): a candidate is a note a text rule "
-        "that over-calls reads as possibly disclosing the cell's own outcome. Nothing is "
-        "excluded — the back-test runs no evaluator — so a real exposure left in inflates "
-        "that predictor's accuracy and lift, and a cell with no note said nothing, which "
+        f" Cell disclosures ({'; '.join(parts)}): a candidate is a cell whose note a text "
+        "rule that both over-calls and misses reads as possibly disclosing the cell's own "
+        "outcome. Nothing is excluded — the back-test runs no evaluator — so a real "
+        "exposure left in can only bias that predictor's accuracy and lift upward, an "
+        "unmarked note is not a cleared one, and a cell with no note said nothing, which "
         "is not the same as clean."
     )
 

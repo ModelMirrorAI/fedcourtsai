@@ -3418,7 +3418,8 @@ def test_the_weekly_digest_puts_the_cert_backtest_disclosures_on_the_same_line()
         + "`predictor-1` 0/25 cell(s) flagged, 0 exposure candidate(s)"
     ) in bullet
     assert "Nothing is excluded" in bullet
-    assert "inflates that predictor's accuracy and lift" in bullet
+    assert "can only bias that predictor's accuracy and lift upward" in bullet
+    assert "an unmarked note is not a cleared one" in bullet
     assert "not the same as clean" in bullet
     # Still the one line: the figure is on it too.
     assert "always-deny floor 60.0%" in bullet

@@ -1805,8 +1805,8 @@ path to follow rather than two readings of the same instruction — which makes
 than of an ambiguous one.
 
 What a replay cell says about itself outlives the work root the same way. The
-campaign reads every attempted cell's `flags.json` back beside its
-`prediction.json` and records it on the report as
+campaign reads every attempted cell's `flags.json` back from the work root
+beside its `prediction.json` and records it on the report as
 `provenance.disclosures` (category, severity, and a text rule's
 exposure-candidate reading per note) with a per-predictor tally, and prints
 each note's text to the run log with credential-shaped runs redacted. The text
@@ -1814,7 +1814,8 @@ itself stays out of the committed report, since `metrics/` sits beside later
 replay cells and a note about outcome-revealing material names the case it saw
 it for. Nothing there excludes a cell: the back-test runs no evaluator, so the
 reading rules state the direction instead (`metrics/README.md`), and the review
-PR names every exposure-candidate cell.
+PR names every exposure-candidate cell, scored or lost, and every unreadable
+note.
 
 The replay's leakage fence reaches past the snapshot to the checkout the cells
 sit in. A replayed petition is decided, so its committed ledger directory can

@@ -4687,8 +4687,8 @@ class CertBacktestFlag(_Strict):
         "(`fedcourtsai.cert_backtest.outcome_exposure_candidate`) reads the note's "
         "message as possibly disclosing that the cell saw its own petition's outcome. "
         "A triage highlighter over free text, not a judgment: it over-calls on some "
-        "shapes (a retrieved prior's GVR, for one) and can miss a disclosure worded "
-        "outside its cues, and it never changes which cells are scored"
+        "shapes (a retrieved prior's GVR, for one) and misses others, so an unmarked note "
+        "is not a cleared one — and it never changes which cells are scored"
     )
 
 
@@ -4707,7 +4707,9 @@ class CertBacktestDisclosure(_Strict):
     case_id: str = Field(description="The petition the cell was replaying")
     scored: bool = Field(
         description="Whether this cell's prediction is in its predictor's figures. "
-        "False for a lost cell, whose notes are kept because they can explain the loss"
+        "False for a lost cell, whose notes are kept because they can explain the loss — "
+        "and can matter to the other predictors' cells on the same petition, which read "
+        "the same provisioned inputs — and for every cell of a predictor that left the board"
     )
     unreadable: bool = Field(
         default=False,
@@ -4839,7 +4841,7 @@ class CertBacktestProvenance(_Strict):
     disclosure_tally: dict[str, CertBacktestDisclosureTally] = Field(
         default_factory=dict,
         description="Per-predictor disclosure counts over the scored cells, keyed by "
-        "predictor id, for every replayed predictor that scored a cell. Engines differ "
+        "predictor id, for every replayed predictor on the board. Engines differ "
         "in how often and how they write notes, so a count is read within one predictor, "
         "never as a cross-engine leakage comparison",
     )

@@ -625,10 +625,11 @@ def _read_replayed_cell(
 _EXPOSURE_CUES = re.compile(
     r"leak|contaminat|outcome[- ]revealing|\bsurfaced\b|\bencountered\b|\bsaw\b"
     r"|\bseen\b|\breveal(?:ed|s)?\b|\bexpos(?:ed|ure)\b|\bsnippets?\b|\bunsuitable\b"
+    r"|\bshow(?:ed|ing|s)?\b|\bfound\b|\bincluded\b"
 )
 _OUTCOME_TERMS = re.compile(
-    r"\boutcomes?\b|\bdispositions?\b|\bgranted\b|\bdenied\b|\bgvr"
-    r"|\border[- ]lists?\b|\bgrant language\b|\bcert was\b"
+    r"\boutcomes?\b|\bdispositions?\b|\bgranted\b|\bdenied\b|\bgranting\b|\bdenying\b"
+    r"|\bgvr|\border[- ]lists?\b|\bgrant (?:language|order)\b|\bcert was\b"
 )
 # The boilerplate the engines write into nearly every note ("No outcome was
 # sought or encountered") is negated, so a negator anywhere in the clause voids
@@ -654,9 +655,10 @@ def outcome_exposure_candidate(message: str) -> bool:
     em dash) and before ``but``/``although``/``though``/``however``/``yet``/
     ``whereas``; a clause is a candidate when it carries an **exposure cue**
     (leak, contaminat…, outcome-revealing, surfaced, encountered, saw, seen,
-    reveal/revealed/reveals, exposed/exposure, snippet, unsuitable), an
-    **outcome term** (outcome, disposition, granted, denied, GVR…, order
-    list, grant language, "cert was") and **no negator** (no, not, none,
+    reveal/revealed/reveals, exposed/exposure, snippet, unsuitable,
+    show/showed/showing/shows, found, included), an **outcome term** (outcome,
+    disposition, granted, denied, granting, denying, GVR…, order list, grant
+    language, grant order, "cert was") and **no negator** (no, not, none,
     nothing, never, neither, nor, without, cannot, -n't). The message is a
     candidate when any clause is.
 
@@ -664,9 +666,12 @@ def outcome_exposure_candidate(message: str) -> bool:
     the scores. Free text defeats any rule this simple in both directions, and
     the known shapes are pinned in the tests — it over-calls a retrieved
     prior's disposition ("a query surfaced a prior that was GVR'd"), and it
-    misses a disclosure worded outside its cues or one whose only clause also
-    carries its denial. The frozen prompt designates no category for an
-    exposure note, which is why the rule reads the message at all.
+    misses a disclosure worded outside its cues, one whose only clause also
+    carries its denial, and one whose cue and outcome term a comma puts in
+    different clauses ("surfaced, in a snippet, that cert was denied"). So an
+    unmarked note is not a cleared one. The frozen prompt reserves no category
+    for a replay cell's exposure note, which is why the rule reads the message
+    at all.
     """
     for clause in _CLAUSE_BREAK.split(message.casefold()):
         if (
@@ -727,6 +732,23 @@ def _read_replayed_flags(
     return CertBacktestDisclosure(
         predictor_id=predictor_id, case_id=case_id, scored=scored, flags=flags
     )
+
+
+def _settled(
+    disclosures: list[CertBacktestDisclosure], backtesters: list[Backtester]
+) -> list[CertBacktestDisclosure]:
+    """The campaign's disclosures, sorted, with ``scored`` settled against the board.
+
+    ``scored`` is decided cell by cell as each is read back, but a predictor
+    whose engine went missing later in the campaign leaves the board with the
+    cells it had already scored, and those are then in no figure either.
+    """
+    on_board = {b.id for b in backtesters}
+    settled = [
+        d if d.predictor_id in on_board else d.model_copy(update={"scored": False})
+        for d in disclosures
+    ]
+    return sorted(settled, key=lambda d: (d.predictor_id, d.case_id))
 
 
 def disclosure_tally(
@@ -1145,7 +1167,7 @@ def replay_predictors(
         # facts about the run. Why the predictor has no entry is
         # `unavailable`'s to say, not this list's to omit.
         lost_cells=sorted(lost, key=lambda loss: (loss.predictor_id, loss.case_id)),
-        disclosures=sorted(disclosures, key=lambda d: (d.predictor_id, d.case_id)),
+        disclosures=_settled(disclosures, backtesters),
         disclosure_tally=disclosure_tally(backtesters, disclosures),
     )
 

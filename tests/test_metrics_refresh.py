@@ -696,8 +696,7 @@ def test_render_backtest_pr_names_the_exposure_candidates(tmp_path: Path) -> Non
                     scored=True,
                     unreadable=True,
                 ),
-                # A lost cell's note is kept on the report, not on this line:
-                # it is in no figure for the line to caveat.
+                # A lost cell's candidate: in no figure, but named on the line.
                 CertBacktestDisclosure(
                     predictor_id="gemini-baseline",
                     case_id="scotus/1",
@@ -721,11 +720,21 @@ def test_render_backtest_pr_names_the_exposure_candidates(tmp_path: Path) -> Non
     (tmp_path / "cert-backtest.json").write_text(report.model_dump_json())
     pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
     assert pr is not None
-    assert "1 of its scored cell(s) raised a possible outcome-exposure note" in pr.body
+    assert (
+        "of its scored cells, 1 raised a possible outcome-exposure note**, still counted "
+        + "in this figure, which a real exposure can only bias upward"
+    ) in pr.body
+    assert "1 scored cell(s) raised a note" in pr.body
     assert "`claude-baseline` — scotus/72484159 (data-quality)" in pr.body
-    assert "1 scored cell(s) left an unreadable `flags.json`: `codex-baseline`" in pr.body
-    assert "scotus/1" not in pr.body
+    # The lost cell's candidate is named apart: in no figure, but its petition's
+    # inputs are the ones every scored cell beside it read.
+    assert "1 lost cell(s) did too" in pr.body
+    assert "`gemini-baseline` — scotus/1 (data-quality)" in pr.body
+    assert "1 cell(s) left an unreadable `flags.json`: `codex-baseline` — scotus/73275179" in (
+        pr.body
+    )
     assert "nothing is excluded" in pr.body
+    assert "an unmarked note is not a cleared one" in pr.body
     # A run whose cells raised neither says nothing at all.
     quiet = report.model_copy(update={"provenance": CertBacktestProvenance()})
     (tmp_path / "cert-backtest.json").write_text(quiet.model_dump_json())
