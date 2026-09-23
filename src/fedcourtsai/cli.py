@@ -10622,6 +10622,45 @@ def summarize_cmd(
         raise typer.Exit(code=1)
 
 
+@app.command("summary-stage-check")
+def summary_stage_check_cmd(
+    plan_file: Annotated[
+        Path, typer.Option("--plan", help="The plan JSON `summarize-plan` wrote.")
+    ],
+    staged: Annotated[
+        Path,
+        typer.Option(help="The data root `provision-snapshot` staged the planned cases under."),
+    ],
+    summary: Annotated[
+        Path | None,
+        typer.Option(help="Append the one-line kept/removed count to this file (a job summary)."),
+    ] = None,
+) -> None:
+    """Remove every staged record that may not leave the stage job, before it is uploaded.
+
+    The staged tree crosses to the generate job as a run artifact that any
+    signed-in user can download while it exists, so it may carry only the
+    Court's own docket JSON and filings. Staging runs after the review hold and
+    provisions whatever snapshot is newest by then; this keeps a case only if it
+    was planned and its tree holds exactly what provisioning writes — the
+    planned day's snapshot in the Court's own shape, ``context.json``, and the
+    documents manifest with one text file per listed supremecourt.gov document —
+    and removes everything else under the stage root. Each removal is printed as
+    a ``::warning::``; the case is then reported skipped by ``summarize`` and
+    planned again by the next run.
+    """
+    plan = SummaryPlan.model_validate_json(plan_file.read_text())
+    removed = summaries.prune_stage(plan, staged)
+    for what, reason in removed:
+        typer.echo(f"::warning::removed {what} from the staged records: {reason}")
+    kept = sum(1 for p in (staged / "cases").glob("*/*") if p.is_dir())
+    line = f"stage check: {kept} staged case record(s) kept, {len(removed)} removed"
+    typer.echo(line)
+    if summary is not None:
+        with summary.open("a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+
+
 @app.command("summary-paths")
 def summary_paths_cmd(
     name_status_file: Annotated[

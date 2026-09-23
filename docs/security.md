@@ -1100,7 +1100,12 @@ jobs — the newest snapshot and every stored document's text, after the
 contact-detail scrub. The lane plans only cases whose newest snapshot is the
 Court's own docket JSON, so what it carries is supremecourt.gov content, on
 the footing the qp-topic extract is argued on: the plan refuses a
-CourtListener REST snapshot, and so does `summarize` if one is staged. It
+CourtListener REST snapshot, and the stage job re-checks what it staged and
+removes, before the upload, any case whose tree is not exactly what
+provisioning writes — the planned day's Court docket JSON, `context.json`, and
+manifest-listed supremecourt.gov documents (`summary-stage-check`) — so a
+snapshot that changed after the plan never crosses; `summarize` refuses one as
+well. It
 widens that footing in one way the extract does not: the extract carries one
 section of each petition, while this carries every stored filing of each
 planned case. `case-summaries`, seven days, carries the generated summaries
