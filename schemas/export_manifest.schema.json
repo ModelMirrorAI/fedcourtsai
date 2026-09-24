@@ -1,0 +1,240 @@
+{
+  "$defs": {
+    "ExportCorpusVintage": {
+      "additionalProperties": false,
+      "description": "The corpus blob the export's docket numbers were read from, and how fresh it was.",
+      "properties": {
+        "backend": {
+          "description": "The corpus read backend (`local` or `ranged`)",
+          "title": "Backend",
+          "type": "string"
+        },
+        "latest_pull": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The newest `last_pulled` across the blob's cases; null if never pulled",
+          "title": "Latest Pull"
+        },
+        "latest_snapshot": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The newest dated snapshot the blob itself stores; null where it stores none",
+          "title": "Latest Snapshot"
+        }
+      },
+      "required": [
+        "backend",
+        "latest_pull",
+        "latest_snapshot"
+      ],
+      "title": "ExportCorpusVintage",
+      "type": "object"
+    },
+    "ExportFile": {
+      "additionalProperties": false,
+      "description": "One file of the release dataset bundle, with its checksum.",
+      "properties": {
+        "path": {
+          "description": "The file's path inside the bundle",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "The file's SHA-256, lowercase hex",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size": {
+          "description": "The file's size in bytes",
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size"
+      ],
+      "title": "ExportFile",
+      "type": "object"
+    },
+    "FrozenProcessRecord": {
+      "additionalProperties": false,
+      "description": "The freeze constants in force when a board was built.\n\n``process_scope: \"frozen\"`` names a partition whose membership lives in\ncode (:mod:`fedcourtsai.process_version`), so without this block a reader\nwould have to resolve the build's commit back to the source to see *which*\ndigests were blessed and from which instant. Recording them on the board\nitself, the way ``salience_versions`` names the gate, states what was\nblessed at build time \u2014 on every build, an ``all``-scope one included, as\nthe partition's definition and never a claim it was applied. It records the\n*blessed* set, not the *filter*: only the predictor subset is the enforced\nmembership test (``process_version.is_frozen``), while the evaluator\ndigests are record-only (timing alone enforced), and this flat list does\nnot distinguish the two \u2014 that mapping lives in ``process_version``.",
+      "properties": {
+        "digests": {
+          "description": "The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted \u2014 predictors and evaluators together, exactly as the freeze commit blessed them. Not a filter: the enforced membership test is the predictor subset alone, which this pooled list does not distinguish (see `process_version`)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Digests",
+          "type": "array"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The freeze instant (`FROZEN_SINCE`); null while no freeze is in force",
+          "title": "Since"
+        }
+      },
+      "required": [
+        "digests",
+        "since"
+      ],
+      "title": "FrozenProcessRecord",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``MANIFEST.json`` \u2014 what built the release dataset bundle, and from which ledger.\n\nHolds no build timestamp: a rebuild from the same commit, against the same\ncorpus blob, with the same package and pyarrow versions, reproduces the\nbundle byte for byte, and ``source_commit`` dates it.",
+  "properties": {
+    "build_command": {
+      "description": "The command that built the bundle",
+      "title": "Build Command",
+      "type": "string"
+    },
+    "corpus_vintage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExportCorpusVintage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The corpus blob the docket numbers came from; null when omitted"
+    },
+    "counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Row counts per table and the population's headline tallies",
+      "title": "Counts",
+      "type": "object"
+    },
+    "dataset": {
+      "const": "fedcourtsai-ledger-export",
+      "default": "fedcourtsai-ledger-export",
+      "title": "Dataset",
+      "type": "string"
+    },
+    "docket_numbers": {
+      "description": "`corpus`: `docket_number` was read from the corpus; `omitted`: built without a corpus, so the column is null throughout",
+      "enum": [
+        "corpus",
+        "omitted"
+      ],
+      "title": "Docket Numbers",
+      "type": "string"
+    },
+    "files": {
+      "description": "Every other file in the bundle with its checksum, in path order",
+      "items": {
+        "$ref": "#/$defs/ExportFile"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "forward_claim_policy": {
+      "description": "The forward-claim policy the scored population was built under",
+      "title": "Forward Claim Policy",
+      "type": "string"
+    },
+    "frozen_process": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FrozenProcessRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The freeze constants the frozen scope applied; null under `all`"
+    },
+    "ledger_commits": {
+      "description": "`git`: `ledger_commit` was read from the source history; `omitted`: built without git history, so the column is null throughout",
+      "enum": [
+        "git",
+        "omitted"
+      ],
+      "title": "Ledger Commits",
+      "type": "string"
+    },
+    "package_version": {
+      "description": "The fedcourtsai package version that built it",
+      "title": "Package Version",
+      "type": "string"
+    },
+    "process_scope": {
+      "description": "`frozen`: predictions from the pre-registered process only; `all`: every process version (a diagnostic scope, never the release)",
+      "enum": [
+        "frozen",
+        "all"
+      ],
+      "title": "Process Scope",
+      "type": "string"
+    },
+    "source_commit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The commit checked out when the bundle was built; null where the export was built without git",
+      "title": "Source Commit"
+    },
+    "source_dirty": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Whether the checkout had uncommitted changes (tracked files anywhere, or untracked files under the ledger); a bundle for release is built clean; null without git",
+      "title": "Source Dirty"
+    }
+  },
+  "required": [
+    "source_commit",
+    "source_dirty",
+    "build_command",
+    "package_version",
+    "process_scope",
+    "frozen_process",
+    "forward_claim_policy",
+    "ledger_commits",
+    "docket_numbers",
+    "corpus_vintage",
+    "counts",
+    "files"
+  ],
+  "title": "ExportManifest",
+  "type": "object"
+}

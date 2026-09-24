@@ -429,5 +429,5 @@ DOI, which gives that pre-registration or result a timestamped copy held
 outside GitHub; Zenodo archives only Releases published after its integration
 was enabled, so a tag that was never published as a Release has no such copy.
 A results release also deposits its dataset export — the data only — as a
-separate Zenodo dataset record linked to that version; the export is decided
-and not yet built.
+separate Zenodo dataset record linked to that version, built by
+`fedcourts export`; no release has published one yet.

@@ -206,11 +206,12 @@ at 2,000 characters by schema. Both are original
 analysis attributing CourtListener as the source, not a republication of their
 dataset.
 
-A **results release** adds one more surface — decided, not yet built: the
-release dataset, a flat export of the counted ledger built from the tagged
-commit — a predictions table (CSV and Parquet), the reasoning documents, a data
-dictionary, the schemas, and a manifest naming the commit and each file's
-checksum — deposited on Zenodo as a dataset record. The data files are under
+A **results release** adds one more surface: the release dataset, a flat
+export of the ledger built from the tagged commit by `fedcourts export` — a
+predictions table and a gradings table (CSV and Parquet), the reasoning
+documents, a data dictionary, the schemas, and a manifest naming the commit and
+each file's checksum — deposited on Zenodo as a dataset record. The command
+exists; no release has published a bundle yet. The data files are under
 **CC BY 4.0**, a licence that covers only the project's own predictions,
 outcomes and evaluations; the schemas are generated from the code and ship
 under its BSD 3-Clause licence. It carries **no code**. Everything in it is the
