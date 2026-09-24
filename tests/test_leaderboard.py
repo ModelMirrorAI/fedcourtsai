@@ -1,5 +1,6 @@
 """Leaderboard aggregation and stratification over a small fixture ledger."""
 
+import json
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -2639,7 +2640,9 @@ def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) 
     assert is_correct(read_model(event.prediction("alpha", "p1"), Prediction), outcome) == 0
     run = stratify(tmp_path, frozen_only=False)
     (fact,) = cell_facts(run.cells, tmp_path).values()
-    assert fact == CellFacts(band_key="sal-v1/high", always_deny_correct=0, granted=True)
+    assert fact == CellFacts(
+        band_key="sal-v1/high", always_deny_correct=0, recomputed_correct=0, grant_family=True
+    )
     (entry,) = _banded_board(tmp_path).entries
     assert entry.forward is not None
     assert (entry.forward.accuracy, entry.forward.always_deny_accuracy) == (0.0, 0.0)
@@ -2652,7 +2655,10 @@ def _cert_facts(
 ) -> dict[Any, CellFacts]:
     return {
         _evaluation_key(ev): CellFacts(
-            band_key=band, always_deny_correct=always_deny_correct, granted=False
+            band_key=band,
+            always_deny_correct=always_deny_correct,
+            recomputed_correct=ev.correct or 0,
+            grant_family=False,
         )
         for ev in evals
     }
@@ -2749,3 +2755,162 @@ def test_band_and_floor_fields_never_move_the_ranking() -> None:
     assert lifts == [pytest.approx(0.0), pytest.approx(0.5)]
     # Without facts the entry serializes no `by_band` key at all.
     assert "by_band" not in plain.entries[0].model_dump(mode="json")
+
+
+def test_grants_count_the_grant_family_not_the_binary_target(tmp_path: Path) -> None:
+    # `granted-in-part` is on the granted side of `actual_granted` but keeps its
+    # own statpack bucket, so the band rates `grants_expected` sums never count
+    # it; `gvr` is in the family.
+    for event_id, disposition in (
+        ("evt-gip", Disposition.granted_in_part),
+        ("evt-gvr", Disposition.gvr),
+    ):
+        _write_cell(
+            tmp_path,
+            _evaluation("alpha", event_id=event_id, correct=1),
+            context=_band_context("high"),
+            predicted_disposition=disposition,
+            actual_disposition=disposition,
+        )
+    (entry,) = _banded_board(tmp_path).entries
+    assert entry.forward is not None
+    assert entry.forward.grants_realized == 1
+    run = stratify(tmp_path, frozen_only=False)
+    families = {key[1]: fact.grant_family for key, fact in cell_facts(run.cells, tmp_path).items()}
+    assert families == {"evt-gip": False, "evt-gvr": True}
+
+
+def test_realized_grants_are_paired_to_the_expected_events() -> None:
+    # Both events are grants; only evt-a carries an admitted rate, so the pair
+    # to compare is 0.3 expected against 1 realized — not against 2.
+    rated = _evaluation("alpha", event_id="evt-a", segment_base_rate=0.3)
+    unrated = _evaluation("alpha", event_id="evt-b")
+    facts = {
+        _evaluation_key(ev): CellFacts(
+            band_key="sal-v1/high", always_deny_correct=0, recomputed_correct=1, grant_family=True
+        )
+        for ev in (rated, unrated)
+    }
+    forward = (
+        build_leaderboard(
+            [_forward(rated), _forward(unrated)],
+            skills={_evaluation_key(rated): CellSkill(brier=0.1, prior_term_baseline=0.49)},
+            facts=facts,
+        )
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.grants_realized == 2
+    assert forward.grants_expected == pytest.approx(0.3)
+    assert forward.grants_expected_scored == 1
+    assert forward.grants_realized_expected_scored == 1
+
+
+def test_a_grading_stamped_against_a_superseded_outcome_leaves_the_floor_null(
+    tmp_path: Path,
+) -> None:
+    # The grading says the `granted` call was right; the committed outcome now
+    # reads `denied`. A floor off the current outcome beside an accuracy off
+    # the old one is unpaired, so the floor and both lifts stay null.
+    _write_cell(
+        tmp_path,
+        _evaluation("alpha", event_id="evt-a", correct=1),
+        context=_band_context("high"),
+        predicted_disposition=Disposition.granted,
+        actual_disposition=Disposition.denied,
+    )
+    (entry,) = _banded_board(tmp_path).entries
+    assert entry.forward is not None and entry.by_band is not None
+    for block in (entry.forward, entry.by_band["sal-v1/high"]):
+        assert block.accuracy == 1.0
+        assert block.always_deny_accuracy is None
+        assert block.accuracy_lift is None
+        assert block.event_always_deny_accuracy is None
+        assert block.event_accuracy_lift is None
+        # The grant counts need only the facts, which are present.
+        assert block.grants_realized == 0
+
+
+def test_event_weighted_accuracy_counts_each_petition_once() -> None:
+    # evt-a: three judges, all correct, outcome granted (always-deny misses).
+    # evt-b: one judge, wrong, outcome denied (always-deny hits).
+    deep = [_evaluation("alpha", event_id="evt-a", evaluator_id=f"eval-{i}") for i in "abc"]
+    thin = _evaluation("alpha", event_id="evt-b", correct=0)
+    facts = {
+        **_cert_facts(*deep, always_deny_correct=0),
+        **_cert_facts(thin, always_deny_correct=1),
+    }
+    board = build_leaderboard([_forward(ev) for ev in [*deep, thin]], facts=facts)
+    forward = board.entries[0].forward
+    assert forward is not None
+    assert (forward.accuracy, forward.always_deny_accuracy) == (0.75, 0.25)
+    assert forward.accuracy_lift == pytest.approx(0.5)
+    assert forward.accuracy_events_scored == 2
+    assert (forward.event_accuracy, forward.event_always_deny_accuracy) == (0.5, 0.5)
+    assert forward.event_accuracy_lift == 0.0
+
+
+def test_event_fields_are_null_where_one_events_gradings_disagree() -> None:
+    agree = _evaluation("alpha", event_id="evt-a", correct=1)
+    left = _evaluation("alpha", event_id="evt-b", correct=1)
+    right = _evaluation("alpha", event_id="evt-b", evaluator_id="eval-b", correct=0)
+    forward = (
+        build_leaderboard(
+            [_forward(agree), _forward(left), _forward(right)],
+            facts=_cert_facts(agree, left, right, always_deny_correct=0),
+        )
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.accuracy_events_scored == 2
+    assert forward.event_accuracy is None
+    assert forward.event_always_deny_accuracy is None
+    assert forward.event_accuracy_lift is None
+    # The grading-weighted pair is unaffected.
+    assert forward.always_deny_accuracy == 0.0
+
+
+def test_complete_grid_by_band_counts_events_every_predictor_covers() -> None:
+    both = [_evaluation(p, event_id="evt-both") for p in ("alpha", "beta")]
+    alpha_only = _evaluation("alpha", event_id="evt-alpha")
+    split_alpha = _evaluation("alpha", event_id="evt-split")
+    split_beta = _evaluation("beta", event_id="evt-split")
+    ungraded = [_evaluation(p, event_id="evt-null", correct=None) for p in ("alpha", "beta")]
+    evals = [*both, alpha_only, split_alpha, split_beta, *ungraded]
+    facts = {
+        **_cert_facts(*both, alpha_only, split_alpha, *ungraded),
+        **_cert_facts(split_beta, band="sal-v1/low"),
+    }
+    board = build_leaderboard([_forward(ev) for ev in evals], facts=facts)
+    assert board.complete_grid_by_band == {"sal-v1/high": 1}
+    cvsg = build_leaderboard(
+        [_forward(ev, Stage.cert, Moment.cvsg) for ev in both], facts=_cert_facts(*both)
+    )
+    block = cvsg.stages[stage_moment_key(Stage.cert, Moment.cvsg)]
+    assert block.complete_grid_by_band == {"sal-v1/high": 1}
+    # Without facts the key is absent from the serialized board.
+    plain = build_leaderboard([_forward(ev) for ev in both])
+    assert "complete_grid_by_band" not in plain.model_dump(mode="json")
+
+
+def test_cli_writes_the_banded_cut(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_banded_ledger(data_root)
+    out = tmp_path / "leaderboard.json"
+    result = runner.invoke(
+        app,
+        ["leaderboard", "--out", str(out), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(out.read_text())
+    (entry,) = payload["entries"]
+    assert set(entry["by_band"]) == {"sal-v1/high", "sal-v1/low", NO_BAND_KEY}
+    assert entry["by_band"]["sal-v1/low"]["accuracy_lift"] == pytest.approx(-0.5)
+    assert payload["complete_grid_by_band"] == {
+        "sal-v1/high": 3,
+        "sal-v1/low": 4,
+        NO_BAND_KEY: 1,
+    }

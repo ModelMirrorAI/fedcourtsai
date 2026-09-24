@@ -288,9 +288,10 @@ jq '.process_scope, .frozen_process, .salience_versions' metrics/leaderboard.jso
 jq '.entries[] | {predictor_id, events_scored, evaluators}' metrics/leaderboard.json
 jq '.stages' metrics/leaderboard.json                      # unranked moment blocks
 # the per-band forward cut, ranked board then the CVSG arm
-BAND='{events_scored, evaluations, accuracy, accuracy_scored, always_deny_accuracy, accuracy_lift, population_brier_skill_score, skill_scored, grants_realized, grants_expected, grants_expected_scored}'
+BAND='{events_scored, evaluations, mean_depth: (if .events_scored > 0 then .evaluations / .events_scored else null end), accuracy_events_scored, event_accuracy, event_always_deny_accuracy, event_accuracy_lift, accuracy, accuracy_scored, always_deny_accuracy, accuracy_lift, population_brier_skill_score, skill_scored, grants_expected, grants_expected_scored, grants_realized_expected_scored, grants_realized}'
 jq ".entries[] | {predictor_id, evaluators, by_band: ((.by_band // {}) | map_values($BAND))}" metrics/leaderboard.json
 jq ".stages[\"cert@cvsg\"].entries[]? | {predictor_id, evaluators, by_band: ((.by_band // {}) | map_values($BAND))}" metrics/leaderboard.json
+jq '.complete_grid_by_band, .stages["cert@cvsg"].complete_grid_by_band' metrics/leaderboard.json
 sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md
 ```
 
@@ -300,11 +301,12 @@ sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md
 > board exists and is a diagnostic view; nothing from it is quoted here.
 >
 > The baseline is the registered per-band risk-set rate under the active
-> salience scorer, and the always-deny floor a figure is read against is its
-> own band's. On the committed pack those floors are 94.98% baseline, 83.11%
-> elevated, 64.49% high, 29.21% federal and 76.37% state, counting the whole
-> grant family, GVRs included, because that is what the board scores. On that
-> anchor the cohort's band-mix-implied grant rate is about 10.1% over the 110
+> salience scorer. On the committed pack those grant-family rates are 5.02%
+> baseline, 16.89% elevated, 35.51% high, 70.79% federal and 23.63% state,
+> counting the whole grant family, GVRs included; they are the skill anchor.
+> Their complements (94.98% / 83.11% / 64.49% / 29.21% / 76.37%) are
+> grant-family denial shares, not exact-match always-deny floors, and no lift
+> in this write-up is measured against them. On that anchor the cohort's band-mix-implied grant rate is about 10.1% over the 110
 > cert/distribution events — about 17.8% over the selected subset and 5.8% over
 > the declined remainder — and about 12.2% over all 120 cert-stage events once
 > the CVSG arm is folded in. A whole-docket cert rate of 1–3% is the wrong
@@ -313,16 +315,19 @@ sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md
 > Every figure is read on the **per-band cut**, never as a single pooled row,
 > and each number travels with four things in its own sentence: the band's `n`,
 > the always-deny floor, the **lift over that floor**, and the stratum. The
-> floor a lift is measured against is the one **realized on the same
-> gradings** — what a constant `denied` call scored on exactly the cells the
-> accuracy averages — while the registered historical floors above stay the
-> skill anchor and are shown beside it, never subtracted from. An accuracy
-> near its band's floor is the floor, not performance — a predictor that
-> denies everything scores the denial rate — so accuracy is never published
-> without its floor beside it, and never without `accuracy_scored`, which is
-> its true denominator. Accuracy and the floor are averaged over gradings, one
-> per judge, so they are weighted by panel depth, while a band's `n` counts
-> petitions. A skill figure travels with `skill_scored`,
+> floor a lift is measured against is the one **realized on the same cells** —
+> what a constant `denied` call scored, under the exact-match rule, on exactly
+> the petitions the accuracy covers — while the registered band rates above
+> stay the skill anchor and are shown beside it, never subtracted from. An
+> accuracy near its band's floor is the floor, not performance — a predictor
+> that denies everything scores the denial rate — so accuracy is never
+> published without its floor beside it, and never without its denominator.
+> The band figures are **per petition**: `event_accuracy`,
+> `event_always_deny_accuracy` and `event_accuracy_lift` count each event once
+> over `accuracy_events_scored`. The grading-weighted `accuracy` /
+> `always_deny_accuracy` pair is weighted by panel depth, which varies by
+> design, and is shown only beside the band's mean depth (its `evaluations`
+> over its `events_scored`), never in place of the per-petition figures. A skill figure travels with `skill_scored`,
 > which can sit far below the block's evaluation count because a cell scores
 > skill only where a segment base rate exists, and the estimator is named:
 > the population skill score is a ratio of sums and the mean Brier is a
@@ -355,17 +360,26 @@ sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md
 ‹per predictor and per band, over the forward stratum — from the `by_band`
 block of each entry in `metrics/leaderboard.json` after the refresh above, and
 of each `cert@cvsg` stage entry for the CVSG arm: `events_scored` (petitions);
-`accuracy` with `accuracy_scored` (gradings) and the entry's `evaluators`
-(panel depth); the **realized** always-deny floor `always_deny_accuracy` and
-the lift over it, `accuracy_lift`; population Brier skill (a ratio of sums),
-`population_brier_skill_score`, with `skill_scored`; and `grants_realized`
-against `grants_expected` over `grants_expected_scored` events. The registered
-historical floors (94.98% / 83.11% / 64.49% / 29.21% / 76.37%) stay the skill
-anchor and are shown beside each row; they are not the floor the lift is
-measured against. The `(none)` key holds cells whose prediction froze no band
-and is reported as its own row, never folded into a band›
+the per-petition `event_accuracy` over `accuracy_events_scored`, with the
+**realized** always-deny floor `event_always_deny_accuracy` and the lift over
+it, `event_accuracy_lift`; beside them the grading-weighted `accuracy` with
+`accuracy_scored` (gradings), `always_deny_accuracy` and `accuracy_lift`, and
+the band's mean panel depth, `evaluations / events_scored` (the entry's
+`evaluators` is the panel size, not per-event depth); population Brier skill
+(a ratio of sums), `population_brier_skill_score`, with `skill_scored`; and
+`grants_realized_expected_scored` against `grants_expected` over the same
+`grants_expected_scored` events. The grant comparison carries its censoring
+caveat in its own sentence: relisted and held petitions are still pending and
+grant more often than the ones already decided, so while they pend realized
+runs below expected, and a shortfall is not yet evidence of miscalibration.
+The registered band rates (5.02% / 16.89% / 35.51% / 70.79% / 23.63%) stay the
+skill anchor and are shown beside each row; their complements are grant-family
+denial shares, not exact-match floors, and are not the floor the lift is
+measured against. The `(none)` key holds cells that froze no band, froze a
+band with no version, or carry no band facts, and is reported as its own row,
+never folded into a band›
 
-‹the per-band always-deny floors as the refreshed pack publishes them — from
+‹the per-band grant-family rates (the skill anchor) as the refreshed pack publishes them — from
 `metrics/statpack.md`, *Segment base rate by salience band* — re-read rather
 than quoted from an earlier build, and reconciled against the registered values
 in [freeze-record.md](freeze-record.md) and
@@ -414,6 +428,11 @@ entry's `evaluators`; and the population's own `events_scored` union.
 > or in panel depth, and either makes the means differently weighted. A forward
 > comparison is made only where both entries carry a forward block over the same
 > events.
+>
+> Per band, engines are compared only over that band's **complete grid** —
+> the board's `complete_grid_by_band`, the forward petitions in the band on
+> which every engine carries a scored grading. Where two engines' per-band
+> `events_scored` differ, no per-band ordering is read off them at all.
 >
 > The ranking is on N-unweighted point estimates over a cohort whose band mix
 > implies roughly a dozen grants. A one- or two-event difference reorders it.

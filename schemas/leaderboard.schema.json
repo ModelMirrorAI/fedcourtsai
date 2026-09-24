@@ -164,7 +164,7 @@
             }
           ],
           "default": null,
-          "description": "The **forward** stratum cut by salience band: one LeaderboardStratum per band, aggregated exactly as `forward` is \u2014 the same cells, after the run collapse and both exclusions, with the same skill terms. Keyed `<salience_version>/<band>` from the scored prediction's frozen `context`, never the corpus's current band, which only strengthens as a petition is relisted or a CVSG lands and so would sort a forecast by its own future. A cell whose context froze no band, or a band with no version, files under the single `(none)` key, so the blocks' `evaluations` sum to `forward.evaluations`. Cert stage only \u2014 no other stage is a salience-band product \u2014 and omitted while there is no forward cert cell or no band facts were supplied. Never a rank key",
+          "description": "The **forward** stratum cut by salience band: one LeaderboardStratum per band, aggregated exactly as `forward` is \u2014 the same cells, after the run collapse and both exclusions, with the same skill terms. Keyed `<salience_version>/<band>` from the scored prediction's frozen `context`, never the corpus's current band, which only strengthens as a petition is relisted or a CVSG lands and so would sort a forecast by its own future. A cell whose context froze no band, or a band with no version, or that carries no band facts at all, files under the single `(none)` key, so the blocks' `evaluations` sum to `forward.evaluations`. Cert stage only \u2014 no other stage is a salience-band product \u2014 and omitted while there is no forward cert cell or no band facts were supplied. Never a rank key",
           "title": "By Band"
         },
         "evaluators": {
@@ -239,6 +239,14 @@
       "additionalProperties": false,
       "description": "One unranked ``stage@moment`` population, aggregated per predictor.\n\nA stage is a decision standard (cert / interim / merits \u2014 the event\nvocabulary) and a moment is the point in the case's life the forecast was\ntaken from, so the pair \u2014 not the stage alone \u2014 identifies a population.\nSkill figures are only meaningful within one: `granted`\nanswers a different question at each stage \u2014 the cert segment's is its\nsalience band's grant rate, the merits stage's the guarded disturbed rate\npooled strictly prior (docs/decision-model.md), and the interim stage has\nno published base rate, so its skill stays null. Each\nstage carries its own counts and entries,\nlisted by ``predictor_id`` (never ranked), and nothing here blends into the\ncert board or another stage.",
       "properties": {
+        "complete_grid_by_band": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Per `by_band` key, the forward cert events on which **every** predictor in this population carries an accuracy-scored forward grading filed under that same band \u2014 the band's complete grid. A per-band comparison between engines is made only over it: where two entries' per-band `events_scored` differ they rank over different petitions, and no per-band ordering is read off them. An event whose predictors froze different bands is complete under none. Omitted while empty",
+          "title": "Complete Grid By Band",
+          "type": "object"
+        },
         "entries": {
           "description": "Per-predictor aggregates, ordered by predictor_id \u2014 an ordering, not a ranking",
           "items": {
@@ -305,7 +313,7 @@
             }
           ],
           "default": null,
-          "description": "The **forward** stratum cut by salience band: one LeaderboardStratum per band, aggregated exactly as `forward` is \u2014 the same cells, after the run collapse and both exclusions, with the same skill terms. Keyed `<salience_version>/<band>` from the scored prediction's frozen `context`, never the corpus's current band, which only strengthens as a petition is relisted or a CVSG lands and so would sort a forecast by its own future. A cell whose context froze no band, or a band with no version, files under the single `(none)` key, so the blocks' `evaluations` sum to `forward.evaluations`. Cert stage only \u2014 no other stage is a salience-band product \u2014 and omitted while there is no forward cert cell or no band facts were supplied. Never a rank key",
+          "description": "The **forward** stratum cut by salience band: one LeaderboardStratum per band, aggregated exactly as `forward` is \u2014 the same cells, after the run collapse and both exclusions, with the same skill terms. Keyed `<salience_version>/<band>` from the scored prediction's frozen `context`, never the corpus's current band, which only strengthens as a petition is relisted or a CVSG lands and so would sort a forecast by its own future. A cell whose context froze no band, or a band with no version, or that carries no band facts at all, files under the single `(none)` key, so the blocks' `evaluations` sum to `forward.evaluations`. Cert stage only \u2014 no other stage is a salience-band product \u2014 and omitted while there is no forward cert cell or no band facts were supplied. Never a rank key",
           "title": "By Band"
         },
         "evaluators": {
@@ -388,6 +396,13 @@
           "description": "Mean `Evaluation.correct` over the evaluations that report one. A cell whose `correct` the stamp could not compute \u2014 no readable prediction, or no committed outcome \u2014 leaves both halves of this fraction rather than entering as a wrong call, so `accuracy_scored` beside it is the true denominator. Averaged over **gradings** \u2014 one per cell per judge, so weighted by panel depth \u2014 whereas `events_scored` counts events. Null when no cell in the stratum reports one, in which case the entry sorts last on this key",
           "title": "Accuracy"
         },
+        "accuracy_events_scored": {
+          "default": 0,
+          "description": "Distinct (case, event) pairs carrying at least one accuracy-scored grading \u2014 the per-petition denominator of the `event_*` fields, against the grading count `accuracy_scored`",
+          "minimum": 0,
+          "title": "Accuracy Events Scored",
+          "type": "integer"
+        },
         "accuracy_lift": {
           "anyOf": [
             {
@@ -400,7 +415,7 @@
             }
           ],
           "default": null,
-          "description": "`accuracy - always_deny_accuracy`: the paired difference over the identical gradings, so it is null exactly where `always_deny_accuracy` is. Positive means the predictor's calls beat always-deny on these cells. Never a rank key",
+          "description": "`accuracy - always_deny_accuracy`: the paired difference over the identical gradings, so it is null exactly where `always_deny_accuracy` is. Grading-weighted like both terms; `event_accuracy_lift` is the per-petition reading. Never a rank key",
           "title": "Accuracy Lift"
         },
         "accuracy_scored": {
@@ -422,7 +437,7 @@
             }
           ],
           "default": null,
-          "description": "What a constant `denied` call would have scored on the **same gradings** `accuracy` averages \u2014 every cell counted in `accuracy_scored`, one per judge, so like `accuracy` it is weighted by panel depth rather than per event. Each cell applies the same exact-match rule `Evaluation.correct` does (`pipeline.evaluate.is_correct`) to a synthetic `denied` prediction against the cell's committed outcome, so any non-`denied` outcome \u2014 a GVR included \u2014 is a miss. This is the floor **realized** on these cells, not the registered historical always-deny floor in metrics/README.md, which stays the skill anchor. Cert stage only (the one stage whose disposition axis `denied` is the null call on); null elsewhere, and null wherever any accuracy-scored cell's outcome could not be read, so the floor never runs over a different set of cells than `accuracy`",
+          "description": "What a constant `denied` call would have scored on the **same gradings** `accuracy` averages \u2014 every cell counted in `accuracy_scored`, one per judge, so like `accuracy` it is weighted by panel depth; `event_always_deny_accuracy` is the per-petition reading. Each cell applies the exact-match rule `Evaluation.correct` uses (`pipeline.evaluate.is_correct`) to a synthetic `denied` prediction against the cell's committed outcome, so any non-`denied` outcome \u2014 a GVR included \u2014 is a miss. This is the floor **realized** on these cells. It is not comparable with the registered per-band figures in metrics/README.md, which are complements of grant-family rates rather than exact-match floors; those rates stay the skill anchor. Cert stage only (the one stage whose disposition axis `denied` is the null call on). Null elsewhere; null wherever any accuracy-scored cell lacks band/outcome facts; and null where any accuracy-scored cell's stamped `correct` no longer reproduces against the committed outcome \u2014 a grading paired with a superseded outcome, beside which a floor read off the current one would be an unpaired comparison",
           "title": "Always Deny Accuracy"
         },
         "evaluations": {
@@ -430,6 +445,51 @@
           "minimum": 0,
           "title": "Evaluations",
           "type": "integer"
+        },
+        "event_accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accuracy with each event counted once: the mean, over the `accuracy_events_scored` events, of the event's `correct`. A grading's `correct` is a function of the scored prediction and the outcome, so a block's gradings of one event agree on it; where they do not (gradings of different prediction runs, or one stamped against a superseded outcome), this field and the other `event_*` fields are null rather than picking one. The per-petition reading, free of the panel-depth weighting `accuracy` carries",
+          "title": "Event Accuracy"
+        },
+        "event_accuracy_lift": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`event_accuracy - event_always_deny_accuracy`: the per-petition lift over the realized floor, paired over the same events. The published per-band reading. Never a rank key",
+          "title": "Event Accuracy Lift"
+        },
+        "event_always_deny_accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`always_deny_accuracy` with each event counted once, over the same `accuracy_events_scored` events as `event_accuracy`. Null wherever `always_deny_accuracy` or `event_accuracy` is",
+          "title": "Event Always Deny Accuracy"
         },
         "events_scored": {
           "description": "Distinct (case, event) pairs scored",
@@ -448,7 +508,7 @@
             }
           ],
           "default": null,
-          "description": "Sum, over the distinct (case, event) pairs among the accuracy-scored cells that carry one, of the event's registered strictly-prior segment base rate \u2014 the `Evaluation.segment_base_rate` the prior-Term skill column scores against, taken only from gradings that column admits and averaged over an event's gradings, so each event enters once. The grant count a forecaster at the registered band rate would have expected, to read beside `grants_realized`; counted over `grants_expected_scored` events, which may be fewer than the events `grants_realized` counts. Cert stage only; null where no event carries a rate",
+          "description": "Sum, over the distinct (case, event) pairs among the accuracy-scored cells that carry one, of the event's registered strictly-prior segment base rate \u2014 the `Evaluation.segment_base_rate` the prior-Term skill column scores against, taken only from gradings that column admits and averaged over an event's gradings, so each event enters once. The grant count a forecaster at the registered band rate would have expected over the `grants_expected_scored` events; the realized count over exactly those events is `grants_realized_expected_scored`, and those two are the pair to compare. Cert stage only; null where no event carries a rate",
           "title": "Grants Expected"
         },
         "grants_expected_scored": {
@@ -462,7 +522,7 @@
             }
           ],
           "default": null,
-          "description": "Distinct (case, event) pairs contributing to `grants_expected` \u2014 its true denominator. Below the stratum's accuracy-scored events wherever an event carries no admitted base rate; null where `grants_realized` is",
+          "description": "Distinct (case, event) pairs contributing to `grants_expected` \u2014 its true denominator. Below `accuracy_events_scored` wherever an event carries no admitted base rate; null where `grants_realized` is",
           "title": "Grants Expected Scored"
         },
         "grants_realized": {
@@ -476,8 +536,22 @@
             }
           ],
           "default": null,
-          "description": "Distinct (case, event) pairs among the accuracy-scored cells whose outcome is on the granted side of the binary target (`Outcome.actual_granted` = 1: `GRANTED_DISPOSITIONS`, so a GVR, a partial grant and a summary reversal all count). Counts **events**, not gradings. Cert stage only, null elsewhere, on the same coverage rule as `always_deny_accuracy`",
+          "description": "Distinct (case, event) pairs among the accuracy-scored cells whose outcome is in the **grant family** the band rates count (`GRANT_FAMILY_DISPOSITIONS`: granted, GVR, summary reversal \u2014 `granted-in-part` keeps its own statpack bucket and is excluded). An unrestricted audit count over every accuracy-scored event: compare `grants_expected` with `grants_realized_expected_scored`, not with this. Counts events, not gradings. Cert stage only; null wherever any accuracy-scored cell lacks band/outcome facts",
           "title": "Grants Realized"
+        },
+        "grants_realized_expected_scored": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Grant-family events (as `grants_realized` counts them) among exactly the `grants_expected_scored` events \u2014 the realized side of the expected-vs-realized pair, over the same events as `grants_expected`. Null where `grants_realized` is",
+          "title": "Grants Realized Expected Scored"
         },
         "mean_brier_score": {
           "anyOf": [
@@ -610,6 +684,14 @@
   "additionalProperties": false,
   "description": "``metrics/leaderboard.json`` \u2014 predictors ranked from the evaluations ledger.\n\nA deterministic, offline roll-up of the ``evaluation.json`` files under\n``data/`` \u2014 the newest per (case, event, predictor, evaluator), since a\nre-graded cell commits a second file describing one observation:\none entry per predictor, ranked best-first on the **forward** stratum (see\n:class:`LeaderboardStratum` \u2014 the strata are never blended into one number,\nand ``evaluations_total`` includes the procedural cells the ranking\nexcludes). The ranked board is the **cert stage**: the entries and the\nevaluation counts cover cert-stage cells only (the big-case and\nevaluator-agreement blocks are stage-blind \u2014 they describe stakes reads,\nnot stage-scoped skill), while any non-cert stage reports its own\nunranked block under ``stages`` (omitted entirely while none exist \u2014 see the\nserializer). Computed by ``fedcourts leaderboard`` from the ledger and the\ncommitted ``metrics/statpack.json`` (the vintage the realized-Term skill\ncolumn is scored on); carries no timestamp, so the same two inputs always\nserialize identically.",
   "properties": {
+    "complete_grid_by_band": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Per `by_band` key, the forward cert events on which **every** predictor in this population carries an accuracy-scored forward grading filed under that same band \u2014 the band's complete grid. A per-band comparison between engines is made only over it: where two entries' per-band `events_scored` differ they rank over different petitions, and no per-band ordering is read off them. An event whose predictors froze different bands is complete under none. Omitted while empty",
+      "title": "Complete Grid By Band",
+      "type": "object"
+    },
     "entries": {
       "description": "The ranked cert-stage board \u2014 one entry per predictor with a cert-stage evaluation",
       "items": {

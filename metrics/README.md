@@ -67,10 +67,13 @@ for that conference (557 distributed in all), being the previously-predicted
 residue of earlier funded rounds, and so is selected **upward on band**: 63.6%
 baseline against the in-scope conference's 76.7%. Read it on the **per-band
 cut**, never as a pooled row, against the registered sal-v4 segment base rates —
-always-deny floors of 94.98% baseline / 83.11% elevated / 64.49% high / 29.21%
-federal / 76.37% state, the risk-set family the evaluator scores skill against
+grant-family rates of 5.02% baseline / 16.89% elevated / 35.51% high / 70.79%
+federal / 23.63% state, the risk-set family the evaluator scores skill against
 (`metrics/statpack.md`'s *Segment base rate by salience band*, not its terminal
-composition table). Its high band is **n = 1 on cert/distribution and n = 10 on
+composition table). Those rates are the skill anchor. Their complements
+(94.98% / 83.11% / 64.49% / 29.21% / 76.37%) are grant-family denial shares,
+not the exact-match always-deny floor a lift is measured against: that floor is
+realized on the scored cells themselves (`always_deny_accuracy`, below). Its high band is **n = 1 on cert/distribution and n = 10 on
 cert/cvsg**, which do not pool with each other, and none of it pools with any
 `"all"`-scope board. That paragraph travels with the number rather than sitting
 a section away, because it is the number's population.
@@ -525,20 +528,43 @@ stays outside the gate:
   per judge, under the same exact-match rule `correct` uses — so a GVR, a
   partial grant or a summary reversal is a miss for it, just as it is for a
   `granted` call. `accuracy_lift` is `accuracy - always_deny_accuracy`, a
-  paired difference over the identical cells. `grants_realized` counts the
-  distinct events among those cells whose outcome is on the granted side of the
-  binary target, and `grants_expected` sums, once per event, the registered
-  strictly-prior segment base rate the prior-Term skill column scores that
-  event against, over `grants_expected_scored` events. Accuracy and the floor
-  are averaged over **gradings**, so they are weighted by panel depth, while
-  `events_scored` and both grant counts count **events**. The realized floor is
-  not the registered historical floor (94.98% baseline / 83.11% elevated / …,
-  above): that one stays the skill anchor and is quoted beside it, and the lift
-  is measured against the realized one only. All four fields are null off the
-  cert stage — no other stage has `denied` as its null call — and null on a
-  block where any accuracy-scored cell's outcome could not be read, so the
-  floor never runs over a different set of cells than `accuracy`. None of them
-  is a rank key.
+  paired difference over the identical cells. Both are averaged over
+  **gradings**, so they are weighted by panel depth, and depth varies by
+  design; the **per-petition** reading counts each event once:
+  `event_accuracy`, `event_always_deny_accuracy` and `event_accuracy_lift` over
+  `accuracy_events_scored` events, and that is the published per-band reading.
+  The `event_*` fields are null where a block's gradings of one event
+  disagree on `correct`.
+
+  The grant counts are **grant-family** counts — granted, GVR and summary
+  reversal, the family the band rates count, so `granted-in-part` is out.
+  `grants_expected` sums, once per event, the registered strictly-prior segment
+  base rate the prior-Term skill column scores that event against, over
+  `grants_expected_scored` events; `grants_realized_expected_scored` counts the
+  grant-family events among exactly those events, and those two are the pair
+  to compare. `grants_realized` is the unrestricted audit count over every
+  accuracy-scored event and is not compared with `grants_expected`. While
+  relisted or held petitions are still pending, realized runs below expected:
+  those petitions grant more often and have not resolved yet.
+
+  None of this is the registered historical figure per band. The registered
+  sal-v4 band rates (5.02% baseline / 16.89% elevated / 35.51% high / 70.79%
+  federal / 23.63% state) are the **skill anchor**. Their complements (94.98% /
+  83.11% / 64.49% / 29.21% / 76.37%) are grant-family denial shares, not
+  exact-match floors, so they are not comparable with `always_deny_accuracy`,
+  and no lift is measured against them.
+
+  Eight of these fields are cert-only, null off the cert stage (where
+  `denied` is not the null call): the two floors (`always_deny_accuracy`,
+  `event_always_deny_accuracy`), the two lifts (`accuracy_lift`,
+  `event_accuracy_lift`) and the four grant counts. All eight are also null on
+  a block where any accuracy-scored cell lacks band/outcome facts (a cert cell
+  with no readable scored prediction). The two floors and two lifts are
+  further null where any accuracy-scored cell's stamped `correct` no longer
+  reproduces against the committed outcome: that grading was paired with an
+  outcome since corrected, and a floor read off the current outcome beside it
+  would be unpaired. `accuracy_events_scored` and `event_accuracy` need no
+  facts and are filled on every stage. None of these fields is a rank key.
 
   Each cert entry's forward stratum is also cut **by salience band**: `by_band`
   maps `<salience_version>/<band>` to an ordinary stratum block over the same
@@ -546,11 +572,16 @@ stays outside the gate:
   same skill terms. The key is the band the **scored prediction froze** in its
   `context`, never the corpus's current band, which only strengthens as a
   petition is relisted or a CVSG lands and so would sort a forecast by its own
-  future. A cell that froze no band, or a band with no version, files under
-  the one `(none)` key, so the blocks' `evaluations` sum to the forward
-  stratum's. The cut appears on the ranked entries and on the later cert
-  moments' stage entries (`cert@cvsg`), never on another stage, and is omitted
-  while there is no forward cert cell. It ranks nothing: this is where the
+  future. The single `(none)` key holds every cell that froze no band, froze a
+  band with no version, or carries no band facts at all, so the blocks'
+  `evaluations` sum to the forward stratum's. The cut appears on the ranked
+  entries and on the later cert moments' stage entries (`cert@cvsg`), never on
+  another stage, and is omitted while there is no forward cert cell. Beside it,
+  the board and each stage block carry `complete_grid_by_band`: per band, the
+  forward cert events on which every predictor in that population has an
+  accuracy-scored grading filed under that band. Engines are compared per band
+  only over that grid; where their per-band `events_scored` differ, no
+  per-band ordering is read. None of it ranks anything: this is where the
   per-band reading the frozen cohort requires is copied from.
 
   The ranked board is the **cert stage's first declared moment** (see the stage

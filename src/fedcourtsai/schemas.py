@@ -2829,16 +2829,21 @@ class LeaderboardStratum(_Strict):
         description="What a constant `denied` call would have scored on the "
         "**same gradings** `accuracy` averages — every cell counted in "
         "`accuracy_scored`, one per judge, so like `accuracy` it is weighted by "
-        "panel depth rather than per event. Each cell applies the same "
-        "exact-match rule `Evaluation.correct` does (`pipeline.evaluate."
-        "is_correct`) to a synthetic `denied` prediction against the cell's "
-        "committed outcome, so any non-`denied` outcome — a GVR included — is a "
-        "miss. This is the floor **realized** on these cells, not the "
-        "registered historical always-deny floor in metrics/README.md, which "
-        "stays the skill anchor. Cert stage only (the one stage whose "
-        "disposition axis `denied` is the null call on); null elsewhere, and "
-        "null wherever any accuracy-scored cell's outcome could not be read, so "
-        "the floor never runs over a different set of cells than `accuracy`",
+        "panel depth; `event_always_deny_accuracy` is the per-petition "
+        "reading. Each cell applies the exact-match rule `Evaluation.correct` "
+        "uses (`pipeline.evaluate.is_correct`) to a synthetic `denied` "
+        "prediction against the cell's committed outcome, so any non-`denied` "
+        "outcome — a GVR included — is a miss. This is the floor **realized** "
+        "on these cells. It is not comparable with the registered per-band "
+        "figures in metrics/README.md, which are complements of grant-family "
+        "rates rather than exact-match floors; those rates stay the skill "
+        "anchor. Cert stage only (the one stage whose disposition axis "
+        "`denied` is the null call on). Null elsewhere; null wherever any "
+        "accuracy-scored cell lacks band/outcome facts; and null where any "
+        "accuracy-scored cell's stamped `correct` no longer reproduces "
+        "against the committed outcome — a grading paired with a superseded "
+        "outcome, beside which a floor read off the current one would be an "
+        "unpaired comparison",
     )
     accuracy_lift: float | None = Field(
         default=None,
@@ -2846,18 +2851,56 @@ class LeaderboardStratum(_Strict):
         le=1.0,
         description="`accuracy - always_deny_accuracy`: the paired difference "
         "over the identical gradings, so it is null exactly where "
-        "`always_deny_accuracy` is. Positive means the predictor's calls beat "
-        "always-deny on these cells. Never a rank key",
+        "`always_deny_accuracy` is. Grading-weighted like both terms; "
+        "`event_accuracy_lift` is the per-petition reading. Never a rank key",
+    )
+    accuracy_events_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct (case, event) pairs carrying at least one "
+        "accuracy-scored grading — the per-petition denominator of the "
+        "`event_*` fields, against the grading count `accuracy_scored`",
+    )
+    event_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Accuracy with each event counted once: the mean, over "
+        "the `accuracy_events_scored` events, of the event's `correct`. A "
+        "grading's `correct` is a function of the scored prediction and the "
+        "outcome, so a block's gradings of one event agree on it; where they "
+        "do not (gradings of different prediction runs, or one stamped "
+        "against a superseded outcome), this field and the other `event_*` "
+        "fields are null rather than picking one. The per-petition reading, "
+        "free of the panel-depth weighting `accuracy` carries",
+    )
+    event_always_deny_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="`always_deny_accuracy` with each event counted once, "
+        "over the same `accuracy_events_scored` events as `event_accuracy`. "
+        "Null wherever `always_deny_accuracy` or `event_accuracy` is",
+    )
+    event_accuracy_lift: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="`event_accuracy - event_always_deny_accuracy`: the "
+        "per-petition lift over the realized floor, paired over the same "
+        "events. The published per-band reading. Never a rank key",
     )
     grants_realized: int | None = Field(
         default=None,
         ge=0,
         description="Distinct (case, event) pairs among the accuracy-scored "
-        "cells whose outcome is on the granted side of the binary target "
-        "(`Outcome.actual_granted` = 1: `GRANTED_DISPOSITIONS`, so a GVR, a "
-        "partial grant and a summary reversal all count). Counts **events**, "
-        "not gradings. Cert stage only, null elsewhere, on the same coverage "
-        "rule as `always_deny_accuracy`",
+        "cells whose outcome is in the **grant family** the band rates count "
+        "(`GRANT_FAMILY_DISPOSITIONS`: granted, GVR, summary reversal — "
+        "`granted-in-part` keeps its own statpack bucket and is excluded). An "
+        "unrestricted audit count over every accuracy-scored event: compare "
+        "`grants_expected` with `grants_realized_expected_scored`, not with "
+        "this. Counts events, not gradings. Cert stage only; null wherever "
+        "any accuracy-scored cell lacks band/outcome facts",
     )
     grants_expected: float | None = Field(
         default=None,
@@ -2868,18 +2911,26 @@ class LeaderboardStratum(_Strict):
         "the prior-Term skill column scores against, taken only from gradings "
         "that column admits and averaged over an event's gradings, so each "
         "event enters once. The grant count a forecaster at the registered "
-        "band rate would have expected, to read beside `grants_realized`; "
-        "counted over `grants_expected_scored` events, which may be fewer "
-        "than the events `grants_realized` counts. Cert stage only; null where "
-        "no event carries a rate",
+        "band rate would have expected over the `grants_expected_scored` "
+        "events; the realized count over exactly those events is "
+        "`grants_realized_expected_scored`, and those two are the pair to "
+        "compare. Cert stage only; null where no event carries a rate",
     )
     grants_expected_scored: int | None = Field(
         default=None,
         ge=0,
         description="Distinct (case, event) pairs contributing to "
-        "`grants_expected` — its true denominator. Below the stratum's "
-        "accuracy-scored events wherever an event carries no admitted base "
+        "`grants_expected` — its true denominator. Below "
+        "`accuracy_events_scored` wherever an event carries no admitted base "
         "rate; null where `grants_realized` is",
+    )
+    grants_realized_expected_scored: int | None = Field(
+        default=None,
+        ge=0,
+        description="Grant-family events (as `grants_realized` counts them) "
+        "among exactly the `grants_expected_scored` events — the realized "
+        "side of the expected-vs-realized pair, over the same events as "
+        "`grants_expected`. Null where `grants_realized` is",
     )
     mean_vote_accuracy: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Mean panel-vote accuracy where reported"
@@ -2971,10 +3022,22 @@ _BY_BAND_DESCRIPTION = (
     "`context`, never the corpus's current band, which only strengthens as a "
     "petition is relisted or a CVSG lands and so would sort a forecast by its "
     "own future. A cell whose context froze no band, or a band with no "
-    "version, files under the single `(none)` key, so the blocks' "
+    "version, or that carries no band facts at all, files under the single "
+    "`(none)` key, so the blocks' "
     "`evaluations` sum to `forward.evaluations`. Cert stage only — no other "
     "stage is a salience-band product — and omitted while there is no "
     "forward cert cell or no band facts were supplied. Never a rank key"
+)
+
+
+_COMPLETE_GRID_DESCRIPTION = (
+    "Per `by_band` key, the forward cert events on which **every** predictor "
+    "in this population carries an accuracy-scored forward grading filed "
+    "under that same band — the band's complete grid. A per-band comparison "
+    "between engines is made only over it: where two entries' per-band "
+    "`events_scored` differ they rank over different petitions, and no "
+    "per-band ordering is read off them. An event whose predictors froze "
+    "different bands is complete under none. Omitted while empty"
 )
 
 
@@ -3161,10 +3224,23 @@ class LeaderboardStage(_Strict):
         "ordering, not a ranking",
     )
 
+    complete_grid_by_band: dict[str, int] = Field(
+        default_factory=dict,
+        description=_COMPLETE_GRID_DESCRIPTION,
+    )
+
     @model_validator(mode="after")
     def _coverage_denominates_its_entries(self) -> LeaderboardStage:
         _check_coverage_denominator(self.events_scored, self.entries)
         return self
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_complete_grid(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``complete_grid_by_band`` while it is empty, as ``by_band`` is."""
+        payload = handler(self)
+        if isinstance(payload, dict) and not self.complete_grid_by_band:
+            payload.pop("complete_grid_by_band", None)
+        return payload
 
 
 class FrozenProcessRecord(_Strict):
@@ -3422,6 +3498,10 @@ class Leaderboard(_Strict):
         description="The ranked cert-stage board — one entry per predictor with a "
         "cert-stage evaluation",
     )
+    complete_grid_by_band: dict[str, int] = Field(
+        default_factory=dict,
+        description=_COMPLETE_GRID_DESCRIPTION,
+    )
     stages: dict[str, LeaderboardStage] = Field(
         default_factory=dict,
         description="Unranked blocks for every population outside the ranked "
@@ -3442,7 +3522,7 @@ class Leaderboard(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_empty_optional_axes(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop the ``stages`` and ``salience_versions`` blocks while each is empty.
+        """Drop each optional axis block (``stages``, ``salience_versions``, the grid) while empty.
 
         The StatPack stage sections' rule, applied here: an axis is shown only
         once its cells do, and serializing an empty placeholder would both
@@ -3454,6 +3534,8 @@ class Leaderboard(_Strict):
         if isinstance(payload, dict):
             if not self.stages:
                 payload.pop("stages", None)
+            if not self.complete_grid_by_band:
+                payload.pop("complete_grid_by_band", None)
             if not self.salience_versions:
                 payload.pop("salience_versions", None)
         return payload

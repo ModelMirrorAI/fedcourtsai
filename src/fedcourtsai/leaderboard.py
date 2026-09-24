@@ -221,8 +221,14 @@ class CellFacts:
     """
 
     band_key: str
+    #: ``is_correct`` for a synthetic ``denied`` call against the committed outcome.
     always_deny_correct: int
-    granted: bool
+    #: ``is_correct`` for the scored prediction against the committed outcome —
+    #: what the grading's stamped ``correct`` should still read. A disagreement
+    #: means the grading was paired with an outcome since superseded.
+    recomputed_correct: int
+    #: The outcome is in the grant family the band rates count.
+    grant_family: bool
 
 
 def band_key(context: PredictionContext | None) -> str:
@@ -331,30 +337,56 @@ def _floor_fields(
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None,
 ) -> dict[str, float | int | None]:
-    """The realized always-deny floor, the lift over it, and the grant counts.
+    """The per-event accuracy, realized always-deny floor, lifts, and grant counts.
 
     All over the **accuracy population** — the cells with a non-null
-    ``correct`` — and only when every one of them has :class:`CellFacts`.
-    Partial coverage would run the floor over fewer cells than ``accuracy``,
-    and an unpaired difference is not a lift, so the fields are left null
-    rather than computed on a subset. In practice coverage fails only on a
-    non-cert stage, which carries no facts at all.
+    ``correct``. Three gates, each leaving fields null rather than computing
+    them on a different population:
+
+    - ``accuracy_events_scored`` and ``event_accuracy`` need no facts. Each
+      event enters once, and ``event_accuracy`` (with every ``event_*`` field)
+      is null where a block's gradings of one event disagree on ``correct``.
+    - Everything else needs :class:`CellFacts` on **every** accuracy cell:
+      partial coverage would run the floor over fewer cells than ``accuracy``.
+      In practice coverage fails only on a non-cert stage, which carries none.
+    - The floor and both lifts further need every accuracy cell's stamped
+      ``correct`` to reproduce against the committed outcome
+      (``CellFacts.recomputed_correct``). A grading stamped against an outcome
+      since corrected would otherwise sit beside a floor read off the current
+      one — an unpaired difference, which is not a lift.
 
     ``grants_expected`` sums one strictly-prior band rate per event: the
     ``segment_base_rate`` of the event's gradings the prior-Term skill column
     admits (a :class:`CellSkill` with a prior baseline), averaged over them, so
-    a panel of three enters an event once. An event none of whose gradings the
-    column admits is left out, and ``grants_expected_scored`` says so.
+    a panel of three enters an event once. ``grants_realized_expected_scored``
+    counts the grant-family events among exactly those events, so the expected
+    and realized counts are quoted over one event set.
     """
     scored = [ev for ev in evals if ev.correct is not None]
-    if facts is None or not scored:
+    if not scored:
         return {}
+    per_event: dict[tuple[str, str], set[int]] = defaultdict(set)
+    for ev in scored:
+        per_event[(ev.case_id, ev.event_id)].add(ev.correct or 0)
+    event_consistent = all(len(values) == 1 for values in per_event.values())
+    event_accuracy = (
+        sum(next(iter(values)) for values in per_event.values()) / len(per_event)
+        if event_consistent
+        else None
+    )
+    fields: dict[str, float | int | None] = {
+        "accuracy_events_scored": len(per_event),
+        "event_accuracy": event_accuracy,
+    }
+    if facts is None:
+        return fields
     present = [facts.get(_evaluation_key(ev)) for ev in scored]
     paired = [(ev, fact) for ev, fact in zip(scored, present, strict=True) if fact is not None]
     if len(paired) != len(scored):
-        return {}
-    accuracy = sum(ev.correct or 0 for ev in scored) / len(scored)
-    always_deny = sum(fact.always_deny_correct for _, fact in paired) / len(paired)
+        return fields
+
+    event_facts = {(ev.case_id, ev.event_id): fact for ev, fact in paired}
+    granted_events = {key for key, fact in event_facts.items() if fact.grant_family}
     rates: dict[tuple[str, str], list[float]] = defaultdict(list)
     for ev in scored:
         skill = skills.get(_evaluation_key(ev))
@@ -364,17 +396,61 @@ def _floor_fields(
             and ev.segment_base_rate is not None
         ):
             rates[(ev.case_id, ev.event_id)].append(ev.segment_base_rate)
-    return {
-        "always_deny_accuracy": always_deny,
-        "accuracy_lift": accuracy - always_deny,
-        "grants_realized": len({(ev.case_id, ev.event_id) for ev, fact in paired if fact.granted}),
-        "grants_expected": (
+    fields.update(
+        grants_realized=len(granted_events),
+        grants_expected=(
             sum(sum(event_rates) / len(event_rates) for event_rates in rates.values())
             if rates
             else None
         ),
-        "grants_expected_scored": len(rates),
-    }
+        grants_expected_scored=len(rates),
+        grants_realized_expected_scored=len(granted_events & rates.keys()),
+    )
+
+    if any(fact.recomputed_correct != ev.correct for ev, fact in paired):
+        return fields
+    accuracy = sum(ev.correct or 0 for ev in scored) / len(scored)
+    always_deny = sum(fact.always_deny_correct for _, fact in paired) / len(paired)
+    fields.update(always_deny_accuracy=always_deny, accuracy_lift=accuracy - always_deny)
+    if event_accuracy is not None:
+        # The outcome is the event's, so every grading of it shares this bit.
+        event_always_deny = sum(fact.always_deny_correct for fact in event_facts.values()) / len(
+            event_facts
+        )
+        fields.update(
+            event_always_deny_accuracy=event_always_deny,
+            event_accuracy_lift=event_accuracy - event_always_deny,
+        )
+    return fields
+
+
+def _complete_grid_by_band(
+    cells: Sequence[tuple[Evaluation, Stratum]],
+    predictors: Iterable[str],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
+) -> dict[str, int]:
+    """Per band key, the forward events every predictor has an accuracy-scored cell on.
+
+    The per-band complete grid: an event counts under a band only where each
+    predictor in the population carries an accuracy-scored forward grading of
+    it filed under that same band, so an event whose predictors froze different
+    bands is complete under none. Cert cells only (those carrying facts); empty
+    without facts.
+    """
+    roster = set(predictors)
+    if facts is None or not roster:
+        return {}
+    covered: dict[tuple[str, tuple[str, str]], set[str]] = defaultdict(set)
+    for ev, stratum in cells:
+        fact = facts.get(_evaluation_key(ev))
+        if stratum != FORWARD or ev.correct is None or fact is None:
+            continue
+        covered[(fact.band_key, (ev.case_id, ev.event_id))].add(ev.predictor_id)
+    grid: dict[str, int] = defaultdict(int)
+    for (band, _event), who in covered.items():
+        if who >= roster:
+            grid[band] += 1
+    return dict(sorted(grid.items()))
 
 
 def _by_band(
@@ -783,7 +859,9 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
     under, never the corpus's current one. The always-deny figure is
     :func:`fedcourtsai.pipeline.evaluate.is_correct` itself, applied to the
     scored prediction with its call replaced by ``denied``, so the floor and
-    ``Evaluation.correct`` answer to one exact-match rule. A cell with no
+    ``Evaluation.correct`` answer to one exact-match rule; the scored
+    prediction is re-scored too, so a grading whose stamped ``correct`` no
+    longer reproduces against the committed outcome is detectable. A cell with no
     readable scored prediction is left out, which leaves its stratum's floor
     fields null rather than computing them over fewer cells than accuracy.
     """
@@ -803,7 +881,8 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
         facts[_evaluation_key(evaluation)] = CellFacts(
             band_key=band_key(scored.context),
             always_deny_correct=is_correct(always_deny, outcome),
-            granted=outcome.actual_granted == 1,
+            recomputed_correct=is_correct(scored, outcome),
+            grant_family=outcome.actual_disposition in GRANT_FAMILY_DISPOSITIONS,
         )
     return facts
 
@@ -1001,6 +1080,7 @@ def _stage_board(
         retrospective_evaluations=_stratum_total(by_predictor, RETROSPECTIVE),
         procedural_evaluations=_stratum_total(by_predictor, PROCEDURAL),
         entries=entries,
+        complete_grid_by_band=_complete_grid_by_band(cells, by_predictor, facts),
     )
 
 
@@ -1068,8 +1148,9 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
 
     ``facts`` (from :func:`cell_facts` over the same cells) supplies each cert
         cell's frozen band key and realized outcome: the forward stratum's
-        ``by_band`` cut and every cert stratum's realized always-deny floor,
-        lift, and grant counts. None of them reaches :func:`_rank_key`.
+        ``by_band`` cut, every cert stratum's realized always-deny floor,
+        lifts, and grant counts, and each population's
+        ``complete_grid_by_band``. None of them reaches :func:`_rank_key`.
         Unsupplied, no entry carries ``by_band`` and those fields are null.
     """
     cell_skills = skills or {}
@@ -1137,6 +1218,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         procedural_evaluations=_stratum_total(by_predictor, PROCEDURAL),
         evaluator_agreement=dict(evaluators or {}),
         entries=entries,
+        complete_grid_by_band=_complete_grid_by_band(cert_cells, by_predictor, facts),
         stages={
             key: _stage_board(stage_cells[key], cell_skills, facts) for key in sorted(stage_cells)
         },
