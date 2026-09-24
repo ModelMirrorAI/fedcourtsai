@@ -79,9 +79,9 @@ has its own historical grant rate, and the skill column is measured against it.
 | ‹model› | baseline | ‹n› | ‹accuracy› | ‹always-deny accuracy› | ‹points› | ‹skill› |
 | ‹…one row per model per band, from section 3 of the audit write-up› | | | | | | |
 
-‹per band: how many of its petitions carry all three models' forecasts, and
-how many the Court granted against how many the band's historical rate
-expected over the same petitions — from section 3›
+‹per band: how many of its petitions carry all three models' forecasts, and,
+over the petitions carrying a historical rate, how many the Court granted
+against how many that rate expected — from section 3›
 
 Petitions the Court relisted or held are not scored yet, and relisted petitions
 are granted more often than others, so the petitions scored so far lean toward
@@ -196,19 +196,20 @@ something stronger›
   publishes that band's figures from the board's own per-band cut. A pooled
   per-model row never stands in for band rows, and a band section 3 cannot fill
   leaves its rows out with a sentence saying so.
-- **Petitions, not gradings.** "Petitions scored" is the band's scored-event
-  count for that model. The board's `accuracy_scored` and `skill_scored` count
-  gradings, one per judge, and stay in the audit write-up beside the panel
-  depth.
+- **Petitions, not gradings.** "Petitions scored", "Right calls", "Always deny"
+  and "Lift" are the per-petition figures section 3 publishes, each petition
+  counted once. The board's grading-weighted figures (`accuracy_scored` and
+  `skill_scored` count one grading per judge) stay in the audit write-up
+  beside the panel depth.
 - **The floor is realized, not historical.** "Always deny on the same
   petitions" is always-deny's accuracy over exactly the cells behind that row's
   right calls, scored by the same exact-match rule; the lift is the difference
   between the two. Both are copied from section 3, which takes them from the
   board's per-band cut. The registered historical floors are the skill column's
   anchor and appear only in the audit write-up.
-- **Expected grants are per band.** A band's realized grant count is set against
-  its own expected count over the same scored petitions, from section 3; no
-  cross-band expected total appears on this page.
+- **Expected grants are per band and paired.** A band's realized grant count is
+  quoted only over the petitions its expected count covers, both from section
+  3; no cross-band expected total appears on this page.
 - **Plain words, same claims.** Wording may be simpler than the audit
   write-up but never stronger. "Skill vs. history" is the population Brier
   skill score section 3 publishes, a ratio of sums over the row's cells; if it
@@ -221,8 +222,8 @@ something stronger›
   probabilities: the denied list is each model's own top three, merged.
 - **The headline may rank only what every row agrees on.** It may order two
   models only if that order holds on both lift and skill in every row of both
-  tables, with no row reading "not measured"; otherwise it describes the result
-  without ranking. An order it does state says, in the same sentence, that it
+  tables, with no row reading "not measured" and no band where the models'
+  petitions scored differ; otherwise it describes the result without ranking. An order it does state says, in the same sentence, that it
   points to a possible difference rather than measuring one.
 - **Every number keeps its `n`** in the table or the sentence carrying it.
 - **Same page for everyone.** No outside party sees the filled page before it
