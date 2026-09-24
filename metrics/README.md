@@ -519,6 +519,40 @@ stays outside the gate:
   on a pack built before the case resolved it over-corrects by one unit —
   bounded by `1 / 30` and self-correcting at the next refresh.
 
+  Every **cert** stratum block also carries the **realized always-deny floor**
+  on its own cells. `always_deny_accuracy` scores a constant `denied` call over
+  exactly the gradings `accuracy` averages — the `accuracy_scored` cells, one
+  per judge, under the same exact-match rule `correct` uses — so a GVR, a
+  partial grant or a summary reversal is a miss for it, just as it is for a
+  `granted` call. `accuracy_lift` is `accuracy - always_deny_accuracy`, a
+  paired difference over the identical cells. `grants_realized` counts the
+  distinct events among those cells whose outcome is on the granted side of the
+  binary target, and `grants_expected` sums, once per event, the registered
+  strictly-prior segment base rate the prior-Term skill column scores that
+  event against, over `grants_expected_scored` events. Accuracy and the floor
+  are averaged over **gradings**, so they are weighted by panel depth, while
+  `events_scored` and both grant counts count **events**. The realized floor is
+  not the registered historical floor (94.98% baseline / 83.11% elevated / …,
+  above): that one stays the skill anchor and is quoted beside it, and the lift
+  is measured against the realized one only. All four fields are null off the
+  cert stage — no other stage has `denied` as its null call — and null on a
+  block where any accuracy-scored cell's outcome could not be read, so the
+  floor never runs over a different set of cells than `accuracy`. None of them
+  is a rank key.
+
+  Each cert entry's forward stratum is also cut **by salience band**: `by_band`
+  maps `<salience_version>/<band>` to an ordinary stratum block over the same
+  cells as `forward` — after the run collapse and both exclusions, with the
+  same skill terms. The key is the band the **scored prediction froze** in its
+  `context`, never the corpus's current band, which only strengthens as a
+  petition is relisted or a CVSG lands and so would sort a forecast by its own
+  future. A cell that froze no band, or a band with no version, files under
+  the one `(none)` key, so the blocks' `evaluations` sum to the forward
+  stratum's. The cut appears on the ranked entries and on the later cert
+  moments' stage entries (`cert@cvsg`), never on another stage, and is omitted
+  while there is no forward cert cell. It ranks nothing: this is where the
+  per-band reading the frozen cohort requires is copied from.
+
   The ranked board is the **cert stage's first declared moment** (see the stage
   axis note below); every other population — a later cert moment included —
   reports in its own unranked `stages` block. Each entry

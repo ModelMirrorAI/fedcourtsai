@@ -2748,7 +2748,9 @@ class LeaderboardStratum(_Strict):
         "one. A cell whose `correct` the stamp could not compute — no readable "
         "prediction, or no committed outcome — leaves both halves of this "
         "fraction rather than entering as a wrong call, so `accuracy_scored` "
-        "beside it is the true denominator. Null when no cell in the stratum "
+        "beside it is the true denominator. Averaged over **gradings** — one "
+        "per cell per judge, so weighted by panel depth — whereas "
+        "`events_scored` counts events. Null when no cell in the stratum "
         "reports one, in which case the entry sorts last on this key",
     )
     accuracy_scored: int = Field(
@@ -2819,6 +2821,65 @@ class LeaderboardStratum(_Strict):
         "(`pipeline.base_rates.REALIZED_BAND_RATE_MIN_RESOLVED`) after the "
         "leave-one-out, so it is omitted — visibly, here — on a thin band rather "
         "than computed on a handful of cases",
+    )
+    always_deny_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="What a constant `denied` call would have scored on the "
+        "**same gradings** `accuracy` averages — every cell counted in "
+        "`accuracy_scored`, one per judge, so like `accuracy` it is weighted by "
+        "panel depth rather than per event. Each cell applies the same "
+        "exact-match rule `Evaluation.correct` does (`pipeline.evaluate."
+        "is_correct`) to a synthetic `denied` prediction against the cell's "
+        "committed outcome, so any non-`denied` outcome — a GVR included — is a "
+        "miss. This is the floor **realized** on these cells, not the "
+        "registered historical always-deny floor in metrics/README.md, which "
+        "stays the skill anchor. Cert stage only (the one stage whose "
+        "disposition axis `denied` is the null call on); null elsewhere, and "
+        "null wherever any accuracy-scored cell's outcome could not be read, so "
+        "the floor never runs over a different set of cells than `accuracy`",
+    )
+    accuracy_lift: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="`accuracy - always_deny_accuracy`: the paired difference "
+        "over the identical gradings, so it is null exactly where "
+        "`always_deny_accuracy` is. Positive means the predictor's calls beat "
+        "always-deny on these cells. Never a rank key",
+    )
+    grants_realized: int | None = Field(
+        default=None,
+        ge=0,
+        description="Distinct (case, event) pairs among the accuracy-scored "
+        "cells whose outcome is on the granted side of the binary target "
+        "(`Outcome.actual_granted` = 1: `GRANTED_DISPOSITIONS`, so a GVR, a "
+        "partial grant and a summary reversal all count). Counts **events**, "
+        "not gradings. Cert stage only, null elsewhere, on the same coverage "
+        "rule as `always_deny_accuracy`",
+    )
+    grants_expected: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Sum, over the distinct (case, event) pairs among the "
+        "accuracy-scored cells that carry one, of the event's registered "
+        "strictly-prior segment base rate — the `Evaluation.segment_base_rate` "
+        "the prior-Term skill column scores against, taken only from gradings "
+        "that column admits and averaged over an event's gradings, so each "
+        "event enters once. The grant count a forecaster at the registered "
+        "band rate would have expected, to read beside `grants_realized`; "
+        "counted over `grants_expected_scored` events, which may be fewer "
+        "than the events `grants_realized` counts. Cert stage only; null where "
+        "no event carries a rate",
+    )
+    grants_expected_scored: int | None = Field(
+        default=None,
+        ge=0,
+        description="Distinct (case, event) pairs contributing to "
+        "`grants_expected` — its true denominator. Below the stratum's "
+        "accuracy-scored events wherever an event carries no admitted base "
+        "rate; null where `grants_realized` is",
     )
     mean_vote_accuracy: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Mean panel-vote accuracy where reported"
@@ -2898,6 +2959,37 @@ class BigCaseLeaderboard(_Strict):
     )
 
 
+#: The key :attr:`LeaderboardEntry.by_band` files a cell under when its scored
+#: prediction froze no band, or a band with no salience version to read it by.
+NO_BAND_KEY: Final = "(none)"
+
+_BY_BAND_DESCRIPTION = (
+    "The **forward** stratum cut by salience band: one LeaderboardStratum "
+    "per band, aggregated exactly as `forward` is — the same cells, after the "
+    "run collapse and both exclusions, with the same skill terms. Keyed "
+    "`<salience_version>/<band>` from the scored prediction's frozen "
+    "`context`, never the corpus's current band, which only strengthens as a "
+    "petition is relisted or a CVSG lands and so would sort a forecast by its "
+    "own future. A cell whose context froze no band, or a band with no "
+    "version, files under the single `(none)` key, so the blocks' "
+    "`evaluations` sum to `forward.evaluations`. Cert stage only — no other "
+    "stage is a salience-band product — and omitted while there is no "
+    "forward cert cell or no band facts were supplied. Never a rank key"
+)
+
+
+def _drop_empty_by_band(payload: Any, by_band: dict[str, LeaderboardStratum] | None) -> Any:
+    """Drop an empty ``by_band`` from a serialized entry.
+
+    The board's rule for optional axes (``Leaderboard.stages``): an axis is
+    shown once its cells exist, so a stage or predictor with no forward cert
+    cell carries no ``by_band`` key rather than a null placeholder.
+    """
+    if isinstance(payload, dict) and not by_band:
+        payload.pop("by_band", None)
+    return payload
+
+
 class LeaderboardEntry(_Strict):
     """One predictor's standings, aggregated per stratum.
 
@@ -2945,6 +3037,10 @@ class LeaderboardEntry(_Strict):
         "cert-worthiness, so these aggregate separately and never enter the "
         "ranking; null when this predictor has none.",
     )
+    by_band: dict[str, LeaderboardStratum] | None = Field(
+        default=None,
+        description=_BY_BAND_DESCRIPTION,
+    )
     big_case: BigCaseLeaderboard | None = Field(
         default=None,
         description="The predictor's big-case-score rank-agreement with the "
@@ -2952,6 +3048,11 @@ class LeaderboardEntry(_Strict):
         "dimension that never affects the ranking. Null when no case carries both "
         "a predictor big_case_score and an evaluator read.",
     )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``by_band`` while it is empty — see :func:`_drop_empty_by_band`."""
+        return _drop_empty_by_band(handler(self), self.by_band)
 
 
 class LeaderboardStageEntry(_Strict):
@@ -2988,6 +3089,15 @@ class LeaderboardStageEntry(_Strict):
         description="This stage's mootness-basis cells; null when this predictor "
         "has none in the stage.",
     )
+    by_band: dict[str, LeaderboardStratum] | None = Field(
+        default=None,
+        description=_BY_BAND_DESCRIPTION,
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``by_band`` while it is empty — see :func:`_drop_empty_by_band`."""
+        return _drop_empty_by_band(handler(self), self.by_band)
 
 
 def _check_coverage_denominator(

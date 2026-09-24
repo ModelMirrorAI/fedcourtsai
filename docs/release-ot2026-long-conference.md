@@ -287,6 +287,10 @@ artifacts:
 jq '.process_scope, .frozen_process, .salience_versions' metrics/leaderboard.json
 jq '.entries[] | {predictor_id, events_scored, evaluators}' metrics/leaderboard.json
 jq '.stages' metrics/leaderboard.json                      # unranked moment blocks
+# the per-band forward cut, ranked board then the CVSG arm
+BAND='{events_scored, evaluations, accuracy, accuracy_scored, always_deny_accuracy, accuracy_lift, population_brier_skill_score, skill_scored, grants_realized, grants_expected, grants_expected_scored}'
+jq ".entries[] | {predictor_id, evaluators, by_band: ((.by_band // {}) | map_values($BAND))}" metrics/leaderboard.json
+jq ".stages[\"cert@cvsg\"].entries[]? | {predictor_id, evaluators, by_band: ((.by_band // {}) | map_values($BAND))}" metrics/leaderboard.json
 sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md
 ```
 
@@ -308,11 +312,17 @@ sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md
 >
 > Every figure is read on the **per-band cut**, never as a single pooled row,
 > and each number travels with four things in its own sentence: the band's `n`,
-> the always-deny floor, the **lift over that floor**, and the stratum. An
-> accuracy near its band's floor is the floor, not performance — a predictor
-> that denies everything scores the denial rate — so accuracy is never
-> published without its floor beside it, and never without `accuracy_scored`,
-> which is its true denominator. A skill figure travels with `skill_scored`,
+> the always-deny floor, the **lift over that floor**, and the stratum. The
+> floor a lift is measured against is the one **realized on the same
+> gradings** — what a constant `denied` call scored on exactly the cells the
+> accuracy averages — while the registered historical floors above stay the
+> skill anchor and are shown beside it, never subtracted from. An accuracy
+> near its band's floor is the floor, not performance — a predictor that
+> denies everything scores the denial rate — so accuracy is never published
+> without its floor beside it, and never without `accuracy_scored`, which is
+> its true denominator. Accuracy and the floor are averaged over gradings, one
+> per judge, so they are weighted by panel depth, while a band's `n` counts
+> petitions. A skill figure travels with `skill_scored`,
 > which can sit far below the block's evaluation count because a cell scores
 > skill only where a segment base rate exists, and the estimator is named:
 > the population skill score is a ratio of sums and the mean Brier is a
@@ -342,9 +352,18 @@ sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md
 > frozen band's version does not resolve against the pack carries no baseline
 > at all — its skill column is empty, not zero, and supports no claim.
 
-‹the per-band Brier, mean Brier skill and accuracy, per predictor, over the
-forward stratum, each with its band `n`, `accuracy_scored`, `skill_scored`, its
-floor and its lift — from `metrics/leaderboard.json` after the refresh above›
+‹per predictor and per band, over the forward stratum — from the `by_band`
+block of each entry in `metrics/leaderboard.json` after the refresh above, and
+of each `cert@cvsg` stage entry for the CVSG arm: `events_scored` (petitions);
+`accuracy` with `accuracy_scored` (gradings) and the entry's `evaluators`
+(panel depth); the **realized** always-deny floor `always_deny_accuracy` and
+the lift over it, `accuracy_lift`; population Brier skill (a ratio of sums),
+`population_brier_skill_score`, with `skill_scored`; and `grants_realized`
+against `grants_expected` over `grants_expected_scored` events. The registered
+historical floors (94.98% / 83.11% / 64.49% / 29.21% / 76.37%) stay the skill
+anchor and are shown beside each row; they are not the floor the lift is
+measured against. The `(none)` key holds cells whose prediction froze no band
+and is reported as its own row, never folded into a band›
 
 ‹the per-band always-deny floors as the refreshed pack publishes them — from
 `metrics/statpack.md`, *Segment base rate by salience band* — re-read rather
