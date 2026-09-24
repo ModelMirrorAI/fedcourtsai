@@ -82,11 +82,11 @@
     },
     {
       "conference": "2026-06-11",
-      "petitions": 3
+      "petitions": 2
     },
     {
       "conference": "2026-06-18",
-      "petitions": 9
+      "petitions": 8
     },
     {
       "conference": "2026-06-25",
@@ -102,7 +102,7 @@
     },
     {
       "conference": "2026-10-09",
-      "petitions": 9
+      "petitions": 11
     }
   ],
   "documents_provisioned": 223,
