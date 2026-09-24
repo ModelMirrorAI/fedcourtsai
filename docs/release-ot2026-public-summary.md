@@ -79,7 +79,8 @@ has its own historical grant rate, and the skill column is measured against it.
 | ‹model› | baseline | ‹n› | ‹accuracy› | ‹always-deny accuracy› | ‹points› | ‹skill› |
 | ‹…one row per model per band, from section 3 of the audit write-up› | | | | | | |
 
-‹per band: how many of its petitions carry all three models' forecasts, and,
+‹per band: how many of its petitions carry a scored forecast from all three
+models, and,
 over the petitions carrying a historical rate, how many the Court granted
 against how many that rate expected — from section 3›
 
@@ -103,11 +104,12 @@ distribution›) are left out of the table because a single case cannot measure
 anything; each such petition appears in the calls below whatever its outcome.
 
 **Where the Court had asked for the Solicitor General's views.** These
-petitions are scored on their own and never mixed into the table above:
+petitions are scored on their own and never mixed into the table above. They
+are read per band like the rest, so a row is one band:
 
-| Model | Petitions scored | Right calls | "Always deny" on the same petitions | Lift | Skill vs. history |
-| --- | --- | --- | --- | --- | --- |
-| ‹model› | ‹n› | ‹accuracy› | ‹always-deny accuracy› | ‹points› | ‹skill› |
+| Model | Band | Petitions scored | Right calls | "Always deny" on the same petitions | Lift | Skill vs. history |
+| --- | --- | --- | --- | --- | --- | --- |
+| ‹model› | ‹band› | ‹n› | ‹accuracy› | ‹always-deny accuracy› | ‹points› | ‹skill› |
 
 ### The calls
 
@@ -222,8 +224,10 @@ something stronger›
   probabilities: the denied list is each model's own top three, merged.
 - **The headline may rank only what every row agrees on.** It may order two
   models only if that order holds on both lift and skill in every row of both
-  tables, with no row reading "not measured" and no band where the models'
-  petitions scored differ; otherwise it describes the result without ranking. An order it does state says, in the same sentence, that it
+  tables, with no row reading "not measured", and only in bands where every
+  model's petitions scored equals the band's complete-grid count, which is what
+  certifies the same petitions; otherwise it describes the result without
+  ranking. An order it does state says, in the same sentence, that it
   points to a possible difference rather than measuring one.
 - **Every number keeps its `n`** in the table or the sentence carrying it.
 - **Same page for everyone.** No outside party sees the filled page before it
