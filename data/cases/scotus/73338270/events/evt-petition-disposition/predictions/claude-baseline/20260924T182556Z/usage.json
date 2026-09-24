@@ -1,0 +1,17 @@
+{
+  "actor_id": "claude-baseline",
+  "cache_creation_input_tokens": 165765,
+  "cache_read_input_tokens": 1553495,
+  "case_id": "scotus/73338270",
+  "created_at": "2026-09-24T18:25:56Z",
+  "engine": "claude-code",
+  "estimated_cost_usd": 4.6386975,
+  "event_id": "evt-petition-disposition",
+  "input_tokens": 514,
+  "model": "claude-fable-5-1",
+  "output_tokens": 20160,
+  "pipeline_sha": "564fbbd77a19aedcc26160556154e6a92df2f1c5",
+  "role": "predictor",
+  "run_id": "20260924T182556Z",
+  "schema_version": "1.0"
+}
