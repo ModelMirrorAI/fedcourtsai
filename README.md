@@ -420,6 +420,8 @@ BSD 3-Clause — see [LICENSE](LICENSE). Copyright (c) 2026 Model Mirror, LLC.
 ## Citing
 
 [CITATION.cff](CITATION.cff) carries the citation metadata; GitHub renders it as
-**Cite this repository** on the repo page. Each GitHub Release is archived on
-Zenodo with a version DOI, and the `prereg/` tags that are published as Releases
-give the pre-registration a timestamped copy held outside GitHub.
+**Cite this repository** on the repo page. A `prereg/` or `results/` tag the
+maintainer publishes as a GitHub Release is archived on Zenodo with a version
+DOI, which gives that pre-registration or result a timestamped copy held
+outside GitHub; Zenodo archives only Releases published after its integration
+was enabled, so a tag that was never published as a Release has no such copy.

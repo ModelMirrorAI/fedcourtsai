@@ -1,15 +1,15 @@
 cff-version: 1.2.0
 message: >-
-  If you use fedcourtsai, please cite it as below. Each GitHub Release is
-  archived on Zenodo with its own version DOI.
+  If you use fedcourtsai, please cite it as below. A tag the maintainer
+  publishes as a GitHub Release is archived on Zenodo with its own version DOI.
 type: software
 title: "fedcourtsai: pre-registered AI forecasts of US federal court events"
 abstract: >-
   An agentic pipeline that forecasts events in the US federal courts —
-  currently Supreme Court dockets: whether the Court takes a case, how it
-  votes, and on what reasoning. Every forecast is committed to a public git
-  ledger before its outcome exists, graded against the realized record, and
-  counted only under a pre-registered, frozen process.
+  currently Supreme Court dockets: whether the Court takes a case and how it
+  rules. Every forecast is committed to a public git ledger before its outcome
+  exists, graded against the realized record, and counted only under a
+  pre-registered, frozen process.
 authors:
   - name: "Model Mirror, LLC"
 repository-code: "https://github.com/ModelMirrorAI/fedcourtsai"
