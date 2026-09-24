@@ -21,7 +21,8 @@ Public releases are anchored to the Court's calendar, so predictions publish
 
 - **Release 1 — the OT2026 long conference (late Sept–Oct 2026).** Cert
   predictions committed before the conference, scored against the opening
-  order list ([release-ot2026-long-conference.md](release-ot2026-long-conference.md)).
+  order list ([release-ot2026-long-conference.md](release-ot2026-long-conference.md);
+  its reader-facing page is [release-ot2026-public-summary.md](release-ot2026-public-summary.md)).
 - **Release 2 — mid-Term (~January 2027).** Timed to the January mop-up
   conference, the last at which a grant can still be argued the same Term.
   First populated leaderboard, plus the pre-registered salience ranking and
