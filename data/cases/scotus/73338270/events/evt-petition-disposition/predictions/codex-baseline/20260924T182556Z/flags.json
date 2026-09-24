@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73338270",
+  "run_id": "20260924T182556Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned September oppositions report pre-snapshot cert denials in related Curtis v. Inslee (June 1, 2026) and Health Freedom Defense Fund v. Carvalho (May 18, 2026). Those related-case facts materially lower this forward forecast and weaken the May petition's consolidation proposal. They are not this petition's outcome; no target-case disposition was retrieved or known. The related dispositions were taken from the supplied briefs, not independently verified."
+    }
+  ]
+}

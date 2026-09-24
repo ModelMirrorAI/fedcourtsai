@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73338270",
+  "run_id": "20260924T182556Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener mcp search (returned no results)", "provisioned documents (petition, QP, both briefs in opposition)"],
+  "helpful": [
+    "The concatenated brief-in-opposition.txt carrying both respondents' briefs was the most informative input: it documented the related denials and the vehicle problems.",
+    "The sal-v4 band table with bracketed reached figures made the anchor arithmetic straightforward."
+  ],
+  "gaps": [
+    "CourtListener MCP search returned zero results on every query, including a known docket number, so related-docket checks (Curtis 25-1119, Boyd 26-220, Brock 26-268) could not be verified independently of the briefs.",
+    "fedcourts query has no caption or subject filter, so it cannot surface topically similar cert priors (e.g. other vaccine-mandate petitions) for a cert cell.",
+    "No published cut for grant rate conditional on a call for a response after waiver, which is the exact state this petition is in."
+  ],
+  "notes": "Ranged corpus reads for the two queries: 5 GETs / 1.3 MB and 19 GETs / 5.0 MB. The MCP failure mode was silent (empty result sets, no error), which is harder to detect than an exception; a liveness probe in the sidecar would help."
+}

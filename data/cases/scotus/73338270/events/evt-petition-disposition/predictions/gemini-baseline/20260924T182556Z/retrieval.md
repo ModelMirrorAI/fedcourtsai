@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. (I also queried `fedcourts query --court scotus --era 2020s --disposition denied --limit 5` which produced `ranged corpus reads: 5 GET(s), 1310720 byte(s)`).
