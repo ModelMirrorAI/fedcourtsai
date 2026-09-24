@@ -1,0 +1,476 @@
+{
+  "$defs": {
+    "Disposition": {
+      "description": "The realized-outcome vocabulary, with the mapping conventions for\nnon-standard SCOTUS forms. A **grant/vacate/remand** is its own label,\n``gvr`` \u2014 including the Munsingwear vacatur, whose mootness basis is *also*\ncarried by ``Outcome.disposition_basis`` (``gvr`` + ``mootness`` = a\nMunsingwear vacatur, segmented into the procedural stratum; ``gvr`` +\n``standard`` = a merits GVR). ``gvr`` counts as a grant on the **binary axis**\n(it joins the granted set for ``actual_granted``), so ``probability`` /\nBrier stay comparable across the label's introduction; only the\ndisposition-label axis distinguishes it. The label is a **forward-convention**\nchange: historical GVRs recorded as ``granted`` before it existed keep that\nlabel except the identifiable Munsingwear ones (``granted`` + ``mootness``),\nwhich a one-time backfill relabels; a plain-``granted`` merits GVR in history\nis an accepted residual (indistinguishable post-hoc without re-resolving the\nsource, and immaterial on the binary axis). That residual covers a label\nnormalized from the upstream record's own fields, never a resolution the\ndisposition parser itself recorded off order text and got wrong \u2014 those\ndisagree with their own order text and are converged against it. What\nseparates the two is provenance, and the convergence sweep\n(:mod:`fedcourtsai.disposition_convergence`) establishes it two ways: a date\nboundary in code, so that widening snapshot coverage alone cannot reach the\nresidual, and \u2014 where the docket itself shows that the entry a ``granted``\nwas read off no longer parses as a grant at all \u2014 that entry, which dates\nthe parse gap and so needs no calendar. On mandatory-jurisdiction direct\nappeals the resolver latches only the vacatur-remand form (now ``gvr``); the\nother direct-appeal forms (probable jurisdiction noted, summary affirmance,\ndismissal for want of a substantial federal question) are deliberate resolver\nmisses that reach maintainer triage, where the convention is: grant-side for\nprobable jurisdiction, the denied/dismissed side for summary affirmance and\nwant-of-a-question.",
+      "enum": [
+        "granted",
+        "denied",
+        "granted-in-part",
+        "gvr",
+        "summary-reversal",
+        "dismissed",
+        "withdrawn",
+        "other"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    },
+    "Engine": {
+      "description": "Agentic coding engine that produced an artifact.",
+      "enum": [
+        "claude-code",
+        "codex",
+        "gemini"
+      ],
+      "title": "Engine",
+      "type": "string"
+    },
+    "EventKind": {
+      "description": "The filing that *opened* an event \u2014 not what the event decides.\n\nOrthogonal to :class:`Stage` (the decision standard) and :class:`Moment`\n(when in the case's life the forecast was taken). Keeping the three apart is\nwhat lets one case carry several forecasts of one question: they share a\nstage, differ in moment, and each names the filing that made it forecastable.",
+      "enum": [
+        "motion",
+        "petition",
+        "appeal",
+        "order",
+        "brief"
+      ],
+      "title": "EventKind",
+      "type": "string"
+    },
+    "Moment": {
+      "description": "*When* in a case's life a forecast of its stage was taken.\n\nA stage asks one question \u2014 will cert be granted, will the application be\ngranted, will the judgment below be disturbed \u2014 and the case passes several\npoints at which that question can honestly be forecast, each with a\ndifferent information set. A petition forecast the day it is first\ndistributed and the same petition forecast after a CVSG are answering the\nsame question from different evidence, so they are **two forecasts, not one\nforecast revised**: each freezes its own context and each is scored on its\nown.\n\nThe consequence that makes this a vocabulary rather than a counter: two\nmoments are two populations, and pooling them would publish a mean over a\nmixture of information sets. Aggregation therefore keys on\n``(stage, moment)`` and never on stage alone \u2014 the same rule the salience\nversion and the claim-set version already carry.\n\nWhich moments exist, what each is minted from, and which claims each\ndeclares live in one table, :mod:`fedcourtsai.pipeline.moments`. Nothing\nreads a moment out of an event id.",
+      "enum": [
+        "distribution",
+        "cvsg",
+        "arrival",
+        "response-requested",
+        "response-filed",
+        "grant",
+        "briefed"
+      ],
+      "title": "Moment",
+      "type": "string"
+    },
+    "Stage": {
+      "description": "Which decision standard governs an event \u2014 the parameter that selects an\naggregation rule (:mod:`fedcourtsai.pipeline.aggregation`) and an observation\nmask (``docs/decision-model.md``).\n\nOrthogonal to :class:`EventKind`, which names the *filing that opened* an\nevent. A merits decision is not a filing, so it is a stage rather than a\nkind. Stage is also the within-SCOTUS analogue of a caution\n``metrics/README.md`` already carries across courts: ``granted`` denotes cert\non a petition and relief on a stay application, and carrying the stage in the\nrecord says so where prose otherwise has to.\n\nWhere an event declares no stage the rule lookup yields nothing rather than\nguessing \u2014 true of a circuit motion, which has no Supreme Court decision\nstandard at all.",
+      "enum": [
+        "cert",
+        "interim",
+        "merits"
+      ],
+      "title": "Stage",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One row of the release dataset's ``predictions`` table: one committed prediction.\n\nKeyed on ``(case_id, event_id, predictor_id, run_id)``, the ledger path the\nprediction was committed at. The population is every prediction in the\nexport's process scope, graded or not; the flags say which of them the\nscored figures count and which were set aside.",
+  "properties": {
+    "actual_disposition": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Disposition"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The realized disposition label; null while unresolved"
+    },
+    "actual_granted": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The realized binary outcome: 1 positive, 0 not; null while unresolved",
+      "title": "Actual Granted"
+    },
+    "band": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The case's salience band as at prediction, readable only beside `salience_version`; null where the signals were unobservable or unrecorded",
+      "title": "Band"
+    },
+    "caption": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The event's title from its committed `event.yaml`, which names the case; null where the event definition is absent",
+      "title": "Caption"
+    },
+    "case_id": {
+      "description": "The case id, `<court>/<docket_id>`: a CourtListener docket id, or a project-minted reserved-range id for a petition the Court's own site reached first",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "court": {
+      "description": "The court id half of `case_id` (e.g. `scotus`)",
+      "title": "Court",
+      "type": "string"
+    },
+    "created_at": {
+      "description": "When the predictor says it wrote the prediction (agent-written; the harness clock is `stamped_at`)",
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "disposition_basis": {
+      "anyOf": [
+        {
+          "enum": [
+            "standard",
+            "mootness"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Whether the disposition rests on the ordinary standard or on mootness (which routes the cell to the procedural stratum); null while unresolved",
+      "title": "Disposition Basis"
+    },
+    "docket_id": {
+      "description": "The numeric docket-id half of `case_id`",
+      "title": "Docket Id",
+      "type": "integer"
+    },
+    "docket_number": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The docket number the Court itself assigned (e.g. `25-1234`), the one field read from the corpus; null where the corpus holds none for the case or the export was built without it (see the manifest's `docket_numbers`)",
+      "title": "Docket Number"
+    },
+    "engine": {
+      "$ref": "#/$defs/Engine",
+      "description": "The agentic engine the predictor ran on"
+    },
+    "event_id": {
+      "description": "The event id, `evt-<kind>-<slug>`",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_kind": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EventKind"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The event's kind from `event.yaml`; null where the definition is absent"
+    },
+    "forward_claim_excluded": {
+      "description": "Whether the harness record claims a forward cell but the event resolved before the cell's harness clock day, which sets the prediction aside",
+      "title": "Forward Claim Excluded",
+      "type": "boolean"
+    },
+    "gradings_leakage_flagged": {
+      "description": "How many of those gradings record `leakage_suspected: true`",
+      "minimum": 0,
+      "title": "Gradings Leakage Flagged",
+      "type": "integer"
+    },
+    "gradings_total": {
+      "description": "How many in-scope gradings of this prediction survive the re-grade collapse: at most one per evaluator, whose newest grading of this predictor on this event may name a different run, leaving this one with none",
+      "minimum": 0,
+      "title": "Gradings Total",
+      "type": "integer"
+    },
+    "granted": {
+      "description": "The binary call the prediction makes: 1 positive, 0 not",
+      "title": "Granted",
+      "type": "integer"
+    },
+    "ledger_commit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The first-parent commit of the checked-out history that added this `prediction.json`: its landing on `main` when the manifest's `source_on_main_first_parent` is true, and on any other checkout when the file reached that line; null where the export was built without git history or the file is uncommitted",
+      "title": "Ledger Commit"
+    },
+    "ledger_committed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The committer date of `ledger_commit` (UTC); null with it. GitHub's own clock only where `ledger_committed_by_github` is true; otherwise the committing machine's clock, and the landing pull request's `merged_at` is the witness. Like `ledger_commit`, it dates the file reaching the checked-out line",
+      "title": "Ledger Committed At"
+    },
+    "ledger_committed_by_github": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Whether `ledger_commit`'s committer is GitHub (`GitHub`, `noreply@github.com`), as a web merge or auto-merge records it, so `ledger_committed_at` is GitHub's clock. Necessary, not sufficient: a commit made in a GitHub Codespace carries the same committer with the Codespace's clock, so the landing pull request's `merged_at` is what settles a timing claim. Null with `ledger_commit`; no committer identity is exported beyond this bit",
+      "title": "Ledger Committed By Github"
+    },
+    "mode": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The harness's claim about the cell: `forward` (provisioned as a pending case) or `replay`; null where no context was recorded. A claim, not the split: `stratum` alone decides forward vs retrospective, and a `forward` cell resolved on its harness clock day (a same-day tie) is retrospective",
+      "title": "Mode"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The model the prediction records as having run; null where it recorded none (an offline run, or a record written before the field existed). Not back-filled from the engine's default, which can move after a run",
+      "title": "Model"
+    },
+    "moment": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Moment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The forecast moment within the stage, normalized as the scored figures read it (an unrecorded moment reads as the stage's first); null where no stage"
+    },
+    "pipeline_sha": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The pipeline commit that stamped the cell; null where unrecorded",
+      "title": "Pipeline Sha"
+    },
+    "predicted_disposition": {
+      "$ref": "#/$defs/Disposition",
+      "description": "The predicted disposition label"
+    },
+    "predictor_id": {
+      "description": "The predictor that wrote the prediction",
+      "title": "Predictor Id",
+      "type": "string"
+    },
+    "probability": {
+      "description": "The forecast probability of the positive outcome (a grant, at the cert stage)",
+      "title": "Probability",
+      "type": "number"
+    },
+    "process_digest": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The harness process digest (`sha256:<hex>`) that identifies the prompt and configuration that ran; null on an unstamped cell",
+      "title": "Process Digest"
+    },
+    "process_frozen": {
+      "description": "Whether the process is in the pre-registered frozen set and ran at or after the freeze instant (the manifest's `frozen_process`)",
+      "title": "Process Frozen",
+      "type": "boolean"
+    },
+    "process_label": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The harness process label (e.g. `proc-v8`); null on an unstamped cell",
+      "title": "Process Label"
+    },
+    "resolved_at": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "When the event resolved, from its `outcome.json`; null while unresolved",
+      "title": "Resolved At"
+    },
+    "run_id": {
+      "description": "The prediction's run id (a UTC timestamp), as its ledger path spells it",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "salience_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The salience scorer version that assigned `band`; null where unrecorded",
+      "title": "Salience Version"
+    },
+    "scored": {
+      "description": "Whether at least one counted grading names this prediction, i.e. it enters the scored figures",
+      "title": "Scored",
+      "type": "boolean"
+    },
+    "set_aside": {
+      "description": "Whether the prediction is set aside from the scored figures: `forward_claim_excluded`, or graded with every in-scope grading leakage-flagged",
+      "title": "Set Aside",
+      "type": "boolean"
+    },
+    "stage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Stage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The decision stage, normalized as the scored figures read it: a petition or appeal event with no recorded stage reads as `cert`; null means no stage"
+    },
+    "staged": {
+      "description": "Whether this is the predictor's newest run for the event, the one provisioning stages for grading",
+      "title": "Staged",
+      "type": "boolean"
+    },
+    "stamped_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "When the harness stamped the cell (UTC): the clock the forward / retrospective split uses; null on an unstamped cell, where the split falls back to `created_at`",
+      "title": "Stamped At"
+    },
+    "stratum": {
+      "anyOf": [
+        {
+          "enum": [
+            "forward",
+            "retrospective",
+            "procedural"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The stratum the scored figures place the prediction in (`forward`, `retrospective` or `procedural`); null unless `scored`",
+      "title": "Stratum"
+    },
+    "term": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The case's October Term; null where unrecorded",
+      "title": "Term"
+    }
+  },
+  "required": [
+    "case_id",
+    "court",
+    "docket_id",
+    "docket_number",
+    "caption",
+    "event_id",
+    "event_kind",
+    "stage",
+    "moment",
+    "predictor_id",
+    "engine",
+    "model",
+    "run_id",
+    "created_at",
+    "probability",
+    "granted",
+    "predicted_disposition",
+    "mode",
+    "salience_version",
+    "band",
+    "term",
+    "process_label",
+    "process_digest",
+    "process_frozen",
+    "stamped_at",
+    "pipeline_sha",
+    "ledger_commit",
+    "ledger_committed_at",
+    "ledger_committed_by_github",
+    "resolved_at",
+    "actual_disposition",
+    "actual_granted",
+    "disposition_basis",
+    "stratum",
+    "scored",
+    "staged",
+    "forward_claim_excluded",
+    "gradings_total",
+    "gradings_leakage_flagged",
+    "set_aside"
+  ],
+  "title": "ExportPredictionRow",
+  "type": "object"
+}

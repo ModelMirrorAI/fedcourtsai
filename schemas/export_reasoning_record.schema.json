@@ -1,0 +1,60 @@
+{
+  "additionalProperties": false,
+  "description": "One line of the release dataset's ``reasoning.jsonl``: a prediction's two documents.\n\nKeyed on the same ``(case_id, event_id, predictor_id, run_id)`` as the\npredictions table. ``predicted_reasoning`` forecasts what the court will do;\n``reasoning`` justifies the predictor's own number.",
+  "properties": {
+    "case_id": {
+      "description": "The prediction's case id",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "event_id": {
+      "description": "The prediction's event id",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "predicted_reasoning": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The text of the prediction's `predicted_reasoning.md`, its forecast of the court's reasoning; null where the prediction names none",
+      "title": "Predicted Reasoning"
+    },
+    "predictor_id": {
+      "description": "The prediction's predictor",
+      "title": "Predictor Id",
+      "type": "string"
+    },
+    "reasoning": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The text of the prediction's `reasoning.md`, the predictor's justification of its number; null where the document is absent",
+      "title": "Reasoning"
+    },
+    "run_id": {
+      "description": "The prediction's run id",
+      "title": "Run Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "event_id",
+    "predictor_id",
+    "run_id",
+    "predicted_reasoning",
+    "reasoning"
+  ],
+  "title": "ExportReasoningRecord",
+  "type": "object"
+}

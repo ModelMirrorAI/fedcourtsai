@@ -732,6 +732,23 @@ Two archive steps follow, both the maintainer's:
   gives the data a timestamped copy held outside GitHub. The same files may
   also be attached to the GitHub Release for convenience; the Zenodo deposit is
   the copy of record, and the manifest's checksums show the two are identical.
+  The maintainer builds it from a full-history checkout of the tagged commit
+  with the corpus pulled (`fedcourts corpus-pull`), since the docket numbers
+  are read from it:
+
+  ```bash
+  git switch --detach results/ot2026-longconf
+  uv run fedcourts export --out <dir>
+  ```
+
+  The manifest must show `source_dirty: false`, the tagged commit as
+  `source_commit`, `source_on_main_first_parent: true` (the tagged commit is
+  on `main`'s first-parent line, which is what makes each `ledger_commit` the
+  prediction's landing on `main`), `ledger_commits: "git"`,
+  `docket_numbers: "corpus"` and `counts.predictions_without_ledger_commit: 0`.
+  Before the tag, `uv run fedcourts export --out <dir> --all-versions` is the
+  dry run on shakedown data; no timing figure is quoted from a dry-run bundle,
+  whose commits date a file's arrival on whatever line was checked out.
 
 The public page cites the dataset DOI for the figures and the software record
 for the method, and both must be in the tagged commit, which is filled before
