@@ -15,6 +15,10 @@ metrics refresh follows, and publication is last.
 list lands. Nothing here dispatches a workflow on an agent's behalf; the
 dispatch lines are composed so a maintainer can run them verbatim.
 
+**The public page.** [release-ot2026-public-summary.md](release-ot2026-public-summary.md)
+is the reader-facing layer: it copies its figures from this document once filled,
+adds none of its own, and yields to this document on any disagreement.
+
 ## How to read this document
 
 Each section carries three things: **State** — what the published write-up must
@@ -342,7 +346,7 @@ sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md
 > frozen band's version does not resolve against the pack carries no baseline
 > at all — its skill column is empty, not zero, and supports no claim.
 
-‹the per-band Brier, mean Brier skill and accuracy, per predictor, over the
+‹the per-band Brier, population Brier skill (a ratio of sums) and accuracy, per predictor, over the
 forward stratum, each with its band `n`, `accuracy_scored`, `skill_scored`, its
 floor and its lift — from `metrics/leaderboard.json` after the refresh above›
 
@@ -646,7 +650,11 @@ unanswered blocker is not a resolution.
 **Evidence.** Two tags precede this one in the same cycle: the promotion tag for
 the batch carrying the freeze, and the annotated `prereg/proc-v8` tag that
 pre-registers the blessed digests and the counting instant. The results tag goes
-on the commit carrying the published metrics refresh:
+on a `main` commit whose tree carries both the published metrics refresh and the
+filled write-ups — this document and its public page. The refresh is a data
+commit that lands on `main` directly while the filled documents arrive by
+promotion, so that is the promotion merge landing the documents, after the
+refresh:
 
 ```bash
 git tag -a results/ot2026-longconf -m "OT2026 long-conference cert release" <sha>
@@ -657,3 +665,7 @@ Minting it is a maintainer step, like the promotion merge it accompanies. The
 `results/` namespace blocks update and deletion, so the tag is minted only once
 the draft's placeholder grep in *How to read this document* returns nothing and
 the `stats-reviewer` pass in section 7 is resolved.
+
+The tag is then published as a GitHub Release carrying the dataset export built
+from the tagged commit, which is also the maintainer's step; Zenodo archives the
+Release with a version DOI, and the public page links the export from it.
