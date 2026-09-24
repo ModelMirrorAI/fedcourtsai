@@ -291,6 +291,15 @@ runbook, [docs/security.md](docs/security.md).
   could land the same bytes by finishing normally. The residual is that a cell
   which stopped early can present as one that finished — a claim about review
   routing, not a capability.
+- **No workflow creates a Release or holds a Zenodo credential.** Release
+  archiving is Zenodo's GitHub integration: an OAuth grant on the maintainer's
+  account (webhook administration across the repositories that account
+  administers, no contents access) outside the Actions permission surface. A
+  published Release is archived permanently, so publishing one is a maintainer
+  step; any `contents: write` credential could create one, which is why no
+  workflow does. Automating the dataset deposit would add a credential and
+  changes this line. Setup and scope: [docs/security.md](docs/security.md),
+  *Zenodo archiving*.
 - **No static cloud keys — OIDC for S3.** Workflows that touch the private S3
   stores (the corpus remote and the per-case content store) assume a
   least-privilege IAM role via GitHub OIDC. **Three roles, split by access:**
