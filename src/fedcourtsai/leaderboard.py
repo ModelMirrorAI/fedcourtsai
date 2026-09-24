@@ -96,11 +96,14 @@ from .integrity import (
     latest_evaluations,
 )
 from .pipeline.base_rates import realized_band_rate
+from .pipeline.evaluate import is_correct
 from .pipeline.moments import first_moment, scores_votes
 from .process_version import frozen_process_record, graded_post_freeze, is_frozen
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
+    NO_BAND_KEY,
     BigCaseLeaderboard,
+    Disposition,
     Evaluation,
     EvaluatorAgreement,
     ForwardClaimRecord,
@@ -113,6 +116,7 @@ from .schemas import (
     Moment,
     Outcome,
     Prediction,
+    PredictionContext,
     Stage,
     StatPack,
     Stratum,
@@ -204,6 +208,42 @@ class CellSkill:
     realized_term_baseline: float | None = None
 
 
+@dataclass(frozen=True)
+class CellFacts:
+    """One cert cell's band key and the outcome facts its floor fields read.
+
+    Resolved at render by :func:`cell_facts`, like :class:`CellSkill`, because
+    neither the band the scored prediction froze nor the realized outcome rides
+    on the ``Evaluation``. Only **cert** cells carry facts: the band is a
+    salience product and ``denied`` is the null call only on the cert
+    disposition axis, so a cell of any other stage is absent from the map and
+    every figure built on it stays null.
+    """
+
+    band_key: str
+    #: ``is_correct`` for a synthetic ``denied`` call against the committed outcome.
+    always_deny_correct: int
+    #: ``is_correct`` for the scored prediction against the committed outcome —
+    #: what the grading's stamped ``correct`` should still read. A disagreement
+    #: means the grading was paired with an outcome since superseded.
+    recomputed_correct: int
+    #: The outcome is in the grant family the band rates count.
+    grant_family: bool
+
+
+def band_key(context: PredictionContext | None) -> str:
+    """The ``by_band`` key for a scored prediction's frozen context.
+
+    ``"<salience_version>/<band>"``: a band name means something only under the
+    scorer version that assigned it, so a band without a version — or no frozen
+    band at all — files under :data:`fedcourtsai.schemas.NO_BAND_KEY` rather
+    than being guessed from the corpus's current band.
+    """
+    if context is None or context.band is None or context.salience_version is None:
+        return NO_BAND_KEY
+    return f"{context.salience_version}/{context.band}"
+
+
 def _skill_of_means(terms: Sequence[tuple[float, float]]) -> float | None:
     """Population Brier skill over ``(brier, baseline_brier)`` pairs, or ``None``.
 
@@ -218,7 +258,9 @@ def _skill_of_means(terms: Sequence[tuple[float, float]]) -> float | None:
 
 
 def _aggregate(
-    evals: Sequence[Evaluation], skills: Mapping[EvaluationKey, CellSkill]
+    evals: Sequence[Evaluation],
+    skills: Mapping[EvaluationKey, CellSkill],
+    facts: Mapping[EvaluationKey, CellFacts] | None = None,
 ) -> LeaderboardStratum | None:
     """One stratum's aggregates, or ``None`` when the stratum has no evaluations.
 
@@ -244,6 +286,10 @@ def _aggregate(
     So the ranked cert board cannot publish a vote mean whatever its cells
     carry, and the recomputation is not a duplicate of the per-cell check but
     the only one that holds over records this module did not produce.
+
+    The realized floor fields (:func:`_floor_fields`) run over the accuracy
+    population itself and are filled only where ``facts`` covers every cell of
+    it, so the floor and the lift are always paired with ``accuracy``.
     """
     if not evals:
         return None
@@ -282,7 +328,156 @@ def _aggregate(
         mean_reasoning_quality=_mean(
             [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
         ),
+        **_floor_fields(evals, skills, facts),
     )
+
+
+def _floor_fields(
+    evals: Sequence[Evaluation],
+    skills: Mapping[EvaluationKey, CellSkill],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
+) -> dict[str, float | int | None]:
+    """The per-event accuracy, realized always-deny floor, lifts, and grant counts.
+
+    All over the **accuracy population** — the cells with a non-null
+    ``correct``. Three gates, each leaving fields null rather than computing
+    them on a different population:
+
+    - ``accuracy_events_scored`` and ``event_accuracy`` need no facts. Each
+      event enters once, and ``event_accuracy`` (with every ``event_*`` field)
+      is null where a block's gradings of one event disagree on ``correct``.
+    - Everything else needs :class:`CellFacts` on **every** accuracy cell:
+      partial coverage would run the floor over fewer cells than ``accuracy``.
+      In practice coverage fails only on a non-cert stage, which carries none.
+    - The floor and both lifts further need every accuracy cell's stamped
+      ``correct`` to reproduce against the committed outcome
+      (``CellFacts.recomputed_correct``). A grading stamped against an outcome
+      since corrected would otherwise sit beside a floor read off the current
+      one — an unpaired difference, which is not a lift.
+
+    ``grants_expected`` sums one strictly-prior band rate per event: the
+    ``segment_base_rate`` of the event's gradings the prior-Term skill column
+    admits (a :class:`CellSkill` with a prior baseline), averaged over them, so
+    a panel of three enters an event once. ``grants_realized_expected_scored``
+    counts the grant-family events among exactly those events, so the expected
+    and realized counts are quoted over one event set.
+    """
+    scored = [ev for ev in evals if ev.correct is not None]
+    if not scored:
+        return {}
+    per_event: dict[tuple[str, str], set[int]] = defaultdict(set)
+    for ev in scored:
+        per_event[(ev.case_id, ev.event_id)].add(ev.correct or 0)
+    event_consistent = all(len(values) == 1 for values in per_event.values())
+    event_accuracy = (
+        sum(next(iter(values)) for values in per_event.values()) / len(per_event)
+        if event_consistent
+        else None
+    )
+    fields: dict[str, float | int | None] = {
+        "accuracy_events_scored": len(per_event),
+        "event_accuracy": event_accuracy,
+    }
+    if facts is None:
+        return fields
+    present = [facts.get(_evaluation_key(ev)) for ev in scored]
+    paired = [(ev, fact) for ev, fact in zip(scored, present, strict=True) if fact is not None]
+    if len(paired) != len(scored):
+        return fields
+
+    event_facts = {(ev.case_id, ev.event_id): fact for ev, fact in paired}
+    granted_events = {key for key, fact in event_facts.items() if fact.grant_family}
+    rates: dict[tuple[str, str], list[float]] = defaultdict(list)
+    for ev in scored:
+        skill = skills.get(_evaluation_key(ev))
+        if (
+            skill is not None
+            and skill.prior_term_baseline is not None
+            and ev.segment_base_rate is not None
+        ):
+            rates[(ev.case_id, ev.event_id)].append(ev.segment_base_rate)
+    fields.update(
+        grants_realized=len(granted_events),
+        grants_expected=(
+            sum(sum(event_rates) / len(event_rates) for event_rates in rates.values())
+            if rates
+            else None
+        ),
+        grants_expected_scored=len(rates),
+        grants_realized_expected_scored=len(granted_events & rates.keys()),
+    )
+
+    if any(fact.recomputed_correct != ev.correct for ev, fact in paired):
+        return fields
+    accuracy = sum(ev.correct or 0 for ev in scored) / len(scored)
+    always_deny = sum(fact.always_deny_correct for _, fact in paired) / len(paired)
+    fields.update(always_deny_accuracy=always_deny, accuracy_lift=accuracy - always_deny)
+    if event_accuracy is not None:
+        # The outcome is the event's, so every grading of it shares this bit.
+        event_always_deny = sum(fact.always_deny_correct for fact in event_facts.values()) / len(
+            event_facts
+        )
+        fields.update(
+            event_always_deny_accuracy=event_always_deny,
+            event_accuracy_lift=event_accuracy - event_always_deny,
+        )
+    return fields
+
+
+def _complete_grid_by_band(
+    cells: Sequence[tuple[Evaluation, Stratum]],
+    predictors: Iterable[str],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
+) -> dict[str, int]:
+    """Per band key, the forward events every predictor has an accuracy-scored cell on.
+
+    The per-band complete grid: an event counts under a band only where each
+    predictor in the population carries an accuracy-scored forward grading of
+    it filed under that same band, so an event whose predictors froze different
+    bands is complete under none. Cert cells only (those carrying facts); empty
+    without facts.
+    """
+    roster = set(predictors)
+    if facts is None or not roster:
+        return {}
+    covered: dict[tuple[str, tuple[str, str]], set[str]] = defaultdict(set)
+    for ev, stratum in cells:
+        fact = facts.get(_evaluation_key(ev))
+        if stratum != FORWARD or ev.correct is None or fact is None:
+            continue
+        covered[(fact.band_key, (ev.case_id, ev.event_id))].add(ev.predictor_id)
+    grid: dict[str, int] = defaultdict(int)
+    for (band, _event), who in covered.items():
+        if who >= roster:
+            grid[band] += 1
+    return dict(sorted(grid.items()))
+
+
+def _by_band(
+    evals: Sequence[Evaluation],
+    skills: Mapping[EvaluationKey, CellSkill],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
+) -> dict[str, LeaderboardStratum] | None:
+    """The forward stratum cut by frozen salience band, or ``None``.
+
+    Built from the same cells and skill terms as the ``forward`` block it
+    partitions, so each band is an ordinary :func:`_aggregate`. A cell with no
+    facts files under :data:`fedcourtsai.schemas.NO_BAND_KEY` rather than
+    dropping out, so the blocks' ``evaluations`` always sum to the stratum's.
+    ``None`` without cells, or where none of them carries facts — a non-cert
+    stage, which has no band, or a board built without facts at all.
+    """
+    if facts is None or not any(_evaluation_key(ev) in facts for ev in evals):
+        return None
+    groups: dict[str, list[Evaluation]] = defaultdict(list)
+    for ev in evals:
+        fact = facts.get(_evaluation_key(ev))
+        groups[fact.band_key if fact is not None else NO_BAND_KEY].append(ev)
+    return {
+        key: stratum
+        for key in sorted(groups)
+        if (stratum := _aggregate(groups[key], skills, facts)) is not None
+    }
 
 
 def _rank_key(entry: LeaderboardEntry) -> tuple[float, float, float, float, str]:
@@ -628,11 +823,7 @@ def skill_components(
     for evaluation, _stratum, stage, _moment in cells:
         if evaluation.brier_score is None:
             continue
-        event_key = (evaluation.case_id, evaluation.event_id)
-        if event_key not in outcomes:
-            event_dir = cases_dir / evaluation.case_id / "events" / evaluation.event_id
-            outcomes[event_key] = read_model(event_dir / "outcome.json", Outcome)
-        outcome = outcomes[event_key]
+        outcome = _read_outcome(cases_dir, evaluation, outcomes)
         prior = _prior_baseline(evaluation, outcome.actual_granted)
         realized = _baseline_brier(
             _realized_rate(cases_dir, evaluation, stage, outcome, statpack), outcome.actual_granted
@@ -645,6 +836,55 @@ def skill_components(
             realized_term_baseline=realized,
         )
     return components
+
+
+def _read_outcome(
+    cases_dir: Path, evaluation: Evaluation, cache: dict[tuple[str, str], Outcome]
+) -> Outcome:
+    """The committed ``outcome.json`` a cell resolves against, read once per event."""
+    event_key = (evaluation.case_id, evaluation.event_id)
+    if event_key not in cache:
+        event_dir = cases_dir / evaluation.case_id / "events" / evaluation.event_id
+        cache[event_key] = read_model(event_dir / "outcome.json", Outcome)
+    return cache[event_key]
+
+
+def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[EvaluationKey, CellFacts]:
+    """Each cert cell's frozen band key and realized-outcome facts.
+
+    The inputs of ``by_band`` and of the realized floor fields on every stratum
+    (:class:`CellFacts`). The band is read off the **scored** prediction — the
+    run the evaluation's stamped ``prediction_run_id`` names, the join every
+    scoring surface uses — so a cell sorts by the band its forecast was made
+    under, never the corpus's current one. The always-deny figure is
+    :func:`fedcourtsai.pipeline.evaluate.is_correct` itself, applied to the
+    scored prediction with its call replaced by ``denied``, so the floor and
+    ``Evaluation.correct`` answer to one exact-match rule; the scored
+    prediction is re-scored too, so a grading whose stamped ``correct`` no
+    longer reproduces against the committed outcome is detectable. A cell with no
+    readable scored prediction is left out, which leaves its stratum's floor
+    fields null rather than computing them over fewer cells than accuracy.
+    """
+    cases_dir = data_root / "cases"
+    outcomes: dict[tuple[str, str], Outcome] = {}
+    facts: dict[EvaluationKey, CellFacts] = {}
+    for evaluation, _stratum, stage, _moment in cells:
+        if stage != Stage.cert:
+            continue
+        scored = _scored_prediction(cases_dir, evaluation)
+        if scored is None:
+            continue
+        outcome = _read_outcome(cases_dir, evaluation, outcomes)
+        always_deny = scored.model_copy(
+            update={"predicted_disposition": Disposition.denied, "judgment": None}
+        )
+        facts[_evaluation_key(evaluation)] = CellFacts(
+            band_key=band_key(scored.context),
+            always_deny_correct=is_correct(always_deny, outcome),
+            recomputed_correct=is_correct(scored, outcome),
+            grant_family=outcome.actual_disposition in GRANT_FAMILY_DISPOSITIONS,
+        )
+    return facts
 
 
 def _baseline_brier(base_rate: float | None, actual_granted: int) -> float | None:
@@ -793,7 +1033,9 @@ def _events_scored(evals: Iterable[Evaluation]) -> int:
 
 
 def _stage_board(
-    cells: Sequence[tuple[Evaluation, Stratum]], skills: Mapping[EvaluationKey, CellSkill]
+    cells: Sequence[tuple[Evaluation, Stratum]],
+    skills: Mapping[EvaluationKey, CellSkill],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
 ) -> LeaderboardStage:
     """One non-cert stage's unranked block: per-predictor aggregates plus counts.
 
@@ -806,6 +1048,11 @@ def _stage_board(
     prior-Term skill is a separate question — the interim and merits stages both
     have a registered strictly-prior baseline of their own, each with its own
     floor.
+
+    A later cert moment (``cert@cvsg``) is still a salience-band product, so
+    its forward stratum carries ``by_band`` and the realized floor fields like
+    the ranked board's; every other stage's cells carry no :class:`CellFacts`,
+    so those stay null there.
     """
     by_predictor = _group_by_predictor(cells)
     entries: list[LeaderboardStageEntry] = []
@@ -817,9 +1064,10 @@ def _stage_board(
                 predictor_id=predictor_id,
                 evaluators=len({ev.evaluator_id for ev in evals}),
                 events_scored=_events_scored(evals),
-                forward=_aggregate(strata[FORWARD], skills),
-                retrospective=_aggregate(strata[RETROSPECTIVE], skills),
-                procedural=_aggregate(strata[PROCEDURAL], skills),
+                forward=_aggregate(strata[FORWARD], skills, facts),
+                retrospective=_aggregate(strata[RETROSPECTIVE], skills, facts),
+                procedural=_aggregate(strata[PROCEDURAL], skills, facts),
+                by_band=_by_band(strata[FORWARD], skills, facts),
             )
         )
     return LeaderboardStage(
@@ -832,10 +1080,11 @@ def _stage_board(
         retrospective_evaluations=_stratum_total(by_predictor, RETROSPECTIVE),
         procedural_evaluations=_stratum_total(by_predictor, PROCEDURAL),
         entries=entries,
+        complete_grid_by_band=_complete_grid_by_band(cells, by_predictor, facts),
     )
 
 
-def build_leaderboard(
+def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input the board publishes
     cells: Iterable[StratifiedCell],
     big_case: Mapping[str, BigCaseLeaderboard] | None = None,
     *,
@@ -845,6 +1094,7 @@ def build_leaderboard(
     forward_claim: ForwardClaimRecord | None = None,
     leakage_exclusion: LeakageExclusionRecord | None = None,
     superseded_gradings: int = 0,
+    facts: Mapping[EvaluationKey, CellFacts] | None = None,
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
 
@@ -895,6 +1145,13 @@ def build_leaderboard(
         count from the same scoped pass that produced ``cells``; the default
         states "no collapse information supplied", which is also the truth for a
         board built from hand-made cells.
+
+    ``facts`` (from :func:`cell_facts` over the same cells) supplies each cert
+        cell's frozen band key and realized outcome: the forward stratum's
+        ``by_band`` cut, every cert stratum's realized always-deny floor,
+        lifts, and grant counts, and each population's
+        ``complete_grid_by_band``. None of them reaches :func:`_rank_key`.
+        Unsupplied, no entry carries ``by_band`` and those fields are null.
     """
     cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
@@ -916,9 +1173,10 @@ def build_leaderboard(
                 rank=1,  # provisional; assigned after sorting
                 evaluators=len({ev.evaluator_id for ev in evals}),
                 events_scored=_events_scored(evals),
-                forward=_aggregate(strata[FORWARD], cell_skills),
-                retrospective=_aggregate(strata[RETROSPECTIVE], cell_skills),
-                procedural=_aggregate(strata[PROCEDURAL], cell_skills),
+                forward=_aggregate(strata[FORWARD], cell_skills, facts),
+                retrospective=_aggregate(strata[RETROSPECTIVE], cell_skills, facts),
+                procedural=_aggregate(strata[PROCEDURAL], cell_skills, facts),
+                by_band=_by_band(strata[FORWARD], cell_skills, facts),
                 big_case=(big_case or {}).get(predictor_id),
             )
         )
@@ -960,5 +1218,8 @@ def build_leaderboard(
         procedural_evaluations=_stratum_total(by_predictor, PROCEDURAL),
         evaluator_agreement=dict(evaluators or {}),
         entries=entries,
-        stages={key: _stage_board(stage_cells[key], cell_skills) for key in sorted(stage_cells)},
+        complete_grid_by_band=_complete_grid_by_band(cert_cells, by_predictor, facts),
+        stages={
+            key: _stage_board(stage_cells[key], cell_skills, facts) for key in sorted(stage_cells)
+        },
     )

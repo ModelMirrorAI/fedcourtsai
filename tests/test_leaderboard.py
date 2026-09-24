@@ -1,5 +1,6 @@
 """Leaderboard aggregation and stratification over a small fixture ledger."""
 
+import json
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -21,19 +22,24 @@ from fedcourtsai.integrity import (
 )
 from fedcourtsai.leaderboard import (
     NO_STAGE_KEY,
+    CellFacts,
     CellSkill,
     _evaluation_key,
     _scored_prediction,
     big_case_agreement,
     build_leaderboard,
+    cell_facts,
     evaluator_agreement,
     kendall_tau_b,
     skill_components,
     stage_moment_key,
 )
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.evaluate import is_correct
 from fedcourtsai.pipeline.moments import first_moment, moments_for
 from fedcourtsai.schemas import (
+    GRANTED_DISPOSITIONS,
+    NO_BAND_KEY,
     BaseRateBucket,
     BigCaseAssessment,
     BigCaseLeaderboard,
@@ -138,6 +144,8 @@ def _write_cell(  # noqa: PLR0913 - one keyword per artifact field a test varies
     stage: Stage | None = None,
     context: PredictionContext | None = None,
     big_case_score: float | None = None,
+    predicted_disposition: Disposition = Disposition.granted,
+    actual_disposition: Disposition = Disposition.granted,
 ) -> None:
     """A full scored cell: evaluation plus the event, prediction, and outcome it targets.
 
@@ -146,8 +154,11 @@ def _write_cell(  # noqa: PLR0913 - one keyword per artifact field a test varies
     on the event.yaml the stratification join reads — the petition-kind default
     with a null stage is the committed-ledger shape, which stratifies as cert.
     ``context`` is the harness-frozen conditioning the realized-Term skill reads
-    the band, version, and Term off.
+    the band, version, and Term off. ``predicted_disposition`` and
+    ``actual_disposition`` set the call and the outcome; each side's binary
+    follows from its label.
     """
+    predicted_granted = int(predicted_disposition in GRANTED_DISPOSITIONS)
     _write(data_root, ev)
     court, _, docket = ev.case_id.partition("/")
     event = CasePaths(data_root, court, int(docket)).event(ev.event_id)
@@ -172,9 +183,9 @@ def _write_cell(  # noqa: PLR0913 - one keyword per artifact field a test varies
             run_id="p1",
             created_at=predicted_at,
             input_snapshot="corpus",
-            granted=1,
-            probability=0.7,
-            predicted_disposition=Disposition.granted,
+            granted=predicted_granted,
+            probability=0.7 if predicted_granted else 0.3,
+            predicted_disposition=predicted_disposition,
             big_case_score=big_case_score,
             process_version=process_version,
             context=context,
@@ -187,8 +198,8 @@ def _write_cell(  # noqa: PLR0913 - one keyword per artifact field a test varies
                 case_id=ev.case_id,
                 event_id=ev.event_id,
                 resolved_at=resolved_at,
-                actual_disposition=Disposition.granted,
-                actual_granted=1,
+                actual_disposition=actual_disposition,
+                actual_granted=int(actual_disposition in GRANTED_DISPOSITIONS),
                 disposition_basis=disposition_basis,
             )
         ),
@@ -2493,3 +2504,413 @@ def test_the_agreement_views_collapse_inside_the_scope_they_are_read_under(
     # Pooled: the re-grade is in scope, supersedes, and inverts the ordering.
     assert pooled["alpha"].cases == 2
     assert pooled["alpha"].rank_agreement == -1.0
+
+
+# --- The per-band forward cut and the realized always-deny floor -------------
+
+
+def _band_context(band: str | None, version: str | None = "sal-v1") -> PredictionContext:
+    return PredictionContext(
+        mode="forward",
+        snapshot_date=date(2026, 1, 5),
+        signals_observable=True,
+        distribution_count=3,
+        band=band,
+        salience_version=version,
+        term=2025,
+    )
+
+
+def _banded_board(data_root: Path) -> Leaderboard:
+    """The board ``fedcourts leaderboard`` builds, over a fixture ledger."""
+    run = stratify(data_root, frozen_only=False)
+    return build_leaderboard(
+        run.cells, facts=cell_facts(run.cells, data_root), superseded_gradings=run.superseded
+    )
+
+
+def _write_banded_ledger(data_root: Path) -> None:
+    """Pooled accuracy beats pooled always-deny while the `low` band falls below its own.
+
+    `high`: three granted petitions, all called granted — 3/3 against an
+    always-deny 0/3. `low`: four denied petitions, two called denied and two
+    called granted — 2/4 against an always-deny 4/4. One further granted
+    petition, called granted, froze no band, so it files under the no-band key.
+    Pooled, 6/8 beats the floor's 4/8.
+    """
+    cells: list[tuple[str, PredictionContext | None, Disposition, Disposition]] = [
+        ("evt-h1", _band_context("high"), Disposition.granted, Disposition.granted),
+        ("evt-h2", _band_context("high"), Disposition.granted, Disposition.granted),
+        ("evt-h3", _band_context("high"), Disposition.granted, Disposition.granted),
+        ("evt-l1", _band_context("low"), Disposition.denied, Disposition.denied),
+        ("evt-l2", _band_context("low"), Disposition.denied, Disposition.denied),
+        ("evt-l3", _band_context("low"), Disposition.granted, Disposition.denied),
+        ("evt-l4", _band_context("low"), Disposition.granted, Disposition.denied),
+        ("evt-bare", None, Disposition.granted, Disposition.granted),
+    ]
+    for event_id, context, predicted, actual in cells:
+        _write_cell(
+            data_root,
+            _evaluation("alpha", event_id=event_id, correct=int(predicted == actual)),
+            context=context,
+            predicted_disposition=predicted,
+            actual_disposition=actual,
+        )
+
+
+def test_by_band_exposes_a_band_below_its_own_floor_under_a_pooled_lift(
+    tmp_path: Path,
+) -> None:
+    _write_banded_ledger(tmp_path)
+    (entry,) = _banded_board(tmp_path).entries
+    assert entry.forward is not None and entry.by_band is not None
+    # Pooled, the predictor clears always-deny on the same cells …
+    assert entry.forward.accuracy == pytest.approx(6 / 8)
+    assert entry.forward.always_deny_accuracy == pytest.approx(4 / 8)
+    assert entry.forward.accuracy_lift == pytest.approx(2 / 8)
+    assert entry.forward.grants_realized == 4
+    # … while the `low` band falls below its own floor, which only the cut shows.
+    high = entry.by_band["sal-v1/high"]
+    low = entry.by_band["sal-v1/low"]
+    assert (high.accuracy, high.always_deny_accuracy) == (1.0, 0.0)
+    assert high.accuracy_lift == pytest.approx(1.0)
+    assert (low.accuracy, low.always_deny_accuracy) == (0.5, 1.0)
+    assert low.accuracy_lift == pytest.approx(-0.5)
+    assert (high.grants_realized, low.grants_realized) == (3, 0)
+
+
+def test_by_band_evaluations_sum_to_the_forward_stratum(tmp_path: Path) -> None:
+    _write_banded_ledger(tmp_path)
+    (entry,) = _banded_board(tmp_path).entries
+    assert entry.forward is not None and entry.by_band is not None
+    assert set(entry.by_band) == {"sal-v1/high", "sal-v1/low", NO_BAND_KEY}
+    assert entry.by_band[NO_BAND_KEY].evaluations == 1
+    assert sum(block.evaluations for block in entry.by_band.values()) == (entry.forward.evaluations)
+    assert sum(block.events_scored for block in entry.by_band.values()) == (
+        entry.forward.events_scored
+    )
+
+
+def test_by_band_keys_on_the_scored_predictions_frozen_band(tmp_path: Path) -> None:
+    """The graded run's frozen band, not a later run's nor a re-derived one.
+
+    The evaluation names run `p1`, frozen at `low`. A later run `p2` of the
+    same event — the band a strengthened petition would read today — froze
+    `high`; it was never graded, so it must not move the cell.
+    """
+    ev = _evaluation("alpha", event_id="evt-a", prediction_run_id="p1")
+    _write_cell(tmp_path, ev, context=_band_context("low"))
+    event = CasePaths(tmp_path, "ca9", 123).event("evt-a")
+    later = read_model(event.prediction("alpha", "p1"), Prediction).model_copy(
+        update={
+            "run_id": "p2",
+            "created_at": datetime(2026, 6, 21, tzinfo=UTC),
+            "context": _band_context("high"),
+        }
+    )
+    write_json(event.prediction("alpha", "p2"), later)
+    (entry,) = _banded_board(tmp_path).entries
+    assert entry.by_band is not None
+    assert set(entry.by_band) == {"sal-v1/low"}
+
+
+def test_a_band_without_a_version_files_under_the_no_band_key(tmp_path: Path) -> None:
+    _write_cell(
+        tmp_path, _evaluation("alpha", event_id="evt-a"), context=_band_context("high", None)
+    )
+    (entry,) = _banded_board(tmp_path).entries
+    assert entry.by_band is not None
+    assert set(entry.by_band) == {NO_BAND_KEY}
+
+
+def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) -> None:
+    # A GVR grants the petition, so it sits on the granted side of the binary
+    # target — but the label is `gvr`, and exact match scores both a `granted`
+    # call and the synthetic `denied` one as misses.
+    ev = _evaluation("alpha", event_id="evt-a", correct=0)
+    _write_cell(
+        tmp_path,
+        ev,
+        context=_band_context("high"),
+        predicted_disposition=Disposition.granted,
+        actual_disposition=Disposition.gvr,
+    )
+    event = CasePaths(tmp_path, "ca9", 123).event("evt-a")
+    outcome = read_model(event.outcome, Outcome)
+    assert is_correct(read_model(event.prediction("alpha", "p1"), Prediction), outcome) == 0
+    run = stratify(tmp_path, frozen_only=False)
+    (fact,) = cell_facts(run.cells, tmp_path).values()
+    assert fact == CellFacts(
+        band_key="sal-v1/high", always_deny_correct=0, recomputed_correct=0, grant_family=True
+    )
+    (entry,) = _banded_board(tmp_path).entries
+    assert entry.forward is not None
+    assert (entry.forward.accuracy, entry.forward.always_deny_accuracy) == (0.0, 0.0)
+    assert entry.forward.accuracy_lift == 0.0
+    assert entry.forward.grants_realized == 1
+
+
+def _cert_facts(
+    *evals: Evaluation, band: str = "sal-v1/high", always_deny_correct: int = 1
+) -> dict[Any, CellFacts]:
+    return {
+        _evaluation_key(ev): CellFacts(
+            band_key=band,
+            always_deny_correct=always_deny_correct,
+            recomputed_correct=ev.correct or 0,
+            grant_family=False,
+        )
+        for ev in evals
+    }
+
+
+def test_cert_cvsg_stage_entries_carry_by_band_and_other_stages_do_not() -> None:
+    cvsg = _evaluation("alpha", event_id="evt-order-cvsg-disposition")
+    interim = _evaluation("alpha", event_id="evt-motion-disposition")
+    board = build_leaderboard(
+        [
+            _forward(cvsg, Stage.cert, Moment.cvsg),
+            _forward(interim, Stage.interim),
+        ],
+        facts=_cert_facts(cvsg),
+    )
+    (cvsg_entry,) = board.stages[stage_moment_key(Stage.cert, Moment.cvsg)].entries
+    assert cvsg_entry.by_band is not None
+    assert set(cvsg_entry.by_band) == {"sal-v1/high"}
+    assert cvsg_entry.forward is not None
+    assert cvsg_entry.forward.always_deny_accuracy == 1.0
+    (interim_entry,) = board.stages[
+        stage_moment_key(Stage.interim, first_moment(Stage.interim))
+    ].entries
+    # No band and no `denied` null call off the cert axis: the cut is absent
+    # and the floor fields stay null.
+    assert interim_entry.by_band is None
+    assert interim_entry.forward is not None
+    assert interim_entry.forward.always_deny_accuracy is None
+    assert interim_entry.forward.accuracy_lift is None
+    assert interim_entry.forward.grants_realized is None
+    assert "by_band" not in interim_entry.model_dump(mode="json")
+
+
+def test_floor_fields_stay_null_unless_every_accuracy_cell_has_facts() -> None:
+    # A floor over fewer cells than accuracy would be an unpaired difference.
+    covered = _evaluation("alpha", event_id="evt-a")
+    uncovered = _evaluation("alpha", event_id="evt-b")
+    ungraded = _evaluation("alpha", event_id="evt-c", correct=None)
+    board = build_leaderboard(
+        [_forward(covered), _forward(uncovered), _forward(ungraded)],
+        facts=_cert_facts(covered),
+    )
+    (entry,) = board.entries
+    assert entry.forward is not None
+    assert entry.forward.accuracy_scored == 2
+    assert entry.forward.always_deny_accuracy is None
+    assert entry.forward.accuracy_lift is None
+    # The uncovered cells still count in the cut, under the no-band key.
+    assert entry.by_band is not None
+    assert {key: block.evaluations for key, block in entry.by_band.items()} == {
+        "sal-v1/high": 1,
+        NO_BAND_KEY: 2,
+    }
+
+
+def test_grants_expected_enters_each_event_once_at_its_admitted_rate() -> None:
+    # Two judges graded evt-a at 0.2 and 0.4: one event at their mean. evt-b's
+    # grading is outside the prior-Term skill column, so it carries no rate.
+    judge_a = _evaluation("alpha", event_id="evt-a", segment_base_rate=0.2)
+    judge_b = _evaluation("alpha", event_id="evt-a", evaluator_id="eval-b", segment_base_rate=0.4)
+    unscored = _evaluation("alpha", event_id="evt-b", segment_base_rate=0.9)
+    board = build_leaderboard(
+        [_forward(judge_a), _forward(judge_b), _forward(unscored)],
+        skills={
+            _evaluation_key(judge_a): CellSkill(brier=0.1, prior_term_baseline=0.04),
+            _evaluation_key(judge_b): CellSkill(brier=0.1, prior_term_baseline=0.16),
+        },
+        facts=_cert_facts(judge_a, judge_b, unscored),
+    )
+    forward = board.entries[0].forward
+    assert forward is not None
+    assert forward.grants_expected == pytest.approx(0.3)
+    assert forward.grants_expected_scored == 1
+
+
+def test_band_and_floor_fields_never_move_the_ranking() -> None:
+    # `beta` has the larger lift over always-deny (0.5 against alpha's 0) but
+    # the lower accuracy: the order is the accuracy order with or without facts.
+    alpha = _evaluation("alpha", correct=1, brier_score=0.2)
+    beta_hit = _evaluation("beta", event_id="evt-a", correct=1, brier_score=0.2)
+    beta_miss = _evaluation("beta", event_id="evt-b", correct=0, brier_score=0.2)
+    cells = [_forward(alpha), _forward(beta_hit), _forward(beta_miss)]
+    facts = {
+        **_cert_facts(alpha, band="sal-v1/a", always_deny_correct=1),
+        **_cert_facts(beta_hit, beta_miss, band="sal-v1/b", always_deny_correct=0),
+    }
+    plain = build_leaderboard(cells)
+    banded = build_leaderboard(cells, facts=facts)
+    assert [e.predictor_id for e in plain.entries] == ["alpha", "beta"]
+    assert [(e.rank, e.predictor_id) for e in banded.entries] == [
+        (e.rank, e.predictor_id) for e in plain.entries
+    ]
+    lifts = [e.forward.accuracy_lift if e.forward else None for e in banded.entries]
+    assert lifts == [pytest.approx(0.0), pytest.approx(0.5)]
+    # Without facts the entry serializes no `by_band` key at all.
+    assert "by_band" not in plain.entries[0].model_dump(mode="json")
+
+
+def test_grants_count_the_grant_family_not_the_binary_target(tmp_path: Path) -> None:
+    # `granted-in-part` is on the granted side of `actual_granted` but keeps its
+    # own statpack bucket, so the band rates `grants_expected` sums never count
+    # it; `gvr` is in the family.
+    for event_id, disposition in (
+        ("evt-gip", Disposition.granted_in_part),
+        ("evt-gvr", Disposition.gvr),
+    ):
+        _write_cell(
+            tmp_path,
+            _evaluation("alpha", event_id=event_id, correct=1),
+            context=_band_context("high"),
+            predicted_disposition=disposition,
+            actual_disposition=disposition,
+        )
+    (entry,) = _banded_board(tmp_path).entries
+    assert entry.forward is not None
+    assert entry.forward.grants_realized == 1
+    run = stratify(tmp_path, frozen_only=False)
+    families = {key[1]: fact.grant_family for key, fact in cell_facts(run.cells, tmp_path).items()}
+    assert families == {"evt-gip": False, "evt-gvr": True}
+
+
+def test_realized_grants_are_paired_to_the_expected_events() -> None:
+    # Both events are grants; only evt-a carries an admitted rate, so the pair
+    # to compare is 0.3 expected against 1 realized — not against 2.
+    rated = _evaluation("alpha", event_id="evt-a", segment_base_rate=0.3)
+    unrated = _evaluation("alpha", event_id="evt-b")
+    facts = {
+        _evaluation_key(ev): CellFacts(
+            band_key="sal-v1/high", always_deny_correct=0, recomputed_correct=1, grant_family=True
+        )
+        for ev in (rated, unrated)
+    }
+    forward = (
+        build_leaderboard(
+            [_forward(rated), _forward(unrated)],
+            skills={_evaluation_key(rated): CellSkill(brier=0.1, prior_term_baseline=0.49)},
+            facts=facts,
+        )
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.grants_realized == 2
+    assert forward.grants_expected == pytest.approx(0.3)
+    assert forward.grants_expected_scored == 1
+    assert forward.grants_realized_expected_scored == 1
+
+
+def test_a_grading_stamped_against_a_superseded_outcome_leaves_the_floor_null(
+    tmp_path: Path,
+) -> None:
+    # The grading says the `granted` call was right; the committed outcome now
+    # reads `denied`. A floor off the current outcome beside an accuracy off
+    # the old one is unpaired, so the floor and both lifts stay null.
+    _write_cell(
+        tmp_path,
+        _evaluation("alpha", event_id="evt-a", correct=1),
+        context=_band_context("high"),
+        predicted_disposition=Disposition.granted,
+        actual_disposition=Disposition.denied,
+    )
+    (entry,) = _banded_board(tmp_path).entries
+    assert entry.forward is not None and entry.by_band is not None
+    for block in (entry.forward, entry.by_band["sal-v1/high"]):
+        assert block.accuracy == 1.0
+        assert block.always_deny_accuracy is None
+        assert block.accuracy_lift is None
+        assert block.event_always_deny_accuracy is None
+        assert block.event_accuracy_lift is None
+        # The grant counts need only the facts, which are present.
+        assert block.grants_realized == 0
+
+
+def test_event_weighted_accuracy_counts_each_petition_once() -> None:
+    # evt-a: three judges, all correct, outcome granted (always-deny misses).
+    # evt-b: one judge, wrong, outcome denied (always-deny hits).
+    deep = [_evaluation("alpha", event_id="evt-a", evaluator_id=f"eval-{i}") for i in "abc"]
+    thin = _evaluation("alpha", event_id="evt-b", correct=0)
+    facts = {
+        **_cert_facts(*deep, always_deny_correct=0),
+        **_cert_facts(thin, always_deny_correct=1),
+    }
+    board = build_leaderboard([_forward(ev) for ev in [*deep, thin]], facts=facts)
+    forward = board.entries[0].forward
+    assert forward is not None
+    assert (forward.accuracy, forward.always_deny_accuracy) == (0.75, 0.25)
+    assert forward.accuracy_lift == pytest.approx(0.5)
+    assert forward.accuracy_events_scored == 2
+    assert (forward.event_accuracy, forward.event_always_deny_accuracy) == (0.5, 0.5)
+    assert forward.event_accuracy_lift == 0.0
+
+
+def test_event_fields_are_null_where_one_events_gradings_disagree() -> None:
+    agree = _evaluation("alpha", event_id="evt-a", correct=1)
+    left = _evaluation("alpha", event_id="evt-b", correct=1)
+    right = _evaluation("alpha", event_id="evt-b", evaluator_id="eval-b", correct=0)
+    forward = (
+        build_leaderboard(
+            [_forward(agree), _forward(left), _forward(right)],
+            facts=_cert_facts(agree, left, right, always_deny_correct=0),
+        )
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.accuracy_events_scored == 2
+    assert forward.event_accuracy is None
+    assert forward.event_always_deny_accuracy is None
+    assert forward.event_accuracy_lift is None
+    # The grading-weighted pair is unaffected.
+    assert forward.always_deny_accuracy == 0.0
+
+
+def test_complete_grid_by_band_counts_events_every_predictor_covers() -> None:
+    both = [_evaluation(p, event_id="evt-both") for p in ("alpha", "beta")]
+    alpha_only = _evaluation("alpha", event_id="evt-alpha")
+    split_alpha = _evaluation("alpha", event_id="evt-split")
+    split_beta = _evaluation("beta", event_id="evt-split")
+    ungraded = [_evaluation(p, event_id="evt-null", correct=None) for p in ("alpha", "beta")]
+    evals = [*both, alpha_only, split_alpha, split_beta, *ungraded]
+    facts = {
+        **_cert_facts(*both, alpha_only, split_alpha, *ungraded),
+        **_cert_facts(split_beta, band="sal-v1/low"),
+    }
+    board = build_leaderboard([_forward(ev) for ev in evals], facts=facts)
+    assert board.complete_grid_by_band == {"sal-v1/high": 1}
+    cvsg = build_leaderboard(
+        [_forward(ev, Stage.cert, Moment.cvsg) for ev in both], facts=_cert_facts(*both)
+    )
+    block = cvsg.stages[stage_moment_key(Stage.cert, Moment.cvsg)]
+    assert block.complete_grid_by_band == {"sal-v1/high": 1}
+    # Without facts the key is absent from the serialized board.
+    plain = build_leaderboard([_forward(ev) for ev in both])
+    assert "complete_grid_by_band" not in plain.model_dump(mode="json")
+
+
+def test_cli_writes_the_banded_cut(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _write_banded_ledger(data_root)
+    out = tmp_path / "leaderboard.json"
+    result = runner.invoke(
+        app,
+        ["leaderboard", "--out", str(out), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(out.read_text())
+    (entry,) = payload["entries"]
+    assert set(entry["by_band"]) == {"sal-v1/high", "sal-v1/low", NO_BAND_KEY}
+    assert entry["by_band"]["sal-v1/low"]["accuracy_lift"] == pytest.approx(-0.5)
+    assert payload["complete_grid_by_band"] == {
+        "sal-v1/high": 3,
+        "sal-v1/low": 4,
+        NO_BAND_KEY: 1,
+    }

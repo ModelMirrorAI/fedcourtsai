@@ -157,6 +157,7 @@ from .integrity import (
 from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
+    cell_facts,
     evaluator_agreement,
     skill_components,
 )
@@ -4938,6 +4939,10 @@ def leaderboard(
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
         superseded_gradings=run.superseded,
+        # Each cert cell's frozen band and realized outcome: the forward
+        # stratum's per-band cut and the realized always-deny floor beside
+        # accuracy, over the same cells and never a rank key.
+        facts=cell_facts(cells, settings.data_root),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)

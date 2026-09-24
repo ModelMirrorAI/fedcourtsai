@@ -4909,3 +4909,82 @@ freeze commit is recorded here.
   ones whose filing carried details. The log line is the surface a pathological
   count would be visible on, the manifest being gitignored with the rest of
   `record/`.
+
+- **The long-conference cohort's per-band reading is registered against a
+  realized floor, and the band rates' complements stop being called floors,
+  2026-09-24.** A **reading-rule** entry, registered before the 2026-09-28
+  conference and before any order list from it exists, so before any outcome
+  it could be fitted to. It adds a published cut and fields to
+  `metrics/leaderboard.json` and fixes how they are read; it moves no value
+  that already exists.
+
+  **What it corrects.** The entry above that registered the proc-v8 cohort's
+  reading rules ("the reading rules that follow, registered now") gave the
+  registered sal-v4 band rates' complements — 94.98% / 83.11% / 64.49% /
+  29.21% / 76.37% — as "the always-deny floor a figure is read against". Those
+  complements are **grant-family denial shares**, not exact-match always-deny
+  floors: the board's `correct` is an exact label match, under which a GVR or a
+  summary reversal is a miss for a constant `denied` call as surely as for a
+  `granted` one, and a partial grant is outside the family the rates count at
+  all. A lift measured against them would difference two quantities defined
+  over different vocabularies. That entry stands as written; this one records
+  what replaces the rule.
+
+  **The reading rules, registered now.**
+
+  - **The per-band cut** is the board's `by_band` block on each cert entry (and
+    each `cert@cvsg` stage entry): the forward stratum, over exactly the cells
+    `forward` aggregates — after the run collapse and both exclusions — keyed
+    `<salience_version>/<band>` from the **scored prediction's frozen
+    `context`**, never from the corpus's current band. The single `(none)` key
+    holds every cell whose prediction froze no band, froze a band with no
+    version, or carries no band facts, so the bands' evaluation counts sum to
+    the stratum's.
+  - **The lift is measured against the realized exact-match always-deny floor**
+    on the same accuracy cells: `is_correct` applied to a synthetic `denied`
+    call against each cell's committed outcome. The published reading is **per
+    petition** — `event_accuracy`, `event_always_deny_accuracy` and
+    `event_accuracy_lift`, each event counted once over
+    `accuracy_events_scored` — with the grading-weighted pair shown only beside
+    the band's mean panel depth. The floor and lifts are null wherever a
+    grading's stamped `correct` no longer reproduces against the committed
+    outcome, so no lift pairs an accuracy and a floor read off different
+    outcomes.
+  - **The registered band rates are the skill anchor only** — 5.02% baseline /
+    16.89% elevated / 35.51% high / 70.79% federal / 23.63% state, the
+    baseline `population_brier_skill_score` is scored against. They are
+    quoted beside each band row; their complements are not the floor any lift
+    is measured against.
+  - **Expected against realized grants** is read as `grants_expected` against
+    `grants_realized_expected_scored`: the sum of the admitted band rates over
+    the `grants_expected_scored` events, against the grant-family events among
+    exactly those events. `grants_realized` is an audit count over every
+    scored event and is not compared with the expected figure. While relisted
+    and held petitions pend, realized runs below expected, and the sentence
+    carrying the pair says so.
+  - **Engines are compared per band only over the band's complete grid** —
+    `complete_grid_by_band`, the forward events in the band on which every
+    engine carries an accuracy-scored grading filed under that band. The grid
+    is a count and no band figure is computed over it, so the test is
+    containment: a per-band ordering is read only where every entry's
+    `by_band[band].accuracy_events_scored` equals `complete_grid_by_band[band]`,
+    which puts each engine's per-petition figures over exactly the grid.
+    Anywhere else no per-band ordering is read. The grid's roster is every
+    predictor on the board, so an engine with no forward accuracy-scored cell in
+    a band leaves that band with no grid, and an absent key reads as that, not
+    as a band nobody forecast.
+
+  **What does not move.** No base rate, no skill figure, no process digest and
+  no membership rule: the cut partitions cells the board already counts, and
+  every new field is computed at render from committed artifacts. `uv run
+  fedcourts process-digest --all` at this commit prints `proc-v8` and the same
+  six blessed digests. None of the new fields is a rank key.
+
+  The carrying promotion is `<FILL: promotion tag>` (merge commit `<FILL: merge
+  commit>`, merged `<FILL: merge time>`), which must precede the 2026-09-28
+  conference for this entry to register ahead of any outcome it governs. The
+  runnable effect check, once that promotion is live: `uv run fedcourts
+  leaderboard --all-versions --out /tmp/lb.json && jq '.entries[0].by_band |
+  keys' /tmp/lb.json` lists the band keys (`["(none)"]` on the ledger at this
+  entry's commit), and `uv run fedcourts process-digest --all` still prints the
+  same six digests.
