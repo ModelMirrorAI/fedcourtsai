@@ -57,22 +57,40 @@ About **250 words in total**:
 
 ## How to write it
 
-- **Plain language.** Short sentences, everyday words. Where a legal term is
-  unavoidable, use one of these and explain it in passing the first time:
-  - *cert* (certiorari) — the Court's permission to hear an appeal; a
-    *petition for cert* asks for it, and the Court *grants* or *denies* it.
-  - *relist* — the Court put the petition on another conference without
-    deciding it.
-  - *CVSG* — the Court invited the Solicitor General to give the federal
-    government's views.
+- **Plain language.** Short sentences, everyday words. Prefer the terms
+  below, defined as given, and explain each in passing the first time you use
+  it. Any other legal term you cannot avoid, explain in plain words the first
+  time you use it.
+  These definitions match the glossary on the site where the summary appears,
+  leaving out its predictive signals and contested labels, which the
+  neutrality rule keeps out of a summary.
+  - *docket* — the Court's list of pending cases, and each case's public
+    record of filings and orders.
+  - *petitioner / respondent* — the party asking the Court to take the case,
+    and the party opposing it.
+  - *cert* (certiorari) — the Court chooses almost all of its cases; a party
+    asks it to take one by filing a *petition for cert*, and the Court
+    *grants* cert to hear the case or *denies* it, leaving the lower court's
+    decision standing.
+  - *distributed / conference* — the justices decide which petitions to take
+    at private meetings called conferences; a petition is distributed for a
+    particular conference once its papers are complete.
+  - *relist* — the Court considered the petition at a conference, neither
+    granted nor denied it, and carried it over to a later conference.
+  - *CVSG* — the Court asked the Solicitor General, the federal government's
+    top Supreme Court lawyer, to say whether it should take a case in which
+    the government is not a party.
   - *GVR* — the Court granted cert, vacated the lower court's decision, and
-    sent the case back for another look in light of a newer ruling.
-  - *emergency application* — a request for quick, temporary action (such as
-    pausing a lower court's order) while a case continues.
-  - *merits* — the underlying legal question, as opposed to whether the Court
-    will take the case.
-  - *reverse / vacate* — the Court overturns the lower court's decision /
-    sets it aside without deciding who should win.
+    sent the case back for another look, usually in light of a newer ruling.
+  - *summary reversal* — the Court reversed the lower court on the petition
+    papers alone, without full briefing or oral argument.
+  - *emergency application* — a request for quick, temporary action while a
+    case continues, most often to pause (stay) a lower court's order.
+  - *merits* — the stage where the Court hears the case in full and decides
+    the legal question itself: written briefs, oral argument, and an opinion.
+  - *reverse / vacate / affirm* — what the Court can do with the lower
+    court's decision: reverse it (the other side wins), vacate it (set it
+    aside and send the case back), or affirm it (leave it standing).
 - **Neutral.** Describe each side's position fairly and in comparable terms.
   Make no prediction about what the Court will do, give no view on who is
   right, and do not characterize the case as important, significant,
@@ -96,6 +114,14 @@ About **250 words in total**:
     docket shows only as filed or submitted has not been granted: say what
     was asked, not that it happened, unless a later entry records the
     Court's action on it.
+  - *The snapshot day is "now".* A conference dated before the snapshot day
+    has already happened. If no later entry records what the Court did, say
+    the petition was considered at that conference and the docket shows no
+    action on it since; do not describe that conference as upcoming, and do
+    not guess at an outcome — a grant, a hold, a denial — that no entry
+    records. A distribution that was followed by a request for a response is
+    still a distribution: say the Court asked for a response after
+    considering the petition, not that it was never distributed.
   - *Dates and counts as the entries show them.* A case distributed in
     August for a September conference was distributed in August for a
     September conference, not distributed in September; if a case went to two
