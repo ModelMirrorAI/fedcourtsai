@@ -386,7 +386,7 @@ docs/               design & operations references (see Documentation below)
 - [QP topics](docs/qp-topic.md) (`qp-topic-v0`: what petitions ask about, the hand-labeled reference set, and the labeling run)
 - [Decision model](docs/decision-model.md) (vote thresholds by stage and what is observable; vote accuracy scored on merits moments, margins pre-registered only)
 - [Budget](docs/budget.md) · [Milestones](docs/milestones.md)
-- [OT2026 long-conference release write-up](docs/release-ot2026-long-conference.md) (what the first release must state, and the command behind each number)
+- [OT2026 long-conference release write-up](docs/release-ot2026-long-conference.md) (what the first release must state, and the command behind each number) · [public summary](docs/release-ot2026-public-summary.md) (the reader-facing page it feeds)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)
 - [Testing](docs/testing.md) · [Contributing](CONTRIBUTING.md)
 
@@ -416,3 +416,12 @@ model-generated and are not official court records.
 ## License
 
 BSD 3-Clause — see [LICENSE](LICENSE). Copyright (c) 2026 Model Mirror, LLC.
+
+## Citing
+
+[CITATION.cff](CITATION.cff) carries the citation metadata; GitHub renders it as
+**Cite this repository** on the repo page. A `prereg/` or `results/` tag the
+maintainer publishes as a GitHub Release is archived on Zenodo with a version
+DOI, which gives that pre-registration or result a timestamped copy held
+outside GitHub; Zenodo archives only Releases published after its integration
+was enabled, so a tag that was never published as a Release has no such copy.
