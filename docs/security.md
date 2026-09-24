@@ -1,7 +1,8 @@
 # Security setup (operational runbook)
 
 The concrete configuration behind the invariants in [SECURITY.md](../SECURITY.md):
-the GitHub App, branch protection, the `prod` environment, and the S3 roles.
+the GitHub App, the Zenodo archiving integration, branch protection, the `prod`
+environment, and the S3 roles.
 SECURITY.md says *what* the invariants are; this says *how* they are wired, so a
 maintainer can reproduce or audit the setup.
 
@@ -98,6 +99,61 @@ capped at the granted set until then.
 Commits and PRs are attributed to each App's own bot user (the
 `configure-git-identity` action resolves `<app-slug>[bot]` from the token), so
 deterministic corpus pushes and agent PRs are visibly authored by different bots.
+
+## Zenodo archiving
+
+The third-party integration this page covers beside the Apps above is
+**Zenodo's GitHub integration**, which archives each published Release. It is
+two things: an OAuth grant from the maintainer's GitHub account to Zenodo, and
+the repository webhook that grant installs (a `zenodo.org` hook under the
+repo's *Settings → Webhooks*). The records it creates are owned by the
+project's Zenodo account — a role mailbox as its email identity, with GitHub
+linked for the integration — so ownership and recovery do not rest on one
+person's GitHub login.
+
+- **What it does to this repository is narrow.** The webhook delivers release
+  events; on a published Release, Zenodo downloads the repository's source
+  archive at that tag and deposits it as a new version of the project's
+  software record. The repository is public, so the archive holds nothing that
+  is not already public. It reads no file contents through the API, pushes
+  nothing, opens nothing, and no workflow reads or waits on it. The record's
+  metadata comes from `CITATION.cff` in the tagged tree, so it passes through
+  the ordinary PR path like any committed file.
+- **The grant itself is wider than this repository.** Zenodo requests
+  `user:email`, `read:org` and `admin:repo_hook`, and the last is
+  account-wide: it lets the holder create, change and delete webhooks on every
+  repository the maintainer administers, private ones included — and, once
+  the organization approves Zenodo under *Third-party access*, on every
+  organization repository the maintainer administers. A webhook carries event
+  payloads (commit messages, file paths, issue and PR bodies), not file
+  contents, and cannot push. The token does not expire and Zenodo holds it, so
+  approving Zenodo is an organization-level trust decision, reviewable and
+  revocable under the GitHub account's *Settings → Applications → Authorized
+  OAuth Apps*.
+- **No credential in the repo.** No workflow holds a Zenodo token and none
+  calls Zenodo. The release dataset is deposited by hand on zenodo.org, as a
+  separate dataset record ([release-ot2026-long-conference.md](release-ot2026-long-conference.md),
+  section 8). Automating that deposit would put a Zenodo API token in a
+  workflow secret, which is a new credential and a change to this page and to
+  the invariant in [SECURITY.md](../SECURITY.md).
+- **Publishing a Release is a maintainer step by convention, not by control.**
+  No workflow creates a Release, but any credential with `contents: write` —
+  the Apps' tokens and `github.token` in a job granted it — could create a tag
+  and a published Release through the API. The record-namespace tag ruleset
+  blocks update and deletion, not creation, and GitHub's loop prevention
+  suppresses workflow triggers only, so the webhook fires and Zenodo archives
+  such a Release all the same. Keeping Release creation out of every workflow
+  is therefore the rule this integration rests on.
+- **Permanence.** The owner cannot delete a published Zenodo record; Zenodo
+  can withdraw one on request, leaving a tombstone page the DOI still resolves
+  to. Every Release published while the integration is on is archived,
+  pre-releases included and drafts excluded, and editing or deleting the GitHub
+  Release afterwards leaves the record untouched — deleting and re-creating one
+  mints another version.
+
+To disable it: switch the repository off on Zenodo's GitHub settings page,
+delete the webhook, and revoke the OAuth grant. Records already published stay
+published.
 
 ## Branch protection — the rulesets
 
