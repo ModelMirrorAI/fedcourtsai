@@ -306,7 +306,8 @@ sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md
 > counting the whole grant family, GVRs included; they are the skill anchor.
 > Their complements (94.98% / 83.11% / 64.49% / 29.21% / 76.37%) are
 > grant-family denial shares, not exact-match always-deny floors, and no lift
-> in this write-up is measured against them. On that anchor the cohort's band-mix-implied grant rate is about 10.1% over the 110
+> in this write-up is measured against them. On that anchor the cohort's
+> band-mix-implied grant rate is about 10.1% over the 110
 > cert/distribution events — about 17.8% over the selected subset and 5.8% over
 > the declined remainder — and about 12.2% over all 120 cert-stage events once
 > the CVSG arm is folded in. A whole-docket cert rate of 1–3% is the wrong
@@ -327,7 +328,8 @@ sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md
 > over `accuracy_events_scored`. The grading-weighted `accuracy` /
 > `always_deny_accuracy` pair is weighted by panel depth, which varies by
 > design, and is shown only beside the band's mean depth (its `evaluations`
-> over its `events_scored`), never in place of the per-petition figures. A skill figure travels with `skill_scored`,
+> over its `events_scored`), never in place of the per-petition figures. A
+> skill figure travels with `skill_scored`,
 > which can sit far below the block's evaluation count because a cell scores
 > skill only where a segment base rate exists, and the estimator is named:
 > the population skill score is a ratio of sums and the mean Brier is a
@@ -368,7 +370,9 @@ the band's mean panel depth, `evaluations / events_scored` (the entry's
 `evaluators` is the panel size, not per-event depth); population Brier skill
 (a ratio of sums), `population_brier_skill_score`, with `skill_scored`; and
 `grants_realized_expected_scored` against `grants_expected` over the same
-`grants_expected_scored` events. The grant comparison carries its censoring
+`grants_expected_scored` events; and per band the complete-grid count,
+`complete_grid_by_band[band]` on the board (and on the `cert@cvsg` stage block
+for that arm). The grant comparison carries its censoring
 caveat in its own sentence: relisted and held petitions are still pending and
 grant more often than the ones already decided, so while they pend realized
 runs below expected, and a shortfall is not yet evidence of miscalibration.
@@ -379,7 +383,8 @@ measured against. The `(none)` key holds cells that froze no band, froze a
 band with no version, or carry no band facts, and is reported as its own row,
 never folded into a band›
 
-‹the per-band grant-family rates (the skill anchor) as the refreshed pack publishes them — from
+‹the per-band grant-family rates (the skill anchor) as the refreshed pack
+publishes them — from
 `metrics/statpack.md`, *Segment base rate by salience band* — re-read rather
 than quoted from an earlier build, and reconciled against the registered values
 in [freeze-record.md](freeze-record.md) and
@@ -431,8 +436,13 @@ entry's `evaluators`; and the population's own `events_scored` union.
 >
 > Per band, engines are compared only over that band's **complete grid** —
 > the board's `complete_grid_by_band`, the forward petitions in the band on
-> which every engine carries a scored grading. Where two engines' per-band
-> `events_scored` differ, no per-band ordering is read off them at all.
+> which every engine carries an accuracy-scored grading. The grid is a count,
+> not a population any figure is computed over, so a per-band ordering is read
+> only where every engine's `by_band[band].accuracy_events_scored` equals the
+> band's grid count: equal counts over a set contained in each engine's own is
+> the same petitions. Anywhere else no per-band ordering is read. An engine with
+> no forward accuracy-scored cell in a band leaves that band with no grid, and
+> the missing key reads as that.
 >
 > The ranking is on N-unweighted point estimates over a cohort whose band mix
 > implies roughly a dozen grants. A one- or two-event difference reorders it.
@@ -440,7 +450,8 @@ entry's `evaluators`; and the population's own `events_scored` union.
 > not as measuring one.
 
 ‹each engine's `events_scored`, complete-grid `n`, per-stratum evaluations and
-panel depth — from `metrics/leaderboard.json`›
+panel depth, and per band each engine's `accuracy_events_scored` beside
+`complete_grid_by_band` — from `metrics/leaderboard.json`›
 
 ## 4. The salience limitation
 

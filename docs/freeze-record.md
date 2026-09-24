@@ -4964,8 +4964,15 @@ freeze commit is recorded here.
     carrying the pair says so.
   - **Engines are compared per band only over the band's complete grid** —
     `complete_grid_by_band`, the forward events in the band on which every
-    engine carries a scored grading filed under that band. Where two engines'
-    per-band `events_scored` differ, no per-band ordering is read.
+    engine carries an accuracy-scored grading filed under that band. The grid
+    is a count and no band figure is computed over it, so the test is
+    containment: a per-band ordering is read only where every entry's
+    `by_band[band].accuracy_events_scored` equals `complete_grid_by_band[band]`,
+    which puts each engine's per-petition figures over exactly the grid.
+    Anywhere else no per-band ordering is read. The grid's roster is every
+    predictor on the board, so an engine with no forward accuracy-scored cell in
+    a band leaves that band with no grid, and an absent key reads as that, not
+    as a band nobody forecast.
 
   **What does not move.** No base rate, no skill figure, no process digest and
   no membership rule: the cut partitions cells the board already counts, and
@@ -4976,7 +4983,8 @@ freeze commit is recorded here.
   The carrying promotion is `<FILL: promotion tag>` (merge commit `<FILL: merge
   commit>`, merged `<FILL: merge time>`), which must precede the 2026-09-28
   conference for this entry to register ahead of any outcome it governs. The
-  runnable effect check, once that promotion is live: `fedcourts leaderboard
-  --all-versions --out /tmp/lb.json && jq '.entries[0].by_band | keys'
-  /tmp/lb.json` lists the band keys (on the current ledger, `["(none)"]`), and
-  `uv run fedcourts process-digest --all` still prints the same six digests.
+  runnable effect check, once that promotion is live: `uv run fedcourts
+  leaderboard --all-versions --out /tmp/lb.json && jq '.entries[0].by_band |
+  keys' /tmp/lb.json` lists the band keys (`["(none)"]` on the ledger at this
+  entry's commit), and `uv run fedcourts process-digest --all` still prints the
+  same six digests.

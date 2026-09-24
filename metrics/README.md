@@ -73,7 +73,8 @@ federal / 23.63% state, the risk-set family the evaluator scores skill against
 composition table). Those rates are the skill anchor. Their complements
 (94.98% / 83.11% / 64.49% / 29.21% / 76.37%) are grant-family denial shares,
 not the exact-match always-deny floor a lift is measured against: that floor is
-realized on the scored cells themselves (`always_deny_accuracy`, below). Its high band is **n = 1 on cert/distribution and n = 10 on
+realized on the scored cells themselves (`always_deny_accuracy`, below). Its
+high band is **n = 1 on cert/distribution and n = 10 on
 cert/cvsg**, which do not pool with each other, and none of it pools with any
 `"all"`-scope board. That paragraph travels with the number rather than sitting
 a section away, because it is the number's population.
@@ -576,12 +577,16 @@ stays outside the gate:
   band with no version, or carries no band facts at all, so the blocks'
   `evaluations` sum to the forward stratum's. The cut appears on the ranked
   entries and on the later cert moments' stage entries (`cert@cvsg`), never on
-  another stage, and is omitted while there is no forward cert cell. Beside it,
-  the board and each stage block carry `complete_grid_by_band`: per band, the
-  forward cert events on which every predictor in that population has an
-  accuracy-scored grading filed under that band. Engines are compared per band
-  only over that grid; where their per-band `events_scored` differ, no
-  per-band ordering is read. None of it ranks anything: this is where the
+  another stage, and is omitted while no forward cert cell carries band facts.
+  Beside it, the board and the `cert@cvsg` stage block carry, where non-empty,
+  `complete_grid_by_band`: per band, the forward cert events on which every
+  predictor in that population has an accuracy-scored grading filed under that
+  band. The roster is every predictor on the board, so one engine with no
+  forward accuracy-scored cell in a band leaves that band with no grid. The grid
+  is a count, so a per-band ordering is read only where every entry's
+  `by_band[band].accuracy_events_scored` equals the band's grid count, which
+  puts each engine's per-petition figures over exactly the grid; anywhere else
+  no per-band ordering is read. None of it ranks anything: this is where the
   per-band reading the frozen cohort requires is copied from.
 
   The ranked board is the **cert stage's first declared moment** (see the stage
