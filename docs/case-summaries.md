@@ -64,11 +64,18 @@ The prompt is `.github/prompts/summarize.md`. Its rules:
   also told not to add what it may know from training.
 - **Neutral.** Both sides' positions; no prediction, no view on the merits, no
   characterisation of the case's importance.
-- **Glossary terms.** Where a legal term is unavoidable, one of cert, relist,
-  CVSG, GVR, emergency application, merits, reverse/vacate, explained in
-  passing. The repository holds no site glossary, so the prompt defines each
-  term itself, minimally; a site glossary, once it exists, is the definition to
-  align the prompt with.
+- **Glossary terms.** The prompt's term list mirrors the site's
+  [glossary](https://fedcourts.ai/how-it-works#glossary) for every term the two
+  share, so a reader who follows the link under a summary finds the same
+  meaning; changing a definition is a change to both repositories. It departs
+  from the glossary in three deliberate ways: it leaves out the glossary's
+  predictive signals (that a CVSG raises the odds of a grant, that repeated
+  relists signal debate, that most petitions are denied) and the contested
+  "shadow docket" label, both of which the neutrality rule keeps out of a
+  summary, and the notes on how the ledger counts an outcome, which describe
+  scoring rather than the case. The prompt says so in a sentence of its own,
+  which the model reads like the rest of the prompt. Any other legal term a
+  summary cannot avoid is explained in plain words where it first appears.
 - **Accurate to the record.** An allegation only one side's filing makes is
   attributed to that filing; a question presented is restated without changing
   who made the rule, whom it binds, or which way it cuts; routine docket
