@@ -69,10 +69,9 @@ most of the time. Each row shows what "always deny" scored on exactly the same
 petitions, and the lift is the difference, because beating that is the actual
 test.
 
-The rows are the ranking's bands. **Baseline** petitions had shown no sign of
-the Court's interest when they were ranked; **elevated** petitions had, such as
-a relist. Each band has its own historical grant rate, and the skill column is
-measured against it.
+The rows are the ranking's bands. **Baseline** petitions had not been relisted
+when they were ranked; **elevated** petitions had been relisted once. Each band
+has its own historical grant rate, and the skill column is measured against it.
 
 | Model | Band | Petitions scored | Right calls | "Always deny" on the same petitions | Lift | Skill vs. history |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -81,15 +80,21 @@ measured against it.
 | ‹…one row per model per band, from section 3 of the audit write-up› | | | | | | |
 
 ‹per band: how many of its petitions carry all three models' forecasts, and
-how many the Court granted — from section 3›
+how many the Court granted against how many the band's historical rate
+expected over the same petitions — from section 3›
+
+Petitions the Court relisted or held are not scored yet, and relisted petitions
+are granted more often than others, so the petitions scored so far lean toward
+denials. That raises what "always deny" scores and lowers each band's realized
+grant share below its historical rate, which moves the skill column too.
 
 A **right call** is a forecast whose named outcome matched the Court's action
 exactly. So a "grant" call on a petition the Court sent back for
 reconsideration (a GVR) counts as a miss here, even though sent-back petitions
 count as grants in the probability scores and the calls below. **Skill vs.
 history** compares each model's probabilities with the band's historical grant
-rate: above 0 means the forecasts beat that rate, a model that just repeated
-the rate would score 0, and one that always said "deny" would score below 0.
+rate: above 0 means the forecasts beat that rate, and a model that just
+repeated the rate would score 0.
 
 ‹one or two plain sentences on what the table shows, each figure with its `n`›
 
@@ -111,8 +116,10 @@ forecast was set aside, its probability is not shown: the cell reads "set
 aside" with the reason and a link to the ledger. A forecast is set aside when
 its record claims it was made before an outcome that had in fact already
 happened, or when every judge that graded it found it may have seen its own
-outcome. Where a model produced no forecast for a petition, the cell reads "no
-forecast".
+outcome. A forecast that some but not all of its judges flagged in that way
+keeps its probability, marked "flagged by one judge" (or two), and is scored
+only through the judges that did not flag it. Where a model produced no
+forecast for a petition, the cell reads "no forecast".
 
 **Petitions the Court granted,** in any form — granted, granted in part, sent
 back for reconsideration (GVR) or summarily reversed — with each model's
@@ -147,8 +154,6 @@ and each model's forecast:
 
 **Still pending:** ‹n, from section 5's reconciliation› petitions were relisted
 or held and are not scored yet. They will be scored when the Court acts.
-Relisted petitions are granted more often than others, so the petitions scored
-so far lean toward denials.
 
 ‹optional: two or three sentences on one instructive call, drawn from the
 model's committed reasoning file and quoted from it, not paraphrased into
@@ -156,10 +161,10 @@ something stronger›
 
 ### What this does and doesn't show
 
-- **It's small.** The Court granted ‹realized grant count per band, from
-  section 3› of the scored petitions, against roughly a dozen the band mix
-  implied beforehand from ‹the base-rate lookback window, from section 3›. One
-  or two cases can reorder the models, so any ordering points to a possible
+- **It's small.** In each band the Court granted only a handful of the scored
+  petitions (the counts are under the table), set against what the band's
+  historical rate over ‹the base-rate lookback window, from section 3› expected.
+  One or two cases can reorder the models, so any ordering points to a possible
   difference rather than measuring one.
 - **It's a selected set,** not the conference and not a random sample.
 - **Deciding which cases to hear is the warm-up.** The project also forecasts
@@ -198,8 +203,12 @@ something stronger›
 - **The floor is realized, not historical.** "Always deny on the same
   petitions" is always-deny's accuracy over exactly the cells behind that row's
   right calls, scored by the same exact-match rule; the lift is the difference
-  between the two. The registered historical floors are the skill column's
+  between the two. Both are copied from section 3, which takes them from the
+  board's per-band cut. The registered historical floors are the skill column's
   anchor and appear only in the audit write-up.
+- **Expected grants are per band.** A band's realized grant count is set against
+  its own expected count over the same scored petitions, from section 3; no
+  cross-band expected total appears on this page.
 - **Plain words, same claims.** Wording may be simpler than the audit
   write-up but never stronger. "Skill vs. history" is the population Brier
   skill score section 3 publishes, a ratio of sums over the row's cells; if it
@@ -212,7 +221,9 @@ something stronger›
   probabilities: the denied list is each model's own top three, merged.
 - **The headline may rank only what every row agrees on.** It may order two
   models only if that order holds on both lift and skill in every row of both
-  tables; otherwise it describes the result without ranking.
+  tables, with no row reading "not measured"; otherwise it describes the result
+  without ranking. An order it does state says, in the same sentence, that it
+  points to a possible difference rather than measuring one.
 - **Every number keeps its `n`** in the table or the sentence carrying it.
 - **Same page for everyone.** No outside party sees the filled page before it
   publishes.
