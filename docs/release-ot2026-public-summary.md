@@ -44,8 +44,9 @@ met, so anyone can check that it came first. This is the first scored result.
 - **Models:** ‹predictor ids and the resolved model each ran, from the export's
   predictions table›, each run the same way, under the same instructions and
   with the same case materials.
-- **Last forecast in the ledger:** ‹the latest time a counted prediction
-  merged into `main`, from the export›. **The Court acted:** ‹order list
+- **Last forecast in the ledger:** ‹the latest merge into `main` of a counted
+  prediction: the export locates its commit, and the time is that pull
+  request's merge time as GitHub recorded it›. **The Court acted:** ‹order list
   date(s)›.
 - **Check it yourself:** every forecast is a file in the public repo. The proof
   of timing is the time GitHub recorded when the forecast's pull request merged
@@ -192,8 +193,9 @@ something stronger›
 ## Rules for filling this in
 
 - **Copy, don't compute.** Band figures come from the filled audit write-up;
-  per-case probabilities, model names, merge times and set-aside marks come
-  from the dataset export built at the tagged commit. If this page and either
+  per-case probabilities, model names, landing commits and set-aside marks come
+  from the dataset export built at the tagged commit, and a merge time from
+  GitHub's record of the pull request that commit landed. If this page and either
   source disagree, the source wins and this page is corrected; if the export
   and the audit write-up disagree, the audit write-up wins.
 - **Band rows need a per-band producer.** A band row exists only where section 3
@@ -219,7 +221,20 @@ something stronger›
   skill score section 3 publishes, a ratio of sums over the row's cells; if it
   is null for a row, the cell reads "not measured", not 0.
 - **Forward forecasts only.** Every figure is from the forward stratum at frozen
-  process scope, the only population section 3 counts.
+  process scope, the only population section 3 counts. In the export that is
+  the `stratum` column, never `mode`: `mode` is the harness's claim, and a
+  forecast stamped on the day its outcome landed claims `forward` while
+  counting as retrospective.
+- **One forecast per model per petition.** The forecast for a model and
+  petition is the export's `scored` or `set_aside` row, not its
+  `staged` one. Where two rows are scored for one model and petition, both are
+  shown, labelled by run, rather than one being picked.
+- **Timing comes from GitHub's merge record.** A merge time is the landing pull
+  request's recorded merge time on `main`. The export's `ledger_commit` locates
+  that commit, and it and `ledger_committed_at` are usable only in an export
+  whose manifest reads `source_on_main_first_parent: true`; its `ledger_committed_by_github` flag is
+  necessary but not sufficient, since a commit made from a Codespace carries
+  the same committer. Comparisons with an outcome date are at day grain.
 - **No pooled number.** No single number across bands, across the
   distribution and Solicitor General tables, or across models goes in the
   headline or anywhere else. That includes averaging the models'
