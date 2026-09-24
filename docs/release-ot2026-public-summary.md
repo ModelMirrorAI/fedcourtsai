@@ -8,8 +8,9 @@ first newsletter post and funder outreach.
 **It is committed before the conference (2026-09-28)** so that what gets shown,
 and how, is fixed before any outcome exists. It adds no numbers of its own:
 every figure is copied from the filled audit write-up or from the release's
-dataset export (the predictions table built from the tagged commit and attached
-to the release), and a figure that is in neither does not appear here.
+dataset export (the predictions table built from the tagged commit and deposited
+on Zenodo as the release's dataset record), and a figure that is in neither does
+not appear here.
 
 Placeholders use the same single guillemets (U+2039 and U+203A) as the audit
 write-up, and the same rule holds: **no placeholder is ever replaced by an
@@ -181,8 +182,9 @@ something stronger›
 
 - Full audit write-up, with every denominator: ‹link to the tagged doc›
 - The ledger: ‹link to the Ledger page›
-- The exact data behind this page: tag `results/ot2026-longconf` · ‹download
-  link to the export attached to its release›
+- The exact data behind this page: ‹the dataset record's reserved DOI link› ·
+  the code that produced it: tag `results/ot2026-longconf`, in ‹the software
+  record's concept DOI link›
 - Follow along: ‹newsletter link›
 
 ---
@@ -244,4 +246,5 @@ something stronger›
    caveats.
 5. The `results/ot2026-longconf` tag points at a commit carrying this filled
    page, the filled audit write-up, and the metrics refresh they both quote,
-   and the release the export is attached to is published from that tag.
+   the tag is published as a Release, and the dataset record's manifest names
+   that tagged commit.
