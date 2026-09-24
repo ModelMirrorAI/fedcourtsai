@@ -219,7 +219,20 @@ something stronger›
   skill score section 3 publishes, a ratio of sums over the row's cells; if it
   is null for a row, the cell reads "not measured", not 0.
 - **Forward forecasts only.** Every figure is from the forward stratum at frozen
-  process scope, the only population section 3 counts.
+  process scope, the only population section 3 counts. In the export that is
+  the `stratum` column, never `mode`: `mode` is the harness's claim, and a
+  forecast stamped on the day its outcome landed claims `forward` while
+  counting as retrospective.
+- **One forecast per model per petition.** A per-case probability is the
+  export's `scored` or `set_aside` row for that model and petition, not its
+  `staged` one. Where two rows are scored for one model and petition, both are
+  shown, labelled by run, rather than one being picked.
+- **Timing comes from GitHub's merge record.** A merge time is the landing pull
+  request's recorded merge time on `main`. The export's `ledger_committed_at`
+  locates that commit, and is usable only in an export whose manifest reads
+  `source_on_main_first_parent: true`; its `ledger_committed_by_github` flag is
+  necessary but not sufficient, since a commit made from a Codespace carries
+  the same committer. Comparisons with an outcome date are at day grain.
 - **No pooled number.** No single number across bands, across the
   distribution and Solicitor General tables, or across models goes in the
   headline or anywhere else. That includes averaging the models'
