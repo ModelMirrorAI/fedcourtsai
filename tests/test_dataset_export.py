@@ -2,6 +2,7 @@
 
 import csv
 import json
+import os
 import subprocess
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -357,6 +358,52 @@ def test_a_regrade_of_another_run_supersedes_across_runs(
     assert rows[("scotus/200", "p2")].scored is True
 
 
+def test_a_forward_claim_resolved_on_its_clock_day_is_retrospective_not_set_aside(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The breach rule is strict (resolved before the clock day); the stratum
+    # rule counts a same-day tie retrospective. The row carries mode=forward.
+    bless_process(monkeypatch, BLESSED, since=FREEZE)
+    data_root = tmp_path / "data"
+    _event(data_root, "scotus/400")
+    _prediction(
+        data_root,
+        "scotus/400",
+        stamp=_stamp(datetime(2026, 3, 1, 15, tzinfo=UTC)),
+        mode="forward",
+    )
+    _outcome(data_root, "scotus/400", resolved_at=date(2026, 3, 1))
+    _grade(data_root, "scotus/400", "e1")
+    row = build_tables(data_root).predictions[0]
+    assert row.mode == "forward"
+    assert (row.stratum, row.scored) == ("retrospective", True)
+    assert (row.forward_claim_excluded, row.set_aside) == (False, False)
+
+
+@pytest.mark.parametrize(
+    ("out_of_scope_flagged", "in_scope_flagged", "set_aside"),
+    [(True, False, False), (False, True, True)],
+)
+def test_only_in_scope_gradings_decide_set_aside(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    out_of_scope_flagged: bool,
+    in_scope_flagged: bool,
+    set_aside: bool,
+) -> None:
+    bless_process(monkeypatch, BLESSED, since=FREEZE)
+    data_root = tmp_path / "data"
+    _event(data_root, "scotus/500")
+    _prediction(data_root, "scotus/500", stamp=_stamp(datetime(2026, 2, 1, tzinfo=UTC)))
+    _outcome(data_root, "scotus/500")
+    _grade(data_root, "scotus/500", "e1", stamped=None, leakage=out_of_scope_flagged)
+    _grade(data_root, "scotus/500", "e2", leakage=in_scope_flagged)
+    row = build_tables(data_root).predictions[0]
+    assert (row.gradings_total, row.gradings_leakage_flagged) == (1, int(in_scope_flagged))
+    assert row.set_aside is set_aside
+    assert row.scored is not set_aside
+
+
 def test_a_grading_both_rules_catch_names_both(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -426,9 +473,15 @@ def test_the_docket_number_is_the_only_corpus_field_read(ledger: Path, tmp_path:
     assert rows[("scotus/101", "p1")].docket_number is None
 
 
+#: An ambient identity (a Codespace sets its committer to GitHub) would
+#: override the repo config the fixtures rely on.
+_IDENTITY_ENV = ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL")
+
+
 def _git(repo: Path, *args: str) -> str:
+    env = {k: v for k, v in os.environ.items() if k not in _IDENTITY_ENV}
     return subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True, env=env
     ).stdout.strip()
 
 
@@ -448,7 +501,20 @@ def _repo(root: Path) -> Path:
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "feature cell")
     _git(repo, "switch", "-q", "main")
-    _git(repo, "merge", "-q", "--no-ff", "-m", "land feature", "feature")
+    # The landing merge is GitHub's, as a web merge's committer is.
+    _git(
+        repo,
+        "-c",
+        "user.name=GitHub",
+        "-c",
+        "user.email=noreply@github.com",
+        "merge",
+        "-q",
+        "--no-ff",
+        "-m",
+        "land feature",
+        "feature",
+    )
     _event(data_root, "scotus/101")
     _prediction(data_root, "scotus/101", stamp=_stamp(datetime(2026, 2, 1, tzinfo=UTC)))
     _git(repo, "add", "-A")
@@ -468,9 +534,22 @@ def test_ledger_commit_is_the_first_parent_commit_that_added_the_file(tmp_path: 
     merge_sha = _git(repo, "rev-parse", "HEAD~1")
     assert index[merged.prediction("alpha", "p1").resolve()].sha == merge_sha
     assert index[direct.prediction("alpha", "p1").resolve()].sha == source.head
+    assert index[merged.prediction("alpha", "p1").resolve()].by_github is True
+    assert index[direct.prediction("alpha", "p1").resolve()].by_github is False
     # Every attributed commit resolves in the repository.
     for commit in index.values():
         _git(repo, "cat-file", "-e", commit.sha)
+
+
+def test_the_source_commit_is_placed_against_main_first_parent(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    # No origin/main in the checkout: unknown, never guessed.
+    assert git_source(repo / "data").on_main_first_parent is None
+    _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+    assert git_source(repo / "data").on_main_first_parent is True
+    # The feature branch's commit reached main only as a merge's second parent.
+    _git(repo, "switch", "-q", "feature")
+    assert git_source(repo / "data").on_main_first_parent is False
 
 
 def test_a_shallow_clone_is_refused(tmp_path: Path) -> None:
@@ -633,6 +712,7 @@ def test_the_data_dictionary_lists_every_row_field() -> None:
             assert f"| `{name}` |" in text, name
             assert info.description, f"{model.__name__}.{name} has no description"
     assert "CC BY 4.0" in text and "CourtListener" in text
+    assert "within 0.01" in text and "## Reproducing the board" in text
     assert DATA_DICTIONARY == "DATA-DICTIONARY.md"
 
 

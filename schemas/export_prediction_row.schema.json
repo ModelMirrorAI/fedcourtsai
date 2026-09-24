@@ -212,7 +212,7 @@
           "type": "null"
         }
       ],
-      "description": "The first-parent commit of the source history that added this `prediction.json`; null where the export was built without git history or the file is uncommitted",
+      "description": "The first-parent commit of the checked-out history that added this `prediction.json`: its landing on `main` when the manifest's `source_on_main_first_parent` is true, and on any other checkout when the file reached that line; null where the export was built without git history or the file is uncommitted",
       "title": "Ledger Commit"
     },
     "ledger_committed_at": {
@@ -225,8 +225,20 @@
           "type": "null"
         }
       ],
-      "description": "The committer date of `ledger_commit` (UTC); null with it. For a commit GitHub made (a web merge or auto-merge landing the prediction on `main`) this is the time GitHub recorded; for a commit made elsewhere it is that machine's clock",
+      "description": "The committer date of `ledger_commit` (UTC); null with it. GitHub's own clock only where `ledger_committed_by_github` is true; otherwise the committing machine's clock, and the landing pull request's `merged_at` is the witness. Like `ledger_commit`, it dates the file reaching the checked-out line",
       "title": "Ledger Committed At"
+    },
+    "ledger_committed_by_github": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Whether `ledger_commit`'s committer is GitHub (`GitHub`, `noreply@github.com`), as a web merge or auto-merge records it, so `ledger_committed_at` is GitHub's clock. Necessary, not sufficient: a commit made in a GitHub Codespace carries the same committer with the Codespace's clock, so the landing pull request's `merged_at` is what settles a timing claim. Null with `ledger_commit`; no committer identity is exported beyond this bit",
+      "title": "Ledger Committed By Github"
     },
     "mode": {
       "anyOf": [
@@ -237,7 +249,7 @@
           "type": "null"
         }
       ],
-      "description": "The cell's mode from the harness-written context: `forward` (the outcome did not exist yet) or `replay`; null where no context was recorded",
+      "description": "The harness's claim about the cell: `forward` (provisioned as a pending case) or `replay`; null where no context was recorded. A claim, not the split: `stratum` alone decides forward vs retrospective, and a `forward` cell resolved on its harness clock day (a same-day tie) is retrospective",
       "title": "Mode"
     },
     "model": {
@@ -446,6 +458,7 @@
     "pipeline_sha",
     "ledger_commit",
     "ledger_committed_at",
+    "ledger_committed_by_github",
     "resolved_at",
     "actual_disposition",
     "actual_granted",

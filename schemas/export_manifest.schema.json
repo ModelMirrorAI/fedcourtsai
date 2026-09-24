@@ -219,11 +219,24 @@
       ],
       "description": "Whether the checkout had uncommitted changes (tracked files anywhere, or untracked files under the ledger); a bundle for release is built clean; null without git",
       "title": "Source Dirty"
+    },
+    "source_on_main_first_parent": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Whether `source_commit` is on `origin/main`'s first-parent line as the checkout knew it (nothing is fetched), which is when `ledger_commit` dates each prediction's landing on `main`; a release bundle requires true. Null without git or where the checkout has no `origin/main`",
+      "title": "Source On Main First Parent"
     }
   },
   "required": [
     "source_commit",
     "source_dirty",
+    "source_on_main_first_parent",
     "build_command",
     "package_version",
     "process_scope",

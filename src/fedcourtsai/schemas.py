@@ -8880,8 +8880,10 @@ class ExportPredictionRow(_Strict):
     granted: int = Field(description="The binary call the prediction makes: 1 positive, 0 not")
     predicted_disposition: Disposition = Field(description="The predicted disposition label")
     mode: str | None = Field(
-        description="The cell's mode from the harness-written context: `forward` (the "
-        "outcome did not exist yet) or `replay`; null where no context was recorded"
+        description="The harness's claim about the cell: `forward` (provisioned as a "
+        "pending case) or `replay`; null where no context was recorded. A claim, not the "
+        "split: `stratum` alone decides forward vs retrospective, and a `forward` cell "
+        "resolved on its harness clock day (a same-day tie) is retrospective"
     )
     salience_version: str | None = Field(
         description="The salience scorer version that assigned `band`; null where unrecorded"
@@ -8911,15 +8913,25 @@ class ExportPredictionRow(_Strict):
         description="The pipeline commit that stamped the cell; null where unrecorded"
     )
     ledger_commit: str | None = Field(
-        description="The first-parent commit of the source history that added this "
-        "`prediction.json`; null where the export was built without git history or the "
+        description="The first-parent commit of the checked-out history that added this "
+        "`prediction.json`: its landing on `main` when the manifest's "
+        "`source_on_main_first_parent` is true, and on any other checkout when the file "
+        "reached that line; null where the export was built without git history or the "
         "file is uncommitted"
     )
     ledger_committed_at: datetime | None = Field(
-        description="The committer date of `ledger_commit` (UTC); null with it. For a "
-        "commit GitHub made (a web merge or auto-merge landing the prediction on `main`) "
-        "this is the time GitHub recorded; for a commit made elsewhere it is that "
-        "machine's clock"
+        description="The committer date of `ledger_commit` (UTC); null with it. GitHub's "
+        "own clock only where `ledger_committed_by_github` is true; otherwise the "
+        "committing machine's clock, and the landing pull request's `merged_at` is the "
+        "witness. Like `ledger_commit`, it dates the file reaching the checked-out line"
+    )
+    ledger_committed_by_github: bool | None = Field(
+        description="Whether `ledger_commit`'s committer is GitHub (`GitHub`, "
+        "`noreply@github.com`), as a web merge or auto-merge records it, so "
+        "`ledger_committed_at` is GitHub's clock. Necessary, not sufficient: a commit made "
+        "in a GitHub Codespace carries the same committer with the Codespace's clock, so "
+        "the landing pull request's `merged_at` is what settles a timing claim. Null with "
+        "`ledger_commit`; no committer identity is exported beyond this bit"
     )
     resolved_at: date | None = Field(
         description="When the event resolved, from its `outcome.json`; null while unresolved"
@@ -9086,6 +9098,12 @@ class ExportManifest(_Strict):
         description="Whether the checkout had uncommitted changes (tracked files anywhere, or "
         "untracked files under the ledger); a bundle for release is built clean; null "
         "without git"
+    )
+    source_on_main_first_parent: bool | None = Field(
+        description="Whether `source_commit` is on `origin/main`'s first-parent line as "
+        "the checkout knew it (nothing is fetched), which is when `ledger_commit` dates "
+        "each prediction's landing on `main`; a release bundle requires true. Null "
+        "without git or where the checkout has no `origin/main`"
     )
     build_command: str = Field(description="The command that built the bundle")
     package_version: str = Field(description="The fedcourtsai package version that built it")

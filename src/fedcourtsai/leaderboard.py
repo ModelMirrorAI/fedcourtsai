@@ -918,7 +918,7 @@ def _baseline_brier(base_rate: float | None, actual_granted: int) -> float | Non
 #: by construction — all three come from one set of inputs — so what it guards
 #: in practice is the **cert** cell, whose three are the evaluator's own
 #: arithmetic.
-_SKILL_COHERENCE_TOLERANCE = 1e-2
+SKILL_COHERENCE_TOLERANCE = 1e-2
 
 
 def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None:
@@ -965,8 +965,8 @@ def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None
     if not math.isclose(
         implied,
         evaluation.brier_skill_score,
-        rel_tol=_SKILL_COHERENCE_TOLERANCE,
-        abs_tol=_SKILL_COHERENCE_TOLERANCE,
+        rel_tol=SKILL_COHERENCE_TOLERANCE,
+        abs_tol=SKILL_COHERENCE_TOLERANCE,
     ):
         return None
     return baseline

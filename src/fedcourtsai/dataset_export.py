@@ -15,9 +15,10 @@ aggregates. The prediction population is the frozen gate the same pass
 applies (:func:`fedcourtsai.process_version.is_frozen`), widened to ungraded
 predictions; ``forward_claim_excluded`` calls the same breach rule
 (:func:`fedcourtsai.integrity.forward_claim_breach`) so it covers an ungraded
-prediction too; and ``set_aside`` is the one rule stated here — a breach, or
-every in-scope grading leakage-flagged — which under the exclude policy is
-exactly "has gradings, none of them counted, because of an integrity rule".
+prediction too; and ``set_aside`` is the one rule stated here — a breach
+(graded or not, so a breached prediction with no gradings is set aside with
+``gradings_total`` 0), or at least one in-scope grading and every one of them
+leakage-flagged.
 
 **Exactly one field crosses from the corpus**: the docket number
 (:func:`read_docket_numbers` selects that column and no other). Everything
@@ -52,6 +53,7 @@ from pydantic import BaseModel
 from . import corpus
 from .blinding import latest_prediction_dirs
 from .integrity import FORWARD_CLAIM_POLICY, forward_claim_breach
+from .leaderboard import SKILL_COHERENCE_TOLERANCE
 from .paths import CasePaths
 from .process_version import frozen_process_record, graded_post_freeze, is_frozen
 from .schemas import (
@@ -129,10 +131,24 @@ class ExportError(Exception):
 
 @dataclass(frozen=True)
 class LedgerCommit:
-    """The first-parent commit that added one ``prediction.json``."""
+    """The first-parent commit that added one ``prediction.json``.
+
+    ``by_github`` records only whether the committer is GitHub's, as a web
+    merge or auto-merge writes it — the case where ``committed_at`` is GitHub's
+    clock, though a Codespace commit carries the same committer; no committer
+    identity is carried beyond that bit.
+    """
 
     sha: str
     committed_at: datetime
+    by_github: bool
+
+
+#: The committer GitHub writes on a commit it makes itself (web merge, auto-merge).
+GITHUB_COMMITTER = ("GitHub", "noreply@github.com")
+
+#: The ref whose first-parent line is the published record.
+MAIN_REF = "origin/main"
 
 
 @dataclass(frozen=True)
@@ -339,6 +355,7 @@ def build_tables(
                 pipeline_sha=pv.pipeline_sha if pv is not None else None,
                 ledger_commit=commit.sha if commit is not None else None,
                 ledger_committed_at=commit.committed_at if commit is not None else None,
+                ledger_committed_by_github=commit.by_github if commit is not None else None,
                 resolved_at=outcome.resolved_at if outcome is not None else None,
                 actual_disposition=outcome.actual_disposition if outcome is not None else None,
                 actual_granted=outcome.actual_granted if outcome is not None else None,
@@ -452,6 +469,7 @@ class GitSource:
     toplevel: Path
     head: str
     dirty: bool
+    on_main_first_parent: bool | None
 
 
 def git_source(data_root: Path) -> GitSource:
@@ -475,7 +493,27 @@ def git_source(data_root: Path) -> GitSource:
     untracked = _git(
         toplevel, "status", "--porcelain", "--untracked-files=all", "--", str(data_root.resolve())
     ).strip()
-    return GitSource(toplevel=toplevel, head=head, dirty=bool(tracked or untracked))
+    return GitSource(
+        toplevel=toplevel,
+        head=head,
+        dirty=bool(tracked or untracked),
+        on_main_first_parent=_on_main_first_parent(toplevel, head),
+    )
+
+
+def _on_main_first_parent(toplevel: Path, head: str) -> bool | None:
+    """Whether ``head`` is on :data:`MAIN_REF`'s first-parent line, as the checkout knows it.
+
+    ``None`` where the checkout has no such ref; nothing is fetched, so the
+    answer is as fresh as the checkout's last fetch. It matters because
+    ``ledger_commit`` is the commit that brought a file onto the *checked-out*
+    line: only on ``main``'s first-parent line is that the landing on ``main``.
+    """
+    try:
+        _git(toplevel, "rev-parse", "--verify", "--quiet", f"{MAIN_REF}^{{commit}}")
+    except ExportError:
+        return None
+    return head in _git(toplevel, "rev-list", "--first-parent", MAIN_REF).split()
 
 
 def ledger_commit_index(data_root: Path, source: GitSource) -> dict[Path, LedgerCommit]:
@@ -505,7 +543,7 @@ def ledger_commit_index(data_root: Path, source: GitSource) -> dict[Path, Ledger
         "--no-renames",
         "--diff-filter=A",
         "--name-only",
-        "--format=%x00%H %cI",
+        "--format=%x00%H%x09%cI%x09%cn%x09%ce",
         "--",
         f":(glob){cases.as_posix()}/**/prediction.json",
     )
@@ -514,8 +552,12 @@ def ledger_commit_index(data_root: Path, source: GitSource) -> dict[Path, Ledger
         lines = [line for line in record.splitlines() if line]
         if not lines:
             continue
-        sha, _, stamp = lines[0].partition(" ")
-        commit = LedgerCommit(sha=sha, committed_at=_utc(datetime.fromisoformat(stamp)))
+        sha, stamp, name, email = lines[0].split("\t", 3)
+        commit = LedgerCommit(
+            sha=sha,
+            committed_at=_utc(datetime.fromisoformat(stamp)),
+            by_github=(name, email) == GITHUB_COMMITTER,
+        )
         for name in lines[1:]:
             index.setdefault((source.toplevel / name).resolve(), commit)
     return index
@@ -664,6 +706,53 @@ derived from it at the commit `{MANIFEST}` names.
   are kept, with `counted` false and `excluded_reason` saying why.
 - **Rows are runs.** A row is one run of one predictor on one event of
   one case; a case with several events, predictors or runs has several rows.
+- **Which row is the forecast.** A petition's forecast by a predictor is its
+  `scored` or `set_aside` row, never simply the `staged` one (the newest run,
+  which a later re-run can displace after grading). Where two rows of one
+  predictor on one event are both `scored` (the judges' newest gradings name
+  different runs), both are reported and neither is picked: the board counts
+  per grading, so each counted grading enters with the run it names. A
+  resolved row that is neither scored nor set aside is a run nobody graded in
+  scope, or one whose gradings were superseded by gradings of another run.
+- **Forward and retrospective.** `mode` is the harness's claim about the cell;
+  `stratum` alone decides forward vs retrospective, on the harness clock
+  (`stamped_at`) against `resolved_at`. A same-day tie is retrospective, and is
+  not a contradicted claim, so a `forward` row resolved on its clock day is
+  `retrospective`, not `forward_claim_excluded`, and not set aside.
+- **Commit times.** `ledger_commit` is the first-parent commit that brought the
+  file onto the line the bundle was built from; only when the manifest's
+  `source_on_main_first_parent` is true is that its landing on `main`.
+  `ledger_committed_at` can be GitHub's own clock only where
+  `ledger_committed_by_github` is true, and even then a Codespace commit
+  carries the same committer; otherwise it is the committing machine's clock.
+  The landing pull request's `merged_at` is the witness for a timing claim.
+  `resolved_at` is a date, so timing comparisons against it are day-grain.
+
+## Reproducing the board
+
+`gradings` rows with `counted` true, joined to their `predictions` row,
+reproduce the leaderboard's counted population and its counts, accuracy,
+mean Brier and prior-Term skill, given its rules:
+
+- Nothing pools across cells of a different stratum, stage at moment, or
+  salience band (`salience_version`/`band`); every figure is per predictor
+  within one such cell.
+- Accuracy is the mean of `correct`; mean Brier the mean of `brier_score`. A
+  per-petition figure is null where the judges of one petition disagree on
+  `correct`.
+- Prior-Term skill uses the baseline `(segment_base_rate - actual_granted)^2`.
+  A grading enters it only where its recorded `brier_skill_score` reproduces
+  from its own `brier_score` and that baseline within {SKILL_COHERENCE_TOLERANCE}
+  (relative and absolute), and an exact (zero) baseline is dropped. Skill is a
+  ratio of sums, `1 - sum(brier_score) / sum(baseline)`, never a mean of
+  per-grading ratios.
+- The always-deny floor (cert stage) scores a synthetic `denied` call by the
+  same exact-match rule as `correct`: 1 where `actual_disposition` is
+  `denied`, else 0.
+
+Not reproducible from the bundle: realized-Term skill (it needs the statpack
+and the grading's base-rate basis), mean reasoning quality, mean vote
+accuracy, claim scores, and evaluator agreement.
 
 ## Licence and attribution
 
@@ -768,6 +857,9 @@ def write_bundle(out: Path, tables: ExportTables, context: BuildContext) -> Expo
         manifest = ExportManifest(
             source_commit=context.source.head if context.source else None,
             source_dirty=context.source.dirty if context.source else None,
+            source_on_main_first_parent=(
+                context.source.on_main_first_parent if context.source else None
+            ),
             build_command=context.build_command,
             package_version=context.package_version,
             process_scope="all" if context.all_versions else "frozen",
