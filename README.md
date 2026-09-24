@@ -416,6 +416,9 @@ model-generated and are not official court records.
 ## License
 
 BSD 3-Clause — see [LICENSE](LICENSE). Copyright (c) 2026 Model Mirror, LLC.
+A results release's dataset record is published under CC BY 4.0 (its schemas
+under this licence); see [docs/data-sources.md](docs/data-sources.md), *What we
+redistribute*.
 
 ## Citing
 
@@ -425,3 +428,6 @@ maintainer publishes as a GitHub Release is archived on Zenodo with a version
 DOI, which gives that pre-registration or result a timestamped copy held
 outside GitHub; Zenodo archives only Releases published after its integration
 was enabled, so a tag that was never published as a Release has no such copy.
+A results release also deposits its dataset export — the data only — as a
+separate Zenodo dataset record linked to that version; the export is decided
+and not yet built.

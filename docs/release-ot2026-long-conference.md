@@ -715,6 +715,30 @@ Minting it is a maintainer step, like the promotion merge it accompanies. The
 the draft's placeholder grep in *How to read this document* returns nothing and
 the `stats-reviewer` pass in section 7 is resolved.
 
-The tag is then published as a GitHub Release carrying the dataset export built
-from the tagged commit, which is also the maintainer's step; Zenodo archives the
-Release with a version DOI, and the public page links the export from it.
+Two archive steps follow, both the maintainer's:
+
+- **The software record.** The tag is published as a GitHub Release, and
+  Zenodo's GitHub integration archives the repository at that tag as a new
+  version of the project's software record, with its own version DOI. That
+  record is the code that produced the figures, and Zenodo does not archive
+  files attached to the Release.
+- **The dataset record.** The dataset export built from the tagged commit is
+  deposited on Zenodo as a separate **dataset** record under CC BY 4.0, linked
+  to the software record's version DOI as a supplement to it, with its own
+  version DOI under the dataset's concept DOI. It holds the data only (what it
+  may carry is set in [data-sources.md](data-sources.md), *What we
+  redistribute*), its manifest names the tagged commit and each file's
+  checksum, and a published deposit's files cannot be replaced, which is what
+  gives the data a timestamped copy held outside GitHub. The same files may
+  also be attached to the GitHub Release for convenience; the Zenodo deposit is
+  the copy of record, and the manifest's checksums show the two are identical.
+
+The public page cites the dataset DOI for the figures and the software record
+for the method, and both must be in the tagged commit, which is filled before
+either archive step runs. So the dataset DOI is **reserved** first: the
+maintainer opens the dataset deposit as a Zenodo draft and reserves its DOI
+before the tag is minted, fills it into the page, and uploads the files and
+publishes the draft only after the export is built from the tagged commit. The
+software record is cited by its **concept** DOI, which exists from the first
+archived Release, beside the tag name, which pins the exact code; its version
+DOI is minted only after the tag and is not needed on the page.
