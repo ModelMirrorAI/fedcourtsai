@@ -1,12 +1,12 @@
-case_id: scotus/9526000273
+case_id: scotus/9526000391
 decision_target: disposition
 description: null
 docket_entry_id: null
 event_id: evt-motion-disposition
 kind: motion
 moment: arrival
-opened_at: '2026-08-28'
+opened_at: '2026-09-16'
 resolved: true
 schema_version: '1.0'
 stage: interim
-title: Stacey Ian Humphreys v. Georgia Board of Pardons and Paroles, et al.
+title: Dalton D. Banks v. Tammy Brown, et al.

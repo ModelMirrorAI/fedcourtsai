@@ -1,12 +1,12 @@
-case_id: scotus/9526000273
+case_id: scotus/9526000370
 decision_target: disposition
 description: Disposition of the application, forecast once a response has been filed.
 docket_entry_id: null
 event_id: evt-brief-response-disposition
 kind: brief
 moment: response-filed
-opened_at: '2026-08-31'
-resolved: true
+opened_at: '2026-09-25'
+resolved: false
 schema_version: '1.0'
 stage: interim
-title: Stacey Ian Humphreys v. Georgia Board of Pardons and Paroles, et al.
+title: Ryan Thornell, et al. v. Shawn Jensen, et al.
