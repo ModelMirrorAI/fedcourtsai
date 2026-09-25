@@ -117,28 +117,28 @@ Which cases the predictors think matter, and where they disagree. One row per pr
 | 91 | `scotus/73253921` | Kevin Isaac Montoya Palacios v. Vernon Liggins, Acting Field Office Director, Baltimore Field Office, United States Immigration and Customs Enforcement, et al. | `evt-order-judgment` | 0.535 | 2 | 0.170 | 0.45 | 0.62 | — | pending | — |
 | 92 | `scotus/73280343` | Tamer S. Wassily, et al. v. Todd Blanche, Acting Attorney General | `evt-order-judgment` | 0.535 | 2 | 0.170 | 0.45 | 0.62 | — | pending | — |
 | 93 | `scotus/73331499` | Scott R. Williams v. Pennsylvania | `evt-petition-disposition` | 0.533 | 3 | 0.250 | 0.55 | 0.65 | 0.40 | pending | — |
-| 94 | `scotus/73338270` | Sara Boysen, et al. v. PeaceHealth, et al. | `evt-petition-disposition` | 0.533 | 3 | 0.450 | 0.25 | 0.70 | 0.65 | pending | — |
-| 95 | `scotus/72483489` | RiseandShine Corporation, dba Rise Brewing v. PepsiCo, Inc. | `evt-order-judgment` | 0.510 | 3 | 0.250 | 0.35 | 0.58 | 0.60 | pending | — |
-| 96 | `scotus/73281619` | Missionaries of Saint John the Baptist, Inc. v. Joel Frederic, et ux. | `evt-petition-disposition` | 0.507 | 3 | 0.270 | 0.55 | 0.62 | 0.35 | pending | — |
-| 97 | `scotus/73279865` | Floyd D. Johnson v. United States Congress | `evt-brief-judgment` | 0.500 | 2 | 0.100 | 0.45 | 0.55 | — | pending | — |
-| 98 | `scotus/73298285` | Karina Sigalovskaya v. Abigail Braden, Individually and in Her Official Capacity as a Special Agent for the Department of Homeland Security | `evt-petition-disposition` | 0.493 | 3 | 0.230 | 0.45 | 0.63 | 0.40 | pending | — |
-| 99 | `scotus/73281702` | John David Trice v. Texas | `evt-petition-disposition` | 0.490 | 3 | 0.170 | 0.50 | 0.57 | 0.40 | pending | — |
-| 100 | `scotus/73266074` | Hastings College Conservation Committee, et al. v. California, et al. | `evt-petition-disposition` | 0.487 | 3 | 0.310 | 0.45 | 0.66 | 0.35 | pending | — |
-| 101 | `scotus/73279035` | Jerry Aldridge, et al. v. Regions Bank | `evt-order-cvsg-disposition` | 0.477 | 3 | 0.230 | 0.35 | 0.58 | 0.50 | pending | — |
-| 102 | `scotus/73281394` | Utah v. Morris Thomas Mullins | `evt-petition-disposition` | 0.473 | 3 | 0.220 | 0.35 | 0.57 | 0.50 | pending | — |
-| 103 | `scotus/73281656` | Marion Alexander Lindsey v. South Carolina | `evt-petition-disposition` | 0.470 | 3 | 0.310 | 0.35 | 0.66 | 0.40 | pending | — |
-| 104 | `scotus/73500238` | Ramesh Sunny Balwani v. United States | `evt-petition-disposition` | 0.467 | 3 | 0.350 | 0.45 | 0.65 | 0.30 | pending | — |
-| 105 | `scotus/73272488` | James P. Abrams v. United States | `evt-petition-disposition` | 0.437 | 3 | 0.210 | 0.35 | 0.56 | 0.40 | pending | — |
-| 106 | `scotus/9526000273` | Stacey Ian Humphreys v. Georgia Board of Pardons and Paroles, et al. | `evt-motion-disposition` | 0.435 | 2 | 0.570 | 0.15 | 0.72 | — | pending | — |
-| 107 | `scotus/73281345` | Holly Ann Elkins v. United States | `evt-petition-disposition` | 0.433 | 3 | 0.400 | 0.50 | 0.60 | 0.20 | pending | — |
-| 108 | `scotus/73281004` | Oregon, et al. v. Paul Maney, et al. | `evt-petition-disposition` | 0.427 | 3 | 0.280 | 0.40 | 0.58 | 0.30 | resolved | — |
-| 109 | `scotus/73281327` | Nicole Pileggi v. Washington Newspaper Publishing Company, LLC | `evt-petition-disposition` | 0.427 | 3 | 0.480 | 0.20 | 0.68 | 0.40 | pending | — |
-| 110 | `scotus/73281376` | Davie County, North Carolina, et al. v. Juiliana Swink, Administratrix of the Estate of David Ray Gunter, et al. | `evt-petition-disposition` | 0.423 | 3 | 0.270 | 0.40 | 0.57 | 0.30 | pending | — |
-| 111 | `scotus/73281401` | Christopher Zook, et al. v. Scott Fuqua | `evt-petition-disposition` | 0.423 | 3 | 0.270 | 0.30 | 0.57 | 0.40 | pending | — |
-| 112 | `scotus/73389781` | Christy Ann Martin v. John Fredrick Martin | `evt-petition-disposition` | 0.417 | 3 | 0.450 | 0.20 | 0.40 | 0.65 | pending | — |
-| 113 | `scotus/73500229` | Jane Elizabeth Roberts, et al. v. Bob Ferguson, Governor of Washington, et al. | `evt-petition-disposition` | 0.400 | 3 | 0.100 | 0.35 | 0.45 | 0.40 | pending | — |
-| 114 | `scotus/73500243` | Donna Birks v. Clemente Javier Aguirre-Jarquin | `evt-petition-disposition` | 0.397 | 3 | 0.140 | 0.35 | 0.49 | 0.35 | pending | — |
-| 115 | `scotus/73281346` | Jessica Pitts, Officer, et al. v. Taylor Burke, as Special Administrator of the Estate of Thomas Gay, Deceased | `evt-petition-disposition` | 0.387 | 3 | 0.160 | 0.30 | 0.46 | 0.40 | pending | — |
+| 94 | `scotus/72483489` | RiseandShine Corporation, dba Rise Brewing v. PepsiCo, Inc. | `evt-order-judgment` | 0.510 | 3 | 0.250 | 0.35 | 0.58 | 0.60 | pending | — |
+| 95 | `scotus/73281619` | Missionaries of Saint John the Baptist, Inc. v. Joel Frederic, et ux. | `evt-petition-disposition` | 0.507 | 3 | 0.270 | 0.55 | 0.62 | 0.35 | pending | — |
+| 96 | `scotus/73279865` | Floyd D. Johnson v. United States Congress | `evt-brief-judgment` | 0.500 | 2 | 0.100 | 0.45 | 0.55 | — | pending | — |
+| 97 | `scotus/73298285` | Karina Sigalovskaya v. Abigail Braden, Individually and in Her Official Capacity as a Special Agent for the Department of Homeland Security | `evt-petition-disposition` | 0.493 | 3 | 0.230 | 0.45 | 0.63 | 0.40 | pending | — |
+| 98 | `scotus/73281702` | John David Trice v. Texas | `evt-petition-disposition` | 0.490 | 3 | 0.170 | 0.50 | 0.57 | 0.40 | pending | — |
+| 99 | `scotus/73266074` | Hastings College Conservation Committee, et al. v. California, et al. | `evt-petition-disposition` | 0.487 | 3 | 0.310 | 0.45 | 0.66 | 0.35 | pending | — |
+| 100 | `scotus/73279035` | Jerry Aldridge, et al. v. Regions Bank | `evt-order-cvsg-disposition` | 0.477 | 3 | 0.230 | 0.35 | 0.58 | 0.50 | pending | — |
+| 101 | `scotus/73281394` | Utah v. Morris Thomas Mullins | `evt-petition-disposition` | 0.473 | 3 | 0.220 | 0.35 | 0.57 | 0.50 | pending | — |
+| 102 | `scotus/73281656` | Marion Alexander Lindsey v. South Carolina | `evt-petition-disposition` | 0.470 | 3 | 0.310 | 0.35 | 0.66 | 0.40 | pending | — |
+| 103 | `scotus/73500238` | Ramesh Sunny Balwani v. United States | `evt-petition-disposition` | 0.467 | 3 | 0.350 | 0.45 | 0.65 | 0.30 | pending | — |
+| 104 | `scotus/73272488` | James P. Abrams v. United States | `evt-petition-disposition` | 0.437 | 3 | 0.210 | 0.35 | 0.56 | 0.40 | pending | — |
+| 105 | `scotus/9526000273` | Stacey Ian Humphreys v. Georgia Board of Pardons and Paroles, et al. | `evt-motion-disposition` | 0.435 | 2 | 0.570 | 0.15 | 0.72 | — | pending | — |
+| 106 | `scotus/73281345` | Holly Ann Elkins v. United States | `evt-petition-disposition` | 0.433 | 3 | 0.400 | 0.50 | 0.60 | 0.20 | pending | — |
+| 107 | `scotus/73281004` | Oregon, et al. v. Paul Maney, et al. | `evt-petition-disposition` | 0.427 | 3 | 0.280 | 0.40 | 0.58 | 0.30 | resolved | — |
+| 108 | `scotus/73281327` | Nicole Pileggi v. Washington Newspaper Publishing Company, LLC | `evt-petition-disposition` | 0.427 | 3 | 0.480 | 0.20 | 0.68 | 0.40 | pending | — |
+| 109 | `scotus/73281376` | Davie County, North Carolina, et al. v. Juiliana Swink, Administratrix of the Estate of David Ray Gunter, et al. | `evt-petition-disposition` | 0.423 | 3 | 0.270 | 0.40 | 0.57 | 0.30 | pending | — |
+| 110 | `scotus/73281401` | Christopher Zook, et al. v. Scott Fuqua | `evt-petition-disposition` | 0.423 | 3 | 0.270 | 0.30 | 0.57 | 0.40 | pending | — |
+| 111 | `scotus/73389781` | Christy Ann Martin v. John Fredrick Martin | `evt-petition-disposition` | 0.417 | 3 | 0.450 | 0.20 | 0.40 | 0.65 | pending | — |
+| 112 | `scotus/73500229` | Jane Elizabeth Roberts, et al. v. Bob Ferguson, Governor of Washington, et al. | `evt-petition-disposition` | 0.400 | 3 | 0.100 | 0.35 | 0.45 | 0.40 | pending | — |
+| 113 | `scotus/73500243` | Donna Birks v. Clemente Javier Aguirre-Jarquin | `evt-petition-disposition` | 0.397 | 3 | 0.140 | 0.35 | 0.49 | 0.35 | pending | — |
+| 114 | `scotus/73281346` | Jessica Pitts, Officer, et al. v. Taylor Burke, as Special Administrator of the Estate of Thomas Gay, Deceased | `evt-petition-disposition` | 0.387 | 3 | 0.160 | 0.30 | 0.46 | 0.40 | pending | — |
+| 115 | `scotus/73338270` | Sara Boysen, et al. v. PeaceHealth, et al. | `evt-petition-disposition` | 0.383 | 3 | 0.350 | 0.40 | 0.55 | 0.20 | pending | — |
 | 116 | `scotus/73500250` | Miguel Angel Delgado, Jr. v. United States | `evt-petition-disposition` | 0.373 | 3 | 0.070 | 0.35 | 0.42 | 0.35 | pending | — |
 | 117 | `scotus/73281674` | PG Publishing Company, Inc., dba Pittsburgh Post-Gazette v. National Labor Relations Board, et al. | `evt-petition-disposition` | 0.367 | 3 | 0.350 | 0.35 | 0.55 | 0.20 | pending | — |
 | 118 | `scotus/73281703` | Brandi Greer v. Benton School District | `evt-petition-disposition` | 0.363 | 3 | 0.190 | 0.25 | 0.44 | 0.40 | pending | — |
