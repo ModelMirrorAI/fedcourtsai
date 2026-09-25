@@ -4980,8 +4980,8 @@ freeze commit is recorded here.
   fedcourts process-digest --all` at this commit prints `proc-v8` and the same
   six blessed digests. None of the new fields is a rank key.
 
-  The carrying promotion is `<FILL: promotion tag>` (merge commit `<FILL: merge
-  commit>`, merged `<FILL: merge time>`), which must precede the 2026-09-28
+  The carrying promotion is `promotion/2026-09-25` (merge commit
+  `e6566d859`, merged `2026-09-25T20:05:44Z`), which must precede the 2026-09-28
   conference for this entry to register ahead of any outcome it governs. The
   runnable effect check, once that promotion is live: `uv run fedcourts
   leaderboard --all-versions --out /tmp/lb.json && jq '.entries[0].by_band |
