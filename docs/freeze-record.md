@@ -4988,3 +4988,33 @@ freeze commit is recorded here.
   keys' /tmp/lb.json` lists the band keys (`["(none)"]` on the ledger at this
   entry's commit), and `uv run fedcourts process-digest --all` still prints the
   same six digests.
+
+- **`prereg/proc-v8` is archived outside GitHub, 2026-09-25.** An
+  **archival** entry: it records third-party evidence for the `prereg/proc-v8`
+  tag the proc-v8 entries name, and moves no digest, rule, band rate or
+  membership. The maintainer published the existing tag (tag object
+  `c2e19ea8`, commit `94ac906e3`) as a GitHub Release at
+  `2026-09-25T17:27:41Z`, and Zenodo's GitHub integration, enabled before that
+  publication, deposited the tag's source archive as version DOI
+  **`10.5281/zenodo.22966597`** (record created `2026-09-25T19:10:07Z`), under
+  the software record's concept DOI **`10.5281/zenodo.22966596`**.
+
+  **What it evidences, and what it does not.** The archive is a copy of the
+  tagged tree held by a third party: the files of a published Zenodo version
+  cannot be replaced, by the project or anyone else, and the owner cannot
+  delete the record; Zenodo itself can withdraw a record on request, leaving a
+  tombstone the DOI still resolves to. It shows the tree existed by
+  2026-09-25, before the 2026-09-28 conference and so before any outcome the
+  long-conference cohort is scored against. It does not re-date the freeze:
+  the freeze instant and the promotion that carried it remain the timing
+  evidence, in the proc-v8 entries above. The tagged tree predates
+  `CITATION.cff`, so the record's descriptive metadata did not come from the
+  tree and is maintained by hand on Zenodo; only the archived files are
+  evidence, and they are the tag's.
+
+  **The check.** The deposited file
+  `ModelMirrorAI/fedcourtsai-prereg/proc-v8.zip` (md5
+  `879a946452af790e37578df097bfe786`, the checksum Zenodo publishes) unpacks
+  to a single top-level directory, `ModelMirrorAI-fedcourtsai-c2e19ea/`, whose
+  contents are identical to `git archive 94ac906e3`: `diff -r` of that
+  directory against the extracted `git archive` reports nothing.

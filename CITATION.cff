@@ -3,6 +3,7 @@ message: >-
   If you use fedcourtsai, please cite it as below. A tag the maintainer
   publishes as a GitHub Release is archived on Zenodo with its own version DOI.
 type: software
+doi: 10.5281/zenodo.22966596
 title: "fedcourtsai: pre-registered AI forecasts of US federal court events"
 abstract: >-
   An agentic pipeline that forecasts events in the US federal courts —
@@ -12,6 +13,10 @@ abstract: >-
   pre-registered, frozen process.
 authors:
   - name: "Model Mirror, LLC"
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.22966597
+    description: "The prereg/proc-v8 pre-registration, archived on Zenodo."
 repository-code: "https://github.com/ModelMirrorAI/fedcourtsai"
 url: "https://fedcourts.ai"
 license: BSD-3-Clause

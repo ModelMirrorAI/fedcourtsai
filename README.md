@@ -5,6 +5,7 @@
 [![codeql](https://github.com/ModelMirrorAI/fedcourtsai/actions/workflows/codeql.yml/badge.svg)](https://github.com/ModelMirrorAI/fedcourtsai/actions/workflows/codeql.yml)
 [![Python ≥3.12](https://img.shields.io/badge/python-%E2%89%A53.12-blue.svg)](https://www.python.org/)
 [![License: BSD 3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22966596.svg)](https://doi.org/10.5281/zenodo.22966596)
 
 Agentic AI system to predict events in US federal courts — for example,
 whether a petition for certiorari will be granted or denied, the likely vote
@@ -428,6 +429,10 @@ maintainer publishes as a GitHub Release is archived on Zenodo with a version
 DOI, which gives that pre-registration or result a timestamped copy held
 outside GitHub; Zenodo archives only Releases published after its integration
 was enabled, so a tag that was never published as a Release has no such copy.
+The software record's concept DOI,
+[10.5281/zenodo.22966596](https://doi.org/10.5281/zenodo.22966596), always
+resolves to the newest archived version; `prereg/proc-v8` is archived as
+[10.5281/zenodo.22966597](https://doi.org/10.5281/zenodo.22966597).
 A results release also deposits its dataset export — the data only — as a
 separate Zenodo dataset record linked to that version, built by
 `fedcourts export`; no release has published one yet.
