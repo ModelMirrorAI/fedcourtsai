@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 13973,
+      "checked": 13974,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -174,7 +174,7 @@
       "problems": []
     },
     {
-      "checked": 12700,
+      "checked": 12701,
       "detail": "",
       "failures": 0,
       "name": "outcome_votes_await_a_registered_source",
@@ -190,7 +190,7 @@
       "problems": []
     },
     {
-      "checked": 12700,
+      "checked": 12701,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
