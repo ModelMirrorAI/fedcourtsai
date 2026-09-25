@@ -136,6 +136,17 @@ from .config import (
     load_summaries_config,
 )
 from .courtlistener import CourtListenerClient, default_rate_limiter
+from .dataset_export import (
+    BuildContext,
+    ExportError,
+    build_tables,
+    corpus_vintage,
+    git_source,
+    ledger_commit_index,
+    read_docket_numbers,
+    with_docket_numbers,
+    write_bundle,
+)
 from .disposition_convergence import converge_disposition_labels
 from .docket_marking_migration import normalize_docket_markings
 from .finalize import (
@@ -157,6 +168,7 @@ from .integrity import (
 from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
+    cell_facts,
     evaluator_agreement,
     skill_components,
 )
@@ -4938,6 +4950,10 @@ def leaderboard(
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
         superseded_gradings=run.superseded,
+        # Each cert cell's frozen band and realized outcome: the forward
+        # stratum's per-band cut and the realized always-deny floor beside
+        # accuracy, over the same cells and never a rank key.
+        facts=cell_facts(cells, settings.data_root),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -5044,6 +5060,120 @@ def claim_scores_command(
         f"evaluation(s) carry a claim block; forward judge agreement: "
         f"{agreement_summary(board.forward_agreement)} -> {destination}"
     )
+
+
+@app.command("export")
+def export_command(
+    out: Annotated[
+        Path,
+        typer.Option(help="Bundle directory to create; refused unless absent or empty."),
+    ],
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Export every prediction, not only the frozen process's (a dry run on "
+            "shakedown data; never a release).",
+        ),
+    ] = False,
+    no_git: Annotated[
+        bool,
+        typer.Option(
+            "--no-git",
+            help="Build without git history: ledger_commit and the source commit are null, "
+            "and the manifest says so.",
+        ),
+    ] = False,
+    allow_missing_docket_numbers: Annotated[
+        bool,
+        typer.Option(
+            "--allow-missing-docket-numbers",
+            help="Build without a corpus: docket_number is null throughout, and the "
+            "manifest says so.",
+        ),
+    ] = False,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Build the release dataset bundle from the checked-out ledger.
+
+    Writes ``predictions`` and ``gradings`` tables (CSV and Parquet, same rows),
+    ``reasoning.jsonl``, a generated ``DATA-DICTIONARY.md``, the relevant
+    schemas, ``LICENSE-DATA`` and ``MANIFEST.json`` (source commit, build
+    command, row counts, each file's sha256) into ``--out``. Membership comes
+    from the same ``stratify`` pass the leaderboard reads; the docket number is
+    the only field read from the corpus. The bundle holds data only. A rebuild
+    from the same tree reproduces it byte for byte, so the manifest carries no
+    build time: the source commit dates it. Build it from a full-history
+    checkout of the tagged commit with the corpus pulled.
+    """
+    settings = get_settings()
+    data_root = settings.data_root
+    source = None
+    commits = None
+    if not no_git:
+        try:
+            source = git_source(data_root)
+            commits = ledger_commit_index(data_root, source)
+        except ExportError as exc:
+            typer.echo(f"export: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if not allow_missing_docket_numbers and backend == "local" and not db_path.exists():
+        typer.echo(
+            f"export: no corpus at {db_path} to read docket numbers from; "
+            "`fedcourts corpus-pull` it, or pass --allow-missing-docket-numbers",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    tables = build_tables(data_root, all_versions=all_versions, ledger_commits=commits)
+    vintage = None
+    if not allow_missing_docket_numbers:
+        with corpus.connect_readonly(db_path, backend=backend) as conn:
+            numbers = read_docket_numbers(conn, [row.case_id for row in tables.predictions])
+            vintage = corpus_vintage(conn, backend)
+        tables = with_docket_numbers(tables, numbers)
+    flags = [
+        flag
+        for flag, on in (
+            ("--all-versions", all_versions),
+            ("--no-git", no_git),
+            ("--allow-missing-docket-numbers", allow_missing_docket_numbers),
+        )
+        if on
+    ]
+    try:
+        manifest = write_bundle(
+            out,
+            tables,
+            BuildContext(
+                build_command=" ".join(["fedcourts export", *flags, "--out <dir>"]),
+                package_version=version("fedcourtsai"),
+                all_versions=all_versions,
+                source=source,
+                vintage=vintage,
+            ),
+        )
+    except ExportError as exc:
+        typer.echo(f"export: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    counts = manifest.counts
+    typer.echo(
+        f"export [{manifest.process_scope}]: {counts['predictions']} prediction(s) "
+        f"({counts['predictions_scored']} scored, {counts['predictions_set_aside']} set aside), "
+        f"{counts['gradings']} grading(s) ({counts['gradings_counted']} counted) -> {out}"
+    )
+    if source is not None and source.dirty:
+        typer.echo(
+            "export: the checkout has uncommitted changes; a release bundle is built clean",
+            err=True,
+        )
+    for column, key in (
+        ("ledger_commit", "predictions_without_ledger_commit"),
+        ("docket_number", "predictions_without_docket_number"),
+    ):
+        if counts[key]:
+            typer.echo(f"export: {counts[key]} prediction(s) with a null {column}", err=True)
 
 
 @app.command("semantic-summary")

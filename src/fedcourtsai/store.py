@@ -868,13 +868,27 @@ def scored_prediction(
     bare directory here, not a :class:`fedcourtsai.paths.EventPaths` — it
     mirrors the glob one line below.
     """
+    graded = scored_prediction_cell(event_dir, predictor_id, prediction_run_id)
+    return graded[1] if graded is not None else None
+
+
+def scored_prediction_cell(
+    event_dir: Path, predictor_id: str, prediction_run_id: str | None
+) -> tuple[Path, Prediction] | None:
+    """:func:`scored_prediction` with the run directory it resolved to.
+
+    The same rule, returned with the graded run's directory so a caller keying
+    rows on the ledger path — the dataset export's prediction identity — joins
+    a grading to the run it graded without trusting the document's own
+    ``run_id``.
+    """
     if prediction_run_id is not None:
         named = event_dir / "predictions" / predictor_id / prediction_run_id / "prediction.json"
         if named.is_file():
-            return read_model(named, Prediction)
+            return named.parent, read_model(named, Prediction)
     files = sorted(event_dir.glob(f"predictions/{predictor_id}/*/prediction.json"))
-    predictions = [read_model(p, Prediction) for p in files]
-    return max(predictions, key=cell_clock) if predictions else None
+    cells = [(path.parent, read_model(path, Prediction)) for path in files]
+    return max(cells, key=lambda cell: cell_clock(cell[1])) if cells else None
 
 
 class _ScopedCell(NamedTuple):
@@ -1271,15 +1285,15 @@ class PredictedEvent(NamedTuple):
     cells: list[PredictionCell]
 
 
-def _named_document(cell_dir: Path, name: str | None) -> str | None:
+def named_document(cell_dir: Path, name: str | None) -> str | None:
     """The text of the document a prediction names, or ``None``.
 
     Resolves the pointer under the same rule
     :func:`fedcourtsai.validate.check_prediction_docs` enforces — a plain
     filename beside the record, never a path and never a symlink — rather than
-    trusting the gate to have run: this reader's output is published verbatim to
-    a public issue, which is the one place a malformed pointer would be worth
-    writing. A pointer that fails the rule, or a file that is absent or
+    trusting the gate to have run: its readers publish the text verbatim — to a
+    public issue, and into the release dataset — which is where a malformed
+    pointer would do harm. A pointer that fails the rule, or a file that is absent or
     unreadable, reports as a missing document rather than raising.
     """
     if not name or Path(name).name != name or name in (".", ".."):
@@ -1314,10 +1328,8 @@ def load_predicted_event(data_root: Path, case_id: str, event_id: str) -> Predic
         cells.append(
             PredictionCell(
                 prediction=prediction,
-                reasoning=_named_document(path.parent, prediction.reasoning_doc),
-                predicted_reasoning=_named_document(
-                    path.parent, prediction.predicted_reasoning_doc
-                ),
+                reasoning=named_document(path.parent, prediction.reasoning_doc),
+                predicted_reasoning=named_document(path.parent, prediction.predicted_reasoning_doc),
                 flags=(
                     read_model(flags_path, AgentFlags)
                     if (flags_path := path.parent / "flags.json").is_file()

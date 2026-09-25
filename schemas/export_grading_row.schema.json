@@ -1,0 +1,207 @@
+{
+  "$defs": {
+    "Engine": {
+      "description": "Agentic coding engine that produced an artifact.",
+      "enum": [
+        "claude-code",
+        "codex",
+        "gemini"
+      ],
+      "title": "Engine",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One row of the release dataset's ``gradings`` table: one judge's grading.\n\nLong form: a prediction graded by three evaluators has three rows, joined to\nits ``predictions`` row on ``(case_id, event_id, predictor_id,\nprediction_run_id)``. Every grading of an exported prediction is a row,\nre-grades and out-of-scope gradings included; ``counted`` and\n``excluded_reason`` say which ones the scored figures read.",
+  "properties": {
+    "base_rate_salience_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The salience version the base rate's band population is keyed on; null where the baseline is not banded",
+      "title": "Base Rate Salience Version"
+    },
+    "brier_score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The Brier score of `probability` against the outcome; null where not computed",
+      "title": "Brier Score"
+    },
+    "brier_skill_score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The Brier skill score against `segment_base_rate`; null without a baseline",
+      "title": "Brier Skill Score"
+    },
+    "case_id": {
+      "description": "The graded prediction's case id",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "correct": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Whether the prediction's binary call matched the outcome: 1 yes, 0 no; null where not graded on it",
+      "title": "Correct"
+    },
+    "counted": {
+      "description": "Whether the scored figures count this grading",
+      "title": "Counted",
+      "type": "boolean"
+    },
+    "evaluator_engine": {
+      "$ref": "#/$defs/Engine",
+      "description": "The engine the evaluator ran on"
+    },
+    "evaluator_id": {
+      "description": "The evaluator (judge) that wrote the grading",
+      "title": "Evaluator Id",
+      "type": "string"
+    },
+    "evaluator_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The model the grading records as having run; null where it recorded none. Not back-filled from the engine's default, which can move after a run",
+      "title": "Evaluator Model"
+    },
+    "event_id": {
+      "description": "The graded prediction's event id",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "excluded_reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "forward_claim",
+            "leakage",
+            "forward_claim_and_leakage",
+            "superseded",
+            "out_of_scope"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Why an uncounted grading is not counted: `forward_claim` (the prediction's forward claim is contradicted by its own record), `leakage` (`leakage_suspected` is true), `forward_claim_and_leakage` (both), `superseded` (a newer grading by the same judge of the same predictor on this event replaced it, possibly one of a different prediction run) or `out_of_scope` (the grading's harness stamp is absent or predates the freeze instant); null when counted",
+      "title": "Excluded Reason"
+    },
+    "leakage_suspected": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The judge's verdict on whether the prediction may have read its own outcome; null where not assessed",
+      "title": "Leakage Suspected"
+    },
+    "prediction_run_id": {
+      "description": "The graded prediction's run id: `run_id` in the predictions table",
+      "title": "Prediction Run Id",
+      "type": "string"
+    },
+    "predictor_id": {
+      "description": "The graded prediction's predictor",
+      "title": "Predictor Id",
+      "type": "string"
+    },
+    "process_digest": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The evaluator's harness process digest; null on an unstamped grading",
+      "title": "Process Digest"
+    },
+    "run_id": {
+      "description": "The grading's own run id (a UTC timestamp)",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "segment_base_rate": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The registered base rate the skill score is measured against; null without one",
+      "title": "Segment Base Rate"
+    },
+    "stamped_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "When the harness stamped the grading (UTC); null on an unstamped grading",
+      "title": "Stamped At"
+    }
+  },
+  "required": [
+    "case_id",
+    "event_id",
+    "predictor_id",
+    "prediction_run_id",
+    "evaluator_id",
+    "evaluator_engine",
+    "evaluator_model",
+    "run_id",
+    "correct",
+    "brier_score",
+    "brier_skill_score",
+    "segment_base_rate",
+    "base_rate_salience_version",
+    "leakage_suspected",
+    "counted",
+    "excluded_reason",
+    "process_digest",
+    "stamped_at"
+  ],
+  "title": "ExportGradingRow",
+  "type": "object"
+}

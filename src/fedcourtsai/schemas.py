@@ -2748,7 +2748,9 @@ class LeaderboardStratum(_Strict):
         "one. A cell whose `correct` the stamp could not compute — no readable "
         "prediction, or no committed outcome — leaves both halves of this "
         "fraction rather than entering as a wrong call, so `accuracy_scored` "
-        "beside it is the true denominator. Null when no cell in the stratum "
+        "beside it is the true denominator. Averaged over **gradings** — one "
+        "per cell per judge, so weighted by panel depth — whereas "
+        "`events_scored` counts events. Null when no cell in the stratum "
         "reports one, in which case the entry sorts last on this key",
     )
     accuracy_scored: int = Field(
@@ -2819,6 +2821,116 @@ class LeaderboardStratum(_Strict):
         "(`pipeline.base_rates.REALIZED_BAND_RATE_MIN_RESOLVED`) after the "
         "leave-one-out, so it is omitted — visibly, here — on a thin band rather "
         "than computed on a handful of cases",
+    )
+    always_deny_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="What a constant `denied` call would have scored on the "
+        "**same gradings** `accuracy` averages — every cell counted in "
+        "`accuracy_scored`, one per judge, so like `accuracy` it is weighted by "
+        "panel depth; `event_always_deny_accuracy` is the per-petition "
+        "reading. Each cell applies the exact-match rule `Evaluation.correct` "
+        "uses (`pipeline.evaluate.is_correct`) to a synthetic `denied` "
+        "prediction against the cell's committed outcome, so any non-`denied` "
+        "outcome — a GVR included — is a miss. This is the floor **realized** "
+        "on these cells. It is not comparable with the registered per-band "
+        "figures in metrics/README.md, which are complements of grant-family "
+        "rates rather than exact-match floors; those rates stay the skill "
+        "anchor. Cert stage only (the one stage whose disposition axis "
+        "`denied` is the null call on). Null elsewhere; null wherever any "
+        "accuracy-scored cell lacks band/outcome facts; and null where any "
+        "accuracy-scored cell's stamped `correct` no longer reproduces "
+        "against the committed outcome — a grading paired with a superseded "
+        "outcome, beside which a floor read off the current one would be an "
+        "unpaired comparison",
+    )
+    accuracy_lift: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="`accuracy - always_deny_accuracy`: the paired difference "
+        "over the identical gradings, so it is null exactly where "
+        "`always_deny_accuracy` is. Grading-weighted like both terms; "
+        "`event_accuracy_lift` is the per-petition reading. Never a rank key",
+    )
+    accuracy_events_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct (case, event) pairs carrying at least one "
+        "accuracy-scored grading — the per-petition denominator of the "
+        "`event_*` fields, against the grading count `accuracy_scored`",
+    )
+    event_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Accuracy with each event counted once: the mean, over "
+        "the `accuracy_events_scored` events, of the event's `correct`. A "
+        "grading's `correct` is a function of the scored prediction and the "
+        "outcome, so a block's gradings of one event agree on it; where they "
+        "do not (gradings of different prediction runs, or one stamped "
+        "against a superseded outcome), this field and the other `event_*` "
+        "fields are null rather than picking one. The per-petition reading, "
+        "free of the panel-depth weighting `accuracy` carries",
+    )
+    event_always_deny_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="`always_deny_accuracy` with each event counted once, "
+        "over the same `accuracy_events_scored` events as `event_accuracy`. "
+        "Null wherever `always_deny_accuracy` or `event_accuracy` is",
+    )
+    event_accuracy_lift: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="`event_accuracy - event_always_deny_accuracy`: the "
+        "per-petition lift over the realized floor, paired over the same "
+        "events. The published per-band reading. Never a rank key",
+    )
+    grants_realized: int | None = Field(
+        default=None,
+        ge=0,
+        description="Distinct (case, event) pairs among the accuracy-scored "
+        "cells whose outcome is in the **grant family** the band rates count "
+        "(`GRANT_FAMILY_DISPOSITIONS`: granted, GVR, summary reversal — "
+        "`granted-in-part` keeps its own statpack bucket and is excluded). An "
+        "unrestricted audit count over every accuracy-scored event: compare "
+        "`grants_expected` with `grants_realized_expected_scored`, not with "
+        "this. Counts events, not gradings. Cert stage only; null wherever "
+        "any accuracy-scored cell lacks band/outcome facts",
+    )
+    grants_expected: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Sum, over the distinct (case, event) pairs among the "
+        "accuracy-scored cells that carry one, of the event's registered "
+        "strictly-prior segment base rate — the `Evaluation.segment_base_rate` "
+        "the prior-Term skill column scores against, taken only from gradings "
+        "that column admits and averaged over an event's gradings, so each "
+        "event enters once. The grant count a forecaster at the registered "
+        "band rate would have expected over the `grants_expected_scored` "
+        "events; the realized count over exactly those events is "
+        "`grants_realized_expected_scored`, and those two are the pair to "
+        "compare. Cert stage only; null where no event carries a rate",
+    )
+    grants_expected_scored: int | None = Field(
+        default=None,
+        ge=0,
+        description="Distinct (case, event) pairs contributing to "
+        "`grants_expected` — its true denominator. Below "
+        "`accuracy_events_scored` wherever an event carries no admitted base "
+        "rate; null where `grants_realized` is",
+    )
+    grants_realized_expected_scored: int | None = Field(
+        default=None,
+        ge=0,
+        description="Grant-family events (as `grants_realized` counts them) "
+        "among exactly the `grants_expected_scored` events — the realized "
+        "side of the expected-vs-realized pair, over the same events as "
+        "`grants_expected`. Null where `grants_realized` is",
     )
     mean_vote_accuracy: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Mean panel-vote accuracy where reported"
@@ -2898,6 +3010,49 @@ class BigCaseLeaderboard(_Strict):
     )
 
 
+#: The key :attr:`LeaderboardEntry.by_band` files a cell under when its scored
+#: prediction froze no band, or a band with no salience version to read it by.
+NO_BAND_KEY: Final = "(none)"
+
+_BY_BAND_DESCRIPTION = (
+    "The **forward** stratum cut by salience band: one LeaderboardStratum "
+    "per band, aggregated exactly as `forward` is — the same cells, after the "
+    "run collapse and both exclusions, with the same skill terms. Keyed "
+    "`<salience_version>/<band>` from the scored prediction's frozen "
+    "`context`, never the corpus's current band, which only strengthens as a "
+    "petition is relisted or a CVSG lands and so would sort a forecast by its "
+    "own future. A cell whose context froze no band, or a band with no "
+    "version, or that carries no band facts at all, files under the single "
+    "`(none)` key, so the blocks' "
+    "`evaluations` sum to `forward.evaluations`. Cert stage only — no other "
+    "stage is a salience-band product — and omitted while there is no "
+    "forward cert cell or no band facts were supplied. Never a rank key"
+)
+
+
+_COMPLETE_GRID_DESCRIPTION = (
+    "Per `by_band` key, the forward cert events on which **every** predictor "
+    "in this population carries an accuracy-scored forward grading filed "
+    "under that same band — the band's complete grid. A per-band comparison "
+    "between engines is made only over it: where two entries' per-band "
+    "`events_scored` differ they rank over different petitions, and no "
+    "per-band ordering is read off them. An event whose predictors froze "
+    "different bands is complete under none. Omitted while empty"
+)
+
+
+def _drop_empty_by_band(payload: Any, by_band: dict[str, LeaderboardStratum] | None) -> Any:
+    """Drop an empty ``by_band`` from a serialized entry.
+
+    The board's rule for optional axes (``Leaderboard.stages``): an axis is
+    shown once its cells exist, so a stage or predictor with no forward cert
+    cell carries no ``by_band`` key rather than a null placeholder.
+    """
+    if isinstance(payload, dict) and not by_band:
+        payload.pop("by_band", None)
+    return payload
+
+
 class LeaderboardEntry(_Strict):
     """One predictor's standings, aggregated per stratum.
 
@@ -2945,6 +3100,10 @@ class LeaderboardEntry(_Strict):
         "cert-worthiness, so these aggregate separately and never enter the "
         "ranking; null when this predictor has none.",
     )
+    by_band: dict[str, LeaderboardStratum] | None = Field(
+        default=None,
+        description=_BY_BAND_DESCRIPTION,
+    )
     big_case: BigCaseLeaderboard | None = Field(
         default=None,
         description="The predictor's big-case-score rank-agreement with the "
@@ -2952,6 +3111,11 @@ class LeaderboardEntry(_Strict):
         "dimension that never affects the ranking. Null when no case carries both "
         "a predictor big_case_score and an evaluator read.",
     )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``by_band`` while it is empty — see :func:`_drop_empty_by_band`."""
+        return _drop_empty_by_band(handler(self), self.by_band)
 
 
 class LeaderboardStageEntry(_Strict):
@@ -2988,6 +3152,15 @@ class LeaderboardStageEntry(_Strict):
         description="This stage's mootness-basis cells; null when this predictor "
         "has none in the stage.",
     )
+    by_band: dict[str, LeaderboardStratum] | None = Field(
+        default=None,
+        description=_BY_BAND_DESCRIPTION,
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``by_band`` while it is empty — see :func:`_drop_empty_by_band`."""
+        return _drop_empty_by_band(handler(self), self.by_band)
 
 
 def _check_coverage_denominator(
@@ -3051,10 +3224,23 @@ class LeaderboardStage(_Strict):
         "ordering, not a ranking",
     )
 
+    complete_grid_by_band: dict[str, int] = Field(
+        default_factory=dict,
+        description=_COMPLETE_GRID_DESCRIPTION,
+    )
+
     @model_validator(mode="after")
     def _coverage_denominates_its_entries(self) -> LeaderboardStage:
         _check_coverage_denominator(self.events_scored, self.entries)
         return self
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_complete_grid(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``complete_grid_by_band`` while it is empty, as ``by_band`` is."""
+        payload = handler(self)
+        if isinstance(payload, dict) and not self.complete_grid_by_band:
+            payload.pop("complete_grid_by_band", None)
+        return payload
 
 
 class FrozenProcessRecord(_Strict):
@@ -3312,6 +3498,10 @@ class Leaderboard(_Strict):
         description="The ranked cert-stage board — one entry per predictor with a "
         "cert-stage evaluation",
     )
+    complete_grid_by_band: dict[str, int] = Field(
+        default_factory=dict,
+        description=_COMPLETE_GRID_DESCRIPTION,
+    )
     stages: dict[str, LeaderboardStage] = Field(
         default_factory=dict,
         description="Unranked blocks for every population outside the ranked "
@@ -3332,7 +3522,7 @@ class Leaderboard(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_empty_optional_axes(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop the ``stages`` and ``salience_versions`` blocks while each is empty.
+        """Drop each optional axis block (``stages``, ``salience_versions``, the grid) while empty.
 
         The StatPack stage sections' rule, applied here: an axis is shown only
         once its cells do, and serializing an empty placeholder would both
@@ -3344,6 +3534,8 @@ class Leaderboard(_Strict):
         if isinstance(payload, dict):
             if not self.stages:
                 payload.pop("stages", None)
+            if not self.complete_grid_by_band:
+                payload.pop("complete_grid_by_band", None)
             if not self.salience_versions:
                 payload.pop("salience_versions", None)
         return payload
@@ -8620,6 +8812,330 @@ class SummaryPlan(_Strict):
     estimated_cost_usd_high: float = Field(ge=0)
 
 
+# --- The release dataset export (`fedcourts export`) -------------------------
+#
+# One model per exported row, so the Parquet types, the CSV header, the JSON
+# Schemas and the bundle's data dictionary are all read off the same fields and
+# cannot drift from one another.
+
+#: Why an exported grading does not count toward any scored figure.
+ExportExclusionReason = Literal[
+    "forward_claim", "leakage", "forward_claim_and_leakage", "superseded", "out_of_scope"
+]
+
+
+class ExportPredictionRow(_Strict):
+    """One row of the release dataset's ``predictions`` table: one committed prediction.
+
+    Keyed on ``(case_id, event_id, predictor_id, run_id)``, the ledger path the
+    prediction was committed at. The population is every prediction in the
+    export's process scope, graded or not; the flags say which of them the
+    scored figures count and which were set aside.
+    """
+
+    case_id: str = Field(
+        description="The case id, `<court>/<docket_id>`: a CourtListener docket id, or a "
+        "project-minted reserved-range id for a petition the Court's own site reached first"
+    )
+    court: str = Field(description="The court id half of `case_id` (e.g. `scotus`)")
+    docket_id: int = Field(description="The numeric docket-id half of `case_id`")
+    docket_number: str | None = Field(
+        description="The docket number the Court itself assigned (e.g. `25-1234`), the one "
+        "field read from the corpus; null where the corpus holds none for the case or the "
+        "export was built without it (see the manifest's `docket_numbers`)"
+    )
+    caption: str | None = Field(
+        description="The event's title from its committed `event.yaml`, which names the "
+        "case; null where the event definition is absent"
+    )
+    event_id: str = Field(description="The event id, `evt-<kind>-<slug>`")
+    event_kind: EventKind | None = Field(
+        description="The event's kind from `event.yaml`; null where the definition is absent"
+    )
+    stage: Stage | None = Field(
+        description="The decision stage, normalized as the scored figures read it: a "
+        "petition or appeal event with no recorded stage reads as `cert`; null means no stage"
+    )
+    moment: Moment | None = Field(
+        description="The forecast moment within the stage, normalized as the scored figures "
+        "read it (an unrecorded moment reads as the stage's first); null where no stage"
+    )
+    predictor_id: str = Field(description="The predictor that wrote the prediction")
+    engine: Engine = Field(description="The agentic engine the predictor ran on")
+    model: str | None = Field(
+        description="The model the prediction records as having run; null where it "
+        "recorded none (an offline run, or a record written before the field existed). "
+        "Not back-filled from the engine's default, which can move after a run"
+    )
+    run_id: str = Field(
+        description="The prediction's run id (a UTC timestamp), as its ledger path spells it"
+    )
+    created_at: datetime = Field(
+        description="When the predictor says it wrote the prediction (agent-written; the "
+        "harness clock is `stamped_at`)"
+    )
+    probability: float = Field(
+        description="The forecast probability of the positive outcome (a grant, at the cert stage)"
+    )
+    granted: int = Field(description="The binary call the prediction makes: 1 positive, 0 not")
+    predicted_disposition: Disposition = Field(description="The predicted disposition label")
+    mode: str | None = Field(
+        description="The harness's claim about the cell: `forward` (provisioned as a "
+        "pending case) or `replay`; null where no context was recorded. A claim, not the "
+        "split: `stratum` alone decides forward vs retrospective, and a `forward` cell "
+        "resolved on its harness clock day (a same-day tie) is retrospective"
+    )
+    salience_version: str | None = Field(
+        description="The salience scorer version that assigned `band`; null where unrecorded"
+    )
+    band: str | None = Field(
+        description="The case's salience band as at prediction, readable only beside "
+        "`salience_version`; null where the signals were unobservable or unrecorded"
+    )
+    term: int | None = Field(description="The case's October Term; null where unrecorded")
+    process_label: str | None = Field(
+        description="The harness process label (e.g. `proc-v8`); null on an unstamped cell"
+    )
+    process_digest: str | None = Field(
+        description="The harness process digest (`sha256:<hex>`) that identifies the prompt "
+        "and configuration that ran; null on an unstamped cell"
+    )
+    process_frozen: bool = Field(
+        description="Whether the process is in the pre-registered frozen set and ran at or "
+        "after the freeze instant (the manifest's `frozen_process`)"
+    )
+    stamped_at: datetime | None = Field(
+        description="When the harness stamped the cell (UTC): the clock the forward / "
+        "retrospective split uses; null on an unstamped cell, where the split falls back "
+        "to `created_at`"
+    )
+    pipeline_sha: str | None = Field(
+        description="The pipeline commit that stamped the cell; null where unrecorded"
+    )
+    ledger_commit: str | None = Field(
+        description="The first-parent commit of the checked-out history that added this "
+        "`prediction.json`: its landing on `main` when the manifest's "
+        "`source_on_main_first_parent` is true, and on any other checkout when the file "
+        "reached that line; null where the export was built without git history or the "
+        "file is uncommitted"
+    )
+    ledger_committed_at: datetime | None = Field(
+        description="The committer date of `ledger_commit` (UTC); null with it. GitHub's "
+        "own clock only where `ledger_committed_by_github` is true; otherwise the "
+        "committing machine's clock, and the landing pull request's `merged_at` is the "
+        "witness. Like `ledger_commit`, it dates the file reaching the checked-out line"
+    )
+    ledger_committed_by_github: bool | None = Field(
+        description="Whether `ledger_commit`'s committer is GitHub (`GitHub`, "
+        "`noreply@github.com`), as a web merge or auto-merge records it, so "
+        "`ledger_committed_at` is GitHub's clock. Necessary, not sufficient: a commit made "
+        "in a GitHub Codespace carries the same committer with the Codespace's clock, so "
+        "the landing pull request's `merged_at` is what settles a timing claim. Null with "
+        "`ledger_commit`; no committer identity is exported beyond this bit"
+    )
+    resolved_at: date | None = Field(
+        description="When the event resolved, from its `outcome.json`; null while unresolved"
+    )
+    actual_disposition: Disposition | None = Field(
+        description="The realized disposition label; null while unresolved"
+    )
+    actual_granted: int | None = Field(
+        description="The realized binary outcome: 1 positive, 0 not; null while unresolved"
+    )
+    disposition_basis: Literal["standard", "mootness"] | None = Field(
+        description="Whether the disposition rests on the ordinary standard or on "
+        "mootness (which routes the cell to the procedural stratum); null while unresolved"
+    )
+    stratum: Stratum | None = Field(
+        description="The stratum the scored figures place the prediction in (`forward`, "
+        "`retrospective` or `procedural`); null unless `scored`"
+    )
+    scored: bool = Field(
+        description="Whether at least one counted grading names this prediction, i.e. it "
+        "enters the scored figures"
+    )
+    staged: bool = Field(
+        description="Whether this is the predictor's newest run for the event, the one "
+        "provisioning stages for grading"
+    )
+    forward_claim_excluded: bool = Field(
+        description="Whether the harness record claims a forward cell but the event resolved "
+        "before the cell's harness clock day, which sets the prediction aside"
+    )
+    gradings_total: int = Field(
+        ge=0,
+        description="How many in-scope gradings of this prediction survive the re-grade "
+        "collapse: at most one per evaluator, whose newest grading of this predictor on "
+        "this event may name a different run, leaving this one with none",
+    )
+    gradings_leakage_flagged: int = Field(
+        ge=0, description="How many of those gradings record `leakage_suspected: true`"
+    )
+    set_aside: bool = Field(
+        description="Whether the prediction is set aside from the scored figures: "
+        "`forward_claim_excluded`, or graded with every in-scope grading leakage-flagged"
+    )
+
+
+class ExportGradingRow(_Strict):
+    """One row of the release dataset's ``gradings`` table: one judge's grading.
+
+    Long form: a prediction graded by three evaluators has three rows, joined to
+    its ``predictions`` row on ``(case_id, event_id, predictor_id,
+    prediction_run_id)``. Every grading of an exported prediction is a row,
+    re-grades and out-of-scope gradings included; ``counted`` and
+    ``excluded_reason`` say which ones the scored figures read.
+    """
+
+    case_id: str = Field(description="The graded prediction's case id")
+    event_id: str = Field(description="The graded prediction's event id")
+    predictor_id: str = Field(description="The graded prediction's predictor")
+    prediction_run_id: str = Field(
+        description="The graded prediction's run id: `run_id` in the predictions table"
+    )
+    evaluator_id: str = Field(description="The evaluator (judge) that wrote the grading")
+    evaluator_engine: Engine = Field(description="The engine the evaluator ran on")
+    evaluator_model: str | None = Field(
+        description="The model the grading records as having run; null where it recorded "
+        "none. Not back-filled from the engine's default, which can move after a run"
+    )
+    run_id: str = Field(description="The grading's own run id (a UTC timestamp)")
+    correct: int | None = Field(
+        description="Whether the prediction's binary call matched the outcome: 1 yes, 0 no; "
+        "null where not graded on it"
+    )
+    brier_score: float | None = Field(
+        description="The Brier score of `probability` against the outcome; null where not computed"
+    )
+    brier_skill_score: float | None = Field(
+        description="The Brier skill score against `segment_base_rate`; null without a baseline"
+    )
+    segment_base_rate: float | None = Field(
+        description="The registered base rate the skill score is measured against; null without one"
+    )
+    base_rate_salience_version: str | None = Field(
+        description="The salience version the base rate's band population is keyed on; null "
+        "where the baseline is not banded"
+    )
+    leakage_suspected: bool | None = Field(
+        description="The judge's verdict on whether the prediction may have read its own "
+        "outcome; null where not assessed"
+    )
+    counted: bool = Field(description="Whether the scored figures count this grading")
+    excluded_reason: ExportExclusionReason | None = Field(
+        description="Why an uncounted grading is not counted: `forward_claim` (the "
+        "prediction's forward claim is contradicted by its own record), `leakage` "
+        "(`leakage_suspected` is true), `forward_claim_and_leakage` (both), `superseded` "
+        "(a newer grading by the same judge of the same predictor on this event replaced "
+        "it, possibly one of a different prediction run) or "
+        "`out_of_scope` (the grading's harness stamp is absent or predates the freeze "
+        "instant); null when counted"
+    )
+    process_digest: str | None = Field(
+        description="The evaluator's harness process digest; null on an unstamped grading"
+    )
+    stamped_at: datetime | None = Field(
+        description="When the harness stamped the grading (UTC); null on an unstamped grading"
+    )
+
+
+class ExportReasoningRecord(_Strict):
+    """One line of the release dataset's ``reasoning.jsonl``: a prediction's two documents.
+
+    Keyed on the same ``(case_id, event_id, predictor_id, run_id)`` as the
+    predictions table. ``predicted_reasoning`` forecasts what the court will do;
+    ``reasoning`` justifies the predictor's own number.
+    """
+
+    case_id: str = Field(description="The prediction's case id")
+    event_id: str = Field(description="The prediction's event id")
+    predictor_id: str = Field(description="The prediction's predictor")
+    run_id: str = Field(description="The prediction's run id")
+    predicted_reasoning: str | None = Field(
+        description="The text of the prediction's `predicted_reasoning.md`, its forecast of "
+        "the court's reasoning; null where the prediction names none"
+    )
+    reasoning: str | None = Field(
+        description="The text of the prediction's `reasoning.md`, the predictor's "
+        "justification of its number; null where the document is absent"
+    )
+
+
+class ExportCorpusVintage(_Strict):
+    """The corpus blob the export's docket numbers were read from, and how fresh it was."""
+
+    backend: str = Field(description="The corpus read backend (`local` or `ranged`)")
+    latest_pull: date | None = Field(
+        description="The newest `last_pulled` across the blob's cases; null if never pulled"
+    )
+    latest_snapshot: date | None = Field(
+        description="The newest dated snapshot the blob itself stores; null where it stores none"
+    )
+
+
+class ExportFile(_Strict):
+    """One file of the release dataset bundle, with its checksum."""
+
+    path: str = Field(description="The file's path inside the bundle")
+    sha256: str = Field(description="The file's SHA-256, lowercase hex")
+    size: int = Field(ge=0, description="The file's size in bytes")
+
+
+class ExportManifest(_Strict):
+    """``MANIFEST.json`` — what built the release dataset bundle, and from which ledger.
+
+    Holds no build timestamp: a rebuild from the same commit, against the same
+    corpus blob, with the same package and pyarrow versions, reproduces the
+    bundle byte for byte, and ``source_commit`` dates it.
+    """
+
+    dataset: Literal["fedcourtsai-ledger-export"] = "fedcourtsai-ledger-export"
+    source_commit: str | None = Field(
+        description="The commit checked out when the bundle was built; null where the "
+        "export was built without git"
+    )
+    source_dirty: bool | None = Field(
+        description="Whether the checkout had uncommitted changes (tracked files anywhere, or "
+        "untracked files under the ledger); a bundle for release is built clean; null "
+        "without git"
+    )
+    source_on_main_first_parent: bool | None = Field(
+        description="Whether `source_commit` is on `origin/main`'s first-parent line as "
+        "the checkout knew it (nothing is fetched), which is when `ledger_commit` dates "
+        "each prediction's landing on `main`; a release bundle requires true. Null "
+        "without git or where the checkout has no `origin/main`"
+    )
+    build_command: str = Field(description="The command that built the bundle")
+    package_version: str = Field(description="The fedcourtsai package version that built it")
+    process_scope: Literal["frozen", "all"] = Field(
+        description="`frozen`: predictions from the pre-registered process only; `all`: every "
+        "process version (a diagnostic scope, never the release)"
+    )
+    frozen_process: FrozenProcessRecord | None = Field(
+        description="The freeze constants the frozen scope applied; null under `all`"
+    )
+    forward_claim_policy: str = Field(
+        description="The forward-claim policy the scored population was built under"
+    )
+    ledger_commits: Literal["git", "omitted"] = Field(
+        description="`git`: `ledger_commit` was read from the source history; `omitted`: "
+        "built without git history, so the column is null throughout"
+    )
+    docket_numbers: Literal["corpus", "omitted"] = Field(
+        description="`corpus`: `docket_number` was read from the corpus; `omitted`: built "
+        "without a corpus, so the column is null throughout"
+    )
+    corpus_vintage: ExportCorpusVintage | None = Field(
+        description="The corpus blob the docket numbers came from; null when omitted"
+    )
+    counts: dict[str, int] = Field(
+        description="Row counts per table and the population's headline tallies"
+    )
+    files: list[ExportFile] = Field(
+        description="Every other file in the bundle with its checksum, in path order"
+    )
+
+
 # Maps on-disk filename -> the model that validates it. Used by `fedcourts validate`.
 FILENAME_MODELS: dict[str, type[_Strict]] = {
     "case.yaml": TrackedCase,
@@ -8674,4 +9190,8 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "qp_topics": QpTopicLabels,
     "case_summary_front_matter": CaseSummaryFrontMatter,
     "summary_plan": SummaryPlan,
+    "export_prediction_row": ExportPredictionRow,
+    "export_grading_row": ExportGradingRow,
+    "export_reasoning_record": ExportReasoningRecord,
+    "export_manifest": ExportManifest,
 }

@@ -204,7 +204,32 @@ extraction of a public-domain federal opinion, outside the CC BY-ND value-add
 layer, the staged copy is gitignored and never committed, and `basis` is capped
 at 2,000 characters by schema. Both are original
 analysis attributing CourtListener as the source, not a republication of their
-dataset. The public surface is therefore our derived judgments over public-domain
+dataset.
+
+A **results release** adds one more surface: the release dataset, a flat
+export of the ledger built from the tagged commit by `fedcourts export` — a
+predictions table and a gradings table (CSV and Parquet), the reasoning
+documents, a data dictionary, the schemas, and a manifest naming the commit and
+each file's checksum — deposited on Zenodo as a dataset record. The command
+exists; no release has published a bundle yet. The data files are under
+**CC BY 4.0**, a licence that covers only the project's own predictions,
+outcomes and evaluations; the schemas are generated from the code and ship
+under its BSD 3-Clause licence. It carries **no code**. Everything in it is the
+ledger's own work product re-laid as tables, including the caption each event
+already carries in public git, plus exactly **one field from the corpus**: the
+case's docket number, the identifier the Court itself assigned. That is a
+public-record fact outside the CC BY-ND term, and it is the same field the
+qp-topic artifacts above already publish beside case ids. Nothing else crosses
+from the corpus: no CourtListener value-add field (nature of suit, judges,
+panel, cluster citations, summaries), no snapshot, and no document or opinion
+text beyond what the ledger's own reasoning and evaluation prose may quote on
+the footing above. The data dictionary repeats the attribution in
+[`NOTICE`](../NOTICE): most of the case ids the export is keyed on are
+CourtListener docket ids (a petition the live channel reached first keeps a
+reserved-range id the project mints), and the ledger was built from the corpus
+either way.
+
+The public surface is therefore our derived judgments over public-domain
 facts — not a redistribution of the bulk corpus.
 
 ## Pull cadence and the API budget
