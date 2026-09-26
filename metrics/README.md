@@ -42,10 +42,14 @@ a re-queue after a failed cell, or a deliberate re-forecast — and the board
 reads exactly one of them: the run the grading evaluation's harness-stamped
 `prediction_run_id` names, falling back to the predictor's **newest** run where
 that field is absent or the run it names is not on disk. So the staged and scored cell is the
-newest one, and an earlier run is history that no figure counts twice.
+newest one, and an earlier run is history that no figure counts twice. (That is within one
+counting window: across windows, the earliest window's cell counts, as registered in
+[freeze-record.md](../docs/freeze-record.md), 2026-09-26, and held until built.)
 
 That matters because a predictor-half re-bless de-counts every cell stamped
-under the retired digests, including cells on events that have **not yet
+under the retired digests (declared replaced from `proc-v8` on by closed
+counting windows, and held until they are built — see
+[freeze-record.md](../docs/freeze-record.md), 2026-09-26), including cells on events that have **not yet
 resolved**. Those events would otherwise be consumed for nothing: graded on
 resolution, then dropped from this scope, leaving the frozen board with no
 population at all. The predict backlog therefore **re-owes** a cell on a
