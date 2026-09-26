@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000273",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "codex-baseline's harness-captured retrieval_log.json (14 rows, all shell/other, result_capture_coverage 0.57, last row 02:49:21Z versus prediction created_at 02:50:14Z) records none of the two supremecourt.gov PDF fetches and five CourtListener MCP searches its own retrieval.md discloses with query and document ids. The log undercounts that cell's retrieval, so the leakage grade rests on the candidate's disclosure and dates rather than on the captured log. No leakage is suspected (forward cell, outcome did not exist until 2026-09-25), but the capture gap is worth a look on the engine side.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-motion-disposition",
+      "message": "The outcome label is `withdrawn` (applicant withdrew the stay application on 2026-09-25 after the 2026-09-16 execution date passed; no Court order on the application). Every candidate predicted `denied`, so correct=0 for all three by exact label match and the bit carries no information about relative skill on this cell. brier_score remains meaningful since a withdrawal counts as ungranted. Recording so the run summary does not read three zeros as three misses.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260926T184314Z",
+  "schema_version": "1.0"
+}
