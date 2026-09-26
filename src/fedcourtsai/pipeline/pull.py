@@ -51,6 +51,7 @@ from .moments import spec_for
 from .outcome import (
     UnrecordedOutcome,
     disposition_basis,
+    forward_leakage,
     read_order_markers,
     resolve_case,
     termination_signal,
@@ -697,13 +698,14 @@ class PredictBacklog:
     stage's own schedule, which reads the committed record and derives its fan-out
     from it.
 
-    The two **hold** counts are the derivation's other output, and they are
+    The three **hold** counts are the derivation's other output, and they are
     counted over the *owed* population alone — a candidate is only counted as
     held if, but for the hold, it would have produced an entry. That is what
     makes them mean something: "work this lane owes and cannot mint yet",
     rather than "candidates that fell out somewhere", which the ordinary
-    admission rules already drop by the hundred. Both holds clear on their own
-    as another lane advances, which is why they are reported at all — an empty
+    admission rules already drop by the hundred. Every hold clears on its own
+    as another lane advances or the docket moves, which is why they are
+    reported at all — an empty
     backlog otherwise reads the same whether the queue is drained or every owed
     case is waiting on a lane this one cannot drive.
 
@@ -712,12 +714,21 @@ class PredictBacklog:
     - ``held_unswept`` — the pull lane has never queued the case *and* it has
       no stored documents, so provisioning has not been attempted for it.
       Clears when run-pull sweeps it.
+    - ``held_decided`` — the case's latest stored snapshot already discloses
+      the outcome of every event it is owed
+      (:func:`~fedcourtsai.pipeline.outcome.forward_leakage`), so provisioning
+      would refuse each of its forward cells. Clears when the events resolve,
+      or when a newer snapshot stops disclosing them — which, for a scan false
+      positive, is not until the docket itself moves. ``decided_events`` names
+      every dropped ``(case_id, event_id, reason)``, including events dropped
+      from a case that is still derived, so each drop is traceable to its
+      docket and the entry that tripped the scan.
 
-    The classes are first-match (staleness is tested first), so a case that is
-    both counts once, under ``held_stale``; the sum is the true held total.
+    The classes are first-match, in that order, so a case in several counts
+    once, under the first; the sum is the true held total.
 
     ``cap_reached`` says the scan hit ``cap`` rather than exhausting the
-    candidates, so both counts are **censored** and a reader quoting a hold
+    candidates, so every hold count is **censored** and a reader quoting a hold
     count without it would be quoting a lower bound as a total. It covers two
     stopping shapes, since the re-predict rule gave the cap two effects: the
     walk breaking outright (the cap full of never-predicted work, so nothing
@@ -727,7 +738,7 @@ class PredictBacklog:
     skipped silently rather than counted as held.
 
     ``day`` is the date the derivation ran under, carried so a reader can say
-    which day's debounce stamps and which staleness horizon it filtered on.
+    which staleness horizon it filtered on.
 
     ``reowed_events`` counts the entries' ``reopened`` events across the whole
     derivation — the pre-freeze re-predict rule's own contribution, reported
@@ -740,6 +751,8 @@ class PredictBacklog:
     day: date
     held_stale: int = 0
     held_unswept: int = 0
+    held_decided: int = 0
+    decided_events: tuple[tuple[str, str, str], ...] = ()
     cap_reached: bool = False
 
     @property
@@ -757,11 +770,10 @@ def _predict_backlog_candidates(
     seen: set[str],
     predicted: frozenset[str],
     merits_open: set[str],
-    day: date,
 ) -> list[tuple[corpus.CorpusRow, bool]]:
     """The rows :func:`derive_predict_backlog` may spend a cap slot on, stalest first.
 
-    Steps 1 through 6 of that function's admission list — everything decidable
+    Steps 1 through 5 of that function's admission list — everything decidable
     from the row and the two bulk reads, before any per-case ledger or document
     work. Each row is paired with the ``cohort_only`` flag saying it was admitted
     on the cohort-completion ground alone, which is what narrows its events.
@@ -793,7 +805,7 @@ def _predict_backlog_candidates(
         if case_id in seen:
             continue
         row = corpus.get_row(conn, case_id)
-        if row is None or row.predict_queued_at == day or row.predict_excluded:
+        if row is None or row.predict_excluded:
             continue
         # The sweep's candidate filter, verbatim, so admission and narrowing
         # cannot disagree: a row neither selection nor the merits bypass admits
@@ -916,6 +928,41 @@ def _reowed_pre_freeze_events(
     return reowed
 
 
+def _drop_disclosed(
+    conn: corpus.ReadConnection,
+    case_id: str,
+    court: str,
+    owed: list[str],
+    reowed: list[str],
+    dropped: list[tuple[str, str, str]],
+) -> tuple[list[str], list[str]]:
+    """``owed`` and ``reowed`` less each event the case's latest snapshot answers.
+
+    One snapshot read per case, scanned per event with
+    :func:`~fedcourtsai.pipeline.outcome.forward_leakage` — the refusal
+    provisioning applies to a forward cell — so the backlog never derives a
+    cell provisioning would refuse. Each dropped event is appended to
+    ``dropped`` as ``(case_id, event_id, reason)``. A case with no stored
+    snapshot keeps its events: provisioning refuses that shape too, but loudly
+    and by name (exit 1, no snapshot in the corpus), which a count here would
+    turn silent.
+    """
+    snapshot = corpus.latest_snapshot(conn, case_id)
+    if snapshot is None:
+        return owed, reowed
+    payload = snapshot[1]
+    disclosed: dict[str, str] = {}
+    for event_id in dict.fromkeys([*owed, *reowed]):
+        reason = forward_leakage(payload, court, event_id)
+        if reason is not None:
+            disclosed[event_id] = reason
+    dropped.extend((case_id, event_id, reason) for event_id, reason in disclosed.items())
+    return (
+        [event_id for event_id in owed if event_id not in disclosed],
+        [event_id for event_id in reowed if event_id not in disclosed],
+    )
+
+
 def derive_predict_backlog(
     conn: corpus.ReadConnection,
     data_root: Path,
@@ -947,33 +994,30 @@ def derive_predict_backlog(
     1. ``already_queued`` — case ids a caller has already covered this cycle.
     2. The case has a row (an open event whose case row is absent cannot be
        scope-checked, so it is skipped rather than crashed).
-    3. ``row.predict_queued_at != day`` — the one-way debounce. This lane writes
-       no stamp, so it honours the one the pull/live lane wrote (a case handed
-       off this morning is not re-derived tonight) and leaves none of its own.
-    4. ``not row.predict_excluded`` — the cheap row-level scope latch, the
+    3. ``not row.predict_excluded`` — the cheap row-level scope latch, the
        sweep's own pre-filter.
-    5. Funding: selected by salience, **or** carrying an open merits event (the
+    4. Funding: selected by salience, **or** carrying an open merits event (the
        Court's own selection outranks the cert-stage funding question), **or**
        already holding a committed prediction somewhere (cohort completion or a
        pre-freeze re-predict, admission only — see the narrowing below).
-    6. :func:`_row_in_predict_scope` — the full scope gate the pull and live
+    5. :func:`_row_in_predict_scope` — the full scope gate the pull and live
        lanes apply at queue time, with ``cohort_completion`` set exactly when
-       (5) admitted the row on the cohort ground alone.
-    7. **Owed** — some ``(predictor, event)`` cell of the case is either
+       (4) admitted the row on the cohort ground alone.
+    6. **Owed** — some ``(predictor, event)`` cell of the case is either
        unpredicted, or **re-owed under the pre-freeze rule**, and under the
        per-cell attempt cap, over the event list the cohort narrowing below
        leaves.
 
-    Then two **timing holds**, which run only on a case step 7 found owed, so
-    every held case is one this lane genuinely owes and cannot mint yet:
+    Then three **holds**, which run only on a case step 6 found owed, so every
+    held case is one this lane genuinely owes and cannot mint yet:
 
-    8. **Record freshness** — the case was observed by either ingestion channel
+    7. **Record freshness** — the case was observed by either ingestion channel
        within :data:`BACKLOG_MAX_POLL_AGE_DAYS` (:func:`_last_observed`).
        Counted on ``held_stale``. The sweep re-polls before it queues and can
        divert a now-decided docket; this scan cannot, so the record's age is
        the only guard it has against a forward cell on a case whose answer is
        already public.
-    9. **Provisioning attempted** — the case has stored documents *or* carries
+    8. **Provisioning attempted** — the case has stored documents *or* carries
        a ``predict_queued_at`` stamp. Counted on ``held_unswept``. The stamp is
        the pull lane's own record that it queued the case, and the sweep
        provisions at queue time, so a stamp is proof provisioning **ran** —
@@ -986,17 +1030,42 @@ def derive_predict_backlog(
        An admitted case whose store is empty mints a cell with a thin
        ``record/``; that is the queued-without-petition coverage metric's
        problem to report, not this predicate's to exclude.
+    9. **Outcome not disclosed** — per event, the case's latest stored snapshot
+       does not already show that event's outcome
+       (:func:`~fedcourtsai.pipeline.outcome.forward_leakage`, the scan
+       provisioning refuses a forward cell on). An event it flags is dropped;
+       a case left with none is counted on ``held_decided``. This is the plan
+       seam's copy of the live routing's decided-docket diversion, which keeps
+       such a docket off the queue but records nothing the backlog can read.
 
-    Steps 1 through 6 filter, then candidates sort **stalest first** (see
-    :func:`_predict_backlog_candidates`) and steps 7 through 9 run inside the
+    Steps 1 through 5 filter, then candidates sort **stalest first** (see
+    :func:`_predict_backlog_candidates`) and steps 6 through 9 run inside the
     ``cap`` — a held case costs no cap slot, but the loop still stops at the
-    cap, so both hold counts are censored by it and ``cap_reached`` says
-    whether they were. Ordering the owed check ahead of the holds is also what
-    keeps the document probe cheap under the corpus split: step 9 reads the
-    store only for an owed, fresh, never-queued case, which is a small fraction
-    of the candidate set rather than all of it. ``cap`` bounds model spend and
-    PR volume: each queued case fans out one cell per predictor still owed the
+    cap, so every hold count is censored by it and ``cap_reached`` says
+    whether it was. Ordering the owed check ahead of the holds is also what
+    keeps the store reads cheap under the corpus split: step 8 reads the store
+    only for an owed, fresh, never-queued case, and step 9 reads one snapshot
+    per owed case that passed the other holds — a small fraction of the
+    candidate set rather than all of it. ``cap`` bounds model spend and PR
+    volume: each queued case fans out one cell per predictor still owed the
     event.
+
+    The stalest-first order keys on the pull/live lane's stamp, which that lane
+    refreshes on an active docket every day, so when more cases are owed than
+    ``cap`` the dockets moving fastest are derived last. Under the cap nothing
+    is lost; above it, they wait for the older owed cases to drain.
+
+    **A ``predict_queued_at`` stamp holds nothing off.** The pull and live
+    lanes write it and mint nothing, so this derivation is the only lane that
+    turns a queued case into cells. A debounce on today's stamp would hold off
+    exactly the cases the live channel is watching most closely: it re-stamps a
+    case on each day's first poll that sees docket activity, and its morning
+    windows precede both scheduled rounds, so an active application or petition
+    would be skipped at every round for as long as its docket kept moving. What
+    makes a repeated derivation safe is the fan-out's per-``(predictor, event)``
+    already-predicted skip — the ledger-side idempotency
+    :func:`derive_evaluate_backlog` rests on too — with the stranded-run guard
+    covering a round whose collect has not merged.
 
     run-pull stays the sole provisioner, and the property that gives is a
     **throughput bound, not a latency one**: this backlog can never outrun
@@ -1103,13 +1172,15 @@ def derive_predict_backlog(
     predicted = predicted_case_ids(data_root)
     merits_open = corpus.merits_open_case_ids(conn)
     candidates = _predict_backlog_candidates(
-        conn, seen=seen, predicted=predicted, merits_open=merits_open, day=day
+        conn, seen=seen, predicted=predicted, merits_open=merits_open
     )
 
     entries: list[BacklogEntry] = []
     reowed_only: list[BacklogEntry] = []
     held_stale = 0
     held_unswept = 0
+    held_decided = 0
+    decided: list[tuple[str, str, str]] = []
     cap_reached = False
     for row, cohort_only in candidates:
         # Two different budgets, and the difference is what stops the re-predict
@@ -1224,6 +1295,17 @@ def derive_predict_backlog(
             # an application form has no document route at all.
             held_unswept += 1
             continue
+        # The same textual disclosure scan provisioning runs on the same newest
+        # snapshot, asked here so an owed event whose docket already shows its
+        # outcome is never derived: provisioning would refuse the cell, but only
+        # after the round spent a runner on it, and the event stays owed — and
+        # re-derived — at every round until its outcome is recorded. Keyed per
+        # event, because one docket discloses different events' outcomes: the
+        # grant that answers a cert event opens the merits event beside it.
+        owed, reowed = _drop_disclosed(conn, row.case_id, court, owed, reowed, decided)
+        if not owed and not reowed:
+            held_decided += 1
+            continue
         # Never-predicted events lead the list, events re-owed and nothing else
         # follow, so a downstream reader that truncates an event list keeps the
         # ordinary backlog first — the same priority the two entry lists give at
@@ -1260,6 +1342,8 @@ def derive_predict_backlog(
         day=day,
         held_stale=held_stale,
         held_unswept=held_unswept,
+        held_decided=held_decided,
+        decided_events=tuple(decided),
         cap_reached=cap_reached,
     )
 

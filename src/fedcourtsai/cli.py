@@ -231,7 +231,6 @@ from .pipeline.cascade import CascadeError, run_cascade
 from .pipeline.cert_signals import (
     DEFAULT_DISTRIBUTION_PARSE,
     DISTRIBUTION_PARSES,
-    match_disposition_signal,
 )
 from .pipeline.claims import score_claims
 from .pipeline.decision_dates import converge_decision_dates
@@ -258,17 +257,14 @@ from .pipeline.documents import (
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.ingest import UNSAMPLED_WEIGHT
-from .pipeline.judgment import backfill_merits_judgments, last_judgment_entry
+from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.live import live_poll_all
 from .pipeline.ocr_recovery import DEFAULT_PROBE_SAMPLE as DEFAULT_OCR_PROBE_SAMPLE
 from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_documents
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
 from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
-    entry_descriptions,
-    interim_disposal_signal,
-    snapshot_shows_disposition,
-    snapshot_shows_judgment,
+    forward_leakage,
 )
 from .pipeline.party import (
     PARTY_AS_OF_FIELDS,
@@ -9987,71 +9983,6 @@ def paths(
             typer.echo("outcome   (evaluator-only — never a predictor input)")
 
 
-def _forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> str | None:
-    """Why a forward cell's snapshot already shows **its own** event's outcome.
-
-    A forward *prediction* cell forecasts a genuinely pending event, so a
-    snapshot disclosing that event's outcome must never be materialized — it
-    would hand the predictor the answer. The question is always keyed on the
-    event, because one docket carries outcomes of different events at once: a
-    granted cert docket's grant order *is* a disclosed cert outcome and is also
-    the thing that opens the merits proceeding, so the same entry that must
-    refuse a cert cell must not refuse the merits cell it created.
-
-    On the **merits** event the disclosed outcome is the judgment, tested two
-    ways because they fail differently. The shared merits parser
-    (:func:`fedcourtsai.pipeline.judgment.last_judgment_entry`) names the
-    judgment it read, which makes the refusal legible; it is deliberately
-    conservative, though, so :func:`snapshot_shows_judgment` runs beside it and
-    supplies the recall — every terminal shape the cert scan catches is a
-    decided merits docket too, and a miss here hands a forward cell its answer.
-    Nothing cert-shaped applies beyond that: the grant, the distributions, and
-    the CVSG are the merits cell's legitimate provisioned record.
-
-    On every other event the disclosed outcome is the cert or interim
-    disposition, and three checks run over either payload shape (REST
-    ``docket_entries`` or the raw live ``ProceedingsandOrder``):
-
-    - the high-recall terminal scan (:func:`snapshot_shows_disposition`, over
-      *every* entry) — provisioning's semantic is "outcome visible anywhere in
-      the snapshot", not docket pendency, so a disposition followed by
-      administrative notations ("Application ... denied as moot") that hide it
-      from the latest-entry rule, and the cert-before-judgment grant / merits
-      judgment the resolver omits, are still caught;
-    - the resolver (:func:`match_disposition_signal`) over *every* entry, which
-      adds the plain cert grant/denial orders that are not terminal-shaped;
-    - on an application-form docket, the high-recall interim disposal scan
-      (:func:`interim_disposal_signal`) — the cert-shaped checks above match no
-      application phrasing, and the interim resolver's exact vocabulary can
-      miss a disposal that names the relief instead of the application.
-
-    The pull-side routing skip and the resolver latch are the primary
-    protections; this refusal is defense-in-depth for cells fanned out before
-    the docket latched.
-    """
-    # Keyed on the event's declared STAGE, not on one event id: every merits
-    # moment forecasts the judgment, so every one of them must take the judgment
-    # branch. Testing an id would send a later merits moment down the cert
-    # branch, where the grant order that opened its own proceeding reads as a
-    # disclosed outcome — refusing the cell permanently, and silently.
-    spec = moments.spec_for(event_id)
-    if spec is not None and spec.stage is Stage.merits:
-        judgment = last_judgment_entry(payload)
-        if judgment is not None:
-            return f"snapshot carries a merits judgment: {judgment[0].value!r}"
-        return snapshot_shows_judgment(payload)
-    terminal = snapshot_shows_disposition(payload)
-    payload_number = str(payload.get("docket_number") or payload.get("CaseNumber") or "")
-    if terminal is None and court == "scotus" and corpus.is_scotus_application_form(payload_number):
-        terminal = interim_disposal_signal(payload)
-    if terminal is None:
-        for text in entry_descriptions(payload):
-            matched = match_disposition_signal(text)
-            if matched is not None:
-                return f"snapshot carries a disposition order: {matched[2]!r}"
-    return terminal
-
-
 def _refuse_forward_if_closed(
     backend: corpus.CorpusBackend,
     gate_events: Sequence[corpus.CorpusEvent],
@@ -10416,7 +10347,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
       snapshot shows the event is not open (nothing written): the record already
       holds the outcome (:func:`fedcourtsai.store.forward_refusal_reason`), the
       snapshot is older than the forward staleness bound, or the snapshot text
-      discloses the outcome (see :func:`_forward_leakage`).
+      discloses the outcome (see :func:`~fedcourtsai.pipeline.outcome.forward_leakage`).
     * **4** — an interim arrival cell whose opening entry cannot be anchored in
       the snapshot (nothing written). Mode-independent and not gated on
       ``--refuse-terminal``: the arrival moment's information set cannot be
@@ -10490,7 +10421,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             snapshot_date,
             max_snapshot_age_days,
         )
-        terminal = _forward_leakage(payload, court, event)
+        terminal = forward_leakage(payload, court, event)
         if terminal is not None:
             typer.echo(
                 f"::warning::refusing to provision forward cell for {case}: {terminal}",
@@ -12730,18 +12661,17 @@ def _predict_backlog_cases() -> list[CaseRequest]:
     already-predicted skip is the idempotency, reading the same committed ledger
     the deriver does, so re-deriving an unchanged backlog re-mints nothing that
     landed while a cell still missing is work still owed. The same two
-    consequences hold: the debounce is one-directional (this lane honours the
-    stamp the pull/live lane wrote and leaves none of its own), and the gate
-    reads *committed* state, so what bounds a second derivation firing before a
+    consequences hold: no stamp holds anything off in either direction (this
+    lane leaves none, and it does not honour the pull/live lane's — that lane
+    mints nothing, so its stamp would hold off the only lane that does), and the
+    gate reads *committed* state, so what bounds a second derivation firing before a
     collect PR merges is the stranded-run guard — the workflow's concurrency
     group serializes *rounds*, which is a different window — not this gate.
 
-    Writing no stamp has a **third** consequence, which belongs to whoever wires
-    a workflow to this and is not addressed here: the live channel's relist
-    suppression (``salience.relist_requeue_cooldown_days``) reads
-    ``predict_queued_at``, so a case this lane mints leaves that cooldown
-    unarmed and a relist landing days later is treated as a first queue rather
-    than administrative churn. The scheduled-lane workflow owns the fix.
+    Writing no stamp does not leave the live channel's relist suppression
+    (``salience.relist_requeue_cooldown_days``) unarmed: its anchor takes the
+    later of the stamp and the ledger's newest committed prediction, so a case
+    this lane mints arms the cooldown once its collect lands.
 
     Requires a **pulled** corpus, and enforces it, for the reason the evaluate
     twin does: one pass over every open event plus a point query per candidate
@@ -12856,6 +12786,20 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int) -> None:
             "never queued and that hold no stored documents, so provisioning has not been "
             "attempted for them. They become derivable as run-pull sweeps them, at its own "
             "per-window rate.",
+            err=True,
+        )
+    if backlog.held_decided:
+        typer.echo(
+            f"Predict backlog: held {backlog.held_decided} owed case(s) whose latest stored "
+            "snapshot already shows the outcome of every event they are owed, so "
+            "provisioning would refuse each forward cell. The hold clears when the events "
+            "resolve or a newer snapshot stops disclosing them.",
+            err=True,
+        )
+    for case_id, event_id, reason in backlog.decided_events:
+        typer.echo(
+            f"Predict backlog: dropped {case_id} {event_id}, its snapshot discloses the "
+            f"outcome: {reason}",
             err=True,
         )
 

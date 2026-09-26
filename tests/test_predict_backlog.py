@@ -725,18 +725,79 @@ def test_a_stamp_free_derivation_repeats_until_the_prediction_lands(tmp_path: Pa
     assert _derive(db, data) == ()
 
 
-def test_a_stamp_the_pull_lane_wrote_still_holds_the_derivation_back(tmp_path: Path) -> None:
-    """The two lanes debounce against each other in the one direction that is
-    possible: this scan writes no stamp, but it honours the one the pull/live lane
-    wrote, so a case handed off this morning is not derived again tonight."""
+def test_a_stamp_the_pull_lane_wrote_today_does_not_hold_the_derivation_back(
+    tmp_path: Path,
+) -> None:
+    """The pull and live lanes stamp a queued case and mint nothing, so the stamp
+    must not hold this, the only minting lane, off it. The live channel re-stamps
+    an active docket on each day's first poll, usually before the day's scheduled
+    rounds, so a same-day hold would skip that case at every round while its
+    docket moved."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _open_case(db, "scotus", 1)
-    with corpus.connect(db) as conn:
-        corpus.stamp_predict_queued(conn, ["scotus/1"], date(2026, 7, 20))
+    for day in (date(2026, 7, 20), date(2026, 7, 21)):
+        with corpus.connect(db) as conn:
+            corpus.stamp_predict_queued(conn, ["scotus/1"], day)
+        assert _derive(db, data, today=day) == ("scotus/1",)
 
-    assert _derive(db, data, today=date(2026, 7, 20)) == ()
-    assert _derive(db, data, today=date(2026, 7, 21)) == ("scotus/1",)
+
+def _snapshot(db: Path, case_id: str, *descriptions: str) -> None:
+    """Store one snapshot whose docket entries read ``descriptions`` in order."""
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(
+            conn,
+            case_id,
+            FRESH,
+            {"docket_entries": [{"description": text} for text in descriptions]},
+        )
+
+
+def test_a_docket_whose_snapshot_shows_the_outcome_is_held_not_derived(
+    tmp_path: Path,
+) -> None:
+    """The live routing diverts a decided-looking docket without recording why, so
+    the backlog asks the snapshot itself, with the scan provisioning refuses a
+    forward cell on. A case whose every owed event is answered is held and counted;
+    a sibling whose snapshot discloses nothing is derived as before."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1)
+    _snapshot(db, "scotus/1", "Petition for a writ of certiorari filed.", "Judgment Issued.")
+    _open_case(db, "scotus", 2)
+    _snapshot(db, "scotus/2", "Petition for a writ of certiorari filed.")
+
+    backlog = _backlog(db, data)
+    assert backlog.case_ids == ("scotus/2",)
+    assert backlog.held_decided == 1
+    ((case_id, event_id, reason),) = backlog.decided_events
+    assert (case_id, event_id) == ("scotus/1", EVENT)
+    assert "Judgment Issued." in reason
+
+
+def test_the_decided_hold_is_keyed_per_event_so_a_grant_never_holds_the_merits_event(
+    tmp_path: Path,
+) -> None:
+    """The grant order that answers a cert event is the one that opens the merits
+    proceeding, so a case-level scan would hold every granted docket's merits
+    forecast. The scan is asked per event, and on the merits event only a judgment
+    counts as disclosure."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(
+        db,
+        "scotus",
+        1,
+        event_id="evt-order-judgment",
+        stage=Stage.merits,
+        kind=EventKind.order,
+        granted_on=date(2026, 6, 1),
+    )
+    _snapshot(db, "scotus/1", "Petition for a writ of certiorari filed.", "Petition GRANTED.")
+
+    backlog = _backlog(db, data)
+    assert backlog.case_ids == ("scotus/1",)
+    assert (backlog.held_decided, backlog.decided_events) == (0, ())
 
 
 # --- the predict stage's second input mode, through the CLI ---

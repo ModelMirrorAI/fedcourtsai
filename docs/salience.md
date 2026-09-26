@@ -1119,8 +1119,8 @@ carries all three.
   fresher docket — at unequal information, **in a direction the record does not
   establish**: fresher is not monotonically better, and nothing here measures the
   sign. The ordinary missing-engine retry has the same asymmetry, and it is not
-  bounded either: the daily `predict_queued_at` debounce bounds re-queue
-  *cadence*, never the age of the skew, and the per-cell attempt cap counts
+  bounded either: the scheduled predict rounds bound the retry's *cadence*,
+  never the age of the skew, and the per-cell attempt cap counts
   committed `attempt.json` facts, so a whole-engine gap that recorded none never
   reaches it at all. What separates the two is when they start. The ordinary
   retry begins within a day of the gap appearing; cohort completion is the path
@@ -1147,8 +1147,9 @@ carries all three.
 The same sweep is the catch-up for petitions whose transitions all predate the
 first applied pass, and the retry for a selected petition whose queued run left a
 cell without a committed prediction; the `predict_queued_at` stamp the routing writes with every
-queue entry debounces that retry to daily, so an open-but-unmerged run PR is not
-re-queued every cycle. Document provisioning follows the same gate: a deferred
+queue entry debounces the sweep's re-queue to daily. The queue mints nothing: the
+scheduled predict backlog mints the missing cell, and its stranded-run guard is
+what keeps an open-but-unmerged run from being re-spent. Document provisioning follows the same gate: a deferred
 petition's transition fetches nothing, and its documents are provisioned by the
 sweep — when it is latched, or when cohort completion admits it.
 

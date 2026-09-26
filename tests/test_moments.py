@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from fedcourtsai import corpus
-from fedcourtsai.cli import _forward_leakage
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.claims import (
     CLAIM_AMICUS_INCREMENT,
@@ -24,6 +23,7 @@ from fedcourtsai.pipeline.outcome import (
     arrival_event_for,
     briefed_merits_event_for,
     cvsg_event_for,
+    forward_leakage,
     interim_response_events_for,
 )
 from fedcourtsai.schemas import Disposition, EventKind, Moment, Stage
@@ -215,10 +215,10 @@ def test_a_later_merits_moment_takes_the_judgment_leakage_branch(
         "ProceedingsandOrder": [{"Date": "Mar 4 2025", "Text": "Petition GRANTED."}],
     }
     # The cert moment must refuse: its own outcome is on the docket.
-    assert _forward_leakage(granted, "scotus", "evt-petition-disposition") is not None
+    assert forward_leakage(granted, "scotus", "evt-petition-disposition") is not None
     # Both merits moments must be admitted: the grant is their legitimate record.
-    assert _forward_leakage(granted, "scotus", "evt-order-judgment") is None
-    assert _forward_leakage(granted, "scotus", "evt-brief-judgment") is None
+    assert forward_leakage(granted, "scotus", "evt-order-judgment") is None
+    assert forward_leakage(granted, "scotus", "evt-brief-judgment") is None
 
 
 def _register(monkeypatch: pytest.MonkeyPatch, *extra: moments.MomentSpec) -> None:
