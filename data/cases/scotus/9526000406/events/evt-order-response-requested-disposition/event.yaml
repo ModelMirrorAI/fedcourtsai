@@ -1,4 +1,4 @@
-case_id: scotus/9526000388
+case_id: scotus/9526000406
 decision_target: disposition
 description: Disposition of the application, forecast after the Court called for a
   response.
@@ -6,8 +6,8 @@ docket_entry_id: null
 event_id: evt-order-response-requested-disposition
 kind: order
 moment: response-requested
-opened_at: '2026-09-22'
-resolved: true
+opened_at: '2026-09-24'
+resolved: false
 schema_version: '1.0'
 stage: interim
-title: People Not Politicians, et al. v. Robert Onder, et al.
+title: Department of Homeland Security, et al., v. D.V.D., et al.
