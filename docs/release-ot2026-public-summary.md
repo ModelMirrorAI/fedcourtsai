@@ -194,8 +194,11 @@ something stronger›
 
 - **Copy, don't compute.** Band figures come from the filled audit write-up;
   per-case probabilities, model names, landing commits and set-aside marks come
-  from the dataset export built at the tagged commit, and a merge time from
-  GitHub's record of the pull request that commit landed. If this page and either
+  from the dataset export, and a merge time from GitHub's record of the pull
+  request that commit landed. The page is filled from the export built at the
+  metrics refresh, and the tag waits until the build at the tagged commit
+  agrees with it on every row the page quotes (section 8 of the audit
+  write-up). If this page and either
   source disagree, the source wins and this page is corrected; if the export
   and the audit write-up disagree, the audit write-up wins.
 - **Band rows need a per-band producer.** A band row exists only where section 3
@@ -262,4 +265,5 @@ something stronger›
 5. The `results/ot2026-longconf` tag points at a commit carrying this filled
    page, the filled audit write-up, and the metrics refresh they both quote,
    the tag is published as a Release, and the dataset record's manifest names
-   that tagged commit.
+   that tagged commit. Before the tag, that commit's build was checked against
+   the export this page was filled from.

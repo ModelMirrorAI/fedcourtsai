@@ -1610,8 +1610,9 @@ procedure writes the pre-registration record into the tag message
   digests and the instant together. The namespace blocks moving either.
 - **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
   `-2` suffix distinguishes a same-day second batch.
-- **`results/<term>-<milestone>`** — the commit carrying a published metrics
-  refresh, e.g. `results/ot2026-longconf`.
+- **`results/<term>-<milestone>`** — a `main` commit whose tree carries a
+  published metrics refresh and the write-ups quoting it, e.g.
+  `results/ot2026-longconf`.
 
 One-time setup (maintainer): before the first tag is minted, add a tag
 ruleset blocking update and deletion on all three namespaces — a movable
