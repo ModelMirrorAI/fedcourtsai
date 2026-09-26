@@ -128,7 +128,7 @@ Which cases the predictors think matter, and where they disagree. One row per pr
 | 102 | `scotus/73281656` | Marion Alexander Lindsey v. South Carolina | `evt-petition-disposition` | 0.470 | 3 | 0.310 | 0.35 | 0.66 | 0.40 | pending | — |
 | 103 | `scotus/73500238` | Ramesh Sunny Balwani v. United States | `evt-petition-disposition` | 0.467 | 3 | 0.350 | 0.45 | 0.65 | 0.30 | pending | — |
 | 104 | `scotus/73272488` | James P. Abrams v. United States | `evt-petition-disposition` | 0.437 | 3 | 0.210 | 0.35 | 0.56 | 0.40 | pending | — |
-| 105 | `scotus/9526000273` | Stacey Ian Humphreys v. Georgia Board of Pardons and Paroles, et al. | `evt-motion-disposition` | 0.435 | 2 | 0.570 | 0.15 | 0.72 | — | pending | — |
+| 105 | `scotus/9526000273` | Stacey Ian Humphreys v. Georgia Board of Pardons and Paroles, et al. | `evt-motion-disposition` | 0.435 | 2 | 0.570 | 0.15 | 0.72 | — | resolved | — |
 | 106 | `scotus/73281345` | Holly Ann Elkins v. United States | `evt-petition-disposition` | 0.433 | 3 | 0.400 | 0.50 | 0.60 | 0.20 | pending | — |
 | 107 | `scotus/73281004` | Oregon, et al. v. Paul Maney, et al. | `evt-petition-disposition` | 0.427 | 3 | 0.280 | 0.40 | 0.58 | 0.30 | resolved | — |
 | 108 | `scotus/73281327` | Nicole Pileggi v. Washington Newspaper Publishing Company, LLC | `evt-petition-disposition` | 0.427 | 3 | 0.480 | 0.20 | 0.68 | 0.40 | pending | — |
