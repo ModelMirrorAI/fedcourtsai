@@ -608,9 +608,10 @@ def forward_refusal_reason_from_parts(
     """Why the **record** says no forward cell may be minted for this event.
 
     The mechanical companion to the snapshot-text guard in provisioning
-    (``_forward_leakage``): that one asks whether the provisioned payload
-    *discloses* the outcome, this one asks whether the outcome *exists* — and a
-    stale snapshot from a paused pipeline answers the first question with
+    (:func:`fedcourtsai.pipeline.outcome.forward_leakage`): that one asks
+    whether the provisioned payload *discloses* the outcome, this one asks
+    whether the outcome *exists* — and a stale snapshot from a paused pipeline
+    answers the first question with
     silence while the second still says no. Three checks, most specific first:
     the committed ``outcome.json`` and the corpus event's ``resolved`` flag
     (both via :func:`event_recorded_closed`), then the row's own latched
