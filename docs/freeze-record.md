@@ -5018,3 +5018,143 @@ freeze commit is recorded here.
   to a single top-level directory, `ModelMirrorAI-fedcourtsai-c2e19ea/`, whose
   contents are identical to `git archive 94ac906e3`: `diff -r` of that
   directory against the extracted `git archive` reports nothing.
+
+- **A superseded predictor process is closed, not revoked: `proc-v8`'s
+  counted cells keep counting after a successor, 2026-09-26.** A
+  **boundary declaration** made ahead of the rule's implementation, because
+  its evidentiary value is its date. It moves no digest, no constant and no
+  membership at this commit. `uv run fedcourts process-digest --all` prints
+  `proc-v8` and the same six blessed digests, and `FROZEN_SINCE` stays
+  `2026-09-16T00:26:04Z`. The third supersession shape in
+  [process-version.md](process-version.md) — a predictor-half re-bless that
+  de-counts every cell stamped under the superseded digests — was the right
+  rule while a new label usually meant the old one was wrong. From `proc-v8`
+  on, counted forecasts are published as the project's record, and a later
+  improvement to the pipeline is not a finding that they were wrong. This
+  entry registers what replaces that shape.
+
+  **Terms, as this entry uses them.** A **window** belongs to one blessing
+  of a predictor digest. It runs from the counting instant of the label that
+  blessed it until the counting instant of the successor that stops blessing
+  it, each instant as its `prereg/` tag records it. A digest carried forward
+  byte-identical into a successor keeps one unbroken window across both label
+  strings; a digest blessed again after its window closed opens a new window.
+  A **closed** window is one a successor has ended; its cells keep counting. This is deliberately not "retired": in
+  [process-version.md](process-version.md) and the code, a retired digest is
+  one whose cells are de-counted, and the implementation replaces that
+  meaning rather than reusing it.
+
+  **Scope.** The rule governs supersessions that land after this entry.
+  Windows already de-counted under the third shape, from `proc-v1` through
+  `proc-v7`, stay de-counted.
+
+  **The declaration.**
+
+  - **Supersession closes a window; it removes nothing.** When a successor
+    re-blesses the predictor half, each digest it stops blessing has its
+    window closed at the successor's counting instant. Every cell that counted
+    inside that window keeps counting, reported under the label that blessed
+    its digest. Nothing stamped under `proc-v8`'s blessed predictor digests at
+    or after `2026-09-16T00:26:04Z` and before a successor's instant is
+    de-counted by the successor's freeze.
+  - **A grading is gated on its prediction's window, not the successor's.** An
+    evaluation of a closed-window cell counts if it was stamped at or after
+    the instant that opened that cell's window, exactly as it does today. A
+    successor's later instant does not drop gradings made before it, so the
+    gradings of `proc-v8` cells made in October count wherever the successor's
+    instant falls.
+  - **One counted forecast per predictor and event: the earliest window's.**
+    A supersession re-owes nothing: the predict backlog's re-predict rule does
+    not re-owe an event on which a closed window holds a counted cell. Within a
+    window, the run collapse picks the counted cell as it does today. Where a
+    predictor holds cells from more than one window on one event — through a
+    named dispatch, or an attempt still open at the successor's instant — the
+    **earliest** window's counted cell is the one that counts. A later
+    window's cell on that event counts in no window and is not staged for
+    grading in its place. "Earliest" is read over windows that still count: a
+    revoked window's events are forecast afresh under the backlog rule where
+    still forward, and a later-window cell that predates the revocation stays
+    uncounted, so a revocation never decides which existing forecast is
+    scored. An event on which a predictor holds no counting cell is forecast
+    for that predictor under whichever label is in force when the backlog
+    reaches it.
+  - **No ranked or headline figure pools across windows.** Each figure is per
+    predictor *and* digest window. A new model under an unchanged
+    `predictor_id` is a different forecaster, so an engine's cells on either
+    side of a closed window are not one series. A view over several windows
+    is named as the record across those labels, lists them, shows each
+    window's `n` beside the pooled figure, and is never a rank key. A rise
+    across a window boundary is not a measurement of improvement.
+  - **Engines are compared only over events, not spans.** A cross-engine
+    comparison is read only over events on which every compared engine holds
+    a counted cell, each from one named window. A **split event** — one where
+    some engines' counted cells come from a window a successor has since
+    closed and others' from the successor — belongs to no complete grid, and
+    the successor's entry states how many there are. The events an engine
+    finishes late are selected, not random: attempt-cap failures concentrate
+    on the hard cases. The same selection shapes a successor window read
+    alone, since its population is the events the closed window did not reach,
+    so the successor's entry also states, per engine, how many of its counted
+    events hold a failed or missing earlier-window attempt.
+  - **An unbroken window licenses no other pooling.** A salience, baseline,
+    evaluator or any other boundary registered elsewhere still cuts inside a
+    digest window.
+  - **Revocation remains, for a defect, and cannot be chosen by outcome.** A
+    window's counted cells are de-counted only for a defect that invalidates
+    its forecasts. It takes a dated entry that states the defect and shows it
+    from committed artifacts without reference to any outcome, under the
+    existing declaration rule: made while the affected outcomes are unknown,
+    or disclosing the slice that had already resolved. A revocation made after
+    any affected outcome also publishes the revoked window's figures over that
+    resolved slice beside it, so the exclusion is visible rather than silent.
+  - **The evaluator digest is unchanged in role.** An evaluator digest records
+    and never partitions, as the evaluator-only re-bless shape already
+    provides. "Unchanged" covers the digest's role only; the timing gate an
+    evaluation passes is the window rule above. Closed-window cells graded
+    after a full-freeze successor are graded under the successor's rubric, so
+    a window's figure can pool rubrics; the successor's entry states the count
+    per evaluator digest, as the evaluator re-bless shape already requires.
+  - **The close is reported, not chosen by score.** When a window closes is
+    decided while some of its outcomes are visible. The successor's entry
+    states the closed window's resolved and pending counts at its instant, and
+    grounds the process change in evidence other than the window's board.
+  - **Binding until built.** At this commit the frozen scope implements a
+    single blessed predictor set and a single counting instant, and either one
+    alone de-counts on a re-bless. So no predictor-half re-bless lands on
+    `main` until the windows declared here are implemented in:
+    - every frozen-scope artifact and reader — the frozen scope and counting
+      rule, the run collapse, the leaderboard, the claim scores, the dataset
+      export, and every analytics or ops surface that reads the frozen scope;
+    - evaluation staging, which picks the cell a grading reads;
+    - the predict backlog's re-predict rule.
+
+    A successor landed first would carry out the de-count this entry rules
+    out. A revocation under the rule above is not held by this clause: it is
+    the de-count, made deliberately and on its own entry.
+
+  **What the date proves, stated exactly.** At `origin/main` `3941556a0`
+  (`2026-09-26T22:09:26Z`), **369 predictions** carry `proc-v8`'s blessed
+  predictor digests at or after the instant, on **123 events**:
+  - **cert distribution:** 336 cells on 112 events;
+  - **cert cvsg:** 30 cells on 10 events;
+  - **interim arrival:** 3 cells on 1 event.
+
+  **None sits on an event with a committed outcome**, and none is graded; the
+  frozen headline in `metrics/leaderboard.json` is empty. The long-conference
+  cohort's conference is 2026-09-28. So the rule governing whether these cells
+  survive a successor is registered while every outcome they are scored
+  against is unknown. These counts are every counted `proc-v8` cell, not only
+  the 2026-09-28 conference cohort the metrics README describes. The
+  long-conference release is unaffected either way:
+  its population is `proc-v8` inside `proc-v8`'s window.
+
+  The carrying promotion is `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merged at>`). It must precede the first
+  order of any kind from the 2026-09-28 conference, and every other outcome of
+  a counted cell, for this entry to register ahead of any outcome it governs.
+  At that promotion, the census above re-run on `main` reads
+  `<FILL: counted proc-v8 predictions and events at the promotion>`, of which
+  `<FILL: how many sit on an event with a committed outcome>` sit on an event
+  with a committed outcome. The runnable effect check once it is live:
+  `uv run fedcourts process-digest --all` still prints the same six digests,
+  and `FROZEN_SINCE` in `src/fedcourtsai/process_version.py` is unchanged.

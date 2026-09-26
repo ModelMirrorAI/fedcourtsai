@@ -612,7 +612,11 @@ freeze record states the exposure.
 
 **Re-blessing the predictor half while the prior predictor digests carry
 counted cells** is the third supersession shape, and the only one that
-de-counts: the predictor digests are the enforced filter, so replacing them in
+de-counts. **It is declared replaced from `proc-v8` on**: the freeze record's
+2026-09-26 entry closes a superseded predictor digest's counting window
+instead of de-counting it, and holds every predictor-half re-bless other
+than a declared revocation until per-window counting is built. What follows describes the mechanism as it
+stands until then: the predictor digests are the enforced filter, so replacing them in
 `FROZEN_PROCESS_DIGESTS` removes every cell stamped under the retired digests
 from every frozen-scope artifact at once — and `FROZEN_SINCE` sitting at or
 after the carrying promotion, the ordinary step-4 rule (the held-instant
