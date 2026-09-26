@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000273",
+  "gaps": [
+    "codex-baseline's log does not independently show the PDF and CourtListener retrievals its prose reports",
+    "Captured result digests do not expose full retrieved bodies for independent verification"
+  ],
+  "helpful": [
+    "Opaque candidate aliases preserve the blind",
+    "Stage-specific scoring contract separates withdrawal accuracy from grant Brier loss",
+    "Result-capture markers distinguish absent telemetry from empty results"
+  ],
+  "notes": "Evaluated only staged aliases and supplied outcome; no live case lookup, corpus query, or web retrieval. Used the committed interim table to check baseline availability, leaving rate and skill to the harness.",
+  "role": "evaluator",
+  "run_id": "20260926T184314Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: read provisioned files",
+    "jq: inspect blinded predictions and retrieval logs",
+    "committed interim statpack",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

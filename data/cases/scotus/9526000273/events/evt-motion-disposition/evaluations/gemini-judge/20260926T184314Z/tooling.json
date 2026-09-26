@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000273",
+  "run_id": "20260926T184314Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["read_file", "run_shell_command"],
+  "helpful": ["read_file for checking the prediction and outcome files."],
+  "gaps": [],
+  "notes": "Evaluation was straightforward without external retrieval."
+}
