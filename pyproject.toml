@@ -90,7 +90,7 @@ addopts = "-ra --strict-markers"
 # and the full suite fails one that does not.
 markers = [
     "reads_data: opens committed data/ or the corpus pointer; runs in the data lane",
-    "reads_docs: opens committed prose (docs/, top-level Markdown); runs in the docs lane",
+    "reads_docs: opens committed prose (docs/, top-level Markdown, metrics/README.md, corpus/README.md, CITATION.cff); runs in the docs lane",
 ]
 
 [tool.coverage.run]

@@ -1,17 +1,23 @@
-"""Keep the CI lanes' test selections whole, by watching what each test opens.
+"""Keep the CI lanes' test selections in step, by watching what each test opens.
 
 In the ``data`` and ``docs`` lanes (`scripts/ci_lane.py`) the gate runs only
-the tests marked ``reads_data`` / ``reads_docs`` — the ones that read the
+the tests marked ``reads_data`` / ``reads_docs`` — the ones that open the
 committed files that lane lets change. A test that read such a file without
 the mark would be skipped in exactly the lane that can break it, and a skipped
 test reports nothing. So the full suite, which every code change runs, fails
-any test that opens a lane file without the matching mark, and fails collection
-when a test module reads one at import time without every test in it marked.
+any test it sees open a lane file without the matching mark, and fails
+collection when a test module reads one at import time without every test in
+it marked.
 
-The watch is an audit hook (:func:`sys.addaudithook`): it sees every ``open``
-and directory listing this process makes, including those deep in library code
-a test calls. It does not see a subprocess's reads; a test that shells out to
-something reading a lane file marks itself by hand.
+The watch is an audit hook (:func:`sys.addaudithook`) on the ``open`` and
+directory-listing events this process raises, including those deep in library
+code a test calls. It is blind to a subprocess's reads, to existence and
+metadata checks (``Path.exists``, ``is_file``, ``os.stat`` raise no event), and
+it charges a read through a module- or session-scoped fixture or cache to
+whichever test first triggers it. Those cases are marked by hand — a module
+whose fixture or cache reads a lane file marks the whole module with
+``pytestmark`` — and so is any security tripwire over ``data/``
+(docs/testing.md, *The CI lanes*).
 
 Which files belong to which lane is `scripts/ci_lane.py`'s own classification,
 imported here, so the lanes and this guard cannot disagree. `tests/conftest.py`
@@ -72,7 +78,9 @@ def _record(event: str, args: tuple[Any, ...]) -> None:
         return
     try:
         path = os.path.abspath(os.fsdecode(target))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OSError):
+        # The hook must stay passive: abspath can consult the cwd, which a
+        # test may have removed, and an error here would surface in the open.
         return
     if not path.startswith(_ROOT_PREFIX):
         return

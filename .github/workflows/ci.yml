@@ -2,7 +2,8 @@ name: ci
 
 # The local gate, enforced on every PR and on pushes to main. The gate job below
 # invokes scripts/gate.sh — the single definition AGENTS.md and README.md also
-# point to — so "green CI" and "passes the local gate" cannot drift apart. Uses
+# point to — so "green CI" and "passes the local gate" cannot drift apart for a
+# code change; a data-only or docs-only change runs a lane subset of it. Uses
 # no secrets, so it does not declare the `prod` environment.
 #
 # No trigger here carries a `paths:` filter: every job must report on every PR,
@@ -49,13 +50,25 @@ jobs:
         # prerequisite *skips* its dependants, and a skipped `gate` would
         # satisfy the required check. A skipped step still reports, and the
         # job as a whole still concludes, so `gate` reports in every lane.
+        #
+        # The classifier that runs is the *base's* copy (HEAD^1: the base tip
+        # on a PR's merge ref, the prior tip on a push), never the change's
+        # own — a change must not grade itself into a lighter lane. An edit to
+        # the classifier is itself `code`, so it gets the full gate under the
+        # trusted version. A base without the file yields `code`.
         id: lane
         env:
           EVENT_NAME: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
-          python3 scripts/ci_lane.py --event "$EVENT_NAME" --before "$BEFORE" >>"$GITHUB_OUTPUT"
+          classifier="${RUNNER_TEMP}/ci_lane.py"
+          if git show HEAD^1:scripts/ci_lane.py >"$classifier" 2>/dev/null; then
+            python3 "$classifier" --event "$EVENT_NAME" --before "$BEFORE" >>"$GITHUB_OUTPUT"
+          else
+            echo "ci-lane: code — the base has no classifier; running the full gate" >&2
+            echo "lane=code" >>"$GITHUB_OUTPUT"
+          fi
       - uses: ./.github/actions/setup-python-env
       # Each step invokes one stage of scripts/gate.sh — the single definition of
       # the gate — so the individual step names and their tool annotations survive
@@ -78,8 +91,9 @@ jobs:
         run: scripts/gate.sh test
       - name: lane tests
         # In the data and docs lanes the full suite is replaced by the tests
-        # that read the committed files that lane lets change — the rest cannot
-        # see the change. See scripts/gate.sh for how that set is kept whole.
+        # that open the committed files that lane lets change. See
+        # scripts/gate.sh for how that set is kept, and docs/testing.md for
+        # what the guard behind it cannot see.
         if: steps.lane.outputs.lane == 'data' || steps.lane.outputs.lane == 'docs'
         env:
           LANE: ${{ steps.lane.outputs.lane }}
