@@ -380,12 +380,16 @@ def at_or_after_bless(process_version: ProcessVersion | None) -> bool:
 
 
 def freeze_in_force() -> bool:
-    """Whether any counting window is registered at all.
+    """Whether a freeze is in force: a counting instant set and a window registered.
 
     While none is, there is a single process scope: every committed cell is in
-    it, and the re-predict rule has no partition to repair.
+    it, no grading is timing-gated, and the re-predict rule has no partition to
+    repair. The two constants move together (a test pins it), so either reads
+    the same on the live registry; requiring both keeps a registry patched
+    without an instant — digest membership alone, no time gate — behaving as
+    it reads.
     """
-    return bool(COUNTING_WINDOWS)
+    return FROZEN_SINCE is not None and bool(COUNTING_WINDOWS)
 
 
 def window_of(process_version: ProcessVersion | None) -> CountingWindow | None:
