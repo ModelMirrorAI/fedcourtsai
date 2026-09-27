@@ -15103,8 +15103,12 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
             },
             # Event grain: resolved events some enabled predictor never
             # forecast, declined by design or missed. `null` for named cases.
+            # A failed scan carries its error here too, so it never reads
+            # like a named-case plan's `null`.
             "predictionless_resolutions": (
-                derived.missed[0].counts_json() if derived.missed else None
+                derived.missed[0].counts_json()
+                if derived.missed
+                else ({"error": derived.missed_error} if derived.missed_error else None)
             ),
         },
         "predictionless_resolutions": (

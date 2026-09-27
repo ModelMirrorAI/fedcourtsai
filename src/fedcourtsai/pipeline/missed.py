@@ -16,7 +16,20 @@ committed predictions do not cover every predictor owed it, is classified once:
 - **missed** — the pipeline owed it and did not deliver, with the reason:
   ``not_scored`` (in scope and open, but the salience pass never scored the
   case, so no funding decision was ever taken — a pipeline failure, not a
-  decline) or ``owed_and_unforecast`` (everything else).
+  decline; it is asked before the round rule, so a never-scored event resolved
+  the next day is still a miss, the over-report direction),
+  ``predictor_never_produced`` (every predictor the gap names is enabled but has
+  no committed prediction anywhere — an engine failing every cell, or one just
+  enabled), or ``owed_and_unforecast`` (everything else).
+
+**Which predictors are owed.** An enabled predictor is owed an event when its
+first committed prediction anywhere is dated on or before the resolution, when
+it has **no** committed prediction anywhere (an engine that has never landed a
+cell is failing, not absent), or when it has a recorded predict failure on this
+very event. Only a predictor whose first prediction postdates the resolution,
+with no failure on the event, is not owed — enabling an engine does not make
+every earlier event a miss — and an event missing only such predictors is
+declined ``predictor_not_enabled``.
 
 An event holding some predictions but not every owed predictor's is a
 **partial** gap, classified by the same rules; its missing predictors are named.
@@ -25,9 +38,12 @@ An event holding some predictions but not every owed predictor's is a
 records resolved is dated from its committed ``outcome.json`` where one exists;
 where none does, from the corpus row's decision date, and failing that from the
 row's newest observation (a no-earlier-than bound, so it can only place an event
-*later* than it resolved). An in-window event with no ``outcome.json`` is itself
-reported (``no_outcome_record``) as an outcome-writer defect: evaluate can never
-grade it and a monitor that dated only from the ledger would never see it.
+*later* than it resolved — and it moves forward with every poll, so such an
+event keeps re-entering the lookback window rather than aging out of it; the
+``date_source`` counts say how many rest on it). An in-window event with no
+``outcome.json`` is itself reported (``no_outcome_record``) as an
+outcome-writer defect: evaluate can never grade it, and a monitor that dated
+only from the ledger would never see it.
 Events with no date from any source are counted all-time and named where their
 row is selected, because they can be placed in no window.
 
@@ -105,6 +121,7 @@ class MissReason(StrEnum):
     """Why an owed event went unforecast, where the monitor can say."""
 
     not_scored = "not_scored"
+    predictor_never_produced = "predictor_never_produced"
     owed_and_unforecast = "owed_and_unforecast"
 
 
@@ -230,6 +247,12 @@ class PredictionlessReport:
             "no_outcome_record_on_selected_row_events": sum(
                 1 for u in self.no_outcome_record if u.selected
             ),
+            **{
+                f"dated_from_{source.value}_events": sum(
+                    1 for e in self.events if e.date_source is source
+                )
+                for source in DateSource
+            },
             "undated_events_all_time": self.undated_all_time,
             "undated_on_selected_row_events_all_time": len(self.undated_selected),
         }
@@ -395,7 +418,7 @@ def _classify(  # noqa: PLR0911 - one early return per declared rule
     return Verdict.missed, MissReason.owed_and_unforecast, ""
 
 
-def scan_predictionless_resolutions(  # noqa: PLR0915 - one pass, many facts
+def scan_predictionless_resolutions(  # noqa: PLR0912, PLR0915 - one pass, many facts
     conn: corpus.ReadConnection,
     data_root: Path,
     predictors_path: Path,
@@ -443,7 +466,8 @@ def scan_predictionless_resolutions(  # noqa: PLR0915 - one pass, many facts
         docket = int(docket_str)
         in_ledger = docket_str in ledger_dockets
         outcome = CasePaths(data_root, court, docket).event(event.event_id).outcome
-        resolved_at = _resolved_at(outcome) if in_ledger and outcome.exists() else None
+        outcome_present = in_ledger and outcome.exists()
+        resolved_at = _resolved_at(outcome) if outcome_present else None
         source: DateSource | None = DateSource.outcome if resolved_at else None
         recorded = resolved_at is not None
         if not recorded:
@@ -475,10 +499,19 @@ def scan_predictionless_resolutions(  # noqa: PLR0915 - one pass, many facts
         partial = len(missing) < len(predictor_ids)
         if first_dates is None:
             first_dates = _first_prediction_dates(data_root, predictor_ids)
+        failures = {
+            pid: n
+            for pid in missing
+            if in_ledger
+            and (n := cell_failure_count(data_root, court, docket, event.event_id, pid, "predict"))
+        }
+        never_produced = {pid for pid in missing if first_dates.get(pid) is None}
         owed_missing = tuple(
             pid
             for pid in missing
-            if (first := first_dates.get(pid)) is not None and first <= resolved_at
+            if pid in never_produced
+            or pid in failures
+            or ((first := first_dates.get(pid)) is not None and first <= resolved_at)
         )
         verdict, reason, detail = _classify(
             conn,
@@ -491,25 +524,23 @@ def scan_predictionless_resolutions(  # noqa: PLR0915 - one pass, many facts
         )
         reported_missing = owed_missing if verdict is Verdict.missed else missing
         if verdict is Verdict.missed and reason == MissReason.owed_and_unforecast:
-            failures = {
-                pid: n
-                for pid in owed_missing
-                if (
-                    n := cell_failure_count(
-                        data_root, court, docket, event.event_id, pid, "predict"
-                    )
-                )
-            }
+            if all(pid in never_produced for pid in owed_missing):
+                reason = MissReason.predictor_never_produced
             gap = "missing " + ", ".join(owed_missing) if partial else "no committed prediction"
+            owed_failures = {pid: n for pid, n in failures.items() if pid in owed_missing}
             detail = gap + (
                 "; recorded predict failures: "
-                + ", ".join(f"{pid} x{n}" for pid, n in failures.items())
-                if failures
+                + ", ".join(f"{pid} x{n}" for pid, n in owed_failures.items())
+                if owed_failures
                 else ""
             )
+            silent = sorted(never_produced & set(owed_missing))
+            if silent:
+                detail += "; never produced a committed prediction: " + ", ".join(silent)
         if not recorded:
+            what = "no readable outcome.json" if outcome_present else "no outcome.json"
             detail = (detail + "; " if detail else "") + (
-                f"no outcome.json — dated from the corpus ({source.value})"
+                f"{what} — dated from the corpus ({source.value})"
             )
         found.append(
             PredictionlessEvent(

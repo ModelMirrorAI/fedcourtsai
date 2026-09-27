@@ -26,7 +26,7 @@ from fedcourtsai.pipeline.missed import (
     scan_predictionless_resolutions,
 )
 from fedcourtsai.registry import enabled_predictors
-from fedcourtsai.schemas import Disposition, EventKind, Outcome, Stage
+from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Outcome, Stage
 from fedcourtsai.serialize import write_json
 from tests.conftest import seed_prediction
 
@@ -542,7 +542,111 @@ def test_a_monitor_that_raises_degrades_to_a_warning_and_the_matrix_still_emits(
     plan = runner.invoke(app, ["evaluate-plan", "--run-id", "RID"], env=env)
     assert plan.exit_code == 0, plan.output
     document = json.loads(plan.stdout)
-    assert document["counts"]["predictionless_resolutions"] is None
+    assert document["counts"]["predictionless_resolutions"] == {
+        "error": "RuntimeError: scan exploded"
+    }
     assert document["predictionless_resolutions"] == {"error": "RuntimeError: scan exploded"}
     assert "::warning::" not in plan.stderr
     assert "warning: missed-forecast monitor failed" in _flat(plan.stderr)
+
+
+def _drop_enabling_prediction(data_root: Path, predictor_id: str) -> None:
+    shutil.rmtree(
+        CasePaths(data_root, "scotus", _ENABLING_DOCKET).event(CERT_EVENT).predictions_dir
+        / predictor_id
+    )
+
+
+def _record_failure(data_root: Path, docket: int, predictor_id: str) -> None:
+    write_json(
+        CasePaths(data_root, "scotus", docket)
+        .event(CERT_EVENT)
+        .prediction_attempt(predictor_id, "20260905T000000Z"),
+        CellFailure(
+            seam="predict",
+            actor=predictor_id,
+            court="scotus",
+            docket=docket,
+            event_id=CERT_EVENT,
+            run_id="20260905T000000Z",
+            error_class="no_output",
+        ),
+    )
+
+
+def test_an_engine_that_never_produced_a_prediction_is_owed_not_excused(
+    tmp_path: Path,
+) -> None:
+    """An enabled engine whose every cell fails has no committed prediction anywhere.
+    Reading that as "not yet enabled" would hide a total engine failure, so it is
+    owed: its gaps are misses, named with a reason of their own."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    predictors = [p.id for p in enabled_predictors(PREDICTORS)]
+    failing = predictors[0]
+    _resolved_case(db, data, 1)
+    _drop_enabling_prediction(data, failing)
+    _record_failure(data, 1, failing)
+    for pid in predictors[1:]:
+        seed_prediction(data, "scotus", 1, CERT_EVENT, predictor_id=pid, frozen=True)
+
+    (event,) = _scan(db, data).events
+
+    assert (event.verdict.value, event.reason) == ("missed", "predictor_never_produced")
+    assert event.missing_predictors == (failing,)
+    assert f"{failing} x1" in event.detail
+    assert "never produced a committed prediction" in event.detail
+
+
+def test_a_recorded_failure_on_the_event_makes_a_late_predictor_owed(tmp_path: Path) -> None:
+    """A predictor whose first landed prediction postdates the resolution is not owed
+    the event — unless it tried this very event and failed, which proves it was
+    running while the event was open."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    predictors = [p.id for p in enabled_predictors(PREDICTORS)]
+    late = predictors[0]
+    _resolved_case(db, data, 1)
+    _drop_enabling_prediction(data, late)
+    seed_prediction(
+        data,
+        "scotus",
+        _ENABLING_DOCKET,
+        CERT_EVENT,
+        predictor_id=late,
+        run_id="20260920T000000Z",
+    )
+    _record_failure(data, 1, late)
+    for pid in predictors[1:]:
+        seed_prediction(data, "scotus", 1, CERT_EVENT, predictor_id=pid, frozen=True)
+
+    (event,) = _scan(db, data).events
+
+    assert (event.verdict.value, event.reason) == ("missed", "owed_and_unforecast")
+    assert event.missing_predictors == (late,)
+
+
+def test_the_counts_say_which_source_dated_each_event(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_case(db, data, 1)
+    _resolved_case(db, data, 2, outcome=False, date_decided=RESOLVED)
+    _resolved_case(db, data, 3, outcome=False, polled_on=RESOLVED)
+
+    counts = _scan(db, data).counts_json()
+
+    assert counts["dated_from_outcome_events"] == 1
+    assert counts["dated_from_corpus_decision_date_events"] == 1
+    assert counts["dated_from_last_observed_events"] == 1
+
+
+def test_an_unparseable_outcome_record_is_named_as_unreadable(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_case(db, data, 1, date_decided=RESOLVED)
+    CasePaths(data, "scotus", 1).event(CERT_EVENT).outcome.write_text("{not json")
+
+    (event,) = _scan(db, data).events
+
+    assert "no readable outcome.json" in event.detail
+    assert [u.case_id for u in _scan(db, data).no_outcome_record] == ["scotus/1"]
