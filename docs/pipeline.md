@@ -1679,6 +1679,22 @@ out of frozen scope is the second's, and an event carrying both — what a
 quota-failed engine leaves behind — is re-owed on both, so a run can never
 mint one blessed cell beside de-counted rivals.
 
+Two guards keep owed work from going unforecast in silence, one on each side
+of resolution, and both reach the `plan` job as `::warning::` annotations from
+the matrix step every round runs. Before resolution, the predict derivation
+**reconciles at case grain**: it computes the universe of in-scope, funded
+cases with an open forecastable event apart from its own admission walk, and
+names any such case the walk filed in no bucket (derived, held, or dropped with
+a reason) — the shape of a filter that drops owed work without saying so.
+After resolution, the evaluate derivation runs the **missed-forecast monitor**
+over the week's resolutions: an event some enabled predictor never forecast is
+either declined by design (out of scope, not a forecastable moment, not funded,
+or resolved before a scheduled round could run) or **missed**, and each miss is
+annotated by name. `predict-plan` and `evaluate-plan` carry both in their JSON
+(`counts.case_reconciliation`, `counts.predictionless_resolutions`), and
+`evaluate-plan --missed-since` backfills the monitor over a longer window; the
+blocks are described in [cli.md](cli.md).
+
 The rule also **widens the funding gate**, and that is the one place it reaches
 work the salience round declined. A case neither selection nor the merits bypass
 funds reaches the derivation only on the cohort-completion ground, whose

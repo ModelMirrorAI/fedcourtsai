@@ -4151,6 +4151,24 @@ def iter_open_events(conn: ReadConnection, *, court: str | None = None) -> Itera
         yield _event_from_record(record)
 
 
+def open_unexcluded_case_ids(conn: ReadConnection, *, court: str) -> list[str]:
+    """Case ids in ``court`` with an open event whose row is not latched ``predict_excluded``.
+
+    ``case_id``-ordered and distinct. The scope latch is a column on the case
+    row, so answering it in the join reads only the rows it keeps: on a SCOTUS
+    corpus the open-event set is nearly every case and the unexcluded share of
+    it a few percent, which is the difference between hydrating hundreds of
+    thousands of rows and a few thousand. An open event with no case row is not
+    returned — it cannot be scope-checked at all.
+    """
+    cur = conn.execute(
+        "SELECT DISTINCT e.case_id FROM events e JOIN cases c ON c.case_id = e.case_id "
+        "WHERE e.resolved = 0 AND e.court = ? AND c.predict_excluded = 0 ORDER BY e.case_id",
+        (court,),
+    )
+    return [str(record["case_id"]) for record in cur]
+
+
 def iter_resolved_events(
     conn: ReadConnection, *, court: str | None = None
 ) -> Iterator[CorpusEvent]:

@@ -454,6 +454,44 @@ def forecastable_event_ids(
     ]
 
 
+def is_forecastable_moment(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+    """Whether ``event`` is a moment the fan-out would forecast, whatever its state.
+
+    :func:`forecastable_event_ids`' four admission arms with the event's own
+    open/resolved state and the row's *decided* state taken out, so it can be
+    asked of an event after it resolved: was this a kind of moment the predict
+    lane forecasts at all? What stays is what defines the moment rather than
+    what closes it — the declared register entry, the docket form each arm is
+    keyed on, the merits arm's proceeding test, and the distribution
+    precondition (a petition never distributed had no distribution moment to
+    forecast). What goes is every limb a disposition trips: the cert arm's
+    disposition and resolution date, the merits arm's latched judgment,
+    termination and stale-grant bound, and the scope rules, which a caller asks
+    separately.
+
+    The missed-forecast monitor's "non-forecastable moment" test
+    (:mod:`fedcourtsai.pipeline.missed`); the forward fan-out keeps the stricter
+    :func:`forecastable_event_ids`.
+    """
+    application = (
+        row is not None
+        and row.court == "scotus"
+        and corpus.is_scotus_application_form(row.docket_number)
+    )
+    if _declares_forecastable(event, Stage.interim):
+        return application
+    if _declares_forecastable(event, Stage.merits):
+        return row is not None and corpus.opens_merits_proceeding(row)
+    if application or _premature_distribution_cell(event, row):
+        return False
+    if _declares_forecastable(event, Stage.cert):
+        return True
+    if event.kind not in _FORECASTABLE_KINDS:
+        return False
+    spec = moments.spec_for(event.event_id)
+    return spec is None or spec.ordinal == 0
+
+
 def resolved_events(
     corpus_db_path: Path,
     court_id: str,

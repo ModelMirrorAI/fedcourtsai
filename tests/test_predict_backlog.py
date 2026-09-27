@@ -14,6 +14,7 @@ import json
 import re
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -22,6 +23,7 @@ from fedcourtsai import casestore, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.matrix import CaseRequest, predict_matrix
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import pull
 from fedcourtsai.pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
     REPREDICT_MOMENTS,
@@ -1612,3 +1614,182 @@ def test_cap_reached_is_set_when_the_budget_fills_with_re_owed_work(tmp_path: Pa
     capped = _backlog(db, data, cap=1)
     assert capped.case_ids == ("scotus/1",)
     assert capped.cap_reached
+
+
+# --- Case-grain reconciliation ---------------------------------------------------
+
+
+def _fully_predicted(data_root: Path, docket: int) -> None:
+    for predictor in enabled_predictors(PREDICTORS):
+        seed_prediction(data_root, "scotus", docket, EVENT, predictor_id=predictor.id)
+
+
+def test_every_universe_case_is_filed_in_exactly_one_bucket(tmp_path: Path) -> None:
+    """The reconciliation's resting state: each in-scope, funded case with an open
+    forecastable event lands in one bucket with its reason, and cases outside the
+    universe (excluded, unselected) are not counted against it."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1)  # derived
+    _open_case(db, "scotus", 2, provisioned=False)  # held: never swept
+    _open_case(db, "scotus", 3, polled_on=TODAY - timedelta(days=30))  # held: stale
+    _open_case(db, "scotus", 4)  # owed nothing
+    _fully_predicted(data, 4)
+    _open_case(db, "scotus", 5)  # already queued by the caller
+    _open_case(db, "scotus", 6, excluded=True)  # outside the universe
+    _open_case(db, "scotus", 7, selected=False)  # outside the universe: not funded
+
+    backlog = _backlog(db, data, already_queued={"scotus/5"})
+
+    recon = backlog.reconciliation
+    assert recon is not None
+    assert recon.sound
+    assert recon.universe == 5
+    assert recon.buckets == {
+        "derived": 1,
+        "held_unswept": 1,
+        "held_stale": 1,
+        "dropped_owed_nothing": 1,
+        "dropped_already_queued": 1,
+    }
+    counts = recon.counts_json()
+    filed = sum(
+        value for key, value in counts.items() if key.endswith("_cases") and key != "universe_cases"
+    )
+    assert counts["universe_cases"] == filed
+
+
+def test_a_silent_filter_in_the_walk_leaves_the_owed_case_unaccounted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The guard's reason to exist, replayed on the shape that hid owed work for
+    weeks: a same-day debounce added to the candidate walk that drops a case
+    without filing it. The universe is computed apart from the walk, so the case
+    stays in it — and is named unaccounted rather than vanishing from the count."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, queued_on=TODAY)  # re-stamped today by the live lane
+    _open_case(db, "scotus", 2)
+
+    real = pull._predict_backlog_candidates
+
+    def with_same_day_skip(*args: Any, **kwargs: Any) -> Any:
+        candidates = real(*args, **kwargs)
+        return [(row, only) for row, only in candidates if row.predict_queued_at != TODAY]
+
+    monkeypatch.setattr(pull, "_predict_backlog_candidates", with_same_day_skip)
+
+    backlog = _backlog(db, data)
+
+    assert backlog.case_ids == ("scotus/2",)
+    recon = backlog.reconciliation
+    assert recon is not None
+    assert not recon.sound
+    assert recon.unaccounted == ("scotus/1",)
+    assert recon.buckets == {"derived": 1}
+
+
+def test_cap_censoring_is_filed_explicitly_not_left_unaccounted(tmp_path: Path) -> None:
+    """A walk stopped at the cycle cap examines nothing past it, so those cases are
+    filed as cap-reached — censored, and said to be — rather than unaccounted."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    for docket in (1, 2, 3):
+        _open_case(db, "scotus", docket)
+
+    backlog = _backlog(db, data, cap=1)
+
+    recon = backlog.reconciliation
+    assert recon is not None
+    assert backlog.cap_reached
+    assert recon.sound
+    assert recon.buckets == {"derived": 1, "dropped_cap_reached": 2}
+
+
+def test_a_case_filed_twice_is_named_multiply_accounted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other half of "exactly one bucket": a walk that files a case twice no
+    longer partitions the universe, and the reconciliation says which case broke it."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, polled_on=TODAY - timedelta(days=30))  # held stale
+    real_record = pull._DispositionLog.record
+
+    def file_twice(self: Any, case_id: str, disposition: pull.CaseDisposition) -> None:
+        real_record(self, case_id, disposition)
+        if disposition is pull.CaseDisposition.held_stale:
+            real_record(self, case_id, pull.CaseDisposition.dropped_owed_nothing)
+
+    monkeypatch.setattr(pull._DispositionLog, "record", file_twice)
+
+    recon = _backlog(db, data).reconciliation
+
+    assert recon is not None
+    assert recon.multiply_accounted == ("scotus/1",)
+    assert not recon.sound
+
+
+def test_the_plan_reports_the_case_reconciliation(tmp_path: Path) -> None:
+    """`predict-plan` in the backlog mode carries the buckets at case grain, and a
+    named-case plan carries `null`, since a named list has no universe."""
+    env = _cli_env(tmp_path, 24001, 24002)
+    db = corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"]))
+    _open_case(db, "scotus", 24003, provisioned=False, polled_on=date.today())
+
+    result = runner.invoke(app, ["predict-plan", "--run-id", "RID"], env=env)
+
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    block = plan["counts"]["case_reconciliation"]
+    assert block["universe_cases"] == 3
+    assert block["derived_cases"] == 2
+    assert block["held_unswept_cases"] == 1
+    assert block["unaccounted_cases"] == 0
+    assert plan["case_reconciliation"] == {
+        "unaccounted": [],
+        "multiply_accounted": [],
+        "admitted_outside_universe": [],
+    }
+    assert "::warning::" not in result.stderr
+    assert "case reconciliation over 3 in-scope, funded case(s)" in _flat(result.stderr)
+
+    body = tmp_path / "issue-body.md"
+    body.write_text(
+        '```json\n{"court": "scotus", "docket": 24001, "events": ["' + EVENT + '"]}\n```\n'
+    )
+    named = runner.invoke(
+        app, ["predict-plan", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
+    assert named.exit_code == 0, named.output
+    named_plan = json.loads(named.stdout)
+    assert named_plan["counts"]["case_reconciliation"] is None
+    assert named_plan["case_reconciliation"] is None
+
+
+def test_an_unaccounted_case_raises_a_warning_that_names_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The acceptance test: an owed case a filter drops without a reason reaches the
+    plan job as a `::warning::` naming it — on `predict-matrix`, which every
+    scheduled round runs, as well as in `predict-plan`'s JSON."""
+    env = _cli_env(tmp_path, 24001, 24002)
+    real = pull._predict_backlog_candidates
+
+    def drop_24001(*args: Any, **kwargs: Any) -> Any:
+        candidates = real(*args, **kwargs)
+        return [(row, only) for row, only in candidates if row.case_id != "scotus/24001"]
+
+    monkeypatch.setattr(pull, "_predict_backlog_candidates", drop_24001)
+
+    matrix = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)
+    assert matrix.exit_code == 0, matrix.output
+    warning = _flat(matrix.stderr)
+    assert "::warning::predict backlog: 1 case(s) unaccounted" in warning
+    assert "scotus/24001" in warning
+
+    plan = runner.invoke(app, ["predict-plan", "--run-id", "RID"], env=env)
+    assert plan.exit_code == 0, plan.output
+    document = json.loads(plan.stdout)
+    assert document["counts"]["case_reconciliation"]["unaccounted_cases"] == 1
+    assert document["case_reconciliation"]["unaccounted"] == ["scotus/24001"]

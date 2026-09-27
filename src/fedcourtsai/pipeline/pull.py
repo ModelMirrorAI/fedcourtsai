@@ -22,6 +22,7 @@ import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import date
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
@@ -685,6 +686,199 @@ def _reopenable_moment(event_id: str, row: corpus.CorpusRow, *, day: date) -> bo
     return True
 
 
+class CaseDisposition(StrEnum):
+    """The one bucket a predict-backlog derivation files a case under.
+
+    The admission walk records one of these at every point it decides a case,
+    so :class:`CaseReconciliation` can check that each case of the independently
+    computed universe landed in exactly one bucket. A bucket names *why*: a case
+    in the universe that the walk dropped with no disposition is exactly the
+    silent loss the reconciliation exists to surface.
+    """
+
+    derived = "derived"
+    held_stale = "held_stale"
+    held_unswept = "held_unswept"
+    held_decided = "held_decided"
+    dropped_already_queued = "dropped_already_queued"
+    dropped_excluded = "dropped_excluded"
+    dropped_not_funded = "dropped_not_funded"
+    dropped_owed_nothing = "dropped_owed_nothing"
+    dropped_cap_reached = "dropped_cap_reached"
+
+
+#: The dispositions that put a case on the lane's books: minted, or owed and
+#: waiting on a hold. A case the walk files under one of these must be in the
+#: universe; one outside it is the walk admitting work the universe says is not
+#: there, which the reconciliation names as well.
+_ADMITTED_DISPOSITIONS = frozenset(
+    {
+        CaseDisposition.derived,
+        CaseDisposition.held_stale,
+        CaseDisposition.held_unswept,
+        CaseDisposition.held_decided,
+    }
+)
+
+
+class _DispositionLog:
+    """The admission walk's record of what it decided per case, bounded by the universe.
+
+    The walk decides over every SCOTUS case with an open event — very nearly the
+    whole court — so recording every decision would make memory a function of
+    the corpus. Only what the reconciliation reads is kept: dispositions of
+    universe cases, and admitting dispositions of any case. The universe filters
+    what is *kept*, never what the walk *decides*, so the two stay independent.
+    """
+
+    def __init__(self, universe: frozenset[str]) -> None:
+        self.universe = universe
+        self.by_case: dict[str, list[CaseDisposition]] = {}
+
+    def record(self, case_id: str, disposition: CaseDisposition) -> None:
+        if case_id in self.universe or disposition in _ADMITTED_DISPOSITIONS:
+            self.by_case.setdefault(case_id, []).append(disposition)
+
+    def count(self, disposition: CaseDisposition) -> int:
+        """How many cases' final disposition is ``disposition``."""
+        return sum(1 for filed in self.by_case.values() if filed and filed[-1] is disposition)
+
+    def reclassify(self, case_id: str, disposition: CaseDisposition) -> None:
+        """Replace a case's last disposition — the cap displacing an admitted case."""
+        kept = self.by_case.get(case_id)
+        if kept:
+            kept[-1] = disposition
+        else:
+            self.record(case_id, disposition)
+
+
+@dataclass(frozen=True)
+class CaseReconciliation:
+    """Case-grain accounting of one predict-backlog derivation.
+
+    The **universe** is every SCOTUS case with an open forecastable event that
+    is in predict scope and funded, computed by :func:`_predict_universe`
+    without reference to the admission walk. The walk files each case it
+    decides under a :class:`CaseDisposition`; a sound derivation files every
+    universe case exactly once. Three failures are named:
+
+    - ``unaccounted`` — a universe case the walk filed nowhere: it fell out of
+      the derivation without a reason, which is how owed work goes silently
+      unforecast.
+    - ``multiply_accounted`` — a universe case filed more than once, so the
+      bucket counts no longer partition the universe.
+    - ``admitted_outside_universe`` — a case the walk derived or held that the
+      universe does not contain: the two predicates disagree in the other
+      direction.
+
+    ``buckets`` counts universe cases by their single disposition (a multiply
+    accounted case is counted under none of them). ``dropped_cap_reached`` is the
+    censoring bucket, and says so explicitly: when the walk stops at the cycle
+    cap, every candidate it never reached is filed there rather than under the
+    disposition a full walk would have given it, and a case the walk reaches
+    only after the re-predict budget filled, owed no never-predicted cell, is
+    filed there too because its re-owed events were never evaluated.
+    """
+
+    universe: int
+    buckets: dict[str, int]
+    unaccounted: tuple[str, ...] = ()
+    multiply_accounted: tuple[str, ...] = ()
+    admitted_outside_universe: tuple[str, ...] = ()
+
+    @property
+    def sound(self) -> bool:
+        return not (self.unaccounted or self.multiply_accounted or self.admitted_outside_universe)
+
+    def counts_json(self) -> dict[str, int]:
+        """The plan's ``counts.case_reconciliation`` block: every key a case count."""
+        return {
+            "universe_cases": self.universe,
+            **{f"{bucket}_cases": self.buckets.get(bucket, 0) for bucket in CaseDisposition},
+            "unaccounted_cases": len(self.unaccounted),
+            "multiply_accounted_cases": len(self.multiply_accounted),
+            "admitted_outside_universe_cases": len(self.admitted_outside_universe),
+        }
+
+    def detail_json(self) -> dict[str, list[str]]:
+        """The named discrepancies, for the plan's top-level ``case_reconciliation``."""
+        return {
+            "unaccounted": list(self.unaccounted),
+            "multiply_accounted": list(self.multiply_accounted),
+            "admitted_outside_universe": list(self.admitted_outside_universe),
+        }
+
+
+def _predict_universe(
+    conn: corpus.ReadConnection,
+    *,
+    predicted: frozenset[str],
+    merits_open: set[str],
+    day: date,
+) -> frozenset[str]:
+    """Every case the predict backlog must account for, computed apart from the walk.
+
+    A SCOTUS case with an open event, a row, funding (the salience latch, an
+    open merits event, or a committed prediction somewhere on the case), predict
+    scope (:func:`_row_in_predict_scope`, with ``cohort_completion`` exactly when
+    the prediction is its only funding) and at least one forecastable open event
+    (:func:`fedcourtsai.store.forecastable_event_ids`).
+
+    It shares the **leaf** predicates with :func:`derive_predict_backlog` and
+    deliberately nothing else: not :func:`_predict_backlog_candidates`, not its
+    ordering, not the loop. A filter added to the walk — a debounce, a skip —
+    that drops a case without filing it therefore leaves that case here and
+    unaccounted, instead of shrinking both sides of the comparison at once. No
+    ledger read beyond the bulk ``predicted`` set: whether a case is still
+    *owed* is the walk's answer to give (``dropped_owed_nothing``), so the
+    universe costs corpus reads only — and it starts from
+    :func:`fedcourtsai.corpus.open_unexcluded_case_ids`, which answers the
+    ``predict_excluded`` latch in SQL, so rows are hydrated only for the few
+    thousand unexcluded cases rather than for the whole open-event set.
+    """
+    universe: set[str] = set()
+    for case_id in corpus.open_unexcluded_case_ids(conn, court="scotus"):
+        row = corpus.get_row(conn, case_id)
+        if row is None or row.predict_excluded:
+            continue
+        funded_by_selection = row.salience_selected or row.case_id in merits_open
+        if not funded_by_selection and row.case_id not in predicted:
+            continue
+        if not _row_in_predict_scope(conn, row, cohort_completion=not funded_by_selection):
+            continue
+        court, docket_str = row.case_id.split("/", 1)
+        if forecastable_event_ids(conn, court, int(docket_str), today=day):
+            universe.add(row.case_id)
+    return frozenset(universe)
+
+
+def _reconcile(universe: frozenset[str], log: _DispositionLog) -> CaseReconciliation:
+    """Check the walk's dispositions against the universe, case by case."""
+    buckets: dict[str, int] = {}
+    unaccounted: list[str] = []
+    multiply: list[str] = []
+    for case_id in sorted(universe):
+        filed = log.by_case.get(case_id, [])
+        if not filed:
+            unaccounted.append(case_id)
+        elif len(filed) > 1:
+            multiply.append(case_id)
+        else:
+            buckets[filed[0].value] = buckets.get(filed[0].value, 0) + 1
+    outside = sorted(
+        case_id
+        for case_id, filed in log.by_case.items()
+        if case_id not in universe and any(d in _ADMITTED_DISPOSITIONS for d in filed)
+    )
+    return CaseReconciliation(
+        universe=len(universe),
+        buckets=buckets,
+        unaccounted=tuple(unaccounted),
+        multiply_accounted=tuple(multiply),
+        admitted_outside_universe=tuple(outside),
+    )
+
+
 @dataclass(frozen=True)
 class PredictBacklog:
     """What one predict-backlog derivation found, having written nothing.
@@ -745,6 +939,10 @@ class PredictBacklog:
     apart from the total because it is spend on events the ledger already
     covers and a reader deciding whether to let a cycle run needs the two
     numbers separately. Censored by ``cap_reached`` exactly as the holds are.
+
+    ``reconciliation`` is the case-grain check that nothing fell out of the
+    derivation unrecorded (:class:`CaseReconciliation`); ``None`` only when the
+    derivation was disabled (``cap <= 0``) and examined nothing.
     """
 
     entries: tuple[BacklogEntry, ...]
@@ -754,6 +952,7 @@ class PredictBacklog:
     held_decided: int = 0
     decided_events: tuple[tuple[str, str, str], ...] = ()
     cap_reached: bool = False
+    reconciliation: CaseReconciliation | None = None
 
     @property
     def case_ids(self) -> tuple[str, ...]:
@@ -770,6 +969,7 @@ def _predict_backlog_candidates(
     seen: set[str],
     predicted: frozenset[str],
     merits_open: set[str],
+    log: _DispositionLog,
 ) -> list[tuple[corpus.CorpusRow, bool]]:
     """The rows :func:`derive_predict_backlog` may spend a cap slot on, stalest first.
 
@@ -792,6 +992,9 @@ def _predict_backlog_candidates(
     least-recently-observed, then ``case_id``. The middle key matters because
     the first is ``None`` for most of the set — without it a never-queued
     candidate would be ordered by the lexical accident of its docket number.
+
+    Every row it turns away is filed on ``log`` with the reason, so the case
+    reconciliation can tell a reasoned drop from a silent one.
     """
     open_case_ids: list[str] = []
     for event in corpus.iter_open_events(conn, court="scotus"):
@@ -803,17 +1006,21 @@ def _predict_backlog_candidates(
     candidates: list[tuple[corpus.CorpusRow, bool]] = []
     for case_id in open_case_ids:
         if case_id in seen:
+            log.record(case_id, CaseDisposition.dropped_already_queued)
             continue
         row = corpus.get_row(conn, case_id)
         if row is None or row.predict_excluded:
+            log.record(case_id, CaseDisposition.dropped_excluded)
             continue
         # The sweep's candidate filter, verbatim, so admission and narrowing
         # cannot disagree: a row neither selection nor the merits bypass admits
         # is here on the cohort ground alone, and only such a row is narrowed.
         cohort_only = not row.salience_selected and case_id not in merits_open
         if cohort_only and case_id not in predicted:
+            log.record(case_id, CaseDisposition.dropped_not_funded)
             continue
         if not _row_in_predict_scope(conn, row, cohort_completion=cohort_only):
+            log.record(case_id, CaseDisposition.dropped_excluded)
             continue
         candidates.append((row, cohort_only))
 
@@ -963,6 +1170,39 @@ def _drop_disclosed(
     )
 
 
+def _timing_hold(
+    conn: corpus.ReadConnection, row: corpus.CorpusRow, *, day: date
+) -> CaseDisposition | None:
+    """The first of the two timing holds an owed case is under, or ``None``.
+
+    Steps 7 and 8 of :func:`derive_predict_backlog`, asked only of a case that
+    step 6 found owed.
+    """
+    observed = _last_observed(row)
+    if observed is None or (day - observed).days > BACKLOG_MAX_POLL_AGE_DAYS:
+        # Too stale to mint a forward cell from: the sweep would have
+        # re-polled and could have diverted this case as decided, and this
+        # scan cannot. Clears at the case's next poll.
+        return CaseDisposition.held_stale
+    provisioning_attempted = row.predict_queued_at is not None or (
+        corpus.has_documents_for_case(conn, row.case_id)
+    )
+    if not provisioning_attempted:
+        # Provisioning has never been *attempted* for this case: the pull
+        # lane has never queued it (its stamp is the lane's own record that
+        # it ran) and nothing is stored. That is the one genuinely
+        # timing-only state — the sweep reaches, provisions and stamps such
+        # a case — so it is held rather than minted with an empty record/.
+        # A queued case is admitted on the lane's word even where its store
+        # came up empty: provisioning ran and found nothing, which is a
+        # coverage fact for the queued-without-petition metric, not a
+        # reason to strand the case forever. Reading it as an exclusion
+        # would permanently bar every structurally unprovisionable docket —
+        # an application form has no document route at all.
+        return CaseDisposition.held_unswept
+    return None
+
+
 def derive_predict_backlog(
     conn: corpus.ReadConnection,
     data_root: Path,
@@ -1037,6 +1277,18 @@ def derive_predict_backlog(
        a case left with none is counted on ``held_decided``. This is the plan
        seam's copy of the live routing's decided-docket diversion, which keeps
        such a docket off the queue but records nothing the backlog can read.
+
+    **Case-grain reconciliation.** Every step above that turns a case away files
+    it under a :class:`CaseDisposition`, and so does every step that derives or
+    holds one. Beside the walk, :func:`_predict_universe` computes the cases the
+    derivation must account for — open forecastable event, predict scope,
+    funded — from the leaf predicates alone, and ``reconciliation`` checks that
+    each universe case landed in exactly one bucket. A predicate added to the
+    walk that drops an owed case without filing it shows up there as
+    **unaccounted**, by name, instead of as a quietly shorter backlog. The
+    universe costs one query over the open events of unexcluded rows plus the
+    corpus reads of the funded ones; it reads no ledger beyond the bulk
+    prediction set.
 
     Steps 1 through 5 filter, then candidates sort **stalest first** (see
     :func:`_predict_backlog_candidates`) and steps 6 through 9 run inside the
@@ -1171,18 +1423,19 @@ def derive_predict_backlog(
     # small ordered slice of the partial open-events index for the merits bypass.
     predicted = predicted_case_ids(data_root)
     merits_open = corpus.merits_open_case_ids(conn)
+    # The universe first, and from its own reads, so the walk below cannot
+    # shape it; the log keeps only what the reconciliation needs.
+    universe = _predict_universe(conn, predicted=predicted, merits_open=merits_open, day=day)
+    log = _DispositionLog(universe)
     candidates = _predict_backlog_candidates(
-        conn, seen=seen, predicted=predicted, merits_open=merits_open
+        conn, seen=seen, predicted=predicted, merits_open=merits_open, log=log
     )
 
     entries: list[BacklogEntry] = []
     reowed_only: list[BacklogEntry] = []
-    held_stale = 0
-    held_unswept = 0
-    held_decided = 0
     decided: list[tuple[str, str, str]] = []
     cap_reached = False
-    for row, cohort_only in candidates:
+    for position, (row, cohort_only) in enumerate(candidates):
         # Two different budgets, and the difference is what stops the re-predict
         # rule starving the ordinary backlog. The **walk** stops only when the
         # cap is full of never-predicted work, because until then a later
@@ -1199,6 +1452,10 @@ def derive_predict_backlog(
         budget_full = len(entries) + len(reowed_only) >= cap
         if budget_full and len(entries) >= cap:
             cap_reached = True
+            # Censored, and filed as such: every candidate from here on was
+            # never examined, so none of them may read as unaccounted.
+            for unexamined, _ in candidates[position:]:
+                log.record(unexamined.case_id, CaseDisposition.dropped_cap_reached)
             break
         cap_reached = cap_reached or budget_full
         court, docket_str = row.case_id.split("/", 1)
@@ -1270,30 +1527,18 @@ def derive_predict_backlog(
         # by cases the owed check drops anyway, and "held, still owed a
         # forecast" would be false of almost every one of them.
         if not owed and not reowed:
+            # Past a full re-predict budget the re-owed arm was never asked, so
+            # "owed nothing" is unproven there and the case is filed as censored.
+            log.record(
+                row.case_id,
+                CaseDisposition.dropped_cap_reached
+                if budget_full
+                else CaseDisposition.dropped_owed_nothing,
+            )
             continue
-        observed = _last_observed(row)
-        if observed is None or (day - observed).days > BACKLOG_MAX_POLL_AGE_DAYS:
-            # Too stale to mint a forward cell from: the sweep would have
-            # re-polled and could have diverted this case as decided, and this
-            # scan cannot. Clears at the case's next poll.
-            held_stale += 1
-            continue
-        provisioning_attempted = row.predict_queued_at is not None or (
-            corpus.has_documents_for_case(conn, row.case_id)
-        )
-        if not provisioning_attempted:
-            # Provisioning has never been *attempted* for this case: the pull
-            # lane has never queued it (its stamp is the lane's own record that
-            # it ran) and nothing is stored. That is the one genuinely
-            # timing-only state — the sweep reaches, provisions and stamps such
-            # a case — so it is held rather than minted with an empty record/.
-            # A queued case is admitted on the lane's word even where its store
-            # came up empty: provisioning ran and found nothing, which is a
-            # coverage fact for the queued-without-petition metric, not a
-            # reason to strand the case forever. Reading it as an exclusion
-            # would permanently bar every structurally unprovisionable docket —
-            # an application form has no document route at all.
-            held_unswept += 1
+        hold = _timing_hold(conn, row, day=day)
+        if hold is not None:
+            log.record(row.case_id, hold)
             continue
         # The same textual disclosure scan provisioning runs on the same newest
         # snapshot, asked here so an owed event whose docket already shows its
@@ -1304,7 +1549,7 @@ def derive_predict_backlog(
         # grant that answers a cert event opens the merits event beside it.
         owed, reowed = _drop_disclosed(conn, row.case_id, court, owed, reowed, decided)
         if not owed and not reowed:
-            held_decided += 1
+            log.record(row.case_id, CaseDisposition.held_decided)
             continue
         # Never-predicted events lead the list, events re-owed and nothing else
         # follow, so a downstream reader that truncates an event list keeps the
@@ -1325,9 +1570,15 @@ def derive_predict_backlog(
                 # A never-predicted case displaces the stalest-last re-owed one,
                 # which is the priority stated below made to hold under the cap
                 # rather than only in the returned order.
-                reowed_only.pop()
+                displaced = reowed_only.pop()
+                log.reclassify(displaced.case_id, CaseDisposition.dropped_cap_reached)
         else:
             reowed_only.append(entry)
+        log.record(row.case_id, CaseDisposition.derived)
+
+    ordered = entries + reowed_only
+    for overflow in ordered[cap:]:
+        log.reclassify(overflow.case_id, CaseDisposition.dropped_cap_reached)
 
     return PredictBacklog(
         # Cases owed a never-predicted cell come first, and a case owed only
@@ -1338,13 +1589,17 @@ def derive_predict_backlog(
         # afterwards displaces the stalest-last re-owed one. So the rule cannot
         # starve the ordinary backlog. The slice is defence, not logic: the loop
         # invariant already holds the two lists to `cap` between them.
-        entries=tuple(entries + reowed_only)[:cap],
+        entries=tuple(ordered[:cap]),
         day=day,
-        held_stale=held_stale,
-        held_unswept=held_unswept,
-        held_decided=held_decided,
+        # The hold counts are read off the disposition log, which keeps every
+        # held case whatever the universe says (holding is an admission), so
+        # the counts and the reconciliation cannot disagree about a hold.
+        held_stale=log.count(CaseDisposition.held_stale),
+        held_unswept=log.count(CaseDisposition.held_unswept),
+        held_decided=log.count(CaseDisposition.held_decided),
         decided_events=tuple(decided),
         cap_reached=cap_reached,
+        reconciliation=_reconcile(universe, log),
     )
 
 
