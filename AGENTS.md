@@ -240,9 +240,10 @@ transcript is invisible to the one human who sees the change.
 ## Local gate
 
 The gate that actually blocks a merge is the **required status checks on your
-PR** — CI runs the full suite below; locally you have **discretion** to run
-the subset that fits what you changed, enough for honest confidence (a
-docs-only change needs none of the Python checks).
+PR** — CI runs the full suite below for a code change, and a lighter lane for
+a change that is only data or only prose (*The CI lanes* in `docs/testing.md`);
+locally you have **discretion** to run the subset that fits what you changed,
+enough for honest confidence (a docs-only change needs only `docs-tests`).
 
 ```bash
 uv sync                    # once, to sync the env the stages assume
@@ -258,7 +259,14 @@ scripts/gate.sh test       # pytest, fanned across cores (GATE_COV=1 adds
                            # serially, which is what debugging wants)
 scripts/gate.sh data       # validate data + corpus-status
 scripts/gate.sh schemas    # export-schemas + schema-drift check (CI fails on drift)
+scripts/gate.sh data-tests # only the tests marked reads_data (CI's data lane)
+scripts/gate.sh docs-tests # only the tests marked reads_docs (CI's docs lane)
 ```
+
+A test that opens a committed file under `data/`, the corpus pointer, or the
+prose the docs lane covers carries `@pytest.mark.reads_data` /
+`@pytest.mark.reads_docs`; the full suite fails one that does not
+(`tests/lane_guard.py`).
 
 `scripts/gate.sh` is the single definition of the gate; `ci.yml` and `README.md`
 invoke the same script, so a change to what the gate runs lands in one place.

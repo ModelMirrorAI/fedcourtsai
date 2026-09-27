@@ -4,6 +4,11 @@ name: ci
 # invokes scripts/gate.sh — the single definition AGENTS.md and README.md also
 # point to — so "green CI" and "passes the local gate" cannot drift apart. Uses
 # no secrets, so it does not declare the `prod` environment.
+#
+# No trigger here carries a `paths:` filter: every job must report on every PR,
+# because a required context that is never produced hangs the PR. A data-only
+# or docs-only change runs a lighter gate through step-level `if:`s inside the
+# `gate` job instead (the lane step below; docs/testing.md, *The CI lanes*).
 on:
   pull_request:
     # `edited` re-evaluates the base-sensitive checks (main-base,
@@ -33,20 +38,54 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # HEAD and its first parent: the lane step diffs the two. On a PR the
+          # checkout is the merge ref, whose first parent is the base tip.
+          fetch-depth: 2
+      - name: lane
+        # Which stages this change can affect, from scripts/ci_lane.py: `data`
+        # (only data/ and the corpus pointer), `docs` (only prose), or `code`
+        # — the answer to every doubt, including a diff it cannot compute.
+        # A step inside this job, never a job this one `needs`: a failed
+        # prerequisite *skips* its dependants, and a skipped `gate` would
+        # satisfy the required check. A skipped step still reports, and the
+        # job as a whole still concludes, so `gate` reports in every lane.
+        id: lane
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci_lane.py --event "$EVENT_NAME" --before "$BEFORE" >>"$GITHUB_OUTPUT"
       - uses: ./.github/actions/setup-python-env
       # Each step invokes one stage of scripts/gate.sh — the single definition of
       # the gate — so the individual step names and their tool annotations survive
       # while the commands live in exactly one place.
+      #
+      # The lane conditions are all `!=` against a named lane, so an empty or
+      # missing output runs the step: only an affirmative `data` or `docs`
+      # skips anything.
       - name: lint
+        if: steps.lane.outputs.lane != 'data' && steps.lane.outputs.lane != 'docs'
         run: scripts/gate.sh lint
       - name: types
+        if: steps.lane.outputs.lane != 'data' && steps.lane.outputs.lane != 'docs'
         run: scripts/gate.sh types
       - name: test
+        if: steps.lane.outputs.lane != 'data' && steps.lane.outputs.lane != 'docs'
         # GATE_COV=1 runs pytest under coverage, which the summary step below reads.
         env:
           GATE_COV: "1"
         run: scripts/gate.sh test
+      - name: lane tests
+        # In the data and docs lanes the full suite is replaced by the tests
+        # that read the committed files that lane lets change — the rest cannot
+        # see the change. See scripts/gate.sh for how that set is kept whole.
+        if: steps.lane.outputs.lane == 'data' || steps.lane.outputs.lane == 'docs'
+        env:
+          LANE: ${{ steps.lane.outputs.lane }}
+        run: scripts/gate.sh "${LANE}-tests"
       - name: coverage summary
+        if: steps.lane.outputs.lane != 'data' && steps.lane.outputs.lane != 'docs'
         # Reporting, not gating: surface coverage to maintainers in the run's job
         # summary (no badge, no commit, no upload). Depends on the test step having
         # run with GATE_COV=1 so a .coverage file exists. Needs no permissions —

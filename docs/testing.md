@@ -76,6 +76,57 @@ schemas and fails on drift — so regenerate and commit them in the same change.
 Run it all in the included devcontainer (`.devcontainer/`) or any environment with
 [uv](https://docs.astral.sh/uv/).
 
+### The CI lanes: what a data-only or docs-only change runs
+
+CI's `gate` job does not run every stage for every change. Its first step,
+[`scripts/ci_lane.py`](../scripts/ci_lane.py), classifies the change and names a
+lane, and the stages that change cannot affect are skipped:
+
+| Lane | Every changed path is… | lint, types, test | lane tests | data, schemas |
+| --- | --- | --- | --- | --- |
+| `data` | under `data/`, or the corpus pointer `corpus/corpus.db.ref` | skipped | `scripts/gate.sh data-tests` | run |
+| `docs` | under `docs/`, a top-level `*.md`, `metrics/README.md`, `corpus/README.md`, or `CITATION.cff` | skipped | `scripts/gate.sh docs-tests` | run |
+| `code` | anything else — and every doubt | run | — | run |
+
+The lanes are allow-lists and every doubt lands on `code`: an empty diff, a
+mixed diff (a data file beside a source file, or data beside prose), a path the
+script does not recognise, and a diff it cannot compute. Prompts, configs,
+schemas, workflows, scripts, tests and source are never data or prose, whatever
+their extension. The diff is the one the gate actually tests: on a pull request,
+the merge ref against its first parent (the base tip it was computed against);
+on a push, the pushed commit against the prior tip, which the script accepts
+only when the prior tip is the commit's first parent — a single commit or a
+merged PR, the shape of the writer lanes' pushes. A multi-commit push, a branch
+creation, or a force push runs the full gate.
+
+A skipped step still lets the job conclude, so `gate` reports in every lane
+and the required check is satisfied without a trigger-level `paths:` filter
+(which would leave the context unproduced and hang the PR). That is also why
+the lane is a step inside `gate` rather than a job before it: a job whose
+prerequisite fails is *skipped*, and a skipped `gate` would pass. Every
+skipping condition compares with `!=` against a named lane, so a missing
+output runs the stage.
+
+**The lane tests.** Some tests read the committed tree itself — the docs a
+test checks against the code, the committed data a test validates. A change
+to those files can fail those tests and no others, so the `data` and `docs`
+lanes run exactly them: the tests marked `reads_data` or `reads_docs`. The
+marks are kept whole by an executed check rather than by review:
+[`tests/lane_guard.py`](../tests/lane_guard.py) installs an audit hook that sees
+every file each test opens, and the full suite — which every code change runs —
+fails any test that opens a lane's files without that lane's mark, and fails
+collection when a module reads one at import time without every test in it
+marked. The file-to-lane mapping is `ci_lane.py`'s own, imported by the guard,
+so the lanes and the guard cannot disagree. The hook does not see a
+subprocess's reads; a test that shells out to something reading a lane file
+marks itself by hand.
+
+```bash
+python3 scripts/ci_lane.py --event pull_request   # classify a merge-ref checkout
+scripts/gate.sh data-tests                          # what the data lane runs in place of test
+scripts/gate.sh docs-tests                          # what the docs lane runs in place of test
+```
+
 ## What's covered where
 
 **The deterministic core** — schemas and ids/paths, the registry and matrix

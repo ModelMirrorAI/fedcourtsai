@@ -19,10 +19,13 @@
 #                            serial run when debugging)
 #   scripts/gate.sh data     validate data + corpus-status
 #   scripts/gate.sh schemas  export-schemas + schema-drift check
+#   scripts/gate.sh data-tests  only the tests marked reads_data
+#   scripts/gate.sh docs-tests  only the tests marked reads_docs
 #
 # Named stages preserve the discretion AGENTS.md grants — run the subset that
-# fits the change (a docs-only change needs none of the Python stages). With no
-# argument every stage runs in the order CI runs them.
+# fits the change (a docs-only change needs only docs-tests). With no argument
+# every stage runs in the order CI runs them; the two lane test stages are not
+# part of that, since `test` already runs every test they select.
 set -euo pipefail
 
 # CI installs with `uv sync --locked`, which refuses a lock that has drifted
@@ -82,6 +85,25 @@ test_stage() {
   fi
 }
 
+# The CI lanes' narrowed test stage (scripts/ci_lane.py). In the data and docs
+# lanes ci.yml runs this in place of `test`: only the tests that open the
+# committed files that lane lets change, which are the only tests such a change
+# can affect. tests/lane_guard.py keeps the marks whole — the full suite fails
+# any test that opens a lane file without its lane's mark. pytest exits 5 when
+# a mark selects nothing, which here means no test reads that lane's files: a
+# pass, not a failure. Serial: the selection is a handful of tests, and every
+# xdist worker would re-pay the whole suite's collection to find them.
+lane_tests() {
+  local mark="$1"
+  local rc=0
+  uv run pytest -m "$mark" || rc=$?
+  if [ "$rc" -eq 5 ]; then
+    echo "no test carries ${mark}; nothing in this lane to run"
+    return 0
+  fi
+  return "$rc"
+}
+
 data() {
   uv run fedcourts validate data
   uv run fedcourts corpus-status
@@ -109,10 +131,12 @@ case "$stage" in
   test) test_stage ;;
   data) data ;;
   schemas) schemas ;;
+  data-tests) lane_tests reads_data ;;
+  docs-tests) lane_tests reads_docs ;;
   all) all ;;
   *)
     echo "unknown stage: $stage" >&2
-    echo "usage: scripts/gate.sh [lock|lint|types|test|data|schemas]" >&2
+    echo "usage: scripts/gate.sh [lock|lint|types|test|data|schemas|data-tests|docs-tests]" >&2
     exit 2
     ;;
 esac

@@ -71,7 +71,7 @@ max-args = 8
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "scripts/ci_lane.py"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
@@ -85,6 +85,13 @@ disallow_untyped_decorators = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+# The CI lanes' test selections (scripts/ci_lane.py, tests/lane_guard.py): a
+# test that opens a committed file a lane lets change carries that lane's mark,
+# and the full suite fails one that does not.
+markers = [
+    "reads_data: opens committed data/ or the corpus pointer; runs in the data lane",
+    "reads_docs: opens committed prose (docs/, top-level Markdown); runs in the docs lane",
+]
 
 [tool.coverage.run]
 source = ["src/fedcourtsai"]
