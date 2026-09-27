@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9526000406",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "Decisive forward signal predating the snapshot: the Court granted the government a stay of the preliminary injunction in this same case on June 23, 2025 (24A1153, 145 S. Ct. 2153) and a clarification on July 3, 2025 (145 S. Ct. 2627). Both are recited in the provisioned application and carried in my general knowledge; they are pre-event public information, not this event's outcome, and they drive most of the lift over the 10.5% pooled interim base rate."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "The interim statpack pool for application Term 2026 (Terms 2016-2025) has resolved rows in only two Terms (2024: 70 resolved, 972 unparsed; 2025: 226 resolved). The pooled rate of 31/296 clears the floor of 50 but rests on one Term the poller reached only in part."
+    }
+  ]
+}

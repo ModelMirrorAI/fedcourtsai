@@ -1,0 +1,9 @@
+P(grant) 0.65. The base rate for interim grants from the statpack (pooled over substantive applications for prior terms) is approximately 10.5%. However, this case is highly anomalous and far more likely to result in a grant than the baseline. 
+
+The State of Arizona is applying for a stay of a sweeping federal district court order placing the state's entire prison healthcare system under a federal receivership. This represents one of the most drastic structural interventions a federal court can impose on a state government. The application heavily relies on the Prison Litigation Reform Act (PLRA) requirement that relief be the "least intrusive means necessary" and invokes strong federalism arguments.
+
+The current conservative majority of the Supreme Court has consistently demonstrated deep skepticism toward broad structural injunctions against states and a strict interpretation of the PLRA's limitations on federal courts. Given these factors, the Court is likely to view the district court's receivership order with significant suspicion.
+
+Because this is a high-stakes clash involving state sovereignty, it is almost certain the Circuit Justice (Kagan) will request a response (0.95) and subsequently refer the matter to the full Court (0.90). The magnitude of the case also suggests a high likelihood of amicus participation from other states or civil rights groups (0.85).
+
+My primary uncertainty stems from the procedural posture and the severity of the constitutional violations found by the lower courts, which might lead the Court to deny the stay or only grant it in part, but the federalism concerns make a full stay the most probable outcome.

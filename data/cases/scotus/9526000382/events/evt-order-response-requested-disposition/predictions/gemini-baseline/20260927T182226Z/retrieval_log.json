@@ -1,0 +1,233 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "dbf3cdc9ac74197b",
+      "query": "{\"strategic_intent\": \"Understand the prediction task by reading .github/prompts/predict.md and AGENTS.md.\", \"title\": \"Analyze Prediction Task\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:42:12.879Z",
+      "tool": "update_topic"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:42:15.122Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:42:18.649Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c79f4af3887d41b5",
+      "query": "{\"dir_path\": \"data/cases/scotus/9526000382/record/\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:42:21.663Z",
+      "tool": "list_directory"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a6ea5db82b40d4a9",
+      "query": "{\"file_path\": \"data/cases/scotus/9526000382/record/context.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:42:27.651Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "2678b06d6d3a6269",
+      "query": "{\"file_path\": \"data/cases/scotus/9526000382/record/snapshots/2026-09-23.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:42:30.492Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ee2eb70772267ced",
+      "query": "{\"dir_path\": \"data/cases/scotus/9526000382/record/documents/\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:42:32.630Z",
+      "tool": "list_directory"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "062bc41bda92f19f",
+      "query": "{\"file_path\": \"data/cases/scotus/9526000382/record/documents/documents.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:42:35.172Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e31eb0fa3b97b8b0",
+      "query": "{\"end_line\": 150, \"file_path\": \"data/cases/scotus/9526000382/record/documents/application.txt\", \"start_line\": 1}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:42:37.790Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:42:41.603Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e3596bc8a3532c4e",
+      "query": "mkdir -p data/cases/scotus/9526000382/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20260927T182226Z/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:42:54.230Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ec95ec73b9b058e3",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9526000382\\\",\\n  \\\"event_id\\\": \\\"evt-order-response-requested-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260927T182226Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-09-27T18:22:26Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-09-23.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.35,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.6,\\n  \\\"big_case_rationale\\\": \\\"In",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:43:11.115Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a8b675d37c5f8c16",
+      "query": "{\"content\": \"Justice Sotomayor has already requested a response (due September 28). Given the significant First Amendment religious liberty issues at stake (a state civil court enjoining participation in a religious tribunal and compelling the withdrawal of a religious decree), this application is highly likely to be referred to the full Court for consideration rather than being resolved by the Circuit Justice alone.\\n\\nI expect the amicus count to rise past the current zero. Religious liberty o",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:43:17.655Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "95d8ec7af3934384",
+      "query": "{\"content\": \"P(unqualified grant) = 0.35.\\n\\nI am predicting on the `evt-order-response-requested-disposition` interim event for an emergency stay application, with a `forward` mode context.\\n\\n**Baseline:** The statpack's interim-docket section gives a substantive grant rate of 10.5% (pooled over the two strictly-prior Terms that clear the 50-resolved floor: OT2024 at 70/14 and OT2025 at 226/17; total 296 resolved, 31 granted). \\n\\n**Adjustments:** I adjust significantly upward from this baseli",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:43:23.232Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a7eeb06666ccd378",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs.\\n\", \"file_path\": \"data/cases/scotus/9526000382/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20260927T182226Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:43:25.708Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4c18c4b86dd89696",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9526000382\\\",\\n  \\\"run_id\\\": \\\"20260927T182226Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"read_file\\\", \\\"list_directory\\\"],\\n  \\\"helpful\\\": [\\\"statpack.md's interim docket section\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"The provisioned snapshot and document inputs were sufficient for this forward prediction.\\\"\\n}\", \"file_path\": \"data/cases/scotus/95",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:43:29.022Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:44:07.690Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4aa08a2d3cc4ca67",
+      "query": "{\"strategic_intent\": \"Finished predicting the event and wrote all the required files.\", \"title\": \"Completed Prediction Task\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T19:44:10.685Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/9526000382",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

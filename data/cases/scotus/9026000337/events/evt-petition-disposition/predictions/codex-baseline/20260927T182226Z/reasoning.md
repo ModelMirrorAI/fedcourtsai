@@ -1,0 +1,35 @@
+# Rationale for the prediction
+
+## Record and conditioning
+
+P(any grant) is **0.015**; the predicted disposition is **denied**. This is a forward, cert-stage distribution cell for Denise J. Child v. Unum Life Insurance Company of America, No. 26-337. I read the provisioned September 27, 2026 snapshot, event definition, context, questions presented, document manifest, and relevant petition and appendix passages. The frozen context supplies sal-v4, baseline band, Term 2026, one distribution, and no CVSG. I use that state rather than deriving a stronger band from the importance claimed in the petition.
+
+The snapshot shows the petition filed September 9, docketed September 14, respondent's waiver filed September 16, and distribution September 23 for October 9. The manifest reports a 99-page petition with appendices, not truncated and not empty. No BIO is provisioned; that is consistent with the recorded waiver, not evidence of a failed extraction. I have not inferred respondent's Supreme Court arguments from an absent brief. The appellate opinion reproduced in Appendix A provides a useful counterweight to the petition, but is not a substitute for an adversarial BIO.
+
+## Base-rate anchor
+
+I use the committed statpack's sal-v4 baseline **reached** rates, pooling every displayed prior Term, 2017 through 2025, and excluding 2026. Using the unrounded prefix rates and weighted denominators in metrics/statpack.json gives 638 estimated grants / 12,720 weighted resolved petitions = **5.0157%**. This is the private-petitioner risk set, not the terminal baseline rate and not the all-caption paid segment. The caption, frozen band, and table version agree. The modern discretionary-cert whole-population counts imply roughly 2.82% for the grant family; that is background, not the selected population's anchor.
+
+The paid-segment terminal relist cut has 97.0% denials in its zero-relist bucket and much larger grant shares in the higher-count buckets. The CVSG cut has a grant-family share of about 34.9% with a CVSG, versus about 6.3% without. These are terminal population descriptions, not estimates of this petition's forward probability of another distribution or a CVSG. I do not use a terminal bucket as the as-at-prediction anchor or multiply correlated signal rates.
+
+Vintage: these aggregates come from the committed pack last changed September 26, 2026, commit 96ebdd342. That commit date is not a corpus pull stamp. No live corpus blob or case-specific last_pulled value was consulted, and I make no claim about remote freshness. The case evidence is the provisioned September 27 snapshot; document metadata reports retrieval September 14. Recent-Term aggregate outcomes remain subject to incomplete resolution.
+
+## Why below the anchor
+
+The strongest point for review is the tension between guaranteed issuance without health questions, eighteen years of premium payments, and a denial based on losses predating coverage. The petition frames this as federal displacement of Iowa's regulatory choice and argues that similar NAIC-derived provisions make the issue consequential beyond Iowa (petition pp. 3-5, 14-25). That is a meaningful argument and prevents treating the petition as frivolous.
+
+But the petition identifies no square conflict among appellate courts deciding the same guaranteed-issue question. Its claim that no reported decision has applied the doctrine in this setting describes novelty, not an established split. Uniform model provisions likewise do not establish conflicting holdings. The factual and statutory details of a 2003 Iowa policy matter substantially.
+
+More importantly, Appendix A does not present the decision simply as a refusal to apply state law. The panel invokes Iowa contract and statutory authorities, recognizes that statutes override conflicting policy terms, and distinguishes a preexisting condition from an already-existing loss of activities of daily living (App. 4-8). It separately rejects reasonable-expectations, misrepresentation, and bad-faith theories (App. 9-12). My reading is that the Court is more likely to see a contested application of Iowa insurance law than a clean repudiation of Erie. This is a vehicle assessment, not a conclusion that the panel's interpretation is correct. The petition also contests the panel's account of the claim investigation, making part of the controversy record-dependent.
+
+The alternative certification request is more concrete than the broad methodological claim. Nevertheless, the petition says the request was made in the rehearing petition (p. 26); that late presentation adds uncertainty without establishing forfeiture. I checked the cited historical analogy, Mckesson v. Doe, 592 U.S. 1, 3-5 (2020), through CourtListener. Its remand rested on both novel state tort law and a substantial First Amendment issue that certification might avoid; the opinion expressly does not require certification whenever state law is uncertain. Those exceptional features make it an imperfect analogy to this private coverage dispute. It supports a possible summary-remand route, not a high overall grant estimate.
+
+The recorded response waiver, absence of a response request in the supplied proceedings, absence of any recorded amicus filing, and lack of a separate writing below are consistent with limited institutional attention. I treat these as modest contextual considerations, not conclusive negative evidence. Weighing the state-law vehicle, missing square split, and qualified certification analogy against the sympathetic facts and potential coverage consequences moves my estimate from about 5.0% to 1.5%.
+
+## Other numbers and limits
+
+The 10% further-distribution estimate allows for a response call or additional consideration but keeps zero further distributions as the modal path. The 0.3% CVSG estimate reflects the absence of an identified federal-party or administrative interest. The 55% summary-route probability is conditional on the rare grant branch: a limited certification-oriented remand seems slightly more plausible than plenary review of this state-law-heavy dispute. The 1.5% denial-writing probability is conditional on denial and forecasts aggregated existence only. These are judgmental forecasts, not measured hazards from the terminal cuts.
+
+The stakes score of 0.32 recognizes important consequences for disabled long-term-care insureds and possible influence across similar state regimes, while discounting the asserted nationwide reach because this vehicle turns on particular Iowa rules and contract language. It is separate from grant likelihood.
+
+I did not seek or encounter this petition's disposition, subsequent history, other predictors' outputs, or labeling artifacts, and I do not know its outcome. General web retrieval for Rule 10 returned no usable content; no claim rests on it. The relevant historical precedent was available through MCP. Remaining uncertainty concerns the strength of petitioner's regulatory reading, how respondent would defend the judgment if called upon, and whether a Justice regards certification as unusually warranted here.

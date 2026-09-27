@@ -1,0 +1,5 @@
+P(grant) is estimated at 0.001. 
+The statpack's base rate for an arrival moment in the `baseline` salience band is approximately 5.0% (pooled across the preceding 10 Terms, yielding roughly 637 grants out of 12720 baseline petitions that reached that band).
+However, this specific petition requires a dramatic downward adjustment from that baseline. The petitioner, Justin P. Dreiling, is proceeding pro se (despite being docketed as "Paid"). He is challenging the Judicial Council of the Federal Circuit's order suspending Judge Pauline Newman, claiming it improperly prevented her from participating in his appeal. 
+While Judge Newman's suspension is a matter of high legal interest and is being litigated elsewhere, this particular petition is a collateral attack by a third-party litigant asserting an idiosyncratic theory (that the Tucker Act applies and that 28 U.S.C. § 354 is unconstitutional as applied to his panel composition). Pro se petitions of this nature have a negligible chance of being granted.
+The U.S. Solicitor General represents the respondent (United States) and is highly likely to waive the right to respond, leading to a swift denial.

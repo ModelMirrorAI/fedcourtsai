@@ -1,0 +1,2 @@
+- Used `mcp_courtlistener_search` to find the lower court opinion from the Supreme Court of South Carolina.
+- Used `mcp_courtlistener_read_document` to read the lower court opinion (opinion_id: 11332208).

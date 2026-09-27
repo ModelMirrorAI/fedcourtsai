@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000370",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (corpus service, --include-applications, disposition filters)",
+    "metrics/statpack.md (interim docket section)",
+    "courtlistener MCP: search (dockets), call_endpoint docket-entries (D. Ariz. and CA9 dockets)",
+    "WebSearch / WebFetch (supremecourt.gov docket page and respondents' opposition PDF)",
+    "pypdf (local text extraction of the fetched opposition PDF)"
+  ],
+  "helpful": [
+    "Corpus rows carry response_requested / referred_to_court / amicus_briefs, so a conditioned grant rate for the escalation rung could be computed from ~99 resolved substantive priors",
+    "Provisioned application.txt had the full argument section and the Ninth Circuit order; the truncation only cut the district-court appendix",
+    "CourtListener docket-entries on the CA9 and D. Ariz. dockets confirmed the expedited schedule and the Oct 19 start date"
+  ],
+  "gaps": [
+    "fedcourts query refuses --limit above 500 at the corpus service with a pydantic error, but --help does not state the cap; two calls were wasted discovering it",
+    "No corpus filter for application escalation state (response_requested / referred) or for applicant class (state vs federal vs private): I filtered client-side over broad pulls, which cost ~200 MB of ranged reads on the withdrawn/dismissed sweeps",
+    "The statpack interim section publishes no rate conditioned on response-requested; the as-at-prediction conditioned cut had to be built by hand from rows whose flags are as-at-last-poll",
+    "WebFetch cannot read a PDF's text; the file was saved locally and extracted with pypdf, which worked but is an unadvertised path"
+  ],
+  "notes": "About 22 retrieval calls in total (12 corpus queries including 2 failed on the limit cap, 5 MCP, 5 web). Forward mode; nothing outcome-revealing surfaced."
+}

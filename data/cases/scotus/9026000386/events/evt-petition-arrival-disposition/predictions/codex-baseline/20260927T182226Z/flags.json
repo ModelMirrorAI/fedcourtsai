@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000386",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The provisioned petition cover retains an obfuscated personal email address despite documents.json reporting contact_scrubbed=true. No contact values are reproduced in the outputs, and the defect did not affect the forecast. Review scrubbing of whitespace-fragmented contact strings before public reuse of extracted text."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The provisioned petition lists lower-court appendices, but the extracted text ends with the petition conclusion and contains neither lower-court opinion. The manifest reports 23 pages and truncated=false. The prediction treats the petitioner's account as advocacy and does not assume the courts' actual grounds; no assertion is made that extraction rather than the source filing caused the gap."
+    }
+  ]
+}

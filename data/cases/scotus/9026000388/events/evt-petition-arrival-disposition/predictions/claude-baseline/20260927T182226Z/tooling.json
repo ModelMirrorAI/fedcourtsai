@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000388",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md (sal-v4 segment table, relist/CVSG/circuit cuts, per-Term table)",
+    "courtlistener MCP search (opinions and dockets)",
+    "provisioned documents (petition, questions-presented)"
+  ],
+  "helpful": [
+    "The provisioned petition text was decisive: the circuit-split section, the United States' amicus position below, and the description of the parallel Tesoro litigation all came from it.",
+    "context.json's frozen band plus the statpack's bracketed reached figures made the arrival-moment anchor straightforward to pool by hand.",
+    "The prompt's explicit warning against the relist-0 figure prevented a fivefold under-anchor."
+  ],
+  "gaps": [
+    "fedcourts query has no subject or keyword filter for SCOTUS rows, so an Indian-law or federal-common-law comparator set cannot be pulled; the granted/2020s filter returned emergency applications first despite the default application screen.",
+    "No provisioned lower-court opinion text: the panel's reasoning and the dissent are known only through the petitioner's characterization.",
+    "No committed cut for grant rate by counsel tier or by published-with-dissent status, both of which drove most of the adjustment from the anchor.",
+    "CourtListener has no RECAP docket for this SCOTUS number, so a forward-mode check for post-snapshot entries (a waiver or extension request) was not possible."
+  ],
+  "notes": "5 retrieval calls total (2 corpus, 3 MCP), well under budget. The corpus service's second query served from cache (0 GETs)."
+}

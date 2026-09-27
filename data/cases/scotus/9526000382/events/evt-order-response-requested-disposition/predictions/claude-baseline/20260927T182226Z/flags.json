@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000382",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "Forward-mode retrieval of the live supremecourt.gov docket for 26A382 showed an amicus brief (Becket Fund) filed 2026-09-25, one day past the provisioned cutoff of 2026-09-24. The frozen context carries amicus_briefs=0, so the amicus-increment claim is effectively already resolved true; I set it at 0.96 on that basis. No disposition had been entered as of retrieval."
+    }
+  ]
+}

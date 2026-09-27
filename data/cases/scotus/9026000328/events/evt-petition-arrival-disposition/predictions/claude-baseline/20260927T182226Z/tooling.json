@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000328",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service backend)",
+    "CourtListener MCP: search, call_endpoint (dockets), get_endpoint_item (clusters), search_document",
+    "engine web search / fetch (supremecourt.gov docket pages and an order list PDF)",
+    "committed metrics/statpack.md",
+    "provisioned record/documents (petition, QP)"
+  ],
+  "helpful": [
+    "Full provisioned petition text: it named the companion and related dockets (26-159, 26-263, 25-213) that drove the forecast",
+    "The salience-band Term table with bracketed reached rates made the arrival anchor a one-step pooled computation",
+    "supremecourt.gov docket pages (via web fetch) supplied the response-requested / amici / relist history of the direct prior and the state of the three related petitions",
+    "CourtListener cluster lookup confirmed the decision below and its unanimity"
+  ],
+  "gaps": [
+    "CourtListener's docket index holds no SCOTUS dockets for any of the five numbers checked, so related-docket state had to come from supremecourt.gov via generic web fetch; a sanctioned supremecourt.gov docket fetch tool for a named docket number would replace six web calls",
+    "fedcourts query has no docket-number or case-name filter, so a known prior (Atlas Turner, 25-213) could not be pulled as a corpus row; two 400-500 row scans by name found nothing",
+    "No statpack cut for petitions with a response-requested prior on the same issue, or for interlocutory state-court petitions (finality), both of which moved this forecast",
+    "Web-search summaries can misattribute order-list notations across adjacent entries; verifying against the PDF text cost an extra call and was necessary"
+  ],
+  "notes": "About 27 retrieval calls (5 corpus, 12 MCP, 11 web), slightly over the advisory 25; the overage went to verifying a wrong web-summary claim about a would-grant notation."
+}

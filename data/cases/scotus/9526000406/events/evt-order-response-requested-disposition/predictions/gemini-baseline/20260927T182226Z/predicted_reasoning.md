@@ -1,0 +1,3 @@
+Forecast: The Supreme Court is highly likely to grant the government's application for a stay of the district court's final judgment.
+
+Because the Court previously stayed the preliminary injunction in this very case (No. 24A1153), it is a near certainty that it will step in again to preserve that status quo while the government's appeal proceeds. Justice Jackson has called for a response, which is a necessary step before full Court action on an opposed stay, but no further amicus briefs are necessary to signal the high stakes of this inter-branch immigration dispute. Expect a prompt grant of the stay (or administrative stay) shortly after the respondent's brief is filed, with the application referred to the full Court.

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000382",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "fedcourts paths", "metrics/statpack.md", "courtlistener MCP search", "WebSearch", "WebFetch"],
+  "helpful": [
+    "Provisioned application.txt with clean extraction",
+    "Statpack interim section with per-Term substantive counts",
+    "Live supremecourt.gov docket fetch (post-cutoff amicus)",
+    "fedcourts query rows carrying response_requested / referred_to_court / disposition"
+  ],
+  "gaps": [
+    "No conditioned interim rate by escalation rung (grant rate given response requested)",
+    "CourtListener does not index SCOTUS application dockets (26Annn), so the MCP search returned nothing for this case",
+    "fedcourts query has no filter on application_kind or the ladder signals; I had to scan rows",
+    "WebFetch cannot read PDFs; I extracted the Malliotakis order locally with pypdf"
+  ],
+  "notes": "The interim statpack pool for Term 2026 rests almost entirely on Term 2025 (Term 2024 is 972 rows unparsed). A per-rung conditioned cut would have replaced most of my subjective adjustment."
+}

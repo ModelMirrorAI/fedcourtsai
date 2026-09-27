@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000370",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "Forward-mode hygiene note: beyond the provisioned 2026-09-18 snapshot I read this application's own live SCOTUS docket (26A370) and the respondents' opposition filed 2026-09-25. As of 2026-09-27 the docket shows only the application, the response request, and the filed response: no referral, no amicus entry, no disposition, so the cell is genuinely forward and no outcome material surfaced. The opposition's arguments (fact-bound abuse-of-discretion posture, forfeited CASA question, Ninth Circuit merits panel free to reconsider, receiver nominated by the State) moved my grant probability down; the same-Term sibling cell evt-brief-response-disposition is the moment declared for that evidence, so the evaluator may wish to weigh that this response-requested cell had the response in hand."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "Statpack interim pool caveat, as read: the strictly-prior pool for application-Term 2026 is Terms 2024+2025 = 31 granted / 296 resolved substantive (10.5%), clearing the 50 floor, but Term 2024 carries 972 unparsed applications against 70 substantive, so the pool leans on one fully covered Term (2025) and one partially covered Term (2024) whose parsed slice grants at nearly three times the 2025 rate."
+    }
+  ]
+}

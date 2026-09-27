@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9526000370",
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "grep_search"
+  ],
+  "helpful": [
+    "MCP CourtListener search was very useful to find the 2025 Trump v. CASA precedent.",
+    "statpack.md's interim application section provided the exact base rates needed."
+  ],
+  "gaps": [
+    "Ability to search by text in `fedcourts query` (it only supports structured filters)."
+  ],
+  "schema_version": "1.0"
+}

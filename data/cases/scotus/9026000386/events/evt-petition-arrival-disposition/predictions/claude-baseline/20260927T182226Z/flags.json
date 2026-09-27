@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000386",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Contact scrubbing gap: the provisioned petition.txt carries the pro se petitioner's personal email address in a form the scrubber missed (the OCR text splits it with internal spaces, so the pattern did not match, though documents.json reports contact_scrubbed: true with 5 replacements), and the provisioned snapshot's Petitioner block carries the same address verbatim in its Email field. Both files sit under record/ in the repository. Not quoted here; a maintainer can find it by searching the two files for the '@' character. Suggest hardening the scrubber against whitespace-broken addresses and scrubbing the snapshot's party Email field."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Forward-retrieval disclosure: read this case's own district-court dismissal opinion (E.D. Mich. 1:24-cv-11604, 2025-02-26) and the Sixth Circuit docket entries (No. 25-1514) via CourtListener. Both predate the petition and confirm the posture the petition describes; they nudged the forecast down modestly but were not decisive. The petition's own disposition was never sought and did not surface."
+    }
+  ]
+}

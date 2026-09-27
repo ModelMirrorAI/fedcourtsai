@@ -1,0 +1,10 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000388",
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "used_base_rates": true,
+  "used_corpus_query": true,
+  "tools_used": ["mcp_courtlistener_search", "fedcourts query", "read_file"],
+  "helpful": ["statpack", "mcp_courtlistener_search"]
+}

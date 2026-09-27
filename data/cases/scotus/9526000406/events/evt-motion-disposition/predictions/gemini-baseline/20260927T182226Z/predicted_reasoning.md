@@ -1,0 +1,5 @@
+The application for a stay will be referred to the full Court and granted.
+
+This is a high-stakes request from the Solicitor General to stay a district court's classwide injunction against third-country removals, a core immigration policy. The government notes that the Supreme Court has already granted emergency relief twice previously in this exact same case. The First Circuit dissolved its own stay abruptly late at night without allowing the government to respond, causing immediate logistical chaos (canceled removal flights, diplomatic issues).
+
+Given the Court's prior willingness to grant relief in this case and the severe, immediate disruption to immigration enforcement operations, the Court will likely act quickly. We expect the Court to request an immediate response from the respondents and refer the matter to the full Court. The Court will ultimately grant the stay pending the filing and disposition of a petition for a writ of certiorari, finding a strong likelihood of success on the merits and irreparable harm to the government.

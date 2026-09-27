@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/9526000370",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "google_web_search",
+    "read_file",
+    "run_shell_command",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "google_web_search was essential for finding up to date news on the current case status since the application is very fresh and CourtListener RECAP did not immediately surface it.",
+    "statpack.md provided the required baseline rates for the interim docket."
+  ],
+  "gaps": []
+}

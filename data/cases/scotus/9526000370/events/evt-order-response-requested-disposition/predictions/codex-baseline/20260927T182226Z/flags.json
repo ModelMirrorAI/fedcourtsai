@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000370",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "The application manifest marks the 189-page PDF's extracted text as truncated. The application argument and short lower-court stay denials are available, but the long receivership-order appendix is incomplete. Prediction weighs the available adverse district-court reasoning and discounts confidence for the incomplete record; no Supreme Court response was provisioned or retrieved. This is an input limitation, not outcome exposure."
+    }
+  ]
+}

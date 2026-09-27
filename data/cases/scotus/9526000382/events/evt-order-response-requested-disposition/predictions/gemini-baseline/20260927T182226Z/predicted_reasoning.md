@@ -1,0 +1,7 @@
+Justice Sotomayor has already requested a response (due September 28). Given the significant First Amendment religious liberty issues at stake (a state civil court enjoining participation in a religious tribunal and compelling the withdrawal of a religious decree), this application is highly likely to be referred to the full Court for consideration rather than being resolved by the Circuit Justice alone.
+
+I expect the amicus count to rise past the current zero. Religious liberty organizations will likely file short emergency amicus briefs before or shortly after the response deadline to emphasize the church autonomy implications of the state court's order. 
+
+Despite the strong merits of the applicants' First Amendment claim, emergency stays of state court proceedings are granted sparingly, and the applicants' motion for an interim stay is still pending before the state appellate court. The Court often prefers to let state appellate processes play out before intervening on the shadow docket. As a result, a denial is the most likely disposition. The Court may ultimately deny the stay, perhaps accompanied by a statement respecting the denial that signals interest if the case reaches the cert stage, or instructing the state appellate courts to act promptly. 
+
+I expect the application to be disposed of as an unqualified denial within 5 to 10 days of the response being filed (early to mid-October 2026).

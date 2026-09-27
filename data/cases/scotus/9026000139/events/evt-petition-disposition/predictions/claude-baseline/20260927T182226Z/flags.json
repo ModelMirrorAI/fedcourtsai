@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000139",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive public signal predating the snapshot, disclosed as hygiene: the petition is a GVR request in light of Monsanto v. Durnell (decided 2026-06-25), the Court GVR'd three identical Monsanto petitions on 2026-06-30 (Salas, Johnson, Anderson, all in the corpus as gvr), and the court-requested response does not oppose the GVR. The forecast (P(grant) 0.94, gvr) rests on these rather than on the elevated-band anchor of roughly 17%. No search touched this case's own disposition."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2, but the second distribution (2026-09-16, for the 10/9 Conference) is a redistribution after the Court requested a response on 2026-08-17, not a relist after consideration. The relist-count cut's bucket 2 therefore overstates this docket's deliberation signal; noted so the relist-increment claim is read from the right state."
+    }
+  ]
+}

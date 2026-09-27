@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/9026000359",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "run_shell_command",
+    "fedcourts query"
+  ],
+  "helpful": [
+    "The statpack's salience band segment base rate table provided a clear anchor for the arrival moment."
+  ],
+  "gaps": [],
+  "notes": ""
+}
