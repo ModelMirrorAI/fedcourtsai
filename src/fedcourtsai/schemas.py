@@ -3540,6 +3540,14 @@ class FrozenProcessRecord(_Strict):
         "reported under that window's `label`",
     )
 
+    @model_serializer(mode="wrap")
+    def _omit_empty_windows(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``windows`` while it is empty, so a record with none reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict) and not self.windows:
+            payload.pop("windows", None)
+        return payload
+
 
 class ForwardClaimRecord(_Strict):
     """The forward-claim integrity rule in force when a board was built.
