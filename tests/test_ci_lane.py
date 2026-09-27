@@ -10,6 +10,7 @@ cannot trust — against real git repositories where git is the input.
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -56,7 +57,8 @@ def test_data_only_diffs_take_the_data_lane(paths: list[str]) -> None:
     "paths",
     [
         ["docs/freeze-record.md"],
-        ["README.md", "AGENTS.md"],
+        ["README.md", "CONTRIBUTING.md"],
+        ["docs/img/diagram.PNG"],
         ["CITATION.cff"],
         ["metrics/README.md", "corpus/README.md", "docs/pipeline.md"],
         ["docs/img/diagram.svg"],
@@ -79,6 +81,18 @@ def test_prose_only_diffs_take_the_docs_lane(paths: list[str]) -> None:
         [".claude/agents/code-reviewer.md"],
         ["tests/fixtures/notes.md"],
         ["src/fedcourtsai/README.md"],
+        # Top-level Markdown that agents read as instructions or policy, and
+        # the names a gemini cell loads as context, are operative, not prose.
+        ["AGENTS.md"],
+        ["CLAUDE.md"],
+        ["SECURITY.md"],
+        ["GEMINI.md"],
+        ["MEMORY.md"],
+        ["README.md", "AGENTS.md"],
+        # Under docs/, only Markdown and images are prose; tooling is code.
+        ["docs/build.py"],
+        ["docs/conf.toml"],
+        ["docs/Makefile"],
         # Everything the gate's Python stages exist for.
         [".github/workflows/ci.yml"],
         ["scripts/ci_lane.py"],
@@ -200,6 +214,40 @@ def test_multi_commit_push_is_code(repo: Path, capsys: pytest.CaptureFixture[str
     assert _run(capsys, "--event", "push", "--before", before) == "lane=code"
 
 
+def test_a_symlink_under_data_is_code(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    before = _git(repo, "rev-parse", "HEAD")
+    (repo / "data").mkdir()
+    (repo / "data" / "link.json").symlink_to("../src/a.py")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "symlink")
+    assert _run(capsys, "--event", "push", "--before", before) == "lane=code"
+
+
+_BLOB = "0" * 7
+_SHA = "a" * 7
+
+
+@pytest.mark.parametrize(
+    ("record", "ok"),
+    [
+        (f":100644 100644 {_SHA} {_SHA} M\0data/x.json\0", True),
+        (f":000000 100644 {_BLOB} {_SHA} A\0data/x.json\0", True),
+        (f":100644 000000 {_SHA} {_BLOB} D\0docs/x.md\0", True),
+        (f":000000 120000 {_BLOB} {_SHA} A\0data/link\0", False),
+        (f":120000 100644 {_SHA} {_SHA} T\0data/link\0", False),
+        (f":000000 160000 {_BLOB} {_SHA} A\0docs/sub\0", False),
+        ("garbage\0data/x.json\0", False),
+        (f":100644 100644 {_SHA} {_SHA} M\0", False),
+    ],
+)
+def test_parse_raw_refuses_opaque_or_unparseable_records(record: str, ok: bool) -> None:
+    if ok:
+        assert len(ci_lane.parse_raw(record)) == 1
+    else:
+        with pytest.raises(ValueError):
+            ci_lane.parse_raw(record)
+
+
 def test_a_rename_out_of_code_counts_both_sides(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -275,6 +323,61 @@ def test_the_lane_is_computed_before_anything_it_gates() -> None:
     assert "scripts/ci_lane.py" in str(lane["run"])
 
 
+def test_the_lane_step_runs_the_bases_classifier_not_the_changes() -> None:
+    # A change must not grade itself: the step extracts HEAD^1's copy and runs
+    # that, and never invokes the checked-out scripts/ci_lane.py directly.
+    run = str(_step("lane")["run"])
+    assert "git show HEAD^1:scripts/ci_lane.py" in run
+    assert "python3 scripts/ci_lane.py" not in run
+    assert "lane=code" in run  # the base-has-no-classifier fallback
+
+
+def _run_lane_step(repo: Path, tmp_path: Path) -> str:
+    """Execute the lane step's own shell in `repo` as a pull_request run."""
+    runner_temp = tmp_path / "runner-temp"
+    runner_temp.mkdir(exist_ok=True)
+    output = tmp_path / "github-output"
+    output.write_text("")
+    env = {
+        "PATH": os.environ["PATH"],
+        "HOME": str(tmp_path),
+        "RUNNER_TEMP": str(runner_temp),
+        "GITHUB_OUTPUT": str(output),
+        "EVENT_NAME": "pull_request",
+        "BEFORE": "",
+    }
+    subprocess.run(
+        ["bash", "-c", str(_step("lane")["run"])],
+        cwd=repo,
+        env=env,
+        check=True,
+        capture_output=True,
+    )
+    return output.read_text().strip()
+
+
+def test_a_change_to_the_classifier_is_graded_by_the_bases_copy(repo: Path, tmp_path: Path) -> None:
+    _commit(repo, {"scripts/ci_lane.py": SCRIPT.read_text()}, "base carries the classifier")
+    # The change rewrites the classifier to call everything data, beside a
+    # data file. Its own copy would say `data`; the base's copy sees a script.
+    rigged = "print('lane=data')\n"
+    _merge_ref(repo, {"scripts/ci_lane.py": rigged, "data/cases/x.json": "{}\n"})
+    assert _run_lane_step(repo, tmp_path) == "lane=code"
+
+
+def test_the_lane_step_uses_the_bases_classifier_for_a_data_change(
+    repo: Path, tmp_path: Path
+) -> None:
+    _commit(repo, {"scripts/ci_lane.py": SCRIPT.read_text()}, "base carries the classifier")
+    _merge_ref(repo, {"data/cases/x.json": "{}\n"})
+    assert _run_lane_step(repo, tmp_path) == "lane=data"
+
+
+def test_a_base_without_the_classifier_runs_the_full_gate(repo: Path, tmp_path: Path) -> None:
+    _merge_ref(repo, {"data/cases/x.json": "{}\n"})
+    assert _run_lane_step(repo, tmp_path) == "lane=code"
+
+
 def test_the_stages_that_cover_data_run_in_every_lane() -> None:
     for name in ("data", "schemas"):
         assert "if" not in _step(name), name
@@ -294,7 +397,8 @@ class _FakeItem:
 
 def test_the_guard_maps_files_to_lanes_with_the_classifier() -> None:
     assert lane_guard.lane_of("docs/testing.md") == "docs"
-    assert lane_guard.lane_of("AGENTS.md") == "docs"
+    assert lane_guard.lane_of("README.md") == "docs"
+    assert lane_guard.lane_of("AGENTS.md") is None
     assert lane_guard.lane_of("data/scope/x.json") == "data"
     assert lane_guard.lane_of("corpus/corpus.db.ref") == "data"
     assert lane_guard.lane_of("src/fedcourtsai/cli.py") is None

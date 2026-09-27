@@ -15,8 +15,10 @@ the change workflow every contributor follows, see [AGENTS.md](../AGENTS.md).
 The gate is the contract: "passes the local gate" and "green CI" mean the same
 thing, because [`ci.yml`](../.github/workflows/ci.yml) and the local gate invoke
 the same script — [`scripts/gate.sh`](../scripts/gate.sh), the single definition of
-what the gate runs (stages and usage: [AGENTS.md](../AGENTS.md)). It needs nothing
-secret.
+what the gate runs (stages and usage: [AGENTS.md](../AGENTS.md)). That holds for a
+code change; a data-only or docs-only change runs a subset of the stages in CI
+([The CI lanes](#the-ci-lanes-what-a-data-only-or-docs-only-change-runs)). It
+needs nothing secret.
 
 The `test` stage includes an offline **stub-cascade smoke** (`tests/test_cascade_smoke.py`):
 it drives provision → predict → evaluate (blinded, then un-aliased) → `validate` over the fixture corpus with no
@@ -78,26 +80,39 @@ Run it all in the included devcontainer (`.devcontainer/`) or any environment wi
 
 ### The CI lanes: what a data-only or docs-only change runs
 
-CI's `gate` job does not run every stage for every change. Its first step,
-[`scripts/ci_lane.py`](../scripts/ci_lane.py), classifies the change and names a
-lane, and the stages that change cannot affect are skipped:
+CI's `gate` job does not run every stage for every change. The step after
+checkout runs [`scripts/ci_lane.py`](../scripts/ci_lane.py), which classifies
+the change and names a lane, and the stages that change cannot affect are
+skipped:
 
-| Lane | Every changed path is… | lint, types, test | lane tests | data, schemas |
+| Lane | Every changed path is… | lint, types, test, coverage summary | lane tests | data, schemas |
 | --- | --- | --- | --- | --- |
 | `data` | under `data/`, or the corpus pointer `corpus/corpus.db.ref` | skipped | `scripts/gate.sh data-tests` | run |
-| `docs` | under `docs/`, a top-level `*.md`, `metrics/README.md`, `corpus/README.md`, or `CITATION.cff` | skipped | `scripts/gate.sh docs-tests` | run |
+| `docs` | `*.md`, `*.png` or `*.svg` under `docs/`; a top-level `*.md` **except** `AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `GEMINI.md` and `MEMORY.md`; `metrics/README.md`; `corpus/README.md`; or `CITATION.cff` | skipped | `scripts/gate.sh docs-tests` | run |
 | `code` | anything else — and every doubt | run | — | run |
+
+The top-level exceptions are not prose: `AGENTS.md` and `CLAUDE.md` are the
+instructions every coding agent loads, `SECURITY.md` is the security policy,
+and `GEMINI.md` / `MEMORY.md` are names a gemini cell reads into its context.
+A change to one runs the full gate.
 
 The lanes are allow-lists and every doubt lands on `code`: an empty diff, a
 mixed diff (a data file beside a source file, or data beside prose), a path the
-script does not recognise, and a diff it cannot compute. Prompts, configs,
-schemas, workflows, scripts, tests and source are never data or prose, whatever
-their extension. The diff is the one the gate actually tests: on a pull request,
-the merge ref against its first parent (the base tip it was computed against);
-on a push, the pushed commit against the prior tip, which the script accepts
-only when the prior tip is the commit's first parent — a single commit or a
-merged PR, the shape of the writer lanes' pushes. A multi-commit push, a branch
-creation, or a force push runs the full gate.
+script does not recognise, a symlink or submodule entry, and a diff it cannot
+compute. Prompts, configs, schemas, workflows, scripts, tests and source are
+never data or prose, whatever their extension. The diff is the one the gate
+actually tests: on a pull request, the merge ref against its first parent (the
+base tip it was computed against); on a push, the pushed commit against the
+prior tip, which the script accepts only when the prior tip is the commit's
+first parent — a single commit or a merged PR, the shape of the writer lanes'
+pushes. A multi-commit push, a branch creation, or a force push runs the full
+gate.
+
+The classifier that runs is the **base's** copy — `HEAD^1`'s
+`scripts/ci_lane.py` — never the change's own, so a change cannot grade itself
+into a lighter lane. An edit to the classifier is itself `code`, and so gets
+the full gate under the trusted version; a base without the file runs the
+full gate.
 
 A skipped step still lets the job conclude, so `gate` reports in every lane
 and the required check is satisfied without a trigger-level `paths:` filter
@@ -107,19 +122,33 @@ prerequisite fails is *skipped*, and a skipped `gate` would pass. Every
 skipping condition compares with `!=` against a named lane, so a missing
 output runs the stage.
 
-**The lane tests.** Some tests read the committed tree itself — the docs a
-test checks against the code, the committed data a test validates. A change
-to those files can fail those tests and no others, so the `data` and `docs`
-lanes run exactly them: the tests marked `reads_data` or `reads_docs`. The
-marks are kept whole by an executed check rather than by review:
-[`tests/lane_guard.py`](../tests/lane_guard.py) installs an audit hook that sees
-every file each test opens, and the full suite — which every code change runs —
-fails any test that opens a lane's files without that lane's mark, and fails
-collection when a module reads one at import time without every test in it
-marked. The file-to-lane mapping is `ci_lane.py`'s own, imported by the guard,
-so the lanes and the guard cannot disagree. The hook does not see a
-subprocess's reads; a test that shells out to something reading a lane file
-marks itself by hand.
+**The lane tests.** Some tests read the committed tree itself — the committed
+data a test validates, a tripwire that walks the checkout. A change to those
+files can fail those tests, so the `data` and `docs` lanes run the tests that
+open them: the tests marked `reads_data` or `reads_docs`. The marks are kept
+in step by an executed check rather than by review:
+[`tests/lane_guard.py`](../tests/lane_guard.py) installs an audit hook on the
+`open` and directory-listing events each test raises, and the full suite —
+which every code change runs — fails any test it sees open a lane's files
+without that lane's mark, and fails collection when a module reads one at
+import time without every test in it marked. The file-to-lane mapping is
+`ci_lane.py`'s own, imported by the guard, so the lanes and the guard cannot
+disagree.
+
+The guard has blind spots, and each one has a rule:
+
+- **A subprocess's reads** raise no event in the test's process. A test that
+  shells out to something reading a lane file marks itself by hand.
+- **Existence and metadata checks** — `Path.exists()`, `is_file()`,
+  `os.stat()` — raise no audit event. A test whose verdict depends on whether a
+  lane file exists, rather than on its content, marks itself by hand.
+- **Reads through a module- or session-scoped fixture or a cache** are charged
+  to whichever test first triggers them — under xdist, a different test on
+  each worker, and nondeterministically. A module whose fixture or cache reads
+  a lane file marks the whole module with `pytestmark`.
+- **Security tripwires over `data/`** (a test that asserts nothing dangerous is
+  committed there) are marked by hand, whatever the guard sees: those are the
+  tests a data-only change most needs to run.
 
 ```bash
 python3 scripts/ci_lane.py --event pull_request   # classify a merge-ref checkout

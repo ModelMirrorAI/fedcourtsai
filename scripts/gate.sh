@@ -2,7 +2,9 @@
 #
 # The single definition of the local gate — the checks CI enforces on every PR.
 # AGENTS.md, README.md, and ci.yml all invoke this script, so "green CI" and
-# "passes the local gate" cannot silently drift apart.
+# "passes the local gate" cannot silently drift apart for a code change; a
+# data-only or docs-only change runs a lane subset (*The CI lanes* in
+# docs/testing.md).
 #
 # Assumes a synced environment (`uv sync`); CI's setup step and the devcontainer
 # both provide one, so the stages below are pure checks with no setup of their own.
@@ -90,9 +92,9 @@ test_stage() {
 
 # The CI lanes' narrowed test stage (scripts/ci_lane.py). In the data and docs
 # lanes ci.yml runs this in place of `test`: only the tests that open the
-# committed files that lane lets change, which are the only tests such a change
-# can affect. tests/lane_guard.py keeps the marks whole — the full suite fails
-# any test that opens a lane file without its lane's mark. pytest exits 5 when
+# committed files that lane lets change. tests/lane_guard.py keeps the marks
+# in step — the full suite fails any test it sees open a lane file without its
+# lane's mark (its blind spots: docs/testing.md, *The CI lanes*). pytest exits 5 when
 # a mark selects nothing, which here means no test reads that lane's files: a
 # pass, not a failure. Fanned out like `test`: the selection is small, but the
 # data-reading tests walk the whole committed tree and dominate the stage.
