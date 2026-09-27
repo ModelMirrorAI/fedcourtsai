@@ -2,11 +2,9 @@
 
 Predictions committed during the shakedown are real, timestamped
 forward calls — irreplaceable forward-stratum data — but they ran under a process
-still being corrected; a post-freeze cohort can join them by declaration,
-where a dated freeze-record entry retires its digests before its claim
-window's outcomes exist (the third supersession shape below). The headline
-metrics must reflect only the **frozen,
-correct** process, without deleting the shakedown runs (a wipe reads as hiding
+still being corrected. The headline metrics must reflect only a **blessed**
+process, counted inside its own **counting window**, without deleting the
+shakedown runs (a wipe reads as hiding
 results, not rigor). This is the same doctrine as [`sal-v4`](salience.md): a
 process change is a **new version**, never an in-place edit, so any past ranking
 always replays against the process that produced it.
@@ -37,8 +35,8 @@ surface is a process input as much as the model is. The harness stamps each
   which commit *ran* it.
 - **`stamped_at`** — when the harness stamped the cell (UTC, timezone-aware).
   Provenance, and — with the digest — the frozen/alpha partition's time key:
-  the digest says *which* process ran, the stamp says whether it ran at or
-  after the freeze instant. The runner clock is the witness that a run
+  the digest says *which* process ran, the stamp says whether it ran inside
+  that digest's counting window. The runner clock is the witness that a run
   postdated the commitment — acceptable because the agent cannot write this
   field, and bounded independently by the workflow run's own timestamps and
   the data commit's date on `main`. A naive value has no defined order
@@ -336,29 +334,68 @@ field or a walk through `data/`'s history.
 
 ## Three states: shakedown → not-yet-frozen → frozen
 
-`FROZEN_PROCESS_DIGESTS` (in `fedcourtsai.process_version`) is the blessed
-map — the digests whose cells count toward the headline, each carrying the
-instant it was blessed. Everything keys off it:
+`fedcourtsai.process_version` holds three constants. `FROZEN_PROCESS_DIGESTS`
+is the blessed map — the current label's digests, each carrying the instant it
+was blessed, the retroactivity record. `FROZEN_SINCE` is the current label's
+counting instant. `COUNTING_WINDOWS` is the counting rule itself: one
+**window** per blessing of a predictor digest, running from the counting
+instant of the label that blessed it until the counting instant of the
+successor that stops blessing it (`closes`, null while open), each instant as
+its `prereg/` tag records it. Evaluator digests have no window — an evaluator
+digest records and never partitions. The labels before `proc-v8` are not
+windows: their digests were de-counted under the rule in force when each was
+superseded, and stay de-counted. A cell is in one of three states:
 
 - **Shakedown** — a cell written before the stamp existed carries no
-  `process_version`. It is never frozen (an absent stamp cannot be in the map),
-  so the whole shakedown ledger drops out of the headline for free — no backfill,
+  `process_version`. It is never frozen (an absent stamp is in no window), so
+  the whole shakedown ledger drops out of the headline for free — no backfill,
   no deletion.
-- **Not-yet-frozen** — a stamped cell whose digest has not been blessed, or a
-  stamped cell whose stamp *precedes* the freeze instant, whatever its digest.
-  Until a stamped cell's digest is blessed *and* its stamp is at or after the
-  freeze instant, the frozen headline is legitimately **empty** — "no
-  frozen-process evaluations yet" — which the leaderboard, the ops report,
-  and the weekly performance digest all say in as many words, rather than
-  showing a bare
-  `0` that reads as a regression.
-- **Frozen** — a stamped cell whose digest is in the blessed map **and** whose
-  stamp is at or after `FROZEN_SINCE`, the freeze instant set in the same
-  commit that fills the map. The digest is a pure content hash — it says
-  *which* process ran, never *when* — so without the instant, a shakedown run
-  of the very bytes later blessed would read as frozen retroactively.
-  Pre-registration means the commitment preceded the run; the time cutoff is
-  what says so.
+- **Not-yet-frozen** — a stamped cell no counting window contains: a digest
+  no window names, or a stamp before its digest's window opened (or at or
+  after it closed). Until some stamped cell sits in a window, the frozen
+  headline is legitimately **empty** — "no frozen-process evaluations yet" —
+  which the leaderboard, the ops report, and the weekly performance digest all
+  say in as many words, rather than showing a bare `0` that reads as a
+  regression.
+- **Frozen** — a stamped cell whose digest has a window containing its stamp,
+  and whose window no revocation has de-counted (`is_frozen`). The digest is a
+  pure content hash — it says *which* process ran, never *when* — so without
+  the window's opening instant, a shakedown run of the very bytes later blessed
+  would read as frozen retroactively. Pre-registration means the commitment
+  preceded the run; the time cutoff is what says so.
+
+**One counted forecast per predictor and event: the earliest window's.** A
+frozen cell is its predictor's *counted* forecast of its event
+(`counted_on_event`) unless the same predictor holds a frozen cell on that
+event from a window that opened earlier — through a named dispatch, or an
+attempt still open at a successor's instant. The earliest window's cell counts
+and a later window's counts in no window. "Earliest" is read over windows that
+still count: where the earlier window was revoked, a later-window cell stamped
+before the revocation stays uncounted and only a forecast made after it can
+count, so a revocation never decides which existing forecast is scored. Within
+one window the run collapse picks the counted cell among that window's runs,
+exactly as it does with one window.
+
+**A grading is gated on its prediction's window.** An evaluation counts where
+its own harness stamp is at or after the instant that opened the graded
+prediction's window (`graded_in_window`) — not a successor's later instant, so
+the gradings a closed window's cells collect after the successor froze count
+wherever that instant falls.
+
+**No figure pools windows.** A new model under an unchanged `predictor_id` is
+a different forecaster, so every frozen-scope figure is per predictor *and*
+window, published under the window's `label` (`process_window` on each board
+entry and export row, and the whole registry in each artifact's
+`frozen_process.windows`). Every frozen-scope aggregate keys on `predictor_id`,
+so the shared stratify pass refuses a ledger in which one predictor's
+in-scope cells span two windows rather than average them as one series, and
+the big-case agreement does the same; the dataset export, which is per row and
+names each row's window, is the one reader that takes such a ledger. Building
+per-window strata for those aggregates, and any named cross-window view, is
+the work a successor waits on (the next section). A cross-engine comparison is
+read only over events on which every compared engine holds a counted cell,
+each from one named window; an event split across a closed window and its
+successor belongs to no complete grid.
 
 ### Two boundaries, two jobs
 
@@ -378,8 +415,9 @@ direction or a false alarm in the other:
   fails the suite on either side.
   A digest carried forward byte-identical from an earlier label keeps that
   label's bless moment: those bytes have been immutable since then.
-- The **counting instant**, `FROZEN_SINCE`, is when the headline starts
-  counting, and it is deliberately guessed *late* (step 2 below). Cells minted
+- The **counting instant**, `FROZEN_SINCE`, is when the current label's
+  cells start counting — it opens every window the label newly blesses — and
+  it is deliberately guessed *late* (step 2 below). Cells minted
   in the window between the two — a live-channel cell queued before the
   instant, say — land honestly in the ledger and are de-counted on timing
   alone by `is_frozen`. That is shakedown, not retroactivity, and the trade is
@@ -388,15 +426,15 @@ direction or a false alarm in the other:
   still editable.
 
 So a stamp in `[bless, instant)` passes the tripwire and fails `is_frozen`
-(`graded_post_freeze`, on the evaluation half), which is exactly the intended
+(`graded_in_window`, on the evaluation half), which is exactly the intended
 reading. The instant sits at or after every bless moment, on an invariant the
 suite holds: no predictor digest may be blessed after it, and on a full freeze —
 one moment across the whole map — the instant is at or after it. One shape
 inverts that: the held-instant evaluator re-bless below leaves the instant
 *before* the newly blessed **evaluator** entries' bless moment. That inversion
 opens a real gap rather than a harmless one — an evaluation stamped in
-`[held instant, new evaluator bless)` passes `graded_post_freeze`, which tests timing with no
-digest limb, and so counts under a rubric not yet immutable on `main`. While
+`[held instant, new evaluator bless)` passes `graded_in_window`, which tests timing with no
+evaluator-digest limb, and so counts under a rubric not yet immutable on `main`. While
 that window is open, nothing mechanical holds it shut: the evaluation
 tripwire cannot see a digest the map does not yet hold, so what keeps the
 gap empty is that cells are minted from `main` — nothing can carry the new
@@ -416,10 +454,11 @@ pass; `iter_stratified_evaluations` is its thin cells-only wrapper), so the
 leaderboard headline and the ops report's scored figures can never disagree —
 they each pass one boolean. Both CLIs take `--all-versions` for the pooled
 shakedown view. The filter partitions on the **prediction's** stamp — the
-competitor being ranked is the predictor — and additionally requires the
-evaluation's own harness stamp to be at or after the freeze instant (its
-digest is recorded but not enforced), so a shakedown grading cannot ride a
-frozen re-run of its event into the headline.
+competitor being ranked is the predictor, and the scored prediction must be its
+counted forecast of the event — and additionally requires the evaluation's own
+harness stamp to be at or after the instant that opened that prediction's
+window (its digest is recorded but not enforced), so a shakedown grading
+cannot ride a frozen re-run of its event into the headline.
 
 Three things default to all-versions on purpose, because they are censuses and
 diagnostics rather than the headline. The first two admit no other scope; the
@@ -470,7 +509,7 @@ land; recording and tagging that commit complete the procedure:
    data/cases`, counts every stamped cell in the ledger and is the wider
    census the freeze record reports beside it; the object form, because a
    rewritten cell can carry a `"process_version": null` key without a stamp.
-   Stamped cells under *retired* digests are the ordinary ledger, not a
+   Stamped cells under *superseded* digests are the ordinary ledger, not a
    finding.) A **prediction**
    carrying a to-be-blessed digest is retroactive blessing by construction: it
    ran under bytes that only this freeze makes immutable, so it necessarily
@@ -486,8 +525,13 @@ land; recording and tagging that commit complete the procedure:
 1. Read the current digests: `fedcourts process-digest --all` prints the label,
    role, id, and digest of every enabled predictor and evaluator.
 2. Paste the digest(s) to bless into `FROZEN_PROCESS_DIGESTS` in
-   `src/fedcourtsai/process_version.py`, and set `FROZEN_SINCE` beside it —
-   a test pins that the two move together. Each digest's value is its **bless
+   `src/fedcourtsai/process_version.py`, set `FROZEN_SINCE` beside it — a test
+   pins that the two move together — and edit `COUNTING_WINDOWS` to match:
+   append one window per newly blessed **predictor** digest, labelled with the
+   new label and opening at the instant, and set `closes` to the instant on
+   every window whose digest this label stops blessing. Never delete a window:
+   a closed window's cells keep counting, and a test fails the suite if a
+   `proc-v8` predictor digest leaves the registry without a close. Each digest's value is its **bless
    moment**, which is not known yet at this step: it is the merge time of the
    promotion that will carry this commit, so write a placeholder here and
    correct it at step 4 against the merge that actually landed. **Guess this
@@ -514,7 +558,7 @@ land; recording and tagging that commit complete the procedure:
    the pre-freeze re-predict rule re-owes its event and the round is paid for
    twice. Where the merge is known before the instant must be — a correction
    at step 4, or a freeze whose promotion has already landed — the merge's own
-   instant is the value that satisfies the rule and leaves no window at all.
+   instant is the value that satisfies the rule and leaves no gap at all.
 3. Commit. Because the digest excludes `pipeline_sha`, the blessed map survives
    unrelated pipeline commits — predict/evaluate can resume at a newer HEAD and
    still match.
@@ -550,8 +594,8 @@ land; recording and tagging that commit complete the procedure:
    was still editable. Recording the true bless moment catches that
    mechanically on **both halves**: such a cell predates its digest's bless
    and its ledger tripwire fires on it, prediction and evaluation alike.
-   (`graded_post_freeze` still tests timing with no digest limb — a gap cell
-   fails its tripwire even where that filter would count it.) Bump past
+   (`graded_in_window` still tests timing with no evaluator-digest limb — a
+   gap cell fails its tripwire even where that filter would count it.) Bump past
    anything the tripwires find. Only then record the commit as the cutover in
    [freeze-record.md](freeze-record.md) and tag it `prereg/<label>`
    (e.g. `prereg/proc-v1`): an annotated tag in the `prereg/` namespace the
@@ -573,10 +617,10 @@ keep their stamp and remain replayable against the process that produced them,
 never overwritten.
 
 **Re-freezing with nothing counted under the prior label** is a supersession,
-not an extension: the new two-constant commit *replaces* the retired label's
+not an extension: the new freeze commit *replaces* the superseded label's
 digests in `FROZEN_PROCESS_DIGESTS` (the map holds one blessed process per
-actor, and `is_frozen` is a membership filter, so keeping the old predictor
-digests would bless two processes at once). The procedure above runs in full
+actor) and closes their windows at the new instant, exactly as the third shape
+below does — here the closed windows simply hold no cell. The procedure above runs in full
 for the new label — including step 0's grep, which is what proves the
 supersession de-blesses nothing — and the freeze record in
 [freeze-record.md](freeze-record.md) must state the count of cells ever stamped
@@ -590,10 +634,10 @@ cells** is the second supersession shape, and it swaps which checks do the
 work. The evaluator entries are the freeze *record*, never the counting
 filter — an evaluation's digest never partitions the headline, though its
 retroactivity is tripwired against the bless moment while the digest stays
-in the map; only its timing is gated for counting (`graded_post_freeze`) —
-so retiring them de-counts nothing, and it also takes their cells out of
+in the map; only its timing is gated for counting (`graded_in_window`) —
+so replacing them de-counts nothing, and it also takes their cells out of
 the tripwire's reach (harmless for cells that already passed); the freeze
-record in [freeze-record.md](freeze-record.md) must name the retired digests and
+record in [freeze-record.md](freeze-record.md) must name the replaced digests and
 the count of counted cells graded under them, since the constant no longer
 does. Where the predictor digests are **byte-identical** to the prior
 `prereg/` tag's, `FROZEN_SINCE` holds rather than moves: the instant does
@@ -601,7 +645,7 @@ no work for anything newly blessed — nothing can carry the new evaluator
 bytes before the carrying promotion lands them on `main`, and step 0
 proves nothing already does — while moving it forward would drop every
 stamped prediction from the headline for a change that touched no
-predictor byte. Step 4's date comparison is therefore not such a label's
+predictor byte, and opens no window. Step 4's date comparison is therefore not such a label's
 audit (held deliberately, the instant *precedes* the carrying promotion);
 the auditor's check is the byte comparison instead — the predictor digests
 under the new tag must equal the prior tag's, whose own
@@ -611,58 +655,78 @@ series pool across the rubric boundary the re-bless introduces, and the
 freeze record states the exposure.
 
 **Re-blessing the predictor half while the prior predictor digests carry
-counted cells** is the third supersession shape, and the only one that
-de-counts. **It is declared replaced from `proc-v8` on**: the freeze record's
-2026-09-26 entry closes a superseded predictor digest's counting window
-instead of de-counting it, and holds every predictor-half re-bless other
-than a declared revocation until per-window counting is built. What follows describes the mechanism as it
-stands until then: the predictor digests are the enforced filter, so replacing them in
-`FROZEN_PROCESS_DIGESTS` removes every cell stamped under the retired digests
-from every frozen-scope artifact at once — and `FROZEN_SINCE` sitting at or
-after the carrying promotion, the ordinary step-4 rule (the held-instant
-exception above is scoped to byte-identical predictor digests and cannot
-apply, so the instant is either moved there or already sits there, which
-satisfies the same rule without a move), independently
-drops every evaluation stamped before the instant via
-`graded_post_freeze`, blessed evaluator digests or not, so the boundary is
-total in both halves rather than incidental to one. That is a
-retroactive-looking move, and what makes it pre-registered
-rather than retroactive is a **declaration that predates the outcomes of the
-claim window it de-counts**: a dated freeze-record entry, committed while
-that window's outcomes are still unknown, declaring the stamped cohort a
-shakedown and naming the label whose cells will be the counted record — and
-stating openly any slice of the cohort whose own outcomes already resolved,
-since for those cells the declaration creates no pre-registered boundary and
-only their prior unclaimability limits the damage. Without the
-declaration, dropping a cohort after its outcomes resolve is exactly the
-selective exclusion an external evaluator will not accept; with it, the
-boundary is the alpha ledger's own, one label later. The re-bless's freeze
-entry then states the count of cells de-counted and points at the declaration
-that licensed it, and no claim pools across the boundary in either
-direction.
+counted cells** is the third supersession shape, and it **closes** the prior
+windows; it de-counts nothing. The successor's freeze commit sets `closes`, at
+its own counting instant, on the window of each predictor digest it stops
+blessing, and appends a window for each digest it newly blesses. Every cell
+that counted inside a closed window keeps counting, reported under the label
+that opened it; a digest carried forward byte-identical keeps one unbroken
+window across both labels; and a digest blessed again after its window closed
+opens a second one. The successor's instant is not a gate on the closed
+windows' gradings — `graded_in_window` reads the instant that opened the graded
+prediction's window — so the gradings those cells collect after the successor
+froze count as they would have without it.
 
-**What a predictor-half re-bless leaves the predict backlog owing.** The
-de-count above is usually discussed over cells whose events have resolved,
-where what moves is a published figure. The other half of the retired cohort
-sits on events that are **still open**, and there nothing has been published
-yet — which is why it is easy to miss that those events are now worthless to
-the new label: each holds forecasts made under a retired process, so when it
-resolves the grading lands outside the frozen scope and the event is consumed
-for nothing. The predict backlog is otherwise version-blind (a committed
-prediction is a committed prediction), so it would report every one of them
-covered and derive no work at all.
+A successor that closes windows carries the disclosures its freeze-record entry
+owes: the closed windows' resolved and pending counts at its instant, and
+evidence for the process change other than the closed windows' boards (the
+close is decided while some of their outcomes are visible, so it must not be
+chosen by score); the number of **split events**, on which some engines' counted
+cells come from a closed window and others' from the successor; per engine, how
+many of the successor's counted events hold a failed or missing
+earlier-window attempt, since the successor's population is the events the
+closed window did not reach and that population is selected, not random; and,
+where it is a full freeze, the count per evaluator digest of closed-window
+cells graded under the successor's rubric, since a window's figure can then pool
+rubrics. An unbroken window licenses no other pooling: a salience, baseline,
+evaluator or other boundary registered elsewhere still cuts inside it.
 
-It does not. The deriver **re-owes** a cell on such an event while it is still
-genuinely forward and its declared moment is still open — the pre-freeze
-re-predict rule, whose predicates and moment allow-list are in
-[cli.md](cli.md). The consequence for a cutover is worth stating at planning
-time rather than discovering after it: a re-bless's real cost is not only the
-counted cells it drops, but a re-forecast of every open event the retired
-digests covered, bounded by the moments still open when the freeze lands. The
-freeze-record entry that registers such a re-predict states the cohort rule and
-its expected size **before** any of its outcomes are observable, exactly as a
-shakedown declaration does, because the cells it produces are the ones the new
-label's board will be built from.
+**No predictor-half re-bless lands on `main` until per-window strata are
+built.** The frozen scope, the counting rule, the run collapse, evaluation
+staging, the dataset export and the re-predict rule all read the windows. The
+leaderboard, the claim scores, the ops report and every other aggregate over
+the stratify pass still key on `predictor_id` alone, so rather than pool a
+predictor's windows they refuse the ledger the moment one predictor's
+in-scope cells span two; the big-case agreement does the same. A successor
+landed before those surfaces break out by window would stop every frozen-scope
+board from building.
+
+**Revoking a window** is the one route by which counted cells are de-counted,
+and it is for a defect that invalidates the window's forecasts, never a better
+process. It sets `revoked_at` on the window, on a dated freeze-record entry that
+states the defect and shows it from committed artifacts without reference to
+any outcome, made while the affected outcomes are unknown — or disclosing the
+slice that had already resolved, and then publishing the revoked window's
+figures over that slice beside the entry, so the exclusion is visible rather
+than silent. A revoked window's cells leave every frozen-scope artifact; its
+still-forward events are re-owed afresh under the re-predict rule below; and a
+later-window cell stamped before the revocation stays uncounted, so revoking
+never promotes a forecast that was already made. The labels before `proc-v8`
+were de-counted by the shape that preceded windows — replacing the predictor
+digests outright, licensed by a shakedown declaration dated before the
+de-counted claim window's outcomes — and the freeze record carries each of
+those declarations.
+
+**What a de-count leaves the predict backlog owing.** A cell that counts
+nowhere — unstamped, under a de-counted pre-`proc-v8` digest, stamped before
+its window opened, or in a revoked window — sits on an event that may still be
+**open**, and there nothing has been published yet. When it resolves, the
+grading lands outside the frozen scope and the event is consumed for nothing.
+The predict backlog is otherwise version-blind (a committed prediction is a
+committed prediction), so it would report every such event covered and derive
+no work at all.
+
+It does not. The deriver **re-owes** a cell on such an event, for each
+predictor whose every committed cell on it is de-counted, while the event is
+still genuinely forward and its declared moment is still open — the re-predict
+rule, whose predicates and moment allow-list are in [cli.md](cli.md). A
+**closed** window's cell is not de-counted, so a supersession re-owes nothing:
+an event on which a closed window holds a counted cell stays covered, and the
+successor's backlog reaches only the events its predecessor did not. A
+revocation's real cost, by contrast, is not only the counted cells it drops but
+a re-forecast of every open event the revoked window covered, bounded by the
+moments still open when it lands; the entry that registers it states the
+cohort and its expected size **before** any of its outcomes are observable.
 
 ## A note on local runs
 

@@ -159,7 +159,6 @@ from .finalize import (
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .integrity import (
-    cell_clock,
     evaluation_clock,
     forward_claim_record,
     latest_evaluation_runs,
@@ -374,6 +373,7 @@ from .store import (
     iter_predicted_events,
     iter_tooling,
     iter_usage,
+    latest_resolvable,
     ledger_cell_counts,
     load_predicted_event,
     open_events,
@@ -4924,7 +4924,7 @@ def leaderboard(
     panel depth (``metrics/README.md``).
 
     Defaults to the **frozen** headline: only cells whose predictor ran the
-    blessed frozen process. Until a stamped cell postdates the freeze instant
+    blessed frozen process inside its counting window. Until a stamped cell does
     that is legitimately empty. ``--all-versions`` pools every process version.
     """
     settings = get_settings()
@@ -4950,6 +4950,7 @@ def leaderboard(
         # stratum's per-band cut and the realized always-deny floor beside
         # accuracy, over the same cells and never a rank key.
         facts=cell_facts(cells, settings.data_root),
+        windows=run.windows,
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -5048,6 +5049,7 @@ def claim_scores_command(
         process_scope=scope,
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
+        windows=run.windows,
     )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
     write_json(destination, board)
@@ -6000,9 +6002,10 @@ def big_cases(
         typer.Option(
             "--process-scope",
             help="Which process versions a current read may come from: 'all' (default — "
-            "every committed run, shakedown, pre-freeze, retired-digest and unstamped "
+            "every committed run, shakedown, pre-freeze, de-counted-digest and unstamped "
             "included, which is what a census means) or 'frozen' (the comparison build: "
-            "only runs stamped with a blessed digest at or after the freeze instant). "
+            "only runs that are their predictor's counted forecast inside a counting "
+            "window). "
             "Either way the per-event history is unfiltered. The frozen build's hold-out "
             "is selected, not sampled — a resolved case is never re-predicted and the "
             "re-predict rule re-owes neither the cert "
@@ -6032,7 +6035,7 @@ def big_cases(
     read, which is what a census means and what the published board wants.
     ``--process-scope frozen`` builds the **comparison** board instead, admitting
     only runs whose harness stamp is blessed and post-freeze; a pre-freeze,
-    retired, shakedown or unstamped run is then history under its event, never a
+    de-counted, shakedown or unstamped run is then history under its event, never a
     current read, never in ``n`` and never in a mean. That build is not this one
     with fewer rows — a resolved case is never re-predicted and the re-predict
     rule re-owes neither the cert arrival moment nor either merits moment, so it
@@ -7017,17 +7020,23 @@ def _echo_frozen_scope(records: Sequence[tuple[Path, Evaluation]]) -> None:
     outside ``data/``'s git history recording that it did. The line puts that
     in the writer run's log and step summary, where it is greppable after the
     fact. Scope is the evaluation-side gate the headline itself uses —
-    ``graded_post_freeze``, timing alone — because an evaluation's digest is
-    recorded but never enforced: a cell graded under a since-superseded
-    evaluator digest is still counted, so it must still print as
-    frozen-scope here. It reports the stamp the record already carries,
-    which is exactly the stamp the re-grade preserves.
+    ``graded_in_window``, timing against the instant that opened the graded
+    prediction's window — because an evaluation's digest is recorded but never
+    enforced: a cell graded under a since-superseded evaluator digest is still
+    counted, so it must still print as frozen-scope here. It reports the stamp
+    the record already carries, which is exactly the stamp the re-grade
+    preserves.
     """
     for path, record in records:
         stamp = record.process_version
         if stamp is None:
             continue
-        scope = "frozen" if process_version.graded_post_freeze(stamp) else "alpha"
+        # evaluations/<evaluator>/<predictor>/<run>/evaluation.json
+        scored = scored_prediction(path.parents[4], record.predictor_id, record.prediction_run_id)
+        graded = scored is not None and process_version.graded_in_window(
+            stamp, scored.process_version
+        )
+        scope = "frozen" if graded else "alpha"
         typer.echo(f"regrade: {path} — {scope}-scope cell stamped {stamp.label}")
 
 
@@ -7229,14 +7238,16 @@ def _latest_prediction_for(event_paths: EventPaths, predictor_id: str) -> Predic
     """A predictor's **latest** prediction on this event, or ``None``.
 
     By :func:`fedcourtsai.integrity.cell_clock`; ``None`` where the predictor
-    wrote none. The fallback join for evaluations with no stamped
-    ``prediction_run_id``, and the resolver the ordinary stamp reads that run
-    id from — at stamp time, immediately post-run, the latest prediction *is*
-    the scored one.
+    wrote none, and never a later window's cell the earliest-window tie-break
+    leaves uncounted (:func:`fedcourtsai.store.latest_resolvable`). The
+    fallback join for evaluations with no stamped ``prediction_run_id``, and
+    the resolver the ordinary stamp reads that run id from — at stamp time,
+    immediately post-run, the latest resolvable prediction *is* the one
+    evaluation staging handed the grader.
     """
     files = sorted(event_paths.predictions_dir.glob(f"{predictor_id}/*/prediction.json"))
     predictions = [read_model(p, Prediction) for p in files]
-    return max(predictions, key=cell_clock) if predictions else None
+    return latest_resolvable(predictions) if predictions else None
 
 
 def _outcome_for(event_paths: EventPaths) -> Outcome | None:
@@ -12450,11 +12461,11 @@ def _scope_filtered(
     graded (:func:`fedcourtsai.store.event_has_claimable_prediction`), because
     finishing it buys only the missing engines on a case the project already
     funded; or an event the backlog deriver named in ``reopen_events``, whose
-    whole cohort a re-bless retired while the event is still forward at an open
-    moment, because a wholly retired cohort is re-minted for every engine at
+    whole cohort is de-counted while the event is still forward at an open
+    moment, because a wholly de-counted cohort is re-minted for every engine at
     once and so completes rather than manufactures a comparison. Everything else
     about the case goes with the drop — its unpredicted events, which would be
-    new spend on a case the funding gate declined, and its predicted-but-retired
+    new spend on a case the funding gate declined, and its predicted-but-de-counted
     events the rule does not re-owe, where a freshly-stamped cell would leave a
     board an event scored on one engine alone. A deferred case with no
     qualifying listed event is dropped as before, and so is one whose request
@@ -12648,7 +12659,7 @@ def _predict_backlog_cases() -> list[CaseRequest]:
 
     It carries one thing a trigger body cannot: each entry's ``reopened``
     events become the request's ``reopen_events``, the fan-out's licence to
-    re-mint a cell the ledger already holds under a retired process digest (the
+    re-mint a cell the ledger already holds only as de-counted cells (the
     pre-freeze re-predict rule, spelled out on
     :func:`fedcourtsai.pipeline.pull.derive_predict_backlog`). Only this
     derivation sets it, because only it has the corpus open to ask whether the
@@ -12766,10 +12777,12 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int) -> None:
         typer.echo(
             f"Predict backlog: {backlog.reowed_events} of the owed event(s) are "
             "RE-OWED under the pre-freeze rule — still forward, still at an open "
-            "moment, and every committed prediction on them carries a retired "
-            "process digest, so their cells would never reach a claimable board. "
+            "moment, and every committed prediction on them is de-counted "
+            "(outside every counting window, or in a revoked one), so their cells "
+            "would never reach a claimable board. "
             "Re-predicting replaces nothing: the older cells stay under their own "
-            "run ids and the newest run per predictor is the one staged for grading.",
+            "run ids and the newest resolvable run per predictor is the one staged "
+            "for grading.",
             err=True,
         )
     if backlog.held_stale:
@@ -14114,7 +14127,7 @@ def _predict_ledger_gate(
     already-complete event.
 
     A third class rides beside them and removes nothing: a cell the ledger holds
-    only under **retired** process digests, on an event the backlog deriver
+    only as **de-counted** cells, on an event the backlog deriver
     reopened, survives the gate under the pre-freeze re-predict rule
     (:func:`fedcourtsai.matrix.reopened_for`). It is reported separately rather
     than silently absent from ``already_predicted``, because a maintainer
@@ -14150,9 +14163,9 @@ def _predict_ledger_gate(
                         _DropRecord(
                             case_id,
                             "every committed prediction by this predictor on the event "
-                            "carries a retired process digest, and the event is still "
+                            "is de-counted, and the event is still "
                             "forward at an open moment — re-owed a cell under the "
-                            "blessed process",
+                            "process in force",
                             event_id=event_id,
                             actor_id=predictor.id,
                         )

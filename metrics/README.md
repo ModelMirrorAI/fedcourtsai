@@ -7,27 +7,29 @@ diffs track predictor and corpus quality over time.
 *predictor performance* is scoped to the **frozen** process partition
 ([docs/process-version.md](../docs/process-version.md)): a cell counts toward
 a frozen-scope performance artifact only if its **prediction's**
-`process_version` stamp carries a digest in `FROZEN_PROCESS_DIGESTS` with a
-stamp at or after the `FROZEN_SINCE` freeze instant — the partition keys on
-the prediction because the predictor is the competitor being ranked; the
-evaluator's own digest is recorded and never enforced for counting — *and* the
-evaluation's own harness stamp is at or after that instant (the stamp, never
-the agent-written `created_at`: the boundary rests only on clocks the agent
-cannot write), both constants set in the
-pre-registration commit the `prereg/<label>` tag marks. Everything else in
-`data/` is the **alpha/shakedown ledger** — cells written before the stamp
-existed (they carry no `process_version` at all; the absent stamp is the
-marker), or run or graded before the freeze instant, or stamped under
-predictor digests a later freeze deliberately retired: a
-**declared-shakedown cohort**, whose period is describable as a beta only
-because its declaration — a dated entry in the freeze record — preceded the
-outcomes of the claim window it governs (*the third supersession shape* in
-[docs/process-version.md](../docs/process-version.md); the declaration
-itself states any slice whose own outcomes had already resolved). For such a
-cohort the exclusion takes effect at the retiring freeze, not at the
-declaration: between the two, committed frozen-scope artifacts still count
-the cohort, and the declaration is what marks their figures as shakedown
-reading in the meantime. Alpha cells stay
+`process_version` stamp lies in a **counting window** (`COUNTING_WINDOWS`: one
+per blessing of a predictor digest, from the counting instant of the label that
+blessed it until a successor's closes it) that no revocation de-counted, and
+is its predictor's counted forecast of the event — the earliest window's, where
+the predictor holds cells from several — the partition keys on the prediction
+because the predictor is the competitor being ranked; the evaluator's own
+digest is recorded and never enforced for counting — *and* the evaluation's
+own harness stamp is at or after the instant that opened that prediction's
+window (the stamp, never the agent-written `created_at`: the boundary rests
+only on clocks the agent cannot write), each instant set in the
+pre-registration commit a `prereg/<label>` tag marks. A **closed** window's
+cells keep counting under the label that opened them; a successor de-counts
+nothing. Everything else in `data/` is the **alpha/shakedown ledger** — cells
+written before the stamp existed (they carry no `process_version` at all; the
+absent stamp is the marker), or run or graded before their window opened, or
+stamped under the predictor digests of a label before `proc-v8`: a
+**declared-shakedown cohort**, de-counted when its label was superseded,
+whose period is describable as a beta only because its declaration — a dated
+entry in the freeze record — preceded the outcomes of the claim window it
+governs (the declaration itself states any slice whose own outcomes had
+already resolved). A window's cells are otherwise de-counted only by a
+**revocation** for a defect, on its own dated entry
+([docs/process-version.md](../docs/process-version.md)). Alpha cells stay
 committed with their timestamps, but they are **excluded from every
 frozen-scope performance artifact and from any claimed performance result** —
 they exercised the pipeline while the process was still moving, and nothing
@@ -36,26 +38,41 @@ publish which scope they were built under as `process_scope` (`"frozen"` or
 `"all"`); an `"all"` build — the `--all-versions` CLI toggle — is a
 diagnostic view, never a results surface.
 
+**No figure pools windows.** A new model under an unchanged `predictor_id` is
+a different forecaster, so an engine's cells on either side of a closed window
+are two series, not one. Each frozen-scope entry names its window as
+`process_window`, and every artifact carries the whole registry in
+`frozen_process.windows`. The boards key on `predictor_id`, so while one
+predictor's in-scope cells come from a single window the entry *is* the
+(predictor, window) figure; the build **refuses** a ledger in which they span
+two rather than average them. A view over several windows is named as the
+record across those labels, lists them, shows each window's `n` beside the
+pooled figure, and is never a rank key; a rise across a window boundary is not
+a measurement of improvement. Engines are compared only over **events**: a
+cross-engine figure is read over events on which every compared engine holds a
+counted cell, each from one named window, and an event split across a closed
+window and its successor belongs to no complete grid.
+
 **One prediction per predictor per event, and re-predicting a live event is a
 registered rule.** A predictor may hold several committed runs on one event —
 a re-queue after a failed cell, or a deliberate re-forecast — and the board
 reads exactly one of them: the run the grading evaluation's harness-stamped
 `prediction_run_id` names, falling back to the predictor's **newest** run where
 that field is absent or the run it names is not on disk. So the staged and scored cell is the
-newest one, and an earlier run is history that no figure counts twice. (That is within one
-counting window: across windows, the earliest window's cell counts, as registered in
-[freeze-record.md](../docs/freeze-record.md), 2026-09-26, and held until built.)
+newest one, and an earlier run is history that no figure counts twice. That is within one
+counting window: where a predictor holds cells from several windows on an event, the
+earliest window's cell counts, and a later window's is neither counted nor staged for
+grading in its place.
 
-That matters because a predictor-half re-bless de-counts every cell stamped
-under the retired digests (declared replaced from `proc-v8` on by closed
-counting windows, and held until they are built — see
-[freeze-record.md](../docs/freeze-record.md), 2026-09-26), including cells on events that have **not yet
-resolved**. Those events would otherwise be consumed for nothing: graded on
-resolution, then dropped from this scope, leaving the frozen board with no
-population at all. The predict backlog therefore **re-owes** a cell on a
-still-forward event at a still-open moment whose whole committed cohort is
-retired ([docs/pipeline.md](../docs/pipeline.md)), so the cell that is
-eventually graded was produced under a blessed process. Two readings this does
+That matters because a de-count — the cells of a label before `proc-v8`, or of a
+revoked window — reaches cells on events that have **not yet resolved**. Those
+events would otherwise be consumed for nothing: graded on resolution, then
+dropped from this scope, leaving the frozen board with no population at all.
+The predict backlog therefore **re-owes** a cell on a still-forward event at a
+still-open moment whose whole committed cohort is de-counted
+([docs/pipeline.md](../docs/pipeline.md)), so the cell that is eventually
+graded was produced under a counted process. A supersession re-owes nothing: a
+closed window's cells still count, so its events stay covered. Two readings this does
 **not** license. It is not a re-grade: nothing about an existing evaluation
 moves, and `superseded_gradings` is untouched. And a rise in any figure across
 the re-predict boundary is **not** a measurement of model improvement — the two
@@ -65,7 +82,7 @@ or even of its own conference: the first frozen cert population is **n = 110
 cert/distribution events, all distributed for 2026-09-28** (70 baseline, 37
 elevated, 1 high, 1 federal, 1 state), with 10 cert/cvsg (all high band) and 2
 interim events beside it. It spans bands — the salience funding line does not
-cut it, because the re-predict rule re-owes a wholly retired cohort on a
+cut it, because the re-predict rule re-owes a wholly de-counted cohort on a
 declined case too — but it is **110 of the 180 in-scope petitions** distributed
 for that conference (557 distributed in all), being the previously-predicted
 residue of earlier funded rounds, and so is selected **upward on band**: 63.6%
@@ -86,8 +103,8 @@ a section away, because it is the number's population.
 And a third reading the boundary does not license: **a cohort complete on the
 board is not the same as a cohort complete in fact.** The rule's moment gate
 closes with the conference, so a cell that fails on the last tick before it
-cannot be re-minted afterwards, leaving an event with some engines blessed and
-some retired — per-predictor cells over *different event sets*, which the
+cannot be re-minted afterwards, leaving an event with some engines counted and
+some de-counted — per-predictor cells over *different event sets*, which the
 ranking (N-unweighted point estimates) cannot show. A figure over such a cohort
 is published over the events carrying every blessed engine, or it prints the
 per-engine `n` and the complete-grid `n` beside it.
@@ -2010,13 +2027,14 @@ the rendered table) and
   **Process scope, and why the default is version-blind.** `process_scope` says
   which process versions a **current read** may come from. The default is
   `all`: every committed run is eligible, shakedown, pre-freeze,
-  retired-digest and unstamped cells included, because the board is a census of
+  de-counted-digest and unstamped cells included, because the board is a census of
   what the panel said rather than a measurement of how well it said it, and a
   stakes read resolves against nothing for a partition to protect.
   `fedcourts big-cases --process-scope frozen` builds the **comparison** board,
-  admitting only runs whose harness stamp is in the blessed digest set and was
-  written at or after the freeze instant — the predicate the performance boards
-  scope on. On that build a pre-freeze, retired-digest, shakedown or unstamped
+  admitting only runs that are their predictor's counted forecast of their
+  event — a harness stamp inside a counting window, the earliest window's where
+  the predictor holds several — the predicate the performance boards scope on.
+  On that build a pre-freeze, de-counted-digest, shakedown or unstamped
   run is **history** under its event, never a current read, never in `n` and
   never in a mean; the scope is applied before the moment choice, so such a run
   cannot move a case's moment either. The per-event entries are unfiltered on

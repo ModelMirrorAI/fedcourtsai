@@ -131,8 +131,9 @@ from typing import Any, Final
 from . import ids
 from .paths import CasePaths, EventPaths
 from .pricing import DEFAULT_MODELS, MODEL_RATES
+from .process_version import resolvable_runs
 from .registry import load_evaluators, load_predictors
-from .schemas import EvaluatorConfig, PredictorConfig
+from .schemas import EvaluatorConfig, PredictorConfig, ProcessVersion
 from .serialize import write_raw_json, write_text
 
 #: Alias directories are opaque and ordinal-free in meaning: ``candidate-a`` is
@@ -624,7 +625,10 @@ def latest_prediction_dirs(event_paths: EventPaths) -> dict[str, Path]:
     record with no stamped ``prediction_run_id``
     (:func:`fedcourtsai.store.scored_prediction`), and the resolution the
     stamp then *names* on the evaluation, which every downstream join reads
-    first. It has to be that rule down
+    first. A run in a later counting window than the predictor's counted cell
+    on the event is never a candidate
+    (:func:`fedcourtsai.process_version.resolvable_runs`), so it is not staged
+    for grading in the earlier window's place. It has to be that rule down
     to the tiebreak: the run staged here is the run the grader reads, so the
     stamp's own latest-resolution naming the same run is what makes the
     stamped identity the graded artifact's — if the two halves picked
@@ -637,9 +641,24 @@ def latest_prediction_dirs(event_paths: EventPaths) -> dict[str, Path]:
     latest: dict[str, Path] = {}
     for predictor_dir in sorted(p for p in root.iterdir() if p.is_dir()):
         runs = sorted(r for r in predictor_dir.iterdir() if (r / "prediction.json").is_file())
-        if runs:
-            latest[predictor_dir.name] = max(runs, key=_cell_clock)
+        candidates = resolvable_runs(runs, _stamp)
+        if candidates:
+            latest[predictor_dir.name] = max(candidates, key=_cell_clock)
     return latest
+
+
+def _stamp(directory: Path) -> ProcessVersion | None:
+    """The prediction's harness stamp, or ``None`` when absent or unreadable.
+
+    Tolerant like :func:`_cell_clock`, for the same reason: an unreadable stamp
+    reads as unstamped — outside every counting window, so it takes no part in
+    the tie-break — rather than crashing the staging step.
+    """
+    try:
+        payload = json.loads((directory / "prediction.json").read_text())
+        return ProcessVersion.model_validate(payload["process_version"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
 
 
 def _stage_candidate(

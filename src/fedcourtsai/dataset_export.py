@@ -12,7 +12,7 @@ checksum. The ledger stays authoritative; the bundle is derived from it.
 uncounted one is not, and in which stratum a scored prediction lands all come
 from :func:`fedcourtsai.store.stratify`, the same pass the leaderboard
 aggregates. The prediction population is the frozen gate the same pass
-applies (:func:`fedcourtsai.process_version.is_frozen`), widened to ungraded
+applies (:func:`fedcourtsai.store.ledger_counts`), widened to ungraded
 predictions; ``forward_claim_excluded`` calls the same breach rule
 (:func:`fedcourtsai.integrity.forward_claim_breach`) so it covers an ungraded
 prediction too; and ``set_aside`` is the one rule stated here — a breach
@@ -55,7 +55,7 @@ from .blinding import latest_prediction_dirs
 from .integrity import FORWARD_CLAIM_POLICY, forward_claim_breach
 from .leaderboard import SKILL_COHERENCE_TOLERANCE
 from .paths import CasePaths
-from .process_version import frozen_process_record, graded_post_freeze, is_frozen
+from .process_version import frozen_process_record, graded_in_window, window_of
 from .schemas import (
     EXPORTABLE_MODELS,
     Evaluation,
@@ -73,6 +73,7 @@ from .schemas import (
 from .serialize import read_model, write_json, write_jsonl, write_raw_json, write_text
 from .store import (
     iter_predictions,
+    ledger_counts,
     named_document,
     normalized_moment,
     normalized_stage,
@@ -206,7 +207,8 @@ def build_tables(
     """The bundle's rows, built from the committed ledger under ``data_root``.
 
     The population is every committed ``prediction.json`` whose process is
-    frozen (:func:`fedcourtsai.process_version.is_frozen`), graded or not —
+    counts (:func:`fedcourtsai.store.ledger_counts` — in a counting window, and
+    its predictor's earliest window on the event), graded or not —
     the pre-registered record — or, with ``all_versions``, every prediction.
     Gradings are every ``evaluation.json`` whose graded prediction
     (:func:`fedcourtsai.store.scored_prediction_cell`) is in that population,
@@ -217,16 +219,23 @@ def build_tables(
     from the corpus. ``ledger_commits`` maps a resolved ``prediction.json`` path to
     the commit that added it; ``None`` leaves those columns null.
     """
-    run = stratify(data_root, frozen_only=not all_versions, policy=FORWARD_CLAIM_POLICY)
+    # Per-row, and every row carries its window beside it, so the pooled-window
+    # refusal the aggregate boards take does not apply here.
+    run = stratify(
+        data_root,
+        frozen_only=not all_versions,
+        policy=FORWARD_CLAIM_POLICY,
+        refuse_pooled_windows=False,
+    )
     strata: dict[GradingKey, Stratum] = {_grading_key(ev): s for ev, s, _st, _m in run.cells}
     forward_claim = {_grading_key(cell.evaluation) for cell in run.excluded}
     leaked = {_grading_key(cell.evaluation) for cell in run.leaked}
 
-    ledger = [
-        entry
-        for entry in iter_predictions(data_root)
-        if all_versions or is_frozen(entry.prediction.process_version)
-    ]
+    committed = iter_predictions(data_root)
+    counted = dict(
+        zip((entry.cell_path for entry in committed), ledger_counts(committed), strict=True)
+    )
+    ledger = [entry for entry in committed if all_versions or counted[entry.cell_path]]
     exported: set[PredictionKey] = {
         (entry.case_id, entry.event_id, entry.predictor_id, entry.run_id) for entry in ledger
     }
@@ -269,9 +278,11 @@ def build_tables(
                 leakage_suspected=evaluation.leakage_suspected,
                 counted=gkey in strata,
                 excluded_reason=_exclusion_reason(
-                    # The prediction is frozen by the population filter, so the
-                    # scope gate left to apply is the grading's own time half.
-                    in_scope=all_versions or graded_post_freeze(evaluation.process_version),
+                    # The prediction counts by the population filter, so the
+                    # scope gate left to apply is the grading's own time half,
+                    # against the instant that opened that prediction's window.
+                    in_scope=all_versions
+                    or graded_in_window(evaluation.process_version, graded[1].process_version),
                     counted=gkey in strata,
                     forward_claim=gkey in forward_claim,
                     leakage=gkey in leaked,
@@ -350,7 +361,8 @@ def build_tables(
                 term=context.term if context is not None else None,
                 process_label=pv.label if pv is not None else None,
                 process_digest=pv.digest if pv is not None else None,
-                process_frozen=is_frozen(pv),
+                process_frozen=counted[entry.cell_path],
+                process_window=window.label if (window := window_of(pv)) is not None else None,
                 stamped_at=_utc(pv.stamped_at) if pv is not None else None,
                 pipeline_sha=pv.pipeline_sha if pv is not None else None,
                 ledger_commit=commit.sha if commit is not None else None,
@@ -689,10 +701,11 @@ derived from it at the commit `{MANIFEST}` names.
 ## What the rows are
 
 - **Predictions.** Under the `frozen` scope (the release) the population is
-  every committed prediction made by a pre-registered frozen process at or
-  after the freeze instant, graded or not; `{MANIFEST}` records the blessed
-  digests and the instant. The `all` scope widens it to every process version
-  and is diagnostic only.
+  every committed prediction that counts — stamped inside a pre-registered
+  process's counting window, and its predictor's earliest window on the event —
+  graded or not; `{MANIFEST}` records the blessed digests, the instant and the
+  windows, and `process_window` names each row's window. The `all` scope
+  widens it to every process version and is diagnostic only.
 - **Counted and set aside.** `scored` marks a prediction at least one counted
   grading names; `stratum` then says which stratum the scored figures place it
   in. A prediction is `set_aside` when its record claims a forward forecast the

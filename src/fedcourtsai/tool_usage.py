@@ -84,7 +84,7 @@ from statistics import fmean, median
 from .integrity import latest_evaluation_runs
 from .leaderboard import kendall_tau_b
 from .pipeline.moments import spec_for
-from .process_version import graded_post_freeze, is_frozen
+from .process_version import graded_in_window
 from .retrieval import RETRIEVAL_CALL_CAP
 from .schemas import (
     Evaluation,
@@ -104,6 +104,7 @@ from .schemas import (
     normalize_call,
 )
 from .serialize import read_model
+from .store import prediction_counts
 
 TOOL_USAGE_CORRELATION_MIN_CELLS = 30
 """Cells a population needs before its call-volume/Brier correlation is published.
@@ -395,12 +396,12 @@ def build_tool_usage(
     the committed ledger alone.
 
     ``frozen_only`` scopes the **usefulness** block alone, exactly as the boards
-    scope theirs: only cells whose prediction carries a blessed process digest,
-    graded at or after the freeze instant. The tool counts above it stay
-    all-versions, because a count of what a cell called is a fact about the
-    pipeline rather than a grade, and scoping it would hide the shakedown runs
-    that are most of what there is to inspect. A Brier is a grade, so it does not
-    get that latitude.
+    scope theirs: only cells whose prediction is its predictor's counted
+    forecast inside a counting window, graded at or after that window opened.
+    The tool counts above it stay all-versions, because a count of what a cell
+    called is a fact about the pipeline rather than a grade, and scoping it
+    would hide the shakedown runs that are most of what there is to inspect. A
+    Brier is a grade, so it does not get that latitude.
 
     One walk of ``data/`` does all of it. The cost join is a stat of each log's
     own directory, and the usefulness join a bounded glob under the event the
@@ -568,20 +569,33 @@ class _JoinedCell:
         return (self.mode, self.stage, self.moment)
 
 
-def _in_scope_prediction(cell: _PredictedCell, *, frozen_only: bool) -> bool:
-    """Whether the cell's prediction carries a blessed process, when scope demands it.
+def _read_prediction(cell: _PredictedCell) -> Prediction | None:
+    """The cell's committed prediction, or ``None`` where none is readable."""
+    path = cell.cell_dir / "prediction.json"
+    if not path.exists():
+        return None
+    try:
+        return read_model(path, Prediction)
+    except (OSError, ValueError):
+        return None
 
-    A prediction with no readable artifact leaves the join rather than passing
-    it: the frozen scope is a membership filter, and a cell nothing can be
-    established about is not a member.
+
+def _in_scope_prediction(cell: _PredictedCell, *, frozen_only: bool) -> bool:
+    """Whether the cell's prediction is a counted forecast, when scope demands it.
+
+    Counted means its predictor's counted cell on the event
+    (:func:`fedcourtsai.store.prediction_counts`). A prediction with no
+    readable artifact leaves the join rather than passing it: the frozen scope
+    is a membership filter, and a cell nothing can be established about is not
+    a member.
     """
     if not frozen_only:
         return True
-    path = cell.cell_dir / "prediction.json"
-    if not path.exists():
+    prediction = _read_prediction(cell)
+    if prediction is None:
         return False
     try:
-        return is_frozen(read_model(path, Prediction).process_version)
+        return prediction_counts(cell.event_base, cell.predictor_id, prediction)
     except (OSError, ValueError):
         return False
 
@@ -594,8 +608,11 @@ def _scores_of(cell: _PredictedCell, *, frozen_only: bool) -> _JoinedCell | None
     (:func:`~fedcourtsai.integrity.latest_evaluation_runs`, the same collapse
     every aggregate of this ledger uses): a re-grade describes the same
     observation, so counting both would weight one judge twice. Under the frozen
-    scope a grading stamped before the freeze instant is not in the panel at all.
+    scope a grading stamped before the instant that opened the cell's counting
+    window is not in the panel at all.
     """
+    prediction = _read_prediction(cell) if frozen_only else None
+    stamp = prediction.process_version if prediction is not None else None
     found: list[Evaluation] = []
     pattern = f"*/{cell.predictor_id}/*/evaluation.json"
     for path in sorted((cell.event_base / "evaluations").glob(pattern)):
@@ -606,7 +623,7 @@ def _scores_of(cell: _PredictedCell, *, frozen_only: bool) -> _JoinedCell | None
             # is a reporting view over a ledger it does not own, and `validate` is
             # what fails loudly on a malformed artifact.
             continue
-        if frozen_only and not graded_post_freeze(evaluation.process_version):
+        if frozen_only and not graded_in_window(evaluation.process_version, stamp):
             continue
         found.append(evaluation)
     panel = latest_evaluation_runs(found, lambda evaluation: evaluation)

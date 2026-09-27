@@ -182,8 +182,9 @@ freeze in a tagged commit, and every counted cell must carry a stamp matching
 them from after that instant
 ([`docs/process-version.md`](docs/process-version.md)). Everything outside
 that partition is the **alpha/shakedown ledger** — no
-process stamp at all, a stamp predating the freeze instant, or a stamp under
-digests a later freeze deliberately retired behind a dated declaration —
+process stamp at all, a stamp outside every counting window (before its
+digest's window opened, or under the de-counted digests of a label before
+`proc-v8`), or a stamp in a window revoked behind a dated declaration —
 excluded from
 every frozen-scope performance figure, with nothing about them claimed
 ([`metrics/README.md`](metrics/README.md)).
