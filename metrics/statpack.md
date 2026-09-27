@@ -1,14 +1,14 @@
 # Corpus statpack
 
-**2153052** case(s): 52516 resolved, 2100536 open.
+**2153202** case(s): 52554 resolved, 2100648 open.
 
-**Live/historical slice:** 23135 case(s), 21549 resolved — the polled population the live-slice sections below draw from. It also carries the interim application rows, which no cert section aggregates, so a cert section's denominator can sit below this count; 45741 docketed filing(s) across the walked Terms (exact for docketed numbers, a slight upper bound on real petitions — withheld serials still count).
+**Live/historical slice:** 23285 case(s), 21587 resolved — the polled population the live-slice sections below draw from. It also carries the interim application rows, which no cert section aggregates, so a cert section's denominator can sit below this count; 45856 docketed filing(s) across the walked Terms (exact for docketed numbers, a slight upper bound on real petitions — withheld serials still count).
 
-**Overall base rate (resolved):** other 45.7%, denied 34.5%, dismissed 13.6%, granted 5.0%, gvr 1.1%, withdrawn 0.0%, granted-in-part 0.0%
+**Overall base rate (resolved):** other 45.7%, denied 34.5%, dismissed 13.6%, granted 5.1%, gvr 1.1%, withdrawn 0.0%, granted-in-part 0.0%
 
-**Dated share:** 21572 of 28511 machine-readable resolved case(s) carry a resolution date (75.7%) — the slice the time-masked replay clock can anchor.
+**Dated share:** 21610 of 28549 machine-readable resolved case(s) carry a resolution date (75.7%) — the slice the time-masked replay clock can anchor.
 
-**Filing → decision timing:** median 63d, p90 144d (mean 77.9d over 20361 dated case(s))
+**Filing → decision timing:** median 63d, p90 144d (mean 77.8d over 20398 dated case(s))
 
 _Scope: docket **termination**, every court and both SCOTUS docket forms pooled — cert petitions beside emergency applications, whose lifespans differ by orders of magnitude. The mixture follows which rows carry a `date_decided` at all, so it tracks ingestion coverage rather than a chosen population, and the headline moves as coverage does. Read a petition-timing question off the per-Term table below, which keys on the cert-stage resolution date instead._
 
@@ -17,7 +17,7 @@ _Scope: all courts; includes the frozen bulk import._
 
 | court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| scotus | 590973 | 21845 | 569128 | denied 81.0%, granted 10.9%, dismissed 4.3%, gvr 2.6%, other 1.1%, withdrawn 0.0% |
+| scotus | 591123 | 21883 | 569240 | denied 80.9%, granted 11.1%, dismissed 4.3%, gvr 2.6%, other 1.1%, withdrawn 0.0% |
 | ca9 | 247637 | 1463 | 246174 | other 94.5%, dismissed 2.6%, denied 2.0%, granted 0.8%, withdrawn 0.1% |
 | ca5 | 203464 | 1502 | 201962 | other 91.0%, dismissed 4.0%, denied 3.5%, granted 1.5% |
 | ca4 | 187218 | 15593 | 171625 | other 63.2%, dismissed 36.2%, denied 0.4%, granted 0.2%, granted-in-part 0.0% |
@@ -43,7 +43,7 @@ _Scope: scotus; includes the frozen bulk import._
 | 2010s | 97059 | 6515 | 90544 | denied 87.6%, dismissed 5.2%, gvr 3.9%, granted 3.3% |
 | 1980s | 62149 | 1 | 62148 | other 100.0% |
 | 1970s | 36385 | 3 | 36382 | other 100.0% |
-| 2020s | 34297 | 15034 | 19263 | denied 79.7%, granted 14.5%, dismissed 3.7%, gvr 2.2%, withdrawn 0.0% |
+| 2020s | 34447 | 15072 | 19375 | denied 79.5%, granted 14.6%, dismissed 3.7%, gvr 2.2%, withdrawn 0.0% |
 | 1960s | 107 | 0 | 107 | — |
 | 1910s | 20 | 0 | 20 | — |
 | 1930s | 10 | 0 | 10 | — |
@@ -60,7 +60,7 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 | disposition | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
 | denied | 41573 | 41573 | 0 | denied 100.0% |
-| (open) | 1571 | 0 | 1571 | — |
+| (open) | 1683 | 0 | 1683 | — |
 | dismissed | 895 | 895 | 0 | dismissed 100.0% |
 | granted | 655 | 655 | 0 | granted 100.0% |
 | gvr | 577 | 577 | 0 | gvr 100.0% |
@@ -70,20 +70,20 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | originating_court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| (none) | 11678 | 11204 | 474 | denied 96.5%, dismissed 2.1%, gvr 0.8%, granted 0.5% |
-| ca9 | 5666 | 5474 | 192 | denied 94.9%, granted 2.1%, dismissed 1.9%, gvr 1.1% |
-| ca5 | 5465 | 5281 | 184 | denied 94.7%, gvr 2.1%, granted 1.6%, dismissed 1.6% |
-| ca11 | 3719 | 3613 | 106 | denied 94.5%, dismissed 1.9%, gvr 1.9%, granted 1.7% |
-| ca4 | 3482 | 3370 | 112 | denied 95.3%, dismissed 2.2%, granted 1.3%, gvr 1.2% |
-| ca6 | 3035 | 2924 | 111 | denied 95.6%, dismissed 1.5%, granted 1.5%, gvr 1.3% |
-| ca8 | 2151 | 2088 | 63 | denied 95.4%, dismissed 2.0%, gvr 1.4%, granted 1.2% |
-| ca2 | 2060 | 1973 | 87 | denied 92.4%, dismissed 2.7%, granted 2.6%, gvr 2.3% |
-| ca3 | 1946 | 1896 | 50 | denied 94.8%, dismissed 2.7%, granted 1.5%, gvr 0.9% |
-| ca7 | 1624 | 1582 | 42 | denied 95.1%, dismissed 2.4%, gvr 1.4%, granted 1.1% |
-| ca10 | 1457 | 1402 | 55 | denied 93.9%, granted 2.5%, dismissed 2.2%, gvr 1.4% |
-| cafc | 918 | 878 | 40 | denied 92.3%, dismissed 3.2%, granted 3.1%, gvr 1.5% |
-| ca1 | 908 | 885 | 23 | denied 95.4%, granted 2.5%, dismissed 1.6%, gvr 0.6% |
-| cadc | 645 | 613 | 32 | denied 88.9%, granted 5.5%, dismissed 3.3%, gvr 2.3% |
+| (none) | 11712 | 11204 | 508 | denied 96.5%, dismissed 2.1%, gvr 0.8%, granted 0.5% |
+| ca9 | 5677 | 5474 | 203 | denied 94.9%, granted 2.1%, dismissed 1.9%, gvr 1.1% |
+| ca5 | 5480 | 5281 | 199 | denied 94.7%, gvr 2.1%, granted 1.6%, dismissed 1.6% |
+| ca11 | 3727 | 3613 | 114 | denied 94.5%, dismissed 1.9%, gvr 1.9%, granted 1.7% |
+| ca4 | 3487 | 3370 | 117 | denied 95.3%, dismissed 2.2%, granted 1.3%, gvr 1.2% |
+| ca6 | 3046 | 2924 | 122 | denied 95.6%, dismissed 1.5%, granted 1.5%, gvr 1.3% |
+| ca8 | 2154 | 2088 | 66 | denied 95.4%, dismissed 2.0%, gvr 1.4%, granted 1.2% |
+| ca2 | 2069 | 1973 | 96 | denied 92.4%, dismissed 2.7%, granted 2.6%, gvr 2.3% |
+| ca3 | 1949 | 1896 | 53 | denied 94.8%, dismissed 2.7%, granted 1.5%, gvr 0.9% |
+| ca7 | 1626 | 1582 | 44 | denied 95.1%, dismissed 2.4%, gvr 1.4%, granted 1.1% |
+| ca10 | 1461 | 1402 | 59 | denied 93.9%, granted 2.5%, dismissed 2.2%, gvr 1.4% |
+| cafc | 920 | 878 | 42 | denied 92.3%, dismissed 3.2%, granted 3.1%, gvr 1.5% |
+| ca1 | 911 | 885 | 26 | denied 95.4%, granted 2.5%, dismissed 1.6%, gvr 0.6% |
+| cadc | 647 | 613 | 34 | denied 88.9%, granted 5.5%, dismissed 3.3%, gvr 2.3% |
 | fla | 232 | 232 | 0 | denied 99.6%, gvr 0.4% |
 | texcrimapp | 61 | 61 | 0 | denied 98.4%, gvr 1.6% |
 | alacrimapp | 50 | 50 | 0 | denied 100.0% |
@@ -102,8 +102,8 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | relist_bucket | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| 0 | 10449 | 9892 | 557 | denied 97.0%, granted 1.2%, dismissed 1.2%, gvr 0.5% |
-| 1 | 2535 | 2486 | 49 | denied 85.7%, granted 8.2%, gvr 5.1%, dismissed 1.0% |
+| 0 | 10489 | 9892 | 597 | denied 97.0%, granted 1.2%, dismissed 1.2%, gvr 0.5% |
+| 1 | 2537 | 2486 | 51 | denied 85.7%, granted 8.2%, gvr 5.1%, dismissed 1.0% |
 | 3+ | 486 | 481 | 5 | denied 61.7%, granted 22.5%, gvr 14.3%, dismissed 1.5% |
 | 2 | 485 | 482 | 3 | denied 57.9%, granted 27.8%, gvr 13.1%, dismissed 1.2% |
 
@@ -112,7 +112,7 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | cvsg | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| none | 13782 | 13178 | 604 | denied 92.6%, granted 4.0%, gvr 2.3%, dismissed 1.2% |
+| none | 13824 | 13178 | 646 | denied 92.6%, granted 4.0%, gvr 2.3%, dismissed 1.2% |
 | cvsg | 173 | 163 | 10 | denied 62.0%, granted 29.4%, gvr 5.5%, dismissed 3.1% |
 
 ## Cert petitions by capital-case marking (paid scored segment)
@@ -120,7 +120,7 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | capital_case | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| unmarked | 13770 | 13163 | 607 | denied 92.3%, granted 4.2%, gvr 2.3%, dismissed 1.2% |
+| unmarked | 13812 | 13163 | 649 | denied 92.3%, granted 4.2%, gvr 2.3%, dismissed 1.2% |
 | capital | 185 | 178 | 7 | denied 82.6%, granted 11.8%, gvr 5.6% |
 
 ## Cert petitions by salience band
@@ -128,38 +128,38 @@ _Scope: scotus, modern discretionary-cert dockets, live/historical slice; counts
 
 | salience_band | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| baseline | 10151 | 9635 | 516 | denied 97.6%, dismissed 1.2%, granted 0.8%, gvr 0.4% |
-| elevated | 2287 | 2244 | 43 | denied 89.0%, granted 6.6%, gvr 3.6%, dismissed 0.8% |
+| baseline | 10187 | 9635 | 552 | denied 97.6%, dismissed 1.2%, granted 0.8%, gvr 0.4% |
+| elevated | 2289 | 2244 | 45 | denied 89.0%, granted 6.6%, gvr 3.6%, dismissed 0.8% |
 | high | 982 | 966 | 16 | denied 62.9%, granted 23.0%, gvr 12.5%, dismissed 1.6% |
-| state | 319 | 294 | 25 | denied 81.6%, granted 8.8%, gvr 8.2%, dismissed 1.4% |
-| federal | 216 | 202 | 14 | granted 48.5%, denied 25.7%, gvr 22.3%, dismissed 3.5% |
+| state | 322 | 294 | 28 | denied 81.6%, granted 8.8%, gvr 8.2%, dismissed 1.4% |
+| federal | 217 | 202 | 15 | granted 48.5%, denied 25.7%, gvr 22.3%, dismissed 3.5% |
 
 ## Petitions by originating court (incl. state courts)
 _Scope: scotus, modern discretionary-cert dockets, live/historical slice._
 
 | originating_court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| ca9 | 2741 | 2549 | 192 | denied 89.0%, granted 4.6%, dismissed 4.1%, gvr 2.4% |
-| ca5 | 2162 | 1978 | 184 | denied 85.8%, gvr 5.6%, granted 4.4%, dismissed 4.2% |
-| ca11 | 1532 | 1426 | 106 | denied 86.0%, dismissed 4.9%, gvr 4.8%, granted 4.2% |
-| ca4 | 1376 | 1264 | 112 | denied 87.3%, dismissed 5.9%, granted 3.5%, gvr 3.3% |
-| ca6 | 1325 | 1214 | 111 | denied 89.4%, dismissed 3.7%, granted 3.7%, gvr 3.2% |
-| ca2 | 1250 | 1163 | 87 | denied 87.1%, dismissed 4.6%, granted 4.4%, gvr 4.0% |
-| ca3 | 875 | 825 | 50 | denied 88.1%, dismissed 6.2%, granted 3.5%, gvr 2.2% |
-| ca8 | 873 | 810 | 63 | denied 88.0%, dismissed 5.1%, gvr 3.7%, granted 3.2% |
-| ca7 | 823 | 781 | 42 | denied 90.1%, dismissed 4.9%, gvr 2.8%, granted 2.2% |
-| cafc | 801 | 761 | 40 | denied 91.1%, dismissed 3.7%, granted 3.5%, gvr 1.7% |
-| ca10 | 701 | 646 | 55 | denied 86.8%, granted 5.4%, dismissed 4.8%, gvr 2.9% |
-| (none) | 529 | 456 | 73 | denied 97.8%, dismissed 2.2% |
-| cadc | 510 | 478 | 32 | denied 85.8%, granted 7.1%, dismissed 4.2%, gvr 2.9% |
-| ca1 | 422 | 399 | 23 | denied 89.7%, granted 5.5%, dismissed 3.5%, gvr 1.3% |
-| Supreme Court of Florida | 170 | 157 | 13 | denied 91.1%, dismissed 8.9% |
-| Court of Appeal of California, Second Appellate District | 169 | 153 | 16 | denied 87.6%, dismissed 7.2%, gvr 4.6%, granted 0.7% |
-| Supreme Court of Virginia | 134 | 121 | 13 | denied 95.9%, dismissed 2.5%, gvr 1.7% |
-| Court of Criminal Appeals of Texas | 126 | 117 | 9 | denied 91.5%, dismissed 4.3%, gvr 3.4%, granted 0.9% |
+| ca9 | 2752 | 2549 | 203 | denied 89.0%, granted 4.6%, dismissed 4.1%, gvr 2.4% |
+| ca5 | 2177 | 1978 | 199 | denied 85.8%, gvr 5.6%, granted 4.4%, dismissed 4.2% |
+| ca11 | 1540 | 1426 | 114 | denied 86.0%, dismissed 4.9%, gvr 4.8%, granted 4.2% |
+| ca4 | 1381 | 1264 | 117 | denied 87.3%, dismissed 5.9%, granted 3.5%, gvr 3.3% |
+| ca6 | 1336 | 1214 | 122 | denied 89.4%, dismissed 3.7%, granted 3.7%, gvr 3.2% |
+| ca2 | 1259 | 1163 | 96 | denied 87.1%, dismissed 4.6%, granted 4.4%, gvr 4.0% |
+| ca3 | 878 | 825 | 53 | denied 88.1%, dismissed 6.2%, granted 3.5%, gvr 2.2% |
+| ca8 | 876 | 810 | 66 | denied 88.0%, dismissed 5.1%, gvr 3.7%, granted 3.2% |
+| ca7 | 825 | 781 | 44 | denied 90.1%, dismissed 4.9%, gvr 2.8%, granted 2.2% |
+| cafc | 803 | 761 | 42 | denied 91.1%, dismissed 3.7%, granted 3.5%, gvr 1.7% |
+| ca10 | 705 | 646 | 59 | denied 86.8%, granted 5.4%, dismissed 4.8%, gvr 2.9% |
+| (none) | 530 | 456 | 74 | denied 97.8%, dismissed 2.2% |
+| cadc | 512 | 478 | 34 | denied 85.8%, granted 7.1%, dismissed 4.2%, gvr 2.9% |
+| ca1 | 425 | 399 | 26 | denied 89.7%, granted 5.5%, dismissed 3.5%, gvr 1.3% |
+| Supreme Court of Florida | 172 | 157 | 15 | denied 91.1%, dismissed 8.9% |
+| Court of Appeal of California, Second Appellate District | 170 | 153 | 17 | denied 87.6%, dismissed 7.2%, gvr 4.6%, granted 0.7% |
+| Supreme Court of Virginia | 135 | 121 | 14 | denied 95.9%, dismissed 2.5%, gvr 1.7% |
+| Court of Criminal Appeals of Texas | 127 | 117 | 10 | denied 91.5%, dismissed 4.3%, gvr 3.4%, granted 0.9% |
 | Supreme Court of California | 111 | 100 | 11 | denied 90.0%, dismissed 10.0% |
 | Court of Criminal Appeals of Oklahoma | 104 | 103 | 1 | denied 75.7%, gvr 17.5%, granted 3.9%, dismissed 2.9% |
-| Court of Appeals of Michigan | 94 | 89 | 5 | denied 96.6%, dismissed 3.4% |
+| Court of Appeals of Michigan | 96 | 89 | 7 | denied 96.6%, dismissed 3.4% |
 | District Court of Appeal of Florida, Fourth District | 89 | 68 | 21 | denied 88.2%, dismissed 10.3%, granted 1.5% |
 | United States Court of Appeals for the Armed Forces | 88 | 76 | 12 | denied 97.4%, granted 2.6% |
 | Superior Court of New Jersey, Appellate Division | 81 | 74 | 7 | denied 97.3%, dismissed 2.7% |
@@ -171,7 +171,7 @@ _Live/historical slice; denial-reweighted estimates. Most recent 10 of 10 Term(s
 
 | Term | filings (paid/IFP) | ingested | est. resolved | est. base rate | est. grant rate | grants | median days | complete |
 | --- | --- | --: | --: | --- | --- | --: | --: | --- |
-| 2026 | 377/624 | 982 | 6 | denied 83.3%, dismissed 16.7% | 0.0% | 0 | 3 | ✓/✓ |
+| 2026 | 420/696 | 1094 | 6 | denied 83.3%, dismissed 16.7% | 0.0% | 0 | 3 | ✓/✓ |
 | 2025 | 1432/2702 | 4134 | 3539 | denied 95.3%, dismissed 2.1%, granted 1.3%, gvr 1.3% | 2.6% | 92 | 62 | ✓/✓ |
 | 2024 | 1329/2529 | 1644 | 3795 | denied 95.0%, granted 2.3%, dismissed 1.9%, gvr 0.8% | 3.1% | 116 | 63 | ✓/✓ |
 | 2023 | 1375/2848 | 1742 | 4154 | denied 94.7%, granted 2.4%, dismissed 2.0%, gvr 1.0% | 3.3% | 138 | 66 | ✓/✓ |
@@ -200,18 +200,18 @@ _Paid scored-segment grant rate per band, this Term's live slice only (denial-re
 | 2018 | 43.5% (n=23) [reached 43.5%, n=23] | 35.4% (n=99) [reached 35.4%, n=99] | 9.7% (n=31) [reached 21.4%, n=42] | 10.0% (n=259) [reached 15.9%, n=347] | 1.3% (n=1177) [reached 4.6%, n=1524] |
 | 2017 | 76.5% (n=17) [reached 76.5%, n=17] | 41.7% (n=127) [reached 41.7%, n=127] | 10.3% (n=39) [reached 18.4%, n=49] | 7.8% (n=283) [reached 17.5%, n=400] | 0.6% (n=1243) [reached 4.7%, n=1643] |
 
-_Replay/backtest cells (a `DECIDED_BEFORE` clock in `record/context.json`): anchor only on Term rows strictly preceding your clock — later Terms post-date what you are allowed to know._
+_Replay/backtest cells: your anchoring clock is `record/context.json`'s `decided_before`, an October Term — anchor only on Term rows strictly preceding it, because later Terms post-date what you are allowed to know. These rows are keyed on the **docket-number** Term, so your own Term's row already contains your case._
 
 ## The interim docket (applications)
-_SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the time-extension requests that dominate the docket), split by application-Term year; raw counts, never reweighted. The rows below **ground the interim stage's scored base rate**: an application cell is scored against the grant rate pooled over the resolved substantive slice of application-Terms strictly before its own, unweighted, and only where that pooled sample clears the pre-registered per-pool floor (`INTERIM_BASE_RATE_MIN_RESOLVED` = 50); below it there is no baseline and no substitute — not this table's pack-level rate, which contains the case's own Term, and not one Term's alone (docs/salience.md). Extensions are counted so their dominance stays visible, but they never pool into any rate. Five caveats travel with the number wherever it is quoted: resolved means a machine-matched interim disposition, so the resolved slice is selected for machine-matchable resolution text and an unmatched resolution stays visibly unresolved rather than entering any denominator; withdrawn/dismissed resolutions count as ungranted; a mixed partial disposition reads denial-first; **parse coverage is uneven across Terms** (`unparsed` below), so a pooled rate blends a Term the poller covered fully with one it reached only in part; and the **scored population is narrower than the pooled one** — the interim reserve fills its slots in escalation-ladder order, so a predicted application sits systematically higher on those rungs than this cohort, and interim skill against this rate is not by itself evidence of forecast skill (docs/salience.md). This is not a salience-band product and carries no salience version. The escalation-signal columns count over **all** substantive applications in the slice, pending ones included — so their denominator is not the resolved count beside them, and they are right-censored rather than terminal. They also read each row **as at its last poll**: the columns max-latch, the application rotation re-polls only unresolved applications, and a resolved row's values are final — so a Term's columns are only as uniform as the poll recency of the rows behind them. No rate here conditions on them; the as-at-prediction values a conditioned rate would need live on the cells' own frozen contexts. Replay/backtest cells: the cert Term tables' self-selection rule applies here too — anchor only on Term rows strictly preceding your clock._
+_SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the time-extension requests that dominate the docket), split by application-Term year; raw counts, never reweighted. The rows below **ground the interim stage's scored base rate**: an application cell is scored against the grant rate pooled over the resolved substantive slice of application-Terms strictly before its own, unweighted, and only where that pooled sample clears the pre-registered per-pool floor (`INTERIM_BASE_RATE_MIN_RESOLVED` = 50); below it there is no baseline and no substitute — not this table's pack-level rate, which contains the case's own Term, and not one Term's alone (docs/salience.md). Extensions are counted so their dominance stays visible, but they never pool into any rate. Five caveats travel with the number wherever it is quoted: resolved means a machine-matched interim disposition, so the resolved slice is selected for machine-matchable resolution text and an unmatched resolution stays visibly unresolved rather than entering any denominator; withdrawn/dismissed resolutions count as ungranted; a mixed partial disposition reads denial-first; **parse coverage is uneven across Terms** (`unparsed` below), so a pooled rate blends a Term the poller covered fully with one it reached only in part; and the **scored population is narrower than the pooled one** — the interim reserve fills its slots in escalation-ladder order, so a predicted application sits systematically higher on those rungs than this cohort, and interim skill against this rate is not by itself evidence of forecast skill (docs/salience.md). This is not a salience-band product and carries no salience version. The escalation-signal columns count over **all** substantive applications in the slice, pending ones included — so their denominator is not the resolved count beside them, and they are right-censored rather than terminal. They also read each row **as at its last poll**: the columns max-latch, the application rotation re-polls only unresolved applications, and a resolved row's values are final — so a Term's columns are only as uniform as the poll recency of the rows behind them. No rate here conditions on them; the as-at-prediction values a conditioned rate would need live on the cells' own frozen contexts. Replay/backtest cells: the cert Term tables' self-selection rule applies here too — anchor only on Term rows strictly preceding `record/context.json`'s `decided_before`, an October Term._
 
-**27700** application(s): 1719 extension, 358 substantive, 87 unknown ask, 25536 never parsed.
+**27738** application(s): 1747 extension, 367 substantive, 88 unknown ask, 25536 never parsed.
 
-**Substantive slice:** 349 resolved, 35 granted — grant rate 10.0% (n=349). Escalation signals: response requested 61, referred to the Court 175, with amicus 63.
+**Substantive slice:** 359 resolved, 37 granted — grant rate 10.3% (n=359). Escalation signals: response requested 64, referred to the Court 178, with amicus 65.
 
 | Term | applications | extension | substantive | unknown | unparsed | resolved (subst.) | granted | grant rate | resp. requested | referred | amicus |
 | --- | --: | --: | --: | --: | --: | --: | --: | --- | --: | --: | --: |
-| 2026 | 372 | 295 | 61 | 16 | 0 | 53 | 4 | 7.5% (n=53) | 10 | 14 | 11 |
+| 2026 | 410 | 323 | 70 | 17 | 0 | 63 | 6 | 9.5% (n=63) | 13 | 17 | 13 |
 | 2025 | 1467 | 1181 | 227 | 59 | 0 | 226 | 17 | 7.5% (n=226) | 27 | 107 | 27 |
 | 2024 | 1297 | 243 | 70 | 12 | 972 | 70 | 14 | 20.0% (n=70) | 24 | 54 | 25 |
 | 2023 | 1177 | 0 | 0 | 0 | 1177 | 0 | 0 | — | 0 | 0 | 0 |
@@ -239,7 +239,7 @@ _SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the 
 | 2001 | 6 | 0 | 0 | 0 | 6 | 0 | 0 | — | 0 | 0 | 0 |
 
 ## The merits docket (granted cases)
-_SCOTUS cases whose cert grant opened a merits proceeding — a plain or partial grant; a GVR or summary reversal decides in the cert order itself, so it is a cert-stage fact and is excluded by its disposition label and, label-independently, by the grant-to-judgment gap: a parsed judgment dated on or before its own grant rode the cert order, whatever the label says, and sits outside this cohort in the excluded count its slice publishes — so every judgment in the parsed slice provably postdates its grant, while a parsed judgment with no date to test stays in `granted` as a visible coverage gap. **The count columns are two populations, not three nested ones:** the guard removes an excluded row before the cohort, so `excluded` sits outside `granted` — per Term, `granted` + `excluded` is that Term's pre-guard population of merits-opening grants — while `parsed` is a subset of `granted` and never exceeds it. `parsed` + `excluded` running past `granted` is addition across the two populations, not an inconsistency. Split by the October Term certiorari was granted in: a grant-date-keyed axis that does **not** align with the cert tables' docket-number Terms (a petition docketed in Term T is routinely granted in T+1), and Terms with no parsed judgment are omitted from the table. Raw counts, never reweighted (a grant is always ingested with certainty). The judgment distribution and disturbed rate cover the **parsed** slice only — cases whose stored snapshot the deterministic merits parser could read — and `parsed` against `granted` states that coverage; the gap blends still-pending cases (granted, not yet decided) with genuine parse gaps, so a recent Term's thin `parsed` is mostly pendency, not parser failure. The per-Term disturbed rates (reversed + vacated + affirmed-in-part over parsed) are the committed feed of the registered merits Brier baseline: a merits cell's skill is scored against these rates pooled over grant Terms **strictly before** the case's (docs/decision-model.md), so a skill claim exists only where strictly-prior Terms carry parsed judgments — and the rate is measured over exactly the population a merits cell is drawn from, which is why the cert-order grants are excluded. A DIG or an equally divided affirmance counts as undisturbed (both leave the judgment below standing) and sits in the scored pool on that footing, since the baseline's denominator counts it the same way. This is not a salience-band product and carries no salience version. Replay/backtest cells: the cert Term tables' self-selection rule applies here too — anchor only on Term rows strictly preceding your clock._
+_SCOTUS cases whose cert grant opened a merits proceeding — a plain or partial grant; a GVR or summary reversal decides in the cert order itself, so it is a cert-stage fact and is excluded by its disposition label and, label-independently, by the grant-to-judgment gap: a parsed judgment dated on or before its own grant rode the cert order, whatever the label says, and sits outside this cohort in the excluded count its slice publishes — so every judgment in the parsed slice provably postdates its grant, while a parsed judgment with no date to test stays in `granted` as a visible coverage gap. **The count columns are two populations, not three nested ones:** the guard removes an excluded row before the cohort, so `excluded` sits outside `granted` — per Term, `granted` + `excluded` is that Term's pre-guard population of merits-opening grants — while `parsed` is a subset of `granted` and never exceeds it. `parsed` + `excluded` running past `granted` is addition across the two populations, not an inconsistency. Split by the October Term certiorari was granted in: a grant-date-keyed axis that does **not** align with the cert tables' docket-number Terms (a petition docketed in Term T is routinely granted in T+1), and Terms with no parsed judgment are omitted from the table. Raw counts, never reweighted (a grant is always ingested with certainty). The judgment distribution and disturbed rate cover the **parsed** slice only — cases whose stored snapshot the deterministic merits parser could read — and `parsed` against `granted` states that coverage; the gap blends still-pending cases (granted, not yet decided) with genuine parse gaps, so a recent Term's thin `parsed` is mostly pendency, not parser failure. The per-Term disturbed rates (reversed + vacated + affirmed-in-part over parsed) are the committed feed of the registered merits Brier baseline: a merits cell's skill is scored against these rates pooled over grant Terms **strictly before** the case's (docs/decision-model.md), so a skill claim exists only where strictly-prior Terms carry parsed judgments — and the rate is measured over exactly the population a merits cell is drawn from, which is why the cert-order grants are excluded. A DIG or an equally divided affirmance counts as undisturbed (both leave the judgment below standing) and sits in the scored pool on that footing, since the baseline's denominator counts it the same way. This is not a salience-band product and carries no salience version. Replay/backtest cells: the cert Term tables' self-selection rule applies here too — anchor only on Term rows strictly preceding `record/context.json`'s `decided_before`, an October Term._
 
 **589** granted case(s) in the cohort, 540 of them with a parsed, dated judgment. A further 66 grant(s) the pool guard removed before the cohort (judgment dated on or before its own grant) are **not** among those 589 — counted across every grant Term, including any the table omits for want of a parsed judgment.
 

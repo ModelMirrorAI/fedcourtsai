@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000273",
+  "run_id": "20260926T184314Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell file reads of the provisioned record and blinded staging area",
+    "metrics/statpack.md interim-docket section (baseline context only; the interim rate is the harness's)",
+    "schemas/*.schema.json for the output contract",
+    "python3 for JSON emission and schema validation"
+  ],
+  "helpful": [
+    "The staged retrieval_log.json with result_capture markers and retrieved_doc_date made the forward-cell leakage check mechanical.",
+    "record/documents/application.txt let me verify two factual claims in a candidate's rationale without any external fetch."
+  ],
+  "gaps": [
+    "No committed evaluation.json existed anywhere in the tree to use as a shape reference; the schema alone had to carry the contract.",
+    "The prompt's reading order puts the predictor's big_case_score in front of the evaluator before the independent read can be formed; a staged view that masks that one field would make the independence real.",
+    "An outcome label like `withdrawn` makes `correct` uninformative for every candidate; a note in the contract on how to read `correct` on non-merits resolutions would help."
+  ],
+  "notes": "Interim forward cell resolved by withdrawal; all three candidates predicted denial with low grant probabilities, so the Brier ordering is the only quantitative separation. One candidate's harness log carried none of the MCP and PDF retrieval its own retrieval.md disclosed; flagged."
+}

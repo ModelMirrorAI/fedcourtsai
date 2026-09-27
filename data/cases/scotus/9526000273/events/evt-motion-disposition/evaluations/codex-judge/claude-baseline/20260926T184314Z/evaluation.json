@@ -1,0 +1,74 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": null,
+  "brier_score": 0.0009,
+  "brier_skill_score": 0.9179454734651404,
+  "case_id": "scotus/9526000273",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": 0.010068316289262235
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.010068316289262235,
+    "total": 0.010068316289262235
+  },
+  "correct": 0,
+  "created_at": "2026-09-26T18:46:56Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Reviewed all 24 logged calls (capture coverage 1.0), both prose documents, and retrieval.md. Calls are dated September 1, before the September 25 withdrawal. Retrieval consists of provisioned inputs, the statpack, and general corpus queries; no query targets this application's eventual disposition. The sole populated retrieved-document date is August 28. The rationale uses other applications' outcomes as priors and does not state this application's result. Captured digests are not full result bodies, but the available audit evidence shows no mis-provisioned decided case.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260901T014205Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "cedbe5d6362df18be3981ea7f31cabba8cb0a146",
+    "stamped_at": "2026-09-26T18:48:44.199682Z"
+  },
+  "reasoning_quality": 0.63,
+  "run_id": "20260926T184314Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000273",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "codex-baseline reports official-PDF downloads and CourtListener searches/document lookups in retrieval.md, but its staged 14-call retrieval_log.json does not independently show those retrieval calls. Coverage is 8/14; this discrepancy is distinct from unobserved result markers. Please check capture completeness, including whether any delegated retrieval was omitted. No available evidence shows this application's September 25 withdrawal was known during the September 1 forward prediction, so leakage_suspected remains false. See codex-baseline's evaluation.md for the bounded audit assessment.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260926T184314Z",
+  "schema_version": "1.0"
+}

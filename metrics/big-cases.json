@@ -11175,7 +11175,7 @@
       "docket_id": 9526000273,
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "withdrawn",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -11221,19 +11221,19 @@
               "run_id": "20260901T014205Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-09-25",
           "title": "Stacey Ian Humphreys v. Georgia Board of Pardons and Paroles, et al."
         }
       ],
       "leakage_suspected": false,
       "mean_big_case_score": 0.435,
       "moment": "evt-motion-disposition",
-      "moment_opened_at": null,
+      "moment_opened_at": "2026-08-28",
       "n": 2,
       "score_max": 0.72,
       "score_min": 0.15,
       "score_range": 0.57,
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "caption": "Holly Ann Elkins v. United States",
