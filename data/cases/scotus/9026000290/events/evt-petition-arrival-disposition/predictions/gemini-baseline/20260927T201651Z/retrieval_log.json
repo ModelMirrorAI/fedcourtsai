@@ -1,0 +1,233 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "673e5148bcece400",
+      "query": "{\"strategic_intent\": \"Understand the prediction task and read prompt instructions.\", \"summary\": \"Reading the prompt files and agent instructions to understand how to produce the prediction for the given cell.\", \"title\": \"Task Understanding\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:07.494Z",
+      "tool": "update_topic"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d5466b59ea22872b",
+      "query": "{\"file_path\": \"AGENTS.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:09.523Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7dc783bf72332302",
+      "query": "{\"file_path\": \".github/prompts/predict.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:09.523Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "827cc4e04eb58d59",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000290/events/evt-petition-arrival-disposition/event.yaml\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:15.615Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "535c99c560b32e14",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000290/record/context.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:15.616Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "56263c4cf9b90bee",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000290/record/snapshots/2026-09-04.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:19.093Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f47eb796a434467f",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000290/record/documents/documents.json\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:19.094Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "313243cc8c546036",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000290/record/documents/questions-presented.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:21.415Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "bf5994a405ed9cbe",
+      "query": "{\"file_path\": \"data/cases/scotus/9026000290/record/documents/petition.txt\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:21.415Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "311138c21a85b755",
+      "query": "{\"file_path\": \"metrics/statpack.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:26.488Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a0ef7477b1d8be47",
+      "query": "mkdir -p data/cases/scotus/9026000290/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T201651Z/",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:42.817Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7ee160e0764df007",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000290\\\",\\n  \\\"event_id\\\": \\\"evt-petition-arrival-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"run_id\\\": \\\"20260927T201651Z\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"created_at\\\": \\\"2026-09-27T20:16:51Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-09-04.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.001,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"big_case_score\\\": 0.01,\\n  \\\"big_case_rationale\\\": \\\"A routin",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:47.709Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a3b98beba6573686",
+      "query": "{\"content\": \"Distributed 0 times so far; expect no relists before a decision on the petition. The petition raises a Fourth Amendment challenge to a local code enforcement inspection, arguing that a \\\"plain view\\\" observation constitutes an unconstitutional search. This is contrary to well-established precedent and presented in a pro se petition involving a localized dispute over a fence and trellis. No CVSG is expected, as no federal interest is implicated. If granted, the Court would likely tak",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:52.692Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "66fc66fe5540f566",
+      "query": "{\"content\": \"P(grant) 0.001. The context shows a private petitioner with a caption class floor of `baseline`. The pooled base rate for the `baseline` band over recent Terms is roughly 5% (bracketed `reached` rate). However, I adjust down significantly. The petition is a pro se filing challenging local code enforcement actions (citations for a fence and trellis) under a theory that \\\"plain view\\\" observations from outside the property constitute unconstitutional searches because they seize \\\"know",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:56.397Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f3176a63d7716e6a",
+      "query": "{\"content\": \"No retrieval beyond the provisioned inputs.\", \"file_path\": \"data/cases/scotus/9026000290/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T201651Z/retrieval.md\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:20:59.066Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a450807c09209344",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9026000290\\\",\\n  \\\"run_id\\\": \\\"20260927T201651Z\\\",\\n  \\\"role\\\": \\\"predictor\\\",\\n  \\\"actor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"used_corpus_query\\\": false,\\n  \\\"used_base_rates\\\": true,\\n  \\\"tools_used\\\": [\\\"read_file\\\"],\\n  \\\"helpful\\\": [\\\"Provisioned documents (petition, QP)\\\", \\\"Statpack base rates\\\"],\\n  \\\"gaps\\\": [],\\n  \\\"notes\\\": \\\"Straightforward case; no additional retrieval needed.\\\"\\n}\", \"file_path\": \"data/cases/scotus/9026000290/events/evt-petition-ar",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:21:03.059Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "2b399f5e900ddb54",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:21:42.243Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5874f9f5e33a2bd3",
+      "query": "{\"strategic_intent\": \"Complete task.\", \"summary\": \"I have successfully read the instructions, provisioned facts, and statpack baseline to formulate a prediction. I've populated `prediction.json`, `reasoning.md`, `predicted_reasoning.md`, `retrieval.md`, and `tooling.json`, and validated them.\", \"title\": \"Prediction Finalized\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-09-27T20:21:45.193Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/9026000290",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20260927T201651Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}
