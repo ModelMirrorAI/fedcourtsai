@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from datetime import date, time, timedelta
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import cli, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.missed import (
@@ -52,11 +53,21 @@ def _resolved_case(  # noqa: PLR0913 - one fixture knob per classification rule
     stage: Stage | None = Stage.cert,
     docket_number: str = "",
     selected: bool = True,
+    scored: bool = True,
     excluded: bool = False,
     opened_at: date | None = OPENED,
     resolved_at: date = RESOLVED,
+    outcome: bool = True,
+    date_decided: date | None = None,
+    polled_on: date | None = None,
 ) -> str:
-    """Seed one resolved SCOTUS event: a corpus row and event, and its ledger outcome."""
+    """Seed one resolved SCOTUS event: a corpus row and event, and its ledger outcome.
+
+    Every enabled predictor is also given one early committed prediction on an
+    unrelated docket, so each is owed any event resolved after it — the monitor
+    declines a gap only a not-yet-enabled predictor leaves.
+    """
+    _enable_all(data_root)
     case_id = f"scotus/{docket}"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
@@ -67,9 +78,11 @@ def _resolved_case(  # noqa: PLR0913 - one fixture knob per classification rule
                     court="scotus",
                     docket_number=docket_number,
                     distribution_count=1,
-                    salience_score=0.9,
-                    salience_version="sal-v1",
+                    salience_score=0.9 if scored else None,
+                    salience_version="sal-v1" if scored else None,
                     salience_selected=selected,
+                    date_decided=date_decided,
+                    last_live_polled=polled_on,
                     # Read only on an application-form docket, where a
                     # substantive ask is what keeps it in interim scope.
                     application_kind="substantive" if docket_number else None,
@@ -93,6 +106,8 @@ def _resolved_case(  # noqa: PLR0913 - one fixture knob per classification rule
                 )
             ],
         )
+    if not outcome:
+        return case_id
     write_json(
         CasePaths(data_root, "scotus", docket).event(event_id).outcome,
         Outcome(
@@ -104,6 +119,22 @@ def _resolved_case(  # noqa: PLR0913 - one fixture knob per classification rule
         ),
     )
     return case_id
+
+
+#: An unrelated docket every predictor's enabling prediction is committed on.
+_ENABLING_DOCKET = 999_999
+
+
+def _enable_all(data_root: Path, *, run_id: str = "20260101T000000Z") -> None:
+    for predictor in enabled_predictors(PREDICTORS):
+        seed_prediction(
+            data_root,
+            "scotus",
+            _ENABLING_DOCKET,
+            CERT_EVENT,
+            predictor_id=predictor.id,
+            run_id=run_id,
+        )
 
 
 def _scan(db: Path, data_root: Path, *, since: date = SINCE) -> PredictionlessReport:
@@ -249,7 +280,10 @@ def test_the_round_rule_reads_the_open_span_at_its_narrowest(
 
 def test_the_round_times_mirror_the_predict_workflow_schedule() -> None:
     """The rule's round times are a copy of run-predict's crons; a cron change not
-    mirrored here would skew which events count as open across a round."""
+    mirrored here would skew which events count as open across a round. Only
+    daily crons (``M H * * *``) are read — a weekday-only or otherwise restricted
+    schedule would not match the pattern and would fail the non-empty check, and
+    the rule itself assumes the rounds run every day."""
     workflow = (_ROOT / ".github" / "workflows" / "run-predict.yml").read_text()
     crons = re.findall(r'-\s*cron:\s*"(\d+) (\d+) \* \* \*"', workflow)
     assert crons, "run-predict.yml carries no daily cron this test can read"
@@ -345,3 +379,170 @@ def test_missed_since_is_refused_with_named_cases(tmp_path: Path) -> None:
 
     assert refused.exit_code != 0
     assert "backlog mode only" in _flat(refused.output)
+
+
+def test_a_resolved_event_with_no_ledger_directory_is_seen_and_named(tmp_path: Path) -> None:
+    """The monitor is driven from the corpus, not the ledger: an event the corpus
+    records resolved whose case never reached the ledger at all — no outcome, no
+    prediction — is dated from the corpus row, classified, and named as having no
+    outcome record, not passed over."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_case(
+        db,
+        data,
+        209,
+        event_id=INTERIM_EVENT,
+        kind=EventKind.motion,
+        stage=Stage.interim,
+        docket_number="26A209",
+        outcome=False,
+        date_decided=RESOLVED,
+    )
+
+    report = _scan(db, data)
+
+    (event,) = report.missed
+    assert event.case_id == "scotus/209"
+    assert event.date_source.value == "corpus_decision_date"
+    assert event.resolved_at == RESOLVED
+    assert "no outcome.json" in event.detail
+    assert [u.case_id for u in report.no_outcome_record] == ["scotus/209"]
+    assert report.counts_json()["no_outcome_record_on_selected_row_events"] == 1
+
+
+def test_an_event_dated_only_by_observation_is_placed_and_one_undatable_is_named(
+    tmp_path: Path,
+) -> None:
+    """No outcome and no decision date: the row's newest observation dates it (an
+    upper bound). No date at all: counted all-time, and named where selected."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_case(db, data, 1, outcome=False, polled_on=RESOLVED)
+    _resolved_case(db, data, 2, outcome=False)
+
+    report = _scan(db, data)
+
+    assert [(e.case_id, e.date_source.value) for e in report.events] == [
+        ("scotus/1", "last_observed")
+    ]
+    assert report.undated_all_time == 1
+    assert [u.case_id for u in report.undated_selected] == ["scotus/2"]
+    detail = report.detail_json()
+    assert [u["case_id"] for u in detail["undated_on_selected_row"]] == ["scotus/2"]
+
+
+def test_a_never_scored_in_scope_event_is_a_miss_not_a_decline(tmp_path: Path) -> None:
+    """A case the salience pass never scored had no funding decision at all — a
+    pipeline failure, reported as a miss with its own reason and count."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_case(db, data, 1, selected=False, scored=False)
+
+    report = _scan(db, data)
+
+    assert _by_case(report) == {"scotus/1": ("missed", "not_scored")}
+    assert report.counts_json()["missed_not_scored_events"] == 1
+
+
+def test_a_predictor_enabled_after_the_resolution_is_not_owed_it(tmp_path: Path) -> None:
+    """Enabling an engine must not turn every event resolved before it into a miss:
+    a predictor is owed an event only if it had forecast something by then."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    predictors = [p.id for p in enabled_predictors(PREDICTORS)]
+    # Two events: one every engine covered except a newcomer, one nobody covered.
+    _resolved_case(db, data, 1)
+    _resolved_case(db, data, 2)
+    newcomer = predictors[0]
+    # Replace the fixture's early enabling prediction for the newcomer with a late one.
+    shutil.rmtree(
+        CasePaths(data, "scotus", _ENABLING_DOCKET).event(CERT_EVENT).predictions_dir / newcomer
+    )
+    seed_prediction(
+        data,
+        "scotus",
+        _ENABLING_DOCKET,
+        CERT_EVENT,
+        predictor_id=newcomer,
+        run_id="20260920T000000Z",
+    )
+    for pid in predictors[1:]:
+        seed_prediction(data, "scotus", 1, CERT_EVENT, predictor_id=pid, frozen=True)
+
+    report = _scan(db, data)
+
+    assert _by_case(report) == {
+        "scotus/1": ("declined", "predictor_not_enabled"),
+        "scotus/2": ("missed", "owed_and_unforecast"),
+    }
+    (missed,) = report.missed
+    assert newcomer not in missed.missing_predictors
+
+
+def test_an_out_of_scope_decline_on_a_selected_row_is_named_a_contradiction(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_case(db, data, 1, excluded=True)
+    _resolved_case(db, data, 2, excluded=True, selected=False)
+
+    report = _scan(db, data)
+
+    assert [e.case_id for e in report.scope_contradictions] == ["scotus/1"]
+    assert report.counts_json()["declined_out_of_scope_on_selected_row_events"] == 1
+
+
+def test_an_open_merits_proceeding_funds_every_event_of_the_case(tmp_path: Path) -> None:
+    """The walk funds a case with an open merits event whatever its salience, and so
+    does the monitor: an unselected case's cert-stage event resolved while its merits
+    event was open is owed."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_case(db, data, 1, selected=False)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                    title="Judgment",
+                    opened_at=OPENED,
+                    resolved=False,
+                )
+            ],
+        )
+
+    assert _by_case(_scan(db, data))["scotus/1"] == ("missed", "owed_and_unforecast")
+
+
+def test_a_monitor_that_raises_degrades_to_a_warning_and_the_matrix_still_emits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*args: object, **kwargs: object) -> PredictionlessReport:
+        raise RuntimeError("scan exploded")
+
+    monkeypatch.setattr(cli, "scan_predictionless_resolutions", boom)
+    env = _cli_env(tmp_path)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _resolved_case(db, tmp_path / "data", 1)
+
+    matrix = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID"], env=env)
+    assert matrix.exit_code == 0, matrix.output
+    assert "include" in json.loads(matrix.stdout)
+    assert "::warning::missed-forecast monitor failed: RuntimeError: scan exploded" in _flat(
+        matrix.stderr
+    )
+
+    plan = runner.invoke(app, ["evaluate-plan", "--run-id", "RID"], env=env)
+    assert plan.exit_code == 0, plan.output
+    document = json.loads(plan.stdout)
+    assert document["counts"]["predictionless_resolutions"] is None
+    assert document["predictionless_resolutions"] == {"error": "RuntimeError: scan exploded"}
+    assert "::warning::" not in plan.stderr
+    assert "warning: missed-forecast monitor failed" in _flat(plan.stderr)

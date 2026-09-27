@@ -1793,3 +1793,48 @@ def test_an_unaccounted_case_raises_a_warning_that_names_it(
     document = json.loads(plan.stdout)
     assert document["counts"]["case_reconciliation"]["unaccounted_cases"] == 1
     assert document["case_reconciliation"]["unaccounted"] == ["scotus/24001"]
+
+
+def test_a_displaced_re_owed_case_is_refiled_as_cap_reached(tmp_path: Path) -> None:
+    """The displacement path: under a cap of one, a never-predicted case found after
+    a re-owed one pushes it out, and the pushed-out case is refiled as censored, so
+    the reconciliation stays sound and the buckets still partition the universe."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(
+        db,
+        "scotus",
+        1,
+        event_id=BASELINE_EVENT,
+        conference=FUTURE_CONFERENCE,
+        polled_on=TODAY - timedelta(days=5),
+    )
+    _retired_cohort(data, 1)
+    _open_case(db, "scotus", 2, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+
+    backlog = _backlog(db, data, cap=1)
+
+    assert backlog.case_ids == ("scotus/2",)
+    recon = backlog.reconciliation
+    assert recon is not None
+    assert recon.sound
+    assert recon.buckets == {"derived": 1, "dropped_cap_reached": 1}
+
+
+def test_a_case_reached_past_a_full_re_predict_budget_is_filed_censored(tmp_path: Path) -> None:
+    """Past a full re-predict budget the re-owed arm is not asked, so a case owed
+    nothing never-predicted is filed as cap-reached rather than owed-nothing, and
+    the counts block carries the censoring flag beside the buckets."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    for docket in (1, 2):
+        _open_case(db, "scotus", docket, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+        _retired_cohort(data, docket)
+
+    backlog = _backlog(db, data, cap=1)
+
+    recon = backlog.reconciliation
+    assert recon is not None
+    assert recon.sound
+    assert recon.buckets == {"derived": 1, "dropped_cap_reached": 1}
+    assert recon.counts_json()["cap_reached"] is True

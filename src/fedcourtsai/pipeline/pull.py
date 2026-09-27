@@ -771,6 +771,10 @@ class CaseReconciliation:
       universe does not contain: the two predicates disagree in the other
       direction.
 
+    ``dropped_owed_nothing`` covers a case every enabled predictor already
+    covered or attempt-capped, and also a cohort-only case whose narrowing left
+    no event a claimable board counts.
+
     ``buckets`` counts universe cases by their single disposition (a multiply
     accounted case is counted under none of them). ``dropped_cap_reached`` is the
     censoring bucket, and says so explicitly: when the walk stops at the cycle
@@ -785,14 +789,20 @@ class CaseReconciliation:
     unaccounted: tuple[str, ...] = ()
     multiply_accounted: tuple[str, ...] = ()
     admitted_outside_universe: tuple[str, ...] = ()
+    cap_reached: bool = False
 
     @property
     def sound(self) -> bool:
         return not (self.unaccounted or self.multiply_accounted or self.admitted_outside_universe)
 
-    def counts_json(self) -> dict[str, int]:
-        """The plan's ``counts.case_reconciliation`` block: every key a case count."""
+    def counts_json(self) -> dict[str, int | bool]:
+        """The plan's ``counts.case_reconciliation`` block: case counts, plus the censoring flag.
+
+        ``cap_reached`` travels inside the block so a bucket count read out of it
+        cannot be mistaken for a total when the walk stopped at the cap.
+        """
         return {
+            "cap_reached": self.cap_reached,
             "universe_cases": self.universe,
             **{f"{bucket}_cases": self.buckets.get(bucket, 0) for bucket in CaseDisposition},
             "unaccounted_cases": len(self.unaccounted),
@@ -852,7 +862,9 @@ def _predict_universe(
     return frozenset(universe)
 
 
-def _reconcile(universe: frozenset[str], log: _DispositionLog) -> CaseReconciliation:
+def _reconcile(
+    universe: frozenset[str], log: _DispositionLog, *, cap_reached: bool
+) -> CaseReconciliation:
     """Check the walk's dispositions against the universe, case by case."""
     buckets: dict[str, int] = {}
     unaccounted: list[str] = []
@@ -876,6 +888,7 @@ def _reconcile(universe: frozenset[str], log: _DispositionLog) -> CaseReconcilia
         unaccounted=tuple(unaccounted),
         multiply_accounted=tuple(multiply),
         admitted_outside_universe=tuple(outside),
+        cap_reached=cap_reached,
     )
 
 
@@ -1599,7 +1612,7 @@ def derive_predict_backlog(
         held_decided=log.count(CaseDisposition.held_decided),
         decided_events=tuple(decided),
         cap_reached=cap_reached,
-        reconciliation=_reconcile(universe, log),
+        reconciliation=_reconcile(universe, log, cap_reached=cap_reached),
     )
 
 

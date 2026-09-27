@@ -262,6 +262,7 @@ from .pipeline.live import live_poll_all
 from .pipeline.missed import (
     MISSED_LOOKBACK_DAYS,
     DeclineReason,
+    MissReason,
     PredictionlessReport,
     scan_predictionless_resolutions,
 )
@@ -12596,6 +12597,7 @@ class _BacklogFindings:
     predict: list[PredictBacklog] = field(default_factory=list)
     missed: list[PredictionlessReport] = field(default_factory=list)
     missed_since: date | None = None
+    missed_error: str | None = None
 
 
 def _warn_prefix(findings: _BacklogFindings | None) -> str:
@@ -12674,17 +12676,27 @@ def _evaluate_backlog_cases(findings: _BacklogFindings | None = None) -> list[Ca
             max_attempts=evaluate_cfg.max_attempts_per_cell,
         )
         today = date.today()
-        missed = scan_predictionless_resolutions(
-            conn,
-            settings.data_root,
-            settings.config_root / "predictors.yaml",
-            since=(findings.missed_since if findings else None)
-            or today - timedelta(days=MISSED_LOOKBACK_DAYS),
-            until=today,
-        )
-    _report_predictionless(missed, prefix=_warn_prefix(findings))
-    if findings is not None:
-        findings.missed.append(missed)
+        prefix = _warn_prefix(findings)
+        # A monitor must never cost the round it watches: a scan that raises is
+        # reported loudly and the fan-out proceeds without it.
+        try:
+            missed = scan_predictionless_resolutions(
+                conn,
+                settings.data_root,
+                settings.config_root / "predictors.yaml",
+                since=(findings.missed_since if findings else None)
+                or today - timedelta(days=MISSED_LOOKBACK_DAYS),
+                until=today,
+            )
+        except Exception as exc:  # any failure degrades to a warning
+            error = f"{type(exc).__name__}: {exc}"
+            typer.echo(f"{prefix}missed-forecast monitor failed: {_one_line(error)}", err=True)
+            if findings is not None:
+                findings.missed_error = error
+        else:
+            _report_predictionless(missed, prefix=prefix)
+            if findings is not None:
+                findings.missed.append(missed)
     return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
 
 
@@ -12711,18 +12723,48 @@ def _report_predictionless(report: PredictionlessReport, *, prefix: str) -> None
         f"declined by design{f' ({declined})' if declined else ''}.",
         err=True,
     )
-    if report.undated:
+    if report.undated_all_time:
         typer.echo(
-            f"Missed-forecast monitor: {report.undated} resolved event(s) in ledger cases "
-            "carry no readable outcome.json, so no resolution date places them in the "
-            "window; they are not classified.",
+            f"Missed-forecast monitor: {report.undated_all_time} resolved event(s), ledger-wide "
+            "and all-time, carry no date from the outcome record or the corpus row, so no "
+            "window can place them.",
             err=True,
         )
     for event in report.missed:
+        if event.reason == MissReason.not_scored:
+            why = "The salience pass never scored the case, so no funding decision was taken."
+        else:
+            why = (
+                "It was in scope, funded, a forecastable moment, and open across a scheduled "
+                "predict round."
+            )
         typer.echo(
             f"{prefix}missed forecast: {event.case_id} {event.event_id} resolved "
-            f"{event.resolved_at.isoformat()} — {event.detail}. It was in scope, funded, a "
-            "forecastable moment, and open across a scheduled predict round.",
+            f"{event.resolved_at.isoformat()} — {event.detail or event.reason}. {why}",
+            err=True,
+        )
+    for event in report.scope_contradictions:
+        typer.echo(
+            f"{prefix}missed-forecast monitor: {event.case_id} {event.event_id} is declined "
+            f"out of scope ({event.detail}) on a salience-selected row — selection runs over "
+            "the in-scope set, so one of the two is wrong.",
+            err=True,
+        )
+    unrecorded = [u for u in report.no_outcome_record if u.selected]
+    unrecorded += list(report.undated_selected)
+    for record in unrecorded:
+        when = record.resolved_at.isoformat() if record.resolved_at else "undated"
+        typer.echo(
+            f"{prefix}missing outcome record: {record.case_id} {record.event_id} is resolved "
+            f"in the corpus ({when}) on a salience-selected row but has no outcome.json, so "
+            "it can never be graded.",
+            err=True,
+        )
+    others = len(report.no_outcome_record) - sum(1 for u in report.no_outcome_record if u.selected)
+    if others:
+        typer.echo(
+            f"Missed-forecast monitor: {others} other resolved event(s) in the window have no "
+            "outcome.json (unselected rows); the plan JSON names them.",
             err=True,
         )
 
@@ -15065,7 +15107,11 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
                 derived.missed[0].counts_json() if derived.missed else None
             ),
         },
-        "predictionless_resolutions": (derived.missed[0].detail_json() if derived.missed else None),
+        "predictionless_resolutions": (
+            derived.missed[0].detail_json()
+            if derived.missed
+            else ({"error": derived.missed_error} if derived.missed_error else None)
+        ),
         "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
         "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
         "dropped_predictionless": [r.as_json() for r in fanout.predictionless],
