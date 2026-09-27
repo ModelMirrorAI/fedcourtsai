@@ -7225,14 +7225,39 @@ class BigCaseRow(_Strict):
     )
     caption: str | None = Field(
         default=None,
-        description="The case's display name: the `event.yaml` title of `moment`. There is "
-        "no docket number in committed data, so the caption is the only human handle and "
-        "`case_id` is the identifier",
+        description="The case's display name: the `event.yaml` title of `moment`. `case_id` "
+        "is the identifier; the caption and, where committed data carries one, "
+        "`docket_number` are the human handles",
     )
     caption_event_id: str | None = Field(
         default=None,
         description="The event the caption was read from — `moment`, repeated here so the "
         "rule is checkable against the row without a join",
+    )
+    short_caption: str | None = Field(
+        default=None,
+        description='The conventional short form of `caption` ("Trump v. California"), '
+        "derived deterministically by the `short_caption_rule` provenance string. None where "
+        "the rule cannot produce a confident one — a reader falls back to `caption`. "
+        "Display-only: nothing predicts, evaluates or scores on it",
+    )
+    docket_number: str | None = Field(
+        default=None,
+        description='The Court\'s own docket number ("26-239", "26A124"), read from '
+        "committed data by the `docket_rule` provenance string; None where no committed "
+        "source carries it. Display-only",
+    )
+    docket_number_source: Literal["case_id", "qp-topics"] | None = Field(
+        default=None,
+        description="Where `docket_number` came from, so the rule is checkable against the "
+        "row: `case_id` (a live-first reserved-range id, which packs the docket number "
+        "losslessly) or `qp-topics` (the committed labels artifact's docket number for the "
+        "case). None exactly when `docket_number` is",
+    )
+    docket_url: str | None = Field(
+        default=None,
+        description="The Court's supremecourt.gov docket page for `docket_number`; None "
+        "where there is no docket number or it is not a Term-form or application number",
     )
     status: Literal["pending", "partly_resolved", "resolved"] = Field(
         description="Resolution state across **all** the case's predicted events, derived "
@@ -7324,6 +7349,13 @@ class BigCaseProvenance(_Strict):
     )
     no_time_series: str
     caption_rule: str
+    short_caption_rule: str = Field(
+        description="How `short_caption` is derived from `caption`, and when it is null"
+    )
+    docket_rule: str = Field(
+        description="Where `docket_number` is read from, in precedence order, what "
+        "`docket_url` links to, and why a row can carry neither"
+    )
     process_label: str = Field(
         description="The process label in force when the board was built — what a "
         "prediction minted today stamps, not a scope filter on the rows (see `version_scope`)"
@@ -7364,7 +7396,12 @@ class BigCaseBoard(_Strict):
     artifact's vintage is the commit that wrote it.
     """
 
-    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    schema_version: Literal["1.1"] = Field(
+        default="1.1",
+        description="The artifact's schema version. A reader keys on it: a `1.1` row "
+        "carries the display fields `short_caption`, `docket_number`, "
+        "`docket_number_source` and `docket_url`",
+    )
     process_scope: Literal["frozen", "all"] = Field(
         default="all",
         description="Which process versions a **current read** may come from: `all` (the "

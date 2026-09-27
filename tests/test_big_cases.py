@@ -18,6 +18,7 @@ from fedcourtsai.cli import app
 from fedcourtsai.metrics_refresh import render_refresh_pr
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.moments import DECLARED_MOMENTS
+from fedcourtsai.pipeline.qp_topics import labels_path as qp_topic_labels_path
 from fedcourtsai.process_version import (
     CURRENT_PROCESS_LABEL,
     FROZEN_PROCESS_DIGESTS,
@@ -34,8 +35,14 @@ from fedcourtsai.schemas import (
     Prediction,
     PredictionContext,
     ProcessVersion,
+    QpTopicAgreement,
+    QpTopicBatchEntry,
+    QpTopicLabels,
+    QpTopicPublishedEntry,
+    QpTopicShadow,
 )
 from fedcourtsai.serialize import write_json, write_yaml
+from fedcourtsai.supremecourt import live_application_id, live_docket_id
 
 runner = CliRunner()
 
@@ -1147,3 +1154,138 @@ def test_the_refresh_pr_reports_the_board_without_naming_a_case(tmp_path: Path) 
     assert "at `process_scope: frozen`, 4 held off by the scope" in held.body
     assert "human-readable big-case-board companion" in pr.body
     assert "Test event" not in pr.body
+
+
+def _write_qp_docket_numbers(data_root: Path, docket_numbers: dict[str, str]) -> None:
+    """Commit a labels artifact recording ``case_id -> docket number``, via the real model."""
+    write_json(
+        qp_topic_labels_path(data_root),
+        QpTopicLabels(
+            labeler="stub-labeler",
+            cases=len(docket_numbers),
+            agreement=QpTopicAgreement(
+                overall_agree=170,
+                overall_n=189,
+                overall_rate=170 / 189,
+                uncovered=0,
+                floor=0.25,
+                per_label=[],
+                gate_passed=True,
+            ),
+            shadow=QpTopicShadow(texts=len(docket_numbers), fired=0, disagreements=0),
+            batches=[
+                QpTopicBatchEntry(
+                    batch=1,
+                    labeler="stub-labeler",
+                    published=len(docket_numbers),
+                    labeler_rows=len(docket_numbers),
+                    measured=len(docket_numbers),
+                    agree=170,
+                    n=189,
+                    floor=0.25,
+                )
+            ],
+            entries=[
+                QpTopicPublishedEntry(
+                    case_id=case_id,
+                    docket_number=number,
+                    label="criminal-law",
+                    source="labeler",
+                    batch=1,
+                )
+                for case_id, number in sorted(docket_numbers.items())
+            ],
+        ),
+    )
+
+
+def test_a_row_carries_the_short_caption_of_its_caption(tmp_path: Path) -> None:
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        big_case_score=0.5,
+        title="Donald J. Trump, President of the United States, et al. v. California, et al.",
+    )
+    (row,) = _board(tmp_path).rows
+    assert row.short_caption == "Trump v. California"
+
+
+def test_a_caption_the_rule_cannot_shorten_publishes_a_null_short_caption(
+    tmp_path: Path,
+) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5, title=None)
+    _write_read(
+        tmp_path,
+        "scotus/2",
+        "claude-baseline",
+        "r1",
+        big_case_score=0.4,
+        title="Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and "
+        "Immigrant Center for Education and Legal Services, et al.",
+    )
+    assert [row.short_caption for row in _board(tmp_path).rows] == [None, None]
+
+
+def test_a_live_first_case_s_docket_number_is_decoded_from_its_id(tmp_path: Path) -> None:
+    cert = f"scotus/{live_docket_id(26, 239)}"
+    application = f"scotus/{live_application_id(26, 124)}"
+    _write_read(tmp_path, cert, "claude-baseline", "r1", big_case_score=0.6)
+    _write_read(tmp_path, application, "claude-baseline", "r1", big_case_score=0.5)
+    # The id is the docket number, so a labels artifact disagreeing with it loses.
+    _write_qp_docket_numbers(tmp_path, {cert: "25-1"})
+    rows = {row.case_id: row for row in _board(tmp_path).rows}
+    page = "https://www.supremecourt.gov/docket/docketfiles/html/public/"
+    assert (
+        rows[cert].docket_number,
+        rows[cert].docket_number_source,
+        rows[cert].docket_url,
+    ) == ("26-239", "case_id", f"{page}26-239.html")
+    assert (
+        rows[application].docket_number,
+        rows[application].docket_number_source,
+        rows[application].docket_url,
+    ) == ("26A124", "case_id", f"{page}26a124.html")
+
+
+def test_a_courtlistener_case_s_docket_number_comes_from_the_committed_labels(
+    tmp_path: Path,
+) -> None:
+    _write_read(tmp_path, "scotus/73279009", "claude-baseline", "r1", big_case_score=0.6)
+    _write_read(tmp_path, "scotus/73275179", "claude-baseline", "r1", big_case_score=0.5)
+    _write_qp_docket_numbers(tmp_path, {"scotus/73279009": "25-421"})
+    labeled, unlabeled = _board(tmp_path).rows
+    assert (labeled.case_id, labeled.docket_number, labeled.docket_number_source) == (
+        "scotus/73279009",
+        "25-421",
+        "qp-topics",
+    )
+    assert labeled.docket_url == (
+        "https://www.supremecourt.gov/docket/docketfiles/html/public/25-421.html"
+    )
+    # Not labeled: the id carries no docket number and the board reads no corpus.
+    assert (
+        unlabeled.docket_number,
+        unlabeled.docket_number_source,
+        unlabeled.docket_url,
+    ) == (None, None, None)
+
+
+def test_without_a_labels_artifact_a_courtlistener_case_has_no_docket_number(
+    tmp_path: Path,
+) -> None:
+    _write_read(tmp_path, "scotus/73279009", "claude-baseline", "r1", big_case_score=0.6)
+    (row,) = _board(tmp_path).rows
+    assert (row.docket_number, row.docket_url) == (None, None)
+
+
+def test_the_board_is_schema_1_1_and_carries_the_display_rules(tmp_path: Path) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    board = _board(tmp_path)
+    assert board.schema_version == "1.1"
+    assert board.provenance is not None
+    assert "null wherever the rule is not sure" in board.provenance.short_caption_rule
+    assert "FTC" in board.provenance.short_caption_rule
+    assert "needs no corpus and no credential" in board.provenance.docket_rule
+    assert "`qp-topics`" in board.provenance.docket_rule

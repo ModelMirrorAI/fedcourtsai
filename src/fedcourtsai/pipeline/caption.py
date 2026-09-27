@@ -140,6 +140,10 @@ _STATE_NAMES: Final[tuple[str, ...]] = (
     "United States Virgin Islands",
 )
 
+#: The same tuple under a public name, for readers outside the classifier (the
+#: big-case board's short caption) that need the sovereign words and not a rule.
+STATE_NAMES: Final[tuple[str, ...]] = _STATE_NAMES
+
 _STATE_ALTERNATION: Final[str] = "|".join(
     re.escape(name) for name in sorted(_STATE_NAMES, key=len, reverse=True)
 )

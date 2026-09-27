@@ -157,6 +157,11 @@
           "title": "Collapse Rule",
           "type": "string"
         },
+        "docket_rule": {
+          "description": "Where `docket_number` is read from, in precedence order, what `docket_url` links to, and why a row can carry neither",
+          "title": "Docket Rule",
+          "type": "string"
+        },
         "leaderboard_divergence": {
           "description": "The three collapses of a case these artifacts take \u2014 the leaderboard's `big_case` mean over a case's moments, this board's row, and this board's per-event history \u2014 and that no figure from one is differenced against a figure from another. The key keeps its name because it is published: renaming it breaks a reader",
           "title": "Leaderboard Divergence",
@@ -189,6 +194,11 @@
           "title": "Reading Rule",
           "type": "string"
         },
+        "short_caption_rule": {
+          "description": "How `short_caption` is derived from `caption`, and when it is null",
+          "title": "Short Caption Rule",
+          "type": "string"
+        },
         "version_scope": {
           "description": "What `process_scope` covers on **this** build, and what the other scope would cost: version-blind by default, with the `frozen` comparison build's selected hold-out stated rather than left to be inferred. Scope-aware prose \u2014 a build states its own population, never both",
           "title": "Version Scope",
@@ -205,6 +215,8 @@
         "rank_resolution",
         "no_time_series",
         "caption_rule",
+        "short_caption_rule",
+        "docket_rule",
         "process_label"
       ],
       "title": "BigCaseProvenance",
@@ -345,7 +357,7 @@
             }
           ],
           "default": null,
-          "description": "The case's display name: the `event.yaml` title of `moment`. There is no docket number in committed data, so the caption is the only human handle and `case_id` is the identifier",
+          "description": "The case's display name: the `event.yaml` title of `moment`. `case_id` is the identifier; the caption and, where committed data carries one, `docket_number` are the human handles",
           "title": "Caption"
         },
         "caption_event_id": {
@@ -380,6 +392,49 @@
         "docket_id": {
           "title": "Docket Id",
           "type": "integer"
+        },
+        "docket_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The Court's own docket number (\"26-239\", \"26A124\"), read from committed data by the `docket_rule` provenance string; None where no committed source carries it. Display-only",
+          "title": "Docket Number"
+        },
+        "docket_number_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "case_id",
+                "qp-topics"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where `docket_number` came from, so the rule is checkable against the row: `case_id` (a live-first reserved-range id, which packs the docket number losslessly) or `qp-topics` (the committed labels artifact's docket number for the case). None exactly when `docket_number` is",
+          "title": "Docket Number Source"
+        },
+        "docket_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The Court's supremecourt.gov docket page for `docket_number`; None where there is no docket number or it is not a Term-form or application number",
+          "title": "Docket Url"
         },
         "events": {
           "description": "The case's predicted events, ordered by event id, each with every predictor's newest read of it",
@@ -455,6 +510,19 @@
           "minimum": 0.0,
           "title": "Score Range",
           "type": "number"
+        },
+        "short_caption": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The conventional short form of `caption` (\"Trump v. California\"), derived deterministically by the `short_caption_rule` provenance string. None where the rule cannot produce a confident one \u2014 a reader falls back to `caption`. Display-only: nothing predicts, evaluates or scores on it",
+          "title": "Short Caption"
         },
         "status": {
           "description": "Resolution state across **all** the case's predicted events, derived from `outcome.json` presence: none resolved, some resolved, all resolved. The one case-grain figure on an otherwise moment-scoped row \u2014 a case can read `resolved` on an earlier event while `moment` is still pending, so it is never read as the moment's own state",
@@ -671,8 +739,9 @@
       "type": "integer"
     },
     "schema_version": {
-      "const": "1.0",
-      "default": "1.0",
+      "const": "1.1",
+      "default": "1.1",
+      "description": "The artifact's schema version. A reader keys on it: a `1.1` row carries the display fields `short_caption`, `docket_number`, `docket_number_source` and `docket_url`",
       "title": "Schema Version",
       "type": "string"
     },
