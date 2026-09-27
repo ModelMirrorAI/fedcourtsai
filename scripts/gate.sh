@@ -2,7 +2,9 @@
 #
 # The single definition of the local gate — the checks CI enforces on every PR.
 # AGENTS.md, README.md, and ci.yml all invoke this script, so "green CI" and
-# "passes the local gate" cannot silently drift apart.
+# "passes the local gate" cannot silently drift apart for a code change; a
+# data-only or docs-only change runs a lane subset (*The CI lanes* in
+# docs/testing.md).
 #
 # Assumes a synced environment (`uv sync`); CI's setup step and the devcontainer
 # both provide one, so the stages below are pure checks with no setup of their own.
@@ -19,10 +21,13 @@
 #                            serial run when debugging)
 #   scripts/gate.sh data     validate data + corpus-status
 #   scripts/gate.sh schemas  export-schemas + schema-drift check
+#   scripts/gate.sh data-tests  only the tests marked reads_data
+#   scripts/gate.sh docs-tests  only the tests marked reads_docs
 #
 # Named stages preserve the discretion AGENTS.md grants — run the subset that
-# fits the change (a docs-only change needs none of the Python stages). With no
-# argument every stage runs in the order CI runs them.
+# fits the change (a docs-only change needs only docs-tests). With no argument
+# every stage runs in the order CI runs them; the two lane test stages are not
+# part of that, since `test` already runs every test they select.
 set -euo pipefail
 
 # CI installs with `uv sync --locked`, which refuses a lock that has drifted
@@ -82,6 +87,30 @@ test_stage() {
   fi
 }
 
+# The CI lanes' narrowed test stage (scripts/ci_lane.py). In the data and docs
+# lanes ci.yml runs this in place of `test`: only the tests that open the
+# committed files that lane lets change. tests/lane_guard.py keeps the marks
+# in step — the full suite fails any test it sees open a lane file without its
+# lane's mark (its blind spots: docs/testing.md, *The CI lanes*). pytest exits 5 when
+# a mark selects nothing, which here means no test reads that lane's files: a
+# pass, not a failure. Fanned out like `test`: the selection is small, but the
+# data-reading tests walk the whole committed tree and dominate the stage.
+lane_tests() {
+  local mark="$1"
+  local workers="${GATE_TEST_WORKERS:-auto}"
+  local fanout=()
+  if [ "$workers" != "1" ]; then
+    fanout=(-n "$workers" --dist loadgroup)
+  fi
+  local rc=0
+  uv run pytest ${fanout[@]+"${fanout[@]}"} -m "$mark" --durations=5 || rc=$?
+  if [ "$rc" -eq 5 ]; then
+    echo "no test carries ${mark}; nothing in this lane to run"
+    return 0
+  fi
+  return "$rc"
+}
+
 data() {
   uv run fedcourts validate data
   uv run fedcourts corpus-status
@@ -109,10 +138,12 @@ case "$stage" in
   test) test_stage ;;
   data) data ;;
   schemas) schemas ;;
+  data-tests) lane_tests reads_data ;;
+  docs-tests) lane_tests reads_docs ;;
   all) all ;;
   *)
     echo "unknown stage: $stage" >&2
-    echo "usage: scripts/gate.sh [lock|lint|types|test|data|schemas]" >&2
+    echo "usage: scripts/gate.sh [lock|lint|types|test|data|schemas|data-tests|docs-tests]" >&2
     exit 2
     ;;
 esac

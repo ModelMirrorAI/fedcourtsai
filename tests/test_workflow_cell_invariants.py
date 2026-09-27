@@ -94,6 +94,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 from pydantic import AliasChoices
 
@@ -843,6 +844,10 @@ def _joined_run_blocks(name: str) -> list[str]:
 GEMINI_CONTEXT_FILENAMES = ("GEMINI.md", "MEMORY.md")
 
 
+# Walks the whole checkout, so a data-only or docs-only change that adds such a
+# file is exactly what it exists to catch: it runs in both lanes.
+@pytest.mark.reads_data
+@pytest.mark.reads_docs
 def test_no_file_in_the_checkout_is_a_gemini_context_file() -> None:
     """The checkout is a context-file discovery root for every gemini cell.
 
