@@ -1182,6 +1182,7 @@ def test_the_two_registries_advertise_the_same_tools() -> None:
     assert predictors == evaluators
 
 
+@pytest.mark.reads_data
 def test_the_cli_reports_against_the_committed_manifest() -> None:
     # End to end over the real registries: the command must resolve a non-empty
     # offered set, which is what makes never-called tools visible at all.

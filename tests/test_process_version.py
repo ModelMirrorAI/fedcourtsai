@@ -224,6 +224,7 @@ def test_a_naive_stamp_reads_as_pre_freeze_never_a_crash(
     assert not process_version.at_or_after_freeze(datetime(2026, 3, 1))
 
 
+@pytest.mark.reads_data
 def test_no_committed_cell_predates_the_bless_it_claims() -> None:
     """The retroactive-blessing tripwire, on the real ledger.
 
@@ -271,6 +272,7 @@ def test_no_committed_cell_predates_the_bless_it_claims() -> None:
         )
 
 
+@pytest.mark.reads_data
 def test_no_committed_evaluation_predates_the_bless_it_claims() -> None:
     """The retroactive-blessing tripwire's evaluation twin, on the real ledger.
 

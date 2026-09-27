@@ -91,12 +91,17 @@ test_stage() {
 # can affect. tests/lane_guard.py keeps the marks whole — the full suite fails
 # any test that opens a lane file without its lane's mark. pytest exits 5 when
 # a mark selects nothing, which here means no test reads that lane's files: a
-# pass, not a failure. Serial: the selection is a handful of tests, and every
-# xdist worker would re-pay the whole suite's collection to find them.
+# pass, not a failure. Fanned out like `test`: the selection is small, but the
+# data-reading tests walk the whole committed tree and dominate the stage.
 lane_tests() {
   local mark="$1"
+  local workers="${GATE_TEST_WORKERS:-auto}"
+  local fanout=()
+  if [ "$workers" != "1" ]; then
+    fanout=(-n "$workers" --dist loadgroup)
+  fi
   local rc=0
-  uv run pytest -m "$mark" || rc=$?
+  uv run pytest ${fanout[@]+"${fanout[@]}"} -m "$mark" --durations=5 || rc=$?
   if [ "$rc" -eq 5 ]; then
     echo "no test carries ${mark}; nothing in this lane to run"
     return 0
