@@ -5148,13 +5148,13 @@ freeze commit is recorded here.
   long-conference release is unaffected either way:
   its population is `proc-v8` inside `proc-v8`'s window.
 
-  The carrying promotion is `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merged at>`). It must precede the first
+  The carrying promotion is `promotion/2026-09-27` (merge commit
+  `aa5827f94`, merged `2026-09-27T12:58:27Z`). It must precede the first
   order of any kind from the 2026-09-28 conference, and every other outcome of
   a counted cell, for this entry to register ahead of any outcome it governs.
   At that promotion, the census above re-run on `main` reads
-  `<FILL: counted proc-v8 predictions and events at the promotion>`, of which
-  `<FILL: how many sit on an event with a committed outcome>` sit on an event
+  **369 predictions on 123 events**, of which
+  **none** sits on an event
   with a committed outcome. The runnable effect check once it is live:
   `uv run fedcourts process-digest --all` still prints the same six digests,
   and `FROZEN_SINCE` in `src/fedcourtsai/process_version.py` is unchanged.
