@@ -29,17 +29,25 @@ not say it.
 
 ## What to write
 
-Plain markdown with exactly these three sections, these exact headings, in
+Plain markdown with exactly these five sections, these exact headings, in
 this order, and nothing before the first heading or after the last section:
 
 ```
+## In brief
 ## What happened
 ## What the Court is being asked
 ## Where it stands
+## What each outcome would mean
 ```
 
-About **250 words in total**:
+About **330 words in total**:
 
+- **In brief** (one sentence, no more than 25 words): the case in a line, for
+  a reader deciding whether to read on — who is asking the Court for what, in
+  plain words. For example: "A former employee asks the Court to revive her
+  lawsuit claiming her employer fired her for reporting safety problems." One
+  sentence, one paragraph; do not begin it with "Whether", and do not say or
+  imply that the case is important, unusual, or likely to go either way.
 - **What happened** (about 100 words): the dispute and how it reached the
   Court — who the parties are, what happened between them, and what the lower
   courts decided.
@@ -54,6 +62,30 @@ About **250 words in total**:
   conference; the Court has asked the Solicitor General for the government's
   views; the case has been argued and awaits decision; the Court has decided
   it. Say only what the docket entries show.
+- **What each outcome would mean** (two to four sentences, about 60 words):
+  what each action the Court could take at the stage "Where it stands"
+  describes would do for these parties, concretely — which side's position
+  prevails and what happens next, in terms of who petitioned and who won
+  below as the record shows them:
+  - *A petition waiting on the Court's decision to hear the case*: what a
+    grant would mean (the Court hears the case in full and decides the
+    question) and what a denial would leave in place (the lower court's
+    decision stands, and for whom).
+  - *An emergency application*: what granting the relief asked for would do
+    (for example, pause the lower court's order while the case continues) and
+    what denying it would leave in effect.
+  - *A case granted, argued, or awaiting decision on the merits*: what
+    affirming would mean for the parties, and what reversing or vacating
+    would mean.
+  - *A stage the Court has already acted on* (the petition denied, the case
+    decided, the application ruled on): say what that action means for the
+    parties, as the docket records it, instead of describing outcomes that can
+    no longer happen.
+  Describe consequences only. Never say or hint which outcome is more likely,
+  usual, or expected, and give each outcome comparable weight and wording. If
+  the record does not show something a consequence depends on — who won
+  below, or what the lower court ordered — say what each outcome would do in
+  the terms the record does support, and do not guess at later proceedings.
 
 ## How to write it
 
@@ -94,7 +126,9 @@ About **250 words in total**:
 - **Neutral.** Describe each side's position fairly and in comparable terms.
   Make no prediction about what the Court will do, give no view on who is
   right, and do not characterize the case as important, significant,
-  landmark, closely watched, or the like.
+  landmark, closely watched, or the like. The headline and the outcome
+  section are held to this rule like the rest: an outcome is described by
+  what it would do, never by how likely it is or whether it would be better.
 - **Accurate to the record.** Every statement must be something the record
   shows.
   - *Allegations are attributed.* A fact that only one side's filing
@@ -131,7 +165,7 @@ About **250 words in total**:
   initials. Add no personal detail — addresses, contact details, health,
   family, or history — beyond what is needed to explain the dispute.
 - **No paragraph begins with "Whether"**, in any section.
-- **No markup beyond the three headings and paragraphs.** No bullet or
+- **No markup beyond the five headings and paragraphs.** No bullet or
   numbered lists, no bold or italics, no code formatting, no links, no URLs,
   no HTML, no images, no front matter; the pipeline adds its own header and
   refuses a summary that carries any of these.

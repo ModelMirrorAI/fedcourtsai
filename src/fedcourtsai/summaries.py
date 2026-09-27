@@ -19,9 +19,14 @@ Three pieces, each a small pure function the CLI wraps:
   shape is what makes "grounded in the record only" a property of the request
   rather than a promise in the prompt.
 - **The file** is harness-written front matter (:class:`CaseSummaryFrontMatter`)
-  over the model's body, which is accepted only if it has exactly the three
-  contract sections in order, sits inside a tolerant length band, opens no
+  over the model's body, which is accepted only if it has exactly the current
+  contract's sections in order, sits inside a tolerant length band, opens no
   paragraph with "Whether", and passes the secret scan.
+
+The body contract is versioned (``body_version`` in the front matter). The
+harness writes only the current version; a committed summary is validated
+against the version it names, so a summary written to an earlier contract stays
+valid as the dated record it is, and the plan owes its case a new one.
 """
 
 from __future__ import annotations
@@ -34,7 +39,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 import httpx
@@ -65,17 +70,46 @@ from .serialize import write_text
 #: The summarizer's system prompt, relative to the repository root.
 PROMPT_PATH = Path(".github/prompts/summarize.md")
 
-#: The body's three sections, in the order the contract fixes.
-SECTION_HEADINGS: tuple[str, ...] = (
-    "## What happened",
-    "## What the Court is being asked",
-    "## Where it stands",
-)
+#: The body contract the harness writes, stamped as ``body_version`` on every
+#: summary it writes.
+BODY_VERSION = 2
 
-#: The accepted body length, in words. The contract asks for about 250; the band
+#: The one-sentence headline's section: the line a reader sees before expanding
+#: a case, so it is a headed section the site reads by name.
+HEADLINE_HEADING = "## In brief"
+
+#: Each body contract's sections, in the order it fixes. A committed summary is
+#: held to the list its ``body_version`` names, so version 1 — the three
+#: sections without the headline and the outcome section — stays valid for the
+#: summaries written to it.
+SECTION_HEADINGS_BY_VERSION: dict[int, tuple[str, ...]] = {
+    1: (
+        "## What happened",
+        "## What the Court is being asked",
+        "## Where it stands",
+    ),
+    2: (
+        HEADLINE_HEADING,
+        "## What happened",
+        "## What the Court is being asked",
+        "## Where it stands",
+        "## What each outcome would mean",
+    ),
+}
+
+#: The current contract's sections, in order.
+SECTION_HEADINGS: tuple[str, ...] = SECTION_HEADINGS_BY_VERSION[BODY_VERSION]
+
+#: The headline's word cap. The prompt asks for no more than about 25; the cap
+#: is a little above it so a faithful 26-word sentence is not refused, and it
+#: holds for committed summaries too, since a headline that has grown into a
+#: paragraph no longer fits the collapsed row it is written for.
+HEADLINE_MAX_WORDS = 30
+
+#: The accepted body length, in words. The contract asks for about 330; the band
 #: is tolerant so a faithful summary of a thin or a busy docket is not refused
 #: for being one, and tight enough that a response which ignored the contract is.
-WORD_BAND: tuple[int, int] = (120, 450)
+WORD_BAND: tuple[int, int] = (150, 550)
 
 #: The Messages API endpoint and the version header it requires.
 API_URL = "https://api.anthropic.com/v1/messages"
@@ -97,7 +131,7 @@ TRUNCATION_MARKER = "[truncated: {shown} of {total} characters shown]"
 # from a typical summary to the configured cap.
 _CHARS_PER_TOKEN_LOW_COST = 3.5
 _CHARS_PER_TOKEN_HIGH_COST = 2.5
-_TYPICAL_OUTPUT_TOKENS = 500
+_TYPICAL_OUTPUT_TOKENS = 650
 
 #: The key only the supremecourt.gov docket JSON carries (its proceedings
 #: list), the same discriminator ``casestore.read_latest_live_snapshot`` reads.
@@ -161,18 +195,25 @@ def newest_summary(data_root: Path, court_id: str, docket_id: int) -> Path | Non
     return dated[-1] if dated else None
 
 
-def committed_digest(path: Path) -> str | None:
-    """The ``record_digest`` a summary file was written from; ``None`` if unreadable.
+def committed_front(path: Path) -> CaseSummaryFrontMatter | None:
+    """A summary file's front matter; ``None`` if unreadable.
 
-    An unreadable summary answers "no digest", which re-plans the case: the
-    validator reports the broken file on its own, and a fresh summary for the
-    same record is the repair.
+    An unreadable summary answers "no front matter", which re-plans the case:
+    the validator reports the broken file on its own, and a fresh summary for
+    the same record is the repair.
     """
     try:
         front, _ = parse_summary(path.read_text())
     except (OSError, SummaryFormatError):
         return None
-    return front.record_digest
+    return front
+
+
+def is_current(front: CaseSummaryFrontMatter | None, digest: str) -> bool:
+    """Whether a summary is up to date: written from this record, to this contract."""
+    return (
+        front is not None and front.record_digest == digest and front.body_version >= BODY_VERSION
+    )
 
 
 @dataclass(frozen=True)
@@ -195,10 +236,13 @@ def plan_summaries(
     """Which eligible cases are owed a summary, and what writing them would cost.
 
     ``case_ids`` is the eligible set (cases with a committed prediction);
-    ``read`` fetches a case's newest record from the corpus. Owed cases are
-    ordered cases-without-a-summary first, then changed records, each by case id,
-    so a ``limit`` spends on the cases a reader has nothing for. ``limit`` of 0
-    means no limit.
+    ``read`` fetches a case's newest record from the corpus. A case is owed when
+    its newest summary was written from another record or to an earlier body
+    contract. Owed cases are ordered cases-without-a-summary first, then
+    changed records, then summaries of an unchanged record written to an
+    earlier contract, each by case id, so a ``limit`` spends on the cases a
+    reader has nothing for, then on the ones whose summary is out of date.
+    ``limit`` of 0 means no limit.
     """
     owed: list[SummaryPlanCase] = []
     up_to_date = 0
@@ -217,10 +261,17 @@ def plan_summaries(
             continue
         digest = record_digest(record.payload, record.documents)
         newest = newest_summary(data_root, court_id, docket_id)
-        committed = committed_digest(newest) if newest is not None else None
-        if committed == digest:
+        front = committed_front(newest) if newest is not None else None
+        if is_current(front, digest):
             up_to_date += 1
             continue
+        reason: Literal["new", "record-changed", "body-outdated"]
+        if newest is None:
+            reason = "new"
+        elif front is not None and front.record_digest == digest:
+            reason = "body-outdated"
+        else:
+            reason = "record-changed"
         owed.append(
             SummaryPlanCase(
                 case_id=ids.case_id(court_id, docket_id),
@@ -228,14 +279,14 @@ def plan_summaries(
                 docket_id=docket_id,
                 snapshot=record.snapshot,
                 record_digest=digest,
-                reason="new" if newest is None else "record-changed",
+                reason=reason,
                 documents=len(record.documents),
                 input_chars=input_chars(
                     record.payload, record.documents, config.max_document_chars
                 ),
             )
         )
-    owed.sort(key=lambda c: (c.reason != "new", c.case_id))
+    owed.sort(key=lambda c: (_REASON_ORDER[c.reason], c.case_id))
     planned = owed[:limit] if limit > 0 else owed
     low, high = estimate_cost(config, [c.input_chars for c in planned])
     return SummaryPlan(
@@ -249,6 +300,12 @@ def plan_summaries(
         estimated_cost_usd_low=round(low, 2),
         estimated_cost_usd_high=round(high, 2),
     )
+
+
+#: The plan's spending order: a case a reader has nothing for, then one whose
+#: summary describes an older record, then one whose summary is current but was
+#: written to an earlier body contract.
+_REASON_ORDER = {"new": 0, "record-changed": 1, "body-outdated": 2}
 
 
 def estimate_cost(config: SummariesConfig, chars: Sequence[int]) -> tuple[float, float]:
@@ -285,7 +342,8 @@ def render_plan_report(plan: SummaryPlan, *, run_url: str = "") -> str:
         "",
         f"- model: `{plan.model}`",
         f"- eligible cases (a committed prediction): {plan.eligible}",
-        f"- up to date (newest summary matches the newest record): {plan.up_to_date}",
+        "- up to date (newest summary matches the newest record and the current "
+        + f"body contract): {plan.up_to_date}",
         f"- owed and planned: **{len(plan.cases)}**"
         + (f" ({plan.deferred} more deferred by the limit)" if plan.deferred else ""),
         f"- no corpus snapshot: {len(plan.no_snapshot)}",
@@ -308,7 +366,10 @@ def render_plan_report(plan: SummaryPlan, *, run_url: str = "") -> str:
             for c in plan.cases
         ]
     else:
-        lines.append("Nothing is owed: every eligible case's summary matches its record.")
+        lines.append(
+            "Nothing is owed: every eligible case's summary matches its record "
+            + "and the current body contract."
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -655,7 +716,7 @@ def _sections(body: str) -> tuple[list[str], list[str], str]:
 # Markup a summary body may not carry, because the body reaches a public page
 # and its text derives from third-party filings a model read: an injected
 # instruction that survived into the output could otherwise place a script, a
-# frame, a tracking image or a link there. The contract is three headings and
+# frame, a tracking image or a link there. The contract is its headings and
 # plain paragraphs, so every construct below is off-contract whatever it says.
 _MARKUP: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("an HTML tag or autolink", re.compile(r"<\s*[A-Za-z/!?]")),
@@ -666,8 +727,18 @@ _MARKUP: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
-def body_problems(body: str, *, check_length: bool = True) -> list[str]:
-    """Why a summary body breaks the contract; empty when it meets it."""
+def body_problems(
+    body: str, *, version: int = BODY_VERSION, check_length: bool = True
+) -> list[str]:
+    """Why a summary body breaks the ``version`` contract; empty when it meets it.
+
+    ``check_length`` applies the word band, which gates what the harness
+    accepts from the model against the current contract; the validator turns
+    it off. The headline cap is shape, not length, and holds either way.
+    """
+    expected = SECTION_HEADINGS_BY_VERSION.get(version)
+    if expected is None:
+        return [f"unknown body_version {version!r}"]
     problems: list[str] = []
     for label, pattern in _MARKUP:
         if pattern.search(body):
@@ -675,23 +746,37 @@ def body_problems(body: str, *, check_length: bool = True) -> list[str]:
     headings, sections, preamble = _sections(body)
     if preamble:
         problems.append("text before the first section heading")
-    if tuple(headings) != SECTION_HEADINGS:
+    if tuple(headings) != expected:
         problems.append(
             "sections must be exactly "
-            + ", ".join(repr(h) for h in SECTION_HEADINGS)
+            + ", ".join(repr(h) for h in expected)
             + f" in order (found {headings!r})"
         )
     for heading, text in zip(headings, sections, strict=True):
         if not text:
             problems.append(f"section {heading!r} is empty")
-        for paragraph in re.split(r"\n\s*\n", text):
+        paragraphs = re.split(r"\n\s*\n", text)
+        for paragraph in paragraphs:
             if paragraph.strip().lower().startswith("whether"):
                 problems.append(f"a paragraph in {heading!r} opens with 'Whether'")
+        if heading == HEADLINE_HEADING and text:
+            problems += _headline_problems(heading, paragraphs)
     if check_length:
         words = sum(len(text.split()) for text in sections)
         low, high = WORD_BAND
         if not low <= words <= high:
             problems.append(f"{words} words, outside the {low}-{high} band")
+    return problems
+
+
+def _headline_problems(heading: str, paragraphs: Sequence[str]) -> list[str]:
+    """Why a headline section is not a one-line headline; empty when it is."""
+    problems: list[str] = []
+    if len(paragraphs) > 1:
+        problems.append(f"the {heading!r} headline is more than one paragraph")
+    words = sum(len(p.split()) for p in paragraphs)
+    if words > HEADLINE_MAX_WORDS:
+        problems.append(f"the {heading!r} headline runs {words} words, over {HEADLINE_MAX_WORDS}")
     return problems
 
 
@@ -725,8 +810,9 @@ def summary_file_problems(file: Path, root: Path) -> list[str] | None:
     it in :mod:`fedcourtsai.validate`: ``cases/<court>/<docket>/summaries/<name>``.
     Checks the name is a snapshot day, the front matter validates, it names the
     case its path spells and the day its name spells, and the body carries the
-    three sections in order. Length is not re-checked: that band gates what the
-    harness accepts from the model, and a committed summary is judged on shape.
+    sections its ``body_version`` fixes, in order. Length is not re-checked:
+    that band gates what the harness accepts from the model, and a committed
+    summary is judged on shape.
     """
     try:
         parts = file.relative_to(root).parts
@@ -750,7 +836,7 @@ def summary_file_problems(file: Path, root: Path) -> list[str] | None:
         problems.append(f"docket directory {parts[2]!r} is not a docket id")
     if front.snapshot.isoformat() != name.group(1):
         problems.append(f"snapshot {front.snapshot} does not match the file name")
-    problems += body_problems(body, check_length=False)
+    problems += body_problems(body, version=front.body_version, check_length=False)
     return problems
 
 
@@ -832,7 +918,7 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
 ) -> CaseResult:
     """Write one planned case's summary, or say why not."""
     target = CasePaths(data_root, case.court_id, case.docket_id).summary(case.snapshot.isoformat())
-    if target.is_file() and committed_digest(target) == case.record_digest:
+    if target.is_file() and is_current(committed_front(target), case.record_digest):
         return CaseResult(None, "already summarized from this record")
     staged = read_staged_record(
         stage_root, case.court_id, case.docket_id, case.snapshot.isoformat()
@@ -864,6 +950,7 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
         record_digest=case.record_digest,
         model=config.model,
         prompt_digest=prompt_sha,
+        body_version=BODY_VERSION,
         generated_at=now.astimezone(UTC).replace(microsecond=0),
         usage=CaseSummaryUsage(
             input_tokens=result.usage.input_tokens,

@@ -30,6 +30,7 @@ snapshot: '2026-09-20'
 record_digest: sha256:…     # the record the body was written from
 model: claude-sonnet-5
 prompt_digest: sha256:…     # .github/prompts/summarize.md as sent
+body_version: 2             # the body contract below it was written to
 generated_at: '2026-09-23T04:02:11Z'
 usage:
   input_tokens: 48210
@@ -38,20 +39,63 @@ usage:
 ---
 ```
 
-The body carries exactly three sections, in this order, about 250 words in
+The body carries exactly five sections, in this order, about 330 words in
 all:
 
+- `## In brief` — the case in one sentence of no more than about 25 words:
+  who is asking the Court for what. Neutral, no "Whether…" construction, no
+  view on the case's importance. It is the line a site reader sees before
+  expanding a case.
 - `## What happened` — the dispute and how it reached the Court (~100 words).
 - `## What the Court is being asked` — the question, restated without a
   "Whether…" construction or citations.
 - `## Where it stands` — the posture in one or two sentences.
+- `## What each outcome would mean` — two to four sentences on what each
+  action open at that stage would do for these parties: for a petition, what a
+  grant and a denial would each leave in place; for an emergency application,
+  what granting or denying the relief asked for would do; for a merits case,
+  what affirming or reversing would mean. Where the Court has already acted,
+  what that action means. Consequences only, never likelihood — the
+  neutrality rule below binds this section and the headline as it binds the
+  rest.
+
+The two additions are headed sections rather than an unheaded opening line,
+for three reasons. The site's summary parser splits a body on its `## `
+headings, so a headed section is readable by name with no parser change. The
+contract's shape check refuses any text before the first heading, which is
+what stops a stray preamble — or text an injected instruction pushed ahead of
+the structure — from reaching the page, and a headline paragraph would have to
+be carved out of that rule. And a heading makes a body's contract version
+legible from its structure alone.
+
+**The contract is versioned.** `body_version` in the front matter names the
+contract a body was written to; the harness stamps the current one, 2, on
+every summary it writes. Version 1 is the three-section contract — `What
+happened`, `What the Court is being asked`, `Where it stands` — and a file
+without the field is version 1. The transition rule has two halves:
+
+- **An earlier-version summary stays valid.** The validator holds each file
+  to the sections its own `body_version` fixes, so a version-1 summary keeps
+  validating as the dated record of what was published, and a superseded
+  summary is never rewritten to a later contract.
+- **It is owed a new one.** The plan counts a case up to date only when its
+  newest summary matches the newest record *and* was written to the current
+  contract; a case whose record is unchanged but whose newest summary is
+  older is planned with the reason `body-outdated`. So the first run after a
+  contract change regenerates every eligible case in one pass, behind the
+  same `review` hold as any run, rather than waiting for filings to change.
+  The new summary is named for the newest snapshot day like any other, so
+  the earlier one stays beside it — unless that day is the one the earlier
+  summary is named for, in which case the new summary replaces it at the same
+  path.
 
 `fedcourts validate data` checks every committed summary: the name is a day,
 the front matter validates, its `case_id` and `snapshot` match the path, and
-the body meets the contract's shape — the three headings in order with nothing
-before the first, no empty section, no paragraph opening with "Whether", and
-none of the markup below. A hand edit on the refresh PR is held to the same
-rules; only the length band is left to generation time.
+the body meets its version's shape — that version's headings in order with
+nothing before the first, no empty section, no paragraph opening with
+"Whether", a headline of one paragraph and at most 30 words, and none of the
+markup below. A hand edit on the refresh PR is held to the same rules; only
+the length band is left to generation time.
 
 ## The summarizer's contract
 
@@ -94,9 +138,10 @@ case, and a band is exactly the importance signal the neutrality rule keeps out
 of a summary.
 
 The harness accepts a response only if it ended normally (`end_turn`), has
-exactly the three headings in order with nothing before the first, runs
-120–450 words (a tolerant band around the 250 asked for), opens no paragraph
-with "Whether", carries no markup — no HTML tag or autolink, no markdown link or
+exactly the current contract's five headings in order with nothing before the
+first, runs 150–550 words (a tolerant band around the 330 asked for), has a
+headline of one paragraph and at most 30 words (a margin over the 25 asked
+for), opens no paragraph with "Whether", carries no markup — no HTML tag or autolink, no markdown link or
 image, no URL, no list item, no bold or code formatting — and passes the secret
 scan. The markup rule is the harness's, not only the prompt's: a summary
 reaches a public page, its text derives from third-party filings, and an
@@ -120,7 +165,8 @@ snapshot of the other shape too.
 
 **Owed a summary:** when the `record_digest` of its newest corpus record
 differs from the `record_digest` in its newest committed summary's front
-matter — or it has no summary. The digest is sha256 over the newest snapshot
+matter, when that summary was written to an earlier body contract than the
+current one (`body_version`, above), or when it has no summary. The digest is sha256 over the newest snapshot
 payload in canonical JSON with its generation stamps removed
 (`provision.GENERATION_STAMPS`: the pull's own timestamp), plus the sorted
 `(kind, sha256(text))` pair of each stored document. Documents are in the
@@ -137,9 +183,12 @@ every day; the content-keyed one writes for the ~4% of records that changed.
 
 The run is idempotent: over an up-to-date ledger the plan is empty and nothing
 is written. The first run on `main` is the backfill — every eligible case,
-about 195 — and each later run writes only for changed records. Planned cases
-are ordered cases-without-a-summary first, then changed records, so a
-`limit` spends on the cases a reader has nothing for.
+about 195 — and each later run writes only for changed records, except the
+first run after a body-contract change, which rewrites every eligible case. Planned cases
+are ordered cases-without-a-summary first, then changed records, then
+summaries of an unchanged record written to an earlier contract, so a
+`limit` spends on the cases a reader has nothing for before the ones whose
+summary is only out of date.
 
 ## The model
 
@@ -305,6 +354,13 @@ backfill at ≈$20–40, a margin over that estimate — the plan's range assume
 recorded usage replaces both. At ~4% of records changing a day, steady state is
 roughly 5–10 summaries a day, ≈$1–2 a day or ≈$30–60 a month, each run
 behind the `review` hold. See [budget.md](budget.md).
+
+A body-contract change re-plans every eligible case at once (`body-outdated`,
+above), so it costs one backfill. The 206 summaries committed by 2026-09-27,
+over 195 cases, recorded a median of $0.095 and a total of $19.76 at a median
+of 516 output tokens; input dominates, so the version-2 body's extra ~80 words
+(≈150 output tokens, ≈$0.0015 at Sonnet 5's output rate) leaves a summary at
+roughly $0.10 and the regeneration pass at roughly $15–25 for today's cases.
 
 ## Non-goals
 

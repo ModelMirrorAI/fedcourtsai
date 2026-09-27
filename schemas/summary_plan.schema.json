@@ -29,10 +29,11 @@
           "type": "integer"
         },
         "reason": {
-          "description": "new: the case has no committed summary; record-changed: its newest summary was written from a different record",
+          "description": "new: the case has no committed summary; record-changed: its newest summary was written from a different record; body-outdated: its newest summary matches the record but was written to an earlier body contract (`body_version`)",
           "enum": [
             "new",
-            "record-changed"
+            "record-changed",
+            "body-outdated"
           ],
           "title": "Reason",
           "type": "string"

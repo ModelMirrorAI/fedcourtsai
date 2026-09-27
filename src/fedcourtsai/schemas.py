@@ -8747,6 +8747,16 @@ class CaseSummaryFrontMatter(_Strict):
         pattern=_SHA256_DIGEST,
         description="sha256 of `.github/prompts/summarize.md` as sent",
     )
+    body_version: Literal[1, 2] = Field(
+        default=1,
+        description="The body contract the summary was written to, which fixes the "
+        + "sections the validator holds it to (`summaries.SECTION_HEADINGS_BY_VERSION`): "
+        + "1, the three sections — what happened, what the Court is being asked, "
+        + "where it stands; 2, those three between a one-sentence `In brief` headline "
+        + "and a closing `What each outcome would mean`. Absent means 1. The harness "
+        + "stamps the current version on every summary it writes, and a case whose "
+        + "newest summary is older is owed a new one",
+    )
     generated_at: datetime = Field(description="When the harness wrote the file (UTC)")
     usage: CaseSummaryUsage | None = Field(
         default=None, description="The writing call's token usage, where the response carried it"
@@ -8761,9 +8771,11 @@ class SummaryPlanCase(_Strict):
     docket_id: int
     snapshot: date = Field(description="The newest snapshot day; the summary's filename")
     record_digest: str = Field(pattern=_SHA256_DIGEST)
-    reason: Literal["new", "record-changed"] = Field(
+    reason: Literal["new", "record-changed", "body-outdated"] = Field(
         description="new: the case has no committed summary; record-changed: its "
-        + "newest summary was written from a different record"
+        + "newest summary was written from a different record; body-outdated: its "
+        + "newest summary matches the record but was written to an earlier body "
+        + "contract (`body_version`)"
     )
     documents: int = Field(ge=0, description="Stored documents the record carries")
     input_chars: int = Field(

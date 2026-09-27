@@ -36,7 +36,8 @@ PAYLOAD: dict[str, Any] = {
 }
 DOCS = [("petition", "The petition text."), ("questions-presented", "Whether X.")]
 
-GOOD_BODY = (
+# A body written to the version-1 contract: the three sections, no headline.
+V1_BODY = (
     "## What happened\n\n"
     + " ".join(["The parties disagreed about a contract and the lower courts ruled."] * 8)
     + "\n\n## What the Court is being asked\n\n"
@@ -44,6 +45,21 @@ GOOD_BODY = (
     + "\n\n## Where it stands\n\n"
     + "The petition is waiting to be considered at a conference. "
     + "No response has been filed yet."
+)
+
+HEADLINE = "A buyer asks the Court to decide if a supply contract binds it."
+
+# A body written to the current contract: the headline, the three sections, and
+# the outcome section.
+GOOD_BODY = (
+    "## In brief\n\n"
+    + HEADLINE
+    + "\n\n"
+    + V1_BODY
+    + "\n\n## What each outcome would mean\n\n"
+    + "If the Court grants the petition, it will hear the case and decide if the "
+    + "contract binds the buyer. If it denies the petition, the appeals court's "
+    + "ruling for the seller stands."
 )
 
 
@@ -57,7 +73,10 @@ def _record(
     )
 
 
-def _commit_summary(data_root: Path, case_id: str, day: str, digest: str) -> Path:
+def _commit_summary(
+    data_root: Path, case_id: str, day: str, digest: str, *, version: int = 2
+) -> Path:
+    """Commit a summary; a version-1 one carries no ``body_version`` line at all."""
     court, docket = case_id.split("/")
     front = CaseSummaryFrontMatter(
         case_id=case_id,
@@ -65,11 +84,16 @@ def _commit_summary(data_root: Path, case_id: str, day: str, digest: str) -> Pat
         record_digest=digest,
         model="claude-sonnet-5",
         prompt_digest="sha256:" + "0" * 64,
+        body_version=2,
         generated_at=datetime(2026, 9, 22, 4, 0, tzinfo=UTC),
     )
     path = CasePaths(data_root, court, int(docket)).summary(day)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(summaries.render_summary(front, GOOD_BODY))
+    if version == 1:
+        text = summaries.render_summary(front, V1_BODY).replace("body_version: 2\n", "")
+    else:
+        text = summaries.render_summary(front, GOOD_BODY)
+    path.write_text(text)
     return path
 
 
@@ -132,6 +156,38 @@ def test_plan_reads_the_newest_summary_only(tmp_path: Path) -> None:
     _commit_summary(tmp_path, "scotus/1", "2026-09-01", "sha256:" + "1" * 64)
     _commit_summary(tmp_path, "scotus/1", "2026-09-20", digest)
     assert _plan(tmp_path, {"scotus/1": _record()}).cases == []
+
+
+def test_plan_owes_a_case_whose_summary_predates_the_current_contract(tmp_path: Path) -> None:
+    # The record is unchanged, but the newest summary is a version-1 body.
+    _commit_summary(
+        tmp_path, "scotus/1", "2026-09-20", summaries.record_digest(PAYLOAD, DOCS), version=1
+    )
+    plan = _plan(tmp_path, {"scotus/1": _record()})
+    assert [(c.case_id, c.reason) for c in plan.cases] == [("scotus/1", "body-outdated")]
+    assert plan.up_to_date == 0
+    assert "body-outdated" in summaries.render_plan_report(plan)
+
+
+def test_plan_spends_on_outdated_bodies_after_new_and_changed_cases(tmp_path: Path) -> None:
+    digest = summaries.record_digest(PAYLOAD, DOCS)
+    _commit_summary(tmp_path, "scotus/1", "2026-09-20", digest, version=1)
+    _commit_summary(tmp_path, "scotus/2", "2026-09-20", "sha256:" + "1" * 64, version=1)
+    records: dict[str, summaries.CaseRecord | None] = {
+        "scotus/1": _record(),
+        "scotus/2": _record(),
+        "scotus/3": _record(),
+    }
+    plan = _plan(tmp_path, records)
+    assert [(c.case_id, c.reason) for c in plan.cases] == [
+        ("scotus/3", "new"),
+        ("scotus/2", "record-changed"),
+        ("scotus/1", "body-outdated"),
+    ]
+    assert [c.case_id for c in _plan(tmp_path, records, limit=2).cases] == [
+        "scotus/3",
+        "scotus/2",
+    ]
 
 
 def test_plan_limit_prefers_cases_without_a_summary(tmp_path: Path) -> None:
@@ -255,6 +311,7 @@ def test_summarize_writes_the_file_with_harness_front_matter(tmp_path: Path) -> 
     assert front.record_digest == plan.cases[0].record_digest
     assert front.model == "claude-sonnet-5"
     assert front.prompt_digest == summaries.prompt_digest(b"the prompt")
+    assert front.body_version == summaries.BODY_VERSION == 2
     assert front.generated_at == datetime(2026, 9, 23, 4, 0, 1, tzinfo=UTC)
     assert front.usage is not None and front.usage.input_tokens == 50_000
     assert cost == pytest.approx(50_000 * 2 / 1e6 + 400 * 10 / 1e6)
@@ -285,8 +342,15 @@ def test_summarize_writes_the_file_with_harness_front_matter(tmp_path: Path) -> 
             "## What the Court is being asked\n\n",
             "## What the Court is being asked\n\nWhether the contract binds. ",
         ),
-        "## What happened\n\nShort.\n\n## What the Court is being asked\n\nShort."
-        + "\n\n## Where it stands\n\nShort.",
+        "## In brief\n\nShort.\n\n## What happened\n\nShort.\n\n"
+        + "## What the Court is being asked\n\nShort.\n\n## Where it stands\n\nShort."
+        + "\n\n## What each outcome would mean\n\nShort.",
+        V1_BODY,
+        GOOD_BODY.replace("## In brief\n\n" + HEADLINE + "\n\n", ""),
+        GOOD_BODY.replace("\n\n## What each outcome would mean", "\n\n## What happens next"),
+        GOOD_BODY.replace(HEADLINE, HEADLINE + "\n\nA second paragraph of headline."),
+        GOOD_BODY.replace(HEADLINE, HEADLINE[:-1] + ", " + " ".join(["and more"] * 9) + "."),
+        GOOD_BODY.replace(HEADLINE, "Whether a supply contract binds the buyer."),
         GOOD_BODY + "\n\nThe key is " + FAKE_KEY,
         GOOD_BODY + '\n\n<script src="x"></script>',
         GOOD_BODY + "\n\nSee [the docket](https://example.com).",
@@ -300,6 +364,12 @@ def test_summarize_writes_the_file_with_harness_front_matter(tmp_path: Path) -> 
         "wrong-heading",
         "whether",
         "too-short",
+        "v1-body",
+        "no-headline",
+        "no-outcome-section",
+        "headline-two-paragraphs",
+        "headline-too-long",
+        "headline-whether",
         "secret",
         "html",
         "link",
@@ -417,6 +487,27 @@ def test_a_plan_case_must_name_one_case() -> None:
         )
 
 
+def test_summarize_rewrites_a_same_day_summary_written_to_an_earlier_contract(
+    tmp_path: Path,
+) -> None:
+    # A version-1 summary of the very record, on the very day, is replaced, not
+    # skipped as "already summarized".
+    old = _commit_summary(
+        tmp_path / "data",
+        "scotus/1",
+        "2026-09-22",
+        summaries.record_digest(PAYLOAD, DOCS),
+        version=1,
+    )
+    outcome, plan = _run(tmp_path, lambda request: _response(GOOD_BODY))
+    assert [c.reason for c in plan.cases] == ["body-outdated"]
+    [(_, path, _)] = outcome.written
+    assert path == old
+    front, body = summaries.parse_summary(path.read_text())
+    assert front.body_version == 2
+    assert body.strip() == GOOD_BODY.strip()
+
+
 def test_summarize_skips_an_unreadable_response_body(tmp_path: Path) -> None:
     outcome, _ = _run(tmp_path, lambda request: httpx.Response(200, text="not json"))
     assert outcome.written == []
@@ -499,6 +590,62 @@ def test_validate_accepts_a_committed_summary(tmp_path: Path) -> None:
     result = validate_ledger(tmp_path)
     assert result.ok, result.problems
     assert result.checked == 1
+
+
+def test_validate_keeps_an_unstamped_three_section_summary_valid(tmp_path: Path) -> None:
+    # The transition rule: a summary with no body_version is a version-1 body
+    # and is held to the three sections, so it stays valid until regenerated.
+    path = _commit_summary(tmp_path, "scotus/1", "2026-09-20", "sha256:" + "a" * 64, version=1)
+    assert "body_version" not in path.read_text()
+    front, _ = summaries.parse_summary(path.read_text())
+    assert front.body_version == 1
+    result = validate_ledger(tmp_path)
+    assert result.ok, result.problems
+
+
+def test_validate_holds_each_summary_to_its_own_version(tmp_path: Path) -> None:
+    digest = "sha256:" + "a" * 64
+    # A version-2 stamp over a three-section body.
+    stamped = _commit_summary(tmp_path, "scotus/1", "2026-09-20", digest)
+    front, _ = summaries.parse_summary(stamped.read_text())
+    stamped.write_text(summaries.render_summary(front, V1_BODY))
+    # An unstamped (version-1) file carrying the five-section body.
+    unstamped = _commit_summary(tmp_path, "scotus/2", "2026-09-20", digest, version=1)
+    head = unstamped.read_text().split("---\n\n", 1)[0]
+    unstamped.write_text(head + "---\n\n" + GOOD_BODY + "\n")
+    # A version-2 body with its outcome section moved ahead of the posture.
+    misordered = _commit_summary(tmp_path, "scotus/3", "2026-09-20", digest)
+    posture, outcomes = GOOD_BODY.split("\n\n## What each outcome would mean\n\n")
+    before, stands = posture.split("\n\n## Where it stands\n\n")
+    misordered.write_text(
+        summaries.render_summary(
+            front.model_copy(update={"case_id": "scotus/3"}),
+            before
+            + "\n\n## What each outcome would mean\n\n"
+            + outcomes
+            + "\n\n## Where it stands\n\n"
+            + stands,
+        )
+    )
+    # A headline grown past the cap.
+    grown = _commit_summary(tmp_path, "scotus/4", "2026-09-20", digest)
+    grown.write_text(grown.read_text().replace(HEADLINE, " ".join([HEADLINE] * 3)))
+    # A version no contract defines.
+    unknown = _commit_summary(tmp_path, "scotus/5", "2026-09-20", digest)
+    unknown.write_text(unknown.read_text().replace("body_version: 2", "body_version: 3"))
+
+    result = validate_ledger(tmp_path)
+
+    assert not result.ok
+    by_case = {
+        case: "\n".join(p for p in result.problems if f"/{case}/summaries/" in p)
+        for case in range(1, 6)
+    }
+    assert "sections must be exactly" in by_case[1]
+    assert "sections must be exactly" in by_case[2]
+    assert "sections must be exactly" in by_case[3]
+    assert "headline runs" in by_case[4]
+    assert "body_version" in by_case[5]
 
 
 def test_validate_rejects_summaries_off_the_contract(tmp_path: Path) -> None:
