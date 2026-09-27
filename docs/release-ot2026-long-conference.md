@@ -78,7 +78,7 @@ only if its **prediction's** stamp carries a blessed digest with `stamped_at` at
 or after that instant, and the grading evaluation's own harness stamp is at or
 after it too. The write-up states the per-digest census of the conference
 cohort, not a stamped/unstamped split: an unstamped cell is shakedown by
-construction, and a stamped cell under a retired digest is shakedown as well.
+construction, and a stamped cell under a de-counted digest is shakedown as well.
 
 **Evidence.**
 
@@ -184,7 +184,7 @@ that every cell read what it was given.
 > The conference cohort is re-forecast under the blessed processes by a
 > registered backlog rule. The rule re-owes a cell on an event that is still
 > genuinely forward, whose declared moment is still open, and whose entire
-> committed cohort the freeze retired — cert distribution and CVSG moments plus
+> committed cohort the freeze de-counted — cert distribution and CVSG moments plus
 > the interim moments; a distribution is refused unless it carries a conference
 > still ahead. The rule re-mints for every engine at once, so an event is never
 > intended to be completed with one blessed cell standing beside de-counted
@@ -196,7 +196,7 @@ that every cell read what it was given.
 > board. A re-forecast supersedes; it never adds a second observation.
 
 > Two readings that boundary does not support. A figure computed on the blessed
-> side is not comparable with one computed on the retired side, and any rise
+> side is not comparable with one computed on the de-counted side, and any rise
 > across the boundary is **not** a measurement of model improvement — the two
 > sides are different processes on different information sets, which is the
 > whole reason the partition exists. And a cohort complete on the board is not

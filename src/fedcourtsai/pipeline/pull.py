@@ -44,7 +44,7 @@ from ..store import (
     forecastable_event_ids,
     forecastable_events,
     forward_refusal_reason_from_parts,
-    predictor_holds_only_retired_predictions,
+    predictor_holds_no_counted_prediction,
 )
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
@@ -371,7 +371,7 @@ class BacklogEntry:
         ``reopened`` is deliberately **not** carried: this shape is the pull
         lane's run-log queue, which no fan-out reads back, and a case list a
         maintainer replays by hand must re-derive its own re-predict grounds
-        rather than inherit a stale claim that an event's cohort was retired.
+        rather than inherit a stale claim that an event's cohort was de-counted.
         """
         return {"court": self.court, "docket": self.docket, "events": list(self.events)}
 
@@ -670,7 +670,7 @@ def _reopenable_moment(event_id: str, row: corpus.CorpusRow, *, day: date) -> bo
     currently distributed for, so once that conference is past the moment the
     cohort was forecast at is over — the order list has been issued or the
     petition relisted, and either way a cell minted now answers a different
-    question from the one the retired cells answered. A petition with no
+    question from the one the de-counted cells answered. A petition with no
     conference at all is refused for the same reason the fan-out's own
     information-set precondition refuses it
     (:func:`fedcourtsai.store._premature_distribution_cell`): the distribution
@@ -1065,21 +1065,21 @@ def _reowed_pre_freeze_events(
     max_attempts: int,
     day: date,
 ) -> list[str]:
-    """Which of ``events`` are owed a cell again because their cohort is retired.
+    """Which of ``events`` are owed a cell again because their cohort is de-counted.
 
     The pre-freeze re-predict rule. Applied to the case's **whole** admitted
     event list, deliberately overlapping the never-predicted arm rather than
     taking what it left: an event can carry both a predictor that never
-    forecast it and predictors whose only cells are retired, and that is
+    forecast it and predictors whose only cells are de-counted, and that is
     precisely the state a run leaves when one engine quota-fails before a
-    re-bless. Handing this only the leftovers would mint the missing engine,
+    revocation. Handing this only the leftovers would mint the missing engine,
     stamp it blessed, and leave its rivals de-counted — a **one-engine frozen
     cohort**, the exact shape
     :func:`fedcourtsai.store.event_has_claimable_prediction` exists to refuse
     and the inverse of the completeness this rule is justified by. So the arms
     overlap at the event grain and stay disjoint at the cell grain, which is
     where it matters: a predictor with no cell is the never-predicted arm's,
-    one whose cells are all retired is this one's, and no predictor is both.
+    one whose cells are all de-counted is this one's, and no predictor is both.
 
     Three gates, each answering a different question, and an event must pass
     all three:
@@ -1097,18 +1097,18 @@ def _reowed_pre_freeze_events(
     2. **The moment is still open.** :func:`_reopenable_moment` —
        :data:`REPREDICT_MOMENTS`, plus the refusal of a distribution event that
        carries no conference still ahead.
-    3. **Every existing cell is retired, for at least one predictor.**
-       :func:`fedcourtsai.store.predictor_holds_only_retired_predictions`, under
+    3. **Every existing cell is de-counted, for at least one predictor.**
+       :func:`fedcourtsai.store.predictor_holds_no_counted_prediction`, under
        the same per-cell attempt cap the never-predicted arm takes. A predictor
-       already holding a blessed cell on the event is not re-owed one, so an
-       event whose cohort is partly blessed re-owes only the engines that are
-       not.
+       already holding a counted cell on the event — a closed window's
+       included — is not re-owed one, so an event whose cohort is partly
+       counted re-owes only the engines that are not.
 
     The caller passes the case's whole forecastable set, and for a cohort-only
     candidate this runs **before** the cohort narrowing rather than after it —
     which is the whole of the funding gate's widening: the narrowing governs the
     never-predicted arm, and this rule is asked over the unnarrowed list, so a
-    salience-declined case's wholly retired events are re-owed alongside a
+    salience-declined case's wholly de-counted events are re-owed alongside a
     funded case's. What the rule never reaches is an event no predictor has
     forecast at all — gate 3 is false with no runs — so it re-opens the
     pre-freeze cohort and opens no *event* the funding gate declined. (At the
@@ -1144,7 +1144,7 @@ def _reowed_pre_freeze_events(
         if refusal is not None:
             continue
         if any(
-            predictor_holds_only_retired_predictions(data_root, court, docket, event_id, pid)
+            predictor_holds_no_counted_prediction(data_root, court, docket, event_id, pid)
             and not _cell_capped(data_root, court, docket, event_id, pid, max_attempts, "predict")
             for pid in predictor_ids
         ):
@@ -1359,21 +1359,24 @@ def derive_predict_backlog(
 
     **The pre-freeze re-predict rule.** The owed check above is otherwise
     version-blind — a committed prediction is a committed prediction — and that
-    is a hole a freeze opens: once a predictor half is re-blessed, every cell
-    stamped under the retired digests is de-counted, so an event whose whole
-    cohort predates the freeze holds forecasts no claimable board will ever
-    count while the deriver reports it covered. When the event then resolves,
+    is a hole a de-count opens: a cell stamped before its digest's counting
+    window opened, under a label whose digests stay de-counted (every label
+    before ``proc-v8``), or inside a revoked window counts nowhere, so an event
+    whose whole cohort is such cells holds forecasts no claimable board will
+    ever count while the deriver reports it covered. A supersession opens no
+    such hole: it closes windows, whose cells keep counting, so it re-owes
+    nothing. When the event then resolves,
     the evaluate lane grades it, :func:`fedcourtsai.store.stratify` drops every
     result as out of frozen scope, and the event is consumed for nothing. So an
     event is owed a cell **again** when it is genuinely forward, its declared
-    moment is still open, and some predictor's every committed cell on it
-    carries a retired digest — :func:`_reowed_pre_freeze_events`, which spells
+    moment is still open, and some predictor's every committed cell on it is
+    de-counted — :func:`_reowed_pre_freeze_events`, which spells
     the three gates out. It is a rule over committed state like every other
     predicate here: no flag, no dispatch input, nothing to remember to set.
 
     A re-predict **replaces** rather than adds. The older cell stays under its
-    own run id and nothing edits it; provisioning stages the newest run per
-    predictor
+    own run id and nothing edits it; provisioning stages the newest resolvable
+    run per predictor
     (:func:`fedcourtsai.blinding.latest_prediction_dirs`) and the evaluation
     names the ``prediction_run_id`` it graded, so the new cell is the one the
     board reads and the old one is history. Re-owed cells are ordered after
@@ -1389,10 +1392,10 @@ def derive_predict_backlog(
     comparison on a cohort outside the frozen process scope. That narrowing
     governs the **never-predicted arm only**, and that is the funding gate's one
     widening: the re-predict rule is asked over the candidate's whole
-    forecastable set, so a declined case's wholly retired events are re-owed
-    like a funded case's. The ground is the narrowing's own argument rather than
-    a waiver of it — what it refuses is a *partial* completion, and a wholly
-    retired cohort is re-minted for every engine at once. Without this the
+    forecastable set, so a declined case's wholly de-counted events are
+    re-owed like a funded case's. The ground is the narrowing's own argument
+    rather than a waiver of it — what it refuses is a *partial* completion, and
+    a wholly de-counted cohort is re-minted for every engine at once. Without this the
     forward cohort would be re-predicted only on its funded half, and the rest
     graded on resolution and dropped from the frozen board.
 
@@ -1573,7 +1576,7 @@ def derive_predict_backlog(
         # ordinary backlog first — the same priority the two entry lists give at
         # the case grain. An event in both arms is already in `owed` and is not
         # repeated; `reopened` still names it, since the licence it carries is
-        # read per cell and its retired engines need it.
+        # read per cell and its de-counted engines need it.
         entry = BacklogEntry(
             case_id=row.case_id,
             court=court,

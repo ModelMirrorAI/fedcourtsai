@@ -98,7 +98,7 @@ from .integrity import (
 from .pipeline.base_rates import realized_band_rate
 from .pipeline.evaluate import bench_vote_accuracy, is_correct
 from .pipeline.moments import first_moment, scores_votes
-from .process_version import frozen_process_record, graded_post_freeze, is_frozen
+from .process_version import frozen_process_record, graded_in_window, window_of
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     NO_BAND_KEY,
@@ -122,7 +122,7 @@ from .schemas import (
     Stratum,
 )
 from .serialize import read_model
-from .store import scored_prediction
+from .store import PooledWindowsError, prediction_counts, scored_prediction
 
 #: One scored cell's identity — ``(case, event, predictor, evaluator, run)``.
 #: The join key for per-cell figures the board computes at render rather than
@@ -616,8 +616,9 @@ def big_case_agreement(
 
     ``frozen_only`` (the default) keeps only cells whose **scored** prediction —
     the run each evaluation's harness stamp names, latest as the legacy
-    fallback — was produced by a frozen process, and only reads whose
-    evaluation carries a harness stamp at or after the freeze instant, so this
+    fallback — is its predictor's counted forecast of the event, and only
+    reads whose evaluation carries a harness stamp at or after the instant that
+    opened that prediction's counting window, so this
     section defaults to the frozen headline exactly like the score aggregates —
     a shakedown big-case read never rides alongside a frozen-only board, even
     where its event was later re-run frozen. Within
@@ -634,22 +635,33 @@ def big_case_agreement(
     # questions into one mean. On an un-straddled ledger the grouping is
     # identical to a per-event one.
     reads: dict[tuple[str, str, str, str], tuple[float, list[float]]] = {}
+    windows: dict[str, set[str]] = defaultdict(set)
     for evaluation in _scoped_evaluations(
         cases_dir,
-        in_scope=lambda evaluation: (
-            not frozen_only or graded_post_freeze(evaluation.process_version)
-        ),
+        in_scope=lambda evaluation: not frozen_only or _graded_in_window(cases_dir, evaluation),
     ):
         if evaluation.big_case is None:
             continue
         scored = _scored_prediction(cases_dir, evaluation)
         if scored is None or scored.big_case_score is None:
             continue
-        if frozen_only and not is_frozen(scored.process_version):
+        if frozen_only and not _prediction_counts(cases_dir, evaluation, scored):
             continue
+        window = window_of(scored.process_version) if frozen_only else None
+        if window is not None:
+            windows[evaluation.predictor_id].add(window.label)
         key = (evaluation.predictor_id, evaluation.case_id, evaluation.event_id, scored.run_id)
         _, scores = reads.setdefault(key, (scored.big_case_score, []))
         scores.append(evaluation.big_case.evaluator_score)
+
+    # One predictor's reads from two counting windows are two forecasters'
+    # reads, and the correlation below is keyed on the predictor alone.
+    pooled = sorted(pid for pid, labels in windows.items() if len(labels) > 1)
+    if pooled:
+        raise PooledWindowsError(
+            "frozen-scope big-case reads span more than one counting window for "
+            + ", ".join(pooled)
+        )
 
     # Collapsed to the CASE, not the event. Big-caseness is a property of the
     # case — the same dispute is the same size at cert and at merits — so a
@@ -689,7 +701,7 @@ def _scored_prediction(cases_dir: Path, evaluation: Evaluation) -> Prediction | 
 
 
 def _scored_prediction_is_frozen(cases_dir: Path, evaluation: Evaluation) -> bool:
-    """Whether the graded prediction ran a blessed process.
+    """Whether the graded prediction is its predictor's counted forecast of the event.
 
     One definition, shared by both agreement views, so a frozen-only big-case
     board and a frozen-only evaluator board always cover the same cells — the
@@ -699,7 +711,28 @@ def _scored_prediction_is_frozen(cases_dir: Path, evaluation: Evaluation) -> boo
     later re-runs the event frozen.
     """
     scored = _scored_prediction(cases_dir, evaluation)
-    return scored is not None and is_frozen(scored.process_version)
+    return scored is not None and _prediction_counts(cases_dir, evaluation, scored)
+
+
+def _prediction_counts(cases_dir: Path, evaluation: Evaluation, scored: Prediction) -> bool:
+    """Whether ``scored`` is its predictor's counted forecast of the graded event."""
+    return prediction_counts(
+        cases_dir / evaluation.case_id / "events" / evaluation.event_id,
+        evaluation.predictor_id,
+        scored,
+    )
+
+
+def _graded_in_window(cases_dir: Path, evaluation: Evaluation) -> bool:
+    """Whether the grading passes its scored prediction's window timing gate.
+
+    :func:`fedcourtsai.process_version.graded_in_window` over the prediction
+    the record graded; a record whose prediction cannot be resolved fails it.
+    """
+    scored = _scored_prediction(cases_dir, evaluation)
+    return scored is not None and graded_in_window(
+        evaluation.process_version, scored.process_version
+    )
 
 
 def evaluator_agreement(
@@ -742,7 +775,7 @@ def evaluator_agreement(
         in_scope=lambda evaluation: (
             not frozen_only
             or (
-                graded_post_freeze(evaluation.process_version)
+                _graded_in_window(cases_dir, evaluation)
                 and _scored_prediction_is_frozen(cases_dir, evaluation)
             )
         ),
@@ -1077,6 +1110,7 @@ def _stage_board(
     cells: Sequence[tuple[Evaluation, Stratum]],
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None,
+    windows: Mapping[str, str],
     *,
     vote_scores: Mapping[EvaluationKey, float] | None = None,
 ) -> LeaderboardStage:
@@ -1105,6 +1139,7 @@ def _stage_board(
         entries.append(
             LeaderboardStageEntry(
                 predictor_id=predictor_id,
+                process_window=windows.get(predictor_id),
                 evaluators=len({ev.evaluator_id for ev in evals}),
                 events_scored=_events_scored(evals),
                 forward=_aggregate(strata[FORWARD], skills, facts, vote_scores=vote_scores),
@@ -1141,6 +1176,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
     superseded_gradings: int = 0,
     facts: Mapping[EvaluationKey, CellFacts] | None = None,
     vote_scores: Mapping[EvaluationKey, float] | None = None,
+    windows: Mapping[str, str] | None = None,
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
 
@@ -1204,6 +1240,12 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         outcome carries a complete vote record have one — and is what
         ``mean_vote_accuracy`` averages (``vote_cells_scored`` counts the cells).
         Unsupplied, every vote mean is null and every count zero.
+
+    ``windows`` (``store.StratifiedRun.windows`` from the same pass) names the
+        counting window each predictor's cells come from, published as every
+        entry's ``process_window``; the pass has already refused a predictor
+        whose cells span two, so no entry pools windows. Unsupplied — an
+        all-versions build — the field is null.
     """
     cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
@@ -1222,6 +1264,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         entries.append(
             LeaderboardEntry(
                 predictor_id=predictor_id,
+                process_window=(windows or {}).get(predictor_id),
                 rank=1,  # provisional; assigned after sorting
                 evaluators=len({ev.evaluator_id for ev in evals}),
                 events_scored=_events_scored(evals),
@@ -1276,7 +1319,9 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         entries=entries,
         complete_grid_by_band=_complete_grid_by_band(cert_cells, by_predictor, facts),
         stages={
-            key: _stage_board(stage_cells[key], cell_skills, facts, vote_scores=vote_scores)
+            key: _stage_board(
+                stage_cells[key], cell_skills, facts, windows or {}, vote_scores=vote_scores
+            )
             for key in sorted(stage_cells)
         },
     )

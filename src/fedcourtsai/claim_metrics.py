@@ -42,7 +42,7 @@ be duplicated.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Literal
 
@@ -212,6 +212,7 @@ def build_claim_scores(
     process_scope: Literal["frozen", "all"] = "frozen",
     forward_claim: ForwardClaimRecord | None = None,
     leakage_exclusion: LeakageExclusionRecord | None = None,
+    windows: Mapping[str, str] | None = None,
 ) -> ClaimScoreBoard:
     """Roll stratified evaluations up into the claim-score surface.
 
@@ -233,7 +234,10 @@ def build_claim_scores(
     block-carrying cell, ordered by ``predictor_id``; the per-stratum judge
     validation is computed over every in-population cell, block-carrying or
     not, so the absence counts describe the whole population the intersection
-    was drawn from.
+    was drawn from. ``windows`` (``store.StratifiedRun.windows``, from the
+    same pass) names each entry's counting window as its ``process_window``;
+    that pass has refused any predictor whose cells span two windows, so no
+    entry pools them. Unsupplied — an all-versions build — the field is null.
     """
     by_stratum: dict[Stratum, list[Evaluation]] = {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
     by_predictor: dict[str, dict[Stratum, list[Evaluation]]] = defaultdict(
@@ -259,6 +263,7 @@ def build_claim_scores(
         strata = by_predictor[predictor_id]
         entry = ClaimScoreEntry(
             predictor_id=predictor_id,
+            process_window=(windows or {}).get(predictor_id),
             forward=_aggregate_stratum(strata[FORWARD]),
             retrospective=_aggregate_stratum(strata[RETROSPECTIVE]),
             procedural=_aggregate_stratum(strata[PROCEDURAL]),

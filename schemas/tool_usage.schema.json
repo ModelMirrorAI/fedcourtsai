@@ -385,7 +385,7 @@
           "type": "integer"
         },
         "process_scope": {
-          "description": "Which process versions the joined cells span. `frozen` (the default) keeps only cells whose prediction carries a blessed process digest and whose gradings were stamped at or after the freeze instant; `all` pools every version, including pre-freeze shakedown cells whose Brier is not comparable to anything. A grade with no process scope beside it is not readable, which is why this is not optional",
+          "description": "Which process versions the joined cells span. `frozen` (the default) keeps only cells whose prediction is its predictor's counted forecast inside a counting window and whose gradings were stamped at or after that window opened; `all` pools every version, including pre-freeze shakedown cells whose Brier is not comparable to anything. A grade with no process scope beside it is not readable, which is why this is not optional",
           "enum": [
             "frozen",
             "all"

@@ -60,7 +60,7 @@ from .pipeline.salience import (
     salience_bands,
     scorer,
 )
-from .process_version import CURRENT_PROCESS_LABEL, frozen_process_record, is_frozen
+from .process_version import CURRENT_PROCESS_LABEL, frozen_process_record
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     AnalyticsReport,
@@ -2990,12 +2990,13 @@ def _big_case_version_scope(process_scope: str, cases_out_of_scope: int) -> str:
         return (
             '`process_scope: "all"` — **version-blind, and that is the default**: every '
             "committed run is eligible as a current read, shakedown, pre-freeze, "
-            "retired-digest and unstamped cells included, because the board is a census of "
+            "de-counted-digest and unstamped cells included, because the board is a census of "
             "what the panel said rather than a measurement of how well it said it, and a "
             "stakes read resolves against nothing for a partition to protect. "
             "`--process-scope frozen` rebuilds it as the **comparison build**, admitting "
-            "only runs whose harness stamp is in the blessed digest set and was written at "
-            "or after the freeze instant (the predicate the performance boards scope on; "
+            "only runs that are their predictor's counted forecast of their event — a "
+            "harness stamp inside a counting window (the predicate the performance boards "
+            "scope on; "
             "the record it keys on is published in `frozen_process` on every build, this "
             "one included). That build is not this board with fewer rows: it holds out a "
             "systematically different population — see *Population*, the `population` field. "
@@ -3011,10 +3012,10 @@ def _big_case_version_scope(process_scope: str, cases_out_of_scope: int) -> str:
         )
     return (
         '`process_scope: "frozen"` — **the comparison build, not the published '
-        "default**. A run is eligible as a current read only where its harness stamp is in "
-        "the blessed digest set and was written at or after the freeze instant, the same "
-        "predicate the performance boards scope on; the record it keys on travels beside it "
-        "in `frozen_process`. A pre-freeze, retired-digest, shakedown or unstamped run is "
+        "default**. A run is eligible as a current read only where it is its predictor's "
+        "counted forecast of its event — a harness stamp inside a counting window — the "
+        "same predicate the performance boards scope on; the record it keys on travels beside it "
+        "in `frozen_process`. A pre-freeze, de-counted-digest, shakedown or unstamped run is "
         "**history** under its event: never a current read, never in `n`, never in a mean. "
         "The scope is applied before the moment choice, so such a run cannot move a case's "
         "moment either, and the per-event entries stay unfiltered so nothing disappears. "
@@ -3868,8 +3869,10 @@ def build_big_case_board(
     reads**. The default is ``all`` — version-blind, every committed run eligible
     — because that is what a census means and a stakes read has no performance
     claim for a partition to protect. ``frozen`` is the **comparison build**:
-    a run is eligible only where :func:`fedcourtsai.process_version.is_frozen`
-    admits its harness stamp. It is not this board with fewer rows. A resolved
+    a run is eligible only where it is its predictor's counted forecast of its
+    event (:func:`fedcourtsai.store.ledger_counts` — a counting window admits
+    its harness stamp, and no earlier window holds that predictor's counted
+    cell on the event). It is not this board with fewer rows. A resolved
     case is never re-predicted and the re-predict rule re-owes neither the cert
     arrival moment nor either merits moment, so the frozen build is a
     live-cert-and-interim slice of a selected population, which is why the
@@ -3881,9 +3884,10 @@ def build_big_case_board(
     by_case: dict[str, list[LedgerPrediction]] = defaultdict(list)
     eligible_by_case: dict[str, list[LedgerPrediction]] = defaultdict(list)
     predictors: set[str] = set()
-    for row in predictions:
+    counted = store.ledger_counts(predictions) if process_scope == "frozen" else None
+    for index, row in enumerate(predictions):
         by_case[row.case_id].append(row)
-        if process_scope == "all" or is_frozen(row.prediction.process_version):
+        if counted is None or counted[index]:
             eligible_by_case[row.case_id].append(row)
             # The roster is the predictors the board can *publish*, so it is the
             # in-scope one: a predictor whose every run is out of scope would

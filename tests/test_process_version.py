@@ -221,7 +221,10 @@ def test_a_naive_stamp_reads_as_pre_freeze_never_a_crash(
         label="proc-v1", digest="sha256:blessed", stamped_at=datetime(2026, 3, 1)
     )
     assert not process_version.is_frozen(naive)
-    assert not process_version.at_or_after_freeze(datetime(2026, 3, 1))
+    counted = ProcessVersion(
+        label="proc-v1", digest="sha256:blessed", stamped_at=datetime(2026, 3, 1, tzinfo=UTC)
+    )
+    assert not process_version.graded_in_window(naive, counted)
 
 
 @pytest.mark.reads_data
@@ -497,9 +500,9 @@ def test_a_window_cell_lands_as_shakedown_rather_than_counting(
     bless_process(monkeypatch, "sha256:blessed", since=INSTANT, blessed_at=BLESS)
     window = _stamped(datetime(2026, 1, 20, tzinfo=UTC))
     assert process_version.at_or_after_bless(window)
-    assert not process_version.at_or_after_freeze(window.stamped_at)
     assert not process_version.is_frozen(window)
-    assert not process_version.graded_post_freeze(window)
+    # A grading stamped in the same gap fails its prediction's window gate too.
+    assert not process_version.graded_in_window(window, _stamped(INSTANT))
 
 
 def test_a_stamp_at_the_instant_passes_both_boundaries(
@@ -510,7 +513,7 @@ def test_a_stamp_at_the_instant_passes_both_boundaries(
     counted = _stamped(INSTANT)
     assert process_version.at_or_after_bless(counted)
     assert process_version.is_frozen(counted)
-    assert process_version.graded_post_freeze(counted)
+    assert process_version.graded_in_window(counted, counted)
 
 
 def test_a_naive_stamp_is_excluded_from_the_bless_boundary_too(
@@ -518,7 +521,7 @@ def test_a_naive_stamp_is_excluded_from_the_bless_boundary_too(
 ) -> None:
     """One malformed record must not crash the tripwire on a comparison.
 
-    Same rule as :func:`at_or_after_freeze`: a stamp with no offset orders
+    Same rule as the counting window's: a stamp with no offset orders
     against nothing, so it reads as before the bless moment and the tripwire
     fires on it rather than raising.
     """

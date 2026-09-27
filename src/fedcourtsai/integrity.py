@@ -226,7 +226,7 @@ def evaluation_clock(evaluation: Evaluation) -> datetime:
     different writers always compare instead of raising on a naive/aware mix.
 
     The ``created_at`` fallback is contained the same way the prediction
-    side's is: ``graded_post_freeze`` refuses a null stamp, so inside a
+    side's is: ``graded_in_window`` refuses a null stamp, so inside a
     frozen-scope build every evaluation is stamped and the agent-movable
     clock never picks a winning block behind a claimable mean — the fallback
     only ever orders diagnostic (``--all-versions``) views. The stamp is the
