@@ -45,7 +45,7 @@
             }
           ],
           "default": null,
-          "description": "When a dated revocation de-counted the window's cells for a defect; null for a window that counts",
+          "description": "When a dated revocation de-counted the window's cells for a defect \u2014 at or after the merge of the promotion that carried it, and only on a closed window; null for a window that counts",
           "title": "Revoked At"
         }
       },

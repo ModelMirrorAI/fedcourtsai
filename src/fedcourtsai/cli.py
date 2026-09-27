@@ -7033,8 +7033,12 @@ def _echo_frozen_scope(records: Sequence[tuple[Path, Evaluation]]) -> None:
             continue
         # evaluations/<evaluator>/<predictor>/<run>/evaluation.json
         scored = scored_prediction(path.parents[4], record.predictor_id, record.prediction_run_id)
-        graded = scored is not None and process_version.graded_in_window(
-            stamp, scored.process_version
+        # The prediction's own counting (a revoked window's cell is alpha) and
+        # the grading's timing against that prediction's window.
+        graded = (
+            scored is not None
+            and process_version.is_frozen(scored.process_version)
+            and process_version.graded_in_window(stamp, scored.process_version)
         )
         scope = "frozen" if graded else "alpha"
         typer.echo(f"regrade: {path} — {scope}-scope cell stamped {stamp.label}")

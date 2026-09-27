@@ -24,10 +24,19 @@ import pytest
 
 from fedcourtsai import process_version
 from fedcourtsai.blinding import latest_prediction_dirs
+from fedcourtsai.cli import _latest_prediction_for
 from fedcourtsai.dataset_export import build_tables
+from fedcourtsai.leaderboard import big_case_agreement
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
-from fedcourtsai.schemas import CountingWindow, ProcessVersion
+from fedcourtsai.schemas import (
+    BigCaseAssessment,
+    CountingWindow,
+    Evaluation,
+    Prediction,
+    ProcessVersion,
+)
+from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import (
     PooledWindowsError,
     event_has_claimable_prediction,
@@ -35,6 +44,7 @@ from fedcourtsai.store import (
     scored_prediction,
     stratify,
 )
+from fedcourtsai.tool_usage import _JoinedCell, _refuse_pooled_windows
 from tests.conftest import set_windows
 from tests.test_dataset_export import _event, _grade, _outcome, _prediction
 
@@ -284,3 +294,147 @@ def test_the_export_carries_each_rows_window(
     assert everything[("scotus/1", "p2")].process_window == "proc-b"
     assert not everything[("scotus/1", "p2")].process_frozen
     assert not everything[("scotus/1", "p2")].staged
+
+
+# --- binding until built ---------------------------------------------------------
+
+
+def test_no_window_closes_until_the_boards_are_per_window() -> None:
+    """The "binding until built" clause, made mechanical.
+
+    The aggregate boards (leaderboard, claim scores, ops, semantic summary,
+    big-case agreement, tool usage) key on ``predictor_id`` or the engine and
+    *refuse* a ledger in which one of them spans two windows. A successor that
+    closes a window before they key on (predictor, window) would take every
+    frozen-scope board down — the proc-v8 release figures included — the first
+    time a predictor holds graded cells in both. So no window may close yet.
+    Remove this test in the same change that builds per-window strata.
+    """
+    closed = [w for w in process_version.COUNTING_WINDOWS if w.closes is not None]
+    assert not closed, (
+        "a counting window closed before the aggregate boards key on (predictor, "
+        "window) — build per-window strata first (docs/process-version.md, the "
+        "third supersession shape): " + process_version.describe_windows(closed)
+    )
+
+
+def test_every_close_is_a_successors_opening_instant() -> None:
+    """A window closes at the counting instant of the successor that stopped
+    blessing it, so every ``closes`` is some window's ``opens``; and a revocation
+    falls at or after the window opened."""
+    windows = process_version.COUNTING_WINDOWS
+    openings = {w.opens for w in windows}
+    for window in windows:
+        if window.closes is not None:
+            assert window.closes in openings, f"{window.digest}: closes at no window's opening"
+        if window.revoked_at is not None:
+            assert window.revoked_at >= window.opens
+
+
+def test_only_a_closed_window_can_be_revoked() -> None:
+    with pytest.raises(ValueError, match="only a closed window"):
+        CountingWindow(label="x", digest=A, opens=T1, revoked_at=T2)
+    with pytest.raises(ValueError, match="revoked at or after"):
+        CountingWindow(label="x", digest=A, opens=T1, closes=T2, revoked_at=T1 - timedelta(days=1))
+    with pytest.raises(ValueError, match="closes after it opens"):
+        CountingWindow(label="x", digest=A, opens=T1, closes=T1)
+
+
+# --- three windows: a revocation behind a stale later-window cell ----------------
+
+C = "sha256:" + "c" * 64
+T3 = datetime(2026, 7, 1, tzinfo=UTC)
+REVOKED_AT = T3 + timedelta(days=5)
+THREE = (
+    CountingWindow(label="proc-a", digest=A, opens=T1, closes=T2, revoked_at=REVOKED_AT),
+    CountingWindow(label="proc-b", digest=B, opens=T2, closes=T3),
+    CountingWindow(label="proc-c", digest=C, opens=T3),
+)
+
+
+def test_a_stale_later_window_cell_does_not_block_the_fresh_forecast(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """W1 < W2 < W3, W1 revoked at r. A W2 cell stamped before r is uncounted
+    (the revocation must not promote it); the fresh W3 cell stamped after r
+    counts, because an uncounted earlier-window sibling takes nothing from it —
+    so the event is not re-owed until the attempt cap."""
+    set_windows(monkeypatch, *THREE)
+    early = _pv(A, T1 + timedelta(days=1))
+    stale = _pv(B, T2 + timedelta(days=1))
+    fresh = _pv(C, REVOKED_AT + timedelta(days=1))
+    siblings = [early, stale, fresh]
+    assert not process_version.counted_on_event(early, lambda: siblings)
+    assert not process_version.counted_on_event(stale, lambda: siblings)
+    assert process_version.counted_on_event(fresh, lambda: siblings)
+
+
+def test_the_fresh_forecast_ends_the_re_owe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    set_windows(monkeypatch, *THREE)
+    data = tmp_path / "data"
+    args = (data, "scotus", 1, "evt-petition-disposition", "alpha")
+    _seed(data, run_id="p1", stamp=_pv(A, T1 + timedelta(days=1)))
+    _seed(data, run_id="p2", stamp=_pv(B, T2 + timedelta(days=1)))
+    assert predictor_holds_no_counted_prediction(*args)
+    _seed(data, run_id="p3", stamp=_pv(C, REVOKED_AT + timedelta(days=1)))
+    assert not predictor_holds_no_counted_prediction(*args)
+
+
+# --- the other resolvers and refusals --------------------------------------------
+
+
+def test_the_stamp_resolver_never_names_a_later_windows_cell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The stamp's ``prediction_run_id`` is read off this resolver, so it must
+    name the earliest window's cell, as evaluation staging does."""
+    set_windows(monkeypatch, CLOSED, SUCCESSOR)
+    data = tmp_path / "data"
+    _seed(data, run_id="p1", stamp=_pv(A, T1 + timedelta(days=1)))
+    _seed(data, run_id="p2", stamp=_pv(B, T2 + timedelta(days=1)))
+    event = CasePaths(data, "scotus", 1).event("evt-petition-disposition")
+    resolved = _latest_prediction_for(event, "alpha")
+    assert resolved is not None and resolved.run_id == "p1"
+
+
+def test_big_case_agreement_refuses_two_windows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    set_windows(monkeypatch, CLOSED, SUCCESSOR)
+    data = tmp_path / "data"
+    _graded_ledger(data)
+    for docket in (1, 2):
+        event = CasePaths(data, "scotus", docket).event("evt-petition-disposition")
+        pred_path = event.prediction("alpha", "p1")
+        prediction = read_model(pred_path, Prediction)
+        write_json(pred_path, prediction.model_copy(update={"big_case_score": 0.5}))
+        eval_path = event.evaluation("e1", "alpha", "r1")
+        evaluation = read_model(eval_path, Evaluation)
+        assessment = BigCaseAssessment(evaluator_score=0.4)
+        write_json(eval_path, evaluation.model_copy(update={"big_case": assessment}))
+    with pytest.raises(PooledWindowsError, match=r"alpha .*proc-a.*proc-b"):
+        big_case_agreement(data)
+    assert "alpha" in big_case_agreement(data, frozen_only=False)
+
+
+def _joined(window: CountingWindow) -> _JoinedCell:
+    return _JoinedCell(
+        engine="claude-code",
+        mode="forward",
+        stage="cert",
+        moment="distribution",
+        calls=1,
+        mcp_calls=0,
+        at_call_cap=False,
+        briers=[0.1],
+        evaluations=1,
+        window=window,
+    )
+
+
+def test_tool_usage_refuses_one_engine_across_two_windows() -> None:
+    _refuse_pooled_windows([_joined(CLOSED), _joined(CLOSED)])
+    with pytest.raises(PooledWindowsError, match="claude-code"):
+        _refuse_pooled_windows([_joined(CLOSED), _joined(SUCCESSOR)])

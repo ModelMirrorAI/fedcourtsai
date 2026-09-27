@@ -37,6 +37,7 @@ from .pipeline import moments
 from .pipeline.moments import first_moment
 from .process_version import (
     counted_on_event,
+    describe_windows,
     freeze_in_force,
     graded_in_window,
     resolvable_runs,
@@ -45,6 +46,7 @@ from .process_version import (
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
+    CountingWindow,
     Evaluation,
     EventKind,
     ModelUsage,
@@ -1164,11 +1166,11 @@ def stratify(
     # (case, event, predictor, evaluator).
     survivors = latest_evaluation_runs(scoped, lambda cell: cell.evaluation)
     windows = _window_labels(survivors) if frozen_only else {}
-    pooled = [pid for pid, labels in sorted(windows.items()) if len(labels) > 1]
+    pooled = [pid for pid, spans in sorted(windows.items()) if len(spans) > 1]
     if refuse_pooled_windows and pooled:
         raise PooledWindowsError(
             "frozen-scope cells span more than one counting window for "
-            + ", ".join(f"{pid} ({', '.join(sorted(windows[pid]))})" for pid in pooled)
+            + ", ".join(f"{pid} ({describe_windows(windows[pid])})" for pid in pooled)
             + " — the boards key on predictor_id alone and would pool them"
         )
     # The one place a re-grade is still countable: every survivor below is
@@ -1204,7 +1206,7 @@ def stratify(
         claimed_forward,
         superseded,
         leakage_assessed,
-        {pid: next(iter(labels)) for pid, labels in windows.items() if len(labels) == 1},
+        {pid: next(iter(spans)).label for pid, spans in windows.items() if len(spans) == 1},
     )
 
 
@@ -1212,13 +1214,18 @@ class PooledWindowsError(ValueError):
     """A frozen-scope pass whose cells for one predictor span two counting windows."""
 
 
-def _window_labels(cells: Iterable[_ScopedCell]) -> dict[str, set[str]]:
-    """Each predictor's counting-window labels over in-scope cells."""
-    labels: dict[str, set[str]] = {}
+def _window_labels(cells: Iterable[_ScopedCell]) -> dict[str, set[CountingWindow]]:
+    """Each predictor's counting windows over in-scope cells.
+
+    Keyed on the window itself, never its label: two windows can share a label
+    (a digest blessed again after its window closed), and those are still two
+    series.
+    """
+    labels: dict[str, set[CountingWindow]] = {}
     for cell in cells:
         window = window_of(cell.scored_prediction.process_version)
         if window is not None:
-            labels.setdefault(cell.evaluation.predictor_id, set()).add(window.label)
+            labels.setdefault(cell.evaluation.predictor_id, set()).add(window)
     return labels
 
 

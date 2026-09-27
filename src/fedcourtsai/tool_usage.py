@@ -76,7 +76,7 @@ pooled coefficient at any n.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import fmean, median
@@ -84,9 +84,10 @@ from statistics import fmean, median
 from .integrity import latest_evaluation_runs
 from .leaderboard import kendall_tau_b
 from .pipeline.moments import spec_for
-from .process_version import graded_in_window
+from .process_version import describe_windows, graded_in_window, window_of
 from .retrieval import RETRIEVAL_CALL_CAP
 from .schemas import (
+    CountingWindow,
     Evaluation,
     ModelUsage,
     Prediction,
@@ -104,7 +105,7 @@ from .schemas import (
     normalize_call,
 )
 from .serialize import read_model
-from .store import prediction_counts
+from .store import PooledWindowsError, prediction_counts
 
 TOOL_USAGE_CORRELATION_MIN_CELLS = 30
 """Cells a population needs before its call-volume/Brier correlation is published.
@@ -557,6 +558,7 @@ class _JoinedCell:
     at_call_cap: bool
     briers: list[float] = field(default_factory=list)
     evaluations: int = 0
+    window: CountingWindow | None = None
 
     @property
     def segment_key(self) -> tuple[str, str, str, str]:
@@ -639,7 +641,27 @@ def _scores_of(cell: _PredictedCell, *, frozen_only: bool) -> _JoinedCell | None
         at_call_cap=cell.at_call_cap,
         briers=[e.brier_score for e in panel if e.brier_score is not None],
         evaluations=len(panel),
+        window=window_of(stamp),
     )
+
+
+def _refuse_pooled_windows(joined: Sequence[_JoinedCell]) -> None:
+    """Raise where one engine's frozen-scope cells come from two counting windows.
+
+    The segments and coefficients key on the engine, so a new model under the
+    same engine would otherwise be averaged with its predecessor as one series
+    — the pooling across windows the frozen scope never does silently.
+    """
+    by_engine: dict[str, set[CountingWindow]] = {}
+    for cell in joined:
+        if cell.window is not None:
+            by_engine.setdefault(cell.engine, set()).add(cell.window)
+    pooled = sorted(engine for engine, spans in by_engine.items() if len(spans) > 1)
+    if pooled:
+        raise PooledWindowsError(
+            "frozen-scope tool-usage cells span more than one counting window for "
+            + ", ".join(f"{engine} ({describe_windows(by_engine[engine])})" for engine in pooled)
+        )
 
 
 def _usefulness(
@@ -670,6 +692,8 @@ def _usefulness(
         if scores is None or not scores.briers:
             continue
         joined.append(scores)
+    if frozen_only:
+        _refuse_pooled_windows(joined)
 
     segments = [
         ToolUsefulnessSegment(

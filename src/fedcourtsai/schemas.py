@@ -3286,9 +3286,27 @@ class CountingWindow(_Strict):
     )
     revoked_at: datetime | None = Field(
         default=None,
-        description="When a dated revocation de-counted the window's cells for a defect; "
-        "null for a window that counts",
+        description="When a dated revocation de-counted the window's cells for a defect — "
+        "at or after the merge of the promotion that carried it, and only on a closed "
+        "window; null for a window that counts",
     )
+
+    @model_validator(mode="after")
+    def _revocation_follows_a_close(self) -> CountingWindow:
+        """A revoked window is a closed one, revoked at or after it opened.
+
+        Revoking a window still open would leave its digest blessed, so the
+        backlog would re-mint the re-owed events under the very process the
+        revocation found defective; a successor must close it first.
+        """
+        if self.closes is not None and self.closes <= self.opens:
+            raise ValueError("a window closes after it opens")
+        if self.revoked_at is not None:
+            if self.closes is None:
+                raise ValueError("only a closed window can be revoked: set `closes` first")
+            if self.revoked_at < self.opens:
+                raise ValueError("a window is revoked at or after it opens")
+        return self
 
     def contains(self, moment: datetime) -> bool:
         """Whether ``moment`` falls in ``[opens, closes)``; a naive moment never does."""
