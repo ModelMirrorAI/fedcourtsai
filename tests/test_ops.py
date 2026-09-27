@@ -2008,6 +2008,7 @@ def test_daily_digest_cli_says_so_when_there_is_nothing_to_feature(tmp_path: Pat
     assert not (tmp_path / "digest.md").exists()
 
 
+@pytest.mark.reads_data
 def test_daily_digest_over_the_committed_ledger_is_bounded_and_complete() -> None:
     # The acceptance dry-run, against the repo's own `data/`: a real event, one
     # section per committed predictor cell, inside the body limit. Asserted
@@ -3082,6 +3083,7 @@ def test_the_weekly_digest_marker_is_one_per_iso_week() -> None:
     )
 
 
+@pytest.mark.reads_data
 def test_ops_report_renders_every_weekly_section_over_the_committed_tree(tmp_path: Path) -> None:
     # The acceptance dry-run, against the repo's own `metrics/` and `data/`: every
     # block, the missing cert-backtest line, and a vintage beside every
