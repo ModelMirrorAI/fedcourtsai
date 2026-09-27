@@ -570,7 +570,10 @@ land; recording and tagging that commit complete the procedure:
    (carried-forward digests keep their earlier bless moment); the ledger
    tripwire reads these, so a forecast left uncorrected either fires on honest
    cells or lets a retroactive one through. Second, the instant: the literal
-   in the file must be at or after that same date.
+   in the file must be at or after that same date. The windows move with it:
+   every window this label opens opens at the instant, and every window it
+   closes closes there too, so a bumped instant is bumped in all three places —
+   a test holds every `closes` to some window's `opens`.
 
    The two corrections travel differently, because only one of them is a
    pre-registered *choice*. **The instant is**, so an instant that came in
@@ -687,13 +690,22 @@ staging, the dataset export and the re-predict rule all read the windows. The
 leaderboard, the claim scores, the ops report and every other aggregate over
 the stratify pass still key on `predictor_id` alone, so rather than pool a
 predictor's windows they refuse the ledger the moment one predictor's
-in-scope cells span two; the big-case agreement does the same. A successor
-landed before those surfaces break out by window would stop every frozen-scope
-board from building.
+in-scope cells span two; the big-case agreement and the tool-usage
+usefulness block (keyed on the engine) do the same. A successor landed before
+those surfaces break out by window would stop every frozen-scope board from
+building, so a test fails the suite while any window carries a `closes` —
+removed in the change that builds per-window strata. The evaluator-agreement
+view is keyed on the evaluator and pools the predictors' windows by design,
+since it compares graders rather than forecasters; a figure over it states
+the windows its cells span.
 
 **Revoking a window** is the one route by which counted cells are de-counted,
 and it is for a defect that invalidates the window's forecasts, never a better
-process. It sets `revoked_at` on the window, on a dated freeze-record entry that
+process. It sets `revoked_at` on the window — only on a window a successor has
+already closed, since revoking an open one would leave its digest blessed and
+the backlog would re-mint the re-owed events under the very process found
+defective, and at or after the merge of the promotion that carries the
+revocation — on a dated freeze-record entry that
 states the defect and shows it from committed artifacts without reference to
 any outcome, made while the affected outcomes are unknown — or disclosing the
 slice that had already resolved, and then publishing the revoked window's

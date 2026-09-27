@@ -454,7 +454,9 @@ def counted_on_event(
     * **a revocation never decides which existing forecast is scored.** Where a
       sibling sits in an earlier window that has since been revoked, this cell
       counts only if it was stamped at or after that revocation — the fresh
-      forecast the backlog re-owes. One stamped before it stays uncounted.
+      forecast the backlog re-owes. One stamped before it stays uncounted, and
+      an uncounted earlier-window cell does not block a later one: only a
+      sibling that itself counts takes the count.
 
     Within one window every run is a candidate, and the run collapse picks the
     counted cell among them exactly as it does for a single window.
@@ -469,11 +471,30 @@ def counted_on_event(
     earliest = _earliest_opening()
     if earliest is None or window.opens <= earliest:
         return True
-    for sibling in siblings():
+    stamps = list(siblings())
+    return _unblocked(process_version, window, stamps)
+
+
+def _unblocked(
+    process_version: ProcessVersion, window: CountingWindow, stamps: list[ProcessVersion | None]
+) -> bool:
+    """Whether no sibling in an earlier window takes the count from this cell.
+
+    An earlier **revoked** window's sibling blocks a cell stamped before the
+    revocation, and never one stamped after it. An earlier **counting**
+    window's sibling blocks only where it is itself counted — so a stale
+    earlier-window cell that a revocation left uncounted does not stand in
+    front of the fresh forecast made after that revocation. Recursion runs over
+    strictly earlier windows, so it terminates.
+    """
+    for sibling in stamps:
         other = window_of(sibling)
-        if other is None or other.opens >= window.opens:
+        if sibling is None or other is None or other.opens >= window.opens:
             continue
-        if other.revoked_at is None or process_version.stamped_at < other.revoked_at:
+        if other.revoked_at is not None:
+            if process_version.stamped_at < other.revoked_at:
+                return False
+        elif _unblocked(sibling, other, stamps):
             return False
     return True
 
@@ -549,3 +570,12 @@ def resolvable_runs[T](runs: Sequence[T], stamp: Callable[[T], ProcessVersion | 
         for run, own in zip(runs, stamps, strict=True)
         if not staging_excluded(own, lambda: stamps)
     ]
+
+
+def describe_windows(windows: Iterable[CountingWindow]) -> str:
+    """A stable, human-readable listing of windows for a refusal message.
+
+    Label plus opening instant, so two windows sharing a label stay distinct.
+    """
+    ordered = sorted(windows, key=lambda w: (w.opens, w.digest))
+    return ", ".join(f"{w.label}@{w.opens.isoformat()}" for w in ordered)

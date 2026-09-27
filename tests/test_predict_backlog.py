@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import casestore, corpus
+from fedcourtsai import casestore, corpus, process_version
 from fedcourtsai.cli import app
 from fedcourtsai.matrix import CaseRequest, predict_matrix
 from fedcourtsai.paths import CasePaths
@@ -31,9 +31,17 @@ from fedcourtsai.pipeline.pull import (
     derive_predict_backlog,
 )
 from fedcourtsai.registry import enabled_predictors
-from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Moment, ProcessVersion, Stage
+from fedcourtsai.schemas import (
+    CellFailure,
+    CountingWindow,
+    Disposition,
+    EventKind,
+    Moment,
+    ProcessVersion,
+    Stage,
+)
 from fedcourtsai.serialize import write_json
-from tests.conftest import decounted_stamp, seed_prediction
+from tests.conftest import decounted_stamp, seed_prediction, set_windows
 
 runner = CliRunner()
 
@@ -1509,6 +1517,54 @@ def test_the_plan_reports_re_owed_cells_in_their_own_bucket(tmp_path: Path) -> N
     assert {r["event_id"] for r in plan["reowed_pre_freeze"]} == {BASELINE_EVENT}
     assert "is de-counted, and the event is still" in plan["reowed_pre_freeze"][0]["reason"]
     assert "RE-OWED under the pre-freeze rule" in _flat(result.stderr)
+
+
+@pytest.mark.parametrize("revoked", [False, True])
+def test_a_supersession_re_owes_no_cell_and_a_revocation_re_owes_the_cohort(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, revoked: bool
+) -> None:
+    """The acceptance check for closed windows, read off the plan a maintainer sees.
+
+    A cohort forecast inside the current windows, then a successor that closes
+    them: the closed windows' cells still count, so ``predict-plan`` re-owes
+    nothing. Revoke the closed windows instead and the same cohort is re-owed
+    for every engine.
+    """
+    env = _cli_env(tmp_path)
+    db = corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"]))
+    _open_case(
+        db,
+        "scotus",
+        24001,
+        event_id=BASELINE_EVENT,
+        polled_on=date.today(),
+        conference=date.today() + timedelta(days=14),
+    )
+    live = process_version.COUNTING_WINDOWS
+    assert live, "the live registry has windows to supersede"
+    opened = live[0].opens
+    cohort = ProcessVersion(
+        label=live[0].label, digest=live[0].digest, stamped_at=opened + timedelta(days=1)
+    )
+    _decounted_cohort(Path(env["FEDCOURTS_DATA_ROOT"]), 24001, stamp=cohort)
+
+    successor_at = opened + timedelta(days=10)
+    closed = [
+        window.model_copy(
+            update={"closes": successor_at, "revoked_at": successor_at if revoked else None}
+        )
+        for window in live
+    ]
+    successor = CountingWindow(label="proc-next", digest="sha256:" + "c" * 64, opens=successor_at)
+    set_windows(monkeypatch, *closed, successor)
+
+    result = runner.invoke(app, ["predict-plan", "--run-id", "RID"], env=env)
+
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    engines = len(enabled_predictors(PREDICTORS))
+    reowed = plan["counts"]["cell_ledger"]["reowed_pre_freeze_cells"]
+    assert reowed == (engines if revoked else 0)
 
 
 def test_the_plan_keeps_a_salience_declined_case_the_rule_re_owes(tmp_path: Path) -> None:

@@ -182,10 +182,12 @@ def frozen_stamp() -> ProcessVersion:
     than written out, so a freeze cutover moves it without touching a test.
     """
     since = process_version.FROZEN_SINCE or datetime(2026, 1, 1, tzinfo=UTC)
+    # A counting window's digest, so the stamp counts: only a predictor digest
+    # has a window, and the bless map holds the evaluator half too.
+    windows = process_version.COUNTING_WINDOWS
+    digest = windows[0].digest if windows else sorted(process_version.FROZEN_PROCESS_DIGESTS)[0]
     return ProcessVersion(
-        label=process_version.CURRENT_PROCESS_LABEL,
-        digest=sorted(process_version.FROZEN_PROCESS_DIGESTS)[0],
-        stamped_at=since,
+        label=process_version.CURRENT_PROCESS_LABEL, digest=digest, stamped_at=since
     )
 
 

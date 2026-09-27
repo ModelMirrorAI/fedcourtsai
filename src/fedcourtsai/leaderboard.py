@@ -98,11 +98,17 @@ from .integrity import (
 from .pipeline.base_rates import realized_band_rate
 from .pipeline.evaluate import bench_vote_accuracy, is_correct
 from .pipeline.moments import first_moment, scores_votes
-from .process_version import frozen_process_record, graded_in_window, window_of
+from .process_version import (
+    describe_windows,
+    frozen_process_record,
+    graded_in_window,
+    window_of,
+)
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     NO_BAND_KEY,
     BigCaseLeaderboard,
+    CountingWindow,
     Disposition,
     Evaluation,
     EvaluatorAgreement,
@@ -635,7 +641,7 @@ def big_case_agreement(
     # questions into one mean. On an un-straddled ledger the grouping is
     # identical to a per-event one.
     reads: dict[tuple[str, str, str, str], tuple[float, list[float]]] = {}
-    windows: dict[str, set[str]] = defaultdict(set)
+    windows: dict[str, set[CountingWindow]] = defaultdict(set)
     for evaluation in _scoped_evaluations(
         cases_dir,
         in_scope=lambda evaluation: not frozen_only or _graded_in_window(cases_dir, evaluation),
@@ -649,18 +655,18 @@ def big_case_agreement(
             continue
         window = window_of(scored.process_version) if frozen_only else None
         if window is not None:
-            windows[evaluation.predictor_id].add(window.label)
+            windows[evaluation.predictor_id].add(window)
         key = (evaluation.predictor_id, evaluation.case_id, evaluation.event_id, scored.run_id)
         _, scores = reads.setdefault(key, (scored.big_case_score, []))
         scores.append(evaluation.big_case.evaluator_score)
 
     # One predictor's reads from two counting windows are two forecasters'
     # reads, and the correlation below is keyed on the predictor alone.
-    pooled = sorted(pid for pid, labels in windows.items() if len(labels) > 1)
+    pooled = sorted(pid for pid, spans in windows.items() if len(spans) > 1)
     if pooled:
         raise PooledWindowsError(
             "frozen-scope big-case reads span more than one counting window for "
-            + ", ".join(pooled)
+            + ", ".join(f"{pid} ({describe_windows(windows[pid])})" for pid in pooled)
         )
 
     # Collapsed to the CASE, not the event. Big-caseness is a property of the
