@@ -1,0 +1,6 @@
+- `uv run fedcourts query --court scotus --decided-before 2026-09-18 --include-applications "prison receivership stay"` (Command failed as free text is not supported by `query`)
+- CourtListener MCP Search for `"Trump v. CASA"` (`type: o`)
+- `uv run fedcourts query --court scotus --decided-before 2026-09-18 --limit 5 --citation "606 U.S. 831"`
+  - `note: replay cutoff 2026-09-18 (from --decided-before) — priors that had not resolved by then are excluded, on top of any --decided-before Term`
+  - `ranged corpus reads: 10 GET(s), 2621440 byte(s)`
+  - `note: citations filter: only 200 row(s) in scope (scotus) carry any reporter citation at all...`

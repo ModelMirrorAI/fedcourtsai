@@ -1,0 +1,9 @@
+# Forecast of the Court's action
+
+The Court will deny the petition for certiorari. The modal path is one initial conference distribution followed by an unsigned denial, without a further relist, a CVSG, or a separate statement. My timing estimate is November or December 2026, after the October 5 response deadline shown in the supplied snapshot; this is a forecast, not a retrieved conference assignment.
+
+The arrival baseline contains **zero distributions and no CVSG**. I assign 0.97 to at least one distribution after this baseline. For this particular moment, the structured `relist-increment` claim counts the initial distribution itself; it is not a 97% forecast of a second conference. The modal additional-distribution count is one. I expect no CVSG and assign 0.001 to a new invitation for the Solicitor General's views.
+
+The Court will not use this petition to reconcile the petitioner's broad theories of visibility, the right to exclude, and acquisition of information about private property. If review is granted, the most plausible question is a narrowed version of the first question: whether purposeful municipal observation of residential property exposed to public view constitutes a Fourth Amendment search solely because the owner retains a property right to exclude. I do not expect the Court to adopt both questions' categorical framing or to reach the petition's additional allegations about municipal administration.
+
+Conditional on a grant, plenary consideration is more likely than a disposition in the cert order: P(summary route | grant) = 0.20. No intervening decision requiring a GVR is identified in the supplied materials. Conditional on denial, I assign 0.005 to any noted dissent or statement respecting denial; my point forecast is no separate writing. No individual Justice's vote or authorship is forecast.

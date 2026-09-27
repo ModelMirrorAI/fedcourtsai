@@ -1,0 +1,5 @@
+Not distributed yet. Expect this petition to be distributed and likely face at least one relist (P=0.25) before a decision on the petition, as it presents a clean circuit split concerning Indian property rights and federal common law. A call for the Solicitor General's views (CVSG) is somewhat likely (P=0.15) because the petition explicitly alleges that the Eighth Circuit's decision contravenes the "considered position of the United States."
+
+If granted, the Court would take the single question presented as written regarding whether individual Indian allottees have a federal common law cause of action for trespass. A summary disposition route (GVR or summary reversal) is unlikely (P=0.05), as there is no obvious intervening decision to prompt a GVR, and the circuit split makes plenary review the more appropriate vehicle for resolution.
+
+Should the Court deny review, a dissent from denial is a modest possibility (P=0.08), possibly from Justice Gorsuch, given his consistent interest and detailed writings in Indian law cases.

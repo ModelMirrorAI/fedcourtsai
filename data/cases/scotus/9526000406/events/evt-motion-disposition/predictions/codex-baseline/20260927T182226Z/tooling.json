@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000406",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Local provisioned-file reads",
+    "Committed interim statpack and jq pooling",
+    "fedcourts paths",
+    "CourtListener MCP citation search, cluster lookup, and opinion snippet search",
+    "General web search and open attempts"
+  ],
+  "helpful": [
+    "Complete main application text disclosed the prior stays and the changed final-judgment posture.",
+    "Frozen arrival context made the escalation increments unambiguous.",
+    "Per-Term interim counts permitted the required strictly-prior pooled baseline.",
+    "CourtListener snippet retrieval verified a general standard without querying the target docket."
+  ],
+  "gaps": [
+    "The application cites a separate appendix containing the operative opinions and declarations, but it was not provisioned.",
+    "No conditioned interim rates for repeat federal applications or escalation increments were published in the inspected pack.",
+    "The general web tool returned no usable content."
+  ],
+  "notes": "The default uv cache was read-only; a writable temporary cache allowed the paths command to run. No respondent brief was provisioned at arrival, which is an information limit rather than evidence against respondents. No target outcome was sought or encountered."
+}

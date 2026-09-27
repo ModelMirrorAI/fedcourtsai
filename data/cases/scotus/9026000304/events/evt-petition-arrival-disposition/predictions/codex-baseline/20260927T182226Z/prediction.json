@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "The questions concern executive-branch staffing under the Federal Vacancies Reform Act, with consequences for federal prosecutions and leadership of Senate-confirmed offices across presidential transitions. These institutional stakes extend well beyond the individual defendants, independently of the chance of review.",
+  "big_case_score": 0.86,
+  "case_id": "scotus/9026000304",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.88
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.99
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.002
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.06
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.12
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-09-09",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-09",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-09-27T19:12:30Z",
+  "engine": "codex",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-09-09.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.88,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "c3fab10e604af55c688647028eae818c44363296",
+    "stamped_at": "2026-09-27T19:12:55.568890Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

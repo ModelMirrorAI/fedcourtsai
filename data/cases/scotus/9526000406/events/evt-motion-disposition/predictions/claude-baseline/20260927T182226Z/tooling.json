@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000406",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "WebSearch", "WebFetch"],
+  "helpful": [
+    "Provisioned application.txt with full extracted text",
+    "Statpack interim section with per-Term substantive counts",
+    "fedcourts query rows carrying response_requested / referred_to_court / amicus_briefs per application"
+  ],
+  "gaps": [
+    "A statpack cut of the interim grant rate by applicant class (Solicitor General vs. state vs. private) would replace the general-knowledge SG anchor",
+    "fedcourts query is recency-ranked and capped at 500 rows, so it cannot reach prior-Term applications for a within-corpus SG rate",
+    "CourtListener does not index SCOTUS application dockets, so the live docket had to come from supremecourt.gov via WebFetch"
+  ],
+  "notes": "The corpus service rejects --limit above 500 with a validation error rather than clamping; the prompt's guidance to pool prior Terms is hard to execute through query alone."
+}

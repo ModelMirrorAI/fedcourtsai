@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000348",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The document manifest marks the 142-page petition source truncated; provisioned text ends during the district-court appendix. The main petition and relevant Second Circuit majority/dissent material are available and support the forecast, but later appendices were not assumed available. No BIO was provisioned at this arrival moment; no adverse inference was drawn.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0"
+}

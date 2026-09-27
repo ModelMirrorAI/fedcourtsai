@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/9026000380",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "fedcourts query"
+  ],
+  "helpful": [
+    "statpack.md for base rates",
+    "MCP for case lookup"
+  ],
+  "gaps": [],
+  "notes": ""
+}

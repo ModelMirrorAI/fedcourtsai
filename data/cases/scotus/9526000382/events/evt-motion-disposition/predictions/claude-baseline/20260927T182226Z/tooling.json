@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000382",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "WebFetch (supremecourt.gov docket page)",
+    "WebSearch"
+  ],
+  "helpful": [
+    "The provisioned application.txt (full 38-page text) made the jurisdictional and merits posture legible without any retrieval.",
+    "The frozen ladder fields in context.json made the three increment claims unambiguous to state from.",
+    "The interim statpack section clears the 50-resolved floor for Term 2026, so a scored baseline existed (31/296 pooled over Terms 2024-2025)."
+  ],
+  "gaps": [
+    "fedcourts query with --include-applications still ranks time-extension grants ahead of substantive ones; a substantive-only filter would make the interim priors surface useful.",
+    "The statpack's interim section publishes no grant rate conditioned on response-requested or on applicant class (government vs private, federal vs state court below); for a private applicant with a response requested those cuts dominate the pooled rate.",
+    "fedcourts corpus-info does not work through the cell's corpus service, so the corpus-freshness norm cannot be met from a cell.",
+    "CourtListener carries no SCOTUS application dockets, so the MCP server had nothing on this case; the docket state had to come from a web fetch of supremecourt.gov."
+  ],
+  "notes": "The WebSearch tool's summary layer fabricated a disposition for this application (dated before the application was filed). A cell relying on that summary rather than the docket page would have mis-flagged the cell as already decided. Treat WebSearch summaries as untrusted and verify against primary sources."
+}

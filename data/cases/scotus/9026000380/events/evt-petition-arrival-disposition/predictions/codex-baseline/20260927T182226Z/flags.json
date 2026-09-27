@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000380",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The petition manifest reports a truncated 196-page source; provisioned text ends during appendix page 53a. The petition's argument is available, but its cited later majority split discussion and Wilkinson dissent were not independently read. No opposition brief was provisioned at this arrival moment. Forecast discounts the resulting one-sided and incomplete record; this is not an outcome-leakage flag."
+    }
+  ]
+}

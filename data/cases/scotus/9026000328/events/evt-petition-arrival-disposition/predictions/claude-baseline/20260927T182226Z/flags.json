@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000328",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Decisive forward signals came from public material predating the snapshot, disclosed here for hygiene: (1) the Court denied Atlas Turner v. Welch, No. 25-213 (same receiver, same trial judge) on 2026-01-12 after requesting a response, with Justice Alito recused and no noted dissent; (2) three related petitions are pending on the same territorial question — Nos. 26-159 and 26-263 (from the Third Circuit's Whittaker decision) and the same-day companion No. 26-350 (Altrad), cross-referenced 'Vide' on this docket. The forecast treats the four as a set. This case's own docket (26-328) shows only the filing entry; no disposition exists or was sought."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "CourtListener's docket index returned zero results for SCOTUS dockets 25-213, 26-159, 26-263, 26-328 and 26-350, so related-docket state was read from supremecourt.gov docket pages via the engine's web fetch rather than the MCP server. Retrieval ran to about 27 calls, slightly over the advisory 25."
+    }
+  ]
+}

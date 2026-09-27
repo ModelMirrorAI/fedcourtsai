@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000348",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned documents", "CourtListener MCP (search, call_endpoint, read_document)"],
+  "helpful": [
+    "The provisioned petition.txt carried the decisive fact — the SG asks for a hold pending No. 26-304 — so the cert call could be built from the record alone",
+    "The sal-v4 band table matched context.salience_version, making the federal anchor a direct pooled computation",
+    "read_document chunking let me read the CA9 lead opinion's panel and summary for ~6k chars instead of the whole 84k"
+  ],
+  "gaps": [
+    "CourtListener does not index supremecourt.gov dockets, so the lead petition No. 26-304 could not be looked up; a corpus-side lookup of a sibling SCOTUS docket by number would let a hold cell read the lead case's state",
+    "No statpack cut separates lead SG petitions from SG hold/companion petitions inside the federal band; that split is the entire adjustment this cell had to freehand",
+    "A single --disposition gvr corpus query cost 45 GETs / ~11.7MB for 20 rows"
+  ],
+  "notes": "Nine MCP calls and one corpus query, all within budget. The outcome vocabulary has no 'held' state, so a hold petition sits open for months; the event will resolve only after the lead case does."
+}

@@ -1,0 +1,13 @@
+case_id: scotus/9026000012
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-07-02'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Association for Education Fairness v. Montgomery County Board of Education,
+  et al.

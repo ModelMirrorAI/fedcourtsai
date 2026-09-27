@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "A fact-bound local zoning and licensing dispute over medical-marijuana facilities in one Michigan city; the constitutional theories are framed as error correction, so even a decision would carry little beyond the parties.",
+  "big_case_score": 0.05,
+  "case_id": "scotus/9026000359",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.6
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.02
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-09-17",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-17",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-09-27T18:48:41Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-09-17.json",
+  "judgment": null,
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.01,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "c3fab10e604af55c688647028eae818c44363296",
+    "stamped_at": "2026-09-27T18:50:44.989999Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

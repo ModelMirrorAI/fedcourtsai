@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000296",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned record and petition text", "committed statpack", "fedcourts paths", "CourtListener search", "CourtListener search_document", "web retrieval attempts", "local Python arithmetic", "fedcourts validate"],
+  "helpful": ["Arrival context fixes the zero-distribution claim baseline", "Readable petition and questions presented", "Private caption-class reached rates", "Historical precedent text through MCP"],
+  "gaps": ["No separately provisioned disciplinary orders or appendix for testing the petition's factual characterizations", "Web calls returned no usable content", "Citation-only MCP search returned an irrelevant first result"],
+  "notes": "The default uv cache was read-only; a temporary writable cache allowed the existing environment to run. Named-case MCP retrieval succeeded after the imprecise citation-only result. No current-case outcome retrieval was attempted. Missing opposition is normal at this arrival moment, not a provisioning failure."
+}

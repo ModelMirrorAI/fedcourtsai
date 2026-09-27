@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000139",
+  "gaps": [
+    "The two general GVR web searches returned no usable results."
+  ],
+  "helpful": [
+    "The full respondent response revealed express nonopposition despite the brief-in-opposition filename.",
+    "Structured reached rates allowed exact prior-Term pooling.",
+    "Dated distribution entries distinguished rescheduling from actual post-conference relisting."
+  ],
+  "notes": "Forecast based on the provisioned filings and committed base rates, without own-case outcome retrieval. The default uv cache was read-only; a temporary cache allowed the CLI to run.",
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "web search",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

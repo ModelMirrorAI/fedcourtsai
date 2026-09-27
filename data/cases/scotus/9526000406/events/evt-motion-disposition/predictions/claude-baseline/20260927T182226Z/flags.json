@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000406",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward cell: I used this docket's own post-baseline entry (Justice Jackson's Sept 24 call for a response, due Sept 28), which sits outside the arrival-position cut. It is decisive for the response-requested-increment claim (stated 0.97) and is the ordinary forward shape, not leakage; the disposition itself remains pending as of the Sept 27 fetch."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Anchoring note: the pooled prior-Term interim base rate (Terms 2024-2025, 31/296 = 10.5%) rests on a Term-2024 row that is 972/1297 unparsed. I anchored on it as the scored yardstick but moved far from it on applicant identity (Solicitor General, third application in the same case, two prior grants); the corpus holds only five SG-applicant substantive rows, so the SG-specific rate is partly general knowledge, stated as such in reasoning.md."
+    }
+  ]
+}

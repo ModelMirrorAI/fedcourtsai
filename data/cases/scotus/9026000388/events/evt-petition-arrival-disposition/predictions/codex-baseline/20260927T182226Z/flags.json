@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000388",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The provisioned petition is marked truncated (179 source pages) and ends mid-sentence in the appended dissent at 46a. The QP and principal cert arguments are readable, but later appendices are unavailable. Forecast completed using that bounded record and two historical precedent checks; no case outcome was retrieved. No BIO is provisioned, consistent with the arrival posture and future response deadline."
+    }
+  ]
+}

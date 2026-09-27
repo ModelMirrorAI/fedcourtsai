@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000382",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "The snapshot links lower-court orders/opinions, but only application.txt was provisioned. The injunction's wording and the state appellate posture were assessed through the applicants' quotations and account, not independent lower-court text. The response is not due until September 28 and its absence is expected. Forecast completed with reduced confidence; provisioned appendix text would materially improve review."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "corpus-info could not report corpus freshness because the cell service backend has no client-side connection. The baseline uses the committed statpack, last changed September 26, 2026, without claiming that commit time is the corpus vintage. Web precedent lookups also returned no usable content; CourtListener supplied general Nken stay-factor excerpts. No target-case outcome was retrieved."
+    }
+  ]
+}

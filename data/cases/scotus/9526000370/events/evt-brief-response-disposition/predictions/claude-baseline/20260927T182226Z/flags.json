@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000370",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "The respondents' opposition (filed 2026-09-25, the entry that opens this response-filed event and inside the cutoff) was not provisioned under record/documents/; only the stay application was. I fetched it from the Supreme Court docket URL recorded in the snapshot entry and extracted its text locally. For a moment defined by the response arriving, provisioning the response text alongside the application would put every predictor on the same footing."
+    }
+  ]
+}

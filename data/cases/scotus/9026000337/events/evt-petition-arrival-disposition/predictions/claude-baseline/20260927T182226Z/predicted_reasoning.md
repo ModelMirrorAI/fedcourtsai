@@ -1,0 +1,15 @@
+# Forecast: Child v. Unum Life Insurance Co. of America, No. 26-337
+
+**Disposition.** The Court will deny the petition, most likely at the first conference it is distributed for, with no separate writing. P(any grant) = 0.015.
+
+**Distribution and relists.** The docket shows zero distributions; the petition was docketed September 14, 2026 with a response due October 14, 2026. I expect Unum either to waive its response or to file a short brief in opposition, after which the petition is distributed once for a November or December 2026 conference and denied. I do not expect a relist. The `relist-increment` claim (0.96) is therefore the probability that the petition is distributed at all rather than dismissed or withdrawn before conference, not a forecast of a second look.
+
+**CVSG.** None. No federal party, no federal statute, and no federal program is implicated; the question is Iowa insurance law in a diversity case. The Solicitor General's views are not called for in this posture (0.005).
+
+**Which question the Court would take, if any.** The petition presents one question, framed as an Erie question about a federal court "displacing" Iowa's NAIC-modeled post-claims-underwriting prohibition with a judge-made known-loss doctrine. If the Court took anything, it would not take that question as written: the Eighth Circuit's holding rests first on the policy's plain "existing loss" terms and then on its reading of Iowa Code § 514G.7(3), and the known-loss language is a single supporting citation. The only plausible grant is the petitioner's alternative ask, a vacatur and remand directing the Eighth Circuit to consider certifying the Iowa-law question to the Iowa Supreme Court, on the model of McKesson v. Doe.
+
+**Summary route versus plenary review.** Conditional on a grant, I put the summary route (a per curiam vacatur for certification, or a GVR) at 0.5. Plenary review of a no-split question about one State's long-term-care insurance regulation is at least as unlikely as a certification vacatur, and there is no intervening decision to GVR in light of. Both routes are remote; this is a split of a very small number.
+
+**Dissent from denial.** Conditional on denial, 0.02 that any Justice notes a dissent or writes a statement. The facts are sympathetic (an insured quadriplegic since 1980 who paid guaranteed-issue premiums for eighteen years before a claim-time denial), and Justices have occasionally written about federal courts guessing at unsettled state law rather than certifying, but this case has no federal hook and drew no dissent from the Eighth Circuit's denial of rehearing en banc. If anyone wrote, it would be a short statement respecting denial on the certification point rather than a dissent, and I expect no writing.
+
+**If granted (conditional only).** The likely ground would be that the Eighth Circuit should have certified the § 514G.7(3)(b) and Iowa Admin. Code r. 191-39.8 questions rather than predicting Iowa law, not a merits ruling on post-claims underwriting.

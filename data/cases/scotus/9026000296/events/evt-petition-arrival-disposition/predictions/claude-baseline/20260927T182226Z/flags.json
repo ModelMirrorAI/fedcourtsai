@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000296",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The United States is a respondent and the Solicitor General is counsel of record, so a CVSG cannot meaningfully issue on this docket; the cvsg-increment claim is stated (0.003) but is structurally near-vacuous here. No outcome material was encountered; forward cell, no post-snapshot docket entries were found."
+    }
+  ]
+}
