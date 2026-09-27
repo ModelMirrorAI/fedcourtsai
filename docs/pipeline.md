@@ -1273,6 +1273,16 @@ pattern rather than rediscovering it:
   Diff `origin/<base ref>...HEAD` instead (the `paths` / `cleanup-paths` jobs
   in `ci.yml`); the promotion gate reads its label from the API at check time
   for the same frozen-payload reason.
+- **A required check skips with an `if:`, never with a trigger filter.** A
+  `paths:` / `paths-ignore:` filter on a trigger leaves the context
+  unproduced, and a required context nothing produces keeps the PR pending
+  forever — the auto-merging collect PRs first. A job- or step-level `if:`
+  reports `skipped`, which satisfies the requirement. The corollary is that a
+  wrong skip passes silently, so the condition has to fail closed: `ci.yml`'s
+  lanes compute the skip in a step *inside* `gate` (a job `gate` depended on
+  would, on failing, skip `gate` — and pass it), and each skipping condition is
+  a `!=` against a named lane, so a missing output runs the stage (*The CI
+  lanes* in [testing.md](testing.md)).
 - **`git add data/` aborts when `data/` is absent.** No `outcome.json` is written
   on most runs, so `data/` often does not exist; under `set -euo pipefail` the add
   fails the step before the no-op guard. Stage the always-present pointer
