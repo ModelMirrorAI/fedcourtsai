@@ -700,62 +700,101 @@ unanswered blocker is not a resolution.
 the batch carrying the freeze, and the annotated `prereg/proc-v8` tag that
 pre-registers the blessed digests and the counting instant. The results tag goes
 on a `main` commit whose tree carries both the published metrics refresh and the
-filled write-ups — this document and its public page. The refresh is a data
-commit that lands on `main` directly while the filled documents arrive by
+filled write-ups — this document and its public page. The refresh lands on
+`main` directly as a reviewed pull request while the filled documents arrive by
 promotion, so that is the promotion merge landing the documents, after the
-refresh:
+refresh.
 
-```bash
-git tag -a results/ot2026-longconf -m "OT2026 long-conference cert release" <sha>
-git push origin results/ot2026-longconf
-```
+The public page's per-case values are copied from the dataset export, and the
+page must be filled before the tag it is archived under exists. So the export
+is built twice — once at the refresh to fill from, and once at the candidate
+commit to archive — and the tag is minted only once the two agree on everything
+the documents quote. Every step is the maintainer's, in this order:
 
-Minting it is a maintainer step, like the promotion merge it accompanies. The
-`results/` namespace blocks update and deletion, so the tag is minted only once
-the draft's placeholder grep in *How to read this document* returns nothing and
-the `stats-reviewer` pass in section 7 is resolved.
+1. **Refresh.** The metrics refresh lands on `main`. The merge commit that
+   lands its pull request — the *refresh commit* — is the one this document's
+   figures are read from; the pull request branch's own commit is not on
+   `main`'s first-parent line and fails the manifest check below.
+2. **Fill export.** From a full-history checkout of the refresh commit with the
+   corpus pulled (`fedcourts corpus-pull`), since the docket numbers are read
+   from it:
 
-Two archive steps follow, both the maintainer's:
+   ```bash
+   git fetch origin main
+   git switch --detach <refresh-commit>
+   uv run fedcourts export --out <fill-dir>
+   ```
 
-- **The software record.** The tag is published as a GitHub Release, and
-  Zenodo's GitHub integration archives the repository at that tag as a new
-  version of the project's software record, with its own version DOI. That
-  record is the code that produced the figures, and Zenodo does not archive
-  files attached to the Release.
-- **The dataset record.** The dataset export built from the tagged commit is
-  deposited on Zenodo as a separate **dataset** record under CC BY 4.0, linked
-  to the software record's version DOI as a supplement to it, with its own
-  version DOI under the dataset's concept DOI. It holds the data only (what it
-  may carry is set in [data-sources.md](data-sources.md), *What we
-  redistribute*), its manifest names the tagged commit and each file's
-  checksum, and a published deposit's files cannot be replaced, which is what
-  gives the data a timestamped copy held outside GitHub. The same files may
-  also be attached to the GitHub Release for convenience; the Zenodo deposit is
-  the copy of record, and the manifest's checksums show the two are identical.
-  The maintainer builds it from a full-history checkout of the tagged commit
-  with the corpus pulled (`fedcourts corpus-pull`), since the docket numbers
-  are read from it:
+   The manifest must show `source_dirty: false`, the refresh commit as
+   `source_commit`, `source_on_main_first_parent: true` (the commit is on
+   `main`'s first-parent line, which is what makes each `ledger_commit` the
+   prediction's landing on `main`), `ledger_commits: "git"`,
+   `docket_numbers: "corpus"` and `counts.predictions_without_ledger_commit: 0`.
+   This is a full export, not a dry run: `uv run fedcourts export --out <dir>
+   --all-versions` is the dry run on shakedown data, and no figure is quoted
+   from a dry-run bundle, whose commits date a file's arrival on whatever line
+   was checked out.
+3. **Reserve the dataset DOI.** Open the dataset deposit as a Zenodo draft and
+   reserve its DOI, which the public page cites for the figures.
+4. **Fill and promote.** Fill both documents from the refresh and the fill
+   export, resolve the section 7 pass, and promote them. The promotion merge is
+   the *candidate commit*.
+5. **Check the candidate.** Build the export again from a full-history checkout
+   of the candidate (after `git fetch origin main`, so the first-parent check
+   sees the merge), into a fresh directory, with the same manifest checks and
+   the candidate as `source_commit`. Then compare it with what the documents
+   were filled from, and regenerate the boards under the candidate's code:
 
-  ```bash
-  git switch --detach results/ot2026-longconf
-  uv run fedcourts export --out <dir>
-  ```
+   ```bash
+   git diff --exit-code --stat <refresh-commit> <candidate-commit> -- \
+     metrics/leaderboard.json metrics/claim-scores.json \
+     metrics/statpack.json metrics/statpack.md
+   diff <fill-dir>/predictions.csv <candidate-dir>/predictions.csv
+   diff <fill-dir>/gradings.csv <candidate-dir>/gradings.csv
+   uv run fedcourts leaderboard && uv run fedcourts claim-scores
+   git diff --exit-code -- metrics/leaderboard.json metrics/claim-scores.json
+   ```
 
-  The manifest must show `source_dirty: false`, the tagged commit as
-  `source_commit`, `source_on_main_first_parent: true` (the tagged commit is
-  on `main`'s first-parent line, which is what makes each `ledger_commit` the
-  prediction's landing on `main`), `ledger_commits: "git"`,
-  `docket_numbers: "corpus"` and `counts.predictions_without_ledger_commit: 0`.
-  Before the tag, `uv run fedcourts export --out <dir> --all-versions` is the
-  dry run on shakedown data; no timing figure is quoted from a dry-run bundle,
-  whose commits date a file's arrival on whatever line was checked out.
+   Both metrics diffs must be empty: the first shows no newer refresh landed,
+   the second that the code the tag archives reproduces the boards it quotes.
+   Every line the table diffs show must be a row outside the cohort section 5
+   registers — for instance, a forecast or grading for a later conference. A
+   grading that lands on a cohort prediction changes that prediction's own row
+   too, so it cannot hide in the gradings table alone. A moved metrics file, or
+   a changed, added or removed cohort row, means an input the documents quote
+   changed after they were filled: re-fill from the candidate's tree and build,
+   which then stand in for the refresh commit and the fill export, promote
+   again, and check the new candidate.
+6. **Tag.** Only once both documents' placeholder greps return nothing and the
+   section 7 pass is resolved, since the `results/` namespace blocks update and
+   deletion:
 
-The public page cites the dataset DOI for the figures and the software record
-for the method, and both must be in the tagged commit, which is filled before
-either archive step runs. So the dataset DOI is **reserved** first: the
-maintainer opens the dataset deposit as a Zenodo draft and reserves its DOI
-before the tag is minted, fills it into the page, and uploads the files and
-publishes the draft only after the export is built from the tagged commit. The
-software record is cited by its **concept** DOI, which exists from the first
-archived Release, beside the tag name, which pins the exact code; its version
-DOI is minted only after the tag and is not needed on the page.
+   ```bash
+   git tag -a results/ot2026-longconf -m "OT2026 long-conference cert release" <candidate-commit>
+   git push origin results/ot2026-longconf
+   ```
+
+7. **The software record.** The tag is published as a GitHub Release, and
+   Zenodo's GitHub integration archives the repository at that tag as a new
+   version of the project's software record, with its own version DOI. That
+   record is the code that produced the figures, and Zenodo does not archive
+   files attached to the Release.
+8. **The dataset record.** The candidate's build from step 5 is the export
+   built from the tagged commit — its manifest already names it — and it is
+   uploaded to the reserved draft and published as a separate **dataset**
+   record under CC BY 4.0, linked to the software record's version DOI as a
+   supplement to it, with its own version DOI under the dataset's concept DOI.
+   It holds the data only (what it may carry is set in
+   [data-sources.md](data-sources.md), *What we redistribute*), its manifest
+   names the tagged commit and each file's checksum, and a published deposit's
+   files cannot be replaced, which is what gives the data a timestamped copy
+   held outside GitHub. The export is deterministic: a rebuild from the tag in
+   its locked environment (`uv sync --locked`), against a corpus blob carrying
+   the same docket numbers, reproduces those checksums. The same
+   files may also be attached to the GitHub Release for convenience; the Zenodo
+   deposit is the copy of record, and the manifest's checksums show the two are
+   identical.
+
+The software record is cited by its **concept** DOI, which exists from the
+first archived Release, beside the tag name, which pins the exact code; its
+version DOI is minted only after the tag and is not needed on the page.

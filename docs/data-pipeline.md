@@ -1112,7 +1112,10 @@ or network.
   1. **Refresh** active known cases (`pull_case`), routing changed cases with
      open case-baseline events onto the predict queue — a `predict_queued_at`
      stamp and a count, not a request: `run-predict` derives its own backlog on
-     its own schedule and merely honours that stamp as a debounce. A case is
+     its own schedule from committed state and reads the stamp only for
+     ordering and as proof that provisioning ran, never as a same-day hold:
+     it is the only lane that mints, and such a hold would skip every case
+     whose docket moved that morning. A case is
      kept off the queue if the refreshed docket already looks
      decided (its *latest* entry reads terminal, or its open events surfaced an
      unrecorded outcome). Such a case is diverted to the run's
