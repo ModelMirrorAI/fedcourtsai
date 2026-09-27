@@ -1055,12 +1055,12 @@ The **spend bound** is the first: only the case's already-predicted events are
 queued. Finishing a cohort buys the missing engines on a case the project already
 funded, while the case's *untouched* open events would be new cells on a case the
 gate declined. "Missing" spans two readings at the engine grain: an engine with
-no cell on the event, and — where a predictor-half re-bless has put its cells
-outside the frozen process scope — an engine owed a re-forecast under the
-blessed process, which the predict backlog's pre-freeze re-predict rule
+no cell on the event, and — where its cells are de-counted (outside every
+counting window, or in a revoked one) — an engine owed a re-forecast under the
+process in force, which the predict backlog's pre-freeze re-predict rule
 (*The predict/evaluate matrix* in [pipeline.md](pipeline.md)) derives. The
 second reading is the one place the spend bound admits work the first would not:
-an event whose whole cohort a re-bless retired is re-owed, so **a
+an event whose whole cohort is de-counted is re-owed, so **a
 salience-declined case is predicted again** where the rule reaches it. The
 widening is bounded by the rule and by nothing else — an event no predictor has
 forecast is not re-owed, so a declined case still earns no cells on its
@@ -1093,7 +1093,7 @@ having no channel for its licence. There, the pre-freeze re-predict rule
 is not narrowed by them, and that exemption turns on the comparability bound's
 own reasoning rather than waiving it: what the bound refuses is a *partial*
 completion, where the completing cell lands in the frozen partition beside
-siblings that never will, and a wholly retired cohort is not that shape —
+siblings that never will, and a wholly de-counted cohort is not that shape —
 every engine is re-owed at once, so what the board gains is a complete frozen
 cohort. An event the rule does **not** re-owe — its moment closed, its stage
 already decided — is refused exactly as before. The completing

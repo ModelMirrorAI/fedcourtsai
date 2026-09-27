@@ -25,7 +25,13 @@ from fedcourtsai.pipeline import documents
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.salience import SalienceScorer
 from fedcourtsai.registry import enabled_predictors
-from fedcourtsai.schemas import Disposition, Evaluation, Prediction, ProcessVersion
+from fedcourtsai.schemas import (
+    CountingWindow,
+    Disposition,
+    Evaluation,
+    Prediction,
+    ProcessVersion,
+)
 from fedcourtsai.serialize import write_json
 
 
@@ -154,18 +160,21 @@ def frozen_stamp() -> ProcessVersion:
     than written out, so a freeze cutover moves it without touching a test.
     """
     since = process_version.FROZEN_SINCE or datetime(2026, 1, 1, tzinfo=UTC)
+    # A counting window's digest, so the stamp counts: only a predictor digest
+    # has a window, and the bless map holds the evaluator half too.
+    windows = process_version.COUNTING_WINDOWS
+    digest = windows[0].digest if windows else sorted(process_version.FROZEN_PROCESS_DIGESTS)[0]
     return ProcessVersion(
-        label=process_version.CURRENT_PROCESS_LABEL,
-        digest=sorted(process_version.FROZEN_PROCESS_DIGESTS)[0],
-        stamped_at=since,
+        label=process_version.CURRENT_PROCESS_LABEL, digest=digest, stamped_at=since
     )
 
 
-def retired_stamp() -> ProcessVersion:
-    """A harness stamp OUTSIDE the frozen partition: a digest no freeze blessed.
+def decounted_stamp() -> ProcessVersion:
+    """A harness stamp OUTSIDE the frozen partition: a digest no window names.
 
-    The counterpart of :func:`frozen_stamp`, for the cells a predictor-half
-    re-bless de-counted. Post-freeze on the clock, so the *only* reason
+    The counterpart of :func:`frozen_stamp`, for a de-counted cell — the shape a
+    label before ``proc-v8`` left, or a revoked window's. Post-freeze on the clock,
+    so the *only* reason
     ``is_frozen`` rejects it is its digest — which is what a test about the
     pre-freeze re-predict rule needs to isolate from the timing rule beside it.
     The digest is a well-formed hash of a fixed string rather than a literal, so
@@ -173,7 +182,7 @@ def retired_stamp() -> ProcessVersion:
     """
     since = process_version.FROZEN_SINCE or datetime(2026, 1, 1, tzinfo=UTC)
     return ProcessVersion(
-        label="proc-retired",
+        label="proc-decounted",
         digest="sha256:" + hashlib.sha256(b"fedcourtsai test retired process").hexdigest(),
         stamped_at=since,
     )
@@ -201,9 +210,9 @@ def seed_prediction(
     so a gate that asks whether a claimable board counts the cohort
     (:func:`fedcourtsai.store.event_has_claimable_prediction`) sees the harder
     case unless a test asks for the easier one. ``stamp`` overrides both with an
-    explicit :class:`ProcessVersion` — :func:`retired_stamp` for a cell a
-    re-bless de-counted, which reads as retired for a different reason from an
-    unstamped one and so is worth testing separately.
+    explicit :class:`ProcessVersion` — :func:`decounted_stamp` for a de-counted
+    cell, which is out of scope for a different reason from an unstamped one
+    and so is worth testing separately.
 
     ``run_id`` is the committed run directory's name, which is where the ledger
     carries the *date* a case was minted for prediction
@@ -359,3 +368,36 @@ def bless_process(
         MappingProxyType({digest: blessed_at for digest in digests}),
     )
     monkeypatch.setattr(process_version, "FROZEN_SINCE", since)
+    # The counting rule reads the window registry, so the freeze a test
+    # declares is one open window per digest, opening at the instant — or at
+    # the epoch, the "no time gate" reading, where no instant is given.
+    monkeypatch.setattr(
+        process_version,
+        "COUNTING_WINDOWS",
+        tuple(
+            CountingWindow(label="proc-test", digest=digest, opens=since or _EPOCH)
+            for digest in digests
+        ),
+    )
+
+
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
+def set_windows(monkeypatch: pytest.MonkeyPatch, *windows: CountingWindow) -> None:
+    """Patch the counting registry to exactly ``windows``, bless map to match.
+
+    For the multi-window tests: a closed window, a revoked one, or a successor
+    beside its predecessor. The bless map holds every digest at the epoch and
+    the instant is the latest opening, as a successor's freeze commit leaves
+    them.
+    """
+    monkeypatch.setattr(
+        process_version,
+        "FROZEN_PROCESS_DIGESTS",
+        MappingProxyType({window.digest: _EPOCH for window in windows}),
+    )
+    monkeypatch.setattr(
+        process_version, "FROZEN_SINCE", max((w.opens for w in windows), default=None)
+    )
+    monkeypatch.setattr(process_version, "COUNTING_WINDOWS", tuple(windows))

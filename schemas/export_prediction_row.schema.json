@@ -314,7 +314,7 @@
       "title": "Process Digest"
     },
     "process_frozen": {
-      "description": "Whether the process is in the pre-registered frozen set and ran at or after the freeze instant (the manifest's `frozen_process`)",
+      "description": "Whether the prediction counts: its digest has a counting window containing its stamp that no revocation de-counted, and no earlier window holds this predictor's counted cell on the event (the manifest's `frozen_process`)",
       "title": "Process Frozen",
       "type": "boolean"
     },
@@ -329,6 +329,18 @@
       ],
       "description": "The harness process label (e.g. `proc-v8`); null on an unstamped cell",
       "title": "Process Label"
+    },
+    "process_window": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The label of the counting window containing the stamp (e.g. `proc-v8`), the label its figures are reported under \u2014 set on a cell the tie-break or a revocation leaves uncounted too, so `process_frozen` is the counting bit; null where no window contains the stamp. No figure pools two values of this column",
+      "title": "Process Window"
     },
     "resolved_at": {
       "anyOf": [
@@ -454,6 +466,7 @@
     "process_label",
     "process_digest",
     "process_frozen",
+    "process_window",
     "stamped_at",
     "pipeline_sha",
     "ledger_commit",

@@ -2464,7 +2464,7 @@ def test_the_agreement_views_collapse_inside_the_scope_they_are_read_under(
 
     The reachable shape is a local re-run: the re-grade is unstamped, so its
     `created_at` fallback clocks newer than the frozen grading's harness stamp
-    while failing `graded_post_freeze`. Collapsing before the scope gate would
+    while failing `graded_in_window`. Collapsing before the scope gate would
     hand the collapse to the shakedown run and then drop it at the gate, taking
     the frozen read out of the frozen board with it — so the frozen view keeps
     the frozen reads, and only the pooled view sees the re-grade.
