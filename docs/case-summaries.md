@@ -380,7 +380,9 @@ roughly $0.10 and the regeneration pass at roughly $15–25 for today's cases.
 - **Grading summaries.** They are display material; nothing is scored on them.
 - **Summaries of earlier snapshots.** Only the newest record is summarized; a
   superseded summary stays as written, dated by its snapshot.
-- **Short captions and docket numbers.** The big-case board derives both
-  deterministically (`short_caption`, `docket_number`); whether this lane should
-  also write a short caption, with the board's rule as the fallback, is left
-  open.
+- **Short captions, docket numbers and outcome lines.** The big-case board
+  derives these deterministically (`short_caption`, `docket_number`, and the
+  asking side with one line per open action in `outcome_lines`); whether this
+  lane should also write a short caption, with the board's rule as the
+  fallback, is left open. Where the board's rule declines to name an asking
+  side, a site can fall back to this summary's *What each outcome would mean*.
