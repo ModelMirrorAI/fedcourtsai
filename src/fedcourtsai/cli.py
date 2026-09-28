@@ -10575,7 +10575,8 @@ def summarize_plan_cmd(
     Eligible cases carry at least one committed prediction. Each one's newest
     corpus record (snapshot plus stored documents) is read and digested, and a
     case is owed a summary when that digest differs from the one its newest
-    committed ``summaries/<day>.md`` was written from, or when it has none.
+    committed ``summaries/<day>.md`` was written from, when that summary was
+    written to an earlier body contract (``body_version``), or when it has none.
     Writes nothing under ``data/`` and calls no model; the plan it prints is what
     ``summarize`` consumes, so the run writes what the hold released.
     """
@@ -10649,7 +10650,7 @@ def summarize_cmd(
 
     Each call carries the summarizer prompt and the case's staged record and
     nothing else. A response is written to ``summaries/<snapshot day>.md`` only
-    if it ends normally, carries exactly the three contract sections in order,
+    if it ends normally, carries exactly the current contract's sections in order,
     sits in the length band, opens no paragraph with "Whether", and passes the
     secret scan; anything else, and any call that still fails after bounded
     retries, is reported as skipped. The API key is read from the environment
