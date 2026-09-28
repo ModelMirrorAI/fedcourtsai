@@ -1679,6 +1679,7 @@ out of frozen scope is the second's, and an event carrying both — what a
 quota-failed engine leaves behind — is re-owed on both, so a run can never
 mint one blessed cell beside de-counted rivals.
 
+
 The rule also **widens the funding gate**, and that is the one place it reaches
 work the salience round declined. A case neither selection nor the merits bypass
 funds reaches the derivation only on the cohort-completion ground, whose
@@ -1716,6 +1717,26 @@ ordered after never-predicted work so it cannot starve the ordinary backlog
 under the cycle cap. [cli.md](cli.md) carries the predicates; `predict-plan`
 reports the re-owed cells in their own `reowed_pre_freeze_cells` bucket, which
 is what a maintainer reads at the hold before any spend.
+
+Two guards keep owed work from going unforecast in silence, one on each side
+of resolution, and both reach the `plan` job as `::warning::` annotations from
+the matrix step every round runs. Before resolution, the predict derivation
+**reconciles at case grain**: it computes the universe of in-scope, funded
+cases with an open forecastable event apart from its own admission walk, and
+names any such case the walk filed in no bucket (derived, held, or dropped with
+a reason) — the shape of a filter that drops owed work without saying so.
+After resolution, the evaluate derivation runs the **missed-forecast monitor**
+over the week's resolutions, driven from the corpus rather than the ledger so a
+case that never reached the ledger is still seen: an event a predictor owed
+never forecast is either declined by design (out of scope, not a forecastable
+moment, not funded, the predictor not yet producing forecasts, or resolved
+before a scheduled round could run) or **missed**, and each miss is annotated
+by name — as is a resolved event with no outcome record on a selected row,
+which evaluate can never grade. `predict-plan` carries the reconciliation in
+its JSON (`counts.case_reconciliation`) and `evaluate-plan` the monitor
+(`counts.predictionless_resolutions`); `evaluate-plan --missed-since`
+backfills the monitor over a longer window. The blocks are described in
+[cli.md](cli.md).
 
 That is the shape both workflows invoke, on every round. The commands
 still accept an explicit case list — a ` ```json ``` ` block by `--body-file`, or

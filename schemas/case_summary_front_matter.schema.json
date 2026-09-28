@@ -35,6 +35,16 @@
   "additionalProperties": false,
   "description": "The YAML front matter of ``data/cases/<court>/<docket>/summaries/<day>.md``.\n\nWritten by the harness, never by the model: provenance a reader can check\nthe body against. ``record_digest`` is what makes the selection rule\ncontent-keyed \u2014 a case needs a new summary exactly when the digest of its\nnewest record differs from the one its newest summary carries\n(``docs/case-summaries.md``).",
   "properties": {
+    "body_version": {
+      "default": 1,
+      "description": "The body contract the summary was written to, which fixes the sections the validator holds it to (`summaries.SECTION_HEADINGS_BY_VERSION`): 1, the three sections \u2014 what happened, what the Court is being asked, where it stands; 2, those three between a one-sentence `In brief` headline and a closing `What each outcome would mean`. Absent means 1. The harness stamps the current version on every summary it writes, and a case whose newest summary is older is owed a new one",
+      "enum": [
+        1,
+        2
+      ],
+      "title": "Body Version",
+      "type": "integer"
+    },
     "case_id": {
       "description": "The case the summary describes, `<court>/<docket>`",
       "title": "Case Id",

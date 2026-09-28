@@ -451,7 +451,7 @@ summaries:
   # is a faithful restatement of a record, which a mid-tier model does well at a
   # fifth of the frontier rate.
   model: claude-sonnet-5
-  # Output cap per summary. ~250 words is a few hundred tokens; a response that
+  # Output cap per summary. ~330 words is several hundred tokens; a response that
   # reaches the cap is rejected, never written.
   max_output_tokens: 2000
   # Per-document character cap on what reaches the model, marked in the text it

@@ -259,6 +259,13 @@ from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.ingest import UNSAMPLED_WEIGHT
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.live import live_poll_all
+from .pipeline.missed import (
+    MISSED_LOOKBACK_DAYS,
+    DeclineReason,
+    MissReason,
+    PredictionlessReport,
+    scan_predictionless_resolutions,
+)
 from .pipeline.ocr_recovery import DEFAULT_PROBE_SAMPLE as DEFAULT_OCR_PROBE_SAMPLE
 from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_documents
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
@@ -274,6 +281,8 @@ from .pipeline.party import (
 )
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
+    CaseDisposition,
+    CaseReconciliation,
     PredictBacklog,
     derive_evaluate_backlog,
     derive_predict_backlog,
@@ -10566,7 +10575,8 @@ def summarize_plan_cmd(
     Eligible cases carry at least one committed prediction. Each one's newest
     corpus record (snapshot plus stored documents) is read and digested, and a
     case is owed a summary when that digest differs from the one its newest
-    committed ``summaries/<day>.md`` was written from, or when it has none.
+    committed ``summaries/<day>.md`` was written from, when that summary was
+    written to an earlier body contract (``body_version``), or when it has none.
     Writes nothing under ``data/`` and calls no model; the plan it prints is what
     ``summarize`` consumes, so the run writes what the hold released.
     """
@@ -10640,7 +10650,7 @@ def summarize_cmd(
 
     Each call carries the summarizer prompt and the case's staged record and
     nothing else. A response is written to ``summaries/<snapshot day>.md`` only
-    if it ends normally, carries exactly the three contract sections in order,
+    if it ends normally, carries exactly the current contract's sections in order,
     sits in the length band, opens no paragraph with "Whether", and passes the
     secret scan; anything else, and any call that still fails after bounded
     retries, is reported as skipped. The API key is read from the environment
@@ -12093,6 +12103,12 @@ def live_poll(
             "Skipped forward prediction for "
             f"{skipped['court']}/{skipped['docket']} — {skipped['reason']}"
         )
+    if queues.convergence:
+        typer.echo(
+            "Ledger-outcome convergence: "
+            + ", ".join(f"{key}={value}" for key, value in queues.convergence.items())
+            + "."
+        )
     # The window's document-fetch ledger. Last, after the queue counts, because
     # it reports on what provisioning did for the cases those counts name — and
     # unconditionally, because a window that lost nothing and a window that never
@@ -12569,7 +12585,34 @@ def _scope_filtered(
     return kept
 
 
-def _evaluate_backlog_cases() -> list[CaseRequest]:
+@dataclass
+class _BacklogFindings:
+    """What a backlog-mode derivation found beyond its case list, for a plan to publish.
+
+    ``predict`` receives the predict backlog itself (its case reconciliation),
+    ``missed`` the evaluate side's missed-forecast scan; ``missed_since`` widens
+    that scan's window for a backfill. Both lists stay empty when the cases were
+    named, since nothing was derived.
+
+    Passing findings is what marks the caller as a **plan**, and a plan emits no
+    workflow-command annotation — its JSON is the record, and the matrix command
+    the same round runs first is the one whose annotations land on the job. So
+    the guards' discrepancy lines keep their words and lose the ``::warning::``
+    prefix there, rather than annotating the same finding twice.
+    """
+
+    predict: list[PredictBacklog] = field(default_factory=list)
+    missed: list[PredictionlessReport] = field(default_factory=list)
+    missed_since: date | None = None
+    missed_error: str | None = None
+
+
+def _warn_prefix(findings: _BacklogFindings | None) -> str:
+    """``::warning::`` for a fan-out command, a plain marker for a plan (see above)."""
+    return "::warning::" if findings is None else "warning: "
+
+
+def _evaluate_backlog_cases(findings: _BacklogFindings | None = None) -> list[CaseRequest]:
     """The evaluate stage's own case set, derived from the corpus-level backlog.
 
     What a scheduled evaluate run fans out over when no trigger names its cases:
@@ -12603,6 +12646,16 @@ def _evaluate_backlog_cases() -> list[CaseRequest]:
     An absent corpus is refused for the same reason in reverse — for an
     unattended lane, "nothing is owed" and "no corpus" must not be the same
     output.
+
+    Beside the backlog it runs the **missed-forecast monitor** over the same
+    connection (:func:`fedcourtsai.pipeline.missed.scan_predictionless_resolutions`):
+    every event resolved since ``findings.missed_since`` — by default the last
+    :data:`~fedcourtsai.pipeline.missed.MISSED_LOOKBACK_DAYS` days — that some
+    enabled predictor never forecast, split into declined and missed, with a
+    ``::warning::`` per missed event (:func:`_report_predictionless`). The
+    backlog cannot see these at all: it derives only events that hold a
+    prediction to grade. ``findings`` receives the report for a plan that
+    publishes it (``evaluate-plan``), and turns the annotations off there.
     """
     settings = get_settings()
     evaluate_cfg = load_evaluate_config(settings.config_root)
@@ -12629,10 +12682,101 @@ def _evaluate_backlog_cases() -> list[CaseRequest]:
             cap=evaluate_cfg.backlog_cases_per_cycle,
             max_attempts=evaluate_cfg.max_attempts_per_cell,
         )
+        today = date.today()
+        prefix = _warn_prefix(findings)
+        # A monitor must never cost the round it watches: a scan that raises is
+        # reported loudly and the fan-out proceeds without it.
+        try:
+            missed = scan_predictionless_resolutions(
+                conn,
+                settings.data_root,
+                settings.config_root / "predictors.yaml",
+                since=(findings.missed_since if findings else None)
+                or today - timedelta(days=MISSED_LOOKBACK_DAYS),
+                until=today,
+            )
+        except Exception as exc:  # any failure degrades to a warning
+            error = f"{type(exc).__name__}: {exc}"
+            typer.echo(f"{prefix}missed-forecast monitor failed: {_one_line(error)}", err=True)
+            if findings is not None:
+                findings.missed_error = error
+        else:
+            _report_predictionless(missed, prefix=prefix)
+            if findings is not None:
+                findings.missed.append(missed)
     return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
 
 
-def _predict_backlog_cases() -> list[CaseRequest]:
+def _report_predictionless(report: PredictionlessReport, *, prefix: str) -> None:
+    """The missed-forecast monitor on stderr: a summary, and a ``::warning::`` per miss.
+
+    One annotation per missed event rather than one for all of them, so each
+    names its case, event, resolution date and gap, and a reader of the run's
+    annotations sees every one without opening the log. ``evaluate-matrix``
+    runs this on every scheduled round, so the annotations land on the plan job
+    whether or not a plan report is rendered; a miss is re-reported on every
+    round of the lookback window, so one unread round does not lose it.
+    """
+    counts = report.counts_json()
+    declined = ", ".join(
+        f"{reason.value}={counts[f'declined_{reason.value}_events']}"
+        for reason in DeclineReason
+        if counts[f"declined_{reason.value}_events"]
+    )
+    typer.echo(
+        f"Missed-forecast monitor: {len(report.events)} event(s) resolved "
+        f"{report.since.isoformat()}..{report.until.isoformat()} without every enabled "
+        f"predictor's forecast — {len(report.missed)} missed, {len(report.declined)} "
+        f"declined by design{f' ({declined})' if declined else ''}.",
+        err=True,
+    )
+    if report.undated_all_time:
+        typer.echo(
+            f"Missed-forecast monitor: {report.undated_all_time} resolved event(s), ledger-wide "
+            "and all-time, carry no date from the outcome record or the corpus row, so no "
+            "window can place them.",
+            err=True,
+        )
+    for event in report.missed:
+        if event.reason == MissReason.not_scored:
+            why = "The salience pass never scored the case, so no funding decision was taken."
+        else:
+            why = (
+                "It was in scope, funded, a forecastable moment, and open across a scheduled "
+                "predict round."
+            )
+        typer.echo(
+            f"{prefix}missed forecast: {event.case_id} {event.event_id} resolved "
+            f"{event.resolved_at.isoformat()} — {event.detail or event.reason}. {why}",
+            err=True,
+        )
+    for event in report.scope_contradictions:
+        typer.echo(
+            f"{prefix}missed-forecast monitor: {event.case_id} {event.event_id} is declined "
+            f"out of scope ({event.detail}) on a salience-selected row — selection runs over "
+            "the in-scope set, so one of the two is wrong.",
+            err=True,
+        )
+    unrecorded = [u for u in report.no_outcome_record if u.selected]
+    unrecorded += list(report.undated_selected)
+    for record in unrecorded:
+        when = record.resolved_at.isoformat() if record.resolved_at else "undated"
+        typer.echo(
+            f"{prefix}missing outcome record: {record.case_id} {record.event_id} is resolved "
+            f"in the corpus ({when}) on a salience-selected row but has no outcome.json, so "
+            "it can never be graded.",
+            err=True,
+        )
+    others = len(report.no_outcome_record) - sum(1 for u in report.no_outcome_record if u.selected)
+    if others:
+        typer.echo(
+            f"Missed-forecast monitor: {others} other resolved event(s) in the window have no "
+            "outcome.json (unselected rows); the plan JSON names them.",
+            err=True,
+        )
+
+
+def _predict_backlog_cases(findings: _BacklogFindings | None = None) -> list[CaseRequest]:
     """The predict stage's own case set, derived from the corpus-level backlog.
 
     What a scheduled predict run fans out over when no trigger names its cases:
@@ -12696,6 +12840,11 @@ def _predict_backlog_cases() -> list[CaseRequest]:
     provisioning probe**, so a mis-set corpus address shows up in the plan
     output rather than as an unexplained short fan-out. See
     :func:`_report_predict_backlog`.
+
+    ``findings``, when given, receives the :class:`PredictBacklog` itself, so a
+    plan that reports on the derivation (``predict-plan``'s case
+    reconciliation) reads the same one the fan-out was built from rather than
+    deriving a second.
     """
     settings = get_settings()
     salience_cfg = load_salience_config(settings.config_root)
@@ -12730,14 +12879,18 @@ def _predict_backlog_cases() -> list[CaseRequest]:
             cap=salience_cfg.sweep_cases_per_cycle,
             max_attempts=predict_cfg.max_attempts_per_cell,
         )
-    _report_predict_backlog(backlog, cap=salience_cfg.sweep_cases_per_cycle)
+    _report_predict_backlog(
+        backlog, cap=salience_cfg.sweep_cases_per_cycle, prefix=_warn_prefix(findings)
+    )
+    if findings is not None:
+        findings.predict.append(backlog)
     return [
         CaseRequest(entry.court, entry.docket, entry.events, reopen_events=entry.reopened)
         for entry in backlog.entries
     ]
 
 
-def _report_predict_backlog(backlog: PredictBacklog, *, cap: int) -> None:
+def _report_predict_backlog(backlog: PredictBacklog, *, cap: int, prefix: str) -> None:
     """Summarize one predict-backlog derivation on stderr (stdout stays JSON).
 
     Three facts, and each earns its line. **What was owed** is the headline.
@@ -12802,6 +12955,71 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int) -> None:
             f"outcome: {reason}",
             err=True,
         )
+    if backlog.reconciliation is not None:
+        _report_case_reconciliation(
+            backlog.reconciliation, cap_reached=backlog.cap_reached, prefix=prefix
+        )
+
+
+#: How many case ids one reconciliation warning names before it summarizes the
+#: rest. An annotation is one line, and the plan JSON carries every id.
+_RECONCILIATION_NAMED_MAX = 25
+
+
+def _report_case_reconciliation(
+    recon: CaseReconciliation, *, cap_reached: bool, prefix: str
+) -> None:
+    """The case-grain reconciliation on stderr, and a ``::warning::`` per discrepancy.
+
+    The summary line always runs, so a reader can see the buckets partition the
+    universe. Each discrepancy class is an annotation naming its cases, because
+    an unaccounted case is owed work that will otherwise resolve unforecast with
+    nothing in the log to say so — and ``predict-matrix`` runs this on every
+    scheduled round, so the annotation lands on the plan job whether or not a
+    plan report is rendered.
+    """
+    counts = recon.counts_json()
+    filed = ", ".join(
+        f"{bucket.value}={counts[f'{bucket.value}_cases']}"
+        for bucket in CaseDisposition
+        if counts[f"{bucket.value}_cases"]
+    )
+    censored = " (censored by the cycle cap)" if cap_reached else ""
+    typer.echo(
+        f"Predict backlog: case reconciliation over {recon.universe} in-scope, funded "
+        f"case(s) with an open forecastable event{censored}: {filed or 'none filed'}.",
+        err=True,
+    )
+    for label, cases, meaning in (
+        (
+            "unaccounted",
+            recon.unaccounted,
+            "in scope, funded and open, but the derivation filed them in no bucket — owed "
+            "work may be dropping out without a reason",
+        ),
+        (
+            "multiply accounted",
+            recon.multiply_accounted,
+            "filed in more than one bucket, so the counts no longer partition the universe",
+        ),
+        (
+            "admitted outside the universe",
+            recon.admitted_outside_universe,
+            "derived or held although the universe predicate excludes them",
+        ),
+    ):
+        if not cases:
+            continue
+        named = ", ".join(cases[:_RECONCILIATION_NAMED_MAX])
+        more = (
+            f" and {len(cases) - _RECONCILIATION_NAMED_MAX} more (the plan JSON lists all)"
+            if len(cases) > _RECONCILIATION_NAMED_MAX
+            else ""
+        )
+        typer.echo(
+            f"{prefix}predict backlog: {len(cases)} case(s) {label} — {meaning}: {named}{more}",
+            err=True,
+        )
 
 
 def _requested_cases(
@@ -12812,6 +13030,7 @@ def _requested_cases(
     *,
     backlog: Literal["predict", "evaluate"],
     force: bool = False,
+    derived: _BacklogFindings | None = None,
 ) -> list[CaseRequest]:
     """Cases to fan out over, from a batch body file, single-case flags, or the backlog.
 
@@ -12838,6 +13057,10 @@ def _requested_cases(
     ``--force`` disables ever sees it. Accepting the pair would answer a re-grade
     request with an empty fan-out — the flag reading as honoured while selecting
     nothing. Only the evaluate stage carries the flag at all.
+
+    ``derived`` receives what the backlog mode's derivation found beyond its
+    case list (:class:`_BacklogFindings`), and stays empty in the named-case
+    modes, where nothing is derived.
     """
     if body_file is not None:
         return parse_cases(body_file.read_text())
@@ -12856,7 +13079,9 @@ def _requested_cases(
             "excludes a fully-graded case before the already-graded gate --force "
             "disables. Name the target with --body-file, or --court and --docket."
         )
-    return _predict_backlog_cases() if backlog == "predict" else _evaluate_backlog_cases()
+    if backlog == "predict":
+        return _predict_backlog_cases(derived)
+    return _evaluate_backlog_cases(derived)
 
 
 def _spend_gate_or_empty(stage: str) -> SpendVerdict:
@@ -14181,7 +14406,14 @@ def _plan_count_lines(plan: dict[str, Any], *, stage: str) -> list[str]:
     return [
         f"{stage} {grain.replace('_', ' ')}: "
         + ", ".join(f"{name}={value}" for name, value in counts[grain].items())
-        for grain in ("provenance", "cell_ledger")
+        # The two backlog-mode blocks render only where the plan carries them.
+        for grain in (
+            "provenance",
+            "cell_ledger",
+            "case_reconciliation",
+            "predictionless_resolutions",
+        )
+        if counts.get(grain)
     ]
 
 
@@ -14527,6 +14759,11 @@ def _echo_plan(
     typer.echo(json.dumps(plan, separators=(",", ":")))
 
 
+def _plan_reconciliation(derived: list[PredictBacklog]) -> CaseReconciliation | None:
+    """The backlog derivation's case reconciliation, or ``None`` in a named-case plan."""
+    return derived[0].reconciliation if derived else None
+
+
 @app.command("predict-plan")
 def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     body_file: Annotated[
@@ -14609,8 +14846,9 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
     """
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
+    derived = _BacklogFindings()
     fanout = _predict_fanout(
-        _requested_cases(body_file, court, docket, event, backlog="predict"),
+        _requested_cases(body_file, court, docket, event, backlog="predict", derived=derived),
         planned_run_id,
         stage="predict-plan",
         stranded_file=stranded_file,
@@ -14675,7 +14913,15 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
                 # rather than applying it, so the two numbers differ there.
                 "would_mint_cells_after_spend_gate": (0 if verdict.breached else len(would_mint)),
             },
+            # Case grain, and only in the backlog mode: every in-scope, funded
+            # case with an open forecastable event, filed in exactly one bucket
+            # (`CaseReconciliation`). `null` when the cases were named, since
+            # a named list has no universe to reconcile against.
+            "case_reconciliation": (
+                recon.counts_json() if (recon := _plan_reconciliation(derived.predict)) else None
+            ),
         },
+        "case_reconciliation": recon.detail_json() if recon else None,
         "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
         "dropped_cohort_narrowed": [r.as_json() for r in fanout.cohort_narrowed],
         "dropped_unforecastable": [r.as_json() for r in fanout.resolution.unforecastable],
@@ -14724,7 +14970,7 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
 
 
 @app.command("evaluate-plan")
-def evaluate_plan_cmd(
+def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     body_file: Annotated[
         Path | None,
         typer.Option(
@@ -14757,6 +15003,14 @@ def evaluate_plan_cmd(
             "carries it — a plan mints none — so it names the run only in the plan."
         ),
     ] = "",
+    missed_since: Annotated[
+        datetime | None,
+        typer.Option(
+            formats=["%Y-%m-%d"],
+            help="Backfill the missed-forecast monitor from this date (YYYY-MM-DD) rather "
+            "than over its default lookback. Backlog mode only.",
+        ),
+    ] = None,
     approval_report: _ApprovalReportOption = None,
     approval_report_run_url: _ApprovalReportRunUrlOption = "",
 ) -> None:
@@ -14785,11 +15039,35 @@ def evaluate_plan_cmd(
     evaluator digests, at a stage no pre-freeze anchor covers,
     so the anchor holds until an evaluate fan-out under the currently blessed
     grading digests reaches the cert stage — rides in ``spend_estimate_basis.caveats`` alone.
+
+    In the backlog mode the plan also carries the **missed-forecast monitor**
+    (:mod:`fedcourtsai.pipeline.missed`): ``counts.predictionless_resolutions``
+    counts, at event grain, the events resolved in the window that some enabled
+    predictor never forecast, split into ``declined`` (by reason) and
+    ``missed``; the top-level ``predictionless_resolutions`` lists each with its
+    reason. The backlog itself cannot report these — it derives only events
+    holding a prediction to grade, which is why ``dropped_predictionless_cells``
+    counts only the ungraded siblings of graded work. ``--missed-since`` widens
+    the window for a backfill; both are ``null`` for named cases.
     """
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
+    if missed_since is not None and (body_file is not None or court or docket is not None):
+        raise typer.BadParameter(
+            "--missed-since backfills the missed-forecast monitor, which runs in the "
+            "backlog mode only; omit --body-file, --court and --docket."
+        )
+    derived = _BacklogFindings(missed_since=missed_since.date() if missed_since else None)
     fanout = _evaluate_fanout(
-        _requested_cases(body_file, court, docket, event, backlog="evaluate", force=force),
+        _requested_cases(
+            body_file,
+            court,
+            docket,
+            event,
+            backlog="evaluate",
+            force=force,
+            derived=derived,
+        ),
         planned_run_id,
         stage="evaluate-plan",
         force=force,
@@ -14830,7 +15108,21 @@ def evaluate_plan_cmd(
                 "would_mint_cells": len(would_mint),
                 "would_mint_cells_after_spend_gate": (0 if verdict.breached else len(would_mint)),
             },
+            # Event grain: resolved events some enabled predictor never
+            # forecast, declined by design or missed. `null` for named cases.
+            # A failed scan carries its error here too, so it never reads
+            # like a named-case plan's `null`.
+            "predictionless_resolutions": (
+                derived.missed[0].counts_json()
+                if derived.missed
+                else ({"error": derived.missed_error} if derived.missed_error else None)
+            ),
         },
+        "predictionless_resolutions": (
+            derived.missed[0].detail_json()
+            if derived.missed
+            else ({"error": derived.missed_error} if derived.missed_error else None)
+        ),
         "dropped_out_of_scope": [r.as_json() for r in fanout.scope_dropped],
         "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
         "dropped_predictionless": [r.as_json() for r in fanout.predictionless],

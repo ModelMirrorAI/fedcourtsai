@@ -145,16 +145,67 @@
       "title": "BigCaseEvent",
       "type": "object"
     },
+    "BigCaseOutcomeLine": {
+      "additionalProperties": false,
+      "description": "What one action open at a row's moment does for the named sides.",
+      "properties": {
+        "action": {
+          "description": "The action, spelled as the outcome vocabulary spells it \u2014 `granted` / `denied` for a petition or an application, `reversed` / `affirmed` / `vacated` for a merits case. Pair a line with the forecast by `side`, not by `action`: a merits forecast has no per-action label",
+          "enum": [
+            "granted",
+            "denied",
+            "reversed",
+            "affirmed",
+            "vacated"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "line": {
+          "description": "One fixed plain-language sentence saying what the action does for the sides, by name. Consequences only, never likelihood",
+          "title": "Line",
+          "type": "string"
+        },
+        "side": {
+          "description": "The side of the stage's forecast binary the action falls on. For a petition or an application, `granted` pairs with the headline probability and `not-granted` with its complement. For a merits case the headline is P(judgment below disturbed), which pools reversal, vacatur and the mixed in-part outcome: `reversed` and `vacated` are both `disturbed` and pair with it together, `affirmed` is `undisturbed` and pairs with its complement \u2014 never one line to the whole number",
+          "enum": [
+            "granted",
+            "not-granted",
+            "disturbed",
+            "undisturbed"
+          ],
+          "title": "Side",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "side",
+        "line"
+      ],
+      "title": "BigCaseOutcomeLine",
+      "type": "object"
+    },
     "BigCaseProvenance": {
       "additionalProperties": false,
       "description": "The board's reading rules, carried inside the artifact.\n\nRegistered prose rather than a free-text note: the board is published to a\npublic site, where the figure travels without the document that explains it,\nso the caveats travel inside the artifact instead.",
       "properties": {
+        "asking_rule": {
+          "description": "How `asking_party`, `other_party` and `outcome_lines` are derived, where each `asking_declined` value comes from, and what the lines cannot see",
+          "title": "Asking Rule",
+          "type": "string"
+        },
         "caption_rule": {
           "title": "Caption Rule",
           "type": "string"
         },
         "collapse_rule": {
           "title": "Collapse Rule",
+          "type": "string"
+        },
+        "docket_rule": {
+          "description": "Where `docket_number` is read from, in precedence order, what `docket_url` links to, and why a row can carry neither",
+          "title": "Docket Rule",
           "type": "string"
         },
         "leaderboard_divergence": {
@@ -189,6 +240,11 @@
           "title": "Reading Rule",
           "type": "string"
         },
+        "short_caption_rule": {
+          "description": "How `short_caption` is derived from `caption`, and when it is null",
+          "title": "Short Caption Rule",
+          "type": "string"
+        },
         "version_scope": {
           "description": "What `process_scope` covers on **this** build, and what the other scope would cost: version-blind by default, with the `frozen` comparison build's selected hold-out stated rather than left to be inferred. Scope-aware prose \u2014 a build states its own population, never both",
           "title": "Version Scope",
@@ -205,6 +261,9 @@
         "rank_resolution",
         "no_time_series",
         "caption_rule",
+        "short_caption_rule",
+        "docket_rule",
+        "asking_rule",
         "process_label"
       ],
       "title": "BigCaseProvenance",
@@ -335,6 +394,43 @@
       "additionalProperties": false,
       "description": "One case on the board: the panel's current stakes reads and their mean.\n\nOne **moment** per row, and every read on it: the case is collapsed to the\nnewest moment its docket has reached (`moment`), and each predictor's read is\nits newest run on that moment. A predictor with no run there is absent from\nthe row rather than pooled into it from an older moment, so the reads the\nmean is taken over are answers to the same question \u2014 at the cost of a\nsmaller `n` where a fresh moment has been minted for only some of the panel.",
       "properties": {
+        "asking_declined": {
+          "anyOf": [
+            {
+              "enum": [
+                "no_caption",
+                "not_scotus",
+                "in_re",
+                "not_two_sided",
+                "docket_labels",
+                "short_form",
+                "original_jurisdiction",
+                "cross_petition",
+                "stage"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why the row carries no asking side, one value per branch of the `asking_rule` provenance string (`no_caption`, `not_scotus`, `in_re`, `not_two_sided`, `docket_labels`, `short_form`, `original_jurisdiction`, `cross_petition`, `stage`); None exactly when `asking_party` is set",
+          "title": "Asking Declined"
+        },
+        "asking_party": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The short name of the side asking the Court to act at `moment` \u2014 the petitioner, applicant, appellant, plaintiff or movant, named first in the caption \u2014 by the `asking_rule` provenance string, with the short-caption rule's party names. None exactly when `asking_declined` is set. Display-only",
+          "title": "Asking Party"
+        },
         "caption": {
           "anyOf": [
             {
@@ -345,7 +441,7 @@
             }
           ],
           "default": null,
-          "description": "The case's display name: the `event.yaml` title of `moment`. There is no docket number in committed data, so the caption is the only human handle and `case_id` is the identifier",
+          "description": "The case's display name: the `event.yaml` title of `moment`. `case_id` is the identifier; the caption and, where committed data carries one, `docket_number` are the human handles",
           "title": "Caption"
         },
         "caption_event_id": {
@@ -380,6 +476,49 @@
         "docket_id": {
           "title": "Docket Id",
           "type": "integer"
+        },
+        "docket_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The Court's own docket number (\"26-239\", \"26A124\"), read from committed data by the `docket_rule` provenance string; None where no committed source carries it. Display-only",
+          "title": "Docket Number"
+        },
+        "docket_number_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "case_id",
+                "qp-topics"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where `docket_number` came from, so the rule is checkable against the row: `case_id` (a live-first reserved-range id, which packs the docket number losslessly) or `qp-topics` (the committed labels artifact's docket number for the case). None exactly when `docket_number` is",
+          "title": "Docket Number Source"
+        },
+        "docket_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The Court's supremecourt.gov docket page for `docket_number`; None where there is no docket number or it is not a Term-form or application number",
+          "title": "Docket Url"
         },
         "events": {
           "description": "The case's predicted events, ordered by event id, each with every predictor's newest read of it",
@@ -435,6 +574,35 @@
           "title": "N",
           "type": "integer"
         },
+        "other_party": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The short name of the other side, named second in the caption. None exactly when `asking_party` is. Display-only",
+          "title": "Other Party"
+        },
+        "outcome_lines": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/BigCaseOutcomeLine"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One fixed plain-language line per action open at `moment`'s stage, filled with `asking_party` and `other_party`: granted and denied for a petition or an application, reversed, affirmed and vacated for a merits case. Consequences only, never likelihood \u2014 shown beside the forecast, paired by each line's `side`, so a reader can tell whom each action helps. None exactly when `asking_party` is. Display-only",
+          "title": "Outcome Lines"
+        },
         "score_max": {
           "description": "Highest current read on the case's current moment",
           "maximum": 1.0,
@@ -455,6 +623,19 @@
           "minimum": 0.0,
           "title": "Score Range",
           "type": "number"
+        },
+        "short_caption": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The conventional short form of `caption` (\"Trump v. California\"), derived deterministically by the `short_caption_rule` provenance string. None where the rule cannot produce a confident one \u2014 a reader falls back to `caption`. Display-only: nothing predicts, evaluates or scores on it",
+          "title": "Short Caption"
         },
         "status": {
           "description": "Resolution state across **all** the case's predicted events, derived from `outcome.json` presence: none resolved, some resolved, all resolved. The one case-grain figure on an otherwise moment-scoped row \u2014 a case can read `resolved` on an earlier event while `moment` is still pending, so it is never read as the moment's own state",
@@ -671,8 +852,9 @@
       "type": "integer"
     },
     "schema_version": {
-      "const": "1.0",
-      "default": "1.0",
+      "const": "1.2",
+      "default": "1.2",
+      "description": "The artifact's schema version. A reader keys on it: a `1.1` row carries the display fields `short_caption`, `docket_number`, `docket_number_source` and `docket_url`, and a `1.2` row adds `asking_party`, `other_party`, `outcome_lines` and `asking_declined`",
       "title": "Schema Version",
       "type": "string"
     },

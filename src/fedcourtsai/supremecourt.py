@@ -32,6 +32,10 @@ import httpx
 
 DOCKET_JSON_URL = "https://www.supremecourt.gov/rss/cases/JSON/{docket}.json"
 
+# The Court's human-readable docket page for one docket number — a display link,
+# never fetched by this module: the live channel reads the JSON above.
+DOCKET_PAGE_URL = "https://www.supremecourt.gov/docket/docketfiles/html/public/{docket}.html"
+
 # Any ordinary browser UA is accepted; the default programmatic UA gets a 403.
 # Pinned so runs are comparable (shared with the reachability probe's posture).
 BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0"
@@ -157,6 +161,47 @@ def _reserved_id(base: int, term: int, serial: int) -> int:
     if not 0 < serial < _LIVE_TERM_STRIDE:
         raise ValueError(f"serial out of range: {serial}")
     return base + term * _LIVE_TERM_STRIDE + serial
+
+
+def reserved_docket_number(docket_id: int) -> str | None:
+    """The docket number a reserved-range docket id was minted from, or ``None``.
+
+    The inverse of :func:`live_docket_id` / :func:`live_application_id`: a
+    live-first row's id *is* its docket number, packed losslessly, so decoding
+    it needs no record. ``None`` for a CourtListener id, which carries no docket
+    number, and for an id in a reserved range that no Term/serial pair packs to.
+    """
+    form: Literal["cert", "application"]
+    if docket_id >= LIVE_APPLICATION_ID_BASE:
+        base, form = LIVE_APPLICATION_ID_BASE, "application"
+    elif docket_id >= LIVE_DOCKET_ID_BASE:
+        base, form = LIVE_DOCKET_ID_BASE, "cert"
+    else:
+        return None
+    term, serial = divmod(docket_id - base, _LIVE_TERM_STRIDE)
+    if term >= 100 or serial == 0:
+        return None
+    return scotus_docket_slug(term, serial, form=form)
+
+
+def docket_page_url(docket_number: str) -> str | None:
+    """The Court's docket page for a Term-form or application docket number, or ``None``.
+
+    Only the two forms :func:`scotus_docket_slug` spells are linked; an original
+    or miscellaneous docket, or an unparseable string, gets no link rather than
+    a guessed one. The application page's file name is lower-case (``24a1099``),
+    the form the Court's site serves; the upper-case spelling resolves too.
+    Committed predict cells' retrieval logs record both forms fetched from this
+    path, applications included.
+    """
+    cert = parse_scotus_docket_number(docket_number)
+    if cert is not None:
+        return DOCKET_PAGE_URL.format(docket=scotus_docket_slug(*cert))
+    application = parse_scotus_application_number(docket_number)
+    if application is not None:
+        slug = scotus_docket_slug(*application, form="application").lower()
+        return DOCKET_PAGE_URL.format(docket=slug)
+    return None
 
 
 def is_live_docket_id(docket_id: int) -> bool:

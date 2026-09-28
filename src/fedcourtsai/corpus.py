@@ -4151,6 +4151,24 @@ def iter_open_events(conn: ReadConnection, *, court: str | None = None) -> Itera
         yield _event_from_record(record)
 
 
+def open_unexcluded_case_ids(conn: ReadConnection, *, court: str) -> list[str]:
+    """Case ids in ``court`` with an open event whose row is not latched ``predict_excluded``.
+
+    ``case_id``-ordered and distinct. The scope latch is a column on the case
+    row, so answering it in the join reads only the rows it keeps: on a SCOTUS
+    corpus the open-event set is nearly every case and the unexcluded share of
+    it a few percent, which is the difference between hydrating hundreds of
+    thousands of rows and a few thousand. An open event with no case row is not
+    returned — it cannot be scope-checked at all.
+    """
+    cur = conn.execute(
+        "SELECT DISTINCT e.case_id FROM events e JOIN cases c ON c.case_id = e.case_id "
+        "WHERE e.resolved = 0 AND e.court = ? AND c.predict_excluded = 0 ORDER BY e.case_id",
+        (court,),
+    )
+    return [str(record["case_id"]) for record in cur]
+
+
 def iter_resolved_events(
     conn: ReadConnection, *, court: str | None = None
 ) -> Iterator[CorpusEvent]:
@@ -4170,6 +4188,27 @@ def iter_resolved_events(
     cur = conn.execute(f"SELECT * FROM events WHERE {where} ORDER BY case_id, event_id", params)
     for record in cur:
         yield _event_from_record(record)
+
+
+def resolved_events_on_selected_rows(conn: ReadConnection, *, court: str) -> list[CorpusEvent]:
+    """Resolved events whose case row is latched ``salience_selected`` and in scope.
+
+    ``(case_id, event_id)``-ordered. The candidate read of the ledger-outcome
+    convergence (:func:`fedcourtsai.pipeline.outcome.converge_ledger_outcomes`):
+    answered in the join so it hydrates only the selected, not
+    ``predict_excluded`` population — a few thousand rows — rather than every
+    resolved event the court carries. A selected row the scope reconcile has
+    latched out of scope is excluded: selection runs over the in-scope set, so
+    such a row carries a stale latch, not a case the pipeline owes ground truth.
+    """
+    cur = conn.execute(
+        "SELECT e.* FROM events e JOIN cases c ON c.case_id = e.case_id "
+        "WHERE e.resolved = 1 AND e.court = ? AND c.salience_selected = 1 "
+        "AND c.predict_excluded = 0 "
+        "ORDER BY e.case_id, e.event_id",
+        (court,),
+    )
+    return [_event_from_record(record) for record in cur]
 
 
 def set_event_resolved(

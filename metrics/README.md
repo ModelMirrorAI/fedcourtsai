@@ -2004,8 +2004,112 @@ the rendered table) and
   asked about and is **not** a sample of the docket or of any conference.
   Display is by caption — the `event.yaml` title of the case's current moment,
   whose event id `caption_event_id` repeats so the rule is checkable against the
-  row — because there is no docket number in committed data; `case_id` is the
-  identifier.
+  row; `case_id` is the identifier.
+
+  **Short captions.** `short_caption` is the conventional short form of the
+  caption ("Trump v. California"), for a reader scanning rows on a phone. It is
+  derived by a fixed rule (`fedcourtsai.short_caption`, stated in full in the
+  `short_caption_rule` provenance string): each side's first-named party; the
+  United States and a state or territory as written; an organisation by its
+  name less a leading "The", a parenthetical and corporate forms, or by the
+  acronym the Court's own case names use for a federal agency; a person by
+  surname — except that a name of exactly three full words ("Maggie Toulouse
+  Oliver") stands whole, because its last two words may be one surname and the
+  caption cannot say. It is **null wherever the rule is not sure** — an organisation name
+  longer than six words, whose conventional short form is an acronym only a
+  reader knows ("RAICES"), a person's name longer than three words or carrying
+  a surname particle, where the caption cannot say where the surname starts —
+  and a site falls back to the full caption. The rule reads a party whose name
+  is not shaped like a person's, or that carries an alias (`dba`, `fka`, `aka`),
+  as an organisation, because a whole name is never wrong where a lone word taken
+  for a surname can be; it still cannot tell an organisation from a person when
+  the organisation's name is two capitalised words with nothing institutional in
+  them and no alias.
+
+  **Docket numbers.** `docket_number` is the Court's own number ("26-239",
+  "26A124") and `docket_url` its supremecourt.gov docket page; both are
+  display-only, and the board still reads committed data alone to get them. A
+  live-first case's reserved-range id is minted from its docket number and
+  decodes back to it (`docket_number_source: case_id`); a CourtListener-keyed
+  case takes the docket number the qp-topic labels artifact records for it
+  (`qp-topics`). A CourtListener case the labeler has not reached, an
+  application among them, has neither source and publishes null — its id
+  carries no docket number and the board does not read the corpus. Coverage
+  therefore grows with each labeling batch and with the live-first share of the
+  predicted set; the `docket_rule` provenance string carries the same account.
+
+  **Who is asking, and what each outcome does for them.** A row that reads
+  "granted 30%" does not say whom a grant helps, so each row names the sides and
+  says what each action open at its `moment` does for them. `asking_party` is
+  the side asking the Court to act — the petitioner, applicant, appellant,
+  plaintiff or movant — and `other_party` the side answering, both read from the
+  caption (`fedcourtsai.asking_party`, stated in full in the `asking_rule`
+  provenance string). The Court's docket names its asking side first. The board
+  has no other committed copy of the docket's party labels: the structured
+  petitioner and respondent titles live in the corpus, which the board does not
+  read. So a caption that still carries a label ("Petitioners", "Applicants") is
+  checked against its order, and one without a label is read by order alone.
+  The names are the short-caption rule's, so a side has one exactly where
+  `short_caption` would. `outcome_lines` holds one fixed sentence per action,
+  filled with those names. The stage comes from the moment registry, as the
+  row's collapse already reads it. A petition (the arrival, distribution and
+  CVSG moments) gets *granted*: the Court takes up the asking side's case, and a
+  grant alone decides nothing yet about who is right; and *denied*: the asking
+  side's petition ends and the lower court's decision stands, which is not a
+  ruling that the lower court was right. An application (the interim moments)
+  gets *granted*: the asking side gets the relief requested, for now, and the
+  case continues in the lower courts; and *denied*: it does not, for now, and
+  things stay as the lower courts left them. A merits case gets *reversed*: the
+  asking side wins in the Court, and any remaining issues go back to the lower
+  court; *affirmed*: the other side wins; and *vacated*: the decision below is
+  set aside and the case goes back, without the Court deciding it for either
+  side. The lines state consequences only, never likelihood, and give each
+  action the same weight. They never say who "wins" beyond what the action
+  itself does.
+
+  **How a line pairs with the forecast: by `side`, not by `action`.** Each line
+  carries the `side` of the stage's forecast binary its action falls on. A
+  petition or application forecast is P(granted): the `granted` line pairs with
+  it and the `not-granted` line with its complement. The granted side also
+  holds a GVR and a summary reversal, which the grant line does not describe. A
+  merits forecast is P(judgment below disturbed), and there is no per-action
+  merits label. `reversed` and `vacated` are both `disturbed` and pair with that
+  probability together; `affirmed` is `undisturbed` and pairs with its
+  complement. Neither side is one line: the mixed affirmed-in-part outcome is
+  disturbed and has no line, and a dismissal as improvidently granted or an
+  equally divided affirmance is undisturbed and has none either. So a site
+  never puts "Apple wins in the Court" beside the merits probability as though
+  that number were P(reversed).
+
+  The three fields are null together, and `asking_declined` says why. The
+  reasons are:
+
+  - `in_re`: any "In re" caption — an extraordinary writ such as mandamus,
+    prohibition or habeas — names no second side.
+  - `short_form`: the short-caption rule cannot name a side, or both sides
+    shorten to the same name.
+  - `docket_labels`: a caption label contradicts the order, or a side is
+    labeled as a cross-petitioner.
+  - `original_jurisdiction`: the docket number is an original one, or the
+    docket number is unknown and both sides are sovereigns (a State or the
+    United States). A Term-form petition number or an application number is
+    never original, so a State-against-State application is read like any
+    other caption.
+  - `cross_petition`: another committed case, predicted or not, names the same
+    two parties in reverse order, with docket dates within a Term and a half.
+    Both sides are then asking. An undated pair counts, and a pair whose other
+    half is not committed is not seen.
+  - `stage`: the moment registry declares no stage for the moment.
+  - `no_caption`, `not_scotus` and `not_two_sided` cover the remaining shapes.
+
+  What the rule cannot see is a named party that supports the other side, such
+  as the federal government as respondent agreeing with the petitioner, or who
+  stands behind a name: the names are the caption's short names, so an official
+  sued in that capacity appears by surname, not as the government. The lines
+  stay about the action there. The article a name takes ("the Department of
+  Labor", "the FTC", but "Apple") is display-grade, not grammar-complete. Like
+  the other display fields, these are never read by a predictor, an evaluator
+  or a metric, and `metrics/big-cases.md` does not render them.
 
   **Process scope, and why the default is version-blind.** `process_scope` says
   which process versions a **current read** may come from. The default is

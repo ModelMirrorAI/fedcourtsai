@@ -968,7 +968,8 @@ shared with the ledger models.
 - **Stakes reads** — the **big-case board** (`fedcourts big-cases` →
   `metrics/big-cases.{json,md}`, refreshed daily by `run-analytics`): the only
   **case-centric** published roll-up, and one whose whole input is the committed
-  *predictions* ledger, so it reads no corpus at all (`claim-scores.json` reads
+  *predictions* ledger and the qp-topic labels artifact (for docket numbers), so
+  it reads no corpus at all (`claim-scores.json` reads
   the evaluations ledger the same way). One row per predicted case, each
   predictor's current `big_case_score` and the mean over those that gave one. It
   is a panel opinion about which cases matter, never a forecast or a skill figure
@@ -1163,6 +1164,54 @@ or network.
      because nothing
      resolves an event on a row carrying no judgment — but there is no longer a
      judgment to forecast, so the event stops earning cells and simply sits.
+
+     An event pinned to one docket entry is never a claimant of its stage's
+     disposition: it resolves on its own filing's terms, so an application
+     whose submission line also names a motion ("Application for a stay and
+     motion for leave to file …") extracts an interim-staged pinned event that
+     neither receives the application's disposition nor takes the declared
+     interim moments to triage.
+
+     **Ledger-outcome convergence.** The corpus `resolved` flag has a second
+     writer besides detection: re-extraction marks a decided docket's baseline
+     resolved from the row's disposition, whether or not an outcome was
+     recorded, and detection reads open events only. So a baseline detection
+     declined once — a triaged poll, a baseline born in a shape detection did
+     not attribute to, a case first ingested already decided — is closed with
+     no ledger outcome, and nothing grades it or resolves the sibling moments
+     still open beside it. The live cycle therefore ends its polls with a
+     standing sweep (`pipeline.outcome.converge_ledger_outcomes`). Every
+     declared moment on a salience-selected, in-scope SCOTUS row that the
+     corpus records resolved without a complete ledger pair — no
+     `outcome.json`, or no `event.yaml` beside it, so a write interrupted
+     between the two is finished next window — is re-run through the same
+     detection beside the case's open events and recorded by the same writer,
+     which validates both models before writing either. Its open sibling
+     moments resolve from the same disposition in the same call, and a
+     recorded cert grant mints the merits event as the poll does — unless the
+     case already has one, or the grant's basis is mootness. A gap is due when its stage was decided within the last 90 days
+     (inclusive), or at any age when the case holds a committed prediction at
+     that stage — an owed grade does not expire, and a lookback there would drop
+     the late-fixed triage shapes, an outcome-correlated exclusion. The
+     disposition basis and order markers are read from the **latest** stored
+     snapshot, so they can differ from what the resolving poll would have
+     written where later entries change the reading; a case with no stored
+     snapshot, or whose stage carries no decision date, is surfaced on the
+     unrecorded queue and never recorded on a guess.
+
+     Due cases are attempted newest decision first. Per window at most 25
+     cases are recorded and 100 attempted; a declined case does not spend the
+     record bound, so fewer than 100 persistent declines cannot starve a recordable gap, and
+     the cases left over carry to the next window. A case whose attempt raises
+     (a content-store read error, say) lands on the window's failed list and
+     the pass continues; if the pass itself raises it is skipped for that
+     window, never taking the window's polls down with it. Its counts
+     (recorded, unrecorded, failed, deferred) print on the live step's output.
+     Idempotent, and routed into the same evaluate / unrecorded queues as a
+     poll result, with a case the window's polls already put on the unrecorded
+     queue listed once. It is not a backfill: unpredicted selected rows
+     decided longer ago were mostly ingested already decided and never
+     forecastable, and writing their ground truth is a population decision.
 
 ## Maintenance passes
 

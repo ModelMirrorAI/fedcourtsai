@@ -16,17 +16,26 @@ corpus, or a predictor pulling base-rate context after a corpus pull) and the
 from __future__ import annotations
 
 import math
+import sys
 from collections import Counter, defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import date
 from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple, cast
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from . import corpus, store
+from .asking_party import (
+    CROSS_PETITION_WINDOW_DAYS,
+    AskingSides,
+    asking_sides,
+    caption_heads,
+    outcome_lines,
+)
 from .config import StatpackConfig
 from .corpus import CorpusRow, strip_docket_annotation
 from .integrity import cell_clock, leakage_excluded
@@ -43,6 +52,7 @@ from .pipeline.outcome import granted_flag, is_machine_readable
 # rows rather than as a rate. One number because the reason is one reason — under ten
 # rows a single petition moves a ratio by tens of points — so moving it moves both.
 from .pipeline.qp_topics import SUPPORT_FLOOR as _QP_REFERENCE_SUPPORT_FLOOR
+from .pipeline.qp_topics import labels_path as qp_topic_labels_path
 from .pipeline.salience import (
     SALIENCE_VERSION,
     registered_versions,
@@ -54,11 +64,13 @@ from .process_version import CURRENT_PROCESS_LABEL, frozen_process_record, is_fr
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     AnalyticsReport,
+    AskingDeclineReason,
     BaseRateBucket,
     BigCaseBoard,
     BigCaseCoverage,
     BigCaseCurrentRead,
     BigCaseEvent,
+    BigCaseOutcomeLine,
     BigCaseProvenance,
     BigCaseRead,
     BigCaseRow,
@@ -91,8 +103,15 @@ from .schemas import (
     TimingStats,
 )
 from .serialize import read_model
+from .short_caption import AGENCY_ACRONYMS, MAX_ORGANISATION_WORDS, MAX_PERSON_WORDS, short_caption
 from .store import LedgerPrediction
-from .supremecourt import IFP_SERIAL_BASE, october_term_year, parse_scotus_docket_number
+from .supremecourt import (
+    IFP_SERIAL_BASE,
+    docket_page_url,
+    october_term_year,
+    parse_scotus_docket_number,
+    reserved_docket_number,
+)
 
 if TYPE_CHECKING:
     import sqlite3
@@ -3169,8 +3188,86 @@ _BIG_CASE_CAPTION_RULE = (
     "the row without a join. A case read at two moments therefore displays under the one "
     "its panel was collapsed to, and a row is on the board at all only where that moment "
     "carries a score, so the caption never advertises a moment no number came from. A "
-    "case whose event definition is absent displays no caption. There is no docket number "
-    "in committed data; `case_id` is the identifier and the caption is the human handle."
+    "case whose event definition is absent displays no caption. `case_id` is the "
+    "identifier and the caption is the human handle."
+)
+
+_BIG_CASE_SHORT_CAPTION_RULE = (
+    "`short_caption` is derived from `caption` by a fixed rule and is null wherever the "
+    "rule is not sure, because a null costs a reader nothing (the full caption stands) "
+    "while a wrong short form misnames a case. Each side of the single ` v. ` (an `In re` "
+    "caption has one side) is reduced to its first-named party — the text before the "
+    "first comma, everything after it being description. `United States` and a state or "
+    "territory stand as written. An organisation — a corporate form, an institutional "
+    "noun, an alias segment (`dba`, `fka`, `aka`), or any name not shaped like a "
+    "person's — keeps its name with a leading `The`, a parenthetical and trailing "
+    "corporate forms dropped (kept where the rest is initials only); a federal "
+    "agency the Court's own case names abbreviate takes that acronym "
+    f"({', '.join(sorted(AGENCY_ACRONYMS.values()))}), and a federal trial or appellate "
+    "court named with its seat keeps the court's name. An organisation name still longer "
+    f"than {MAX_ORGANISATION_WORDS} words is null, since its conventional short form is an "
+    "acronym or phrase only a reader knows. A person is their surname, the last word; a "
+    "name of initials only stands whole, and so does a name of exactly "
+    f"{MAX_PERSON_WORDS} full words, whose last two may be one surname; a name with a "
+    "surname particle or longer than "
+    f"{MAX_PERSON_WORDS} words is null, since the caption cannot say where the surname "
+    "starts. Either side null makes the short caption null. Display-only: nothing "
+    "predicts, evaluates or scores on it."
+)
+
+_BIG_CASE_DOCKET_RULE = (
+    "`docket_number` is the Court's own docket number, read from committed data only, so "
+    "the board still needs no corpus and no credential. Two sources, in this order, and "
+    "`docket_number_source` names the one a row used. First the case id itself: a "
+    "live-first case's docket id is minted from its docket number in a reserved range "
+    "and packs it losslessly, so decoding it needs no record (`case_id`). Otherwise the "
+    "committed question-presented labels artifact, which records each labeled case's "
+    "docket number beside its case id (`qp-topics`). A CourtListener-keyed case the "
+    "labeler has not reached has neither and publishes null — the id carries no docket "
+    "number, and the board does not read the corpus for one. `docket_url` is the Court's "
+    "supremecourt.gov docket page for a Term-form or application number, null otherwise. "
+    "Display-only: nothing predicts, evaluates or scores on either field."
+)
+
+_BIG_CASE_ASKING_RULE = (
+    "`asking_party` is the side asking the Court to act at the row's `moment` — the "
+    "petitioner, applicant, appellant, plaintiff or movant — and `other_party` the side "
+    "answering. Both are read from `caption`: the Court's docket names its asking side "
+    "first, and the board has no other committed source for the docket's party labels, so "
+    "a caption that still carries a label (`Petitioners`, `Applicants`) is checked against "
+    "its order and one that carries none is read by order alone. The names are the "
+    "short-caption rule's party names, so a side has one exactly where `short_caption` "
+    "would. `outcome_lines` are fixed sentences filled with those names, one per action "
+    "open at the stage of `moment` (the moment registry's stage, as the row's collapse "
+    "reads it): granted and denied for a petition or an application, reversed, affirmed "
+    "and vacated for a merits case. Each line names the `side` of the stage's forecast "
+    "binary its action falls on, and that is how it pairs with the forecast. A petition "
+    "or application forecast is P(granted): `granted` pairs with it and `not-granted` "
+    "with its complement, and the granted side also holds a GVR and a summary reversal, "
+    "which the grant line does not describe. A merits forecast is P(judgment below "
+    "disturbed): `reversed` and `vacated` are both `disturbed` and pair with it together, "
+    "`affirmed` is `undisturbed` and pairs with its complement, and neither side is one "
+    "line — the mixed in-part outcome is disturbed and has no line, and a dismissal as "
+    "improvidently granted or an equally divided affirmance is undisturbed and has none "
+    "either. The lines state what each action does for the sides — consequences only, "
+    "never likelihood, each action at the same weight — and never who wins beyond what "
+    "the action itself does. All three fields are null together, and `asking_declined` "
+    "says why: `no_caption`; `not_scotus`; `in_re` (any `In re` caption — an "
+    "extraordinary writ such as mandamus, prohibition or habeas — names no second side); "
+    "`not_two_sided`; `docket_labels` (a label that contradicts the order, or a "
+    "cross-petitioner label); `short_form` (the short-caption rule declines a side, or "
+    "both sides shorten to the same name); `original_jurisdiction` (an original docket "
+    "number, or, where the docket number is unknown, a caption whose both sides are "
+    "sovereigns — a Term-form petition number or an application number is never "
+    "original); `cross_petition` (another committed case names the same two parties in "
+    f"reverse order with docket dates within {CROSS_PETITION_WINDOW_DAYS} days, so both "
+    "sides are asking — an undated pair counts, and a cross-petition whose other half is "
+    "not committed is not seen); `stage` (the moment registry declares no stage for "
+    "`moment`). What the rule cannot see is a party supporting the other side, such as "
+    "the federal government as respondent agreeing with the petitioner, and who stands "
+    "behind a name: the names are the caption's short names, so an official sued in that "
+    "capacity appears by surname, not as the government. The lines stay about the action "
+    "there. Display-only: nothing predicts, evaluates or scores on these fields."
 )
 
 
@@ -3179,7 +3276,7 @@ def _big_case_provenance(
 ) -> BigCaseProvenance:
     """The board's registered reading rules, worded for the scope it was built at.
 
-    Five of the nine strings are scope-aware, because each carries a claim about
+    Five of the twelve strings are scope-aware, because each carries a claim about
     the *population* rather than about the method: asserting version-blindness on
     a frozen build, or the frozen build's selection effect on a version-blind
     one, would publish a false caveat inside the artifact a public site reads.
@@ -3195,6 +3292,9 @@ def _big_case_provenance(
         rank_resolution=_BIG_CASE_RANK_RESOLUTION,
         no_time_series=_big_case_no_time_series(process_scope),
         caption_rule=_BIG_CASE_CAPTION_RULE,
+        short_caption_rule=_BIG_CASE_SHORT_CAPTION_RULE,
+        docket_rule=_BIG_CASE_DOCKET_RULE,
+        asking_rule=_BIG_CASE_ASKING_RULE,
         process_label=CURRENT_PROCESS_LABEL,
     )
 
@@ -3469,6 +3569,172 @@ def _big_case_status(
     return "resolved" if resolved == len(events) else "partly_resolved"
 
 
+def _committed_docket_numbers(data_root: Path) -> dict[str, str]:
+    """Case id to docket number, from the committed qp-topic labels artifact.
+
+    The one committed file that records a CourtListener-keyed case's docket
+    number. Absent until a labeling batch has landed, which is simply an empty
+    map: the rows it would have filled publish no docket number.
+    """
+    path = qp_topic_labels_path(data_root)
+    if not path.is_file():
+        return {}
+    try:
+        labels = read_model(path, QpTopicLabels)
+    except (ValueError, OSError) as exc:
+        # A display field is not worth the daily board: an unreadable labels file
+        # costs its rows their docket numbers, loudly, and nothing else.
+        print(
+            f"big-cases: warning: {path} unreadable ({type(exc).__name__}); "
+            "CourtListener-keyed rows publish no docket number",
+            file=sys.stderr,
+        )
+        return {}
+    return {entry.case_id: entry.docket_number.strip() for entry in labels.entries}
+
+
+@dataclass(frozen=True)
+class _CaptionIndex:
+    """Every committed event title's two first-named parties, and each case's dates.
+
+    What the cross-petition test reads: a case is one of a pair where another
+    committed case names the same two parties in reverse order, dated close
+    enough to be the same Term's filings.
+    """
+
+    cases_by_heads: Mapping[tuple[str, str], frozenset[str]]
+    dates_by_case: Mapping[str, frozenset[date]]
+
+    def mirrored(self, case_id: str, heads: tuple[str, str]) -> bool:
+        """Whether another case's caption mirrors ``heads`` within the cross-petition window.
+
+        An undated case on either side cannot be ruled out, so it counts: the
+        decline is the cheap direction.
+        """
+        own = self.dates_by_case.get(case_id, frozenset())
+        for other in self.cases_by_heads.get((heads[1], heads[0]), frozenset()):
+            if other == case_id:
+                continue
+            theirs = self.dates_by_case.get(other, frozenset())
+            if not own or not theirs:
+                return True
+            if min(abs((a - b).days) for a in own for b in theirs) <= CROSS_PETITION_WINDOW_DAYS:
+                return True
+        return False
+
+
+def _committed_caption_index(data_root: Path) -> _CaptionIndex:
+    """The caption index over every committed SCOTUS ``event.yaml``, predicted or not.
+
+    The whole ledger rather than the board's own cases, because the other half of
+    a cross-petition pair need not have been predicted. Parsed with the C loader
+    where the platform has one: the scan is every event definition in the tree.
+    """
+    cases_by_heads: dict[tuple[str, str], set[str]] = defaultdict(set)
+    dates_by_case: dict[str, set[date]] = defaultdict(set)
+    cases_dir = data_root / "cases"
+    if not cases_dir.exists():
+        return _CaptionIndex(cases_by_heads={}, dates_by_case={})
+    loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+    for path in sorted(cases_dir.glob("scotus/*/events/*/event.yaml")):
+        try:
+            raw = yaml.load(path.read_text(), Loader=loader)
+        except (yaml.YAMLError, OSError, ValueError) as exc:
+            # A display field is not worth the daily board: an unreadable definition
+            # drops out of the cross-petition test, loudly, and nothing else.
+            print(
+                f"big-cases: warning: {path} unreadable ({type(exc).__name__}); "
+                "left out of the cross-petition test",
+                file=sys.stderr,
+            )
+            continue
+        if not isinstance(raw, dict):
+            continue
+        case_id = raw.get("case_id")
+        if not isinstance(case_id, str):
+            continue
+        opened_at = raw.get("opened_at")
+        if isinstance(opened_at, str):
+            opened_at = _parse_date(opened_at)
+        if isinstance(opened_at, date):
+            dates_by_case[case_id].add(opened_at)
+        title = raw.get("title")
+        heads = caption_heads(title if isinstance(title, str) else None)
+        if heads is not None:
+            cases_by_heads[heads].add(case_id)
+    return _CaptionIndex(
+        cases_by_heads={heads: frozenset(ids) for heads, ids in cases_by_heads.items()},
+        dates_by_case={case_id: frozenset(days) for case_id, days in dates_by_case.items()},
+    )
+
+
+def _parse_date(text: str) -> date | None:
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+@dataclass(frozen=True)
+class _AskingFields:
+    """The four asking fields of one row: the sides and lines, or the decline."""
+
+    asking: str | None = None
+    other: str | None = None
+    lines: list[BigCaseOutcomeLine] | None = None
+    declined: AskingDeclineReason | None = None
+
+
+def _asking_fields(
+    caption: str | None,
+    *,
+    case_id: str,
+    court_id: str,
+    moment: str,
+    docket_number: str | None,
+    captions: _CaptionIndex,
+) -> _AskingFields:
+    """A row's asking side, other side and outcome lines, or why it has none."""
+    spec = moment_registry.spec_for(moment)
+    stage = spec.stage if spec is not None else None
+    heads = caption_heads(caption)
+    sides = asking_sides(
+        caption,
+        court_id=court_id,
+        docket_number=docket_number,
+        stage=stage,
+        mirrored=heads is not None and captions.mirrored(case_id, heads),
+    )
+    if not isinstance(sides, AskingSides):
+        return _AskingFields(declined=sides)
+    if stage is None:  # unreachable: asking_sides declines a moment with no stage
+        return _AskingFields(declined="stage")
+    return _AskingFields(
+        asking=sides.asking,
+        other=sides.other,
+        lines=[
+            BigCaseOutcomeLine(action=action, side=side, line=line)
+            for action, side, line in outcome_lines(stage, sides)
+        ],
+    )
+
+
+def _docket_number(
+    docket_id: int, case_id: str, committed: Mapping[str, str]
+) -> tuple[str, Literal["case_id", "qp-topics"]] | None:
+    """A case's docket number and the source it came from, or ``None``.
+
+    The case id first, because a reserved-range id *is* the docket number and
+    so cannot disagree with the case; the labels artifact only where the id is
+    a CourtListener one.
+    """
+    decoded = reserved_docket_number(docket_id)
+    if decoded is not None:
+        return decoded, "case_id"
+    recorded = committed.get(case_id)
+    return (recorded, "qp-topics") if recorded else None
+
+
 def _big_case_row(
     case_rows: list[LedgerPrediction],
     *,
@@ -3476,6 +3742,8 @@ def _big_case_row(
     data_root: Path,
     repo_url: str,
     leakage: _Leakage,
+    docket_numbers: Mapping[str, str],
+    captions: _CaptionIndex,
 ) -> BigCaseRow | None:
     """One case's board row, or ``None`` where no predictor holds a current score.
 
@@ -3521,14 +3789,36 @@ def _big_case_row(
     )
     moment_definition = definitions[moment]
     first = case_rows[0]
+    caption = moment_definition.title if moment_definition is not None else None
+    docket = (
+        _docket_number(first.docket_id, first.case_id, docket_numbers)
+        if first.court_id == "scotus"
+        else None
+    )
+    asking = _asking_fields(
+        caption,
+        case_id=first.case_id,
+        court_id=first.court_id,
+        moment=moment,
+        docket_number=docket[0] if docket is not None else None,
+        captions=captions,
+    )
     return BigCaseRow(
         case_id=first.case_id,
         court_id=first.court_id,
         docket_id=first.docket_id,
         moment=moment,
         moment_opened_at=moment_definition.opened_at if moment_definition is not None else None,
-        caption=moment_definition.title if moment_definition is not None else None,
+        caption=caption,
         caption_event_id=moment,
+        short_caption=short_caption(caption),
+        docket_number=docket[0] if docket is not None else None,
+        docket_number_source=docket[1] if docket is not None else None,
+        docket_url=docket_page_url(docket[0]) if docket is not None else None,
+        asking_party=asking.asking,
+        other_party=asking.other,
+        outcome_lines=asking.lines,
+        asking_declined=asking.declined,
         status=_big_case_status(events),
         mean_big_case_score=round(sum(scores) / len(scores), 4),
         n=len(scores),
@@ -3559,8 +3849,11 @@ def build_big_case_board(
 ) -> BigCaseBoard:
     """Roll the committed predictions into the case-centric big-case board.
 
-    Ledger-only: it reads ``data/`` and nothing else — no corpus, no network, no
-    credentials, no clock — so it runs anywhere a checkout exists and reruns over
+    Ledger-only: it reads ``data/`` and nothing else — the predictions, the
+    committed qp-topic labels for the docket numbers a CourtListener id does not
+    carry, and every committed event definition's caption for the cross-petition
+    test — with no corpus, no network, no credentials, no clock, so it runs
+    anywhere a checkout exists and reruns over
     an unchanged ledger reproduce the artifact byte for byte. That is also why it
     stamps no time and no commit: the board's vintage is the commit that wrote
     it.
@@ -3597,6 +3890,8 @@ def build_big_case_board(
             # otherwise render as a column of blanks on every row.
             predictors.add(row.predictor_id)
     leakage = _leakage_index(data_root, predictions)
+    docket_numbers = _committed_docket_numbers(data_root)
+    captions = _committed_caption_index(data_root)
     rows = [
         board_row
         for case_id in sorted(by_case)
@@ -3607,6 +3902,8 @@ def build_big_case_board(
                 data_root=data_root,
                 repo_url=repo_url,
                 leakage=leakage,
+                docket_numbers=docket_numbers,
+                captions=captions,
             )
         )
         is not None

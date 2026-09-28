@@ -7157,6 +7157,45 @@ class BigCaseEvent(_Strict):
     )
 
 
+#: Why a big-case board row carries no asking side: one value per branch of the
+#: rule in :mod:`fedcourtsai.asking_party`.
+AskingDeclineReason = Literal[
+    "no_caption",
+    "not_scotus",
+    "in_re",
+    "not_two_sided",
+    "docket_labels",
+    "short_form",
+    "original_jurisdiction",
+    "cross_petition",
+    "stage",
+]
+
+
+class BigCaseOutcomeLine(_Strict):
+    """What one action open at a row's moment does for the named sides."""
+
+    action: Literal["granted", "denied", "reversed", "affirmed", "vacated"] = Field(
+        description="The action, spelled as the outcome vocabulary spells it — `granted` / "
+        "`denied` for a petition or an application, `reversed` / `affirmed` / `vacated` for "
+        "a merits case. Pair a line with the forecast by `side`, not by `action`: a merits "
+        "forecast has no per-action label"
+    )
+    side: Literal["granted", "not-granted", "disturbed", "undisturbed"] = Field(
+        description="The side of the stage's forecast binary the action falls on. For a "
+        "petition or an application, `granted` pairs with the headline probability and "
+        "`not-granted` with its complement. For a merits case the headline is "
+        "P(judgment below disturbed), which pools reversal, vacatur and the mixed in-part "
+        "outcome: `reversed` and `vacated` are both `disturbed` and pair with it together, "
+        "`affirmed` is `undisturbed` and pairs with its complement — never one line to the "
+        "whole number"
+    )
+    line: str = Field(
+        description="One fixed plain-language sentence saying what the action does for the "
+        "sides, by name. Consequences only, never likelihood"
+    )
+
+
 class BigCaseCurrentRead(_Strict):
     """A predictor's current read of a case, and where it came from.
 
@@ -7225,14 +7264,68 @@ class BigCaseRow(_Strict):
     )
     caption: str | None = Field(
         default=None,
-        description="The case's display name: the `event.yaml` title of `moment`. There is "
-        "no docket number in committed data, so the caption is the only human handle and "
-        "`case_id` is the identifier",
+        description="The case's display name: the `event.yaml` title of `moment`. `case_id` "
+        "is the identifier; the caption and, where committed data carries one, "
+        "`docket_number` are the human handles",
     )
     caption_event_id: str | None = Field(
         default=None,
         description="The event the caption was read from — `moment`, repeated here so the "
         "rule is checkable against the row without a join",
+    )
+    short_caption: str | None = Field(
+        default=None,
+        description='The conventional short form of `caption` ("Trump v. California"), '
+        "derived deterministically by the `short_caption_rule` provenance string. None where "
+        "the rule cannot produce a confident one — a reader falls back to `caption`. "
+        "Display-only: nothing predicts, evaluates or scores on it",
+    )
+    docket_number: str | None = Field(
+        default=None,
+        description='The Court\'s own docket number ("26-239", "26A124"), read from '
+        "committed data by the `docket_rule` provenance string; None where no committed "
+        "source carries it. Display-only",
+    )
+    docket_number_source: Literal["case_id", "qp-topics"] | None = Field(
+        default=None,
+        description="Where `docket_number` came from, so the rule is checkable against the "
+        "row: `case_id` (a live-first reserved-range id, which packs the docket number "
+        "losslessly) or `qp-topics` (the committed labels artifact's docket number for the "
+        "case). None exactly when `docket_number` is",
+    )
+    docket_url: str | None = Field(
+        default=None,
+        description="The Court's supremecourt.gov docket page for `docket_number`; None "
+        "where there is no docket number or it is not a Term-form or application number",
+    )
+    asking_party: str | None = Field(
+        default=None,
+        description="The short name of the side asking the Court to act at `moment` — the "
+        "petitioner, applicant, appellant, plaintiff or movant, named first in the "
+        "caption — by the `asking_rule` "
+        "provenance string, with the short-caption rule's party names. None exactly when "
+        "`asking_declined` is set. Display-only",
+    )
+    other_party: str | None = Field(
+        default=None,
+        description="The short name of the other side, named second in the caption. None "
+        "exactly when `asking_party` is. Display-only",
+    )
+    outcome_lines: list[BigCaseOutcomeLine] | None = Field(
+        default=None,
+        description="One fixed plain-language line per action open at `moment`'s stage, "
+        "filled with `asking_party` and `other_party`: granted and denied for a petition or "
+        "an application, reversed, affirmed and vacated for a merits case. Consequences "
+        "only, never likelihood — shown beside the forecast, paired by each line's `side`, "
+        "so a reader can tell whom each action helps. None exactly when `asking_party` is. "
+        "Display-only",
+    )
+    asking_declined: AskingDeclineReason | None = Field(
+        default=None,
+        description="Why the row carries no asking side, one value per branch of the "
+        "`asking_rule` provenance string (`no_caption`, `not_scotus`, `in_re`, "
+        "`not_two_sided`, `docket_labels`, `short_form`, `original_jurisdiction`, "
+        "`cross_petition`, `stage`); None exactly when `asking_party` is set",
     )
     status: Literal["pending", "partly_resolved", "resolved"] = Field(
         description="Resolution state across **all** the case's predicted events, derived "
@@ -7283,6 +7376,29 @@ class BigCaseRow(_Strict):
         "predictor's newest read of it",
     )
 
+    @model_validator(mode="after")
+    def _docket_fields_travel_together(self) -> BigCaseRow:
+        """A docket number names its source, and a docket link has a number behind it."""
+        if (self.docket_number is None) != (self.docket_number_source is None):
+            raise ValueError("docket_number_source is set exactly when docket_number is")
+        if self.docket_url is not None and self.docket_number is None:
+            raise ValueError("docket_url requires a docket_number")
+        return self
+
+    @model_validator(mode="after")
+    def _asking_fields_travel_together(self) -> BigCaseRow:
+        """The asking side, the other side and the lines are all set, or a decline says why."""
+        present = [
+            self.asking_party is not None,
+            self.other_party is not None,
+            self.outcome_lines is not None,
+        ]
+        if any(present) and not all(present):
+            raise ValueError("asking_party, other_party and outcome_lines are set together")
+        if all(present) == (self.asking_declined is not None):
+            raise ValueError("asking_declined is set exactly when asking_party is not")
+        return self
+
 
 class BigCaseCoverage(_Strict):
     """How many cases the board ranks on `n` reads — the denominator distribution."""
@@ -7324,6 +7440,17 @@ class BigCaseProvenance(_Strict):
     )
     no_time_series: str
     caption_rule: str
+    short_caption_rule: str = Field(
+        description="How `short_caption` is derived from `caption`, and when it is null"
+    )
+    docket_rule: str = Field(
+        description="Where `docket_number` is read from, in precedence order, what "
+        "`docket_url` links to, and why a row can carry neither"
+    )
+    asking_rule: str = Field(
+        description="How `asking_party`, `other_party` and `outcome_lines` are derived, "
+        "where each `asking_declined` value comes from, and what the lines cannot see"
+    )
     process_label: str = Field(
         description="The process label in force when the board was built — what a "
         "prediction minted today stamps, not a scope filter on the rows (see `version_scope`)"
@@ -7364,7 +7491,13 @@ class BigCaseBoard(_Strict):
     artifact's vintage is the commit that wrote it.
     """
 
-    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    schema_version: Literal["1.2"] = Field(
+        default="1.2",
+        description="The artifact's schema version. A reader keys on it: a `1.1` row "
+        "carries the display fields `short_caption`, `docket_number`, "
+        "`docket_number_source` and `docket_url`, and a `1.2` row adds `asking_party`, "
+        "`other_party`, `outcome_lines` and `asking_declined`",
+    )
     process_scope: Literal["frozen", "all"] = Field(
         default="all",
         description="Which process versions a **current read** may come from: `all` (the "
@@ -8747,6 +8880,16 @@ class CaseSummaryFrontMatter(_Strict):
         pattern=_SHA256_DIGEST,
         description="sha256 of `.github/prompts/summarize.md` as sent",
     )
+    body_version: Literal[1, 2] = Field(
+        default=1,
+        description="The body contract the summary was written to, which fixes the "
+        + "sections the validator holds it to (`summaries.SECTION_HEADINGS_BY_VERSION`): "
+        + "1, the three sections — what happened, what the Court is being asked, "
+        + "where it stands; 2, those three between a one-sentence `In brief` headline "
+        + "and a closing `What each outcome would mean`. Absent means 1. The harness "
+        + "stamps the current version on every summary it writes, and a case whose "
+        + "newest summary is older is owed a new one",
+    )
     generated_at: datetime = Field(description="When the harness wrote the file (UTC)")
     usage: CaseSummaryUsage | None = Field(
         default=None, description="The writing call's token usage, where the response carried it"
@@ -8761,9 +8904,11 @@ class SummaryPlanCase(_Strict):
     docket_id: int
     snapshot: date = Field(description="The newest snapshot day; the summary's filename")
     record_digest: str = Field(pattern=_SHA256_DIGEST)
-    reason: Literal["new", "record-changed"] = Field(
+    reason: Literal["new", "record-changed", "body-outdated"] = Field(
         description="new: the case has no committed summary; record-changed: its "
-        + "newest summary was written from a different record"
+        + "newest summary was written from a different record; body-outdated: its "
+        + "newest summary matches the record but was written to an earlier body "
+        + "contract (`body_version`)"
     )
     documents: int = Field(ge=0, description="Stored documents the record carries")
     input_chars: int = Field(

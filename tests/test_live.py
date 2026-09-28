@@ -15,6 +15,7 @@ from fedcourtsai import corpus, supremecourt
 from fedcourtsai.cert_backtest import redact_snapshot, truncate_snapshot
 from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import live as live_module
 from fedcourtsai.pipeline.ingest import (
     CorpusSource,
     backfill_live_signals,
@@ -25,6 +26,7 @@ from fedcourtsai.pipeline.ingest import (
 )
 from fedcourtsai.pipeline.live import (
     LiveDiscovery,
+    _route_convergence,
     _within_term_roll_grace,
     discover_live,
     ingest_live_payload,
@@ -32,8 +34,9 @@ from fedcourtsai.pipeline.live import (
     poll_live_cases,
     salience_sweep,
 )
+from fedcourtsai.pipeline.outcome import OutcomeConvergence, UnrecordedOutcome
 from fedcourtsai.pipeline.pull import PullQueues
-from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Outcome
+from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Moment, Outcome, Stage
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import forecastable_events
 from fedcourtsai.supremecourt import (
@@ -110,6 +113,30 @@ def test_live_docket_id_is_deterministic_and_reserved() -> None:
         live_docket_id(125, 1)
     with pytest.raises(ValueError):
         live_docket_id(25, 0)
+
+
+def test_a_reserved_docket_id_decodes_to_the_docket_number_it_was_minted_from() -> None:
+    for term, serial in ((26, 239), (26, 5001), (5, 1), (99, 999_999)):
+        assert supremecourt.reserved_docket_number(live_docket_id(term, serial)) == (
+            f"{term:02d}-{serial}"
+        )
+        assert supremecourt.reserved_docket_number(
+            supremecourt.live_application_id(term, serial)
+        ) == (f"{term:02d}A{serial}")
+    # A CourtListener id carries no docket number, and a reserved-range id no
+    # Term/serial pair packs to decodes to nothing rather than to a guess.
+    assert supremecourt.reserved_docket_number(73_265_897) is None
+    assert supremecourt.reserved_docket_number(9_026_000_000) is None
+    assert supremecourt.reserved_docket_number(9_000_000_000 + 100 * 1_000_000 + 1) is None
+
+
+def test_the_docket_page_links_term_form_and_application_numbers_only() -> None:
+    page = "https://www.supremecourt.gov/docket/docketfiles/html/public/"
+    assert supremecourt.docket_page_url("26-239") == f"{page}26-239.html"
+    assert supremecourt.docket_page_url("25-5001 ") == f"{page}25-5001.html"
+    assert supremecourt.docket_page_url("26A124") == f"{page}26a124.html"
+    for unlinked in ("22O141", "25M12", "", "not a number"):
+        assert supremecourt.docket_page_url(unlinked) is None
 
 
 def test_parse_scotus_docket_number_accepts_term_form_only() -> None:
@@ -3272,3 +3299,176 @@ def test_the_judged_docket_exits_the_live_rotation(tmp_path: Path) -> None:
         assert [r.case_id for r in corpus.live_rotation(conn, limit=10)] == ["scotus/1"]
         corpus.set_event_resolved(conn, "scotus/1", "evt-order-judgment")
         assert corpus.live_rotation(conn, limit=10) == []
+
+
+def test_live_poll_all_converges_a_selected_moment_closed_without_its_outcome(
+    tmp_path: Path,
+) -> None:
+    """A decided application the rotation no longer polls still lands its outcome.
+
+    The corpus closed the baseline without a ledger outcome (the ingest latch
+    after a declined detection), so no poll will ever revisit it; the cycle's
+    convergence writes it and routes the predicted moment to evaluation.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    case_id = "scotus/9526000325"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number="26A325",
+                    date_filed=date(2026, 9, 9),
+                    date_decided=date(2026, 9, 22),
+                    disposition=Disposition.denied,
+                )
+            ],
+        )
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v4', salience_selected = 1 WHERE case_id = ?",
+            (case_id,),
+        )
+        conn.commit()
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-motion-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.motion,
+                    stage=Stage.interim,
+                    moment=Moment.arrival,
+                    title="M. W.",
+                    opened_at=date(2026, 9, 9),
+                    decision_target="disposition",
+                    resolved=True,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-brief-response-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.brief,
+                    stage=Stage.interim,
+                    moment=Moment.response_filed,
+                    title="M. W.",
+                    opened_at=date(2026, 9, 18),
+                    decision_target="disposition",
+                    resolved=False,
+                ),
+            ],
+        )
+        corpus.upsert_snapshot(
+            conn,
+            case_id,
+            date(2026, 9, 27),
+            {
+                "CaseNumber": "26A325 ",
+                "ProceedingsandOrder": [
+                    {"Date": "Sep 22 2026", "Text": "Application (26A325) denied by the Court."}
+                ],
+            },
+        )
+    predicted = (
+        CasePaths(data_root, "scotus", 9526000325)
+        .event("evt-brief-response-disposition")
+        .predictions_dir
+        / "claude-baseline"
+        / "20260919T000000Z"
+    )
+    predicted.mkdir(parents=True)
+    (predicted / "prediction.json").write_text("{}")
+
+    with _frontier_client({}) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=26, config=LiveConfig(), today=date(2026, 9, 28)
+        )
+
+    case = CasePaths(data_root, "scotus", 9526000325)
+    assert case.event("evt-motion-disposition").outcome.exists()
+    assert case.event("evt-brief-response-disposition").outcome.exists()
+    assert {
+        "court": "scotus",
+        "docket": 9526000325,
+        "events": ["evt-brief-response-disposition"],
+    } in (queues.evaluate)
+    assert {"court": "scotus", "docket": 9526000325, "events": ["evt-motion-disposition"]} in (
+        queues.evaluate_skipped
+    )
+    assert queues.convergence["recorded_cases"] == 1
+
+
+def test_a_raising_convergence_never_takes_the_window_down(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A failure in the sweep's candidate read (an S3 error under corpus-split,
+    # say) must leave the window's own polls intact for the corpus push.
+    def boom(*_args: object, **_kwargs: object) -> object:
+        raise PermissionError("AccessDenied")
+
+    monkeypatch.setattr(live_module, "converge_ledger_outcomes", boom)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with _frontier_client({"25-1": _payload("25-1")}) as client:
+        queues, discovery = live_poll_all(
+            client, db, tmp_path / "data", term=25, config=LiveConfig(), today=date(2026, 7, 9)
+        )
+    assert discovery.case_ids == ["scotus/9025000001"]
+    assert queues.convergence == {"error": "PermissionError"}
+
+
+def test_a_raising_convergence_routing_never_takes_the_window_down(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Routing reads the corpus row and the ledger per recorded case, so it can
+    # raise as well; it sits inside the same guard as the sweep.
+    def boom(*_args: object, **_kwargs: object) -> None:
+        raise OSError("SlowDown")
+
+    monkeypatch.setattr(live_module, "_route_convergence", boom)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with _frontier_client({"25-1": _payload("25-1")}) as client:
+        queues, discovery = live_poll_all(
+            client, db, tmp_path / "data", term=25, config=LiveConfig(), today=date(2026, 7, 9)
+        )
+    assert discovery.case_ids == ["scotus/9025000001"]
+    assert queues.convergence == {"error": "OSError"}
+
+
+def test_a_case_already_on_the_unrecorded_queue_is_not_listed_twice(tmp_path: Path) -> None:
+    queues = PullQueues()
+    queues.unrecorded.append(
+        {"court": "scotus", "docket": 9526000325, "events": ["x"], "reason": "poll"}
+    )
+    declined = UnrecordedOutcome(
+        case_id="scotus/9526000325",
+        court_id="scotus",
+        docket_id=9526000325,
+        event_id="evt-motion-disposition",
+        disposition=Disposition.other,
+        date_decided=date(2026, 9, 22),
+        reason="sweep",
+    )
+    other = UnrecordedOutcome(
+        case_id="scotus/9526000326",
+        court_id="scotus",
+        docket_id=9526000326,
+        event_id="evt-motion-disposition",
+        disposition=Disposition.other,
+        date_decided=date(2026, 9, 22),
+        reason="sweep",
+    )
+    _route_convergence(
+        queues,
+        corpus.corpus_db_path(tmp_path / "corpus"),
+        tmp_path / "data",
+        OutcomeConvergence(unrecorded=[declined, other], failed={"scotus/9526000327": "OSError"}),
+        gated=False,
+    )
+    assert [entry["docket"] for entry in queues.unrecorded] == [9526000325, 9526000326]
+    assert queues.failed == [
+        {"court": "scotus", "docket": 9526000327, "reason": "outcome convergence: OSError"}
+    ]
+    assert queues.convergence["unrecorded_events"] == 2
