@@ -20,6 +20,9 @@
 #   scripts/gate.sh data     validate data + corpus-status
 #   scripts/gate.sh schemas  export-schemas + schema-drift check
 #
+# Several stages may be named at once (`scripts/gate.sh lint types`); they run
+# in the order given, failing on the first failure.
+#
 # Named stages preserve the discretion AGENTS.md grants — run the subset that
 # fits the change (a docs-only change needs none of the Python stages). With no
 # argument every stage runs in the order CI runs them.
@@ -101,18 +104,30 @@ all() {
   schemas
 }
 
-stage="${1:-all}"
-case "$stage" in
-  lock) lock ;;
-  lint) lint ;;
-  types) types ;;
-  test) test_stage ;;
-  data) data ;;
-  schemas) schemas ;;
-  all) all ;;
-  *)
-    echo "unknown stage: $stage" >&2
-    echo "usage: scripts/gate.sh [lock|lint|types|test|data|schemas]" >&2
-    exit 2
-    ;;
-esac
+usage="usage: scripts/gate.sh [lock|lint|types|test|data|schemas|all] ..."
+
+# Every named stage is checked before any runs, so a typo fails at once rather
+# than after the stages ahead of it, and no argument is ever silently ignored.
+[ "$#" -eq 0 ] && set -- all
+for stage in "$@"; do
+  case "$stage" in
+    lock | lint | types | test | data | schemas | all) ;;
+    *)
+      echo "unknown stage: $stage" >&2
+      echo "$usage" >&2
+      exit 2
+      ;;
+  esac
+done
+
+for stage in "$@"; do
+  case "$stage" in
+    lock) lock ;;
+    lint) lint ;;
+    types) types ;;
+    test) test_stage ;;
+    data) data ;;
+    schemas) schemas ;;
+    all) all ;;
+  esac
+done
