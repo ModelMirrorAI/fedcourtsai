@@ -1181,11 +1181,14 @@ or network.
      still open beside it. The live cycle therefore ends its polls with a
      standing sweep (`pipeline.outcome.converge_ledger_outcomes`). Every
      declared moment on a salience-selected, in-scope SCOTUS row that the
-     corpus records resolved without a ledger `outcome.json` is re-run through
-     the same detection beside the case's open events and recorded by the same
-     writer, so its open sibling moments resolve from the same disposition in
-     the same call, and a recorded cert grant mints the merits event as the
-     poll does. A gap is due when its stage was decided within the last 90 days
+     corpus records resolved without a complete ledger pair — no
+     `outcome.json`, or no `event.yaml` beside it, so a write interrupted
+     between the two is finished next window — is re-run through the same
+     detection beside the case's open events and recorded by the same writer,
+     which validates both models before writing either. Its open sibling
+     moments resolve from the same disposition in the same call, and a
+     recorded cert grant mints the merits event as the poll does — unless the
+     case already has one, or the grant's basis is mootness. A gap is due when its stage was decided within the last 90 days
      (inclusive), or at any age when the case holds a committed prediction at
      that stage — an owed grade does not expire, and a lookback there would drop
      the late-fixed triage shapes, an outcome-correlated exclusion. The

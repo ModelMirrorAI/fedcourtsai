@@ -1382,14 +1382,14 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     # recorded here, so the sweep's owed check reads its siblings resolved
     # rather than re-queuing a decided application.
     # Failure-isolated as a whole, not only per case: a failure in the candidate
-    # read must not abort the window, or its polls, cursors and outcomes never
-    # reach the corpus push that follows.
+    # read or its routing must not abort the window, or its polls, cursors and
+    # outcomes never reach the corpus push that follows. Routing only appends
+    # to the queues, so a raise part-way leaves nothing inconsistent.
     try:
         convergence = converge_ledger_outcomes(corpus_db_path, data_root, today=today)
+        _route_convergence(queues, corpus_db_path, data_root, convergence, gated=gated)
     except Exception as exc:  # the sweep is a backstop; the window's own work comes first
         queues.convergence = {"error": type(exc).__name__}
-    else:
-        _route_convergence(queues, corpus_db_path, data_root, convergence, gated=gated)
 
     if salience_config is not None:
         with corpus.connect(corpus_db_path) as conn:

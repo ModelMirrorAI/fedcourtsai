@@ -1265,35 +1265,40 @@ def record_outcomes(
     written: list[str] = []
     with corpus.connect(corpus_db_path) as conn:
         events_by_id = {e.event_id: e for e in corpus.events_for_case(conn, case_id)}
+        # Every model is built and validated before the first write, so a
+        # deterministic failure (a missing corpus event, a field the ledger
+        # model refuses) raises with nothing on disk rather than leaving an
+        # outcome without the event definition the gate requires beside it.
+        planned: list[tuple[str, Outcome, PredictableEvent]] = []
         for event_id, outcome in sorted(resolution.outcomes.items()):
             event = events_by_id.get(event_id)
             if event is None:
-                # Fail loud, before the outcome is written: an outcome without
-                # its event definition is exactly the orphan the gate rejects,
-                # and a resolution for an event the corpus does not hold is an
-                # internal inconsistency (the open-events read and this write
-                # use the same table), not upstream degradation.
+                # An outcome without its event definition is exactly the orphan
+                # the gate rejects, and a resolution for an event the corpus
+                # does not hold is an internal inconsistency (the open-events
+                # read and this write use the same table), not upstream
+                # degradation.
                 raise RuntimeError(
                     f"corpus holds no event {event_id!r} for {case_id}; "
                     "refusing to write an orphaned outcome"
                 )
-            write_json(case.event(event_id).outcome, outcome)
-            write_yaml(
-                case.event(event_id).event_file,
-                PredictableEvent(
-                    event_id=event.event_id,
-                    case_id=event.case_id,
-                    kind=event.kind,
-                    stage=event.stage,
-                    moment=event.moment,
-                    title=event.title,
-                    description=event.description,
-                    docket_entry_id=event.docket_entry_id,
-                    opened_at=event.opened_at,
-                    decision_target=event.decision_target,
-                    resolved=True,  # the outcome beside it is the resolution
-                ),
+            definition = PredictableEvent(
+                event_id=event.event_id,
+                case_id=event.case_id,
+                kind=event.kind,
+                stage=event.stage,
+                moment=event.moment,
+                title=event.title,
+                description=event.description,
+                docket_entry_id=event.docket_entry_id,
+                opened_at=event.opened_at,
+                decision_target=event.decision_target,
+                resolved=True,  # the outcome beside it is the resolution
             )
+            planned.append((event_id, Outcome.model_validate(outcome.model_dump()), definition))
+        for event_id, outcome, definition in planned:
+            write_json(case.event(event_id).outcome, outcome)
+            write_yaml(case.event(event_id).event_file, definition)
             # An event with a realized outcome is, by definition, resolved: close
             # it in the corpus so the next open_events read stops queuing it.
             corpus.set_event_resolved(conn, case_id, event_id)
@@ -1366,7 +1371,10 @@ def merits_event_for(row: ResolvableRow, resolution: Resolution) -> corpus.Corpu
         (
             outcome
             for outcome in resolution.outcomes.values()
+            # A mootness disposition recorded under a plain grant label (a
+            # Munsingwear vacatur) ends at the order: nothing is argued.
             if outcome.actual_disposition in _MERITS_PROCEEDING
+            and outcome.disposition_basis != "mootness"
         ),
         None,
     )
@@ -1881,8 +1889,10 @@ def _due_cases(
 ) -> list[_DueCase]:
     """The cases carrying a convergence gap, newest decision first.
 
-    A gap is a declared moment the corpus records resolved with no ledger
-    ``outcome.json``. It is due when its stage was decided on or after
+    A gap is a declared moment the corpus records resolved whose ledger pair is
+    incomplete — no ``outcome.json``, or no ``event.yaml`` beside it, so a
+    write interrupted between the two is finished on the next pass rather than
+    published as an orphan forever. It is due when its stage was decided on or after
     ``floor``, or at any age when the case holds a committed prediction at that
     stage. A gap whose stage the row carries no decision date for is surfaced
     on ``result.unrecorded`` rather than dropped: there is no date to window it
@@ -1895,7 +1905,8 @@ def _due_cases(
         if spec is None:
             continue
         docket_id = int(event.case_id.rsplit("/", 1)[-1])
-        if CasePaths(data_root, "scotus", docket_id).event(event.event_id).outcome.exists():
+        paths = CasePaths(data_root, "scotus", docket_id).event(event.event_id)
+        if paths.outcome.exists() and paths.event_file.exists():
             continue
         gaps.setdefault(event.case_id, []).append((event.event_id, spec.stage))
     due: list[_DueCase] = []
@@ -1981,8 +1992,10 @@ def _converge_case(
         # poll (:func:`resolve_case`). Only the grant mint: the later-moment
         # mints key on the open-first-moment guard, which the gap's own closed
         # baseline already answers.
+        # Never over an existing merits row: the upsert would rewrite its title
+        # and description under whatever predictions it already carries.
         merits = merits_event_for(row, resolution)
-        if merits is not None:
+        if merits is not None and all(e.event_id != MERITS_EVENT_ID for e in events):
             with corpus.connect(corpus_db_path) as conn:
                 minted = _without_terminated_merits(conn, row.case_id, [merits])
                 persist_moment_events(conn, data_root, "scotus", docket_id, minted)

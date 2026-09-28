@@ -3395,6 +3395,24 @@ def test_a_raising_convergence_never_takes_the_window_down(
     assert queues.convergence == {"error": "PermissionError"}
 
 
+def test_a_raising_convergence_routing_never_takes_the_window_down(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Routing reads the corpus row and the ledger per recorded case, so it can
+    # raise as well; it sits inside the same guard as the sweep.
+    def boom(*_args: object, **_kwargs: object) -> None:
+        raise OSError("SlowDown")
+
+    monkeypatch.setattr(live_module, "_route_convergence", boom)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with _frontier_client({"25-1": _payload("25-1")}) as client:
+        queues, discovery = live_poll_all(
+            client, db, tmp_path / "data", term=25, config=LiveConfig(), today=date(2026, 7, 9)
+        )
+    assert discovery.case_ids == ["scotus/9025000001"]
+    assert queues.convergence == {"error": "OSError"}
+
+
 def test_a_case_already_on_the_unrecorded_queue_is_not_listed_twice(tmp_path: Path) -> None:
     queues = PullQueues()
     queues.unrecorded.append(

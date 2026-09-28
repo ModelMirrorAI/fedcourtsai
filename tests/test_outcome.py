@@ -7,6 +7,7 @@ from fedcourtsai import corpus
 from fedcourtsai.merits_event_migration import BRIEFED_MERITS_EVENT_ID
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import moments
+from fedcourtsai.pipeline import outcome as outcome_module
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.events import _SCOTUS_BASELINE_ONLY_KINDS
 from fedcourtsai.pipeline.ingest import CorpusRow, from_api_docket
@@ -47,7 +48,7 @@ from fedcourtsai.schemas import (
     PredictableEvent,
     Stage,
 )
-from fedcourtsai.serialize import read_model
+from fedcourtsai.serialize import read_model, write_yaml
 from fedcourtsai.store import _FORECASTABLE_KINDS
 
 DECIDED_DOCKET = {
@@ -2511,3 +2512,119 @@ def test_a_pinned_event_never_claims_the_stage_less_cert_fallback() -> None:
         row, "ca9", 64512345, ["evt-petition-review"], entry_pinned={"evt-petition-review"}
     )
     assert not resolution.outcomes
+
+
+_PLAIN_GRANT: dict[str, object] = {
+    "CaseNumber": "26-100 ",
+    "ProceedingsandOrder": [
+        {"Date": "Jun 01 2026", "Text": "Petition for a writ of certiorari filed."},
+        {"Date": "Sep 22 2026", "Text": "Petition GRANTED."},
+    ],
+}
+
+
+def test_the_sweep_never_rewrites_an_existing_merits_event(tmp_path: Path) -> None:
+    db = _seed_cert_gap(tmp_path, disposition=Disposition.granted, payload=_PLAIN_GRANT)
+    existing = corpus.CorpusEvent(
+        event_id=MERITS_EVENT_ID,
+        case_id="scotus/9026000100",
+        court="scotus",
+        kind=EventKind.order,
+        stage=Stage.merits,
+        moment=Moment.grant,
+        title="Kept title",
+        description="Kept description",
+        opened_at=date(2026, 9, 22),
+        decision_target="judgment",
+        resolved=False,
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [existing])
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert result.recorded == {"scotus/9026000100": ["evt-petition-disposition"]}
+    with corpus.connect(db) as conn:
+        (merits,) = [
+            e for e in corpus.events_for_case(conn, "scotus/9026000100") if e.stage == Stage.merits
+        ]
+    assert (merits.title, merits.description) == ("Kept title", "Kept description")
+    assert not CasePaths(tmp_path, "scotus", 9026000100).event(MERITS_EVENT_ID).base.exists()
+
+
+def test_the_sweep_mints_no_merits_event_on_a_terminated_proceeding(tmp_path: Path) -> None:
+    db = _seed_cert_gap(tmp_path, disposition=Disposition.granted, payload=_PLAIN_GRANT)
+    with corpus.connect(db) as conn:
+        corpus.set_merits_termination(
+            conn, "scotus/9026000100", MeritsTermination.voluntary_dismissal
+        )
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert result.recorded == {"scotus/9026000100": ["evt-petition-disposition"]}
+    assert not CasePaths(tmp_path, "scotus", 9026000100).event(MERITS_EVENT_ID).base.exists()
+
+
+def test_a_mootness_grant_mints_no_merits_event(tmp_path: Path) -> None:
+    # A Munsingwear vacatur recorded under a plain `granted` label ends at the
+    # order; its mootness basis keeps it off the merits docket.
+    payload: dict[str, object] = {
+        "CaseNumber": "26-100 ",
+        "ProceedingsandOrder": [
+            {"Date": "Jun 01 2026", "Text": "Petition for a writ of certiorari filed."},
+            {
+                "Date": "Sep 22 2026",
+                "Text": "Petition GRANTED. Judgment VACATED and case REMANDED with "
+                + "instructions to dismiss the case as moot.",
+            },
+        ],
+    }
+    db = _seed_cert_gap(tmp_path, disposition=Disposition.granted, payload=payload)
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert result.recorded == {"scotus/9026000100": ["evt-petition-disposition"]}
+    case = CasePaths(tmp_path, "scotus", 9026000100)
+    outcome = read_model(case.event("evt-petition-disposition").outcome, Outcome)
+    assert outcome.disposition_basis == "mootness"
+    assert not case.event(MERITS_EVENT_ID).base.exists()
+
+
+def test_record_outcomes_validates_before_touching_disk(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _seed_application(tmp_path, [_interim_event("evt-motion-disposition", resolved=False)])
+
+    def refuse(**_kwargs: object) -> object:
+        raise ValueError("refused by the ledger model")
+
+    monkeypatch.setattr(outcome_module, "PredictableEvent", refuse)
+    resolution = detect_resolution(
+        _decided_application_row(),
+        "scotus",
+        9526000325,
+        ["evt-motion-disposition"],
+        stages={"evt-motion-disposition": Stage.interim},
+    )
+    with pytest.raises(ValueError, match="refused"):
+        record_outcomes(db, tmp_path, "scotus", 9526000325, resolution)
+    assert not CasePaths(tmp_path, "scotus", 9526000325).base.exists()
+
+
+def test_a_half_written_pair_is_finished_on_the_next_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # An I/O failure between the two writes leaves an outcome with no event
+    # definition; the gap predicate reads the pair, so the next pass completes it.
+    db = _seed_application(tmp_path, [_interim_event("evt-motion-disposition", resolved=True)])
+    real = write_yaml
+
+    def broken(*_args: object, **_kwargs: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(outcome_module, "write_yaml", broken)
+    first = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert first.failed == {"scotus/9526000325": "OSError"}
+    paths = CasePaths(tmp_path, "scotus", 9526000325).event("evt-motion-disposition")
+    assert paths.outcome.exists()
+    assert not paths.event_file.exists()
+
+    monkeypatch.setattr(outcome_module, "write_yaml", real)
+    second = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert second.recorded == {"scotus/9526000325": ["evt-motion-disposition"]}
+    assert paths.outcome.exists()
+    assert paths.event_file.exists()
