@@ -189,7 +189,10 @@ def docket_page_url(docket_number: str) -> str | None:
 
     Only the two forms :func:`scotus_docket_slug` spells are linked; an original
     or miscellaneous docket, or an unparseable string, gets no link rather than
-    a guessed one. The application page's file name is lower-case (``24a1099``).
+    a guessed one. The application page's file name is lower-case (``24a1099``),
+    the form the Court's site serves; the upper-case spelling resolves too.
+    Committed predict cells' retrieval logs record both forms fetched from this
+    path, applications included.
     """
     cert = parse_scotus_docket_number(docket_number)
     if cert is not None:

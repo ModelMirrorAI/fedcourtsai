@@ -22,7 +22,7 @@ from fedcourtsai.short_caption import short_caption
         ("United States v. E. Jean Carroll, et al.", "United States v. Carroll"),
         ("United States, et al. v. Nicolas Talbott, et al.", "United States v. Talbott"),
         ("Alabama, et al. v. California, et al.", "Alabama v. California"),
-        ("Quashaun Melsun Reel v. North Carolina", "Reel v. North Carolina"),
+        ("Joseph J. Roybal, Sheriff, et al. v. Darlene Griffith", "Roybal v. Griffith"),
         ("Guam v. Richard Y. Ybanez, et al.", "Guam v. Ybanez"),
         (
             "Wes Allen, Alabama Secretary of State, et al. v. Marcus Caster, et al.",
@@ -58,7 +58,28 @@ from fedcourtsai.short_caption import short_caption
             "NHK Spring v. Seagate Technology",
         ),
         ("Christopher Veto v. The Boeing Company", "Veto v. Boeing"),
-        ("F.E.B. Corp. v. United States", "F.E.B. v. United States"),
+        # Initials alone keep their corporate form, which says they are a company.
+        ("F.E.B. Corp. v. United States", "F.E.B. Corp. v. United States"),
+        # An alias (`fka`, `aka`) reads the party as an organisation and keeps its
+        # whole name — right for Prutehi Guahan, never wrong for a person.
+        (
+            "Department of the Air Force, et al. v. Prutehi Guahan, fka Prutehi Litekyan",
+            "Department of the Air Force v. Prutehi Guahan",
+        ),
+        (
+            "Erik Charles Maund, aka Erik Moore v. United States",
+            "Erik Charles Maund v. United States",
+        ),
+        # Three full words may end in a two-word surname, so the name stands whole;
+        # with an initial in it, or two words, the surname is the last word.
+        (
+            "Rio Grande Foundation v. Maggie Toulouse Oliver, in Her Official Capacity as "
+            + "Secretary of State of New Mexico",
+            "Rio Grande Foundation v. Maggie Toulouse Oliver",
+        ),
+        ("Stephen Joseph Johnson v. Montana", "Stephen Joseph Johnson v. Montana"),
+        ("Kenneth J. Jouppi v. Alaska", "Jouppi v. Alaska"),
+        ("Francis Nielsen v. Kekai Watanabe", "Nielsen v. Watanabe"),
         (
             "Suncor Energy (U.S.A.) Inc., et al. v. County Commissioners of Boulder County, "
             + "et al.",

@@ -16,6 +16,7 @@ corpus, or a predictor pulling base-rate context after a corpus pull) and the
 from __future__ import annotations
 
 import math
+import sys
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
@@ -3178,7 +3179,7 @@ _BIG_CASE_CAPTION_RULE = (
     "its panel was collapsed to, and a row is on the board at all only where that moment "
     "carries a score, so the caption never advertises a moment no number came from. A "
     "case whose event definition is absent displays no caption. `case_id` is the "
-    "identifier; the caption, its short form and the docket number are human handles."
+    "identifier and the caption is the human handle."
 )
 
 _BIG_CASE_SHORT_CAPTION_RULE = (
@@ -3188,14 +3189,17 @@ _BIG_CASE_SHORT_CAPTION_RULE = (
     "caption has one side) is reduced to its first-named party — the text before the "
     "first comma, everything after it being description. `United States` and a state or "
     "territory stand as written. An organisation — a corporate form, an institutional "
-    "noun, a `dba` alias, or any name not shaped like a person's — keeps its name with a "
-    "leading `The`, a parenthetical and trailing corporate forms dropped; a federal "
+    "noun, an alias segment (`dba`, `fka`, `aka`), or any name not shaped like a "
+    "person's — keeps its name with a leading `The`, a parenthetical and trailing "
+    "corporate forms dropped (kept where the rest is initials only); a federal "
     "agency the Court's own case names abbreviate takes that acronym "
     f"({', '.join(sorted(AGENCY_ACRONYMS.values()))}), and a federal trial or appellate "
     "court named with its seat keeps the court's name. An organisation name still longer "
     f"than {MAX_ORGANISATION_WORDS} words is null, since its conventional short form is an "
     "acronym or phrase only a reader knows. A person is their surname, the last word; a "
-    "name of initials only stands whole; a name with a surname particle or longer than "
+    "name of initials only stands whole, and so does a name of exactly "
+    f"{MAX_PERSON_WORDS} full words, whose last two may be one surname; a name with a "
+    "surname particle or longer than "
     f"{MAX_PERSON_WORDS} words is null, since the caption cannot say where the surname "
     "starts. Either side null makes the short caption null. Display-only: nothing "
     "predicts, evaluates or scores on it."
@@ -3523,10 +3527,18 @@ def _committed_docket_numbers(data_root: Path) -> dict[str, str]:
     path = qp_topic_labels_path(data_root)
     if not path.is_file():
         return {}
-    return {
-        entry.case_id: entry.docket_number.strip()
-        for entry in read_model(path, QpTopicLabels).entries
-    }
+    try:
+        labels = read_model(path, QpTopicLabels)
+    except (ValueError, OSError) as exc:
+        # A display field is not worth the daily board: an unreadable labels file
+        # costs its rows their docket numbers, loudly, and nothing else.
+        print(
+            f"big-cases: warning: {path} unreadable ({type(exc).__name__}); "
+            "CourtListener-keyed rows publish no docket number",
+            file=sys.stderr,
+        )
+        return {}
+    return {entry.case_id: entry.docket_number.strip() for entry in labels.entries}
 
 
 def _docket_number(
