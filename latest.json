@@ -1,13 +1,13 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 1043.7,
+    "actions_minutes": 1063.6,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 1162.97,
     "fixed_monthly_usd": 115.0,
     "model_cost_usd": 2656.539671,
     "model_monthly_usd": 1047.97,
-    "window_days": 1.8
+    "window_days": 1.7
   },
   "data_health": {
     "corpus": {
@@ -601,26 +601,26 @@
     "warnings": 31,
     "window_days": 14
   },
-  "generated_at": "2026-09-28T16:25:37.374248+00:00",
+  "generated_at": "2026-09-28T16:58:06.179364+00:00",
   "health": [
     {
       "failures": 12,
       "last_conclusion": null,
-      "last_run_at": "2026-09-28T16:24:09Z",
-      "median_seconds": 353,
-      "p95_seconds": 382,
+      "last_run_at": "2026-09-28T16:52:34Z",
+      "median_seconds": 354,
+      "p95_seconds": 390,
       "runs_considered": 72,
-      "success_rate": 0.8309859154929577,
-      "successes": 59,
+      "success_rate": 0.8285714285714286,
+      "successes": 58,
       "workflow": "ci"
     },
     {
       "failures": 0,
-      "last_conclusion": null,
-      "last_run_at": "2026-09-28T16:24:09Z",
+      "last_conclusion": "success",
+      "last_run_at": "2026-09-28T16:52:35Z",
       "median_seconds": 182,
-      "p95_seconds": 195,
-      "runs_considered": 75,
+      "p95_seconds": 194,
+      "runs_considered": 74,
       "success_rate": 1.0,
       "successes": 74,
       "workflow": "codeql"
@@ -660,13 +660,13 @@
     },
     {
       "failures": 0,
-      "last_conclusion": null,
-      "last_run_at": "2026-09-28T16:05:05Z",
-      "median_seconds": 45,
-      "p95_seconds": 232,
-      "runs_considered": 4,
+      "last_conclusion": "success",
+      "last_run_at": "2026-09-28T16:51:38Z",
+      "median_seconds": 60,
+      "p95_seconds": 2394,
+      "runs_considered": 5,
       "success_rate": 1.0,
-      "successes": 3,
+      "successes": 5,
       "workflow": "run-analytics"
     },
     {
@@ -683,12 +683,12 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-09-28T16:24:53Z",
-      "median_seconds": 60,
+      "last_run_at": "2026-09-28T16:56:37Z",
+      "median_seconds": 54,
       "p95_seconds": 60,
-      "runs_considered": 2,
+      "runs_considered": 3,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 2,
       "workflow": "run-ops"
     },
     {
@@ -708,29 +708,29 @@
       "last_run_at": "2026-09-28T16:04:45Z",
       "median_seconds": 872,
       "p95_seconds": 1166,
-      "runs_considered": 14,
+      "runs_considered": 13,
       "success_rate": 1.0,
-      "successes": 14,
+      "successes": 13,
       "workflow": "run-pull"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
       "last_run_at": "2026-09-28T08:52:18Z",
-      "median_seconds": 102,
+      "median_seconds": 103,
       "p95_seconds": 874,
-      "runs_considered": 6,
+      "runs_considered": 5,
       "success_rate": 1.0,
-      "successes": 6,
+      "successes": 5,
       "workflow": "run-seed"
     },
     {
       "failures": 0,
-      "last_conclusion": "success",
-      "last_run_at": "2026-09-28T10:08:41Z",
+      "last_conclusion": null,
+      "last_run_at": "2026-09-28T16:51:18Z",
       "median_seconds": 123,
       "p95_seconds": 4126,
-      "runs_considered": 2,
+      "runs_considered": 3,
       "success_rate": 1.0,
       "successes": 2,
       "workflow": "summarize"
