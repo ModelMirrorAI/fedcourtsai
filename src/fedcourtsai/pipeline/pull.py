@@ -203,6 +203,10 @@ class PullQueues:
     # the stalest-first front of the next window's rotation.
     stopped: str | None = None
     deferred: list[dict[str, object]] = field(default_factory=list)
+    # Live-channel only: the ledger-outcome convergence's counts for the run
+    # log (recorded / unrecorded / failed / deferred), or ``{"error": <type>}``
+    # when the pass itself raised and was skipped. Empty when it did not run.
+    convergence: dict[str, object] = field(default_factory=dict)
 
 
 def _in_predict_scope(

@@ -12103,6 +12103,12 @@ def live_poll(
             "Skipped forward prediction for "
             f"{skipped['court']}/{skipped['docket']} — {skipped['reason']}"
         )
+    if queues.convergence:
+        typer.echo(
+            "Ledger-outcome convergence: "
+            + ", ".join(f"{key}={value}" for key, value in queues.convergence.items())
+            + "."
+        )
     # The window's document-fetch ledger. Last, after the queue counts, because
     # it reports on what provisioning did for the cases those counts name — and
     # unconditionally, because a window that lost nothing and a window that never

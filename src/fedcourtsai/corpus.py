@@ -4190,6 +4190,27 @@ def iter_resolved_events(
         yield _event_from_record(record)
 
 
+def resolved_events_on_selected_rows(conn: ReadConnection, *, court: str) -> list[CorpusEvent]:
+    """Resolved events whose case row is latched ``salience_selected`` and in scope.
+
+    ``(case_id, event_id)``-ordered. The candidate read of the ledger-outcome
+    convergence (:func:`fedcourtsai.pipeline.outcome.converge_ledger_outcomes`):
+    answered in the join so it hydrates only the selected, not
+    ``predict_excluded`` population — a few thousand rows — rather than every
+    resolved event the court carries. A selected row the scope reconcile has
+    latched out of scope is excluded: selection runs over the in-scope set, so
+    such a row carries a stale latch, not a case the pipeline owes ground truth.
+    """
+    cur = conn.execute(
+        "SELECT e.* FROM events e JOIN cases c ON c.case_id = e.case_id "
+        "WHERE e.resolved = 1 AND e.court = ? AND c.salience_selected = 1 "
+        "AND c.predict_excluded = 0 "
+        "ORDER BY e.case_id, e.event_id",
+        (court,),
+    )
+    return [_event_from_record(record) for record in cur]
+
+
 def set_event_resolved(
     conn: sqlite3.Connection, case_id: str, event_id: str, *, resolved: bool = True
 ) -> None:
