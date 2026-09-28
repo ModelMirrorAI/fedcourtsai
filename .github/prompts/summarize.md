@@ -50,7 +50,11 @@ About **330 words in total**:
   Court did, in the past tense ("The Court declined to hear a former
   employee's bid to revive her lawsuit…"). One sentence, one paragraph; do not
   begin it with "Whether", and do not say or imply that the case is
-  important, unusual, or how it is likely to come out.
+  important, unusual, or how it is likely to come out. Count the words before
+  you finish: 25 is the limit, and a headline over 30 words is rejected and the
+  whole summary discarded. Keep it to one main clause — name each side once by
+  its short name, drop titles, dates and procedural history, and leave the
+  detail to the sections below.
 - **What happened** (about 100 words): the dispute and how it reached the
   Court — who the parties are, what happened between them, and what the lower
   courts decided.
@@ -102,9 +106,11 @@ About **330 words in total**:
     send the case back without deciding it for either side.
   - *A stage the Court has already acted on* (the petition granted or denied,
     the case decided, the application ruled on): say what that action means
-    for the parties, as the docket records it, instead of describing outcomes
-    that can no longer happen. A granted case that has not yet been decided
-    takes the merits bullet above for what could still happen.
+    for the parties, as the docket records it. Describe only what happened:
+    do not describe the outcomes the Court did not choose, and do not write
+    "had the Court instead…" or "a different ruling would have…". A granted
+    case that has not yet been decided takes the merits bullet above for what
+    could still happen.
   Describe consequences only. Never say or hint which outcome is more likely,
   usual, or expected, and give each outcome comparable weight and wording. If
   the record does not show something a consequence depends on — who won
