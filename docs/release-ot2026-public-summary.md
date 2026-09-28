@@ -181,11 +181,12 @@ something stronger›
 
 ### Go deeper
 
-- Full audit write-up, with every denominator: ‹link to the tagged doc›
-- The ledger: ‹link to the Ledger page›
+- Full audit write-up, with every denominator:
+  [docs/release-ot2026-long-conference.md at `results/ot2026-longconf`](https://github.com/ModelMirrorAI/fedcourtsai/blob/results/ot2026-longconf/docs/release-ot2026-long-conference.md)
+- The ledger: [fedcourts.ai/ledger](https://fedcourts.ai/ledger/)
 - The exact data behind this page: ‹the dataset record's reserved DOI link› ·
-  the code that produced it: tag `results/ot2026-longconf`, in ‹the software
-  record's concept DOI link›
+  the code that produced it: tag `results/ot2026-longconf`, in
+  [10.5281/zenodo.22966596](https://doi.org/10.5281/zenodo.22966596)
 - Follow along: ‹newsletter link›
 
 ---
