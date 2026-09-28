@@ -1,0 +1,13 @@
+case_id: scotus/73272707
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2025-07-08'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Joshua Clay McCoy, Individually and on Behalf of All Others Similarly Situated
+  as a Class, et al. v. Bureau of Alcohol, Tobacco, Firearms, and Explosives, et al.

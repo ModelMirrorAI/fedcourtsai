@@ -1,0 +1,14 @@
+case_id: scotus/73279009
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2025-11-12'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Eddie Grant, Jr., et al. v. Ronnell Higgins, in His Official Capacity as Commissioner
+  of the Connecticut Department of Emergency Services and Public Transportation, et
+  al.

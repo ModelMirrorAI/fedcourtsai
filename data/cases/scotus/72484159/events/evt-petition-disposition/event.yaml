@@ -1,0 +1,13 @@
+case_id: scotus/72484159
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2024-10-22'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Warren Petersen, President of the Arizona Senate, et al. v. Jane Doe, by Next
+  Friends and Parents Helen Doe and James Doe, et al.
