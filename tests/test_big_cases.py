@@ -1281,11 +1281,14 @@ def test_without_a_labels_artifact_a_courtlistener_case_has_no_docket_number(
     assert (row.docket_number, row.docket_url) == (None, None)
 
 
-def test_the_board_is_schema_1_1_and_carries_the_display_rules(tmp_path: Path) -> None:
+def test_the_board_is_schema_1_2_and_carries_the_display_rules(tmp_path: Path) -> None:
     _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
     board = _board(tmp_path)
-    assert board.schema_version == "1.1"
+    assert board.schema_version == "1.2"
     assert board.provenance is not None
+    assert "consequences only, never likelihood" in board.provenance.asking_rule
+    assert "`cross_petition`" in board.provenance.asking_rule
+    assert "548 days" in board.provenance.asking_rule
     assert "null wherever the rule is not sure" in board.provenance.short_caption_rule
     assert "FTC" in board.provenance.short_caption_rule
     assert "needs no corpus and no credential" in board.provenance.docket_rule
@@ -1315,4 +1318,222 @@ def test_a_row_refuses_docket_fields_that_do_not_travel_together(tmp_path: Path)
         {"docket_url": "https://www.supremecourt.gov/x.html"},
     ):
         with pytest.raises(ValueError, match="docket"):
+            BigCaseRow.model_validate({**payload, **broken})
+
+
+def _write_event(data_root: Path, case_id: str, title: str, opened_at: date | None) -> None:
+    """Commit an event definition with no prediction — a case off the board."""
+    court, _, docket = case_id.partition("/")
+    write_yaml(
+        CasePaths(data_root, court, int(docket)).event(_EVENT).event_file,
+        PredictableEvent(
+            event_id=_EVENT,
+            case_id=case_id,
+            kind=EventKind.petition,
+            title=title,
+            opened_at=opened_at,
+            resolved=False,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("event_id", "actions"),
+    [
+        (_EVENT, ["granted", "denied"]),
+        ("evt-petition-arrival-disposition", ["granted", "denied"]),
+        ("evt-order-cvsg-disposition", ["granted", "denied"]),
+        ("evt-motion-disposition", ["granted", "denied"]),
+        ("evt-brief-response-disposition", ["granted", "denied"]),
+        ("evt-order-judgment", ["reversed", "affirmed", "vacated"]),
+        ("evt-brief-judgment", ["reversed", "affirmed", "vacated"]),
+    ],
+)
+def test_a_row_names_who_is_asking_and_one_line_per_action_at_its_stage(
+    tmp_path: Path, event_id: str, actions: list[str]
+) -> None:
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        event_id=event_id,
+        big_case_score=0.5,
+        title="Department of Labor, et al. v. Sun Valley Orchards, LLC",
+    )
+    (row,) = _board(tmp_path).rows
+    assert (row.asking_party, row.other_party, row.asking_declined) == (
+        "Department of Labor",
+        "Sun Valley Orchards",
+        None,
+    )
+    assert row.outcome_lines is not None
+    assert [line.action for line in row.outcome_lines] == actions
+
+
+def test_an_undeclared_moment_has_no_stage_and_so_no_lines(tmp_path: Path) -> None:
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        event_id="evt-order-entry-5",
+        big_case_score=0.5,
+        title="Apple Inc. v. Epic Games, Inc.",
+    )
+    (row,) = _board(tmp_path).rows
+    assert (row.asking_party, row.outcome_lines, row.asking_declined) == (None, None, "stage")
+
+
+def test_a_petition_row_s_lines_are_filled_with_the_names(tmp_path: Path) -> None:
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        big_case_score=0.5,
+        title="United States v. E. Jean Carroll, et al.",
+    )
+    (row,) = _board(tmp_path).rows
+    assert row.outcome_lines is not None
+    assert [(line.action, line.line) for line in row.outcome_lines] == [
+        (
+            "granted",
+            "The Court agrees to hear the United States' case; "
+            + "that decides nothing yet about who is right.",
+        ),
+        (
+            "denied",
+            "Carroll's win in the lower court stands; "
+            + "that is not a ruling that the lower court was right.",
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("title", "declined"),
+    [
+        ("In Re Richard Devillier, et al.", "in_re"),
+        (
+            "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and "
+            + "Immigrant Center for Education and Legal Services, et al.",
+            "short_form",
+        ),
+        ("Alabama, et al. v. California, et al.", "original_jurisdiction"),
+        (None, "no_caption"),
+    ],
+)
+def test_a_row_the_rule_declines_says_why_and_carries_no_sides(
+    tmp_path: Path, title: str | None, declined: str
+) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5, title=title)
+    (row,) = _board(tmp_path).rows
+    assert (row.asking_party, row.other_party, row.outcome_lines, row.asking_declined) == (
+        None,
+        None,
+        None,
+        declined,
+    )
+
+
+def test_a_mirrored_caption_days_apart_declines_as_a_cross_petition(tmp_path: Path) -> None:
+    # The Epic Games / Apple pair: each docket names the other side first, three
+    # days apart. The mirror is committed but never predicted.
+    _write_read(
+        tmp_path,
+        "scotus/72479905",
+        "claude-baseline",
+        "r1",
+        big_case_score=0.5,
+        title="Apple Inc., Petitioner v. Epic Games, Inc.",
+        opened_at=date(2023, 10, 2),
+    )
+    _write_event(
+        tmp_path,
+        "scotus/72479897",
+        "Epic Games, Inc., Petitioner v. Apple Inc.",
+        date(2023, 9, 29),
+    )
+    (row,) = _board(tmp_path).rows
+    assert (row.asking_party, row.asking_declined) == (None, "cross_petition")
+
+
+def test_a_mirrored_caption_years_apart_is_not_a_cross_petition(tmp_path: Path) -> None:
+    _write_read(
+        tmp_path,
+        "scotus/73500212",
+        "claude-baseline",
+        "r1",
+        event_id="evt-order-judgment",
+        big_case_score=0.5,
+        title="Apple Inc. v. Epic Games, Inc.",
+        opened_at=date(2026, 6, 30),
+    )
+    _write_event(
+        tmp_path,
+        "scotus/72479897",
+        "Epic Games, Inc., Petitioner v. Apple Inc.",
+        date(2023, 9, 29),
+    )
+    (row,) = _board(tmp_path).rows
+    assert (row.asking_party, row.other_party, row.asking_declined) == (
+        "Apple",
+        "Epic Games",
+        None,
+    )
+
+
+def test_an_undated_mirror_cannot_be_ruled_out(tmp_path: Path) -> None:
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        big_case_score=0.5,
+        title="Apple Inc. v. Epic Games, Inc.",
+        opened_at=date(2026, 6, 30),
+    )
+    _write_event(tmp_path, "scotus/2", "Epic Games, Inc. v. Apple Inc.", None)
+    (row,) = _board(tmp_path).rows
+    assert row.asking_declined == "cross_petition"
+
+
+def test_an_unreadable_event_definition_costs_the_cross_petition_test_not_the_board(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        big_case_score=0.5,
+        title="Apple Inc. v. Epic Games, Inc.",
+        opened_at=date(2026, 6, 30),
+    )
+    broken = CasePaths(tmp_path, "scotus", 2).event(_EVENT).event_file
+    broken.parent.mkdir(parents=True, exist_ok=True)
+    broken.write_text("title: [unclosed\n")
+    (row,) = _board(tmp_path).rows
+    assert (row.asking_party, row.asking_declined) == ("Apple", None)
+    assert "left out of the cross-petition test" in capsys.readouterr().err
+
+
+def test_a_row_refuses_asking_fields_that_do_not_travel_together(tmp_path: Path) -> None:
+    _write_read(
+        tmp_path,
+        "scotus/1",
+        "claude-baseline",
+        "r1",
+        big_case_score=0.5,
+        title="Apple Inc. v. Epic Games, Inc.",
+    )
+    (row,) = _board(tmp_path).rows
+    payload = row.model_dump()
+    for broken in (
+        {"other_party": None},
+        {"outcome_lines": None},
+        {"asking_declined": "in_re"},
+        {"asking_party": None, "other_party": None, "outcome_lines": None},
+    ):
+        with pytest.raises(ValueError, match="asking"):
             BigCaseRow.model_validate({**payload, **broken})

@@ -145,10 +145,44 @@
       "title": "BigCaseEvent",
       "type": "object"
     },
+    "BigCaseOutcomeLine": {
+      "additionalProperties": false,
+      "description": "What one action open at a row's moment does for the named sides.",
+      "properties": {
+        "action": {
+          "description": "The action, spelled as the outcome vocabulary spells it \u2014 `granted` / `denied` for a petition or an application, `reversed` / `affirmed` / `vacated` for a merits case \u2014 so the line pairs with the forecast label it explains",
+          "enum": [
+            "granted",
+            "denied",
+            "reversed",
+            "affirmed",
+            "vacated"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "line": {
+          "description": "One fixed plain-language sentence saying what the action does for the sides, by name. Consequences only, never likelihood",
+          "title": "Line",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "line"
+      ],
+      "title": "BigCaseOutcomeLine",
+      "type": "object"
+    },
     "BigCaseProvenance": {
       "additionalProperties": false,
       "description": "The board's reading rules, carried inside the artifact.\n\nRegistered prose rather than a free-text note: the board is published to a\npublic site, where the figure travels without the document that explains it,\nso the caveats travel inside the artifact instead.",
       "properties": {
+        "asking_rule": {
+          "description": "How `asking_party`, `other_party` and `outcome_lines` are derived, where each `asking_declined` value comes from, and what the lines cannot see",
+          "title": "Asking Rule",
+          "type": "string"
+        },
         "caption_rule": {
           "title": "Caption Rule",
           "type": "string"
@@ -217,6 +251,7 @@
         "caption_rule",
         "short_caption_rule",
         "docket_rule",
+        "asking_rule",
         "process_label"
       ],
       "title": "BigCaseProvenance",
@@ -347,6 +382,43 @@
       "additionalProperties": false,
       "description": "One case on the board: the panel's current stakes reads and their mean.\n\nOne **moment** per row, and every read on it: the case is collapsed to the\nnewest moment its docket has reached (`moment`), and each predictor's read is\nits newest run on that moment. A predictor with no run there is absent from\nthe row rather than pooled into it from an older moment, so the reads the\nmean is taken over are answers to the same question \u2014 at the cost of a\nsmaller `n` where a fresh moment has been minted for only some of the panel.",
       "properties": {
+        "asking_declined": {
+          "anyOf": [
+            {
+              "enum": [
+                "no_caption",
+                "not_scotus",
+                "in_re",
+                "not_two_sided",
+                "docket_labels",
+                "short_form",
+                "original_jurisdiction",
+                "cross_petition",
+                "stage"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why the row carries no asking side, one value per branch of the `asking_rule` provenance string (`no_caption`, `not_scotus`, `in_re`, `not_two_sided`, `docket_labels`, `short_form`, `original_jurisdiction`, `cross_petition`, `stage`); None exactly when `asking_party` is set",
+          "title": "Asking Declined"
+        },
+        "asking_party": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The short name of the side asking the Court to act at `moment` \u2014 the petitioner or applicant, named first in the caption \u2014 by the `asking_rule` provenance string, with the short-caption rule's party names. None exactly when `asking_declined` is set. Display-only",
+          "title": "Asking Party"
+        },
         "caption": {
           "anyOf": [
             {
@@ -489,6 +561,35 @@
           "minimum": 1,
           "title": "N",
           "type": "integer"
+        },
+        "other_party": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The short name of the other side, named second in the caption. None exactly when `asking_party` is. Display-only",
+          "title": "Other Party"
+        },
+        "outcome_lines": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/BigCaseOutcomeLine"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One fixed plain-language line per action open at `moment`'s stage, filled with `asking_party` and `other_party`: granted and denied for a petition or an application, reversed, affirmed and vacated for a merits case. Consequences only, never likelihood \u2014 shown beside the forecast so a reader can tell whom each action helps. None exactly when `asking_party` is. Display-only",
+          "title": "Outcome Lines"
         },
         "score_max": {
           "description": "Highest current read on the case's current moment",
@@ -739,9 +840,9 @@
       "type": "integer"
     },
     "schema_version": {
-      "const": "1.1",
-      "default": "1.1",
-      "description": "The artifact's schema version. A reader keys on it: a `1.1` row carries the display fields `short_caption`, `docket_number`, `docket_number_source` and `docket_url`",
+      "const": "1.2",
+      "default": "1.2",
+      "description": "The artifact's schema version. A reader keys on it: a `1.1` row carries the display fields `short_caption`, `docket_number`, `docket_number_source` and `docket_url`, and a `1.2` row adds `asking_party`, `other_party`, `outcome_lines` and `asking_declined`",
       "title": "Schema Version",
       "type": "string"
     },

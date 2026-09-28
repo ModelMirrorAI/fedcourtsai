@@ -2038,6 +2038,59 @@ the rendered table) and
   therefore grows with each labeling batch and with the live-first share of the
   predicted set; the `docket_rule` provenance string carries the same account.
 
+  **Who is asking, and what each outcome does for them.** A row that reads
+  "granted 30%" does not say whom a grant helps, so each row names the sides and
+  says what each action open at its `moment` does for them. `asking_party` is
+  the side asking the Court to act — the petitioner or applicant — and
+  `other_party` the side answering, both read from the caption
+  (`fedcourtsai.asking_party`, stated in full in the `asking_rule` provenance
+  string). The Court's docket names its asking side first. The board has no
+  other committed copy of the docket's party labels: the structured petitioner
+  and respondent titles live in the corpus, which the board does not read. So a
+  caption that still carries a label ("Petitioners", "Applicants") is checked
+  against its order, and one without a label is read by order alone. The names
+  are the short-caption rule's, so a side has one exactly where `short_caption`
+  would. `outcome_lines` holds one fixed sentence per action, filled with those
+  names. The stage comes from the moment registry, as the row's collapse
+  already reads it. A petition (the arrival, distribution and CVSG moments)
+  gets *granted*: the Court agrees to hear the asking side's case, which decides
+  nothing yet about who is right; and *denied*: the other side's win in the
+  lower court stands, which is not a ruling that the lower court was right. An
+  application (the interim moments) gets *granted*: the asking side gets the
+  relief requested, for now, and the case continues in the lower courts; and
+  *denied*: it does not, and the lower court's order stays in effect. A merits
+  case gets *reversed*: the asking side wins in the Court; *affirmed*: the other
+  side wins; and *vacated*: the decision below is set aside and the case goes
+  back, without either side winning yet. Each `action` is spelled as the outcome
+  vocabulary spells it, so a site can put each line beside the forecast label it
+  explains. The lines state consequences only, never likelihood, and give each
+  action the same weight. They never say who "wins" beyond what the action
+  itself does.
+
+  The three fields are null together, and `asking_declined` says why. The
+  reasons are:
+
+  - `in_re`: a mandamus or prohibition caption names no second side.
+  - `short_form`: the short-caption rule cannot name a side, or both sides
+    shorten to the same name.
+  - `docket_labels`: a caption label contradicts the order, or a side is
+    labeled as a cross-petitioner.
+  - `original_jurisdiction`: the docket number is an original one, or both
+    sides are sovereigns on a docket that is not a Term-form petition number.
+    That also declines a State-against-State application, the conservative
+    direction.
+  - `cross_petition`: another committed case, predicted or not, names the same
+    two parties in reverse order, with docket dates within a Term and a half.
+    Both sides are then asking. A pair whose other half is not committed is not
+    seen.
+  - `stage`: the moment registry declares no stage for the moment.
+  - `no_caption`, `not_scotus` and `not_two_sided` cover the remaining shapes.
+
+  What the rule cannot see is a named party that supports the other side, such
+  as the federal government as respondent agreeing with the petitioner. The
+  lines stay about the action there. Like the other display fields, these are
+  never read by a predictor, an evaluator or a metric.
+
   **Process scope, and why the default is version-blind.** `process_scope` says
   which process versions a **current read** may come from. The default is
   `all`: every committed run is eligible, shakedown, pre-freeze,

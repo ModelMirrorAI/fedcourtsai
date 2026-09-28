@@ -7157,6 +7157,35 @@ class BigCaseEvent(_Strict):
     )
 
 
+#: Why a big-case board row carries no asking side: one value per branch of the
+#: rule in :mod:`fedcourtsai.asking_party`.
+AskingDeclineReason = Literal[
+    "no_caption",
+    "not_scotus",
+    "in_re",
+    "not_two_sided",
+    "docket_labels",
+    "short_form",
+    "original_jurisdiction",
+    "cross_petition",
+    "stage",
+]
+
+
+class BigCaseOutcomeLine(_Strict):
+    """What one action open at a row's moment does for the named sides."""
+
+    action: Literal["granted", "denied", "reversed", "affirmed", "vacated"] = Field(
+        description="The action, spelled as the outcome vocabulary spells it — `granted` / "
+        "`denied` for a petition or an application, `reversed` / `affirmed` / `vacated` for "
+        "a merits case — so the line pairs with the forecast label it explains"
+    )
+    line: str = Field(
+        description="One fixed plain-language sentence saying what the action does for the "
+        "sides, by name. Consequences only, never likelihood"
+    )
+
+
 class BigCaseCurrentRead(_Strict):
     """A predictor's current read of a case, and where it came from.
 
@@ -7259,6 +7288,33 @@ class BigCaseRow(_Strict):
         description="The Court's supremecourt.gov docket page for `docket_number`; None "
         "where there is no docket number or it is not a Term-form or application number",
     )
+    asking_party: str | None = Field(
+        default=None,
+        description="The short name of the side asking the Court to act at `moment` — the "
+        "petitioner or applicant, named first in the caption — by the `asking_rule` "
+        "provenance string, with the short-caption rule's party names. None exactly when "
+        "`asking_declined` is set. Display-only",
+    )
+    other_party: str | None = Field(
+        default=None,
+        description="The short name of the other side, named second in the caption. None "
+        "exactly when `asking_party` is. Display-only",
+    )
+    outcome_lines: list[BigCaseOutcomeLine] | None = Field(
+        default=None,
+        description="One fixed plain-language line per action open at `moment`'s stage, "
+        "filled with `asking_party` and `other_party`: granted and denied for a petition or "
+        "an application, reversed, affirmed and vacated for a merits case. Consequences "
+        "only, never likelihood — shown beside the forecast so a reader can tell whom each "
+        "action helps. None exactly when `asking_party` is. Display-only",
+    )
+    asking_declined: AskingDeclineReason | None = Field(
+        default=None,
+        description="Why the row carries no asking side, one value per branch of the "
+        "`asking_rule` provenance string (`no_caption`, `not_scotus`, `in_re`, "
+        "`not_two_sided`, `docket_labels`, `short_form`, `original_jurisdiction`, "
+        "`cross_petition`, `stage`); None exactly when `asking_party` is set",
+    )
     status: Literal["pending", "partly_resolved", "resolved"] = Field(
         description="Resolution state across **all** the case's predicted events, derived "
         "from `outcome.json` presence: none resolved, some resolved, all resolved. The one "
@@ -7317,6 +7373,20 @@ class BigCaseRow(_Strict):
             raise ValueError("docket_url requires a docket_number")
         return self
 
+    @model_validator(mode="after")
+    def _asking_fields_travel_together(self) -> BigCaseRow:
+        """The asking side, the other side and the lines are all set, or a decline says why."""
+        present = [
+            self.asking_party is not None,
+            self.other_party is not None,
+            self.outcome_lines is not None,
+        ]
+        if any(present) and not all(present):
+            raise ValueError("asking_party, other_party and outcome_lines are set together")
+        if all(present) == (self.asking_declined is not None):
+            raise ValueError("asking_declined is set exactly when asking_party is not")
+        return self
+
 
 class BigCaseCoverage(_Strict):
     """How many cases the board ranks on `n` reads — the denominator distribution."""
@@ -7365,6 +7435,10 @@ class BigCaseProvenance(_Strict):
         description="Where `docket_number` is read from, in precedence order, what "
         "`docket_url` links to, and why a row can carry neither"
     )
+    asking_rule: str = Field(
+        description="How `asking_party`, `other_party` and `outcome_lines` are derived, "
+        "where each `asking_declined` value comes from, and what the lines cannot see"
+    )
     process_label: str = Field(
         description="The process label in force when the board was built — what a "
         "prediction minted today stamps, not a scope filter on the rows (see `version_scope`)"
@@ -7405,11 +7479,12 @@ class BigCaseBoard(_Strict):
     artifact's vintage is the commit that wrote it.
     """
 
-    schema_version: Literal["1.1"] = Field(
-        default="1.1",
+    schema_version: Literal["1.2"] = Field(
+        default="1.2",
         description="The artifact's schema version. A reader keys on it: a `1.1` row "
         "carries the display fields `short_caption`, `docket_number`, "
-        "`docket_number_source` and `docket_url`",
+        "`docket_number_source` and `docket_url`, and a `1.2` row adds `asking_party`, "
+        "`other_party`, `outcome_lines` and `asking_declined`",
     )
     process_scope: Literal["frozen", "all"] = Field(
         default="all",

@@ -200,7 +200,7 @@ def short_caption(caption: str | None) -> str | None:
     sides = text.split(" v. ")
     if len(sides) != 2:
         return None
-    left, right = (_short_party(side) for side in sides)
+    left, right = (short_party(side) for side in sides)
     if left is None or right is None:
         return None
     return f"{left} v. {right}"
@@ -208,11 +208,11 @@ def short_caption(caption: str | None) -> str | None:
 
 def _short_in_re(rest: str) -> str | None:
     """``In re <party>`` for a one-sided caption, or ``None``."""
-    party = _short_party(rest) if rest and " v. " not in rest else None
+    party = short_party(rest) if rest and " v. " not in rest else None
     return f"In re {party}" if party is not None else None
 
 
-def _short_party(side: str) -> str | None:
+def short_party(side: str) -> str | None:
     """The short form of one side's first-named party, or ``None``."""
     segments = [segment.strip() for segment in side.split(",")]
     name = _PARENTHETICAL_RE.sub("", segments[0]).strip()
