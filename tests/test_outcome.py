@@ -15,9 +15,11 @@ from fedcourtsai.pipeline.outcome import (
     _TERMINAL_ENTRY_RE,
     CASE_BASELINE_ID_PREFIXES,
     MERITS_EVENT_ID,
+    OUTCOME_CONVERGENCE_LOOKBACK_DAYS,
     OrderMarkers,
     Resolution,
     appears_decided,
+    converge_ledger_outcomes,
     detect_resolution,
     disposition_basis,
     disposition_route,
@@ -2019,3 +2021,254 @@ def test_the_arrival_moment_resolves_with_the_petition() -> None:
         for o in resolution.outcomes.values()
     }
     assert len(facts) == 1
+
+
+# --- applications: every moment resolves from the one disposition -------------
+
+_INTERIM_MOMENTS = [
+    "evt-motion-disposition",
+    "evt-order-response-requested-disposition",
+    "evt-brief-response-disposition",
+]
+# The application's own submission line names a motion too, so extraction pins
+# an interim-staged motion event to it — the 26A325 shape.
+_PINNED = "evt-motion-leave-to-file-supplemental-appendix"
+
+
+def _decided_application_row(case_id: str = "scotus/9526000325") -> corpus.CorpusRow:
+    return corpus.CorpusRow(
+        case_id=case_id,
+        court="scotus",
+        docket_number="26A325",
+        case_name="M. W. v. Superior Court",
+        date_filed=date(2026, 9, 9),
+        date_decided=date(2026, 9, 22),
+        disposition=Disposition.denied,
+        application_kind="substantive",
+        response_requested=True,
+        referred_to_court=False,
+        amicus_briefs=4,
+    )
+
+
+def _interim_event(
+    event_id: str, *, resolved: bool, case_id: str = "scotus/9526000325"
+) -> corpus.CorpusEvent:
+    spec = moments.spec_for(event_id)
+    return corpus.CorpusEvent(
+        event_id=event_id,
+        case_id=case_id,
+        court="scotus",
+        kind=spec.kind if spec is not None else EventKind.motion,
+        stage=Stage.interim,
+        moment=spec.moment if spec is not None else Moment.arrival,
+        title="M. W. v. Superior Court",
+        docket_entry_id=None if spec is not None else 1,
+        opened_at=date(2026, 9, 9),
+        decision_target="disposition",
+        resolved=resolved,
+    )
+
+
+def _seed_application(
+    tmp_path: Path,
+    events: list[corpus.CorpusEvent],
+    *,
+    selected: bool = True,
+    row: corpus.CorpusRow | None = None,
+) -> Path:
+    db = _db(tmp_path)
+    stored = row if row is not None else _decided_application_row()
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [stored])
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v4', salience_selected = ? WHERE case_id = ?",
+            (int(selected), stored.case_id),
+        )
+        conn.commit()
+        corpus.upsert_events(conn, events)
+    return db
+
+
+def test_an_entry_pinned_motion_never_takes_the_interim_stage_to_triage() -> None:
+    """The declared moments resolve past a filing-pinned event on the docket.
+
+    The undeclared-same-stage refusal guards against a spurious *baseline*; an
+    event pinned to one docket entry forecasts that filing, so it neither
+    receives the application's disposition nor withholds it from the moments.
+    """
+    row = _application_docket("26A325", "denied")
+    open_ids = [*_INTERIM_MOMENTS, _PINNED]
+    resolution = detect_resolution(
+        row,
+        "scotus",
+        9001,
+        open_ids,
+        stages=dict.fromkeys(open_ids, Stage.interim),
+        entry_pinned={_PINNED},
+    )
+    assert not resolution.unrecorded
+    assert set(resolution.outcomes) == set(_INTERIM_MOMENTS)
+    facts = {
+        (o.actual_disposition, o.resolved_at, o.actual_granted)
+        for o in resolution.outcomes.values()
+    }
+    assert facts == {(Disposition.denied, date(2024, 8, 15), 0)}
+
+
+def test_an_unpinned_undeclared_interim_event_still_refuses_the_stage() -> None:
+    # The guard itself is unchanged: without the entry pin the same undeclared
+    # event is a claimant with no declared moment, and the whole stage triages.
+    row = _application_docket("26A325", "denied")
+    open_ids = [*_INTERIM_MOMENTS, _PINNED]
+    resolution = detect_resolution(
+        row, "scotus", 9001, open_ids, stages=dict.fromkeys(open_ids, Stage.interim)
+    )
+    assert not resolution.outcomes
+    assert {r.event_id for r in resolution.unrecorded} == set(open_ids)
+
+
+def test_resolve_case_resolves_every_application_moment_past_a_pinned_motion(
+    tmp_path: Path,
+) -> None:
+    db = _seed_application(
+        tmp_path,
+        [_interim_event(eid, resolved=False) for eid in (*_INTERIM_MOMENTS, _PINNED)],
+    )
+    row = _application_docket("26A325", "denied").model_copy(
+        update={"case_id": "scotus/9526000325", "docket_id": 9526000325}
+    )
+    resolution = resolve_case(db, tmp_path, row, "scotus", 9526000325)
+    assert set(resolution.outcomes) == set(_INTERIM_MOMENTS)
+    assert not resolution.unrecorded
+    case = CasePaths(tmp_path, "scotus", 9526000325)
+    for event_id in _INTERIM_MOMENTS:
+        assert case.event(event_id).outcome.exists()
+    assert not case.event(_PINNED).outcome.exists()
+    with corpus.connect(db) as conn:
+        state = {e.event_id: e.resolved for e in corpus.events_for_case(conn, row.case_id)}
+    assert state == {**dict.fromkeys(_INTERIM_MOMENTS, True), _PINNED: False}
+
+
+def test_convergence_records_a_closed_moment_on_a_case_with_no_ledger_directory(
+    tmp_path: Path,
+) -> None:
+    """The 26A209 shape: corpus-resolved baseline, nothing in the ledger at all."""
+    case_id = "scotus/9526000209"
+    row = _decided_application_row(case_id).model_copy(
+        update={"docket_number": "26A209", "date_decided": date(2026, 8, 18)}
+    )
+    db = _seed_application(
+        tmp_path,
+        [_interim_event("evt-motion-disposition", resolved=True, case_id=case_id)],
+        row=row,
+    )
+    case = CasePaths(tmp_path, "scotus", 9526000209)
+    assert not case.base.exists()
+
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+
+    assert result.recorded == {case_id: ["evt-motion-disposition"]}
+    assert not result.unrecorded
+    outcome = read_model(case.event("evt-motion-disposition").outcome, Outcome)
+    assert (outcome.actual_disposition, outcome.resolved_at) == (
+        Disposition.denied,
+        date(2026, 8, 18),
+    )
+    # An application outcome carries the interim block, never the cert one.
+    assert outcome.signals is None
+    assert outcome.interim_signals is not None
+    event = read_model(case.event("evt-motion-disposition").event_file, PredictableEvent)
+    assert event.resolved is True
+    assert event.stage == Stage.interim
+
+
+def test_convergence_resolves_the_open_siblings_from_the_same_disposition(
+    tmp_path: Path,
+) -> None:
+    """The 26A325 shape: baseline closed without an outcome, later moments open."""
+    db = _seed_application(
+        tmp_path,
+        [
+            _interim_event("evt-motion-disposition", resolved=True),
+            _interim_event("evt-order-response-requested-disposition", resolved=False),
+            _interim_event("evt-brief-response-disposition", resolved=False),
+            _interim_event(_PINNED, resolved=False),
+        ],
+    )
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+
+    assert result.recorded == {"scotus/9526000325": sorted(_INTERIM_MOMENTS)}
+    assert not result.unrecorded
+    case = CasePaths(tmp_path, "scotus", 9526000325)
+    outcomes = [read_model(case.event(eid).outcome, Outcome) for eid in _INTERIM_MOMENTS]
+    assert {(o.actual_disposition, o.resolved_at) for o in outcomes} == {
+        (Disposition.denied, date(2026, 9, 22))
+    }
+    with corpus.connect(db) as conn:
+        state = {e.event_id: e.resolved for e in corpus.events_for_case(conn, "scotus/9526000325")}
+    # The pinned filing stays open on its own terms; every moment is closed.
+    assert state == {**dict.fromkeys(_INTERIM_MOMENTS, True), _PINNED: False}
+
+    # Idempotent: every gap now carries its outcome.
+    again = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert not again.recorded
+    assert not again.unrecorded
+
+
+def test_convergence_leaves_an_unselected_row_alone(tmp_path: Path) -> None:
+    db = _seed_application(
+        tmp_path, [_interim_event("evt-motion-disposition", resolved=True)], selected=False
+    )
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert not result.recorded
+    assert not CasePaths(tmp_path, "scotus", 9526000325).base.exists()
+
+
+def test_convergence_is_not_a_backfill_of_history(tmp_path: Path) -> None:
+    # A decision older than the lookback is a case first ingested decided, not
+    # a gap a window opened: it is left for a population decision.
+    db = _seed_application(tmp_path, [_interim_event("evt-motion-disposition", resolved=True)])
+    late = date(2026, 9, 22).toordinal() + OUTCOME_CONVERGENCE_LOOKBACK_DAYS + 1
+    result = converge_ledger_outcomes(db, tmp_path, today=date.fromordinal(late))
+    assert not result.recorded
+    assert not result.unrecorded
+
+
+def test_convergence_bounds_one_pass(tmp_path: Path) -> None:
+    db = _seed_application(tmp_path, [_interim_event("evt-motion-disposition", resolved=True)])
+    other = _decided_application_row("scotus/9526000326").model_copy(
+        update={"docket_number": "26A326"}
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [other])
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v4', salience_selected = 1 "
+            "WHERE case_id = 'scotus/9526000326'"
+        )
+        conn.commit()
+        corpus.upsert_events(
+            conn,
+            [_interim_event("evt-motion-disposition", resolved=True, case_id=other.case_id)],
+        )
+    first = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28), max_cases=1)
+    assert len(first.recorded) == 1
+    assert first.deferred == 1
+    second = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28), max_cases=1)
+    assert len(second.recorded) == 1
+    assert second.recorded.keys() != first.recorded.keys()
+    assert second.deferred == 0
+
+
+def test_convergence_surfaces_what_detection_still_declines(tmp_path: Path) -> None:
+    # An unreadable disposition cannot be recorded; the gap is surfaced with
+    # detection's own reason and nothing is written.
+    row = _decided_application_row().model_copy(update={"disposition": Disposition.other})
+    db = _seed_application(
+        tmp_path, [_interim_event("evt-motion-disposition", resolved=True)], row=row
+    )
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert not result.recorded
+    assert [u.event_id for u in result.unrecorded] == ["evt-motion-disposition"]
+    assert "not machine-readable" in result.unrecorded[0].reason
+    assert not CasePaths(tmp_path, "scotus", 9526000325).base.exists()

@@ -33,7 +33,7 @@ from fedcourtsai.pipeline.live import (
     salience_sweep,
 )
 from fedcourtsai.pipeline.pull import PullQueues
-from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Outcome
+from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Moment, Outcome, Stage
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import forecastable_events
 from fedcourtsai.supremecourt import (
@@ -3272,3 +3272,91 @@ def test_the_judged_docket_exits_the_live_rotation(tmp_path: Path) -> None:
         assert [r.case_id for r in corpus.live_rotation(conn, limit=10)] == ["scotus/1"]
         corpus.set_event_resolved(conn, "scotus/1", "evt-order-judgment")
         assert corpus.live_rotation(conn, limit=10) == []
+
+
+def test_live_poll_all_converges_a_selected_moment_closed_without_its_outcome(
+    tmp_path: Path,
+) -> None:
+    """A decided application the rotation no longer polls still lands its outcome.
+
+    The corpus closed the baseline without a ledger outcome (the ingest latch
+    after a declined detection), so no poll will ever revisit it; the cycle's
+    convergence writes it and routes the predicted moment to evaluation.
+    """
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    case_id = "scotus/9526000325"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number="26A325",
+                    date_filed=date(2026, 9, 9),
+                    date_decided=date(2026, 9, 22),
+                    disposition=Disposition.denied,
+                )
+            ],
+        )
+        conn.execute(
+            "UPDATE cases SET salience_version = 'sal-v4', salience_selected = 1 WHERE case_id = ?",
+            (case_id,),
+        )
+        conn.commit()
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-motion-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.motion,
+                    stage=Stage.interim,
+                    moment=Moment.arrival,
+                    title="M. W.",
+                    opened_at=date(2026, 9, 9),
+                    decision_target="disposition",
+                    resolved=True,
+                ),
+                corpus.CorpusEvent(
+                    event_id="evt-brief-response-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.brief,
+                    stage=Stage.interim,
+                    moment=Moment.response_filed,
+                    title="M. W.",
+                    opened_at=date(2026, 9, 18),
+                    decision_target="disposition",
+                    resolved=False,
+                ),
+            ],
+        )
+    predicted = (
+        CasePaths(data_root, "scotus", 9526000325)
+        .event("evt-brief-response-disposition")
+        .predictions_dir
+        / "claude-baseline"
+        / "20260919T000000Z"
+    )
+    predicted.mkdir(parents=True)
+    (predicted / "prediction.json").write_text("{}")
+
+    with _frontier_client({}) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=26, config=LiveConfig(), today=date(2026, 9, 28)
+        )
+
+    case = CasePaths(data_root, "scotus", 9526000325)
+    assert case.event("evt-motion-disposition").outcome.exists()
+    assert case.event("evt-brief-response-disposition").outcome.exists()
+    assert {
+        "court": "scotus",
+        "docket": 9526000325,
+        "events": ["evt-brief-response-disposition"],
+    } in (queues.evaluate)
+    assert {"court": "scotus", "docket": 9526000325, "events": ["evt-motion-disposition"]} in (
+        queues.evaluate_skipped
+    )

@@ -1164,6 +1164,34 @@ or network.
      resolves an event on a row carrying no judgment — but there is no longer a
      judgment to forecast, so the event stops earning cells and simply sits.
 
+     An event pinned to one docket entry is never a claimant of its stage's
+     disposition: it resolves on its own filing's terms, so an application
+     whose submission line also names a motion ("Application for a stay and
+     motion for leave to file …") extracts an interim-staged pinned event that
+     neither receives the application's disposition nor takes the declared
+     interim moments to triage.
+
+     **Ledger-outcome convergence.** The corpus `resolved` flag has a second
+     writer besides detection: re-extraction marks a decided docket's baseline
+     resolved from the row's disposition, whether or not an outcome was
+     recorded, and detection reads open events only. So a baseline detection
+     declined once — a triaged poll, a baseline born in a shape detection did
+     not attribute to, a case first ingested already decided — is closed with
+     no ledger outcome, and nothing grades it or resolves the sibling moments
+     still open beside it. The live cycle therefore ends its polls with a
+     standing sweep (`pipeline.outcome.converge_ledger_outcomes`): every
+     declared moment on a salience-selected SCOTUS row that the corpus records
+     resolved without a ledger `outcome.json`, whose stage the row dates
+     decided within the last 90 days, is re-run through the same detection
+     beside the case's open events and recorded by the same writer, so its
+     open sibling moments resolve from the same disposition in the same call.
+     Order-text markers are read from the latest stored snapshot. Bounded per
+     window (25 cases, the rest carrying to the next), idempotent, and routed
+     into the same evaluate / unrecorded queues as a poll result. It is not a
+     backfill: selected rows decided longer ago were mostly ingested already
+     decided and never forecastable, and writing their ground truth is a
+     population decision.
+
 ## Maintenance passes
 
 The `run-repair` workflow is the maintainer's repair bench: the corpus and

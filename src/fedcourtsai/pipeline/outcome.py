@@ -62,7 +62,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -102,6 +102,12 @@ from .judgment import (
     last_judgment_entry,
     match_merits_termination,
 )
+
+#: The row detection reads: the ingestion-stage row a refresh channel just built,
+#: or the persisted corpus row the ledger-outcome convergence re-reads. Both
+#: models carry every column detection and the outcome builder touch, so one
+#: rule serves both without a conversion that could drop a field.
+ResolvableRow = CorpusRow | corpus.CorpusRow
 
 # Which grants open a merits proceeding is one definition, shared with the
 # judgment backfill and the statpack's merits section so the population that is
@@ -182,7 +188,7 @@ def is_machine_readable(disposition: Disposition | None) -> bool:
     return disposition is not None and disposition != Disposition.other
 
 
-def appears_decided(row: CorpusRow) -> bool:
+def appears_decided(row: ResolvableRow) -> bool:
     """Whether the refreshed docket now looks resolved.
 
     A resolution date — the petition-stage cert grant/denial date on a SCOTUS
@@ -796,7 +802,7 @@ def interim_resolution_signals(
 
 
 def _build_outcome(
-    row: CorpusRow,
+    row: ResolvableRow,
     event_id: str,
     basis: Literal["standard", "mootness"],
     *,
@@ -924,7 +930,10 @@ CASE_BASELINE_ID_PREFIXES = tuple(
 
 
 def _stage_disposition_targets(
-    stage: Stage, open_event_ids: list[str], stages: Mapping[str, Stage | None]
+    stage: Stage,
+    open_event_ids: list[str],
+    stages: Mapping[str, Stage | None],
+    entry_pinned: Collection[str] = frozenset(),
 ) -> list[str]:
     """The open events one stage's case-level disposition attributes to.
 
@@ -948,6 +957,18 @@ def _stage_disposition_targets(
     refuses is the one it was built to refuse: a *spurious* duplicate baseline,
     which would otherwise take a case-level disposition it has no claim on.
 
+    **An entry-pinned event is never a claimant.** An event pinned to one
+    docket entry (``docket_entry_id`` set by extraction) forecasts that filing,
+    not the stage's case-level question, so it resolves on its own filing's
+    terms and neither receives the stage's disposition nor refuses it to the
+    declared moments. The guard above exists for a spurious *baseline* — an
+    unpinned event claiming the case-level question — and an entry pin is
+    exactly what such a baseline lacks. On an application docket this is not
+    hypothetical: an application whose own submission line also names a motion
+    ("Application for a stay and motion for leave to file …") extracts an
+    interim-staged entry-pinned event, and treating it as a claimant would take
+    every declared interim moment to triage on every poll.
+
     Where no event carries the stage, the **cert** stage-less fallback applies:
     a lone open event with no recorded stage and a case-baseline id prefix.
     There is deliberately no interim fallback — the only stage-less baseline an
@@ -956,7 +977,7 @@ def _stage_disposition_targets(
     carrying an explicit other stage never inherits this one's disposition,
     whatever its id.
     """
-    staged = [eid for eid in open_event_ids if stages.get(eid) == stage]
+    staged = [eid for eid in open_event_ids if stages.get(eid) == stage and eid not in entry_pinned]
     if len(staged) == 1:
         return staged
     if staged:
@@ -994,7 +1015,10 @@ def _cert_already_attributed(
 
 
 def _undeclared_same_stage(
-    stage: Stage, open_event_ids: list[str], stages: Mapping[str, Stage | None]
+    stage: Stage,
+    open_event_ids: list[str],
+    stages: Mapping[str, Stage | None],
+    entry_pinned: Collection[str] = frozenset(),
 ) -> list[str]:
     """The same-stage open events that declare no moment — the triage reason's detail.
 
@@ -1005,12 +1029,12 @@ def _undeclared_same_stage(
     return sorted(
         eid
         for eid in open_event_ids
-        if stages.get(eid) == stage and not moments.declares(eid, stage)
+        if stages.get(eid) == stage and eid not in entry_pinned and not moments.declares(eid, stage)
     )
 
 
-def detect_resolution(
-    row: CorpusRow,
+def detect_resolution(  # noqa: PLR0913 - the row plus the corpus facts detection is pure over
+    row: ResolvableRow,
     court_id: str,
     docket_id: int,
     open_event_ids: list[str],
@@ -1019,6 +1043,7 @@ def detect_resolution(
     stages: Mapping[str, Stage | None] | None = None,
     resolved_event_ids: list[str] | None = None,
     order: OrderMarkers = NO_ORDER_MARKERS,
+    entry_pinned: Collection[str] = frozenset(),
 ) -> Resolution:
     """Decide how each open event resolves, given the refreshed corpus row.
 
@@ -1043,6 +1068,10 @@ def detect_resolution(
     case's lone open **merits-stage** event instead
     (:func:`build_merits_outcome`); an undated parse surfaces that event for
     triage, since ``resolved_at`` is never guessed.
+
+    ``entry_pinned`` names the open events pinned to a docket entry; they are
+    never claimants of a stage's disposition (:func:`_stage_disposition_targets`)
+    and stay open on their own filings' terms.
 
     ``resolved_event_ids`` lists the case's already-closed events and gates the
     one clean no-op: when no open event can claim the disposition, a resolved
@@ -1073,7 +1102,7 @@ def detect_resolution(
     # migration key on.
     application = row.court == "scotus" and corpus.is_scotus_application_form(row.docket_number)
     stage = Stage.interim if application else Stage.cert
-    targets = _stage_disposition_targets(stage, open_event_ids, stages or {})
+    targets = _stage_disposition_targets(stage, open_event_ids, stages or {}, entry_pinned)
     if readable and targets:
         # One disposition, every declared moment of the stage. The moments are
         # separate forecasts of one question, so they share one ground truth —
@@ -1101,7 +1130,9 @@ def detect_resolution(
     # their own filings' terms, exactly as under the cert stage routing. A
     # judgment parsed from an undated entry has no `resolved_at` to stamp, so
     # it surfaces for triage rather than being recorded on a guessed date.
-    merits_events = _stage_disposition_targets(Stage.merits, open_event_ids, stages or {})
+    merits_events = _stage_disposition_targets(
+        Stage.merits, open_event_ids, stages or {}, entry_pinned
+    )
     if not application and row.merits_judgment is not None and merits_events:
         # The column is blob-tolerant TEXT whose readers re-validate against the
         # vocabulary rather than failing the row (the field's own contract, and
@@ -1160,7 +1191,7 @@ def detect_resolution(
     ):
         return Resolution()
 
-    undeclared = _undeclared_same_stage(stage, open_event_ids, stages or {})
+    undeclared = _undeclared_same_stage(stage, open_event_ids, stages or {}, entry_pinned)
     if undeclared:
         # The one same-stage shape still refused: an event that declares no
         # forecast moment has no claim on the stage's disposition, and taking
@@ -1707,12 +1738,15 @@ def resolve_case(
     open_event_ids = open_events(corpus_db_path, court_id, docket_id)
     stages: dict[str, Stage | None] = {}
     resolved_event_ids: list[str] = []
+    entry_pinned: set[str] = set()
     if open_event_ids:  # the corpus exists — open_events read from it
         with corpus.connect(corpus_db_path) as conn:
             for event in corpus.events_for_case(conn, ids.case_id(court_id, docket_id)):
                 stages[event.event_id] = event.stage
                 if event.resolved:
                     resolved_event_ids.append(event.event_id)
+                if event.docket_entry_id is not None:
+                    entry_pinned.add(event.event_id)
     resolution = detect_resolution(
         row,
         court_id,
@@ -1722,6 +1756,7 @@ def resolve_case(
         stages=stages,
         resolved_event_ids=resolved_event_ids,
         order=order,
+        entry_pinned=entry_pinned,
     )
     record_outcomes(corpus_db_path, data_root, court_id, docket_id, resolution)
     # After the attribution, so the detection pass that resolves the petition
@@ -1738,3 +1773,151 @@ def resolve_case(
         open_event_ids=open_event_ids,
     )
     return resolution
+
+
+#: How far back, by the row's decision date, the ledger-outcome convergence
+#: reaches. It is a standing sweep: every live window re-runs it, so a gap
+#: opened by any cause is closed within a window of its resolution, and the
+#: lookback only has to cover the time until the sweep first sees it. It is
+#: *not* a backfill of history: selected rows decided before the pipeline
+#: tracked them carry a corpus-resolved baseline with no ledger outcome by
+#: construction (discovered already decided, never forecastable), and writing
+#: ground truth for those is a population decision, not a convergence.
+OUTCOME_CONVERGENCE_LOOKBACK_DAYS = 90
+
+#: Cases the convergence records per invocation. A bound on one window's ledger
+#: writes, not a population estimate: the steady-state population is zero, and
+#: anything above the bound carries to the next window.
+OUTCOME_CONVERGENCE_MAX_CASES = 25
+
+
+@dataclass
+class OutcomeConvergence:
+    """What one ledger-outcome convergence pass recorded, and what it could not.
+
+    ``recorded`` maps each case id to the event ids whose ``outcome.json`` it
+    wrote; ``unrecorded`` carries detection's own triage for a gap it could
+    not close; ``deferred`` counts gap cases past the per-pass bound.
+    """
+
+    recorded: dict[str, list[str]] = field(default_factory=dict)
+    unrecorded: list[UnrecordedOutcome] = field(default_factory=list)
+    deferred: int = 0
+
+
+def _stage_decided(row: corpus.CorpusRow, stage: Stage) -> date | None:
+    """When the row records ``stage``'s question decided, or ``None``.
+
+    Per stage rather than the row's newest date, because a granted petition's
+    two decisions are months apart: keyed on the merits judgment, a petition
+    ingested long after its grant would read as freshly decided and have its
+    cert outcome written as though the window had just seen it.
+    """
+    return row.merits_decided if stage is Stage.merits else corpus.resolution_date(row)
+
+
+def converge_ledger_outcomes(
+    corpus_db_path: Path,
+    data_root: Path,
+    *,
+    today: date,
+    lookback_days: int = OUTCOME_CONVERGENCE_LOOKBACK_DAYS,
+    max_cases: int = OUTCOME_CONVERGENCE_MAX_CASES,
+) -> OutcomeConvergence:
+    """Record the ledger outcome of every selected moment the corpus closed without one.
+
+    The corpus ``resolved`` flag and the ledger ``outcome.json`` are meant to
+    move together (:func:`record_outcomes`), but the flag has a second writer:
+    the ingest projection marks a decided docket's baseline resolved whenever
+    the row carries a disposition (:func:`fedcourtsai.pipeline.ingest.default_event`),
+    whether or not detection recorded anything. So an event detection declined
+    once — a triaged poll, a baseline born in a shape detection did not
+    attribute to, a case first ingested already decided — is closed in the
+    corpus with no ground truth beside it, and :func:`resolve_case` never looks
+    at it again, because it reads open events only. Evaluate can never grade
+    such an event, and a sibling moment still open beside it stays owed.
+
+    This pass closes that gap from the other side. Over every **declared
+    moment** (:func:`fedcourtsai.pipeline.moments.spec_for`) on a
+    **salience-selected** SCOTUS row that the corpus records resolved but whose
+    ``outcome.json`` the ledger does not hold, and whose stage the row dates
+    decided within ``lookback_days`` of ``today`` (:func:`_stage_decided`), it
+    re-runs :func:`detect_resolution` with
+    those events counted as claimants beside the case's open ones, and records
+    what detection attributes through :func:`record_outcomes` — the same rule,
+    the same writer, the same ``event.yaml`` materialization, so an outcome
+    written here is byte-for-byte what the poll would have written had it
+    attributed at the time. Open sibling moments of the same stage resolve in
+    the same call from the same disposition.
+
+    The order-text markers come from the case's latest stored snapshot, read
+    exactly as the refresh channels read the payload in hand; a case with no
+    stored snapshot records no observation (:data:`NO_ORDER_MARKERS`) rather
+    than a guessed one. Entry-pinned events are never claimants. A gap
+    detection still declines is returned as ``unrecorded`` — detection's own
+    triage reason — and is retried on the next pass, not written.
+
+    Idempotent: a recorded event carries its ``outcome.json``, so the next pass
+    finds no gap. Bounded by ``max_cases`` per call.
+    """
+    result = OutcomeConvergence()
+    if not corpus_db_path.exists():
+        return result
+    floor = date.fromordinal(today.toordinal() - lookback_days)
+    # The writable connection, as everywhere a writer lane reads the blob it is
+    # about to mutate: a read-only connection may resolve to the remote backend,
+    # which lags this window's own writes.
+    with corpus.connect(corpus_db_path) as conn:
+        gaps: dict[str, list[tuple[str, Stage]]] = {}
+        for event in corpus.resolved_events_on_selected_rows(conn, court="scotus"):
+            spec = moments.spec_for(event.event_id)
+            if spec is None:
+                continue
+            docket_id = int(event.case_id.rsplit("/", 1)[-1])
+            if CasePaths(data_root, "scotus", docket_id).event(event.event_id).outcome.exists():
+                continue
+            gaps.setdefault(event.case_id, []).append((event.event_id, spec.stage))
+        due: list[tuple[corpus.CorpusRow, list[str]]] = []
+        for case_id, gap_events in gaps.items():
+            row = corpus.get_row(conn, case_id)
+            if row is None:
+                continue
+            recent = [
+                event_id
+                for event_id, stage in gap_events
+                if (decided := _stage_decided(row, stage)) is not None and decided >= floor
+            ]
+            if recent:
+                due.append((row, recent))
+    result.deferred = max(0, len(due) - max_cases)
+    for row, gap_ids in due[:max_cases]:
+        docket_id = int(row.case_id.rsplit("/", 1)[-1])
+        with corpus.connect(corpus_db_path) as conn:
+            events = corpus.events_for_case(conn, row.case_id)
+            snapshot = corpus.latest_snapshot(conn, row.case_id)
+        claimants = [e.event_id for e in events if not e.resolved] + gap_ids
+        payload = snapshot[1] if snapshot is not None else None
+        resolution = detect_resolution(
+            row,
+            "scotus",
+            docket_id,
+            claimants,
+            disposition_basis(payload) if payload is not None else "standard",
+            stages={e.event_id: e.stage for e in events},
+            resolved_event_ids=[
+                e.event_id for e in events if e.resolved and e.event_id not in gap_ids
+            ],
+            order=(
+                read_order_markers(
+                    payload, disposition=row.disposition, date_cert_granted=row.date_cert_granted
+                )
+                if payload is not None
+                else NO_ORDER_MARKERS
+            ),
+            entry_pinned={e.event_id for e in events if e.docket_entry_id is not None},
+        )
+        written = record_outcomes(corpus_db_path, data_root, "scotus", docket_id, resolution)
+        if written:
+            result.recorded[row.case_id] = written
+        result.unrecorded.extend(resolution.unrecorded)
+    return result
