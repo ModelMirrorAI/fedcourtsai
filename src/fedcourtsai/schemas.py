@@ -7178,7 +7178,17 @@ class BigCaseOutcomeLine(_Strict):
     action: Literal["granted", "denied", "reversed", "affirmed", "vacated"] = Field(
         description="The action, spelled as the outcome vocabulary spells it — `granted` / "
         "`denied` for a petition or an application, `reversed` / `affirmed` / `vacated` for "
-        "a merits case — so the line pairs with the forecast label it explains"
+        "a merits case. Pair a line with the forecast by `side`, not by `action`: a merits "
+        "forecast has no per-action label"
+    )
+    side: Literal["granted", "not-granted", "disturbed", "undisturbed"] = Field(
+        description="The side of the stage's forecast binary the action falls on. For a "
+        "petition or an application, `granted` pairs with the headline probability and "
+        "`not-granted` with its complement. For a merits case the headline is "
+        "P(judgment below disturbed), which pools reversal, vacatur and the mixed in-part "
+        "outcome: `reversed` and `vacated` are both `disturbed` and pair with it together, "
+        "`affirmed` is `undisturbed` and pairs with its complement — never one line to the "
+        "whole number"
     )
     line: str = Field(
         description="One fixed plain-language sentence saying what the action does for the "
@@ -7291,7 +7301,8 @@ class BigCaseRow(_Strict):
     asking_party: str | None = Field(
         default=None,
         description="The short name of the side asking the Court to act at `moment` — the "
-        "petitioner or applicant, named first in the caption — by the `asking_rule` "
+        "petitioner, applicant, appellant, plaintiff or movant, named first in the "
+        "caption — by the `asking_rule` "
         "provenance string, with the short-caption rule's party names. None exactly when "
         "`asking_declined` is set. Display-only",
     )
@@ -7305,8 +7316,9 @@ class BigCaseRow(_Strict):
         description="One fixed plain-language line per action open at `moment`'s stage, "
         "filled with `asking_party` and `other_party`: granted and denied for a petition or "
         "an application, reversed, affirmed and vacated for a merits case. Consequences "
-        "only, never likelihood — shown beside the forecast so a reader can tell whom each "
-        "action helps. None exactly when `asking_party` is. Display-only",
+        "only, never likelihood — shown beside the forecast, paired by each line's `side`, "
+        "so a reader can tell whom each action helps. None exactly when `asking_party` is. "
+        "Display-only",
     )
     asking_declined: AskingDeclineReason | None = Field(
         default=None,

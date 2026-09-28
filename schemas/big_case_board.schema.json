@@ -150,7 +150,7 @@
       "description": "What one action open at a row's moment does for the named sides.",
       "properties": {
         "action": {
-          "description": "The action, spelled as the outcome vocabulary spells it \u2014 `granted` / `denied` for a petition or an application, `reversed` / `affirmed` / `vacated` for a merits case \u2014 so the line pairs with the forecast label it explains",
+          "description": "The action, spelled as the outcome vocabulary spells it \u2014 `granted` / `denied` for a petition or an application, `reversed` / `affirmed` / `vacated` for a merits case. Pair a line with the forecast by `side`, not by `action`: a merits forecast has no per-action label",
           "enum": [
             "granted",
             "denied",
@@ -165,10 +165,22 @@
           "description": "One fixed plain-language sentence saying what the action does for the sides, by name. Consequences only, never likelihood",
           "title": "Line",
           "type": "string"
+        },
+        "side": {
+          "description": "The side of the stage's forecast binary the action falls on. For a petition or an application, `granted` pairs with the headline probability and `not-granted` with its complement. For a merits case the headline is P(judgment below disturbed), which pools reversal, vacatur and the mixed in-part outcome: `reversed` and `vacated` are both `disturbed` and pair with it together, `affirmed` is `undisturbed` and pairs with its complement \u2014 never one line to the whole number",
+          "enum": [
+            "granted",
+            "not-granted",
+            "disturbed",
+            "undisturbed"
+          ],
+          "title": "Side",
+          "type": "string"
         }
       },
       "required": [
         "action",
+        "side",
         "line"
       ],
       "title": "BigCaseOutcomeLine",
@@ -416,7 +428,7 @@
             }
           ],
           "default": null,
-          "description": "The short name of the side asking the Court to act at `moment` \u2014 the petitioner or applicant, named first in the caption \u2014 by the `asking_rule` provenance string, with the short-caption rule's party names. None exactly when `asking_declined` is set. Display-only",
+          "description": "The short name of the side asking the Court to act at `moment` \u2014 the petitioner, applicant, appellant, plaintiff or movant, named first in the caption \u2014 by the `asking_rule` provenance string, with the short-caption rule's party names. None exactly when `asking_declined` is set. Display-only",
           "title": "Asking Party"
         },
         "caption": {
@@ -588,7 +600,7 @@
             }
           ],
           "default": null,
-          "description": "One fixed plain-language line per action open at `moment`'s stage, filled with `asking_party` and `other_party`: granted and denied for a petition or an application, reversed, affirmed and vacated for a merits case. Consequences only, never likelihood \u2014 shown beside the forecast so a reader can tell whom each action helps. None exactly when `asking_party` is. Display-only",
+          "description": "One fixed plain-language line per action open at `moment`'s stage, filled with `asking_party` and `other_party`: granted and denied for a petition or an application, reversed, affirmed and vacated for a merits case. Consequences only, never likelihood \u2014 shown beside the forecast, paired by each line's `side`, so a reader can tell whom each action helps. None exactly when `asking_party` is. Display-only",
           "title": "Outcome Lines"
         },
         "score_max": {

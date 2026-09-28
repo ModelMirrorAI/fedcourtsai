@@ -16,6 +16,7 @@ from fedcourtsai.asking_party import (
     outcome_lines,
 )
 from fedcourtsai.schemas import Stage
+from fedcourtsai.short_caption import AGENCY_ACRONYMS
 
 
 def _sides(
@@ -96,14 +97,8 @@ def test_the_first_named_side_is_the_one_asking(caption: str, asking: str, other
         ),
         # Two sides with one short name: a line could not tell them apart.
         ("Ronald Dittmer, et ux. v. Katie Dittmer", {}, "short_form"),
-        # A sovereign against a sovereign on an application number.
-        (
-            "Alabama, et al. v. California, et al.",
-            {"docket_number": "26A139", "stage": Stage.interim},
-            "original_jurisdiction",
-        ),
-        # The same shape with no docket number: the ACA cross-petitions, which
-        # decline here before the mirror is consulted.
+        # A sovereign against a sovereign with no docket number: the ACA
+        # cross-petitions, which decline here before the mirror is consulted.
         ("Texas, et al., Petitioners v. California, et al.", {}, "original_jurisdiction"),
         # An original docket number declines whatever the caption says.
         (
@@ -135,9 +130,34 @@ def test_the_rule_declines_where_the_caption_cannot_carry_the_answer(
     assert _sides(caption, **kwargs) == declined  # type: ignore[arg-type]
 
 
-def test_a_sovereign_pair_on_a_term_form_petition_number_is_a_cert_case() -> None:
-    assert _sides("Texas v. United States", docket_number="22-58") == AskingSides(
-        asking="Texas", other="United States"
+@pytest.mark.parametrize(
+    ("caption", "docket_number", "stage", "asking", "other"),
+    [
+        # A petition number is never original, whoever the parties are.
+        ("Texas v. United States", "22-58", Stage.cert, "Texas", "United States"),
+        # Nor is an application number: the Alabama v. California stay application,
+        # and a United States v. State application.
+        (
+            "Alabama, et al. v. California, et al.",
+            "26A139",
+            Stage.interim,
+            "Alabama",
+            "California",
+        ),
+        (
+            "United States, Petitioner v. Texas, et al.",
+            "23A607",
+            Stage.interim,
+            "United States",
+            "Texas",
+        ),
+    ],
+)
+def test_a_sovereign_pair_on_a_petition_or_application_number_is_read_as_any_other(
+    caption: str, docket_number: str, stage: Stage, asking: str, other: str
+) -> None:
+    assert _sides(caption, docket_number=docket_number, stage=stage) == AskingSides(
+        asking=asking, other=other
     )
 
 
@@ -154,45 +174,69 @@ def test_caption_heads_strip_labels_and_keep_whole_names() -> None:
     assert caption_heads("In Re Joan Farr") is None
 
 
-def _lines(stage: Stage, asking: str, other: str) -> dict[str, str]:
-    return dict(outcome_lines(stage, AskingSides(asking=asking, other=other)))
+def _lines(stage: Stage, asking: str, other: str) -> dict[str, tuple[str, str]]:
+    return {
+        action: (side, line)
+        for action, side, line in outcome_lines(stage, AskingSides(asking=asking, other=other))
+    }
 
 
-def test_petition_lines_name_both_sides_and_say_a_grant_decides_nothing() -> None:
+def test_petition_lines_say_a_grant_decides_nothing_and_a_denial_is_no_ruling() -> None:
     assert _lines(Stage.cert, "United States", "Carroll") == {
-        "granted": "The Court agrees to hear the United States' case; "
-        "that decides nothing yet about who is right.",
-        "denied": "Carroll's win in the lower court stands; "
-        "that is not a ruling that the lower court was right.",
+        "granted": (
+            "granted",
+            "The Court takes up the United States' case; "
+            "a grant alone decides nothing yet about who is right.",
+        ),
+        "denied": (
+            "not-granted",
+            "The United States' petition ends and the lower court's decision stands; "
+            "that is not a ruling that the lower court was right.",
+        ),
     }
 
 
 def test_application_lines_are_temporary_relief() -> None:
     assert _lines(Stage.interim, "Trump", "California") == {
-        "granted": "Trump gets the relief requested, for now; the case continues in the "
-        "lower courts.",
-        "denied": "Trump does not get the relief requested; the lower court's order stays in "
-        "effect while the case continues.",
+        "granted": (
+            "granted",
+            "Trump gets the relief requested, for now; the case continues in the lower courts.",
+        ),
+        "denied": (
+            "not-granted",
+            "Trump does not get the relief requested, for now; things stay as the lower "
+            "courts left them while the case continues.",
+        ),
     }
 
 
-def test_merits_lines_cover_reversal_affirmance_and_vacatur() -> None:
+def test_merits_lines_pair_by_side_not_one_to_one() -> None:
     lines = _lines(Stage.merits, "Department of Labor", "Sun Valley Orchards")
     assert list(lines) == ["reversed", "affirmed", "vacated"]
-    assert lines["reversed"] == (
-        "The Department of Labor wins in the Court; the lower court's decision is overturned."
+    # Reversal and vacatur both sit on the disturbed side of P(disturbed).
+    assert {action: side for action, (side, _) in lines.items()} == {
+        "reversed": "disturbed",
+        "affirmed": "undisturbed",
+        "vacated": "disturbed",
+    }
+    assert lines["reversed"][1] == (
+        "The Department of Labor wins in the Court; the lower court's decision is "
+        "overturned, and any remaining issues go back to it."
     )
-    assert lines["affirmed"] == (
+    assert lines["affirmed"][1] == (
         "Sun Valley Orchards wins in the Court; the lower court's decision is upheld."
     )
-    assert "without either side winning yet" in lines["vacated"]
+    assert lines["vacated"][1] == (
+        "The lower court's decision is set aside and the case goes back to it, "
+        "without the Court deciding it for either side."
+    )
 
 
 @pytest.mark.parametrize("stage", list(Stage))
 def test_every_stage_has_lines_and_none_speaks_of_likelihood(stage: Stage) -> None:
     lines = outcome_lines(stage, AskingSides(asking="Apple", other="Epic Games"))
     assert lines
-    for _, line in lines:
+    for _, _, line in lines:
         lowered = line.lower()
         assert not any(word in lowered for word in ("likely", "probab", "chance", "expect"))
 
@@ -202,14 +246,24 @@ def test_every_stage_has_lines_and_none_speaks_of_likelihood(stage: Stage) -> No
     [
         ("Republican National Committee", "The Republican National Committee wins"),
         ("City of Cleveland", "The City of Cleveland wins"),
+        ("National Association for Gun Rights", "The National Association for Gun Rights wins"),
+        ("National Veterans Legal Services Program", "The National Veterans Legal Services"),
         ("Cook County", "Cook County wins"),
         ("Walmart", "Walmart wins"),
         ("Texas", "Texas wins"),
         ("Humphreys", "Humphreys wins"),
+        # A company whose name carries an "of" phrase is still a company.
+        ("Unum Life Insurance Company of America", "Unum Life Insurance Company of America wins"),
     ],
 )
 def test_an_institution_takes_an_article_and_a_person_or_company_does_not(
     party: str, expected: str
 ) -> None:
-    lines = _lines(Stage.merits, party, "Other")
-    assert lines["reversed"].startswith(expected)
+    assert _lines(Stage.merits, party, "Other")["reversed"][1].startswith(expected)
+
+
+@pytest.mark.parametrize("acronym", sorted(AGENCY_ACRONYMS.values()))
+def test_an_agency_acronym_takes_an_article(acronym: str) -> None:
+    lines = _lines(Stage.cert, acronym, "Other")
+    assert lines["granted"][1].startswith(f"The Court takes up the {acronym}'s case")
+    assert lines["denied"][1].startswith(f"The {acronym}'s petition ends")

@@ -3231,32 +3231,43 @@ _BIG_CASE_DOCKET_RULE = (
 
 _BIG_CASE_ASKING_RULE = (
     "`asking_party` is the side asking the Court to act at the row's `moment` — the "
-    "petitioner, applicant or appellant — and `other_party` the side answering. Both are "
-    "read from `caption`: the Court's docket names its asking side first, and the board "
-    "has no other committed source for the docket's party labels, so a caption that still "
-    "carries a label (`Petitioners`, `Applicants`) is checked against its order and one "
-    "that carries none is read by order alone. The names are the short-caption rule's "
-    "party names, so a side has one exactly where `short_caption` would. `outcome_lines` "
-    "are fixed sentences filled with those names, one per action open at the stage of "
-    "`moment` (the moment registry's stage, as the row's collapse reads it): granted and "
-    "denied for a petition or an application, reversed, affirmed and vacated for a merits "
-    "case. They state what each action does for the sides — consequences only, never "
-    "likelihood, each action at the same weight — and never who wins beyond what the "
-    "action itself does. All three fields are null together, and `asking_declined` says "
-    "why: `no_caption`; `not_scotus`; `in_re` (a mandamus or prohibition caption names no "
-    "second side); `not_two_sided`; `docket_labels` (a label that contradicts the order, "
-    "or a cross-petitioner label); `short_form` (the short-caption rule declines a side, "
-    "or both sides shorten to the same name); "
-    "`original_jurisdiction` (an original docket number, or a caption whose both sides "
-    "are sovereigns on a docket that is not a Term-form petition number — which also "
-    "declines a sovereign-against-sovereign application); `cross_petition` (another "
-    "committed case names the same two parties in reverse order with docket dates within "
-    f"{CROSS_PETITION_WINDOW_DAYS} days, so both sides are asking — an undated pair counts, "
-    "and a cross-petition whose other half is not committed is not seen); `stage` (the "
-    "moment registry declares no stage for `moment`). What the rule cannot see is a party "
-    "supporting the other side, such as the federal government as respondent agreeing "
-    "with the petitioner; the lines stay about the action there. Display-only: nothing "
-    "predicts, evaluates or scores on these fields."
+    "petitioner, applicant, appellant, plaintiff or movant — and `other_party` the side "
+    "answering. Both are read from `caption`: the Court's docket names its asking side "
+    "first, and the board has no other committed source for the docket's party labels, so "
+    "a caption that still carries a label (`Petitioners`, `Applicants`) is checked against "
+    "its order and one that carries none is read by order alone. The names are the "
+    "short-caption rule's party names, so a side has one exactly where `short_caption` "
+    "would. `outcome_lines` are fixed sentences filled with those names, one per action "
+    "open at the stage of `moment` (the moment registry's stage, as the row's collapse "
+    "reads it): granted and denied for a petition or an application, reversed, affirmed "
+    "and vacated for a merits case. Each line names the `side` of the stage's forecast "
+    "binary its action falls on, and that is how it pairs with the forecast. A petition "
+    "or application forecast is P(granted): `granted` pairs with it and `not-granted` "
+    "with its complement, and the granted side also holds a GVR and a summary reversal, "
+    "which the grant line does not describe. A merits forecast is P(judgment below "
+    "disturbed): `reversed` and `vacated` are both `disturbed` and pair with it together, "
+    "`affirmed` is `undisturbed` and pairs with its complement, and neither side is one "
+    "line — the mixed in-part outcome is disturbed and has no line, and a dismissal as "
+    "improvidently granted or an equally divided affirmance is undisturbed and has none "
+    "either. The lines state what each action does for the sides — consequences only, "
+    "never likelihood, each action at the same weight — and never who wins beyond what "
+    "the action itself does. All three fields are null together, and `asking_declined` "
+    "says why: `no_caption`; `not_scotus`; `in_re` (any `In re` caption — an "
+    "extraordinary writ such as mandamus, prohibition or habeas — names no second side); "
+    "`not_two_sided`; `docket_labels` (a label that contradicts the order, or a "
+    "cross-petitioner label); `short_form` (the short-caption rule declines a side, or "
+    "both sides shorten to the same name); `original_jurisdiction` (an original docket "
+    "number, or, where the docket number is unknown, a caption whose both sides are "
+    "sovereigns — a Term-form petition number or an application number is never "
+    "original); `cross_petition` (another committed case names the same two parties in "
+    f"reverse order with docket dates within {CROSS_PETITION_WINDOW_DAYS} days, so both "
+    "sides are asking — an undated pair counts, and a cross-petition whose other half is "
+    "not committed is not seen); `stage` (the moment registry declares no stage for "
+    "`moment`). What the rule cannot see is a party supporting the other side, such as "
+    "the federal government as respondent agreeing with the petitioner, and who stands "
+    "behind a name: the names are the caption's short names, so an official sued in that "
+    "capacity appears by surname, not as the government. The lines stay about the action "
+    "there. Display-only: nothing predicts, evaluates or scores on these fields."
 )
 
 
@@ -3613,7 +3624,7 @@ class _CaptionIndex:
 
 
 def _committed_caption_index(data_root: Path) -> _CaptionIndex:
-    """The caption index over every committed ``event.yaml``, predicted or not.
+    """The caption index over every committed SCOTUS ``event.yaml``, predicted or not.
 
     The whole ledger rather than the board's own cases, because the other half of
     a cross-petition pair need not have been predicted. Parsed with the C loader
@@ -3625,10 +3636,10 @@ def _committed_caption_index(data_root: Path) -> _CaptionIndex:
     if not cases_dir.exists():
         return _CaptionIndex(cases_by_heads={}, dates_by_case={})
     loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
-    for path in sorted(cases_dir.glob("*/*/events/*/event.yaml")):
+    for path in sorted(cases_dir.glob("scotus/*/events/*/event.yaml")):
         try:
             raw = yaml.load(path.read_text(), Loader=loader)
-        except (yaml.YAMLError, OSError) as exc:
+        except (yaml.YAMLError, OSError, ValueError) as exc:
             # A display field is not worth the daily board: an unreadable definition
             # drops out of the cross-petition test, loudly, and nothing else.
             print(
@@ -3702,8 +3713,8 @@ def _asking_fields(
         asking=sides.asking,
         other=sides.other,
         lines=[
-            BigCaseOutcomeLine(action=action, line=line)
-            for action, line in outcome_lines(stage, sides)
+            BigCaseOutcomeLine(action=action, side=side, line=line)
+            for action, side, line in outcome_lines(stage, sides)
         ],
     )
 

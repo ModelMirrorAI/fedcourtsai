@@ -75,7 +75,7 @@ AGENCY_ACRONYMS: Final[dict[str, str]] = {
 
 #: Corporate forms: a segment or trailing word that marks a business name and is
 #: dropped from its short form.
-_CORPORATE_FORMS: Final = frozenset(
+CORPORATE_FORMS: Final = frozenset(
     {
         "Co.",
         "Company",
@@ -159,7 +159,7 @@ _INSTITUTION_WORDS: Final = frozenset(
         "University",
         "Village",
     }
-    | _CORPORATE_FORMS
+    | CORPORATE_FORMS
 )
 
 #: The first word of an alias segment (``dba 247Sports``, ``fka Prutehi Litekyan``).
@@ -221,7 +221,7 @@ def short_party(side: str) -> str | None:
         words = segment.split()
         if not words or segment in _NAME_SUFFIXES:
             continue
-        if words[0] in _CORPORATE_FORMS:
+        if words[0] in CORPORATE_FORMS:
             corporate = True
             continue
         # Past the corporate-form segments the side describes the party rather
@@ -292,7 +292,7 @@ def _short_organisation(name: str) -> str | None:
     if name in AGENCY_ACRONYMS:
         return AGENCY_ACRONYMS[name]
     words = name.split()
-    while len(words) > 1 and words[-1] in _CORPORATE_FORMS:
+    while len(words) > 1 and words[-1] in CORPORATE_FORMS:
         # A name of initials alone ("F.E.B. Corp.") keeps its corporate form, which
         # is what tells a reader the initials are a company.
         if all(_INITIALS_RE.match(word) for word in words[:-1]):

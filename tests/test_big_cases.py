@@ -1396,18 +1396,42 @@ def test_a_petition_row_s_lines_are_filled_with_the_names(tmp_path: Path) -> Non
     )
     (row,) = _board(tmp_path).rows
     assert row.outcome_lines is not None
-    assert [(line.action, line.line) for line in row.outcome_lines] == [
+    assert [(line.action, line.side, line.line) for line in row.outcome_lines] == [
         (
             "granted",
-            "The Court agrees to hear the United States' case; "
-            + "that decides nothing yet about who is right.",
+            "granted",
+            "The Court takes up the United States' case; "
+            + "a grant alone decides nothing yet about who is right.",
         ),
         (
             "denied",
-            "Carroll's win in the lower court stands; "
+            "not-granted",
+            "The United States' petition ends and the lower court's decision stands; "
             + "that is not a ruling that the lower court was right.",
         ),
     ]
+
+
+def test_a_sovereign_pair_on_an_application_number_is_not_read_as_original(
+    tmp_path: Path,
+) -> None:
+    # Alabama v. California as a live-first application: its id decodes to 26A139.
+    _write_read(
+        tmp_path,
+        f"scotus/{live_application_id(26, 139)}",
+        "claude-baseline",
+        "r1",
+        event_id="evt-motion-disposition",
+        big_case_score=0.5,
+        title="Alabama, et al. v. California, et al.",
+    )
+    (row,) = _board(tmp_path).rows
+    assert (row.docket_number, row.asking_party, row.other_party, row.asking_declined) == (
+        "26A139",
+        "Alabama",
+        "California",
+        None,
+    )
 
 
 @pytest.mark.parametrize(
