@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000380",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell read-only inspection", "jq statpack arithmetic", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts", "apply_patch"],
+  "helpful": ["Frozen stage, moment, salience version, and distribution count make the arrival conditioning explicit.", "Machine-readable per-Term reached counts permit exact federal-class pooling.", "Petition text includes substantial lower-court reasoning, enabling a partial check against advocacy.", "CourtListener snippet retrieval supplied a narrowly targeted passage from Jennings without case-outcome retrieval."],
+  "gaps": ["The petition appendix stops before the later split discussion and dissent.", "General web queries and an open request returned no usable content."],
+  "notes": "No live corpus query was needed. The ordinary absence of an opposition at arrival leaves a one-sided record. The default uv cache was read-only; using a temporary writable cache allowed the path command to succeed. No direct CourtListener REST fallback was attempted."
+}

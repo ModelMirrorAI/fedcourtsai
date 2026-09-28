@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000290",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned petition.txt and questions-presented.txt"],
+  "helpful": [
+    "The sal-v4 band table with bracketed reached rates gave a directly usable arrival anchor for the baseline class.",
+    "Provisioned petition text made the pro se, summary-writ-denial posture clear without any live retrieval."
+  ],
+  "gaps": [
+    "A per-fee-class or pro se vs counseled split of the baseline band's reached rate; the class floor pools both and the pro se subpopulation grants far more rarely.",
+    "fedcourts query has no way to filter on petitioner type (pro se, government, counseled) or originating state court, so pulling comparable priors for a pro se state-court petition is not possible."
+  ],
+  "notes": "First fedcourts query attempt failed with a usage error because I passed a free-text argument; the error message was clear and the structured retry worked. Prediction docs written from the provisioned inputs plus the statpack."
+}

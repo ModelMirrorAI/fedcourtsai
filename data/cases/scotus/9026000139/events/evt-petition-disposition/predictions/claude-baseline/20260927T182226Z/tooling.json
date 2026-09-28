@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000139",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "courtlistener MCP read_document"],
+  "helpful": [
+    "Provisioned BIO text: the two-page non-opposition was the single most decisive input.",
+    "fedcourts query --disposition gvr surfaced the three identical Monsanto GVRs with counsel and distribution counts in one call.",
+    "Statpack band table gave the scored anchor and its window without a local corpus."
+  ],
+  "gaps": [
+    "CourtListener's SCOTUS docket search returned nothing for a Monsanto party or full-text query, so live docket text for the analog petitions was unreachable; a corpus-side caption/party filter on fedcourts query would have replaced it.",
+    "context.distribution_count counts a redistribution after a response request the same as a relist; a per-entry reason (relist vs reschedule vs post-response redistribution) would sharpen the relist-increment claim.",
+    "No way to list other open petitions on the same controlling decision (a 'held-for / GVR wave' view) without knowing their docket ids."
+  ],
+  "notes": "Six MCP calls and two corpus queries, well under the advisory budget. The docket's response-request-after-waiver pattern is a strong pre-GVR signal that the statpack has no cut for; a response_requested cut on the paid scored segment would be a useful addition."
+}

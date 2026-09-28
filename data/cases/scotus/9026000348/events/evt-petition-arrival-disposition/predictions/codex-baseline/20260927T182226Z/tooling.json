@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000348",
+  "gaps": [
+    "Provisioned petition text truncates during the district-court appendix.",
+    "Generic official-statute web retrieval returned no usable content."
+  ],
+  "helpful": [
+    "The main petition expressly identifies companion treatment and its vehicle defects.",
+    "Appended majority reasoning permits checking the asserted circuit conflict and forfeiture issue.",
+    "The sal-v4 federal reached-rate fields support exact prior-Term pooling."
+  ],
+  "notes": "No corpus or CourtListener lookup was needed. No BIO was provisioned at this arrival moment. The default uv cache was read-only; a writable temporary cache allowed the local CLI to run. Forecast uses the provided main petition and prior-Term committed aggregate data, not current case or companion docket retrieval.",
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "committed statpack Markdown and JSON",
+    "jq",
+    "fedcourts paths",
+    "web search/open attempts",
+    "schema validation",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

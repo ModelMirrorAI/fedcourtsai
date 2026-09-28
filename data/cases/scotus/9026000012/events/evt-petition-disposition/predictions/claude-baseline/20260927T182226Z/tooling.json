@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000012",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "web fetch (supremecourt.gov docket PDF and docket pages)",
+    "pdftotext (local extraction of a fetched PDF)"
+  ],
+  "helpful": [
+    "Provisioned petition, BIO, and QP text with documents.json metadata \u2014 the whole substantive read came from these.",
+    "The sal-v4 band table with bracketed reached rates and the caption telling me which figure is scored.",
+    "The relist-count cut's caption warning that reschedules inflate the stored count \u2014 it matched exactly what this docket shows."
+  ],
+  "gaps": [
+    "The petitioner's reply brief was on the docket 17 days before the snapshot but not provisioned; it changed my read of the vehicle dispute. Provisioning reply briefs (kind 'reply') would help every contested cert cell.",
+    "fedcourts query has no subject or party-type filter usable on SCOTUS rows; a granted/2020s sweep returned emergency applications and unrelated grants, and the citation filter is unpopulated. A 'similar QP text' or topic filter would make corpus priors usable at cert stage.",
+    "CourtListener's SCOTUS docket coverage is sparse: neither prior petition on this question nor any Sargent petition was findable, so I fell back to fetching supremecourt.gov docket pages.",
+    "The web fetch tool could not extract text from a supremecourt.gov PDF; a PDF-to-text step in the fetch path would save a manual extraction.",
+    "A per-signal cut for 'response requested after waiver' in the statpack would let me judge how much of that signal the band already prices."
+  ],
+  "notes": "Roughly 10 retrieval calls in total (2 corpus queries, 5 MCP searches, 3 web fetches), within the advisory budget."
+}

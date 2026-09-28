@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000012",
+  "gaps": [
+    "The filed reply and underlying appendix were not among the provisioned texts.",
+    "The two general-doctrine web calls returned no visible content.",
+    "The distribution-moment context had no cutoff; distinguish preconference rescheduling from postconference relisting when interpreting its count."
+  ],
+  "helpful": [
+    "Provisioned petition and BIO exposed the competing vehicle and circuit-split arguments.",
+    "CourtListener opinion snippets and chunk reads independently checked the narrower split in Sargent.",
+    "Statpack JSON supplied exact prior-Term risk-set weights rather than rounded percentages."
+  ],
+  "notes": "No corpus query was needed. A writable temporary uv cache resolved the initial CLI cache error. The prediction uses the forward snapshot without seeking the target petition's outcome; the conditioning concern is recorded in flags.json.",
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: read provisioned inputs and schemas",
+    "jq: statpack risk-set pooling",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "CourtListener MCP read_document",
+    "web search and open: no visible results"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

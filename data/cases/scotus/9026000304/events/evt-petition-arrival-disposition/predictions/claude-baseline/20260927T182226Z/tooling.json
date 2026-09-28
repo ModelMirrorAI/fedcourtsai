@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/9026000304",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener mcp search"
+  ],
+  "helpful": [
+    "The salience band table's per-Term federal column with n, which made a pooled arrival anchor a five-minute computation.",
+    "The provisioned full petition text; the reasons-for-granting section carried the circuit-conflict and vehicle facts the forecast rests on.",
+    "CourtListener opinion search confirming the three appellate decisions the petition cites, cheaply."
+  ],
+  "gaps": [
+    "fedcourts query cannot filter by petitioner class (federal/state/private) or by originating circuit, so it could not surface comparable SG petitions; with --disposition granted --era 2020s it returned mostly emergency-application rows with null captions.",
+    "A pooled federal-class reached rate computed in the statpack itself would remove the hand arithmetic every arrival cell repeats.",
+    "The current SCOTUS docket is not in RECAP, so a forward cell has no sanctioned way to see post-snapshot entries such as a BIO waiver or extension."
+  ],
+  "notes": "documents.json marks the petition truncated at 143 pages, but the truncation falls inside the appendix; the body through the Conclusion is intact."
+}

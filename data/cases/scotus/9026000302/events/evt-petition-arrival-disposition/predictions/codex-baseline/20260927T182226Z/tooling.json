@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000302",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot and document text", "committed statpack markdown and JSON", "jq", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web.run (no usable results)", "fedcourts validate"],
+  "helpful": ["The petition appendix supplies the appellate court's actual opposing analysis.", "Frozen zero-distribution context distinguishes an arrival increment from a true relist.", "Unrounded risk-set rates and denominators allow exact prior-Term pooling."],
+  "gaps": ["No opposition is provisioned at this arrival moment.", "Petition text is marked truncated, so appendices cannot be assumed complete.", "The web tool returned no usable content for a general rules lookup."],
+  "notes": "The default uv cache was read-only; redirecting it to /tmp/uv-cache allowed the existing CLI to run without modifying pipeline code. CourtListener worked for a narrow historical precedent check. No current-case or companion outcome was sought. No corpus transfer occurred."
+}

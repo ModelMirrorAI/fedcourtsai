@@ -1,0 +1,3 @@
+Distributed 0 times so far; I expect 0 further relists before a decision on the petition, as this is a run-of-the-mill local property dispute that does not warrant additional conference time. I expect no CVSG, because no federal party's interest is implicated in a dispute between a real estate company and the City of Pontiac.
+
+If granted, the Court would likely take the takings claim (QP 4), but a summary GVR is unlikely as there is no obvious intervening Supreme Court decision that bears on this specific local issue. Should it deny, expect no separate writing or dissent from denial, given the highly fact-bound and generic nature of the questions presented.

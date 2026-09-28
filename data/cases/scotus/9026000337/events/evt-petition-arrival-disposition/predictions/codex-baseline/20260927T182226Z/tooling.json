@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000337",
+  "gaps": [
+    "General official-rule web searches and opens returned no usable content.",
+    "The default uv cache location is read-only; a temporary writable cache was needed."
+  ],
+  "helpful": [
+    "The petition includes the lower-court opinion, enabling comparison with the advocate's framing.",
+    "Frozen zero-distribution context clarifies the arrival increment claim.",
+    "Unrounded statpack JSON supports exact pooling of prior-Term reached rates."
+  ],
+  "notes": "No BIO was provisioned at this arrival moment; this is not treated as an error or an opposition waiver. No case outcome was sought. No live corpus freshness claim is made.",
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell reads",
+    "fedcourts paths",
+    "committed statpack",
+    "web search/open attempts",
+    "local schema and data validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

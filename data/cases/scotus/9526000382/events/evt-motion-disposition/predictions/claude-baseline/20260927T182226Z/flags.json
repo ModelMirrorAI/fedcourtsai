@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000382",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward-mode disclosure: the live docket page (supremecourt.gov, fetched 2026-09-27) shows two entries after my arrival-position baseline: a response requested by Justice Sotomayor on 2026-09-23 (due 2026-09-28) and a Becket Fund amicus brief submitted 2026-09-25. I stated the response-requested and amicus increments at 0.97 on that basis, so those two claims carry no forecast content for this cell. No disposition had been entered."
+    },
+    {
+      "category": "other",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The WebSearch tool's machine-generated summary claimed the application was granted on August 24, 2026 with dissents by Justices Sotomayor, Kagan and Jackson. That date precedes the application's own filing (2026-09-17) and the authoritative docket page shows it pending, so I treated the statement as fabricated and did not use it. Flagged so the evaluator can see the stray claim in the transcript was rejected rather than folded in."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "fedcourts corpus-info raised an exception in this cell (no local corpus blob; read-only connect failed), so no corpus vintage could be quoted for the fedcourts query priors. The query itself worked through the corpus service."
+    }
+  ]
+}

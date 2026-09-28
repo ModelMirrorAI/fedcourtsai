@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000406",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "The provisioned application describes Supreme Court relief on June 23 and July 3, 2025 in earlier preliminary-injunction proceedings (24A1153). Those pre-snapshot orders materially raise this forecast, but they are not the disposition of the present 26A406 application challenging the February 25, 2026 final order. No outcome or subsequent docket history for the target application was retrieved or used."
+    }
+  ]
+}

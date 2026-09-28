@@ -1,0 +1,15 @@
+# Forecast: what the Court will do with No. 26-351, Dreiling v. United States
+
+**Disposition.** The petition will be **denied** on the first conference it reaches, without a call for a response having been needed. The Solicitor General, as respondent, will waive the right to respond (the waiver is the ordinary federal-respondent move on a pro se Tucker Act petition), and the Clerk will distribute the petition for a conference in early-to-mid November 2026. An order denying certiorari will follow on the order list after that conference. Neither a GVR nor a summary reversal is in prospect: no intervening decision of this Court bears on the money-mandating limit on Court of Federal Claims jurisdiction, and the petitioner's principal constitutional argument was, by his own account, not decided by either court below.
+
+**Relists.** The docket shows **zero** distributions at this moment, by definition of the arrival cell. The petition will be distributed **exactly once**: the first distribution will occur (so the relist-increment claim resolves yes), and there will be no relist. The only realistic way the first distribution fails to occur is a pre-distribution dismissal or withdrawal, which I put at a few percent.
+
+**CVSG.** None. The United States is the respondent, so the Solicitor General's views arrive as a party's brief or a waiver, never by invitation.
+
+**Which question presented, if any.** If the Court took anything it would be QP 3 (whether the plain text of the Tucker Act, 28 U.S.C. 1491(a)(1), reaches non-money-mandating claims against the United States), because that is the only question actually decided below. It would not take QP 1 (the constitutionality of 28 U.S.C. 354(a)(2)(A)(i)), which the petition's own footnote concedes neither lower court addressed, nor QP 2 (recusal of the entire Federal Circuit under 28 U.S.C. 455), which this Court already declined to reach when it denied the petitioner's mandamus petition No. 25-1217 on June 22, 2026. Realistically the Court takes none of them.
+
+**Summary disposition route, conditional on a grant.** If, against expectation, the Court granted, a GVR is somewhat less likely than plenary review is unlikely: there is no candidate intervening decision to GVR in light of, but plenary review of a pro se challenge to the Tucker Act's money-mandating requirement is also very hard to picture. I put the cert-order route at roughly a third of the (tiny) grant mass.
+
+**Dissent from denial.** None expected. No Justice has signaled interest in revisiting United States v. Jones, 131 U.S. 1 (1889), or the money-mandating requirement in a pro se posture, and the judicial-discipline question is not presented in a form the Court could reach. A statement respecting denial from any Justice is very unlikely.
+
+**Companion petition.** The petitioner's related petition No. 26-9 (filed July 2, 2026) raises the underlying Tucker Act question from the first Court of Federal Claims dismissal. I expect it to be denied at or shortly after the September 29, 2026 long conference, and that denial will not change the treatment of this petition.

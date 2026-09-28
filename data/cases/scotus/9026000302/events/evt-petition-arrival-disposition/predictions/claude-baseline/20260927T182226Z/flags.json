@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000302",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Decisive forward signal from outside the provisioned baseline: the petitioner's companion petition on the identical question, Isaacson v. Moses, No. 25-1411 (2d Cir.), drew a 'Response Requested' order on 2026-08-19 after both respondents waived, with BIOs and a Chamber of Commerce amicus in support of petitioner filed 2026-09-18. Read from supremecourt.gov's docket JSON (public, predates this cell's run; postdates the 2026-09-09 snapshot). This case's own docket shows only a 2026-09-23 waiver by the federal respondent; no disposition of 26-302 surfaced."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "petition.txt is marked truncated (140 pages, cut mid-section II); the petition's section III vehicle argument and conclusion were not available to the cell. questions-presented.txt was complete. No BIO exists yet (response due 2026-10-08)."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The provisioned snapshot's Petitioner block carries the pro se petitioner's personal email address and phone number verbatim (supremecourt.gov payload). documents.json shows the petition text was contact-scrubbed but the snapshot was not; if snapshot files are committed to the public ledger a maintainer may want the same scrub applied there."
+    }
+  ]
+}

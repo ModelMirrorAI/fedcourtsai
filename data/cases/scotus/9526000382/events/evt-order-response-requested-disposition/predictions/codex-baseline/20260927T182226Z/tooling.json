@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000382",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell provisioned-file reads", "fedcourts paths", "jq statpack pooling", "web search/open attempts", "CourtListener opinion search", "CourtListener opinion-text search", "fedcourts corpus-info attempt", "fedcourts validate"],
+  "helpful": ["Full application text and extraction manifest", "Frozen interim escalation state and explicit response deadline", "Per-Term interim counts supporting a strictly-prior pooled baseline", "CourtListener precedent excerpts"],
+  "gaps": ["Lower-court appendix linked in snapshot but not provisioned as text", "Web calls returned no usable content", "corpus-info cannot report freshness through the cell service backend", "No published prediction-time response-requested conditional baseline"],
+  "notes": "The response is not yet due; its absence is expected rather than a provisioning failure. The default uv cache was read-only; redirecting it to /tmp allowed CLI commands to run. No direct CourtListener REST fallback was used. The forecast relies on applicant advocacy where lower-court text was unavailable."
+}

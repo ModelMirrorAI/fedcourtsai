@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000351",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["cat", "ls"],
+  "helpful": ["The statpack base rates by salience band."],
+  "gaps": [],
+  "notes": "Prediction successfully generated using provided baseline rates and document inspection."
+}

@@ -1,0 +1,4 @@
+- Read provisioned snapshot `2026-09-17.json` and `context.json`.
+- Explored `application.txt` using `grep` to understand the facts: an Arizona state prison receivership case involving the PLRA.
+- Attempted to query priors using `uv run fedcourts query --court scotus --decided-before 2026-09-17 --include-applications "stay receivership prison OR healthcare"`, but this failed as `fedcourts query` does not support free-text search.
+- Used the committed statpack `metrics/statpack.md` to establish the baseline grant rate for the interim substantive applications pool.

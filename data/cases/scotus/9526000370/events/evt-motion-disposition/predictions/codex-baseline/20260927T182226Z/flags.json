@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000370",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "The manifest marks the 189-page application PDF truncated. The supplied text contains the principal application and several adverse orders, but ends partway through the longer receivership opinion. No respondent filing is provisioned. Forecast completed using the available adverse orders as a counterweight; the entire necessity/equities record was not available, and the missing portion was not treated as favorable to applicants. No case outcome was retrieved or encountered.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0"
+}

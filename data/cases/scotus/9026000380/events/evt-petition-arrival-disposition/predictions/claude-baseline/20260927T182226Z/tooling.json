@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/9026000380",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener mcp search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The sal-v4 segment table's federal column with per-Term n made the arrival-class floor computable by hand.",
+    "Provisioned petition.txt plus questions-presented.txt carried the whole cert argument; no fetch was needed."
+  ],
+  "gaps": [
+    "No way to filter fedcourts query by petitioner class (e.g. Solicitor General as petitioner) or by originating circuit, so the 2020s granted query returned applications rather than comparable SG cert petitions.",
+    "A cut of the federal band by whether the petition asserts a circuit split would sharpen the arrival anchor.",
+    "CourtListener carries no SCOTUS dockets, so a companion petition's filing status (Khalil) could not be checked through the sanctioned path."
+  ],
+  "notes": "petition.txt is marked truncated (196 pages); the petition proper was complete and the cut fell inside the appended court of appeals opinion."
+}

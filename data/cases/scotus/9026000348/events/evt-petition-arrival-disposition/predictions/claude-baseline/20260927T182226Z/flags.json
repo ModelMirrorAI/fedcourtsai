@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000348",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Self-declared hold petition: the SG asks the Court to hold this petition for United States v. Jackson, No. 26-304 (CA9), and dispose of it afterwards. The cell's disposition is therefore a function of the lead docket's grant and merits outcome, and the federal-band arrival anchor (~71% pooled reached rate, sal-v4) mixes lead grants with companion GVRs. I forecast well below the anchor on that basis. Expect this event to stay open until after Jackson is resolved (likely mid-2027)."
+    }
+  ]
+}

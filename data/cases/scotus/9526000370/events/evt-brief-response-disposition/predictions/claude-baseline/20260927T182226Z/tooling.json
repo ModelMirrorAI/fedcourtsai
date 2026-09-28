@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000370",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "courtlistener search", "courtlistener call_endpoint docket-entries", "WebFetch of a supremecourt.gov docket PDF", "pypdf text extraction"],
+  "helpful": [
+    "The statpack interim section's per-Term counts made the strictly-prior pool arithmetic straightforward.",
+    "CourtListener docket entries for the Ninth Circuit appeal gave the panel composition and the 'subject to reconsideration by the merits panel' language, which the application's own summary did not."
+  ],
+  "gaps": [
+    "fedcourts query with --include-applications ranks time-extension applications first by recency; a filter for application_kind=substantive would make the priors sweep useful.",
+    "No conditioned interim cut (state applicant, response requested) exists, so the class adjustment rests on the predictor's own read of practice.",
+    "The response brief that opens a response-filed event is not provisioned; every predictor has to fetch and OCR it itself."
+  ],
+  "notes": "WebFetch could not read the PDF's text but saved the binary; pypdf from the project environment extracted it cleanly."
+}

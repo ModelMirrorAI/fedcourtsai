@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000351",
+  "gaps": [
+    "Referenced lower-court appendix is absent from the supplied petition text",
+    "Broad reporter lookup returned an unrelated reporter match; court-and-caption restriction was needed",
+    "Web attempts returned no usable content"
+  ],
+  "helpful": [
+    "Exact prior-Term reached-band rates in statpack JSON",
+    "Extracted petition and questions presented",
+    "CourtListener opinion snippets for a narrow doctrinal check"
+  ],
+  "notes": "No remote corpus query or target-case external retrieval was needed. The read-only default uv cache was handled with a temporary cache. Arrival increments must distinguish first distribution from a substantive relist.",
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned record",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

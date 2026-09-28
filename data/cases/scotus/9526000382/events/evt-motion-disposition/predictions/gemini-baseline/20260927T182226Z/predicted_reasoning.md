@@ -1,0 +1,5 @@
+The Court will likely grant the application for a stay pending appellate review. The New York state court's order prohibiting the applicants from participating in a religious tribunal and compelling them to seek the withdrawal of a religious decree directly implicates core First Amendment protections under the church autonomy doctrine. Civil courts cannot interfere with internal religious adjudications or compel speech regarding religious disciplines.
+
+Given the sensitivity and importance of the Free Exercise claims, the Circuit Justice (Justice Sotomayor) will almost certainly call for a response from the respondents (P=0.95) and refer the application to the full Court (P=0.90). 
+
+The case will attract significant attention from religious liberty groups, and the number of amicus briefs filed will rise from the current zero (P=0.85). Ultimately, a majority of the Court will find a likelihood of success on the merits and irreparable harm, and will grant the requested stay.

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000359",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "committed statpack", "jq", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts", "fedcourts validate"],
+  "helpful": ["Explicit arrival cutoff and zero-distribution conditioning", "Readable petition and questions-presented text", "Exact reached-rate denominators in statpack JSON", "CourtListener precedent excerpts without retrieving the target docket"],
+  "gaps": ["No provisioned brief in opposition or separately readable lower-court appendices", "Web calls returned no usable content", "Reporter-citation MCP search returned an unrelated result before a case-name search succeeded"],
+  "notes": "The default uv cache was read-only; a temporary writable cache allowed CLI use. The relist-increment contract is clear but easy to misread at arrival: the first distribution already satisfies the increment. No case-outcome retrieval was attempted."
+}

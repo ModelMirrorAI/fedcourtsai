@@ -1,0 +1,2 @@
+- `uv run fedcourts query --court scotus --disposition denied --decided-before 2026-09-23 --limit 2`
+  - `ranged corpus reads: 7 GET(s), 1703936 byte(s)`

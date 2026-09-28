@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000359",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed metrics/statpack.md (sal-v4 band Term table, relist/CVSG/circuit cuts)",
+    "CourtListener MCP: search (opinions), call_endpoint (clusters)",
+    "provisioned record/documents (petition, QP)"
+  ],
+  "helpful": [
+    "Full petition text made the cert-worthiness read immediate: the QPs are not legal questions and no split is claimed, which no docket cut captures",
+    "The band Term table's bracketed reached figures made the arrival anchor a single pooled computation",
+    "One CourtListener opinion search confirmed the decision below is published and unanimous-looking without fetching the opinion body"
+  ],
+  "gaps": [
+    "fedcourts query has no filter that maps to a subject class such as land-use / due-process petitions, so it added nothing on a cell whose priors are topical rather than structural",
+    "No statpack cut keyed on petition-quality proxies (counsel type, QP form, published-vs-unpublished below), which are the signals doing the work here",
+    "The decision below is not provisioned; a fetched appendix opinion text would let the cell check the petitioner's characterization"
+  ],
+  "notes": "Retrieval spend: 2 MCP calls, 0 corpus queries. The information ceiling was the absence of a BIO at arrival, not tooling."
+}

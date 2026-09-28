@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000406",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener search", "courtlistener call_endpoint docket-entries"],
+  "helpful": [
+    "Provisioned application.txt (full 45-page SG application) carried nearly all the case-specific signal",
+    "Statpack interim section made the pooled strictly-prior base rate a two-line computation",
+    "CourtListener CA1 docket entries confirmed the stay-dissolution timeline the application described"
+  ],
+  "gaps": [
+    "fedcourts query has no docket-number filter, so a known prior application (24A1153) could not be pulled; results rank by recency and the 2025 row never surfaced",
+    "SCOTUS application dockets are not in CourtListener, so the current state of 26A406 after the snapshot (administrative stay, referral, amici) could not be checked",
+    "No statpack cut of interim grant rate conditioned on applicant class (SG vs private) or on response-requested, which is the cut this cell actually needed"
+  ],
+  "notes": "Roughly 7 retrieval calls total; well under budget."
+}

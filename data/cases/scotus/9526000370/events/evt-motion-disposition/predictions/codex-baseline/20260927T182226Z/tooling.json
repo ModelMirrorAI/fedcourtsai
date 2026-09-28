@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000370",
+  "gaps": [
+    "Truncation omits part of the receivership opinion; complete lower-court reasoning would improve adversarial balance.",
+    "No respondent-side filing is provisioned.",
+    "General-authority web calls returned no usable content; MCP supplied the stay-standard passage."
+  ],
+  "helpful": [
+    "Arrival-position conditioning clearly separates the submission baseline from later attention.",
+    "The application appendix preserves adverse orders, including the limited nature of the appellate partial dissent.",
+    "Per-Term interim counts permit the required strictly-prior pooled baseline."
+  ],
+  "notes": "The default uv cache was read-only; using a writable temporary cache allowed the paths command to run. The forecast does not infer a response or referral from present-day docket state. The statpack artifact commit date was available, but a corpus refresh timestamp was not established.",
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and application text",
+    "committed interim statpack",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search and PDF-open attempts"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

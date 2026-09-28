@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000386",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "committed metrics/statpack.md (sal-v4 band table)",
+    "provisioned record/documents (petition, QP)",
+    "fedcourts query (ranged corpus backend)",
+    "CourtListener MCP: search, call_endpoint (dockets, docket-entries, recap-documents)"
+  ],
+  "helpful": [
+    "The provisioned petition text settled the forecast on its own: pro se authorship and the shape of the questions presented are the whole signal at arrival",
+    "The sal-v4 band table matched the context's salience version, so the baseline anchor was a one-step pool over nine prior Terms",
+    "CourtListener's recap-documents plain_text gave the district court's dismissal ground directly, confirming the posture below"
+  ],
+  "gaps": [
+    "No statpack cut splitting the paid scored segment by counsel status (pro se vs counseled); the intra-baseline adjustment that drives this cell rests on general knowledge rather than a committed rate",
+    "fedcourts query ranks by recency and has no petitioner-type or text filter, so it surfaced 2025-Term emergency applications for a --disposition granted --era 2020s query rather than comparable cert petitions",
+    "Sixth Circuit unpublished orders are not in CourtListener's opinion collection and the recap documents were unavailable, so the affirmance ground below is inferred from docket shape"
+  ],
+  "notes": "Retrieval spend: 9 MCP calls (1 errored on an invalid fields value, retried) + 2 fedcourts query invocations. Well under budget. The provisioned petition text contains one incompletely scrubbed contact string (the scrubber missed an email address broken by internal spaces); disclosed in flags.json without quoting it."
+}

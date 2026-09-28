@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000012",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2, but the second DISTRIBUTED entry (9/16 for the 10/9 conference) is a re-distribution after the Court's 7/28 response request vacated the 9/28 long-conference listing, not a relist following consideration. The frozen state therefore overstates true relists by one; I anchored as a zero-true-relist petition and my relist-increment (0.72) is stated from the frozen count of 2 as the contract requires."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode retrieval note: beyond the provisioned inputs I read the petitioner's 9/10/2026 reply brief (fetched from the Court's docket PDF and text-extracted locally) and the public docket pages of the two prior petitions on the same question (Nos. 23-170 and 23-1137) for their relist and disposition histories. All predate this snapshot; none concerns this petition's disposition. The reply materially shaped my vehicle assessment (it shows the district court's intent holding was challenged on appeal), so it is worth provisioning replies where they exist."
+    }
+  ]
+}

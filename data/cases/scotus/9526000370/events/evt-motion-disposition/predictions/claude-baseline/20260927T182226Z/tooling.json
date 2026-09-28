@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000370",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query --include-applications",
+    "metrics/statpack.md (interim docket section)",
+    "CourtListener MCP: get_endpoint_item, call_endpoint (docket-entries), search",
+    "WebFetch (supremecourt.gov docket page and opposition PDF)",
+    "WebSearch",
+    "pypdf (local text extraction of a fetched PDF)"
+  ],
+  "helpful": [
+    "The provisioned application text (full argument section readable despite truncation)",
+    "Statpack interim section with per-Term substantive counts, which made the pooled anchor a two-line computation",
+    "CourtListener RECAP docket for the CA9 appeal, which showed the legislative-leaders amicus and the stay-motion timeline",
+    "The live supremecourt.gov docket, which fixed the escalation-ladder state at prediction time"
+  ],
+  "gaps": [
+    "fedcourts query has no filter on application_kind or on the interim ladder fields (response_requested, referred_to_court, amicus_briefs), so finding substantive stay-application priors means over-fetching and filtering locally; --disposition granted --include-applications returns mostly time-extension grants",
+    "The corpus query cannot filter by applicant class (state / federal / private), which is the most informative prior cut for an interim cell",
+    "The live-channel SCOTUS docket id is not a CourtListener docket id, so the MCP docket endpoints 404 on it; a mapping or a note in context.json would save two wasted calls",
+    "No interim cut of the statpack conditioned on response-requested; the ladder's conditional grant rate had to be eyeballed from marginal counts",
+    "WebFetch cannot read PDFs; provisioning the filed response as record/documents/response.txt once it lands on a sibling event would help the arrival cell in forward mode"
+  ],
+  "notes": "The application's documents.json entry is truncated at 189 pages; the cut fell inside the appendix after the Ninth Circuit order, so nothing of the argument was lost. The sibling event.yaml files in the case directory reveal later ladder rungs (response requested, response filed); on a replay cell that would be a leakage seam worth masking."
+}

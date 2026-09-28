@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000290",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The provisioned snapshot's Petitioner block carries a pro se filer's personal email address, phone number, and street address verbatim, while the provisioned documents were contact-scrubbed (documents.json reports 14 replacements). If snapshots are committed or rendered anywhere public, the same scrub may be wanted on the petitioner/respondent attorney blocks."
+    }
+  ]
+}

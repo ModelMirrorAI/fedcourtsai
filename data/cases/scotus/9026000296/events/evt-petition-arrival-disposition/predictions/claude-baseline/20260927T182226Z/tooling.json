@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000296",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener search", "courtlistener call_endpoint"],
+  "helpful": [
+    "Provisioned petition.txt with full text: the reasons-for-granting section was the main input.",
+    "The sal-v4 band table's bracketed reached rates gave a clear, pre-registered anchor for an arrival cell.",
+    "CourtListener opinions endpoint returned the Ninth Circuit's published order, which let me check the petition's characterization of the notice record."
+  ],
+  "gaps": [
+    "fedcourts query has no subject filter for SCOTUS rows, so a cell cannot pull priors on a topic like attorney discipline; the query returned generic recent applications.",
+    "No committed cut for separate writings on denial or for the cert-order share of grants; both claims were priced from general knowledge and the modern-cert gvr/granted split.",
+    "CourtListener returned no SCOTUS docket for 26-296, so post-snapshot docket state could not be checked."
+  ],
+  "notes": "The federal government is a respondent represented by the Solicitor General, so the cvsg-increment claim is structurally near-vacuous on this docket; a harness mask keyed on SG-as-party would make the claim set cleaner."
+}

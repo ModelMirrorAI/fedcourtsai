@@ -1,0 +1,3 @@
+- `fedcourts query --court scotus --disposition denied --limit 5`
+  - `ranged corpus reads: 7 GET(s), 1703936 byte(s)`
+- Read `metrics/statpack.md` to compute the pooled bracketed `reached` rate for the `baseline` band across strictly prior terms (2017-2025).

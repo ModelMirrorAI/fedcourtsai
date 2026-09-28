@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000351",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "CourtListener MCP search (dockets, opinions, RECAP)",
+    "provisioned documents (petition.txt, questions-presented.txt)"
+  ],
+  "helpful": [
+    "The provisioned petition text was decisive: its own footnote concedes the lead constitutional question was not reached below, and its related-proceedings list discloses the denied mandamus petition and the pending companion petition.",
+    "The sal-v4 band table matched the context's salience_version, so the baseline reached-rate anchor was unambiguous."
+  ],
+  "gaps": [
+    "fedcourts query cannot filter on originating court, fee class, or pro se status, so a query for granted SCOTUS priors surfaced only recent interim applications; a --pro-se or --origin-court filter would make the priors surface usable for cert cells.",
+    "CourtListener's SCOTUS docket coverage returned nothing for either of the petitioner's 2026 petitions, so a companion petition's status could not be checked through the sanctioned path.",
+    "No published cut for pro se paid petitions; the adjustment from the baseline floor for a pro se filer is judgment rather than a lookup."
+  ],
+  "notes": "Arrival-moment private-petitioner cell; anchored on the pooled baseline reached floor (about 5.0%, OT2017 through OT2025) and adjusted far down on pro se drafting, a nonprecedential summary affirmance, no split, and the petition's own concession that QP 1 was not decided below."
+}

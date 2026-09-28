@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000302",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query (ranged corpus reads)",
+    "metrics/statpack.md",
+    "CourtListener MCP (search, dockets, docket-entries, clusters, opinions)",
+    "WebFetch of supremecourt.gov docket JSON"
+  ],
+  "helpful": [
+    "statpack sal-v4 band table (pooled baseline reached rate)",
+    "supremecourt.gov docket JSON for the companion petition",
+    "provisioned questions-presented.txt and petition.txt"
+  ],
+  "gaps": [
+    "fedcourts query has no caption/keyword filter, so priors on a legal question (here incentive awards) cannot be pulled from the corpus",
+    "CourtListener carries no SCOTUS docket entries and no docket rows for 26-302 or most recent cert petitions, so the companion docket had to come from supremecourt.gov directly",
+    "no PDF text extraction in the cell (Read cannot render PDFs; pypdf absent) \u2014 extracted an amicus cover page via uv run --with pypdf",
+    "petition.txt truncation dropped the vehicle section"
+  ],
+  "notes": "CourtListener search returned zero SCOTUS dockets for every caption/docket-number query tried (Isaacson, NPAS, 26-302); the dockets endpoint found 25-1411 but with no entries. The corpus query surface was used only to record priors' shape; it carried no rows relevant to the question presented."
+}

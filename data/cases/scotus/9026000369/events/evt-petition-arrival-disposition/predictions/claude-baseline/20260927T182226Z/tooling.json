@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000369",
+  "run_id": "20260927T182226Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus backend)",
+    "CourtListener MCP: search (opinions, RECAP dockets), read_document",
+    "committed metrics/statpack.md",
+    "provisioned record/documents (petition, QP)"
+  ],
+  "helpful": [
+    "The provisioned petition text settled the pro se status, the unpublished-memorandum posture, and the absence of a circuit split without any retrieval",
+    "The sal-v4 band Term table made the arrival anchor a one-step pooled computation",
+    "CourtListener opinion search plus read_document gave the T.M. syllabus in two calls, enough to rule out a GVR channel"
+  ],
+  "gaps": [
+    "No statpack cut for pro se paid petitions, which is the dominant adjustment on this cell and rests on general knowledge rather than a committed figure",
+    "fedcourts query has no text or topic filter on SCOTUS rows, so Rooker-Feldman priors cannot be pulled; --disposition filters returned rows dominated by substantive applications, which was not what a cert cell wanted",
+    "Unpublished CA9 memoranda are often absent from CourtListener, so the decision below was readable only through the petition; an appendix-aware document extraction would fill that"
+  ],
+  "notes": "Retrieval spend: 5 MCP calls, 2 corpus queries. The cell's information ceiling was the missing CA9 memorandum text, not tooling limits."
+}

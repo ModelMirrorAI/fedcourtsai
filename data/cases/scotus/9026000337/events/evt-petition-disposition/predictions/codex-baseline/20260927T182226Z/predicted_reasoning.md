@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will deny the petition. The September 27, 2026 snapshot records one distribution, entered September 23 for the October 9 conference, and no CVSG. I predict no additional distribution before disposition; the probability of at least one additional distribution is 10%. If the case is distributed again, one additional distribution is my modal forecast within that branch. I expect the denial in October 2026, following the scheduled conference, rather than a prolonged hold. Timing is a forecast, not a claim with a scored horizon.
+
+The Court will not call for the Solicitor General's views: P(a new CVSG) is 0.3%. The dispute centers on private insurance coverage and Iowa law, with no federal party or specific federal administrative interest identified in the supplied record. Respondent has waived a response; I expect the petition to be disposed of without the Court requesting one, although a response request remains a possible intermediate step if the petition attracts attention.
+
+If the Court grants relief, the narrower question it is most likely to address is whether the Eighth Circuit should obtain an authoritative Iowa interpretation of the guaranteed-issue and postclaims-underwriting rules before sustaining the existing-loss exclusion. I do not predict an unconditional merits ruling about insurers nationwide. The petition's broader Erie formulation depends on accepting its disputed characterization of what the panel did.
+
+Conditional on any grant, I assign 55% to disposition in the cert order itself, principally vacatur and remand for reconsideration of certification to the Iowa Supreme Court, rather than plenary briefing and argument. This is not a forecast of a GVR based on an identified intervening decision; none is identified in the supplied record. A summary merits reversal is less plausible than a certification-oriented remand. The unconditional probability of a summary grant route is therefore only 0.825%.
+
+Conditional on denial, I assign 1.5% to any recorded dissent or statement respecting denial. My affirmative prediction is a routine denial without a separate writing. I make no per-Justice cert-vote forecast, and a denial would not establish approval of the insurer's conduct or the panel's interpretation of Iowa law.

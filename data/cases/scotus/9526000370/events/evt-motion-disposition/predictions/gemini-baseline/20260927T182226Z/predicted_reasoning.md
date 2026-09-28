@@ -1,0 +1,5 @@
+I expect Circuit Justice Kagan to request a response from the respondents very shortly, as this is a major application from a state seeking relief from a sweeping federal receivership order. Following the response, Justice Kagan will almost certainly refer the application to the full Court.
+
+The Court is highly likely to grant the stay pending appeal. The conservative majority is generally hostile to broad structural injunctions against state institutions, particularly when governed by the strict "least intrusive means" requirement of the Prison Litigation Reform Act (PLRA). A receivership over an entire state prison healthcare system is the most intrusive remedy possible, making it a prime candidate for a stay while the Ninth Circuit considers the merits.
+
+We should also expect amicus briefs to be filed, likely from other conservative states supporting Arizona's federalism arguments, and potentially from civil rights organizations opposing the stay. The ultimate disposition on the shadow docket will likely be an unqualified grant of the stay pending the outcome of the expedited appeal.

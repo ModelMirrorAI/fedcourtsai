@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000139",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "The forecast relies decisively on the provisioned petition and respondent response describing the June 25, 2026 Durnell decision, and on the respondent's express nonopposition to GVR. This is pre-snapshot companion-case evidence, not retrieval of Dennis's own disposition. The companion opinion was not independently fetched. The file named brief-in-opposition.txt is substantively an unopposed-GVR response.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0"
+}

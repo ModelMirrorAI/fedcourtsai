@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000351",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The provisioned petition references an appendix containing the lower-court orders and government motion, but its supplied text ends at printed page 38 without those appendix materials. The manifest reports 48 pages, nonempty text, and no truncation; this may reflect a separate appendix filing rather than an extraction error. Forecast uses the petitioner's account of the jurisdictional and recusal rulings, not independently inspected orders. No target-case outcome was sought or encountered.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260927T182226Z",
+  "schema_version": "1.0"
+}
