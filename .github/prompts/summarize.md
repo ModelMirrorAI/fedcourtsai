@@ -45,9 +45,12 @@ About **330 words in total**:
 - **In brief** (one sentence, no more than 25 words): the case in a line, for
   a reader deciding whether to read on — who is asking the Court for what, in
   plain words. For example: "A former employee asks the Court to revive her
-  lawsuit claiming her employer fired her for reporting safety problems." One
-  sentence, one paragraph; do not begin it with "Whether", and do not say or
-  imply that the case is important, unusual, or likely to go either way.
+  lawsuit claiming her employer fired her for reporting safety problems." Once
+  the Court has acted on the request, say what the case was about and what the
+  Court did, in the past tense ("The Court declined to hear a former
+  employee's bid to revive her lawsuit…"). One sentence, one paragraph; do not
+  begin it with "Whether", and do not say or imply that the case is
+  important, unusual, or how it is likely to come out.
 - **What happened** (about 100 words): the dispute and how it reached the
   Court — who the parties are, what happened between them, and what the lower
   courts decided.
@@ -65,22 +68,30 @@ About **330 words in total**:
 - **What each outcome would mean** (two to four sentences, about 60 words):
   what each action the Court could take at the stage "Where it stands"
   describes would do for these parties, concretely — which side's position
-  prevails and what happens next, in terms of who petitioned and who won
-  below as the record shows them:
+  prevails where the action decides anything, and what happens next, in terms
+  of who petitioned and who won below as the record shows them. Decide the
+  stage by the matter now before the Court, not by the latest filing: a
+  request to extend a deadline for filing a brief or a response is routine
+  and is not an emergency application.
   - *A petition waiting on the Court's decision to hear the case*: what a
     grant would mean (the Court hears the case in full and decides the
-    question) and what a denial would leave in place (the lower court's
-    decision stands, and for whom).
+    question; a grant decides nothing about who is right) and what a denial
+    would leave in place (the lower court's decision stands, and for whom). A
+    denial is not a ruling that the lower court was right; it only leaves
+    that decision standing.
   - *An emergency application*: what granting the relief asked for would do
     (for example, pause the lower court's order while the case continues) and
-    what denying it would leave in effect.
-  - *A case granted, argued, or awaiting decision on the merits*: what
-    affirming would mean for the parties, and what reversing or vacating
-    would mean.
-  - *A stage the Court has already acted on* (the petition denied, the case
-    decided, the application ruled on): say what that action means for the
-    parties, as the docket records it, instead of describing outcomes that can
-    no longer happen.
+    what denying it would leave in effect. Either way the order is temporary
+    and does not decide the case itself, which continues in the lower courts.
+  - *A case granted but not yet argued, argued, or awaiting decision on the
+    merits*: what affirming would mean for the parties, what reversing would
+    mean, and that vacating would set the lower court's decision aside and
+    send the case back without deciding it for either side.
+  - *A stage the Court has already acted on* (the petition granted or denied,
+    the case decided, the application ruled on): say what that action means
+    for the parties, as the docket records it, instead of describing outcomes
+    that can no longer happen. A granted case that has not yet been decided
+    takes the merits bullet above for what could still happen.
   Describe consequences only. Never say or hint which outcome is more likely,
   usual, or expected, and give each outcome comparable weight and wording. If
   the record does not show something a consequence depends on — who won

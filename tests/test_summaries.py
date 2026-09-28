@@ -90,7 +90,15 @@ def _commit_summary(
     path = CasePaths(data_root, court, int(docket)).summary(day)
     path.parent.mkdir(parents=True, exist_ok=True)
     if version == 1:
-        text = summaries.render_summary(front, V1_BODY).replace("body_version: 2\n", "")
+        # Built from the dump without the field, so no dump-format change can
+        # leave a version-2 stamp on a version-1 fixture.
+        header = yaml.safe_dump(
+            front.model_dump(mode="json", exclude_none=True, exclude={"body_version"}),
+            sort_keys=False,
+            default_flow_style=False,
+            allow_unicode=True,
+        )
+        text = f"---\n{header}---\n\n{V1_BODY}\n"
     else:
         text = summaries.render_summary(front, GOOD_BODY)
     path.write_text(text)

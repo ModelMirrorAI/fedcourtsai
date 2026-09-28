@@ -1,8 +1,9 @@
 # Case summaries
 
-A plain-language account of each predicted case — what happened, what the
-Court is being asked, where it stands — for site readers who do not already
-know the case. The forecasts assume a reader who does; a summary is the page
+A plain-language account of each predicted case — a one-line headline, what
+happened, what the Court is being asked, where it stands, and what each outcome
+open at that stage would mean — for site readers who do not already know the
+case. The forecasts assume a reader who does; a summary is the page
 that makes them legible. Summaries are **display material**: nothing scores
 one, and no metric, leaderboard or board artifact reads one.
 
@@ -77,13 +78,15 @@ without the field is version 1. The transition rule has two halves:
 - **An earlier-version summary stays valid.** The validator holds each file
   to the sections its own `body_version` fixes, so a version-1 summary keeps
   validating as the dated record of what was published, and a superseded
-  summary is never rewritten to a later contract.
+  summary is not rewritten to a later contract, except that a same-day
+  summary is replaced at its path (below).
 - **It is owed a new one.** The plan counts a case up to date only when its
   newest summary matches the newest record *and* was written to the current
   contract; a case whose record is unchanged but whose newest summary is
-  older is planned with the reason `body-outdated`. So the first run after a
-  contract change regenerates every eligible case in one pass, behind the
-  same `review` hold as any run, rather than waiting for filings to change.
+  older is planned with the reason `body-outdated`. So every run plans
+  every eligible case still on an earlier contract, behind the same `review`
+  hold as any run, until each has a current summary, rather than waiting for
+  filings to change.
   The new summary is named for the newest snapshot day like any other, so
   the earlier one stays beside it — unless that day is the one the earlier
   summary is named for, in which case the new summary replaces it at the same
@@ -107,7 +110,13 @@ The prompt is `.github/prompts/summarize.md`. Its rules:
   development, commentary, or an outcome the record does not show; the model is
   also told not to add what it may know from training.
 - **Neutral.** Both sides' positions; no prediction, no view on the merits, no
-  characterisation of the case's importance.
+  characterisation of the case's importance. The headline and the outcome
+  section are held to the same rule: an outcome is described by its
+  consequences only, never its likelihood, and each outcome is given
+  comparable weight and wording. A cert denial is described as leaving the
+  lower court's decision standing, not as a ruling that it was right, and a
+  cert grant or an emergency order as deciding nothing about the case
+  itself.
 - **Glossary terms.** The prompt's term list mirrors the site's
   [glossary](https://fedcourts.ai/how-it-works#glossary) for every term the two
   share, so a reader who follows the link under a summary finds the same
@@ -141,14 +150,14 @@ The harness accepts a response only if it ended normally (`end_turn`), has
 exactly the current contract's five headings in order with nothing before the
 first, runs 150–550 words (a tolerant band around the 330 asked for), has a
 headline of one paragraph and at most 30 words (a margin over the 25 asked
-for), opens no paragraph with "Whether", carries no markup — no HTML tag or autolink, no markdown link or
-image, no URL, no list item, no bold or code formatting — and passes the secret
-scan. The markup rule is the harness's, not only the prompt's: a summary
-reaches a public page, its text derives from third-party filings, and an
-instruction injected into a filing that survived into the output could
-otherwise place a script, a tracking image or a link there. Anything else is
-not written; the case is reported skipped with the reason, and the cost of the
-call is still counted.
+for), opens no paragraph with "Whether", carries no markup — no HTML tag or
+autolink, no markdown link or image, no URL, no list item, no bold or code
+formatting — and passes the secret scan. The markup rule is the harness's,
+not only the prompt's: a summary reaches a public page, its text derives from
+third-party filings, and an instruction injected into a filing that survived
+into the output could otherwise place a script, a tracking image or a link
+there. Anything else is not written; the case is reported skipped with the
+reason, and the cost of the call is still counted.
 
 ## Which cases, and when
 
@@ -166,8 +175,9 @@ snapshot of the other shape too.
 **Owed a summary:** when the `record_digest` of its newest corpus record
 differs from the `record_digest` in its newest committed summary's front
 matter, when that summary was written to an earlier body contract than the
-current one (`body_version`, above), or when it has no summary. The digest is sha256 over the newest snapshot
-payload in canonical JSON with its generation stamps removed
+current one (`body_version`, above), or when it has no summary. The digest is
+sha256 over the newest snapshot payload in canonical JSON with its generation
+stamps removed
 (`provision.GENERATION_STAMPS`: the pull's own timestamp), plus the sorted
 `(kind, sha256(text))` pair of each stored document. Documents are in the
 digest because they arrive days after the docket entry that links them, so a
@@ -183,9 +193,10 @@ every day; the content-keyed one writes for the ~4% of records that changed.
 
 The run is idempotent: over an up-to-date ledger the plan is empty and nothing
 is written. The first run on `main` is the backfill — every eligible case,
-about 195 — and each later run writes only for changed records, except the
-first run after a body-contract change, which rewrites every eligible case. Planned cases
-are ordered cases-without-a-summary first, then changed records, then
+about 195 — and each later run writes for changed records and for any case
+whose newest summary predates the current body contract, which after a
+contract change is every eligible case. Planned cases are ordered
+cases-without-a-summary first, then changed records, then
 summaries of an unchanged record written to an earlier contract, so a
 `limit` spends on the cases a reader has nothing for before the ones whose
 summary is only out of date.
