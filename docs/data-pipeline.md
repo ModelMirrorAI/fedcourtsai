@@ -1179,18 +1179,35 @@ or network.
      not attribute to, a case first ingested already decided — is closed with
      no ledger outcome, and nothing grades it or resolves the sibling moments
      still open beside it. The live cycle therefore ends its polls with a
-     standing sweep (`pipeline.outcome.converge_ledger_outcomes`): every
-     declared moment on a salience-selected SCOTUS row that the corpus records
-     resolved without a ledger `outcome.json`, whose stage the row dates
-     decided within the last 90 days, is re-run through the same detection
-     beside the case's open events and recorded by the same writer, so its
-     open sibling moments resolve from the same disposition in the same call.
-     Order-text markers are read from the latest stored snapshot. Bounded per
-     window (25 cases, the rest carrying to the next), idempotent, and routed
-     into the same evaluate / unrecorded queues as a poll result. It is not a
-     backfill: selected rows decided longer ago were mostly ingested already
-     decided and never forecastable, and writing their ground truth is a
-     population decision.
+     standing sweep (`pipeline.outcome.converge_ledger_outcomes`). Every
+     declared moment on a salience-selected, in-scope SCOTUS row that the
+     corpus records resolved without a ledger `outcome.json` is re-run through
+     the same detection beside the case's open events and recorded by the same
+     writer, so its open sibling moments resolve from the same disposition in
+     the same call, and a recorded cert grant mints the merits event as the
+     poll does. A gap is due when its stage was decided within the last 90 days
+     (inclusive), or at any age when the case holds a committed prediction at
+     that stage — an owed grade does not expire, and a lookback there would drop
+     the late-fixed triage shapes, an outcome-correlated exclusion. The
+     disposition basis and order markers are read from the **latest** stored
+     snapshot, so they can differ from what the resolving poll would have
+     written where later entries change the reading; a case with no stored
+     snapshot, or whose stage carries no decision date, is surfaced on the
+     unrecorded queue and never recorded on a guess.
+
+     Due cases are attempted newest decision first. Per window at most 25
+     cases are recorded and 100 attempted; a declined case does not spend the
+     record bound, so fewer than 100 persistent declines cannot starve a recordable gap, and
+     the cases left over carry to the next window. A case whose attempt raises
+     (a content-store read error, say) lands on the window's failed list and
+     the pass continues; if the pass itself raises it is skipped for that
+     window, never taking the window's polls down with it. Its counts
+     (recorded, unrecorded, failed, deferred) print on the live step's output.
+     Idempotent, and routed into the same evaluate / unrecorded queues as a
+     poll result, with a case the window's polls already put on the unrecorded
+     queue listed once. It is not a backfill: unpredicted selected rows
+     decided longer ago were mostly ingested already decided and never
+     forecastable, and writing their ground truth is a population decision.
 
 ## Maintenance passes
 

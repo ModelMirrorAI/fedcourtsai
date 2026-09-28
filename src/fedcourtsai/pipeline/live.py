@@ -871,8 +871,25 @@ def _route_convergence(
     A recorded event something predicted queues evaluation and the rest land on
     ``evaluate_skipped`` (:func:`_route_result`'s rule); an event detection still
     declined surfaces on the unrecorded queue with detection's own reason, once
-    per case.
+    per case — and not at all for a case this window's polls already put there,
+    so one docket never appears twice. A case whose attempt raised lands on
+    ``failed``; the pass's counts land on ``queues.convergence`` for the run log.
     """
+    queues.convergence = {
+        "recorded_cases": len(convergence.recorded),
+        "recorded_events": sum(len(events) for events in convergence.recorded.values()),
+        "unrecorded_events": len(convergence.unrecorded),
+        "failed_cases": len(convergence.failed),
+        "deferred_cases": convergence.deferred,
+    }
+    for case_id, error in convergence.failed.items():
+        queues.failed.append(
+            {
+                "court": "scotus",
+                "docket": int(case_id.rsplit("/", 1)[-1]),
+                "reason": f"outcome convergence: {error}",
+            }
+        )
     for case_id, recorded in convergence.recorded.items():
         docket_id = int(case_id.rsplit("/", 1)[-1])
         if gated and not _in_predict_scope(corpus_db_path, case_id):
@@ -887,8 +904,11 @@ def _route_convergence(
             queues.evaluate_skipped.append(
                 {"court": "scotus", "docket": docket_id, "events": unscoreable}
             )
+    already = {entry["docket"] for entry in queues.unrecorded}
     by_case: dict[int, list[UnrecordedOutcome]] = {}
     for unrecorded in convergence.unrecorded:
+        if unrecorded.docket_id in already:
+            continue
         by_case.setdefault(unrecorded.docket_id, []).append(unrecorded)
     for docket_id, entries in by_case.items():
         queues.unrecorded.append(
@@ -1361,13 +1381,15 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     # sweep: a selected moment the corpus closed without a ledger outcome is
     # recorded here, so the sweep's owed check reads its siblings resolved
     # rather than re-queuing a decided application.
-    _route_convergence(
-        queues,
-        corpus_db_path,
-        data_root,
-        converge_ledger_outcomes(corpus_db_path, data_root, today=today),
-        gated=gated,
-    )
+    # Failure-isolated as a whole, not only per case: a failure in the candidate
+    # read must not abort the window, or its polls, cursors and outcomes never
+    # reach the corpus push that follows.
+    try:
+        convergence = converge_ledger_outcomes(corpus_db_path, data_root, today=today)
+    except Exception as exc:  # the sweep is a backstop; the window's own work comes first
+        queues.convergence = {"error": type(exc).__name__}
+    else:
+        _route_convergence(queues, corpus_db_path, data_root, convergence, gated=gated)
 
     if salience_config is not None:
         with corpus.connect(corpus_db_path) as conn:

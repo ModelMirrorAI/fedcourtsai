@@ -15,6 +15,7 @@ from fedcourtsai import corpus, supremecourt
 from fedcourtsai.cert_backtest import redact_snapshot, truncate_snapshot
 from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import live as live_module
 from fedcourtsai.pipeline.ingest import (
     CorpusSource,
     backfill_live_signals,
@@ -25,6 +26,7 @@ from fedcourtsai.pipeline.ingest import (
 )
 from fedcourtsai.pipeline.live import (
     LiveDiscovery,
+    _route_convergence,
     _within_term_roll_grace,
     discover_live,
     ingest_live_payload,
@@ -32,6 +34,7 @@ from fedcourtsai.pipeline.live import (
     poll_live_cases,
     salience_sweep,
 )
+from fedcourtsai.pipeline.outcome import OutcomeConvergence, UnrecordedOutcome
 from fedcourtsai.pipeline.pull import PullQueues
 from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Moment, Outcome, Stage
 from fedcourtsai.serialize import read_model, write_json
@@ -3334,6 +3337,17 @@ def test_live_poll_all_converges_a_selected_moment_closed_without_its_outcome(
                 ),
             ],
         )
+        corpus.upsert_snapshot(
+            conn,
+            case_id,
+            date(2026, 9, 27),
+            {
+                "CaseNumber": "26A325 ",
+                "ProceedingsandOrder": [
+                    {"Date": "Sep 22 2026", "Text": "Application (26A325) denied by the Court."}
+                ],
+            },
+        )
     predicted = (
         CasePaths(data_root, "scotus", 9526000325)
         .event("evt-brief-response-disposition")
@@ -3360,3 +3374,59 @@ def test_live_poll_all_converges_a_selected_moment_closed_without_its_outcome(
     assert {"court": "scotus", "docket": 9526000325, "events": ["evt-motion-disposition"]} in (
         queues.evaluate_skipped
     )
+    assert queues.convergence["recorded_cases"] == 1
+
+
+def test_a_raising_convergence_never_takes_the_window_down(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A failure in the sweep's candidate read (an S3 error under corpus-split,
+    # say) must leave the window's own polls intact for the corpus push.
+    def boom(*_args: object, **_kwargs: object) -> object:
+        raise PermissionError("AccessDenied")
+
+    monkeypatch.setattr(live_module, "converge_ledger_outcomes", boom)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with _frontier_client({"25-1": _payload("25-1")}) as client:
+        queues, discovery = live_poll_all(
+            client, db, tmp_path / "data", term=25, config=LiveConfig(), today=date(2026, 7, 9)
+        )
+    assert discovery.case_ids == ["scotus/9025000001"]
+    assert queues.convergence == {"error": "PermissionError"}
+
+
+def test_a_case_already_on_the_unrecorded_queue_is_not_listed_twice(tmp_path: Path) -> None:
+    queues = PullQueues()
+    queues.unrecorded.append(
+        {"court": "scotus", "docket": 9526000325, "events": ["x"], "reason": "poll"}
+    )
+    declined = UnrecordedOutcome(
+        case_id="scotus/9526000325",
+        court_id="scotus",
+        docket_id=9526000325,
+        event_id="evt-motion-disposition",
+        disposition=Disposition.other,
+        date_decided=date(2026, 9, 22),
+        reason="sweep",
+    )
+    other = UnrecordedOutcome(
+        case_id="scotus/9526000326",
+        court_id="scotus",
+        docket_id=9526000326,
+        event_id="evt-motion-disposition",
+        disposition=Disposition.other,
+        date_decided=date(2026, 9, 22),
+        reason="sweep",
+    )
+    _route_convergence(
+        queues,
+        corpus.corpus_db_path(tmp_path / "corpus"),
+        tmp_path / "data",
+        OutcomeConvergence(unrecorded=[declined, other], failed={"scotus/9526000327": "OSError"}),
+        gated=False,
+    )
+    assert [entry["docket"] for entry in queues.unrecorded] == [9526000325, 9526000326]
+    assert queues.failed == [
+        {"court": "scotus", "docket": 9526000327, "reason": "outcome convergence: OSError"}
+    ]
+    assert queues.convergence["unrecorded_events"] == 2
