@@ -2013,15 +2013,18 @@ the rendered table) and
   United States and a state or territory as written; an organisation by its
   name less a leading "The", a parenthetical and corporate forms, or by the
   acronym the Court's own case names use for a federal agency; a person by
-  surname. It is **null wherever the rule is not sure** — an organisation name
+  surname — except that a name of exactly three full words ("Maggie Toulouse
+  Oliver") stands whole, because its last two words may be one surname and the
+  caption cannot say. It is **null wherever the rule is not sure** — an organisation name
   longer than six words, whose conventional short form is an acronym only a
   reader knows ("RAICES"), a person's name longer than three words or carrying
   a surname particle, where the caption cannot say where the surname starts —
   and a site falls back to the full caption. The rule reads a party whose name
-  is not shaped like a person's as an organisation, because a whole name is
-  never wrong where a lone word taken for a surname can be; it still cannot tell
-  an organisation from a person when the organisation's name is two
-  capitalised words with nothing institutional in them.
+  is not shaped like a person's, or that carries an alias (`dba`, `fka`, `aka`),
+  as an organisation, because a whole name is never wrong where a lone word taken
+  for a surname can be; it still cannot tell an organisation from a person when
+  the organisation's name is two capitalised words with nothing institutional in
+  them and no alias.
 
   **Docket numbers.** `docket_number` is the Court's own number ("26-239",
   "26A124") and `docket_url` its supremecourt.gov docket page; both are

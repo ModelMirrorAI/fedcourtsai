@@ -22,18 +22,21 @@ one side and renders ``In re <party>``):
 2. **The sovereign.** ``United States`` and a state or territory name are
    already their short form.
 3. **An organisation** — a corporate form, an institutional noun (``County``,
-   ``Department``, ``Association`` …), a ``dba`` alias, or any name that is not
-   person-shaped — renders as its name, with a leading ``The``, a parenthetical
-   and trailing corporate forms dropped; a federal agency with an acronym the
+   ``Department``, ``Association`` …), an alias segment (``dba``, ``fka``,
+   ``aka`` …), or any name that is not person-shaped — renders as its name, with
+   a leading ``The``, a parenthetical and trailing corporate forms dropped
+   (kept where the rest is initials only, ``F.E.B. Corp.``); a federal agency with an acronym the
    Court's own case names use renders as that acronym. A name still longer than
    :data:`MAX_ORGANISATION_WORDS` has no short form this rule can find — the
    conventional one is an acronym or a noun phrase only a reader knows — so it
    is ``None``.
 4. **A person** — two to five capitalised words or initials — renders as the
    surname, the last word (``St.`` joins it). A name of initials only
-   (``N. R.``, a minor) renders whole. A surname particle (``da``, ``van`` …)
-   or a name longer than :data:`MAX_PERSON_WORDS` makes the surname's extent
-   unknowable from the caption, so it is ``None``.
+   (``N. R.``, a minor) renders whole, and so does a name of exactly three full
+   words (``Maggie Toulouse Oliver``), whose last two may be one surname. A
+   surname particle (``da``, ``van`` …) or a name longer than
+   :data:`MAX_PERSON_WORDS` makes the surname's extent unknowable from the
+   caption, so it is ``None``.
 
 Either side ``None`` makes the whole short caption ``None``.
 """
@@ -48,9 +51,9 @@ from .pipeline.caption import STATE_NAMES
 #: Organisation names longer than this have no short form the rule can derive.
 MAX_ORGANISATION_WORDS: Final = 6
 
-#: A person's name longer than this may end in a two-word surname ("Montoya
-#: Palacios") or a maiden name kept as a middle one, and the caption cannot say
-#: which, so it has no short form.
+#: A person's name of exactly this many full words stands whole; one longer may
+#: end in a two-word surname ("Montoya Palacios") or a maiden name kept as a
+#: middle one, and the caption cannot say which, so it has no short form.
 MAX_PERSON_WORDS: Final = 3
 
 #: Federal agencies whose acronym the Court's own case names use. A general
@@ -159,6 +162,9 @@ _INSTITUTION_WORDS: Final = frozenset(
     | _CORPORATE_FORMS
 )
 
+#: The first word of an alias segment (``dba 247Sports``, ``fka Prutehi Litekyan``).
+_ALIAS_MARKERS: Final = frozenset({"a/k/a", "aka", "d/b/a", "dba", "f/k/a", "fka", "formerly"})
+
 #: Lower-case surname particles: a surname's extent is unknowable past one.
 _PARTICLES: Final = frozenset(
     {"da", "de", "del", "della", "der", "di", "dos", "du", "la", "le", "van", "von", "y"}
@@ -219,8 +225,11 @@ def _short_party(side: str) -> str | None:
             corporate = True
             continue
         # Past the corporate-form segments the side describes the party rather
-        # than naming it; only a `dba` alias still says what kind of party it is.
-        corporate = corporate or words[0] == "dba"
+        # than naming it; only an alias (`dba`, `fka`, `aka` …) still says what kind
+        # of party it is. An alias is read as an organisation — a party known by two
+        # names may be either, and the whole name is never wrong where one word of
+        # it taken for a surname can be.
+        corporate = corporate or words[0].lower() in _ALIAS_MARKERS
         break
     if name.startswith("The "):
         name = name[len("The ") :]
@@ -253,12 +262,17 @@ def _person_shaped(words: list[str]) -> bool:
     )
 
 
-def _surname(words: list[str]) -> str | None:
+def _surname(words: list[str]) -> str | None:  # noqa: PLR0911 - one return per name shape
     """A person's surname, or their initials where the name is initials only."""
     if all(_INITIALS_RE.match(word) for word in words):
         return " ".join(words)
     if len(words) > MAX_PERSON_WORDS:
         return None
+    if len(words) == MAX_PERSON_WORDS and all(_NAME_WORD_RE.match(word) for word in words):
+        # Three full words: "Maggie Toulouse Oliver" and "Stephen Joseph Johnson"
+        # have the same shape, a two-word surname or a middle name, and the caption
+        # cannot say which — so the whole name stands, which is never wrong.
+        return " ".join(words)
     last = words[-1]
     if _INITIALS_RE.match(last) or last == "St.":
         return None
@@ -279,6 +293,10 @@ def _short_organisation(name: str) -> str | None:
         return AGENCY_ACRONYMS[name]
     words = name.split()
     while len(words) > 1 and words[-1] in _CORPORATE_FORMS:
+        # A name of initials alone ("F.E.B. Corp.") keeps its corporate form, which
+        # is what tells a reader the initials are a company.
+        if all(_INITIALS_RE.match(word) for word in words[:-1]):
+            break
         words.pop()
     if sum(1 for word in words if word not in ("&", "-")) > MAX_ORGANISATION_WORDS:
         return None

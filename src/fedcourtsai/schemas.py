@@ -7308,6 +7308,15 @@ class BigCaseRow(_Strict):
         "predictor's newest read of it",
     )
 
+    @model_validator(mode="after")
+    def _docket_fields_travel_together(self) -> BigCaseRow:
+        """A docket number names its source, and a docket link has a number behind it."""
+        if (self.docket_number is None) != (self.docket_number_source is None):
+            raise ValueError("docket_number_source is set exactly when docket_number is")
+        if self.docket_url is not None and self.docket_number is None:
+            raise ValueError("docket_url requires a docket_number")
+        return self
+
 
 class BigCaseCoverage(_Strict):
     """How many cases the board ranks on `n` reads — the denominator distribution."""

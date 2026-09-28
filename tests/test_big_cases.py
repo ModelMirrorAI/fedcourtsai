@@ -26,6 +26,7 @@ from fedcourtsai.process_version import (
 )
 from fedcourtsai.schemas import (
     BigCaseBoard,
+    BigCaseRow,
     Disposition,
     Engine,
     Evaluation,
@@ -1289,3 +1290,29 @@ def test_the_board_is_schema_1_1_and_carries_the_display_rules(tmp_path: Path) -
     assert "FTC" in board.provenance.short_caption_rule
     assert "needs no corpus and no credential" in board.provenance.docket_rule
     assert "`qp-topics`" in board.provenance.docket_rule
+    assert "exactly 3 full words" in board.provenance.short_caption_rule
+
+
+def test_an_unreadable_labels_artifact_costs_docket_numbers_not_the_board(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _write_read(tmp_path, "scotus/73279009", "claude-baseline", "r1", big_case_score=0.6)
+    labels = qp_topic_labels_path(tmp_path)
+    labels.parent.mkdir(parents=True, exist_ok=True)
+    labels.write_text('{"schema_version": "9.9"}')
+    (row,) = _board(tmp_path).rows
+    assert (row.docket_number, row.docket_url) == (None, None)
+    assert "unreadable" in capsys.readouterr().err
+
+
+def test_a_row_refuses_docket_fields_that_do_not_travel_together(tmp_path: Path) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    (row,) = _board(tmp_path).rows
+    payload = row.model_dump()
+    for broken in (
+        {"docket_number": "26-1", "docket_number_source": None},
+        {"docket_number": None, "docket_number_source": "case_id"},
+        {"docket_url": "https://www.supremecourt.gov/x.html"},
+    ):
+        with pytest.raises(ValueError, match="docket"):
+            BigCaseRow.model_validate({**payload, **broken})
