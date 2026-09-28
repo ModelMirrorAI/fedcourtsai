@@ -28,7 +28,7 @@
         "term": 2026,
         "unknown": 17,
         "unparsed": 0,
-        "with_amicus": 13
+        "with_amicus": 14
       },
       {
         "applications": 1467,
@@ -383,7 +383,7 @@
     ],
     "unknown": 88,
     "unparsed": 25536,
-    "with_amicus": 65
+    "with_amicus": 66
   },
   "machine_readable_resolved": 28549,
   "merits": {

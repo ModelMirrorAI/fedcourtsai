@@ -207,11 +207,11 @@ _SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the 
 
 **27738** application(s): 1747 extension, 367 substantive, 88 unknown ask, 25536 never parsed.
 
-**Substantive slice:** 359 resolved, 37 granted — grant rate 10.3% (n=359). Escalation signals: response requested 64, referred to the Court 178, with amicus 65.
+**Substantive slice:** 359 resolved, 37 granted — grant rate 10.3% (n=359). Escalation signals: response requested 64, referred to the Court 178, with amicus 66.
 
 | Term | applications | extension | substantive | unknown | unparsed | resolved (subst.) | granted | grant rate | resp. requested | referred | amicus |
 | --- | --: | --: | --: | --: | --: | --: | --: | --- | --: | --: | --: |
-| 2026 | 410 | 323 | 70 | 17 | 0 | 63 | 6 | 9.5% (n=63) | 13 | 17 | 13 |
+| 2026 | 410 | 323 | 70 | 17 | 0 | 63 | 6 | 9.5% (n=63) | 13 | 17 | 14 |
 | 2025 | 1467 | 1181 | 227 | 59 | 0 | 226 | 17 | 7.5% (n=226) | 27 | 107 | 27 |
 | 2024 | 1297 | 243 | 70 | 12 | 972 | 70 | 14 | 20.0% (n=70) | 24 | 54 | 25 |
 | 2023 | 1177 | 0 | 0 | 0 | 1177 | 0 | 0 | — | 0 | 0 | 0 |
