@@ -2004,8 +2004,36 @@ the rendered table) and
   asked about and is **not** a sample of the docket or of any conference.
   Display is by caption — the `event.yaml` title of the case's current moment,
   whose event id `caption_event_id` repeats so the rule is checkable against the
-  row — because there is no docket number in committed data; `case_id` is the
-  identifier.
+  row; `case_id` is the identifier.
+
+  **Short captions.** `short_caption` is the conventional short form of the
+  caption ("Trump v. California"), for a reader scanning rows on a phone. It is
+  derived by a fixed rule (`fedcourtsai.short_caption`, stated in full in the
+  `short_caption_rule` provenance string): each side's first-named party; the
+  United States and a state or territory as written; an organisation by its
+  name less a leading "The", a parenthetical and corporate forms, or by the
+  acronym the Court's own case names use for a federal agency; a person by
+  surname. It is **null wherever the rule is not sure** — an organisation name
+  longer than six words, whose conventional short form is an acronym only a
+  reader knows ("RAICES"), a person's name longer than three words or carrying
+  a surname particle, where the caption cannot say where the surname starts —
+  and a site falls back to the full caption. The rule reads a party whose name
+  is not shaped like a person's as an organisation, because a whole name is
+  never wrong where a lone word taken for a surname can be; it still cannot tell
+  an organisation from a person when the organisation's name is two
+  capitalised words with nothing institutional in them.
+
+  **Docket numbers.** `docket_number` is the Court's own number ("26-239",
+  "26A124") and `docket_url` its supremecourt.gov docket page; both are
+  display-only, and the board still reads committed data alone to get them. A
+  live-first case's reserved-range id is minted from its docket number and
+  decodes back to it (`docket_number_source: case_id`); a CourtListener-keyed
+  case takes the docket number the qp-topic labels artifact records for it
+  (`qp-topics`). A CourtListener case the labeler has not reached, an
+  application among them, has neither source and publishes null — its id
+  carries no docket number and the board does not read the corpus. Coverage
+  therefore grows with each labeling batch and with the live-first share of the
+  predicted set; the `docket_rule` provenance string carries the same account.
 
   **Process scope, and why the default is version-blind.** `process_scope` says
   which process versions a **current read** may come from. The default is

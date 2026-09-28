@@ -112,6 +112,30 @@ def test_live_docket_id_is_deterministic_and_reserved() -> None:
         live_docket_id(25, 0)
 
 
+def test_a_reserved_docket_id_decodes_to_the_docket_number_it_was_minted_from() -> None:
+    for term, serial in ((26, 239), (26, 5001), (5, 1), (99, 999_999)):
+        assert supremecourt.reserved_docket_number(live_docket_id(term, serial)) == (
+            f"{term:02d}-{serial}"
+        )
+        assert supremecourt.reserved_docket_number(
+            supremecourt.live_application_id(term, serial)
+        ) == (f"{term:02d}A{serial}")
+    # A CourtListener id carries no docket number, and a reserved-range id no
+    # Term/serial pair packs to decodes to nothing rather than to a guess.
+    assert supremecourt.reserved_docket_number(73_265_897) is None
+    assert supremecourt.reserved_docket_number(9_026_000_000) is None
+    assert supremecourt.reserved_docket_number(9_000_000_000 + 100 * 1_000_000 + 1) is None
+
+
+def test_the_docket_page_links_term_form_and_application_numbers_only() -> None:
+    page = "https://www.supremecourt.gov/docket/docketfiles/html/public/"
+    assert supremecourt.docket_page_url("26-239") == f"{page}26-239.html"
+    assert supremecourt.docket_page_url("25-5001 ") == f"{page}25-5001.html"
+    assert supremecourt.docket_page_url("26A124") == f"{page}26a124.html"
+    for unlinked in ("22O141", "25M12", "", "not a number"):
+        assert supremecourt.docket_page_url(unlinked) is None
+
+
 def test_parse_scotus_docket_number_accepts_term_form_only() -> None:
     assert parse_scotus_docket_number("25-100 ") == (25, 100)
     assert parse_scotus_docket_number("22-451") == (22, 451)

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter, defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import date
 from itertools import pairwise
@@ -43,6 +43,7 @@ from .pipeline.outcome import granted_flag, is_machine_readable
 # rows rather than as a rate. One number because the reason is one reason — under ten
 # rows a single petition moves a ratio by tens of points — so moving it moves both.
 from .pipeline.qp_topics import SUPPORT_FLOOR as _QP_REFERENCE_SUPPORT_FLOOR
+from .pipeline.qp_topics import labels_path as qp_topic_labels_path
 from .pipeline.salience import (
     SALIENCE_VERSION,
     registered_versions,
@@ -91,8 +92,15 @@ from .schemas import (
     TimingStats,
 )
 from .serialize import read_model
+from .short_caption import AGENCY_ACRONYMS, MAX_ORGANISATION_WORDS, MAX_PERSON_WORDS, short_caption
 from .store import LedgerPrediction
-from .supremecourt import IFP_SERIAL_BASE, october_term_year, parse_scotus_docket_number
+from .supremecourt import (
+    IFP_SERIAL_BASE,
+    docket_page_url,
+    october_term_year,
+    parse_scotus_docket_number,
+    reserved_docket_number,
+)
 
 if TYPE_CHECKING:
     import sqlite3
@@ -3169,8 +3177,42 @@ _BIG_CASE_CAPTION_RULE = (
     "the row without a join. A case read at two moments therefore displays under the one "
     "its panel was collapsed to, and a row is on the board at all only where that moment "
     "carries a score, so the caption never advertises a moment no number came from. A "
-    "case whose event definition is absent displays no caption. There is no docket number "
-    "in committed data; `case_id` is the identifier and the caption is the human handle."
+    "case whose event definition is absent displays no caption. `case_id` is the "
+    "identifier; the caption, its short form and the docket number are human handles."
+)
+
+_BIG_CASE_SHORT_CAPTION_RULE = (
+    "`short_caption` is derived from `caption` by a fixed rule and is null wherever the "
+    "rule is not sure, because a null costs a reader nothing (the full caption stands) "
+    "while a wrong short form misnames a case. Each side of the single ` v. ` (an `In re` "
+    "caption has one side) is reduced to its first-named party — the text before the "
+    "first comma, everything after it being description. `United States` and a state or "
+    "territory stand as written. An organisation — a corporate form, an institutional "
+    "noun, a `dba` alias, or any name not shaped like a person's — keeps its name with a "
+    "leading `The`, a parenthetical and trailing corporate forms dropped; a federal "
+    "agency the Court's own case names abbreviate takes that acronym "
+    f"({', '.join(sorted(AGENCY_ACRONYMS.values()))}), and a federal trial or appellate "
+    "court named with its seat keeps the court's name. An organisation name still longer "
+    f"than {MAX_ORGANISATION_WORDS} words is null, since its conventional short form is an "
+    "acronym or phrase only a reader knows. A person is their surname, the last word; a "
+    "name of initials only stands whole; a name with a surname particle or longer than "
+    f"{MAX_PERSON_WORDS} words is null, since the caption cannot say where the surname "
+    "starts. Either side null makes the short caption null. Display-only: nothing "
+    "predicts, evaluates or scores on it."
+)
+
+_BIG_CASE_DOCKET_RULE = (
+    "`docket_number` is the Court's own docket number, read from committed data only, so "
+    "the board still needs no corpus and no credential. Two sources, in this order, and "
+    "`docket_number_source` names the one a row used. First the case id itself: a "
+    "live-first case's docket id is minted from its docket number in a reserved range "
+    "and packs it losslessly, so decoding it needs no record (`case_id`). Otherwise the "
+    "committed question-presented labels artifact, which records each labeled case's "
+    "docket number beside its case id (`qp-topics`). A CourtListener-keyed case the "
+    "labeler has not reached has neither and publishes null — the id carries no docket "
+    "number, and the board does not read the corpus for one. `docket_url` is the Court's "
+    "supremecourt.gov docket page for a Term-form or application number, null otherwise. "
+    "Display-only: nothing predicts, evaluates or scores on either field."
 )
 
 
@@ -3179,7 +3221,7 @@ def _big_case_provenance(
 ) -> BigCaseProvenance:
     """The board's registered reading rules, worded for the scope it was built at.
 
-    Five of the nine strings are scope-aware, because each carries a claim about
+    Five of the eleven strings are scope-aware, because each carries a claim about
     the *population* rather than about the method: asserting version-blindness on
     a frozen build, or the frozen build's selection effect on a version-blind
     one, would publish a false caveat inside the artifact a public site reads.
@@ -3195,6 +3237,8 @@ def _big_case_provenance(
         rank_resolution=_BIG_CASE_RANK_RESOLUTION,
         no_time_series=_big_case_no_time_series(process_scope),
         caption_rule=_BIG_CASE_CAPTION_RULE,
+        short_caption_rule=_BIG_CASE_SHORT_CAPTION_RULE,
+        docket_rule=_BIG_CASE_DOCKET_RULE,
         process_label=CURRENT_PROCESS_LABEL,
     )
 
@@ -3469,6 +3513,38 @@ def _big_case_status(
     return "resolved" if resolved == len(events) else "partly_resolved"
 
 
+def _committed_docket_numbers(data_root: Path) -> dict[str, str]:
+    """Case id to docket number, from the committed qp-topic labels artifact.
+
+    The one committed file that records a CourtListener-keyed case's docket
+    number. Absent until a labeling batch has landed, which is simply an empty
+    map: the rows it would have filled publish no docket number.
+    """
+    path = qp_topic_labels_path(data_root)
+    if not path.is_file():
+        return {}
+    return {
+        entry.case_id: entry.docket_number.strip()
+        for entry in read_model(path, QpTopicLabels).entries
+    }
+
+
+def _docket_number(
+    docket_id: int, case_id: str, committed: Mapping[str, str]
+) -> tuple[str, Literal["case_id", "qp-topics"]] | None:
+    """A case's docket number and the source it came from, or ``None``.
+
+    The case id first, because a reserved-range id *is* the docket number and
+    so cannot disagree with the case; the labels artifact only where the id is
+    a CourtListener one.
+    """
+    decoded = reserved_docket_number(docket_id)
+    if decoded is not None:
+        return decoded, "case_id"
+    recorded = committed.get(case_id)
+    return (recorded, "qp-topics") if recorded else None
+
+
 def _big_case_row(
     case_rows: list[LedgerPrediction],
     *,
@@ -3476,6 +3552,7 @@ def _big_case_row(
     data_root: Path,
     repo_url: str,
     leakage: _Leakage,
+    docket_numbers: Mapping[str, str],
 ) -> BigCaseRow | None:
     """One case's board row, or ``None`` where no predictor holds a current score.
 
@@ -3521,14 +3598,24 @@ def _big_case_row(
     )
     moment_definition = definitions[moment]
     first = case_rows[0]
+    caption = moment_definition.title if moment_definition is not None else None
+    docket = (
+        _docket_number(first.docket_id, first.case_id, docket_numbers)
+        if first.court_id == "scotus"
+        else None
+    )
     return BigCaseRow(
         case_id=first.case_id,
         court_id=first.court_id,
         docket_id=first.docket_id,
         moment=moment,
         moment_opened_at=moment_definition.opened_at if moment_definition is not None else None,
-        caption=moment_definition.title if moment_definition is not None else None,
+        caption=caption,
         caption_event_id=moment,
+        short_caption=short_caption(caption),
+        docket_number=docket[0] if docket is not None else None,
+        docket_number_source=docket[1] if docket is not None else None,
+        docket_url=docket_page_url(docket[0]) if docket is not None else None,
         status=_big_case_status(events),
         mean_big_case_score=round(sum(scores) / len(scores), 4),
         n=len(scores),
@@ -3559,8 +3646,10 @@ def build_big_case_board(
 ) -> BigCaseBoard:
     """Roll the committed predictions into the case-centric big-case board.
 
-    Ledger-only: it reads ``data/`` and nothing else — no corpus, no network, no
-    credentials, no clock — so it runs anywhere a checkout exists and reruns over
+    Ledger-only: it reads ``data/`` and nothing else — the predictions, and the
+    committed qp-topic labels for the docket numbers a CourtListener id does not
+    carry — with no corpus, no network, no credentials, no clock, so it runs
+    anywhere a checkout exists and reruns over
     an unchanged ledger reproduce the artifact byte for byte. That is also why it
     stamps no time and no commit: the board's vintage is the commit that wrote
     it.
@@ -3597,6 +3686,7 @@ def build_big_case_board(
             # otherwise render as a column of blanks on every row.
             predictors.add(row.predictor_id)
     leakage = _leakage_index(data_root, predictions)
+    docket_numbers = _committed_docket_numbers(data_root)
     rows = [
         board_row
         for case_id in sorted(by_case)
@@ -3607,6 +3697,7 @@ def build_big_case_board(
                 data_root=data_root,
                 repo_url=repo_url,
                 leakage=leakage,
+                docket_numbers=docket_numbers,
             )
         )
         is not None

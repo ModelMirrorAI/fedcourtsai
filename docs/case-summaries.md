@@ -311,6 +311,7 @@ behind the `review` hold. See [budget.md](budget.md).
 - **Grading summaries.** They are display material; nothing is scored on them.
 - **Summaries of earlier snapshots.** Only the newest record is summarized; a
   superseded summary stays as written, dated by its snapshot.
-- **Short captions and docket numbers.** Tracked separately with the big-case
-  board's `short_caption`; whether this lane should produce one is a question
-  for when both exist.
+- **Short captions and docket numbers.** The big-case board derives both
+  deterministically (`short_caption`, `docket_number`); whether this lane should
+  also write a short caption, with the board's rule as the fallback, is left
+  open.

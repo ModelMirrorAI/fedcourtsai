@@ -229,6 +229,12 @@ CourtListener docket ids (a petition the live channel reached first keeps a
 reserved-range id the project mints), and the ledger was built from the corpus
 either way.
 
+The big-case board (`metrics/big-cases.json`) publishes the same docket number
+on the same footing without reading the corpus at all: it decodes a
+reserved-range id, which packs the docket number, and otherwise copies the one
+the qp-topic labels artifact already publishes (*Docket numbers* in the board's
+section of [metrics/README.md](../metrics/README.md)).
+
 The public surface is therefore our derived judgments over public-domain
 facts — not a redistribution of the bulk corpus.
 
