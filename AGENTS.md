@@ -258,6 +258,8 @@ scripts/gate.sh test       # pytest, fanned across cores (GATE_COV=1 adds
                            # serially, which is what debugging wants)
 scripts/gate.sh data       # validate data + corpus-status
 scripts/gate.sh schemas    # export-schemas + schema-drift check (CI fails on drift)
+# several stages may be named at once (`scripts/gate.sh lint types`); an unknown
+# name is refused before any stage runs
 ```
 
 `scripts/gate.sh` is the single definition of the gate; `ci.yml` and `README.md`
