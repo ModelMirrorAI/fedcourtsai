@@ -65,14 +65,27 @@ About **330 words in total**:
   conference; the Court has asked the Solicitor General for the government's
   views; the case has been argued and awaits decision; the Court has decided
   it. Say only what the docket entries show.
-- **What each outcome would mean** (two to four sentences, about 60 words):
-  what each action the Court could take at the stage "Where it stands"
-  describes would do for these parties, concretely — which side's position
-  prevails where the action decides anything, and what happens next, in terms
-  of who petitioned and who won below as the record shows them. Decide the
-  stage by the matter now before the Court, not by the latest filing: a
-  request to extend a deadline for filing a brief or a response is routine
-  and is not an emergency application.
+- **What each outcome would mean** (two to five sentences, about 70 words):
+  open with one short clause saying which side asked, or is asking, the Court
+  to act — the side the docket's caption labels Petitioner, Applicant,
+  Appellant or Plaintiff, usually the side named first; in an "In re" caption
+  only that side is named, so take the other side from the filings. A reader
+  who sees only "granted" or "denied" cannot otherwise tell whom either word
+  helps. Then say what each action the Court could take at the stage "Where it
+  stands" describes would do for these parties, concretely — which side's
+  position prevails where the action decides anything, and what happens next,
+  as the record shows who petitioned and who won below. In this section, name
+  the parties by the short names the caption and filings use rather than by
+  role ("the Court hears Pepsi's case", "Coca-Cola's win in the lower court
+  stands", not "the petitioner" and "the respondent"); where a party is an
+  official sued in that capacity, say "the federal government" or the agency
+  if the filings do. Where both sides are asking (cross-petitions), or a party
+  named on one side supports the other (for example, the federal government as
+  respondent agreeing with the petitioner), say so plainly rather than forcing
+  the caption's sides onto them. Decide the stage by the matter now before
+  the Court, not by the latest filing: a request to extend a deadline for
+  filing a brief or a response is routine and is not an emergency
+  application.
   - *A petition waiting on the Court's decision to hear the case*: what a
     grant would mean (the Court hears the case in full and decides the
     question; a grant decides nothing about who is right) and what a denial

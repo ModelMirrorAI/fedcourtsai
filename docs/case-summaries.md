@@ -51,14 +51,16 @@ all:
 - `## What the Court is being asked` — the question, restated without a
   "Whether…" construction or citations.
 - `## Where it stands` — the posture in one or two sentences.
-- `## What each outcome would mean` — two to four sentences on what each
+- `## What each outcome would mean` — two to five sentences on what each
   action open at that stage would do for these parties: for a petition, what a
   grant and a denial would each leave in place; for an emergency application,
   what granting or denying the relief asked for would do; for a merits case,
   what affirming or reversing would mean. Where the Court has already acted,
-  what that action means. Consequences only, never likelihood — the
-  neutrality rule below binds this section and the headline as it binds the
-  rest.
+  what that action means. It opens by naming the side that asked the Court to
+  act (the side the docket's caption labels petitioner or applicant) and names
+  the parties rather than their roles, so a reader can tell whom "granted" or
+  "denied" helps. Consequences only, never likelihood — the neutrality rule
+  below binds this section and the headline as it binds the rest.
 
 The two additions are headed sections rather than an unheaded opening line,
 for three reasons. The site's summary parser splits a body on its `## `
