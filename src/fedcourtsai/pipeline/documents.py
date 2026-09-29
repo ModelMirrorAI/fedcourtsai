@@ -1254,6 +1254,89 @@ def _block_names_nobody_else(block: Mapping[str, Any]) -> bool:
     return attorney == _comparable_name(block.get("PartyName"))
 
 
+# --- The staged snapshot's counsel blocks -----------------------------------
+#
+# The snapshot staged beside the documents is the upstream payload, and on a
+# docket the scrub above runs over, a self-represented petitioner-side counsel
+# block carries the filer's own contact details as labelled keys — a more
+# quotable form of what the documents' signature blocks print, plus a prisoner
+# register number no shape could match. The same withholding is applied to
+# that copy: on every petitioner-side block that names nobody but the party
+# (the block-level half of the predicate above), each populated contact key is
+# replaced by the fixed placeholder.
+#
+# What is kept is what anything downstream reads. `PartyName` and `Attorney`
+# stay, since the predicate itself compares them and a cell names the party
+# from them. `State` stays: a two-letter state names no one. `Title` is
+# withheld with the contact keys: nothing reads it, and on a self-represented
+# block it is free text that can carry an inmate number upstream filed there
+# rather than under `PrisonerId`. `PrisonerId` keeps
+# its **presence** — the populated value becomes a fixed marker rather than
+# being blanked — because a register number on the block is upstream's own
+# marker for an incarcerated filer, which the predicate's third arm reads and a
+# cell may reason from; only the number itself, the personal datum, is
+# withheld. An empty key stays empty, so absence still reads as absence.
+
+SNAPSHOT_CONTACT_FIELDS: tuple[str, ...] = ("Address", "City", "Zip", "Phone", "Email", "Title")
+"""The counsel-block keys whose populated values the staged snapshot withholds."""
+
+REGISTER_NUMBER_WITHHELD = "[register number withheld]"
+"""The fixed marker a withheld ``PrisonerId`` carries, keeping its presence."""
+
+
+@dataclass(frozen=True)
+class ScrubbedSnapshot:
+    """A staged snapshot with self-represented petitioner contact keys withheld."""
+
+    payload: dict[str, Any]
+    blocks: int
+    fields: int
+
+
+def scrub_snapshot_contacts(payload: Mapping[str, Any]) -> ScrubbedSnapshot:
+    """``payload`` with each self-represented petitioner-side block's contacts withheld.
+
+    Returns a copy: the caller's payload — the one the trigger, the cell context
+    and the document scrub read — is never mutated. Only the ``Petitioner`` list
+    is rebuilt; every other key, the respondent-side and amicus blocks
+    included, is the object the payload served. ``blocks`` counts the blocks
+    that had anything withheld and ``fields`` the values withheld, the register
+    number included. A payload serving no petitioner-side block is returned as
+    an equal copy with both counts zero. Meant for a payload as served: run over
+    an already-scrubbed copy it would count the placeholders again.
+
+    The selection is the block-level predicate's, so a block carrying a
+    register number is scrubbed whatever its ``Attorney`` says — the few
+    counselled incarcerated petitioners lose their counsel's professional
+    details, the trade the document scrub already makes.
+    """
+    staged = dict(payload)
+    served = payload.get("Petitioner")
+    if not isinstance(served, list):
+        return ScrubbedSnapshot(payload=staged, blocks=0, fields=0)
+    rebuilt: list[Any] = []
+    touched = 0
+    withheld = 0
+    for block in served:
+        if not isinstance(block, Mapping) or not _block_names_nobody_else(block):
+            rebuilt.append(block)
+            continue
+        staged_block = dict(block)
+        count = 0
+        for field in SNAPSHOT_CONTACT_FIELDS:
+            if str(staged_block.get(field) or "").strip():
+                staged_block[field] = CONTACT_PLACEHOLDER
+                count += 1
+        if str(staged_block.get("PrisonerId") or "").strip():
+            staged_block["PrisonerId"] = REGISTER_NUMBER_WITHHELD
+            count += 1
+        touched += 1 if count else 0
+        withheld += count
+        rebuilt.append(staged_block)
+    staged["Petitioner"] = rebuilt
+    return ScrubbedSnapshot(payload=staged, blocks=touched, fields=withheld)
+
+
 def _is_toc_capture(capture: str) -> bool:
     """Whether a raw capture is a table-of-contents entry rather than a QP body.
 

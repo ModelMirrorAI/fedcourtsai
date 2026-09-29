@@ -258,6 +258,7 @@ from .pipeline.documents import (
     petitioner_is_unrepresented,
     questions_presented_extract,
     scrub_contact_details,
+    scrub_snapshot_contacts,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.ingest import UNSAMPLED_WEIGHT
@@ -10383,7 +10384,11 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     ``contact_scrubbed``, ``contact_replacements`` and ``contact_scrub_passes``
     on each manifest entry recording that it ran, what it withheld, and whether
     the value pass keyed on the petitioner block's own contact values ran beside
-    the shape pass. The stored row and the source
+    the shape pass. On the same docket the staged snapshot has the
+    self-represented petitioner-side block's contact keys withheld and its
+    register number replaced by a presence marker
+    (:func:`~fedcourtsai.pipeline.documents.scrub_snapshot_contacts`). The
+    stored row and the source
     PDF are untouched — the staged copy is the one a cell can quote into the
     public ledger.
 
@@ -10501,7 +10506,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     documents = placement.documents
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
-    write_raw_json(dest, payload)
+    # The staged snapshot is the payload with a self-represented petitioner's
+    # own contact keys withheld (`scrub_snapshot_contacts`): the copy a cell can
+    # quote from, on the same docket-level reading the document scrub below
+    # keys on. A separate object, so everything else here — the cell context,
+    # the scrub trigger, the document scrub — reads the payload as served.
+    unrepresented = petitioner_is_unrepresented(payload)
+    staged_snapshot = scrub_snapshot_contacts(payload) if unrepresented else None
+    write_raw_json(dest, payload if staged_snapshot is None else staged_snapshot.payload)
     # The cell's context: its mode, and the conditioning state it is about to run
     # against. Both are stated at provisioning — the mode so the prompt contract
     # keys replay etiquette on it rather than inferring from env vars, and the
@@ -10530,6 +10542,12 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         else ""
     )
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}){placed} -> {dest}")
+    if staged_snapshot is not None:
+        # Counts only, never a value: the run log is public.
+        typer.echo(
+            f"{case} snapshot contact scrub: {staged_snapshot.fields} value(s) withheld on "
+            f"{staged_snapshot.blocks} petitioner-side block(s)"
+        )
     if documents:
         # The contact-detail scrub, keyed on the docket-level reading that
         # separates a filing signed by counsel from one signed in person:
@@ -10543,10 +10561,13 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         # corpus row and the source PDF are untouched: the scrub is on the copy
         # staged under `record/`, which is the copy a cell can quote into the
         # public ledger.
-        scrubbing = petitioner_is_unrepresented(payload)
+        scrubbing = unrepresented
         # The filer's own contact values, off the same served blocks the
         # trigger read, key the scrub's value pass: it finds them however a
-        # scan fragmented them, which no shape pattern can promise.
+        # scan fragmented them, which no shape pattern can promise. Read off
+        # `payload` — the payload as served — and never off the staged
+        # snapshot copy, whose contact keys hold the placeholder: keyed on
+        # that, the pass would look for the placeholder and miss the values.
         contact_values = petitioner_contact_values(payload) if scrubbing else ()
         staged = [
             (doc, scrub_contact_details(doc.text, contact_values) if scrubbing else None)

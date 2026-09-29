@@ -284,7 +284,8 @@ spend.
 
 **Staged like a cell.** The record a summary reads is the one a forward predict
 cell reads — `provision-snapshot`'s latest snapshot and stored documents, with
-its contact-detail scrub applied to the staged text — taken without a moment
+its contact-detail scrub applied to the staged text and the staged snapshot —
+taken without a moment
 cut, since a summary describes the newest record.
 
 **Publication.** Before anything leaves the runner, the change set must hold
@@ -337,8 +338,8 @@ engine's advantage.
 
 **The staged record is a public artifact for a day.** The `summary-stage`
 artifact carries each planned case's staged record between the stage and
-generate jobs: the newest snapshot payload and every stored document's text
-(after the contact-detail scrub). This repository is public, so any signed-in
+generate jobs: the newest snapshot payload and every stored document's text,
+both after the contact-detail scrub. This repository is public, so any signed-in
 user can download a run artifact while it exists; its retention is the
 shortest GitHub offers, one day. It rides the qp-topic extract's footing —
 supremecourt.gov content only, since the plan and `summarize` both refuse a

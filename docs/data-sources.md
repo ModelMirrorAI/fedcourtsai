@@ -360,11 +360,14 @@ material**:
   It is asked of a **served** block, too: a payload carrying no petitioner-side
   counsel is unknown rather than unrepresented, and is left alone.
   This is the one narrowing applied on privacy grounds, and it applies to the
-  staged copy of the **document text** alone: the source PDF and the corpus row
-  are untouched, and so is the snapshot staged beside the documents, which
-  carries the docket's counsel blocks as served — including the address,
-  telephone, email and prisoner-register fields that on such a docket are the
-  filer's own. The filing
+  **staged copies** alone: the source PDF and the corpus row are untouched. On
+  the same docket the snapshot staged beside the documents has the
+  self-represented petitioner-side block's `Address`, `City`, `Zip`, `Phone`,
+  `Email` and `Title` values replaced by the same placeholder and its prisoner register
+  number by a fixed marker that keeps the number's presence; the party name,
+  the attorney field and `State` stay, and every other block is as served —
+  a self-represented respondent's included, a residual this leaves. The
+  filing
   is public, so the concern is re-publication and aggregation rather than
   disclosure — a self-represented filer's home address reaching the public
   ledger beside whatever else their petition says about them. It narrows the
