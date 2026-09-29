@@ -1878,16 +1878,77 @@ def _votes_hold_check(data_root: Path) -> CorpusCheck:
     )
 
 
-def test_an_outcome_carrying_votes_is_refused_while_no_source_is_registered(
-    tmp_path: Path,
-) -> None:
-    """The terms precondition made mechanical: votes cannot reach git early.
+_OPINION_URL = "https://www.supremecourt.gov/opinions/25pdf/24-43_2b35.pdf"
+# The bench the seat roster seats on the outcome's 2026-06-30 decision date.
+_BENCH = (
+    "Thomas",
+    "Roberts",
+    "Alito",
+    "Sotomayor",
+    "Kagan",
+    "Gorsuch",
+    "Kavanaugh",
+    "Barrett",
+    "Jackson",
+)
 
-    Every candidate vote source is pre-adoption with its redistribution terms
-    unresolved (the SCDB entry in docs/data-sources.md), so a vote list in a
-    committed outcome would publish coded values the project cannot yet cite a
-    license for — whoever wrote it. The import that lands the first source
-    retires this check in the same PR that registers its terms.
+
+def _write_voting_outcome(
+    data_root: Path,
+    *,
+    court: str = "scotus",
+    stage: Stage | None = Stage.merits,
+    provenance: dict[str, object] | None,
+    votes: list[dict[str, object]] | None = None,
+) -> Path:
+    """A merits outcome carrying the full bench's votes and ``provenance``, raw."""
+    ep = CasePaths(data_root, court, 22451).event("evt-order-judgment")
+    write_yaml(
+        ep.event_file,
+        PredictableEvent(
+            event_id="evt-order-judgment",
+            case_id=f"{court}/22451",
+            kind=EventKind.order,
+            stage=stage,
+            title="Doe v. Roe",
+            decision_target="judgment",
+        ),
+    )
+    payload = Outcome(
+        case_id=f"{court}/22451",
+        event_id="evt-order-judgment",
+        resolved_at=date(2026, 6, 30),
+        actual_disposition=Disposition.other,
+        actual_granted=1,
+        judgment=Judgment.reversed,
+    ).model_dump(mode="json")
+    payload["votes"] = (
+        votes
+        if votes is not None
+        else [{"justice": name, "vote": "majority", "writing": "none"} for name in _BENCH]
+    )
+    payload["vote_provenance"] = provenance
+    ep.outcome.parent.mkdir(parents=True, exist_ok=True)
+    ep.outcome.write_text(json.dumps(payload))
+    return ep.outcome
+
+
+def _opinions_provenance(**overrides: object) -> dict[str, object]:
+    return {
+        "source": "supremecourt-opinions",
+        "document": _OPINION_URL,
+        "grammar": "scotus-syllabus",
+        "grammar_version": 2,
+        "participating": 9,
+        "complete": True,
+    } | overrides
+
+
+def test_an_outcome_carrying_unprovenanced_votes_is_refused(tmp_path: Path) -> None:
+    """A vote list that cites no source cites no registered one.
+
+    `outcome.json` is public, so a vote list in it is a publication; without a
+    provenance block there is nothing to say where its values came from.
     """
     data_root = tmp_path / "data"
     path = _write_outcome(data_root, "scotus", 22451, "evt-order-judgment")
@@ -1896,13 +1957,123 @@ def test_an_outcome_carrying_votes_is_refused_while_no_source_is_registered(
     path.write_text(json.dumps(payload))
     check = _votes_hold_check(data_root)
     assert not check.passed
-    assert any("no vote source's redistribution terms are registered" in p for p in check.problems)
-    # A provenance block alone is refused on the same ground.
-    payload["votes"] = []
+    assert any("cite no registered vote source" in p for p in check.problems)
+
+
+def test_an_unregistered_vote_source_is_refused_scdb_included(tmp_path: Path) -> None:
+    """The hold still refuses every source not registered — SCDB above all.
+
+    SCDB's redistribution terms are unsettled (docs/data-sources.md), so its
+    coded values may not reach public git however well-formed the record is.
+    A provenance block alone, with no votes, is refused on the same ground.
+    """
+    data_root = tmp_path / "data"
+    _write_voting_outcome(data_root, provenance=_opinions_provenance(source="scdb:2025-01"))
+    check = _votes_hold_check(data_root)
+    assert not check.passed
+    assert any("'scdb:2025-01', which is not a registered" in p for p in check.problems)
+
+    path = _write_outcome(data_root, "scotus", 22451, "evt-order-judgment")
+    payload = json.loads(path.read_text())
     payload["vote_provenance"] = {"source": "scdb", "complete": True}
     path.write_text(json.dumps(payload))
     check = _votes_hold_check(data_root)
     assert not check.passed
+
+
+def test_a_conforming_opinions_vote_record_passes(tmp_path: Path) -> None:
+    """The registered channel's record is what the hold now lets through."""
+    data_root = tmp_path / "data"
+    _write_voting_outcome(data_root, provenance=_opinions_provenance())
+    check = _votes_hold_check(data_root)
+    assert check.passed, check.problems
+    assert check.checked == 1
+
+
+def test_a_complete_record_must_name_the_bench_that_sat(tmp_path: Path) -> None:
+    """`complete: true` is what vote scoring is gated on, so it is checked.
+
+    Seven of the nine Justices with `participating: 7` coheres with itself and
+    passes the schema, but the roster seats nine on the decision date, so the
+    record is not complete whatever it says. A partial record is not held to
+    the bench.
+    """
+    data_root = tmp_path / "data"
+    seven: list[dict[str, object]] = [{"justice": n, "vote": "majority"} for n in _BENCH[:7]]
+    _write_voting_outcome(data_root, provenance=_opinions_provenance(participating=7), votes=seven)
+    check = _votes_hold_check(data_root)
+    assert not check.passed
+    assert any("but the bench on 2026-06-30 is" in p for p in check.problems)
+    _write_voting_outcome(
+        data_root, provenance=_opinions_provenance(participating=7, complete=False), votes=seven
+    )
+    assert _votes_hold_check(data_root).passed
+
+
+@pytest.mark.parametrize(
+    ("court", "stage", "overrides", "votes", "expected"),
+    [
+        ("ca9", Stage.merits, {}, None, "supremecourt-opinions votes on a ca9 case"),
+        ("scotus", Stage.cert, {}, None, "votes on a cert-stage event"),
+        ("scotus", None, {}, None, "votes on a stage-less-stage event"),
+        (
+            "scotus",
+            Stage.merits,
+            {"grammar": "order-list", "grammar_version": 1},
+            None,
+            "read by grammar 'order-list'",
+        ),
+        ("scotus", Stage.merits, {"grammar": None, "grammar_version": None}, None, "grammar None"),
+        (
+            "scotus",
+            Stage.merits,
+            {"document": "https://example.org/24-43.pdf"},
+            None,
+            "read from 'https://example.org/24-43.pdf'",
+        ),
+        ("scotus", Stage.merits, {"document": None}, None, "read from None"),
+        (
+            "scotus",
+            Stage.merits,
+            {"document": "https://www.supremecourt.gov/rss/cases/JSON/24-43.json"},
+            None,
+            "read from 'https://www.supremecourt.gov/rss/cases/JSON/24-43.json'",
+        ),
+        (
+            "scotus",
+            Stage.merits,
+            {},
+            [{"justice": name.upper(), "vote": "majority"} for name in _BENCH],
+            "'THOMAS' is not spelled as the roster",
+        ),
+    ],
+)
+def test_a_registered_source_is_held_to_its_registered_shape(
+    tmp_path: Path,
+    court: str,
+    stage: Stage | None,
+    overrides: dict[str, object],
+    votes: list[dict[str, object]] | None,
+    expected: str,
+) -> None:
+    """Registration is a shape, not a password: each departure is refused.
+
+    The opinions channel reads merits decisions of the Supreme Court, through
+    the syllabus grammar, from the Court's own host, and spells Justices as the
+    roster does; a record claiming the source while breaking any of that is
+    not what the registration covers.
+    """
+    data_root = tmp_path / "data"
+    _write_voting_outcome(
+        data_root,
+        court=court,
+        stage=stage,
+        provenance=_opinions_provenance(**overrides),
+        votes=votes,
+    )
+    check = _votes_hold_check(data_root)
+    assert not check.passed
+    assert any(expected in p for p in check.problems), check.problems
 
 
 def test_a_voteless_outcome_passes_the_source_hold(tmp_path: Path) -> None:

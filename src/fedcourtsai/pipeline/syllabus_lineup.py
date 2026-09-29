@@ -27,8 +27,13 @@ description of the Court's conventions, and no ceRt code or data is used.
 - *Separate writing*: ``X filed a concurring opinion[, in which Y joined
   as to Part II-B]``, ``… an opinion concurring in the judgment``, ``… an
   opinion concurring in part and dissenting in part``, the plural ``X and Y
-  filed dissenting opinions`` (one writing each), and the joint ``X, Y, and Z
-  filed a dissenting opinion`` (one writing, three authors).
+  filed dissenting opinions`` or ``X and Y each filed …`` (one writing each),
+  and the joint ``X, Y, and Z filed a dissenting opinion`` (one writing, three
+  authors).
+- *Scopes*: a join or a lead clause may be limited ``as to``, ``only as
+  to``, ``with respect to``, ``except as to`` or ``except for`` a list of
+  Parts, footnotes or ``the introduction``, and ``all but`` a list; a lead
+  clause's ``in which`` may follow with or without its comma.
 - *Non-participation*: ``Z took no part in the consideration or decision of
   the case``, or the lead's own ``…, except Z, who took no part …``.
 - *Per curiam*: a ``PER CURIAM`` sentence in place of a lead.
@@ -44,8 +49,16 @@ wherever the lead clause prints no joiners of its own, a Justice on the bench
 whom the paragraph neither names nor excludes is credited to the lead. Where
 the lead does print its joiners, such a Justice is unplaced instead and the
 lineup is incomplete. Non-participation the paragraph states is
-honored; a vacancy or a Justice seated after argument is the caller's to
-leave off the bench.
+honored, and a vacancy is the caller's to leave off the bench.
+
+**A Justice seated after argument** did not hear the case and in practice
+takes no part, and the syllabus almost always says so. Such a Justice stays on
+the bench — the paragraph that names them as taking no part must be able to —
+but is passed as ``seated_after_argument`` and is never credited by the
+convention: not to a bare Court clause, not to ``for a unanimous Court`` or
+``all other Members``, not to a per curiam. Only the paragraph naming them
+places them, so a paragraph silent about them leaves the lineup incomplete
+rather than inferring either that they joined or that they sat out.
 
 **What it refuses to do.** Any sentence the grammar cannot read, any name the
 roster (:mod:`fedcourtsai.pipeline.justices`) does not carry, a missing or
@@ -90,7 +103,7 @@ COURT: Final = "scotus"
 #: The grammar's stamp on every lineup it returns.
 GRAMMAR_NAME: Final = "scotus-syllabus"
 #: Bump whenever the same text could read differently.
-GRAMMAR_VERSION: Final = 1
+GRAMMAR_VERSION: Final = 2
 
 # The title marker a Justice's printed title (", C. J.,", ", J.,", ", JJ.,")
 # collapses to, so the periods it carries cannot end a sentence and its commas
@@ -110,11 +123,11 @@ _ID = (
     r"(?:\s*[-\u2013\u2014]\s*(?:[IVXL]+|[A-Z]|[a-z]|\d+))*)\b"
 )
 _LIST_SEP = r"(?:\s*,\s*(?:and\s+)?|\s+and\s+)"
-_SCOPE_ITEM = rf"(?:Parts?|footnotes?)\s+{_ID}(?:{_LIST_SEP}{_ID})*"
+_SCOPE_ITEM = rf"(?:(?:Parts?|footnotes?)\s+{_ID}(?:{_LIST_SEP}{_ID})*|the\s+introduction)"
 _SCOPE = rf"(?:all\s+but\s+)?{_SCOPE_ITEM}(?:{_LIST_SEP}{_SCOPE_ITEM})*"
 
 _LEAD_RE = re.compile(r"^(?P<names>.+?)\s+(?P<verb>delivered|announced)\s+(?P<rest>.+)$", re.I)
-_FILED_RE = re.compile(r"^(?P<names>.+?)\s+f(?:i)?led\s+(?P<rest>.+)$", re.I)
+_FILED_RE = re.compile(r"^(?P<names>.+?)\s+(?P<each>each\s+)?f(?:i)?led\s+(?P<rest>.+)$", re.I)
 _TOOK_NO_PART_RE = re.compile(
     r"^(?P<names>.+?)\s+took\s+no\s+part(?:\s+in\s+the\s+(?:consideration|decision)\b.*)?$",
     re.I,
@@ -135,15 +148,17 @@ _CLAUSE_RE = re.compile(
     r"^(?P<head>the\s+opinion\s+(?:of|for)\s+(?P<court>the|a\s+unanimous)\s+Court"
     r"|an\s+opinion)"
     rf"(?:,?\s+(?:with\s+respect\s+to|as\s+to)\s+(?P<scope>{_SCOPE}))?"
-    rf"(?:,?\s+except\s+as\s+to\s+(?P<except>{_SCOPE}))?"
-    r"(?:,\s*in\s+which\s+(?P<joins>.+))?$",
+    rf"(?:,?\s+except\s+(?:as\s+to|for)\s+(?P<except>{_SCOPE}))?"
+    r"(?:(?:,\s*|\s+)in\s+which\s+(?P<joins>.+))?$",
     re.I,
 )
 _JOINED_RE = re.compile(
     r"\s*\bjoined\b"
     r"(?:\s+(?:that|the)\s+opinion(?:\s+of\s+the\s+Court)?)?"
     r"(?P<q>\s+in\s+full"
-    rf"|,?\s+(?:except\s+)?(?:as\s+to|with\s+respect\s+to)\s+{_SCOPE}"
+    r"|,?\s+(?:except\s+(?:as\s+to|for|with\s+respect\s+to)"
+    r"|(?:only\s+)?(?:as\s+to|with\s+respect\s+to))"
+    rf"\s+{_SCOPE}"
     r"|\s+in\s+part)?",
     re.I,
 )
@@ -187,23 +202,29 @@ def _resolve_name(raw: str) -> str | None:
     The longest suffix the roster knows wins, so "Ketanji Brown Jackson"
     resolves to "Jackson" and "Van Devanter" stays whole; every token must be
     name-shaped (capitalized), so a stray clause never resolves on its last
-    word.
+    word. The tokens before the suffix are forenames, so none of them may be a
+    roster surname itself: "Roberts Thomas" is two Justices whose separator
+    was lost, never Thomas.
     """
     tokens = raw.split()
     if not tokens or len(tokens) > 4 or not all(_NAME_TOKEN_RE.match(t) for t in tokens):
         return None
     for start in range(len(tokens)):
         if resolved := resolve_surname(" ".join(tokens[start:])):
+            if any(resolve_surname(t) for t in tokens[:start]):
+                return None
             return resolved
     return None
 
 
 def _names(chunk: str, problems: list[str]) -> list[str]:
     """Every Justice a printed name list names, or ``[]`` with a problem recorded."""
-    cleaned = chunk.replace(_TITLE, " ").strip(" ,;")
+    cleaned = chunk.strip(f" ,;{_TITLE}")
     if _ALL_OTHERS_RE.match(" ".join(cleaned.split())):
         return [_ALL_OTHERS]
-    raw = [part.strip() for part in re.split(r",|\band\b", cleaned) if part.strip()]
+    # A title ends a name as surely as a comma does: "ROBERTS, C. J., THOMAS"
+    # prints no comma of its own between the two once the title is collapsed.
+    raw = [part.strip() for part in re.split(rf",|{_TITLE}|\band\b", cleaned) if part.strip()]
     resolved: list[str] = []
     for name in raw:
         surname = _resolve_name(name)
@@ -354,6 +375,8 @@ def _clause_members(
     A unanimous clause is everyone else; a Court clause printing no joiners of
     its own is everyone not departing — unless follower sentences name the
     joiners instead (the split form); any other clause is its printed list.
+    ``others`` is everyone the convention may credit, which already leaves out
+    a Justice seated after argument.
     """
     if clause.joins is not None:
         return [
@@ -381,12 +404,21 @@ def _lead_join(
 
 
 def _lead_writing(
-    lead: _Lead, participants: Sequence[str], separate: Sequence[Writing], problems: list[str]
+    lead: _Lead,
+    participants: Sequence[str],
+    separate: Sequence[Writing],
+    problems: list[str],
+    *,
+    uncredited: frozenset[str] = frozenset(),
 ) -> Writing:
     """Resolve the lead's clauses, its follower sentences and the Court's
-    list-only-where-fewer-than-all convention into one writing's joins."""
+    list-only-where-fewer-than-all convention into one writing's joins.
+
+    ``uncredited`` are participants the convention never credits (a Justice
+    seated after argument): a clause that names them still places them.
+    """
     departing = _departing(separate)
-    others = [p for p in participants if p != lead.author]
+    others = [p for p in participants if p != lead.author and p not in uncredited]
     implicit = [p for p in others if p not in departing]
     memberships: dict[str, list[tuple[int, str | None]]] = {}
     for index, clause in enumerate(lead.clauses):
@@ -421,14 +453,19 @@ def _lead_writing(
     return Writing(kind, lead.author, tuple(joins), "; ".join(scoped) or None)
 
 
-def parse_syllabus_lineup(text: str, *, bench: Sequence[str]) -> Lineup:
+def parse_syllabus_lineup(
+    text: str, *, bench: Sequence[str], seated_after_argument: Sequence[str] = ()
+) -> Lineup:
     """Read one syllabus lineup paragraph into a :class:`Lineup`.
 
     ``bench`` is the Justices who could have sat on the decision, in any case
     the roster resolves; a name it does not carry is a caller error
     (``ValueError``), because the bench is an input, not a reading. Anything
     the paragraph itself does not settle is a ``problem`` on an incomplete
-    lineup, never an exception.
+    lineup, never an exception. ``seated_after_argument`` names the bench
+    members who took the oath after the case was argued; the convention never
+    credits them, so only the paragraph can place them (a name off the bench
+    is a caller error too).
 
     ``text`` must be the **whole** paragraph. Under the Court's convention a
     bare lead sentence reads as every participant joining, so a paragraph cut
@@ -436,6 +473,9 @@ def parse_syllabus_lineup(text: str, *, bench: Sequence[str]) -> Lineup:
     the caller that locates the paragraph owns delivering all of it.
     """
     roster = _roster(bench)
+    late = frozenset(_roster(seated_after_argument))
+    if stray := sorted(late - set(roster)):
+        raise ValueError(f"seated after argument but not on the bench: {', '.join(stray)}")
     reading = _read_paragraph(text)
     problems = reading.problems
     if reading.leads_read > 1:
@@ -446,9 +486,11 @@ def parse_syllabus_lineup(text: str, *, bench: Sequence[str]) -> Lineup:
     participants = [name for name in roster if name not in reading.absent]
     writings: list[Writing] = []
     if reading.leads_read == 1 and reading.lead is not None:
-        writings.append(_lead_writing(reading.lead, participants, reading.separate, problems))
+        writings.append(
+            _lead_writing(reading.lead, participants, reading.separate, problems, uncredited=late)
+        )
     elif reading.leads_read == 1 and reading.per_curiam:
-        departing = _departing(reading.separate)
+        departing = _departing(reading.separate) | late
         joins = tuple(Join(p) for p in participants if p not in departing)
         writings.append(Writing(WritingKind.per_curiam, None, joins))
     writings.extend(reading.separate)
@@ -514,7 +556,9 @@ def _read_paragraph(text: str) -> _Reading:
             reading.lead = _read_lead(names, verb, rest, reading.absent, problems)
             previous = "lead"
         elif (m := _FILED_RE.match(sentence)) is not None:
-            reading.separate.extend(_read_filed(m.group("names"), m.group("rest"), problems))
+            reading.separate.extend(
+                _read_filed(m.group("names"), m.group("rest"), problems, each=bool(m.group("each")))
+            )
             previous = "filed"
         elif (m := _TOOK_NO_PART_RE.match(sentence)) is not None:
             named = _names(m.group("names"), problems)
@@ -530,8 +574,12 @@ def _read_paragraph(text: str) -> _Reading:
     return reading
 
 
-def _read_filed(names: str, rest: str, problems: list[str]) -> list[Writing]:
-    """One ``filed`` sentence's writings: one, or one per author when plural."""
+def _read_filed(names: str, rest: str, problems: list[str], *, each: bool) -> list[Writing]:
+    """One ``filed`` sentence's writings: one, or one per author when plural.
+
+    ``each`` ("X and Y each filed …") makes the sentence plural whatever number
+    its object prints in: each author wrote their own, never one jointly.
+    """
     authors = _names(names, problems)
     if _ALL_OTHERS in authors:
         problems.append(f"a writing needs named authors, read {names.strip()!r}")
@@ -543,7 +591,7 @@ def _read_filed(names: str, rest: str, problems: list[str]) -> list[Writing]:
             problems.append(f"unreadable writing {rest!r}")
         return []
     kind, plural = shape
-    if plural:
+    if plural or each:
         if len(authors) == 1 or parts.group("joins"):
             problems.append(f"plural writings need several authors and no joiners: {rest!r}")
             return []
@@ -594,8 +642,10 @@ class ScotusSyllabusGrammar:
     name: Final = GRAMMAR_NAME
     version: Final = GRAMMAR_VERSION
 
-    def parse(self, text: str, *, bench: Sequence[str]) -> Lineup:
-        return parse_syllabus_lineup(text, bench=bench)
+    def parse(
+        self, text: str, *, bench: Sequence[str], seated_after_argument: Sequence[str] = ()
+    ) -> Lineup:
+        return parse_syllabus_lineup(text, bench=bench, seated_after_argument=seated_after_argument)
 
 
 #: The grammar instance a channel reads syllabus paragraphs with.

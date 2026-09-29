@@ -79,7 +79,7 @@
             }
           ],
           "default": null,
-          "description": "What this Justice wrote. Null means not stated \u2014 the record was written without addressing writing at all. `none` is the opposite: an affirmative observation that this Justice wrote nothing, which is what a final order list or opinion discloses about every participating Justice. Defaulting to `none` would turn every silent record into that claim"
+          "description": "What this Justice wrote \u2014 where the record's authorship lives, the opinion's author included. Null means not stated \u2014 the record was written without addressing writing at all, or what the Justice wrote has no single role (a writing concurring or dissenting only in part, or two writings of different roles). `none` is the opposite: an affirmative observation that this Justice wrote nothing, which is what a final order list or opinion discloses about every participating Justice. Defaulting to `none` would turn every silent record into that claim"
         }
       },
       "required": [
@@ -138,9 +138,49 @@
       "description": "Where a vote list came from, and how much of it is there.\n\n**Presence carries meaning**, the discipline ``ResolutionSignals`` established.\nAbsent, nobody looked. Present with ``complete=false`` and two votes beside it,\nexactly two are on the public record and the other seven genuinely are not \u2014\nwhich is the ordinary state at the cert stage, where a vote surfaces only when\na Justice notes it. Collapse that distinction and no import can restore it,\nand no evaluator can tell an unobserved vote from an unrecorded one.\n\nScoped to the Supreme Court: the bounds below are its nine seats and its\nsix-Justice quorum, so this does not describe a circuit panel, which has\nneither. Circuit events carry no vote record.\n\nIt sits beside the votes rather than containing them: ``votes`` is a committed\nfield on every outcome and these models reject unknown keys, so a block that\nswallowed the list would fail every artifact already written.",
       "properties": {
         "complete": {
-          "description": "Whether every participating Justice's vote is present. False means the rest are unobserved, NOT that they abstained",
+          "description": "Whether every participating Justice's vote is present. False means the rest are unobserved, NOT that they abstained. Only a complete record is scored: `vote_accuracy` is null against any other",
           "title": "Complete",
           "type": "boolean"
+        },
+        "document": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The document the votes were read from \u2014 for the 'supremecourt-opinions' source, the supremecourt.gov URL of the opinion PDF whose syllabus lineup was read. Null only where a source reads no single document",
+          "title": "Document"
+        },
+        "grammar": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The grammar that read the lineup text, e.g. 'scotus-syllabus' (`pipeline.syllabus_lineup`). Null only for a source not read by a grammar; set exactly when `grammar_version` is",
+          "title": "Grammar"
+        },
+        "grammar_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The version of `grammar` that produced this list. A grammar bumps it whenever it could read the same text differently, so a stored list says which reading it is and can be re-read after a fix",
+          "title": "Grammar Version"
         },
         "participating": {
           "description": "Justices who took part \u2014 the aggregation denominator a threshold counts against, which recusals move",
@@ -150,7 +190,7 @@
           "type": "integer"
         },
         "source": {
-          "description": "Where the votes were read from, e.g. 'scdb:2024-001', 'order-list:2025-03-10', 'opinion'. Free text, because the sources are not yet an enumerable set",
+          "description": "The registered vote source the list was read from, e.g. 'supremecourt-opinions' (`pipeline.vote_sources`). A string rather than an enum so the schema holds any record, but `validate` refuses a committed outcome naming a source that is not registered",
           "title": "Source",
           "type": "string"
         }

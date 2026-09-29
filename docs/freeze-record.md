@@ -5539,3 +5539,92 @@ freeze commit is recorded here.
     withheld on M petitioner-side block(s)`. N can be 0 where the block serves
     no contact key. That cell's staged snapshot carries
     `[contact detail withheld]` in the block's populated contact keys.
+
+- **A vote is scored only against a complete vote record and over the whole
+  bench, the vote mean publishes its denominator, and the Court's opinions
+  register as the vote source, 2026-09-29.** A **membership-rule** entry
+  that also fixes the scored figure's definition before any value of it
+  exists: it narrows which cells the vote mean is computed over, states what
+  each cell contributes, and adds the mean's count. No prompt byte, registry
+  field or stamp moves, so no digest moves: `uv run fedcourts process-digest
+  --all` prints `proc-v8` and the same six blessed digests before and after
+  the change.
+
+  **What is scored, registered now.**
+
+  - **The aggregate.** `mean_vote_accuracy` averages, per cell, the
+    participating-bench vote accuracy the board recomputes from the scored
+    prediction and the committed outcome
+    (`pipeline.evaluate.bench_vote_accuracy`) — never the evaluator's
+    `vote_accuracy`, which is the evaluator's arithmetic over the Justices
+    both lists name, a denominator the predictor partly chooses. The
+    denominator is every Justice the outcome's complete record shows sitting
+    (all but `recused` and `did-not-participate`); a sitting Justice the
+    prediction omits, or names so that no roster surname can be read from
+    it, is a miss, and a call on a Justice who did not sit scores nothing.
+    Only a cell on a declared merits moment whose outcome's `vote_provenance`
+    says `complete: true` has a score. The mean stays a mean of per-cell
+    fractions, and with one denominator per event the cells are like units.
+    A cell is a **grading**, as for `accuracy`: the figure does not depend on
+    the judge, so a prediction three evaluators graded enters three times with
+    one value and the mean is weighted by panel depth. The new
+    `vote_cells_scored` field on every stratum publishes the mean's
+    denominator in the same grain, gradings, like `accuracy_scored`. A board
+    built without the recomputation fails closed: every vote mean null.
+    Neither field is a rank key.
+  - **Per cell.** `vote_accuracy` keeps the evaluate prompt's definition and
+    is now also null, where the harness computes it
+    (`pipeline.evaluate.vote_accuracy`, the offline runners), unless the
+    record is complete. It is descriptive; nothing averages it. The evaluate
+    prompt's own wording of the field omits the completeness gate, which only
+    the helper it points to carries, so an agent-written figure against an
+    incomplete record can still be committed — and stays descriptive, since
+    nothing averages it. The predict
+    prompt's sentence calling vote scoring "intersection-only" now describes
+    that field, not the published mean; its instruction — no reason to trim
+    the list — holds a fortiori under the bench denominator, and the sentence
+    is left as it stands because editing it moves every predictor digest.
+  - **The population.** The mean covers the decisions a vote source read
+    completely. For the opinions source that is signed merits opinions on
+    Term-form dockets whose syllabus lineup parsed with no problem —
+    per curiams and volume-linked Terms are not read, and fractured lineups
+    are expected to fail to parse more often — so it is read as over that
+    population, not
+    over every merits decision.
+  - **The source.** `supremecourt-opinions` is the one registered vote
+    source (`pipeline/vote_sources.py`, `docs/data-sources.md`): the
+    syllabus lineup of a signed merits opinion, read by the `scotus-syllabus`
+    grammar and stamped with its version (2 at this commit), from an opinion
+    PDF on the Court's own host, on a
+    Supreme Court merits-stage event, with every Justice spelled as the
+    roster spells them and, for a record claiming `complete`, exactly the
+    bench the seat roster seats on the outcome's `resolved_at`. It yields a
+    record only from a complete lineup whose lead author matches the
+    listing's initials and whose printed decision date matches the
+    listing's, so it writes no partial list.
+    `outcome_votes_await_a_registered_source` refuses any committed vote list
+    without a provenance block, naming any other source (SCDB included), or
+    departing from that shape.
+
+  **What does not move.** No base rate, no skill figure, no digest, and no
+  figure that exists: at `origin/staging` `751b1881c`, none of the 12,726
+  committed outcomes carries a vote (every `votes` list is empty and every
+  present `vote_provenance` is null), and none of the 246 committed
+  evaluations carries a numeric `vote_accuracy`, so every
+  `mean_vote_accuracy` is null before and after. No writer populates
+  `Outcome.votes` at this commit; the rule is registered before any vote
+  record, and so before any outcome it could be fitted to.
+
+  The carrying promotion is `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merged at>`). It must precede the
+  first committed outcome carrying votes for this entry to register ahead of
+  any record it governs. At that promotion, the census above re-run on `main`
+  reads `<FILL: committed outcomes carrying a non-empty votes list at the
+  promotion>` outcomes carrying votes and `<FILL: committed evaluations
+  carrying a numeric vote_accuracy at the promotion>` evaluations carrying a
+  vote score. The runnable effect check once it is live: `uv run fedcourts
+  leaderboard --all-versions --out /tmp/lb.json && jq '[.. | objects |
+  select(has("vote_cells_scored")) | .vote_cells_scored] | add // 0'
+  /tmp/lb.json` reads `0` (nothing has moved; the check does not exercise the
+  gate), and `uv run fedcourts process-digest --all` still prints the same
+  six digests.

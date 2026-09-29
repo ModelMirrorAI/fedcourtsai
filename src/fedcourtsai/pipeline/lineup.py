@@ -40,7 +40,7 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Final, Protocol
 
-from ..schemas import VoteValue
+from ..schemas import JusticeVote, VoteValue, WritingRole
 
 
 class WritingKind(StrEnum):
@@ -51,8 +51,7 @@ class WritingKind(StrEnum):
     (joined some of the Court's opinion) and "concurring in part and
     dissenting in part" (on both sides) put their author on different sides,
     so neither may collapse into a plain concurrence or dissent here. Which
-    role each kind records as is a question for the channel that writes
-    ``Outcome.votes``, not for the reading.
+    role each kind records as on ``Outcome.votes`` is :data:`WRITING_ROLES`.
     """
 
     opinion_of_the_court = "opinion-of-the-court"
@@ -65,6 +64,28 @@ class WritingKind(StrEnum):
     dissent = "dissent"
     statement = "statement"
 
+
+#: The schema role each writing kind records as on ``JusticeVote.writing``, or
+#: ``None`` where no role says it faithfully. ``WritingRole`` has one value per
+#: Justice and no member for a writing on both sides, so the two mixed kinds —
+#: "concurring in part and concurring in the judgment" (joined some of the
+#: Court's opinion, so neither a plain concurrence nor a concurrence in the
+#: judgment alone) and "concurring in part and dissenting in part" — record
+#: nothing rather than the nearer of two wrong roles. A per curiam has no
+#: author to record it.
+WRITING_ROLES: Final[Mapping[WritingKind, WritingRole | None]] = MappingProxyType(
+    {
+        WritingKind.opinion_of_the_court: WritingRole.majority,
+        WritingKind.plurality: WritingRole.plurality,
+        WritingKind.per_curiam: None,
+        WritingKind.concurrence: WritingRole.concurrence,
+        WritingKind.concurrence_in_part: None,
+        WritingKind.concurrence_in_judgment: WritingRole.concurrence_in_judgment,
+        WritingKind.concurrence_in_part_dissent_in_part: None,
+        WritingKind.dissent: WritingRole.dissent,
+        WritingKind.statement: WritingRole.statement,
+    }
+)
 
 #: The kinds that carry the disposition — at most one per lineup.
 LEAD_KINDS: Final[frozenset[WritingKind]] = frozenset(
@@ -356,3 +377,42 @@ def lineup_from_writings(
         writings_complete=complete,
         problems=tuple(found),
     )
+
+
+def writing_role(kinds: Sequence[WritingKind]) -> WritingRole | None:
+    """One Justice's ``JusticeVote.writing`` from the kinds they authored.
+
+    ``none`` for an observed empty tuple (see :attr:`Lineup.writing_roles`);
+    the kind's role (:data:`WRITING_ROLES`) when every writing maps to one and
+    the same role; otherwise ``None``, "not stated". A Justice who wrote two
+    writings of different roles — the Court's opinion and a concurrence to it,
+    a concurrence and a dissent — has no single role that is true, and a
+    mixed kind has none at all, so neither is forced onto the nearest value.
+    """
+    if not kinds:
+        return WritingRole.none
+    roles = {WRITING_ROLES[kind] for kind in kinds}
+    if len(roles) != 1:
+        return None
+    return roles.pop()
+
+
+def justice_votes(lineup: Lineup) -> list[JusticeVote]:
+    """A lineup's observed votes on the schema's per-Justice shape, in bench order.
+
+    ``writing`` is :func:`writing_role` wherever the lineup observed the
+    Justice's writings — every participating Justice when
+    ``writings_complete``, authors only otherwise — and ``None`` (not stated)
+    everywhere else, so an incomplete reading never claims a Justice wrote
+    nothing. A Justice who took no part records no writing either.
+    """
+    roles = lineup.writing_roles
+    votes: list[JusticeVote] = []
+    for justice in lineup.bench:
+        vote = lineup.votes.get(justice)
+        if vote is None:
+            continue
+        kinds = roles.get(justice)
+        writing = None if kinds is None else writing_role(kinds)
+        votes.append(JusticeVote(justice=justice, vote=vote, writing=writing))
+    return votes

@@ -33,6 +33,7 @@ from fedcourtsai.leaderboard import (
     kendall_tau_b,
     skill_components,
     stage_moment_key,
+    vote_scores,
 )
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.evaluate import is_correct
@@ -50,6 +51,8 @@ from fedcourtsai.schemas import (
     Engine,
     Evaluation,
     EventKind,
+    Judgment,
+    JusticeVote,
     Leaderboard,
     LeaderboardEntry,
     Moment,
@@ -63,6 +66,8 @@ from fedcourtsai.schemas import (
     StatPackTerm,
     StatPackTermSegment,
     Stratum,
+    VoteProvenance,
+    VoteValue,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.store import iter_evaluations, iter_stratified_evaluations, stratify
@@ -334,25 +339,136 @@ def test_missing_optionals_average_only_over_present() -> None:
     assert stratum.mean_reasoning_quality == 0.6
 
 
-def test_vote_accuracy_averages_only_over_present_on_the_merits_moment() -> None:
-    """The same missing-optional rule for the one column that carries a stage gate.
+def test_the_vote_mean_averages_the_recomputed_scores_not_the_evaluators() -> None:
+    """The board averages its own per-cell figure, over the cells that have one.
 
-    `vote_accuracy` aggregates like every other optional — over the cells that
-    report it, never zero-filled — but only where the moment scores votes, so
-    the population it averages over is pinned on the merits block rather than
-    the ranked cert board.
+    `vote_accuracy` on a committed `Evaluation` is the evaluator's arithmetic
+    over a denominator the predictor partly chose, so the board averages the
+    participating-bench score `vote_scores` recomputes instead. The evaluator's
+    0.5 below never enters; the cell without a recomputed score (its outcome's
+    record incomplete) does not either, and `vote_cells_scored` says one.
     """
-    cells = [
-        _forward(_evaluation("alpha", event_id=_MERITS_EVENT_ID, vote_accuracy=None), Stage.merits),
-        _forward(_evaluation("alpha", event_id=_MERITS_EVENT_ID, vote_accuracy=0.5), Stage.merits),
-    ]
-    block = build_leaderboard(cells).stages[
-        stage_moment_key(Stage.merits, first_moment(Stage.merits))
-    ]
-    stratum = block.entries[0].forward
+    scored = _evaluation("alpha", event_id=_MERITS_EVENT_ID, run_id="r1", vote_accuracy=0.5)
+    unscored = _evaluation("alpha", event_id=_MERITS_EVENT_ID, run_id="r2", vote_accuracy=1.0)
+    cells = [_forward(scored, Stage.merits), _forward(unscored, Stage.merits)]
+    key = stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    board = build_leaderboard(cells, vote_scores={_evaluation_key(scored): 7 / 9})
+    stratum = board.stages[key].entries[0].forward
     assert stratum is not None
     assert stratum.evaluations == 2
-    assert stratum.mean_vote_accuracy == 0.5
+    assert stratum.mean_vote_accuracy == pytest.approx(7 / 9)
+    assert stratum.vote_cells_scored == 1
+
+
+def test_a_board_built_without_vote_scores_scores_no_votes() -> None:
+    """Fail closed: a vote mean never averages records nobody read for completeness."""
+    cells = [
+        _forward(_evaluation("alpha", event_id=_MERITS_EVENT_ID, vote_accuracy=0.5), Stage.merits)
+    ]
+    key = stage_moment_key(Stage.merits, first_moment(Stage.merits))
+    stratum = build_leaderboard(cells).stages[key].entries[0].forward
+    assert stratum is not None
+    assert stratum.mean_vote_accuracy is None
+    assert stratum.vote_cells_scored == 0
+
+
+_SITTING = ("Roberts", "Thomas", "Alito", "Sotomayor", "Kagan", "Gorsuch", "Kavanaugh", "Barrett")
+
+
+def _write_voting_cell(
+    data_root: Path,
+    ev: Evaluation,
+    *,
+    predicted: list[JusticeVote],
+    complete: bool | None,
+) -> None:
+    """A merits cell: the evaluation, the scored prediction, and an outcome whose
+    record is complete, partial (``False``), or absent (``None``). The record is
+    eight sitting Justices and one who took no part."""
+    _write(data_root, ev)
+    court, _, docket = ev.case_id.partition("/")
+    event = CasePaths(data_root, court, int(docket)).event(ev.event_id)
+    write_json(
+        event.prediction(ev.predictor_id, "p1"),
+        Prediction(
+            case_id=ev.case_id,
+            event_id=ev.event_id,
+            predictor_id=ev.predictor_id,
+            engine=Engine.claude_code,
+            run_id="p1",
+            created_at=datetime(2026, 6, 20, tzinfo=UTC),
+            input_snapshot="corpus",
+            granted=1,
+            probability=0.7,
+            predicted_disposition=Disposition.other,
+            judgment=Judgment.reversed,
+            votes=predicted,
+        ),
+    )
+    actual = [JusticeVote(justice=name, vote=VoteValue.majority) for name in _SITTING]
+    actual.append(JusticeVote(justice="Jackson", vote=VoteValue.did_not_participate))
+    record: dict[str, Any] = {}
+    if complete is not None:
+        record = {
+            "votes": actual if complete else actual[:2],
+            "vote_provenance": VoteProvenance(
+                source="supremecourt-opinions", participating=8, complete=complete
+            ),
+        }
+    write_json(
+        event.outcome,
+        Outcome(
+            case_id=ev.case_id,
+            event_id=ev.event_id,
+            resolved_at=date(2026, 6, 23),
+            actual_disposition=Disposition.other,
+            actual_granted=1,
+            judgment=Judgment.reversed,
+            **record,
+        ),
+    )
+
+
+def test_vote_scores_recompute_over_the_participating_bench(tmp_path: Path) -> None:
+    """The denominator is the sitting bench, whatever the predictor named.
+
+    A prediction naming one Justice, right, against a complete record of eight
+    sitting: 1/8, not the 1/1 an intersection would give — so trimming the list
+    to the sure calls can only cost. A correct call on the Justice who took no
+    part scores nothing, and full names read as the roster's surnames. A cell
+    on an incomplete or unprovenanced record, or off the merits moment, has no
+    score at all.
+    """
+    data_root = tmp_path / "data"
+    full = [JusticeVote(justice=f"Justice {n}", vote=VoteValue.majority) for n in _SITTING]
+    trimmed = [JusticeVote(justice="John G. Roberts, Jr.", vote=VoteValue.majority)]
+    free = [*trimmed, JusticeVote(justice="Jackson", vote=VoteValue.did_not_participate)]
+    cases = {
+        "full": (full, True, _MERITS_EVENT_ID),
+        "trimmed": (trimmed, True, _MERITS_EVENT_ID),
+        "free": (free, True, _MERITS_EVENT_ID),
+        "partial": (full, False, _MERITS_EVENT_ID),
+        "unprovenanced": (full, None, _MERITS_EVENT_ID),
+    }
+    evs: dict[str, Evaluation] = {}
+    for i, (name, (predicted, complete, event_id)) in enumerate(cases.items(), start=1):
+        ev = _evaluation(
+            "alpha",
+            case_id=f"scotus/{i}",
+            event_id=event_id,
+            prediction_run_id="p1",
+            vote_accuracy=None,
+        )
+        _write_voting_cell(data_root, ev, predicted=predicted, complete=complete)
+        evs[name] = ev
+    cert = _evaluation("alpha", case_id="scotus/9", event_id=_CERT_EVENT_ID, prediction_run_id="p1")
+    cells = [_forward(ev, Stage.merits) for ev in evs.values()] + [_forward(cert)]
+    scores = vote_scores(cells, data_root)
+    assert scores == {
+        _evaluation_key(evs["full"]): 1.0,
+        _evaluation_key(evs["trimmed"]): 1 / 8,
+        _evaluation_key(evs["free"]): 1 / 8,
+    }
 
 
 def test_cert_stage_vote_accuracy_never_enters_the_ranked_mean() -> None:
@@ -367,13 +483,18 @@ def test_cert_stage_vote_accuracy_never_enters_the_ranked_mean() -> None:
     in `pipeline.moments.scores_votes` and the first assertion reads 0.5.
     """
     cert = _evaluation("alpha", event_id=_CERT_EVENT_ID, vote_accuracy=0.5)
-    ranked = build_leaderboard([_forward(cert)]).entries[0].forward
+    ranked = (
+        build_leaderboard([_forward(cert)], vote_scores={_evaluation_key(cert): 0.5})
+        .entries[0]
+        .forward
+    )
     assert ranked is not None
     assert ranked.evaluations == 1  # the cell still counts; only its votes do not
     assert ranked.mean_vote_accuracy is None
 
     merits = _evaluation("alpha", event_id=_MERITS_EVENT_ID, vote_accuracy=0.5)
-    block = build_leaderboard([_forward(merits, Stage.merits)]).stages[
+    merits_cells = [_forward(merits, Stage.merits)]
+    block = build_leaderboard(merits_cells, vote_scores={_evaluation_key(merits): 0.5}).stages[
         stage_moment_key(Stage.merits, first_moment(Stage.merits))
     ]
     scored = block.entries[0].forward
@@ -390,7 +511,8 @@ def test_the_vote_gate_reads_the_cell_not_the_block_it_landed_in() -> None:
     cheaper, and wrong in exactly the direction the prohibition guards.
     """
     stray = _evaluation("alpha", event_id="evt-motion-stay", vote_accuracy=0.5)
-    block = build_leaderboard([_forward(stray, Stage.merits)]).stages[
+    stray_cells = [_forward(stray, Stage.merits)]
+    block = build_leaderboard(stray_cells, vote_scores={_evaluation_key(stray): 0.5}).stages[
         stage_moment_key(Stage.merits, first_moment(Stage.merits))
     ]
     stratum = block.entries[0].forward

@@ -26,7 +26,17 @@ from fedcourtsai.pipeline.runner import (
     RunRequest,
     get_runner,
 )
-from fedcourtsai.schemas import Disposition, Evaluation, Outcome, Prediction, Stage, UsageRole
+from fedcourtsai.schemas import (
+    Disposition,
+    Evaluation,
+    JusticeVote,
+    Outcome,
+    Prediction,
+    Stage,
+    UsageRole,
+    VoteProvenance,
+    VoteValue,
+)
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import iter_stratified_evaluations
 from tests.conftest import FixtureCorpus
@@ -141,13 +151,27 @@ def test_evaluate_over_recorded_prediction_scores_vote_accuracy(tmp_path: Path) 
     The cell is placed on the declared merits moment because that is the only
     stage whose votes are scored; the recorded outcome is rebound to the same
     event rather than copied, so the pair the evaluator reads is one cell's.
+    Its two votes are extended to a complete six-vote record with provenance,
+    because only a complete record is scored; the four added Justices are ones
+    the prediction does not name, so they leave the intersection unchanged.
     """
     runner = ReplayRunner(cassette_root=CASSETTE)
     runner.run(_request(UsageRole.predictor, "claude-baseline", tmp_path, _MERITS_EVENT_ID))
 
     events = CasePaths(tmp_path, "ca9", 101).event(_MERITS_EVENT_ID)
     recorded = read_model(CASSETTE / "outcome.json", Outcome)
-    write_json(events.outcome, recorded.model_copy(update={"event_id": _MERITS_EVENT_ID}))
+    others = [JusticeVote(justice=f"j{i}", vote=VoteValue.majority) for i in range(4)]
+    complete = VoteProvenance(source="supremecourt-opinions", participating=6, complete=True)
+    write_json(
+        events.outcome,
+        recorded.model_copy(
+            update={
+                "event_id": _MERITS_EVENT_ID,
+                "votes": [*recorded.votes, *others],
+                "vote_provenance": complete,
+            }
+        ),
+    )
 
     runner.run(_request(UsageRole.evaluator, "claude-judge", tmp_path, _MERITS_EVENT_ID))
     evaluation = read_model(

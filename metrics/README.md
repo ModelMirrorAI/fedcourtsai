@@ -179,7 +179,13 @@ stays outside the gate:
   sit on the entry rather than the stratum, because they describe the whole
   entry: `evaluators`, the distinct judges that scored it, and `events_scored`
   pooled across its strata, which the coverage contract below reads against the
-  board's own. The **accuracy** column is the mean of each cell's `correct`,
+  board's own. The vote mean averages only cells whose outcome carries a
+  complete vote record, each scored over that record's whole sitting bench
+  (recomputed at build, not read off the evaluator), with `vote_cells_scored`
+  beside it as its denominator; it covers the decisions a vote source read
+  completely — signed opinions whose lineup parsed, which is expected to
+  under-represent fractured lineups — not every merits decision. The
+  **accuracy** column is the mean of each cell's `correct`,
   which the harness stamps on **every** stage — cert included, unlike the skill
   record beside it — from the scored prediction's committed label and the
   outcome's, so the board's first rank key is recomputed from committed

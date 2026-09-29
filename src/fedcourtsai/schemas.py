@@ -538,8 +538,11 @@ class JusticeVote(_Strict):
     vote: VoteValue
     writing: WritingRole | None = Field(
         default=None,
-        description="What this Justice wrote. Null means not stated — the record "
-        "was written without addressing writing at all. `none` is the opposite: an "
+        description="What this Justice wrote — where the record's authorship "
+        "lives, the opinion's author included. Null means not stated — the record "
+        "was written without addressing writing at all, or what the Justice wrote "
+        "has no single role (a writing concurring or dissenting only in part, or "
+        "two writings of different roles). `none` is the opposite: an "
         "affirmative observation that this Justice wrote nothing, which is what a "
         "final order list or opinion discloses about every participating Justice. "
         "Defaulting to `none` would turn every silent record into that claim",
@@ -566,9 +569,30 @@ class VoteProvenance(_Strict):
     """
 
     source: str = Field(
-        description="Where the votes were read from, e.g. 'scdb:2024-001', "
-        "'order-list:2025-03-10', 'opinion'. Free text, because the sources are "
-        "not yet an enumerable set"
+        description="The registered vote source the list was read from, e.g. "
+        "'supremecourt-opinions' (`pipeline.vote_sources`). A string rather than "
+        "an enum so the schema holds any record, but `validate` refuses a committed "
+        "outcome naming a source that is not registered"
+    )
+    document: str | None = Field(
+        default=None,
+        description="The document the votes were read from — for the "
+        "'supremecourt-opinions' source, the supremecourt.gov URL of the opinion "
+        "PDF whose syllabus lineup was read. Null only where a source reads no "
+        "single document",
+    )
+    grammar: str | None = Field(
+        default=None,
+        description="The grammar that read the lineup text, e.g. "
+        "'scotus-syllabus' (`pipeline.syllabus_lineup`). Null only for a source "
+        "not read by a grammar; set exactly when `grammar_version` is",
+    )
+    grammar_version: int | None = Field(
+        default=None,
+        ge=1,
+        description="The version of `grammar` that produced this list. A grammar "
+        "bumps it whenever it could read the same text differently, so a stored "
+        "list says which reading it is and can be re-read after a fix",
     )
     participating: int = Field(
         ge=QUORUM,
@@ -578,8 +602,16 @@ class VoteProvenance(_Strict):
     )
     complete: bool = Field(
         description="Whether every participating Justice's vote is present. False "
-        "means the rest are unobserved, NOT that they abstained"
+        "means the rest are unobserved, NOT that they abstained. Only a complete "
+        "record is scored: `vote_accuracy` is null against any other"
     )
+
+    @model_validator(mode="after")
+    def _grammar_stamp_coheres(self) -> VoteProvenance:
+        """A grammar name without its version names no particular reading."""
+        if (self.grammar is None) != (self.grammar_version is None):
+            raise ValueError("`grammar` and `grammar_version` are set together or not at all")
+        return self
 
 
 class ProcessVersion(_Strict):
@@ -1342,6 +1374,38 @@ class Outcome(_Strict):
         "would invent an observation, exactly as an absent `signals` block does",
     )
 
+    @model_validator(mode="after")
+    def _vote_record_coheres(self) -> Outcome:
+        """A provenance block must describe the list it sits beside.
+
+        Only a provenanced list is checked, so a record written before the block
+        existed is unaffected. A block over an empty list states a source for
+        nothing; a Justice named twice is two readings of one vote; and a
+        complete record's `participating` must be the count of its votes that
+        are neither `recused` nor `did-not-participate`, because that count is
+        the denominator a vote threshold is taken against.
+        """
+        provenance = self.vote_provenance
+        if provenance is None:
+            return self
+        if not self.votes:
+            raise ValueError("`vote_provenance` is set but `votes` is empty")
+        names = [vote.justice for vote in self.votes]
+        if len(set(names)) != len(names):
+            raise ValueError("`votes` names a Justice more than once")
+        if provenance.complete:
+            sitting = sum(
+                1
+                for vote in self.votes
+                if vote.vote not in (VoteValue.recused, VoteValue.did_not_participate)
+            )
+            if sitting != provenance.participating:
+                raise ValueError(
+                    f"a complete vote record counts {sitting} participating votes "
+                    f"but `vote_provenance.participating` is {provenance.participating}"
+                )
+        return self
+
 
 class LeakageAssessment(_Strict):
     """The cross-evaluator's leakage grading of one prediction (a gate on membership).
@@ -1689,7 +1753,17 @@ class Evaluation(_Strict):
         "proper score: `brier_score` on the disturbed binary is the scored axis, "
         "and `correct` already carries this same comparison on a merits cell.",
     )
-    vote_accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    vote_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Fraction of the prediction's per-Justice votes that match the "
+        "outcome's, over the Justices both name. Merits-stage cells only, and only "
+        "against a vote record whose `vote_provenance` says `complete: true`; null "
+        "everywhere else (`pipeline.evaluate.vote_accuracy`). Descriptive: the "
+        "leaderboard does not average it, but recomputes each cell's "
+        "participating-bench accuracy (`pipeline.evaluate.bench_vote_accuracy`)",
+    )
     reasoning_quality: float | None = Field(default=None, ge=0.0, le=1.0)
     leakage_suspected: bool | None = Field(
         default=None,
@@ -2933,7 +3007,32 @@ class LeaderboardStratum(_Strict):
         "`grants_expected`. Null where `grants_realized` is",
     )
     mean_vote_accuracy: float | None = Field(
-        default=None, ge=0.0, le=1.0, description="Mean panel-vote accuracy where reported"
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean, over the `vote_cells_scored` cells, of each cell's "
+        "participating-bench vote accuracy: the fraction of the Justices the "
+        "outcome's complete vote record shows sitting whose vote the scored "
+        "prediction called, an omitted Justice a miss "
+        "(`pipeline.evaluate.bench_vote_accuracy`), recomputed from the committed "
+        "prediction and outcome rather than read off `Evaluation.vote_accuracy`. "
+        "Merits-moment cells whose outcome carries a complete vote record "
+        "(`vote_provenance.complete`) only, so it covers the decisions a vote "
+        "source read completely — signed opinions whose lineup parsed — not every "
+        "merits decision. Averaged over **gradings**, like `accuracy`: the "
+        "figure does not depend on the judge, so a prediction graded by three "
+        "evaluators enters three times with one value and the mean is weighted "
+        "by panel depth. Null where no cell qualifies. Never a rank key",
+    )
+    vote_cells_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Gradings that entered `mean_vote_accuracy` — its denominator, "
+        "counted per evaluation as `accuracy_scored` is, so it exceeds the number "
+        "of distinct predictions scored wherever a panel graded one more than "
+        "once. Below `evaluations` wherever a cell is off a merits moment, has no "
+        "readable scored prediction, or resolves against a vote record that is "
+        "absent or incomplete",
     )
     mean_reasoning_quality: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Mean evaluator reasoning-quality score"

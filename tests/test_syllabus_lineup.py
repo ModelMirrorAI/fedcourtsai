@@ -814,3 +814,146 @@ def test_a_plain_concurrence_without_a_lead_join_places_nobody() -> None:
     )
     assert not lineup.complete
     assert "Thomas" not in lineup.votes
+
+
+# --- a Justice seated after argument ----------------------------------------
+
+OT20 = (
+    "Roberts",
+    "Thomas",
+    "Breyer",
+    "Alito",
+    "Sotomayor",
+    "Kagan",
+    "Gorsuch",
+    "Kavanaugh",
+    "Barrett",
+)
+
+
+def test_a_late_seated_justice_the_paragraph_excludes_sits_out() -> None:
+    """The ordinary shape: the syllabus says the new Justice took no part."""
+    lineup = parse_syllabus_lineup(
+        "BREYER, J., delivered the opinion of the Court, in which ROBERTS, C. J., "
+        + "and SOTOMAYOR, KAGAN, GORSUCH, and KAVANAUGH, JJ., joined. THOMAS, J., "
+        + "filed a dissenting opinion, in which ALITO, J., joined. BARRETT, J., took "
+        + "no part in the consideration or decision of the case.",
+        bench=OT20,
+        seated_after_argument=("Barrett",),
+    )
+    assert lineup.complete
+    assert lineup.votes["Barrett"] is OUT
+    assert lineup.participating == 8
+
+
+def test_a_late_seated_justice_is_never_credited_by_the_convention() -> None:
+    """Silence places nobody who did not hear the argument.
+
+    `for a unanimous Court` credits every other participant under the Court's
+    convention, but a Justice seated after argument did not hear the case, so
+    the paragraph's silence neither seats nor excuses them: the lineup is
+    incomplete and every other Justice keeps their vote. Without the
+    `seated_after_argument` input the same text reads Barrett as `majority`.
+    """
+    text = "KAGAN, J., delivered the opinion for a unanimous Court."
+    assert parse_syllabus_lineup(text, bench=OT20).votes["Barrett"] is M
+    lineup = parse_syllabus_lineup(text, bench=OT20, seated_after_argument=("Barrett",))
+    assert not lineup.complete
+    assert "Barrett" not in lineup.votes
+    assert lineup.votes["Kavanaugh"] is M
+    assert any("Barrett is not accounted for" in p for p in lineup.problems)
+
+
+def test_a_late_seated_justice_the_paragraph_names_is_placed() -> None:
+    """The paragraph, not the convention, may place them (a reargued case)."""
+    lineup = parse_syllabus_lineup(
+        "KAGAN, J., delivered the opinion of the Court, in which ROBERTS, C. J., and "
+        + "BREYER, SOTOMAYOR, GORSUCH, KAVANAUGH, and BARRETT, JJ., joined. THOMAS, J., "
+        + "filed a dissenting opinion, in which ALITO, J., joined.",
+        bench=OT20,
+        seated_after_argument=("Barrett",),
+    )
+    assert lineup.complete
+    assert lineup.votes["Barrett"] is M
+
+
+def test_a_late_seated_name_off_the_bench_is_a_caller_error() -> None:
+    with pytest.raises(ValueError, match="not on the bench"):
+        parse_syllabus_lineup(
+            "KAGAN, J., delivered the opinion for a unanimous Court.",
+            bench=OT20,
+            seated_after_argument=("Jackson",),
+        )
+
+
+# --- shapes read off real opinions -------------------------------------------
+
+
+def test_a_title_separates_two_names_the_way_a_comma_does() -> None:
+    """`ROBERTS, C. J., THOMAS, …` prints no comma of its own between the two.
+
+    Collapsed to a bare space, the title would leave "Roberts Thomas" as one
+    name, which a longest-suffix reading takes as Thomas alone — dropping the
+    Chief Justice silently. The title splits them, and a run of two surnames is
+    refused rather than resolved to its last.
+    """
+    lineup = parse_syllabus_lineup(
+        "KAVANAUGH, J., delivered the opinion of the Court, in which ROBERTS, C. J., "
+        + "THOMAS, ALITO, GORSUCH, and BARRETT, JJ., joined. KAGAN, J., filed a "
+        + "dissenting opinion, in which BREYER and SOTOMAYOR, JJ., joined.",
+        bench=OT20,
+    )
+    assert lineup.complete
+    assert lineup.votes["Roberts"] is M and lineup.votes["Thomas"] is M
+    refused = parse_syllabus_lineup(
+        "KAGAN, J., delivered the opinion of the Court, in which Roberts Thomas joined.",
+        bench=OT20,
+    )
+    _assert_refused(refused)
+
+
+def test_each_filed_is_one_writing_per_author() -> None:
+    lineup = parse_syllabus_lineup(
+        "GORSUCH, J., delivered the opinion of the Court, in which ROBERTS, C. J., and "
+        + "SOTOMAYOR, KAGAN, KAVANAUGH, BARRETT, and JACKSON, JJ., joined. SOTOMAYOR, J., "
+        + "KAVANAUGH, J., and JACKSON, J., each filed concurring opinions. THOMAS, J., and "
+        + "ALITO, J., each filed dissenting opinions.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    concurrences = [w for w in lineup.writings if w.kind is WritingKind.concurrence]
+    assert [w.authors for w in concurrences] == [("Sotomayor",), ("Kavanaugh",), ("Jackson",)]
+    assert lineup.votes["Thomas"] is D and lineup.votes["Alito"] is D
+
+
+@pytest.mark.parametrize(
+    ("join", "qualifier"),
+    [
+        ("joined only as to Part II-B", "only as to Part II-B"),
+        ("joined except for Part III-A", "except for Part III-A"),
+        ("joined as to the introduction and Part I", "as to the introduction and Part I"),
+    ],
+)
+def test_scope_wordings_read_as_qualified_joins(join: str, qualifier: str) -> None:
+    lineup = parse_syllabus_lineup(
+        "ROBERTS, C. J., delivered the opinion of the Court, in which THOMAS, ALITO, "
+        + "SOTOMAYOR, KAGAN, GORSUCH, KAVANAUGH, BARRETT, and JACKSON, JJ., joined. "
+        + f"JACKSON, J., filed a concurring opinion, in which SOTOMAYOR, J., {join}.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    concurrence = _writing(lineup, "Jackson", WritingKind.concurrence)
+    assert concurrence.joins == (Join("Sotomayor", qualifier),)
+
+
+def test_a_plurality_clause_may_omit_the_comma_before_in_which() -> None:
+    lineup = parse_syllabus_lineup(
+        "KAGAN, J., announced the judgment of the Court and delivered an opinion in "
+        + "which BREYER, SOTOMAYOR, and GORSUCH, JJ., joined. THOMAS, J., filed an "
+        + "opinion concurring in the judgment. KAVANAUGH, J., filed a dissenting opinion, "
+        + "in which ROBERTS, C. J., and ALITO and BARRETT, JJ., joined.",
+        bench=OT20,
+    )
+    assert lineup.complete
+    assert lineup.lead is not None and lineup.lead.kind is WritingKind.plurality
+    assert lineup.votes["Thomas"] is CJ and lineup.votes["Roberts"] is D
