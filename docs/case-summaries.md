@@ -33,7 +33,7 @@ model: claude-sonnet-5
 prompt_digest: sha256:…     # .github/prompts/summarize.md as sent
 body_version: 2             # the body contract below it was written to
 generated_at: '2026-09-23T04:02:11Z'
-usage:
+usage:                      # every call that wrote it, a retry's included
   input_tokens: 48210
   output_tokens: 391
   estimated_cost_usd: 0.100330
@@ -160,6 +160,22 @@ third-party filings, and an instruction injected into a filing that survived
 into the output could otherwise place a script, a tracking image or a link
 there. Anything else is not written; the case is reported skipped with the
 reason, and the cost of the call is still counted.
+
+A response rejected only on those body rules — its sections, the headline,
+the word band, a "Whether" opening, markup — is **retried once in the same
+run**, as a continuation of the same conversation: the record, the rejected
+response, then a fixed instruction (`summaries.RETRY_INSTRUCTION`, in the
+harness rather than the prompt file, so its wording is reviewed in one place)
+listing each rejection reason and restating the headline limit. The retry is
+held to the same checks. A second rejection skips the case with the retry's
+reason (`rejected on retry: …`), and it stays owed for the next run; there is
+never a second retry. A truncated response (`max_tokens`) or a secret-scan
+finding is not retried, nor is a case whose run has spent its
+`--budget-minutes`. The neutrality and accuracy rules above are not
+machine-checked, so nothing retries on them. A summary written from a retry
+records both calls in its `usage`, and the run's result report splits written
+cases into first-response and after-retry, counts the skipped cases whose
+retry failed too, and lists each retried case with its first rejection.
 
 ## Which cases, and when
 
@@ -374,6 +390,11 @@ over 195 cases, recorded a median of $0.095 and a total of $19.76 at a median
 of 516 output tokens; input dominates, so the version-2 body's extra ~80 words
 (≈150 output tokens, ≈$0.0015 at Sonnet 5's output rate) leaves a summary at
 roughly $0.10 and the regeneration pass at roughly $15–25 for today's cases.
+
+A retried case pays for two calls, and the retry re-sends the whole record, so
+it costs about twice a first-pass summary; the report's cost line and each
+summary's `usage` include it. The plan's estimate prices one call per case, so
+retries run a few percent over it at the rejection rates seen so far.
 
 ## Non-goals
 

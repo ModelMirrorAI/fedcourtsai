@@ -8843,13 +8843,17 @@ _SHA256_DIGEST = r"^sha256:[0-9a-f]{64}$"
 
 
 class CaseSummaryUsage(_Strict):
-    """The token usage of the one call that wrote a case summary."""
+    """The token usage of the calls that wrote a case summary.
+
+    One call, or two when the first response was rejected on a mechanical rule
+    of the body contract and retried; the figures sum both.
+    """
 
     input_tokens: int = Field(ge=0, description="Uncached input tokens billed")
     output_tokens: int = Field(ge=0, description="Output tokens billed")
     estimated_cost_usd: float = Field(
         ge=0,
-        description="The call's on-demand cost at `pricing.MODEL_RATES` for `model` — "
+        description="The calls' on-demand cost at `pricing.MODEL_RATES` for `model` — "
         + "an estimate at the rate table's snapshot, like every figure it prices",
     )
 
@@ -8892,7 +8896,9 @@ class CaseSummaryFrontMatter(_Strict):
     )
     generated_at: datetime = Field(description="When the harness wrote the file (UTC)")
     usage: CaseSummaryUsage | None = Field(
-        default=None, description="The writing call's token usage, where the response carried it"
+        default=None,
+        description="The token usage of the calls that wrote the summary (a rejected first "
+        + "response's included), where the responses carried it",
     )
 
 

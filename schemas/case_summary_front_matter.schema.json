@@ -2,10 +2,10 @@
   "$defs": {
     "CaseSummaryUsage": {
       "additionalProperties": false,
-      "description": "The token usage of the one call that wrote a case summary.",
+      "description": "The token usage of the calls that wrote a case summary.\n\nOne call, or two when the first response was rejected on a mechanical rule\nof the body contract and retried; the figures sum both.",
       "properties": {
         "estimated_cost_usd": {
-          "description": "The call's on-demand cost at `pricing.MODEL_RATES` for `model` \u2014 an estimate at the rate table's snapshot, like every figure it prices",
+          "description": "The calls' on-demand cost at `pricing.MODEL_RATES` for `model` \u2014 an estimate at the rate table's snapshot, like every figure it prices",
           "minimum": 0,
           "title": "Estimated Cost Usd",
           "type": "number"
@@ -89,7 +89,7 @@
         }
       ],
       "default": null,
-      "description": "The writing call's token usage, where the response carried it"
+      "description": "The token usage of the calls that wrote the summary (a rejected first response's included), where the responses carried it"
     }
   },
   "required": [

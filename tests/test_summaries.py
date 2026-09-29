@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -391,9 +391,177 @@ def test_summarize_rejects_a_body_off_the_contract(tmp_path: Path, body: str) ->
     outcome, _ = _run(tmp_path, lambda request: _response(body))
     assert outcome.written == []
     [(_, reason, cost)] = outcome.skipped
-    assert reason.startswith("rejected:")
+    # The same off-contract body twice: rejected, retried, rejected again —
+    # except a secret-scan finding, which is not retried.
+    assert reason.startswith(("rejected:", "rejected on retry:"))
     assert cost > 0  # a rejected response still cost its tokens
     assert not (tmp_path / "data" / "cases").exists()
+
+
+# A headline of 34 words: four over the cap.
+LONG_HEADLINE = HEADLINE[:-1] + ", " + " ".join(["and more"] * 10) + " besides."
+LONG_HEADLINE_BODY = GOOD_BODY.replace(HEADLINE, LONG_HEADLINE)
+ONE_CALL_USD = 50_000 * 2 / 1e6 + 400 * 10 / 1e6
+HEADLINE_REASON = "the '## In brief' headline runs 34 words, over 30"
+
+
+def test_summarize_retries_a_rejected_response_once_and_writes_the_retry(
+    tmp_path: Path,
+) -> None:
+    assert len(LONG_HEADLINE.split()) == 34
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return _response(LONG_HEADLINE_BODY if len(requests) == 1 else GOOD_BODY)
+
+    outcome, _ = _run(tmp_path, handler)
+
+    assert len(requests) == 2
+    assert outcome.skipped == []
+    [(case, path, cost)] = outcome.written
+    assert outcome.retried == [(case, "rejected: " + HEADLINE_REASON)]
+    # Both calls are paid for and recorded.
+    assert cost == pytest.approx(2 * ONE_CALL_USD)
+    front, body = summaries.parse_summary(path.read_text())
+    assert body.strip() == GOOD_BODY.strip()
+    assert front.usage is not None
+    assert (front.usage.input_tokens, front.usage.output_tokens) == (100_000, 800)
+    assert front.usage.estimated_cost_usd == pytest.approx(2 * ONE_CALL_USD)
+    # The retry is the same conversation: the record, the rejected response,
+    # and the harness's instruction carrying the rejection reason.
+    first_sent, retry_sent = (json.loads(r.content) for r in requests)
+    assert len(first_sent["messages"]) == 1
+    record, rejected, instruction = retry_sent["messages"]
+    assert record == first_sent["messages"][0]
+    assert rejected == {"role": "assistant", "content": LONG_HEADLINE_BODY}
+    assert instruction["role"] == "user"
+    assert "- " + HEADLINE_REASON + "\n" in instruction["content"]
+    assert instruction["content"] == summaries.retry_instruction([HEADLINE_REASON])
+    assert retry_sent["system"] == first_sent["system"]
+    assert "tools" not in retry_sent
+    assert retry_sent["thinking"] == {"type": "disabled"}
+    report = summaries.render_outcome_report(outcome, 1)
+    assert "written: **1** (0 on the first response, 1 after a retry)" in report
+    assert "retried after a rejected first response: 1" in report
+    assert f"| `scotus/1` | rejected: {HEADLINE_REASON} | written |" in report
+
+
+def test_summarize_skips_a_case_rejected_again_on_retry(tmp_path: Path) -> None:
+    bodies = [
+        LONG_HEADLINE_BODY,
+        GOOD_BODY.replace("The petition is waiting", "The petition is **waiting**"),
+    ]
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return _response(bodies[len(requests) - 1])
+
+    outcome, _ = _run(tmp_path, handler)
+
+    assert len(requests) == 2  # one retry, never a second
+    assert outcome.written == []
+    # Skipped with the retry's reason, both calls counted.
+    [(case, reason, cost)] = outcome.skipped
+    assert (case, reason) == ("scotus/1", "rejected on retry: carries emphasis markup")
+    assert cost == pytest.approx(2 * ONE_CALL_USD)
+    assert outcome.retried == [("scotus/1", "rejected: " + HEADLINE_REASON)]
+    assert not (tmp_path / "data" / "cases").exists()
+    # Still owed: the next run plans it again.
+    assert [c.case_id for c in _plan(tmp_path / "data", {"scotus/1": _record()}).cases] == [
+        "scotus/1"
+    ]
+    report = summaries.render_outcome_report(outcome, 1)
+    assert "skipped: 1 (1 after a retry)" in report
+    assert f"| `scotus/1` | rejected: {HEADLINE_REASON} | skipped |" in report
+
+
+def test_summarize_skips_a_case_whose_retry_call_fails(tmp_path: Path) -> None:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        if len(calls) == 1:
+            return _response(LONG_HEADLINE_BODY)
+        return httpx.Response(400, json={"type": "error"})
+
+    outcome, _ = _run(tmp_path, handler)
+    assert len(calls) == 2
+    # The first call's cost is still counted.
+    [(case, reason, cost)] = outcome.skipped
+    assert (case, reason) == ("scotus/1", "retry failed: HTTP 400")
+    assert cost == pytest.approx(ONE_CALL_USD)
+    assert outcome.retried == [("scotus/1", "rejected: " + HEADLINE_REASON)]
+
+
+@pytest.mark.parametrize(
+    ("body", "stop", "reason"),
+    [
+        (GOOD_BODY + "\n\nThe key is " + FAKE_KEY, "end_turn", "secret scan"),
+        (LONG_HEADLINE_BODY + "\n\nThe key is " + FAKE_KEY, "end_turn", "secret scan"),
+        (LONG_HEADLINE_BODY, "max_tokens", "stop_reason 'max_tokens'"),
+    ],
+    ids=["secret", "secret-with-contract-problem", "truncated"],
+)
+def test_summarize_does_not_retry_a_truncated_or_secret_bearing_response(
+    tmp_path: Path, body: str, stop: str, reason: str
+) -> None:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return _response(body, stop=stop)
+
+    outcome, _ = _run(tmp_path, handler)
+    assert len(calls) == 1
+    assert outcome.retried == []
+    [(_, skipped_reason, _)] = outcome.skipped
+    assert reason in skipped_reason
+
+
+def test_summarize_does_not_retry_past_the_time_budget(tmp_path: Path) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    start = datetime(2026, 9, 23, 4, 0, tzinfo=UTC)
+    ticks = iter(range(100))
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return _response(LONG_HEADLINE_BODY)
+
+    def clock() -> datetime:
+        # A minute a reading: the case starts inside the budget, and by the
+        # time the retry would begin the budget is spent.
+        return start + timedelta(minutes=next(ticks))
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        outcome = summaries.summarize_plan(
+            plan,
+            stage_root=stage,
+            data_root=tmp_path / "data",
+            config=CONFIG,
+            prompt_bytes=b"p",
+            client=client,
+            api_key=FAKE_KEY,
+            now=clock,
+            deadline=start + timedelta(minutes=2),
+        )
+    assert len(calls) == 1
+    assert outcome.retried == []
+    assert outcome.skipped[0][1] == "rejected: " + HEADLINE_REASON
+
+
+def test_the_outcome_report_without_retries() -> None:
+    outcome = summaries.SummarizeOutcome(
+        written=[("scotus/1", Path("x.md"), 0.1)], skipped=[("scotus/2", "HTTP 500", 0.0)]
+    )
+    report = summaries.render_outcome_report(outcome, 2)
+    assert "written: **1** (1 on the first response, 0 after a retry)" in report
+    assert "skipped: 1 (0 after a retry)" in report
+    assert "retried case" not in report
 
 
 def test_summarize_rejects_a_truncated_response(tmp_path: Path) -> None:

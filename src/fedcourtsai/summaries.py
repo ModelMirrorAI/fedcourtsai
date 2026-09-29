@@ -17,7 +17,9 @@ Three pieces, each a small pure function the CLI wraps:
 - **The call** is one Messages API request carrying the system prompt and the
   staged record, and nothing else: no tools, no retrieval, no thinking. That
   shape is what makes "grounded in the record only" a property of the request
-  rather than a promise in the prompt.
+  rather than a promise in the prompt. A response that breaks a mechanical
+  rule of the body contract is retried once, in the same conversation, told
+  why it was rejected (:data:`RETRY_INSTRUCTION`).
 - **The file** is harness-written front matter (:class:`CaseSummaryFrontMatter`)
   over the model's body, which is accepted only if it has exactly the current
   contract's sections in order, sits inside a tolerant length band, opens no
@@ -105,6 +107,10 @@ SECTION_HEADINGS: tuple[str, ...] = SECTION_HEADINGS_BY_VERSION[BODY_VERSION]
 #: holds for committed summaries too, since a headline that has grown into a
 #: paragraph no longer fits the collapsed row it is written for.
 HEADLINE_MAX_WORDS = 30
+
+#: The headline length the prompt asks for, restated to the model when a
+#: response is retried.
+HEADLINE_TARGET_WORDS = 25
 
 #: The accepted body length, in words. The contract asks for about 330; the band
 #: is tolerant so a faithful summary of a thin or a busy docket is not refused
@@ -610,18 +616,55 @@ class _WaitRetryAfter(wait_base):
         return float(self._fallback(retry_state))
 
 
-def build_request(config: SummariesConfig, system: str, record: str) -> dict[str, Any]:
+#: The follow-up turn a retried case is sent: the rejection reasons, one per
+#: line, and what to change. Fixed here rather than in the prompt file so its
+#: wording is reviewed in one place and every retry reads the same.
+RETRY_INSTRUCTION = (
+    "Your summary was not accepted, because it breaks the format contract:\n"
+    + "{problems}\n\n"
+    + "Write the whole summary again, fixing these problems and keeping everything "
+    + "else as it is. Every rule of the original instructions still holds. The "
+    + f"'{HEADLINE_HEADING}' headline is one sentence of no more than "
+    + f"{HEADLINE_TARGET_WORDS} words; a headline over {HEADLINE_MAX_WORDS} words is "
+    + "rejected. Reply with the summary alone, starting at its first heading."
+)
+
+
+def retry_instruction(problems: Sequence[str]) -> str:
+    """The retry turn's text for these rejection reasons."""
+    return RETRY_INSTRUCTION.format(problems="\n".join(f"- {p}" for p in problems))
+
+
+@dataclass(frozen=True)
+class RetryTurn:
+    """A rejected response and why: what a retry request appends."""
+
+    rejected_text: str
+    problems: tuple[str, ...]
+
+
+def build_request(
+    config: SummariesConfig, system: str, record: str, retry: RetryTurn | None = None
+) -> dict[str, Any]:
     """The request body: the system prompt and the record, and nothing else.
 
     No ``tools`` key, so the model can retrieve nothing; thinking explicitly
     off, because on the configured model an omitted ``thinking`` runs adaptive
-    and a restatement task gains nothing from paying for it.
+    and a restatement task gains nothing from paying for it. A retry appends
+    the rejected response and :func:`retry_instruction` as two further turns,
+    so the model rewrites against the same record rather than from memory.
     """
+    messages: list[dict[str, str]] = [{"role": "user", "content": record}]
+    if retry is not None:
+        messages += [
+            {"role": "assistant", "content": retry.rejected_text},
+            {"role": "user", "content": retry_instruction(retry.problems)},
+        ]
     return {
         "model": config.model,
         "max_tokens": config.max_output_tokens,
         "system": system,
-        "messages": [{"role": "user", "content": record}],
+        "messages": messages,
         "thinking": {"type": "disabled"},
     }
 
@@ -879,28 +922,49 @@ def summary_changes(changes: Iterable[tuple[str, str]]) -> tuple[list[str], list
 
 @dataclass(frozen=True)
 class CaseResult:
-    """One case's result: the written path, or why not, and what the call cost.
+    """One case's result: the written path, or why not, and what the calls cost.
 
     A rejected response still cost its tokens, so ``cost_usd`` is set whenever a
-    call returned, written or not.
+    call returned, written or not, and includes a retry's call.
+    ``first_rejection`` is why the first response was rejected when the case
+    was retried, and empty when it was not.
     """
 
     path: Path | None
     reason: str = ""
     cost_usd: float = 0.0
+    first_rejection: str = ""
 
 
 @dataclass
 class SummarizeOutcome:
-    """What a summarize run did, case by case."""
+    """What a summarize run did, case by case.
+
+    ``retried`` holds ``(case_id, first rejection)`` for each case whose first
+    response was rejected and retried; whether the retry passed is whether the
+    case is in ``written`` or ``skipped``.
+    """
 
     written: list[tuple[str, Path, float]] = field(default_factory=list)
     skipped: list[tuple[str, str, float]] = field(default_factory=list)
+    retried: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def cost_usd(self) -> float:
-        """Spend on every call that returned, including rejected responses."""
+        """Spend on every call that returned, rejected responses and retries included."""
         return sum(c for _, _, c in self.written) + sum(c for _, _, c in self.skipped)
+
+    @property
+    def written_after_retry(self) -> int:
+        """Cases written from a retry's response."""
+        written = {case for case, _, _ in self.written}
+        return sum(1 for case, _ in self.retried if case in written)
+
+    @property
+    def skipped_after_retry(self) -> int:
+        """Cases whose retry was rejected or failed too, and so stay owed."""
+        skipped = {case for case, _, _ in self.skipped}
+        return sum(1 for case, _ in self.retried if case in skipped)
 
 
 def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
@@ -915,8 +979,17 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
     api_key: str,
     now: datetime,
     wait: wait_base | None = None,
+    may_retry: Callable[[], bool] = lambda: True,
 ) -> CaseResult:
-    """Write one planned case's summary, or say why not."""
+    """Write one planned case's summary, or say why not.
+
+    A response that breaks only mechanical rules of the body contract — its
+    sections, headline, word band, a "Whether" opening, markup — is retried
+    once, told why it was rejected, if ``may_retry()`` still holds (the run's
+    time budget). A second rejection skips the case with the retry's reason,
+    and it stays owed. A truncated response or a secret-scan finding is not
+    retried. The written summary's ``usage`` sums both calls.
+    """
     target = CasePaths(data_root, case.court_id, case.docket_id).summary(case.snapshot.isoformat())
     if target.is_file() and is_current(committed_front(target), case.record_digest):
         return CaseResult(None, "already summarized from this record")
@@ -940,10 +1013,25 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
         )
     except SummaryCallError as exc:
         return CaseResult(None, str(exc))
-    cost = estimate_cost_usd(config.model, result.usage)
-    refusal = _refusal(result, str(target), api_key)
+    usage = result.usage
+    cost = estimate_cost_usd(config.model, usage)
+    refusal, retryable = _refusal(result, str(target), api_key)
+    first_rejection = ""
+    if refusal and retryable and may_retry():
+        first_rejection = refusal
+        retry = RetryTurn(result.text, tuple(retryable))
+        try:
+            result = call_messages_api(
+                client, api_key, build_request(config, system_prompt, record, retry), wait=wait
+            )
+        except SummaryCallError as exc:
+            refusal = f"retry failed: {exc}"
+        else:
+            usage = _add_usage(usage, result.usage)
+            cost += estimate_cost_usd(config.model, result.usage)
+            refusal = _on_retry(_refusal(result, str(target), api_key)[0])
     if refusal:
-        return CaseResult(None, refusal, cost)
+        return CaseResult(None, refusal, cost, first_rejection)
     front = CaseSummaryFrontMatter(
         case_id=case.case_id,
         snapshot=case.snapshot,
@@ -953,24 +1041,46 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
         body_version=BODY_VERSION,
         generated_at=now.astimezone(UTC).replace(microsecond=0),
         usage=CaseSummaryUsage(
-            input_tokens=result.usage.input_tokens,
-            output_tokens=result.usage.output_tokens,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
             estimated_cost_usd=round(cost, 6),
         ),
     )
     write_text(target, render_summary(front, result.text))
-    return CaseResult(target, cost_usd=cost)
+    return CaseResult(target, cost_usd=cost, first_rejection=first_rejection)
 
 
-def _refusal(result: CallResult, rel: str, api_key: str) -> str:
-    """Why a response is not written; empty when it meets the contract."""
+def _on_retry(refusal: str) -> str:
+    """A retry's refusal, marked as the retry's so the report tells the two apart."""
+    if refusal.startswith("rejected:"):
+        return refusal.replace("rejected:", "rejected on retry:", 1)
+    return f"on retry: {refusal}" if refusal else ""
+
+
+def _add_usage(a: TokenCounts, b: TokenCounts) -> TokenCounts:
+    return TokenCounts(
+        input_tokens=a.input_tokens + b.input_tokens,
+        output_tokens=a.output_tokens + b.output_tokens,
+        cache_read_input_tokens=a.cache_read_input_tokens + b.cache_read_input_tokens,
+        cache_creation_input_tokens=a.cache_creation_input_tokens + b.cache_creation_input_tokens,
+    )
+
+
+def _refusal(result: CallResult, rel: str, api_key: str) -> tuple[str, list[str]]:
+    """Why a response is not written, and the problems a retry may fix.
+
+    The reason is empty when the response meets the contract. The problems are
+    the body-contract ones, returned only when they are the whole reason: a
+    truncated response or a secret-scan finding is not retryable.
+    """
     if result.stop_reason != "end_turn":
-        return f"stop_reason {result.stop_reason!r}"
+        return f"stop_reason {result.stop_reason!r}", []
     problems = body_problems(result.text)
     findings = secretscan.scan_lines(rel, result.text.split("\n"), [api_key] if api_key else [])
+    retryable = [] if findings else list(problems)
     if findings:
         problems.append(f"secret scan: {len(findings)} finding(s)")
-    return "rejected: " + "; ".join(problems) if problems else ""
+    return ("rejected: " + "; ".join(problems) if problems else ""), retryable
 
 
 def summarize_plan(  # noqa: PLR0913 - the run's inputs, each load-bearing
@@ -989,9 +1099,10 @@ def summarize_plan(  # noqa: PLR0913 - the run's inputs, each load-bearing
     """Summarize every planned case; a case that fails is skipped, never fatal.
 
     ``deadline`` is the run's time budget: once ``now()`` passes it, every case
-    not yet started is skipped as deferred rather than begun, so the run
-    returns in time for its caller to collect what was written. A deferred case
-    is still owed, and the next plan picks it up.
+    not yet started is skipped as deferred rather than begun, and a rejected
+    response is not retried, so the run returns in time for its caller to
+    collect what was written. A deferred case is still owed, and the next plan
+    picks it up.
 
     Refuses a plan written for another model than the configured one: the plan
     was approved at that model's price, and a config change since is a new plan.
@@ -1020,7 +1131,10 @@ def summarize_plan(  # noqa: PLR0913 - the run's inputs, each load-bearing
             api_key=api_key,
             now=now(),
             wait=wait,
+            may_retry=lambda: deadline is None or now() < deadline,
         )
+        if result.first_rejection:
+            outcome.retried.append((case.case_id, result.first_rejection))
         if result.path is None:
             outcome.skipped.append((case.case_id, result.reason, result.cost_usd))
         else:
@@ -1030,16 +1144,28 @@ def summarize_plan(  # noqa: PLR0913 - the run's inputs, each load-bearing
 
 def render_outcome_report(outcome: SummarizeOutcome, planned: int) -> str:
     """The job-summary markdown for a summarize run."""
+    after_retry = outcome.written_after_retry
     lines = [
         "## summarize — result",
         "",
         f"- planned: {planned}",
-        f"- written: **{len(outcome.written)}**",
-        f"- skipped: {len(outcome.skipped)}",
-        f"- cost of every call that returned, from response usage: **${outcome.cost_usd:.2f}**",
+        f"- written: **{len(outcome.written)}** ({len(outcome.written) - after_retry} "
+        + f"on the first response, {after_retry} after a retry)",
+        f"- skipped: {len(outcome.skipped)} ({outcome.skipped_after_retry} after a retry)",
+        f"- retried after a rejected first response: {len(outcome.retried)}",
+        "- cost of every call that returned, retries included, from response usage: "
+        + f"**${outcome.cost_usd:.2f}**",
         "",
     ]
     if outcome.skipped:
         lines += ["| skipped case | reason |", "|---|---|"]
         lines += [f"| `{case}` | {reason} |" for case, reason, _ in outcome.skipped]
-    return "\n".join(lines) + "\n"
+        lines.append("")
+    if outcome.retried:
+        written = {case for case, _, _ in outcome.written}
+        lines += ["| retried case | first rejection | after the retry |", "|---|---|---|"]
+        lines += [
+            f"| `{case}` | {reason} | {'written' if case in written else 'skipped'} |"
+            for case, reason in outcome.retried
+        ]
+    return "\n".join(lines).rstrip("\n") + "\n"
