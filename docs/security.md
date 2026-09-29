@@ -206,7 +206,13 @@ pre-registration record's commit ids.
     is bound by these required checks rather than skipping them. `paths` enforces
     that such a PR only *adds* files under `data/` (the tested `fedcourts
     assert-paths`): a change touching code, a workflow, config, or an existing
-    artifact fails the check and cannot auto-merge. The same check carries the
+    artifact fails the check and cannot auto-merge. It also refuses an added agent
+    instruction file or agent config directory (`AGENT_CONTEXT_FILENAMES` /
+    `AGENT_CONFIG_DIRS` in `src/fedcourtsai/collect.py`): a later cell browsing
+    the ledger would read such a file as standing instructions, a cross-cell
+    prompt-injection channel that outlives the run. The list is a denylist, so an
+    engine added to `config/predictors.yaml` or `config/evaluators.yaml` brings
+    its discovery names in the same change. The same check carries the
     second auto-merged lane's jail: `run-analytics`'s daily `big-cases` job opens
     its board PR on the `metrics/big-cases` branch, and there `paths` runs
     `fedcourts assert-board-paths`, which admits writes of
