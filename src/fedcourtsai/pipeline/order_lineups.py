@@ -95,11 +95,14 @@ _ORIGIN: Final = "https://www.supremecourt.gov/"
 TEXT_CHAR_CAP: Final = 600_000
 #: How much of a piece's text a printed reading carries.
 _PRINTED_TEXT_CAP: Final = 1_200
+#: How many lines of an appended section may precede its date: the caption,
+#: its docket lines and rules. A section whose date is not among them has none.
+_CAPTION_LINES: Final = 30
 
 DocumentKind = Literal["order-list", "miscellaneous-order", "relating-to-orders", "document"]
 
 _ORDERS_ROW_RE = re.compile(
-    r"(\d{2}/\d{2}/\d{2})\s*(?:&nbsp;)?\s*</span>\s*<span[^>]*>\s*"
+    r"(\d{2}/\d{2}/\d{2})(?:\s|&nbsp;)*+</span>\s*+<span[^>]*>\s*+"
     r"<a\s[^>]*href=['\"]([^'\"]+)['\"][^>]*>([^<]*)</a>",
     re.I | re.S,
 )
@@ -133,7 +136,7 @@ _COURT_HEAD_RE = re.compile(r"^(?:Per Curiam|Opinion of the Court)$")
 _PER_CURIAM_RE = re.compile(r"^PER CURIAM\.$")
 _SO_ORDERED_RE = re.compile(r"\bIt is so ordered\.")
 _SECTION_DATE_RE = re.compile(rf"(?:\bDecided\s+(?P<a>{_MONTH_DATE})|^\[(?P<b>{_MONTH_DATE})\]$)")
-_SECTION_DOCKETS_RE = re.compile(r"\bNos?\.\s+(?P<list>[^.]*?\d[^.]*?)(?:\.\s|\.$|$)")
+_SECTION_DOCKETS_RE = re.compile(r"\bNos?\.\s+(?P<list>[^.\d]*+\d[^.]*+)(?:\.\s|\.$|$)")
 _DOCKET_TOKEN_RE = re.compile(r"\d{2}[-\u2013\u2014]\d{1,5}|\d{2}A\d{1,5}|\d{1,3},?\s*Orig\b", re.I)
 _INLINE_START_RE = re.compile(
     r"(?:^|(?<=[.:)]\s))(?=(?:statement\s+of\s+)?(?:the\s+chief\s+justice|chief\s+justice|justice)\s)",
@@ -178,6 +181,8 @@ def is_order_document_url(url: str) -> bool:
     if not is_court_url(url):
         return False
     path = urlsplit(url).path
+    if "/../" in path or "/./" in path:
+        return False
     return path.lower().endswith(".pdf") and (
         path.startswith("/orders/") or path.startswith("/opinions/")
     )
@@ -415,13 +420,16 @@ def _split_section(  # noqa: PLR0912 - one branch per line shape a section print
 ) -> tuple[list[OrderPiece], SectionHeads | None, list[str], date | None]:
     """One appended section's pieces, its running heads, its problems, its date."""
     problems: list[str] = []
-    date_index = next((i for i, line in enumerate(lines) if _SECTION_DATE_RE.search(line)), None)
+    date_index = next(
+        (i for i, line in enumerate(lines[:_CAPTION_LINES]) if _SECTION_DATE_RE.search(line)),
+        None,
+    )
     if date_index is None:
         return [], None, ["an appended section prints no date"], None
     found = _SECTION_DATE_RE.search(lines[date_index])
     assert found is not None
     day = _parse_long_date(found.group("a") or found.group("b"))
-    caption = " ".join(lines[: date_index + 1])
+    caption = " ".join(lines[: date_index + 1][:_CAPTION_LINES])
     dockets: list[str] = []
     for listed in _SECTION_DOCKETS_RE.finditer(caption):
         for token in _DOCKET_TOKEN_RE.findall(listed.group("list")):

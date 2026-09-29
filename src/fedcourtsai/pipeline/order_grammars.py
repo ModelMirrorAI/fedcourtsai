@@ -106,7 +106,9 @@ _LINE_HYPHEN_RE = re.compile(r"([A-Za-z])-[ \t]*\n\s*([a-z])")
 
 _SURNAME = r"[A-Za-z][A-Za-z'\-]+"
 _NAME = rf"(?:the\s+chief\s+justice|chief\s+justice\s+{_SURNAME}|justice\s+{_SURNAME})"
-_NAME_LIST = rf"{_NAME}(?:\s*,\s*(?:and\s+)?{_NAME}|\s*,?\s+and\s+{_NAME})*"
+# The two separators never both match one text (", and" is the first's), so a
+# long list that fails to match costs linear, not exponential, backtracking.
+_NAME_LIST = rf"{_NAME}(?:\s*,\s*(?:and\s+)?{_NAME}|\s+and\s+{_NAME})*"
 _NAME_RE = re.compile(_NAME, re.I)
 # A sentence ends at a period followed by a capital, or at the end of text.
 _SENTENCE_END = r"(?=\.\s+(?-i:[A-Z(])|\.\s*$|;|$)"

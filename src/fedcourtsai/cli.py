@@ -9039,7 +9039,10 @@ def order_notations_command(
     ] = 1.0,
     cache_dir: Annotated[
         Path | None,
-        typer.Option(help="Keep fetched PDFs here and re-read them from here."),
+        typer.Option(
+            help="Keep fetched PDFs here and re-read them from here (a dev cache: "
+            "read without host scoping, so never for a publishing lane)."
+        ),
     ] = None,
 ) -> None:
     """Read cert- and interim-stage per-Justice notations from the Court's orders.

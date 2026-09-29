@@ -8,6 +8,7 @@ with PDF extraction stubbed, so nothing in this file touches the network.
 
 from __future__ import annotations
 
+import time
 from datetime import date
 from pathlib import Path
 
@@ -656,6 +657,19 @@ def test_a_section_with_no_pieces_still_seats_its_bench() -> None:
     assert reading.bench == list(BENCH)
     assert reading.writings_complete
     assert set(reading.writing_roles) == set(BENCH)
+
+
+def test_a_long_name_list_that_fails_to_match_does_not_backtrack_exponentially() -> None:
+    names = ", and ".join(["Justice Alito"] * 40)
+    started = time.monotonic()
+    parse_order_notations(f"{names} xyz.", bench=BENCH)
+    parse_writing_header(f"{names} xyz.", bench=BENCH)
+    split_document("SUPREME COURT OF THE UNITED STATES\nNo. " + "1 " * 20_000 + "\n")
+    assert time.monotonic() - started < 2.0
+
+
+def test_a_path_that_climbs_out_of_the_orders_tree_is_not_an_order_document() -> None:
+    assert not order_lineups.is_order_document_url("https://www.supremecourt.gov/orders/../x.pdf")
 
 
 def test_a_plural_unwritten_dissent_is_read_and_a_bare_one_is_not() -> None:
