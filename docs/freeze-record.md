@@ -5589,7 +5589,7 @@ freeze commit is recorded here.
   - **The source.** `supremecourt-opinions` is the one registered vote
     source (`pipeline/vote_sources.py`, `docs/data-sources.md`): the
     syllabus lineup of a signed merits opinion, read by the `scotus-syllabus`
-    grammar at version 2, from a document on the Court's own host, on a
+    grammar at version 2, from an opinion PDF on the Court's own host, on a
     Supreme Court merits-stage event, with every Justice spelled as the
     roster spells them and, for a record claiming `complete`, exactly the
     bench the seat roster seats on the outcome's `resolved_at`. It yields a

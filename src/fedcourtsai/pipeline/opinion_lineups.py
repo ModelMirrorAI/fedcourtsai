@@ -272,8 +272,11 @@ def locate_lineup(text: str, *, truncated: bool = False) -> LocatedLineup:
     hyphenation the grammar closes up. The dates are read from the text before
     the paragraph — the syllabus caption — so nothing in the opinion's body is
     mistaken for them; the argument date is the latest printed, a reargument's.
-    ``truncated`` says the text was cut at the extraction cap, so a paragraph
-    reaching its end is refused as possibly cut short.
+    A paragraph that reaches the end of the text without meeting an end line
+    is refused: the opinion always follows its syllabus, so text ending inside
+    the lineup is text cut short — at the extraction cap (``truncated``), or
+    by a damaged or partial document — and a lineup cut short reads as a
+    unanimous one.
     """
     lines = text.splitlines()
     problems: list[str] = []
@@ -292,8 +295,12 @@ def locate_lineup(text: str, *, truncated: bool = False) -> LocatedLineup:
         if not cleaned.strip() or any(p.match(cleaned) for p in _RUNNING_HEAD_RES):
             continue
         body.append(cleaned.rstrip())
-    if not ended and truncated:
-        problems.append("the lineup paragraph runs to the extraction cap")
+    if not ended:
+        problems.append(
+            "the lineup paragraph runs to the extraction cap"
+            if truncated
+            else "the lineup paragraph runs to the end of the text"
+        )
     # The caption hyphenates across lines like any text ("—De-" / "cided").
     header = _HEADER_HYPHEN_RE.sub(r"\1\2", "\n".join(lines[:start]))
     argued = [d for m in _ARGUED_RE.finditer(header) if (d := _parse_date(m.group(1)))]
@@ -409,7 +416,11 @@ class OpinionFetcher:
     re-reading the same opinions after a grammar change without asking the
     Court's site again. Listing pages are never cached: they change as the Term
     goes on. The cache is a dev convenience on the local disk, not the content
-    store.
+    store, and it is trusted as it lies: a cached file is read without the
+    host scoping a fetch gets, so a lane that publishes what it reads — a
+    writer stamping ``vote_provenance.document`` — must not pass ``cache_dir``.
+    Each file is written whole or not at all, so an interrupted run leaves no
+    partial PDF behind to be re-read.
     """
 
     def __init__(self, client: SupremeCourtClient, *, cache_dir: Path | None = None) -> None:
@@ -431,7 +442,9 @@ class OpinionFetcher:
         data = self._client.get_document(url)
         if data is not None:
             self._cache_dir.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
+            partial = path.with_suffix(".part")
+            partial.write_bytes(data)
+            partial.replace(path)
         return data
 
 

@@ -2035,6 +2035,13 @@ def test_a_complete_record_must_name_the_bench_that_sat(tmp_path: Path) -> None:
         (
             "scotus",
             Stage.merits,
+            {"document": "https://www.supremecourt.gov/rss/cases/JSON/24-43.json"},
+            None,
+            "read from 'https://www.supremecourt.gov/rss/cases/JSON/24-43.json'",
+        ),
+        (
+            "scotus",
+            Stage.merits,
             {},
             [{"justice": name.upper(), "vote": "majority"} for name in _BENCH],
             "'THOMAS' is not spelled as the roster",

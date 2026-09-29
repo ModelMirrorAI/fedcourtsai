@@ -215,7 +215,7 @@ carrying votes without a `vote_provenance` block, or a block naming a source
 that is not registered. A registered source's records are held to the shape
 its registration states (`pipeline/vote_sources.py`): for the opinions
 source, a Supreme Court case, a merits-stage event, the `scotus-syllabus`
-grammar with its version, a document on the Court's own host, every Justice
+grammar with its version, an opinion PDF on the Court's own host, every Justice
 spelled as the roster spells them, and — for a record claiming `complete` —
 exactly the bench the seat roster seats on the outcome's decision date, since
 that bit is what vote scoring is gated on. A source that has not registered,

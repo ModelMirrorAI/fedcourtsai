@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import date
 from types import MappingProxyType
 from typing import Final
+from urllib.parse import urlsplit
 
 from ..schemas import Stage
 from ..supremecourt import is_court_url
@@ -28,6 +29,18 @@ from .syllabus_lineup import GRAMMAR_NAME as SYLLABUS_GRAMMAR
 
 #: The Court's own opinions, read through the syllabus lineup grammar.
 SUPREMECOURT_OPINIONS: Final = "supremecourt-opinions"
+
+
+def is_opinion_pdf(url: str) -> bool:
+    """Whether ``url`` is an opinion PDF on the Court's own host.
+
+    Narrower than the host rule alone: the Court's host also serves docket
+    JSON and filed briefs, none of which is a document this source reads.
+    """
+    if not is_court_url(url):
+        return False
+    path = urlsplit(url).path
+    return path.startswith("/opinions/") and path.lower().endswith(".pdf")
 
 
 @dataclass(frozen=True)
@@ -59,7 +72,7 @@ REGISTERED_VOTE_SOURCES: Final[Mapping[str, VoteSource]] = MappingProxyType(
             courts=frozenset({SYLLABUS_COURT}),
             stages=frozenset({Stage.merits}),
             grammars=frozenset({SYLLABUS_GRAMMAR}),
-            document=is_court_url,
+            document=is_opinion_pdf,
             bench=bench_on,
         ),
     }

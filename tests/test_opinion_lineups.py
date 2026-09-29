@@ -264,10 +264,22 @@ def test_the_print_paragraph_ends_at_the_counsel_list() -> None:
 def test_a_paragraph_running_into_the_extraction_cap_is_refused() -> None:
     """A truncated paragraph reads as a unanimous one, so it is never read."""
     cut = SLIP.split("_________________", maxsplit=1)[0]
-    assert locate_lineup(cut).paragraph is not None
     refused = locate_lineup(cut, truncated=True)
     assert refused.paragraph is None
     assert "extraction cap" in refused.problems[0]
+
+
+def test_a_paragraph_running_off_the_end_of_the_text_is_refused() -> None:
+    """Text that stops inside the lineup is cut short, cap or no cap.
+
+    The opinion always follows its syllabus, so a damaged or partial document
+    can end the text mid-paragraph without the extraction cap being reached;
+    read as it stands, the silent Justices would be credited to the lead.
+    """
+    cut = SLIP.split("_________________", maxsplit=1)[0]
+    refused = locate_lineup(cut)
+    assert refused.paragraph is None
+    assert refused.problems == ("the lineup paragraph runs to the end of the text",)
 
 
 def test_text_with_no_lead_sentence_locates_nothing() -> None:
@@ -450,6 +462,8 @@ def test_the_fetcher_caches_opinions_but_never_the_listing(tmp_path: Path) -> No
         assert fetcher.opinion(url) == b"%PDF-not-really"
         assert fetcher.opinion(url) == b"%PDF-not-really"
         fetcher.listing(25)
+    # Written whole: no partial file is left beside the cached one.
+    assert [p.suffix for p in (tmp_path / "cache").iterdir()] == [".pdf"]
     assert seen.count("https://www.supremecourt.gov/opinions/25pdf/24-43_2b35.pdf") == 1
     assert seen.count("https://www.supremecourt.gov/opinions/slipopinion/25") == 2
 
