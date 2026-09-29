@@ -3019,14 +3019,18 @@ class LeaderboardStratum(_Strict):
         "Merits-moment cells whose outcome carries a complete vote record "
         "(`vote_provenance.complete`) only, so it covers the decisions a vote "
         "source read completely — signed opinions whose lineup parsed — not every "
-        "merits decision. Each cell weighs the same. Null where no cell "
-        "qualifies. Never a rank key",
+        "merits decision. Averaged over **gradings**, like `accuracy`: the "
+        "figure does not depend on the judge, so a prediction graded by three "
+        "evaluators enters three times with one value and the mean is weighted "
+        "by panel depth. Null where no cell qualifies. Never a rank key",
     )
     vote_cells_scored: int = Field(
         default=0,
         ge=0,
-        description="Cells that entered `mean_vote_accuracy` — its denominator. "
-        "Below `evaluations` wherever a cell is off a merits moment, has no "
+        description="Gradings that entered `mean_vote_accuracy` — its denominator, "
+        "counted per evaluation as `accuracy_scored` is, so it exceeds the number "
+        "of distinct predictions scored wherever a panel graded one more than "
+        "once. Below `evaluations` wherever a cell is off a merits moment, has no "
         "readable scored prediction, or resolves against a vote record that is "
         "absent or incomplete",
     )

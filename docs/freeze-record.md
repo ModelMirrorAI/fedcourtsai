@@ -5563,15 +5563,23 @@ freeze commit is recorded here.
     prediction omits, or names so that no roster surname can be read from
     it, is a miss, and a call on a Justice who did not sit scores nothing.
     Only a cell on a declared merits moment whose outcome's `vote_provenance`
-    says `complete: true` has a score. The mean stays cell-weighted, a mean
-    of per-cell fractions, and with one denominator per event the cells are
-    like units. The new `vote_cells_scored` field on every stratum publishes
-    the mean's denominator. A board built without the recomputation fails
-    closed: every vote mean null. Neither field is a rank key.
+    says `complete: true` has a score. The mean stays a mean of per-cell
+    fractions, and with one denominator per event the cells are like units.
+    A cell is a **grading**, as for `accuracy`: the figure does not depend on
+    the judge, so a prediction three evaluators graded enters three times with
+    one value and the mean is weighted by panel depth. The new
+    `vote_cells_scored` field on every stratum publishes the mean's
+    denominator in the same grain, gradings, like `accuracy_scored`. A board
+    built without the recomputation fails closed: every vote mean null.
+    Neither field is a rank key.
   - **Per cell.** `vote_accuracy` keeps the evaluate prompt's definition and
     is now also null, where the harness computes it
     (`pipeline.evaluate.vote_accuracy`, the offline runners), unless the
-    record is complete. It is descriptive; nothing averages it.
+    record is complete. It is descriptive; nothing averages it. The predict
+    prompt's sentence calling vote scoring "intersection-only" now describes
+    that field, not the published mean; its instruction — no reason to trim
+    the list — holds a fortiori under the bench denominator, and the sentence
+    is left as it stands because editing it moves every predictor digest.
   - **The population.** The mean covers the decisions a vote source read
     completely. For the opinions source that is signed merits opinions on
     Term-form dockets whose syllabus lineup parsed with no problem —

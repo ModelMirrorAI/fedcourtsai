@@ -595,7 +595,7 @@
             }
           ],
           "default": null,
-          "description": "Mean, over the `vote_cells_scored` cells, of each cell's participating-bench vote accuracy: the fraction of the Justices the outcome's complete vote record shows sitting whose vote the scored prediction called, an omitted Justice a miss (`pipeline.evaluate.bench_vote_accuracy`), recomputed from the committed prediction and outcome rather than read off `Evaluation.vote_accuracy`. Merits-moment cells whose outcome carries a complete vote record (`vote_provenance.complete`) only, so it covers the decisions a vote source read completely \u2014 signed opinions whose lineup parsed \u2014 not every merits decision. Each cell weighs the same. Null where no cell qualifies. Never a rank key",
+          "description": "Mean, over the `vote_cells_scored` cells, of each cell's participating-bench vote accuracy: the fraction of the Justices the outcome's complete vote record shows sitting whose vote the scored prediction called, an omitted Justice a miss (`pipeline.evaluate.bench_vote_accuracy`), recomputed from the committed prediction and outcome rather than read off `Evaluation.vote_accuracy`. Merits-moment cells whose outcome carries a complete vote record (`vote_provenance.complete`) only, so it covers the decisions a vote source read completely \u2014 signed opinions whose lineup parsed \u2014 not every merits decision. Averaged over **gradings**, like `accuracy`: the figure does not depend on the judge, so a prediction graded by three evaluators enters three times with one value and the mean is weighted by panel depth. Null where no cell qualifies. Never a rank key",
           "title": "Mean Vote Accuracy"
         },
         "population_brier_skill_score": {
@@ -642,7 +642,7 @@
         },
         "vote_cells_scored": {
           "default": 0,
-          "description": "Cells that entered `mean_vote_accuracy` \u2014 its denominator. Below `evaluations` wherever a cell is off a merits moment, has no readable scored prediction, or resolves against a vote record that is absent or incomplete",
+          "description": "Gradings that entered `mean_vote_accuracy` \u2014 its denominator, counted per evaluation as `accuracy_scored` is, so it exceeds the number of distinct predictions scored wherever a panel graded one more than once. Below `evaluations` wherever a cell is off a merits moment, has no readable scored prediction, or resolves against a vote record that is absent or incomplete",
           "minimum": 0,
           "title": "Vote Cells Scored",
           "type": "integer"
