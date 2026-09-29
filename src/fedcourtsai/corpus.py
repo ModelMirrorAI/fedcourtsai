@@ -4269,10 +4269,11 @@ def stamp_event_moments(conn: sqlite3.Connection, stamps: Sequence[tuple[str, st
     """Write ``moment`` on the named event rows, in one transaction.
 
     The moment convergence's sole writer
-    (:func:`fedcourtsai.moment_convergence.converge_event_moments`), and a direct
-    ``UPDATE`` for the reason :func:`stamp_first_moments` is. The caller has
-    already decided which rows move and to what, reading the declared moment
-    off the table this module sits below. As there, the write bypasses the
+    (:func:`fedcourtsai.moment_convergence.converge_event_moments`). A direct
+    ``UPDATE`` rather than an upsert: the caller has already decided which rows
+    move and to what, reading the declared moment off the table this module
+    sits below, and an upsert round trip would rewrite every other column of a
+    row it is not changing. As there, the write bypasses the
     upsert mirror hook, so the touched cases are re-mirrored here. Returns the
     rows written.
     """

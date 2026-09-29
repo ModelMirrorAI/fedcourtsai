@@ -2546,12 +2546,13 @@ def relabel_application_events_cmd(
     injunction application is a motion under the interim standard, not a cert
     petition. This deterministic convergence sweep renames any cert-shaped
     baseline (`evt-petition-disposition`) still sitting on an application docket
-    to that form, carrying every field and the `resolved` latch, atomically per
-    case. The moment is re-derived for the interim stage rather than carried,
-    exactly as a fresh mint derives it; `opened_at` is carried, and
-    `backfill-arrival-stamps` re-reads it from the snapshot. A case with committed ledger artifacts
-    under the old identity, or whose existing `evt-motion-disposition` row is
-    entry-pinned, is skipped and reported for triage rather than folded.
+    to that form, atomically per case. `kind`, `stage` and the moment become the
+    interim stage's, the moment re-derived exactly as a fresh mint derives it;
+    every other field and the `resolved` latch are carried. That includes
+    `opened_at`, which `backfill-arrival-stamps` re-reads from the snapshot. A
+    case with committed ledger artifacts under the old identity, or whose
+    existing `evt-motion-disposition` row is entry-pinned, is skipped and
+    reported for triage rather than folded.
     Idempotent: a converged corpus renames nothing. Dry-run by default;
     `--apply` writes. Run where the corpus is pulled, `corpus-push` after an
     `--apply`. Fails loud if the corpus is absent.
@@ -2620,8 +2621,9 @@ def converge_event_moments_cmd(
     and the apply half belongs on a run-repair pass, which holds the
     corpus-write credentials and commits the ledger half beside the corpus it
     must match. `--apply` refuses above `--max-rewrites`. The population is
-    finite, and the relabel no longer produces it, so a count above the dry
-    run's means the predicate widened. Fails loud if the corpus is absent.
+    finite, because the relabel re-derives the moment and so no write path
+    produces this shape; a count above the dry run's means the predicate
+    widened. Fails loud if the corpus is absent.
     """
     settings = get_settings()
     if apply and max_rewrites is None:
@@ -2646,9 +2648,9 @@ def converge_event_moments_cmd(
     if result.refused:
         typer.echo(
             f"converge-event-moments: refusing to apply {result.total} rewrite(s) "
-            f"(--max-rewrites {max_rewrites}). The population is finite and no write path "
-            "produces it any more; a count this size means the predicate widened — triage "
-            "before raising the bound.",
+            f"(--max-rewrites {max_rewrites}). The population is finite: the relabel "
+            "re-derives the moment, so no write path produces this shape; a count this "
+            "size means the predicate widened — triage before raising the bound.",
             err=True,
         )
         raise typer.Exit(code=1)
