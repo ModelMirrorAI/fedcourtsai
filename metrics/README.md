@@ -2293,7 +2293,7 @@ it fixed**: because the exclusion *is* the IFP stratum, the older windows'
 `ifp-cert` cells are the complement of a systematic sample — frame coverage of
 the estimated IFP stratum runs about 3.6% in each of the two older windows
 against 74% in the newest — so no `ifp-cert` series may be read across windows
-until this census gains reweighted cuts. **Always with the date convention and
+from this census — the reweighted IFP rates are `party-rates`, below. **Always with the date convention and
 the rule version**, both stamped on the artifact (`as_of_field`,
 `rule_version`): a petition filed under one administration is routinely
 resolved under the next, so two cuts are comparable only where both stamps
@@ -2426,7 +2426,8 @@ nine more are specific to rates.
   inspected as a federal party, and none moves the other way), but per row the
   side composition moves rows out of cells too: over the rows the rates cut
   reads, 148 move `none` → `respondent`, 17 `none` → `petitioner` and one
-  `respondent` → `both`. The census stays on `party-v1` by default, so a census
+  `respondent` → `both` — a removed NCUA board member suing individually and
+  in his official capacity, whom the class reads as the government. The census stays on `party-v1` by default, so a census
   count and a rates cell are comparable only where both name the same rule.
 
 **Validation against the published administration tallies.** The

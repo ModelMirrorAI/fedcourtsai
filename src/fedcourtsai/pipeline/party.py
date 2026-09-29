@@ -408,13 +408,16 @@ PARTY_RULE_VERSION_V2: Final[str] = "party-v2"
 
 #: The federal departments whose name, set off by a comma after an officer's
 #: office or leading a half, names the federal government. A state or local
-#: department is always qualified by its jurisdiction ("New York City
+#: department is usually qualified by its jurisdiction ("New York City
 #: Department of Education", "Arizona Department of Corrections"), which is why
 #: the name must begin the half or follow a comma directly — anywhere else it is
 #: the tail of a jurisdiction's own department. It must also END its segment: a
 #: state department whose name extends a federal one ("Department of Labor and
 #: Industry", "Department of State Health Services", "Department of Justice of
-#: Puerto Rico") is not the federal department.
+#: Puerto Rico") is not the federal department. The known residue is a state
+#: officer captioned with a bare department ("Bonta, Attorney General,
+#: Department of Justice"), which reads federal; no row of the census frame
+#: carries that shape on the blob the rates reading rules name.
 _FEDERAL_DEPARTMENTS: Final[str] = (
     "Justice|State|Education|Defense|Energy|Commerce|Labor|Transportation|"
     "Agriculture|(?:the\\s+)?Interior|(?:the\\s+)?Treasury|Homeland Security|"
@@ -571,8 +574,8 @@ def party_census(
     wardens and the United States), and inflating it by its weight would report
     a count of rows nobody holds; a raw count over the rows that stand for
     themselves, beside the size of the block that does not, is the reading the
-    later reweighted rate cuts can build on rather than one they would have to
-    contradict. The other coverage counters
+    reweighted rate cut (:mod:`.party_rates`) builds on rather than one it would
+    have to contradict. The other coverage counters
     (:attr:`PartyCensus.single_party`, :attr:`PartyCensus.undated`,
     :attr:`PartyCensus.pending`) likewise name the rows a cell could not be
     built from rather than dropping them silently.

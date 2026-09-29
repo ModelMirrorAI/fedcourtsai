@@ -285,3 +285,55 @@ def test_the_command_fails_loud_without_a_corpus(
     result = runner.invoke(app, ["party-rates", "--as-of", "filed"])
     assert result.exit_code == 1
     assert "the corpus database is missing" in result.stderr
+
+
+def test_the_edges_the_reading_rules_depend_on(tmp_path: Path) -> None:
+    """An undated filing placed by its resolution, an unreadable ask, an undated resolution."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(  # no filing date: `since`/`through` place it by its resolution
+                    "scotus/1",
+                    "John Roe v. Warden",
+                    docket_number="25A100",
+                    date_decided=date(2025, 6, 1),
+                    disposition=Disposition.denied,
+                    application_kind="substantive",
+                ),
+                _row(  # a parsed ask whose kind could not be read
+                    "scotus/2",
+                    "United States v. Acme Corp.",
+                    docket_number="25A200",
+                    date_filed=date(2025, 6, 1),
+                    date_decided=date(2025, 6, 10),
+                    disposition=Disposition.granted,
+                    application_kind="unknown",
+                ),
+                _row(  # resolved, but no resolution date to place against the cut
+                    "scotus/3",
+                    "United States v. Jane Doe",
+                    docket_number="24-300",
+                    date_filed=date(2025, 3, 1),
+                    disposition=Disposition.denied,
+                ),
+            ],
+        )
+        rates = party_rates(
+            conn, as_of_field="filed", since=date(2025, 1, 1), through=date(2025, 12, 31)
+        )
+        after = party_rates(conn, as_of_field="filed", since=date(2025, 7, 1))
+    cells = _cells(rates)
+    # Admitted by its resolution date, but with no filing date it is unattributed
+    # under `filed` — the cell the reading rules say to quote beside `none`.
+    undated = cells[(None, "application", "none")]
+    assert (undated.rows, undated.resolved) == (1, 1)
+    assert rates.undated == 1
+    ask = cells[("trump-47", "application", "petitioner")]
+    assert (ask.rows, ask.excluded_unknown_ask) == (0, 1)
+    assert rates.resolution_undated == 1
+    assert cells[("trump-47", "paid-cert", "petitioner")].resolved == 1
+    # All three predate a July bound: the undated filing by its resolution
+    # date, the other two by their filing dates.
+    assert after.filed_before_since == 3
