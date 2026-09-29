@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000416",
+  "run_id": "20260929T212928Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell input reads", "fedcourts paths", "committed interim statpack", "web.run search", "CourtListener search", "CourtListener search_document"],
+  "helpful": ["Arrival-position snapshot and explicit interim ladder state", "Extracted application text with completeness manifest", "Per-Term interim counts permitting a strictly prior pooled baseline", "Targeted CourtListener opinion excerpts"],
+  "gaps": ["No provisioned appendix or independently readable lower-court opinions; application is one-sided", "Web searches returned no usable results", "Skrmetti opinion metadata was available but document text was not", "Default uv cache was read-only; temporary cache override was needed"],
+  "notes": "Forecast completed from provisioned pre-decision material, the committed strictly-prior interim pool, and general stay precedent. No target outcome lookup, no corpus query, and no REST fallback. Opposing briefing would improve confidence but is not presumed available at arrival."
+}
