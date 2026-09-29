@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000416",
+  "gaps": [
+    "The provisioned materials did not include the application's appendix or independent lower-court orders; the case-specific account remained one-sided.",
+    "General web retrieval attempts returned no usable content.",
+    "CourtListener located Skrmetti metadata, but the selected opinion had no searchable text.",
+    "The inspected statpack did not identify the source corpus's freshness timestamp."
+  ],
+  "helpful": [
+    "Frozen response-requested, referral, and amicus state made the incremental claims unambiguous.",
+    "The complete application text exposed both the government's theory and quoted adverse lower-court reasoning.",
+    "Per-Term interim counts permitted the exact strictly-prior baseline calculation.",
+    "CourtListener opinion excerpts verified general stay, APA, and PLRA principles without a case-outcome search."
+  ],
+  "notes": "The default uv cache was read-only; using writable temporary storage allowed the CLI to run. No case disposition was retrieved. No corpus conditional rate for federal applicants at the response-requested moment was inferred from terminal escalation counts.",
+  "role": "predictor",
+  "run_id": "20260929T212928Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Provisioned snapshot, context, and application text",
+    "Committed interim statpack and local pool calculation",
+    "CourtListener MCP search and search_document",
+    "web.run search and open attempts",
+    "fedcourts paths and validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

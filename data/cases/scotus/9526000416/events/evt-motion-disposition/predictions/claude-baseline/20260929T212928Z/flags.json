@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000416",
+  "run_id": "20260929T212928Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward cell: I used this docket's own post-baseline entry (the Chief Justice's Sept 28 call for a response, due Oct 8), which sits outside the arrival-position cut. It is decisive for the response-requested-increment claim (stated 0.98) and is the ordinary forward shape, not leakage; the disposition itself remains pending as of the Sept 29 fetch."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Anchoring note: the pooled prior-Term interim base rate (Terms 2024-2025, 31/296 = 10.5%) rests on a Term-2024 row that is 972/1297 unparsed. I anchored on it as the scored yardstick but moved far from it on applicant identity (Solicitor General) and the Trump v. Orr analogue (same Executive Order, same claim type, granted 6-3). The corpus holds only ten federal-applicant substantive rows, four of whose denials are dated June 29-30, 2026 and look like held applications resolved at Term's end; I could not verify that, so the SG-specific rate is partly general knowledge, stated as such in reasoning.md."
+    }
+  ]
+}
