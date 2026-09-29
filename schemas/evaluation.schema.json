@@ -634,7 +634,7 @@
         }
       ],
       "default": null,
-      "description": "Fraction of the prediction's per-Justice votes that match the outcome's, over the Justices both name. Merits-stage cells only, and only against a vote record whose `vote_provenance` says `complete: true`; null everywhere else (`pipeline.evaluate.vote_accuracy`). The leaderboard applies both conditions again as it aggregates",
+      "description": "Fraction of the prediction's per-Justice votes that match the outcome's, over the Justices both name. Merits-stage cells only, and only against a vote record whose `vote_provenance` says `complete: true`; null everywhere else (`pipeline.evaluate.vote_accuracy`). Descriptive: the leaderboard does not average it, but recomputes each cell's participating-bench accuracy (`pipeline.evaluate.bench_vote_accuracy`)",
       "title": "Vote Accuracy"
     }
   },

@@ -202,3 +202,36 @@ def seated_after(argued: date, bench: tuple[str, ...]) -> tuple[str, ...]:
     """
     joined = {s.justice: s.joined for s in SERVICE}
     return tuple(name for name in bench if joined[name] > argued)
+
+
+# Tokens a Justice's name may carry around the surname: honorifics, the
+# Chief's title, and generational suffixes.
+_NAME_NOISE: Final[frozenset[str]] = frozenset(
+    {"justice", "chief", "associate", "mr", "mrs", "ms", "jr", "sr", "ii", "iii", "iv"}
+)
+
+
+def normalize_justice_name(raw: str) -> str | None:
+    """The roster surname a free-text Justice name refers to, or ``None``.
+
+    For names written by hand rather than read by a grammar — a predictor's
+    vote block spells "Samuel A. Alito, Jr.", "Justice Thomas" or plain
+    "Kagan" — so a scorer can compare them with a vote source's roster
+    spelling. Exactly one roster surname must appear among the name's tokens
+    (a compound surname counts as one); none, or two different ones, is
+    ``None``, since a guessed Justice would be scored as a real one.
+    """
+    tokens = [t for t in raw.replace(",", " ").replace(".", " ").split() if t]
+    tokens = [t for t in tokens if t.casefold() not in _NAME_NOISE]
+    found: set[str] = set()
+    index = 0
+    while index < len(tokens):
+        pair = " ".join(tokens[index : index + 2])
+        if index + 1 < len(tokens) and (surname := resolve_surname(pair)) is not None:
+            found.add(surname)
+            index += 2
+            continue
+        if (surname := resolve_surname(tokens[index])) is not None:
+            found.add(surname)
+        index += 1
+    return found.pop() if len(found) == 1 else None

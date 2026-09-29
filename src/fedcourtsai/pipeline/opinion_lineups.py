@@ -454,7 +454,7 @@ def _reading(entry: OpinionListing, **fields: object) -> OpinionLineupReading:
 def read_text(entry: OpinionListing, text: str, *, truncated: bool) -> OpinionLineupReading:
     """Read one opinion's extracted text: locate, seat the bench, parse, check."""
     located = locate_lineup(text, truncated=truncated)
-    if located.paragraph is None:
+    if located.paragraph is None or located.decided is None:
         return _reading(
             entry,
             status="failed",
@@ -462,9 +462,8 @@ def read_text(entry: OpinionListing, text: str, *, truncated: bool) -> OpinionLi
             argued=located.argued,
             decided=located.decided,
         )
-    decided = located.decided or entry.decided
     try:
-        bench = bench_on(decided)
+        bench = bench_on(located.decided)
     except ValueError as exc:
         return _reading(entry, status="failed", reason=str(exc), decided=located.decided)
     late = seated_after(located.argued, bench) if located.argued is not None else ()

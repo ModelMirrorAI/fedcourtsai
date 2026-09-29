@@ -12,6 +12,7 @@ from fedcourtsai.pipeline.justices import (
     SERVICE,
     SERVICE_FLOOR,
     bench_on,
+    normalize_justice_name,
     normalize_scdb_justice,
     resolve_surname,
     seated_after,
@@ -122,3 +123,21 @@ def test_seated_after_names_the_justices_who_missed_the_argument() -> None:
     bench = bench_on(date(2021, 4, 5))
     assert seated_after(date(2020, 10, 5), bench) == ("Barrett",)
     assert seated_after(date(2020, 11, 2), bench) == ()
+
+
+def test_hand_written_names_normalize_to_the_roster_surname() -> None:
+    """A predictor's spellings — full names, titles, suffixes — are one Justice."""
+    for raw, surname in [
+        ("Samuel A. Alito, Jr.", "Alito"),
+        ("John G. Roberts, Jr.", "Roberts"),
+        ("Chief Justice Roberts", "Roberts"),
+        ("Justice Thomas", "Thomas"),
+        ("Ketanji Brown Jackson", "Jackson"),
+        ("Amy Coney Barrett", "Barrett"),
+        ("kagan", "Kagan"),
+        ("Willis Van Devanter", "Van Devanter"),
+    ]:
+        assert normalize_justice_name(raw) == surname, raw
+    # No roster surname, or two different ones, is not a Justice to score.
+    assert normalize_justice_name("Justice Holmes") is None
+    assert normalize_justice_name("Roberts Thomas") is None

@@ -24,12 +24,15 @@ inputs. Config resolves one level out, at the caller.
 
 from __future__ import annotations
 
+from typing import Final
+
 from ..corpus import CorpusRow, scotus_application_term_year, scotus_term_year
-from ..schemas import Outcome, Prediction, StatPack
+from ..schemas import Outcome, Prediction, StatPack, VoteValue
 
 # `merits_base_rate` is re-exported, not used here — see the module docstring
 # and `__all__`, which is what states the re-export to both linters.
 from .base_rates import _pooled_band_rate, interim_base_rate, merits_base_rate
+from .justices import normalize_justice_name
 from .moments import scores_votes
 from .salience import SALIENCE_VERSION, salience_band
 
@@ -37,6 +40,7 @@ from .salience import SALIENCE_VERSION, salience_band
 # `base_rates` so the whole set of names an evaluator is told to match resolves
 # under the one module the prompt gives it (see the module docstring).
 __all__ = [
+    "bench_vote_accuracy",
     "brier_score",
     "brier_skill",
     "brier_skill_score",
@@ -188,6 +192,47 @@ def brier_skill_score(
     return brier_skill(brier_score(prediction, outcome), outcome.actual_granted, base_rate)
 
 
+#: The vote values that record a Justice as not sitting.
+NOT_SITTING: Final = frozenset({VoteValue.recused, VoteValue.did_not_participate})
+
+
+def bench_vote_accuracy(prediction: Prediction, outcome: Outcome) -> float | None:
+    """Fraction of the participating bench whose vote the prediction called.
+
+    The figure ``mean_vote_accuracy`` averages, recomputed from the scored
+    prediction and the committed outcome rather than read off the evaluator's
+    ``vote_accuracy``. Null unless the event is a declared merits moment
+    (:func:`fedcourtsai.pipeline.moments.scores_votes`) **and** the outcome's
+    ``vote_provenance`` says ``complete: true``.
+
+    The denominator is every Justice the complete record shows sitting —
+    everyone but ``recused`` and ``did-not-participate`` — so it is the same
+    for every predictor on the event and no predictor can choose it: a sitting
+    Justice the prediction omits, or names in a way no roster surname can be
+    read from, is a miss, and a prediction entry for a Justice who did not sit
+    scores nothing either way. Predicted names are read through
+    :func:`fedcourtsai.pipeline.justices.normalize_justice_name`, so "Samuel A.
+    Alito, Jr." and "Alito" are one Justice; a Justice the prediction names
+    twice with different votes has no single call and counts as a miss.
+    """
+    if not scores_votes(prediction.event_id):
+        return None
+    provenance = outcome.vote_provenance
+    if provenance is None or not provenance.complete:
+        return None
+    sitting = {v.justice: v.vote for v in outcome.votes if v.vote not in NOT_SITTING}
+    if not sitting:
+        return None
+    calls: dict[str, VoteValue | None] = {}
+    for vote in prediction.votes:
+        name = normalize_justice_name(vote.justice)
+        if name is None:
+            continue
+        calls[name] = vote.vote if calls.get(name, vote.vote) == vote.vote else None
+    hits = sum(1 for justice, vote in sitting.items() if calls.get(justice) == vote)
+    return hits / len(sitting)
+
+
 def vote_accuracy(prediction: Prediction, outcome: Outcome) -> float | None:
     """Fraction of predicted votes that matched, over the Justices both name.
 
@@ -207,9 +252,11 @@ def vote_accuracy(prediction: Prediction, outcome: Outcome) -> float | None:
     weigh the same in the mean as nine of nine; an unprovenanced list says
     nothing about how much of the bench it holds. Either is null here.
 
-    Where both gates open, scoring is over the Justices both lists name: on a
-    complete record that is every participating Justice the prediction voted,
-    so a predictor that left a Justice out is scored over the rest.
+    Where both gates open, scoring is over the Justices both lists name, as the
+    evaluate prompt defines the field. That leaves the denominator partly the
+    predictor's choice, which is why the leaderboard does not average this
+    field: it recomputes :func:`bench_vote_accuracy`, whose denominator is the
+    participating bench.
     """
     if not scores_votes(prediction.event_id):
         return None

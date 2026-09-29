@@ -1879,7 +1879,18 @@ def _votes_hold_check(data_root: Path) -> CorpusCheck:
 
 
 _OPINION_URL = "https://www.supremecourt.gov/opinions/25pdf/24-43_2b35.pdf"
-_BENCH = ("Thomas", "Roberts", "Alito", "Sotomayor", "Kagan", "Gorsuch", "Kavanaugh")
+# The bench the seat roster seats on the outcome's 2026-06-30 decision date.
+_BENCH = (
+    "Thomas",
+    "Roberts",
+    "Alito",
+    "Sotomayor",
+    "Kagan",
+    "Gorsuch",
+    "Kavanaugh",
+    "Barrett",
+    "Jackson",
+)
 
 
 def _write_voting_outcome(
@@ -1890,7 +1901,7 @@ def _write_voting_outcome(
     provenance: dict[str, object] | None,
     votes: list[dict[str, object]] | None = None,
 ) -> Path:
-    """A merits outcome carrying a seven-vote list and ``provenance``, raw."""
+    """A merits outcome carrying the full bench's votes and ``provenance``, raw."""
     ep = CasePaths(data_root, court, 22451).event("evt-order-judgment")
     write_yaml(
         ep.event_file,
@@ -1928,7 +1939,7 @@ def _opinions_provenance(**overrides: object) -> dict[str, object]:
         "document": _OPINION_URL,
         "grammar": "scotus-syllabus",
         "grammar_version": 2,
-        "participating": 7,
+        "participating": 9,
         "complete": True,
     } | overrides
 
@@ -1977,6 +1988,26 @@ def test_a_conforming_opinions_vote_record_passes(tmp_path: Path) -> None:
     check = _votes_hold_check(data_root)
     assert check.passed, check.problems
     assert check.checked == 1
+
+
+def test_a_complete_record_must_name_the_bench_that_sat(tmp_path: Path) -> None:
+    """`complete: true` is what vote scoring is gated on, so it is checked.
+
+    Seven of the nine Justices with `participating: 7` coheres with itself and
+    passes the schema, but the roster seats nine on the decision date, so the
+    record is not complete whatever it says. A partial record is not held to
+    the bench.
+    """
+    data_root = tmp_path / "data"
+    seven: list[dict[str, object]] = [{"justice": n, "vote": "majority"} for n in _BENCH[:7]]
+    _write_voting_outcome(data_root, provenance=_opinions_provenance(participating=7), votes=seven)
+    check = _votes_hold_check(data_root)
+    assert not check.passed
+    assert any("but the bench on 2026-06-30 is" in p for p in check.problems)
+    _write_voting_outcome(
+        data_root, provenance=_opinions_provenance(participating=7, complete=False), votes=seven
+    )
+    assert _votes_hold_check(data_root).passed
 
 
 @pytest.mark.parametrize(

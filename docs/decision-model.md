@@ -525,18 +525,25 @@ writer commits them yet. That is the permitted side of the second
 constraint's line, and the constraint's own prohibition stands untouched: a
 *cert*-stage vote is never scored.
 
-**Only a complete vote record is scored.** `vote_accuracy` is null unless the
-outcome's `vote_provenance` says `complete: true` — every participating
-Justice's vote is present — and `mean_vote_accuracy` re-applies the same
-condition to each cell as it aggregates, reading the cell's committed outcome,
-and publishes its own denominator, `vote_cells_scored`. The reason is the
-unit of account. A partial list is the subset a source happened to show, so
-scoring against it would let the source choose which Justices a predictor is
-scored on, and a one-of-one match would weigh the same in a cell-weighted mean
-as nine of nine; with the gate, every scored cell is scored against the whole
-participating bench and the mean of per-cell fractions is a mean over like
-units. An unprovenanced list says nothing about how much of the bench it
-holds, so it is not scored either. The gate only ever turns a number null.
+**Only a complete vote record is scored, and always over the whole bench.**
+`vote_accuracy` is null unless the outcome's `vote_provenance` says
+`complete: true` — every participating Justice's vote is present. The
+leaderboard goes further, because that field is the evaluator's own arithmetic
+over the Justices both lists name, a denominator the predictor partly chooses:
+`mean_vote_accuracy` averages a figure the board recomputes from the scored
+prediction and the committed outcome instead
+(`pipeline.evaluate.bench_vote_accuracy`). Its denominator is every Justice the
+complete record shows sitting; a sitting Justice the prediction omits is a
+miss, and a call on a Justice who took no part scores nothing. Every scored
+cell is therefore scored against the same bench every other predictor on that
+event faces, so the mean of per-cell fractions is a mean over like units, and
+trimming a vote block to the sure calls can only cost. The board publishes the
+mean's denominator, `vote_cells_scored`. A partial list is never scored — it is
+the subset a source happened to show — and neither is an unprovenanced one.
+The scored population is the decisions a vote source read completely, which
+for the opinions source means signed opinions whose lineup parsed; fractured
+lineups fail to parse more often, so the mean is read as over that population,
+not over every merits decision. The gates only ever turn a number null.
 
 **A check holds that prohibition, not the absence of a data source.**
 `pipeline.moments.scores_votes` is the gate, and it lives on the moments

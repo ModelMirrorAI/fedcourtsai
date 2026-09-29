@@ -51,7 +51,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
@@ -1420,7 +1420,10 @@ def check_outcome_votes_held(data_root: Path) -> CorpusCheck:
     - a registered source's record must sit on a court and an event stage the
       source is registered for (read off the committed ``event.yaml``), carry a
       grammar stamp the source reads with, name a document the source reads,
-      and spell every Justice as the roster does.
+      and spell every Justice as the roster does; and where the source records
+      whole benches, a record claiming ``complete`` must name exactly the
+      bench the roster seats on its ``resolved_at``, since that bit is what
+      vote scoring is gated on.
 
     Read raw first, like the judgment-routing check beside it: the registration
     question — is the key populated, and by whom — is answerable on a payload
@@ -1498,7 +1501,24 @@ def _vote_source_problems(
         for vote in outcome.votes
         if resolve_surname(vote.justice) != vote.justice
     )
+    if provenance.complete and source.bench is not None:
+        found.extend(_bench_problems(outcome, source.bench))
     return found
+
+
+def _bench_problems(outcome: Outcome, bench: Callable[[date], tuple[str, ...]]) -> list[str]:
+    """Whether a complete record names exactly the bench of its decision date."""
+    try:
+        sat = set(bench(outcome.resolved_at))
+    except ValueError as exc:
+        return [f"a complete vote record on {outcome.resolved_at}: {exc}"]
+    named = {vote.justice for vote in outcome.votes}
+    if named == sat:
+        return []
+    return [
+        f"a complete vote record names {sorted(named)}, but the bench on "
+        f"{outcome.resolved_at} is {sorted(sat)}"
+    ]
 
 
 def check_evaluation_correct_agrees(data_root: Path) -> CorpusCheck:

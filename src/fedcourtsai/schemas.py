@@ -1760,8 +1760,9 @@ class Evaluation(_Strict):
         description="Fraction of the prediction's per-Justice votes that match the "
         "outcome's, over the Justices both name. Merits-stage cells only, and only "
         "against a vote record whose `vote_provenance` says `complete: true`; null "
-        "everywhere else (`pipeline.evaluate.vote_accuracy`). The leaderboard "
-        "applies both conditions again as it aggregates",
+        "everywhere else (`pipeline.evaluate.vote_accuracy`). Descriptive: the "
+        "leaderboard does not average it, but recomputes each cell's "
+        "participating-bench accuracy (`pipeline.evaluate.bench_vote_accuracy`)",
     )
     reasoning_quality: float | None = Field(default=None, ge=0.0, le=1.0)
     leakage_suspected: bool | None = Field(
@@ -3009,19 +3010,25 @@ class LeaderboardStratum(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Mean per-cell `vote_accuracy` over the `vote_cells_scored` "
-        "cells: merits-moment cells whose outcome carries a complete vote record "
-        "(`vote_provenance.complete`). Each cell weighs the same, and every one is "
-        "scored against the full participating bench. Null where no cell "
+        description="Mean, over the `vote_cells_scored` cells, of each cell's "
+        "participating-bench vote accuracy: the fraction of the Justices the "
+        "outcome's complete vote record shows sitting whose vote the scored "
+        "prediction called, an omitted Justice a miss "
+        "(`pipeline.evaluate.bench_vote_accuracy`), recomputed from the committed "
+        "prediction and outcome rather than read off `Evaluation.vote_accuracy`. "
+        "Merits-moment cells whose outcome carries a complete vote record "
+        "(`vote_provenance.complete`) only, so it covers the decisions a vote "
+        "source read completely — signed opinions whose lineup parsed — not every "
+        "merits decision. Each cell weighs the same. Null where no cell "
         "qualifies. Never a rank key",
     )
     vote_cells_scored: int = Field(
         default=0,
         ge=0,
-        description="Cells whose `vote_accuracy` entered `mean_vote_accuracy` — its "
-        "denominator. Below `evaluations` wherever a cell is off a merits moment, "
-        "carries no vote score, or resolves against a vote record that is absent "
-        "or incomplete",
+        description="Cells that entered `mean_vote_accuracy` — its denominator. "
+        "Below `evaluations` wherever a cell is off a merits moment, has no "
+        "readable scored prediction, or resolves against a vote record that is "
+        "absent or incomplete",
     )
     mean_reasoning_quality: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Mean evaluator reasoning-quality score"

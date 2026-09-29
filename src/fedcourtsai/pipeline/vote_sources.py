@@ -16,11 +16,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import date
 from types import MappingProxyType
 from typing import Final
 
 from ..schemas import Stage
 from ..supremecourt import is_court_url
+from .justices import bench_on
 from .syllabus_lineup import COURT as SYLLABUS_COURT
 from .syllabus_lineup import GRAMMAR_NAME as SYLLABUS_GRAMMAR
 
@@ -34,7 +36,11 @@ class VoteSource:
 
     ``courts`` and ``stages`` bound where its lists may appear; ``grammars``
     are the readers whose stamp a record may carry; ``document`` says whether
-    a record's ``VoteProvenance.document`` is one this source reads.
+    a record's ``VoteProvenance.document`` is one this source reads; and
+    ``bench``, where the source records whole benches, is the bench on an
+    outcome's ``resolved_at`` that a complete record must name exactly — so
+    ``complete: true``, the bit vote scoring is gated on, is checked against
+    the roster rather than taken on the record's word.
     """
 
     source: str
@@ -42,6 +48,7 @@ class VoteSource:
     stages: frozenset[Stage]
     grammars: frozenset[str]
     document: Callable[[str], bool]
+    bench: Callable[[date], tuple[str, ...]] | None = None
 
 
 #: Every registered vote source, by ``VoteProvenance.source``.
@@ -53,6 +60,7 @@ REGISTERED_VOTE_SOURCES: Final[Mapping[str, VoteSource]] = MappingProxyType(
             stages=frozenset({Stage.merits}),
             grammars=frozenset({SYLLABUS_GRAMMAR}),
             document=is_court_url,
+            bench=bench_on,
         ),
     }
 )

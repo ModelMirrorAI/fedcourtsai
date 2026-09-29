@@ -83,7 +83,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Mapping, Sequence, Set
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -96,7 +96,7 @@ from .integrity import (
     latest_evaluations,
 )
 from .pipeline.base_rates import realized_band_rate
-from .pipeline.evaluate import is_correct
+from .pipeline.evaluate import bench_vote_accuracy, is_correct
 from .pipeline.moments import first_moment, scores_votes
 from .process_version import frozen_process_record, graded_post_freeze, is_frozen
 from .schemas import (
@@ -262,7 +262,7 @@ def _aggregate(
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None = None,
     *,
-    complete_votes: Set[EvaluationKey] = frozenset(),
+    vote_scores: Mapping[EvaluationKey, float] | None = None,
 ) -> LeaderboardStratum | None:
     """One stratum's aggregates, or ``None`` when the stratum has no evaluations.
 
@@ -278,13 +278,13 @@ def _aggregate(
     artifact as a wrong call, and the board's first rank key is the last place
     that should happen.
 
-    ``mean_vote_accuracy`` takes both gates the per-cell figure does, and
-    publishes its own denominator, ``vote_cells_scored``. The completeness gate
-    is ``complete_votes`` (:func:`complete_vote_cells`): only a cell whose
-    outcome carries a complete vote record enters, because the ``Evaluation``
-    does not record what its figure was scored against. Unsupplied, no cell
-    qualifies and the mean is null — never computed over records whose
-    completeness nobody read. The stage gate is the same one the per-cell figure takes
+    ``mean_vote_accuracy`` averages ``vote_scores`` (:func:`vote_scores`), the
+    participating-bench accuracy recomputed per cell from the scored prediction
+    and the committed outcome, never the evaluator's ``vote_accuracy``, and
+    publishes its own denominator, ``vote_cells_scored``. Only a cell whose
+    outcome carries a complete vote record has a score. Unsupplied, no cell has
+    one and the mean is null — never computed over records whose completeness
+    nobody read. The stage gate is the one the per-cell figure takes
     (:func:`fedcourtsai.pipeline.moments.scores_votes`), applied here to the
     cell's own event rather than inherited from the block it landed in. The
     aggregate is what the prohibition on scoring a cert vote actually bites on —
@@ -316,12 +316,11 @@ def _aggregate(
         for cell in cells
         if cell is not None and cell.realized_term_baseline is not None
     ]
+    scored_votes = vote_scores or {}
     votes = [
-        ev.vote_accuracy
+        scored_votes[key]
         for ev in evals
-        if ev.vote_accuracy is not None
-        and scores_votes(ev.event_id)
-        and _evaluation_key(ev) in complete_votes
+        if scores_votes(ev.event_id) and (key := _evaluation_key(ev)) in scored_votes
     ]
     return LeaderboardStratum(
         events_scored=len({(ev.case_id, ev.event_id) for ev in evals}),
@@ -468,7 +467,7 @@ def _by_band(
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None,
     *,
-    complete_votes: Set[EvaluationKey] = frozenset(),
+    vote_scores: Mapping[EvaluationKey, float] | None = None,
 ) -> dict[str, LeaderboardStratum] | None:
     """The forward stratum cut by frozen salience band, or ``None``.
 
@@ -488,8 +487,7 @@ def _by_band(
     return {
         key: stratum
         for key in sorted(groups)
-        if (stratum := _aggregate(groups[key], skills, facts, complete_votes=complete_votes))
-        is not None
+        if (stratum := _aggregate(groups[key], skills, facts, vote_scores=vote_scores)) is not None
     }
 
 
@@ -900,29 +898,34 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
     return facts
 
 
-def complete_vote_cells(
-    cells: Iterable[StratifiedCell], data_root: Path
-) -> frozenset[EvaluationKey]:
-    """The cells whose ``vote_accuracy`` may enter ``mean_vote_accuracy``.
+def vote_scores(cells: Iterable[StratifiedCell], data_root: Path) -> dict[EvaluationKey, float]:
+    """Each vote-scored cell's participating-bench accuracy.
 
-    A cell qualifies when it carries a vote score on a merits moment
-    (:func:`fedcourtsai.pipeline.moments.scores_votes`) and its committed
-    outcome's ``vote_provenance`` says ``complete: true`` — the completeness
-    gate :func:`fedcourtsai.pipeline.evaluate.vote_accuracy` applies per cell,
-    re-read here because the figure on a committed ``Evaluation`` may have
-    been written by an evaluator rather than by that function. Only the
-    qualifying cells' outcomes are read.
+    :func:`fedcourtsai.pipeline.evaluate.bench_vote_accuracy` over the scored
+    prediction (the run the evaluation names, as every board reads it) and the
+    committed outcome, for every cell on a declared merits moment whose outcome
+    carries a complete vote record. Recomputed rather than read off the
+    ``Evaluation``: on a real cell ``vote_accuracy`` is the evaluator's own
+    arithmetic over a denominator the predictor partly chose, and a record
+    re-read after its grading would leave that number stale. A cell with no
+    readable scored prediction has no score.
     """
     cases_dir = data_root / "cases"
     outcomes: dict[tuple[str, str], Outcome] = {}
-    keys: set[EvaluationKey] = set()
+    scores: dict[EvaluationKey, float] = {}
     for evaluation, _stratum, _stage, _moment in cells:
-        if evaluation.vote_accuracy is None or not scores_votes(evaluation.event_id):
+        if not scores_votes(evaluation.event_id):
             continue
-        provenance = _read_outcome(cases_dir, evaluation, outcomes).vote_provenance
-        if provenance is not None and provenance.complete:
-            keys.add(_evaluation_key(evaluation))
-    return frozenset(keys)
+        outcome = _read_outcome(cases_dir, evaluation, outcomes)
+        if outcome.vote_provenance is None or not outcome.vote_provenance.complete:
+            continue
+        scored = _scored_prediction(cases_dir, evaluation)
+        if scored is None:
+            continue
+        score = bench_vote_accuracy(scored, outcome)
+        if score is not None:
+            scores[_evaluation_key(evaluation)] = score
+    return scores
 
 
 def _baseline_brier(base_rate: float | None, actual_granted: int) -> float | None:
@@ -1075,7 +1078,7 @@ def _stage_board(
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None,
     *,
-    complete_votes: Set[EvaluationKey] = frozenset(),
+    vote_scores: Mapping[EvaluationKey, float] | None = None,
 ) -> LeaderboardStage:
     """One non-cert stage's unranked block: per-predictor aggregates plus counts.
 
@@ -1104,14 +1107,12 @@ def _stage_board(
                 predictor_id=predictor_id,
                 evaluators=len({ev.evaluator_id for ev in evals}),
                 events_scored=_events_scored(evals),
-                forward=_aggregate(strata[FORWARD], skills, facts, complete_votes=complete_votes),
+                forward=_aggregate(strata[FORWARD], skills, facts, vote_scores=vote_scores),
                 retrospective=_aggregate(
-                    strata[RETROSPECTIVE], skills, facts, complete_votes=complete_votes
+                    strata[RETROSPECTIVE], skills, facts, vote_scores=vote_scores
                 ),
-                procedural=_aggregate(
-                    strata[PROCEDURAL], skills, facts, complete_votes=complete_votes
-                ),
-                by_band=_by_band(strata[FORWARD], skills, facts, complete_votes=complete_votes),
+                procedural=_aggregate(strata[PROCEDURAL], skills, facts, vote_scores=vote_scores),
+                by_band=_by_band(strata[FORWARD], skills, facts, vote_scores=vote_scores),
             )
         )
     return LeaderboardStage(
@@ -1139,7 +1140,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
     leakage_exclusion: LeakageExclusionRecord | None = None,
     superseded_gradings: int = 0,
     facts: Mapping[EvaluationKey, CellFacts] | None = None,
-    complete_votes: Set[EvaluationKey] = frozenset(),
+    vote_scores: Mapping[EvaluationKey, float] | None = None,
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
 
@@ -1198,10 +1199,11 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         ``complete_grid_by_band``. None of them reaches :func:`_rank_key`.
         Unsupplied, no entry carries ``by_band`` and those fields are null.
 
-    ``complete_votes`` (from :func:`complete_vote_cells` over the same cells)
-        names the cells whose outcome carries a complete vote record, the only
-        cells ``mean_vote_accuracy`` averages (``vote_cells_scored`` counts
-        them). Unsupplied, every vote mean is null and every count zero.
+    ``vote_scores`` (from :func:`vote_scores` over the same cells) is each
+        vote-scored cell's participating-bench accuracy — only cells whose
+        outcome carries a complete vote record have one — and is what
+        ``mean_vote_accuracy`` averages (``vote_cells_scored`` counts the cells).
+        Unsupplied, every vote mean is null and every count zero.
     """
     cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
@@ -1223,18 +1225,14 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
                 rank=1,  # provisional; assigned after sorting
                 evaluators=len({ev.evaluator_id for ev in evals}),
                 events_scored=_events_scored(evals),
-                forward=_aggregate(
-                    strata[FORWARD], cell_skills, facts, complete_votes=complete_votes
-                ),
+                forward=_aggregate(strata[FORWARD], cell_skills, facts, vote_scores=vote_scores),
                 retrospective=_aggregate(
-                    strata[RETROSPECTIVE], cell_skills, facts, complete_votes=complete_votes
+                    strata[RETROSPECTIVE], cell_skills, facts, vote_scores=vote_scores
                 ),
                 procedural=_aggregate(
-                    strata[PROCEDURAL], cell_skills, facts, complete_votes=complete_votes
+                    strata[PROCEDURAL], cell_skills, facts, vote_scores=vote_scores
                 ),
-                by_band=_by_band(
-                    strata[FORWARD], cell_skills, facts, complete_votes=complete_votes
-                ),
+                by_band=_by_band(strata[FORWARD], cell_skills, facts, vote_scores=vote_scores),
                 big_case=(big_case or {}).get(predictor_id),
             )
         )
@@ -1278,7 +1276,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         entries=entries,
         complete_grid_by_band=_complete_grid_by_band(cert_cells, by_predictor, facts),
         stages={
-            key: _stage_board(stage_cells[key], cell_skills, facts, complete_votes=complete_votes)
+            key: _stage_board(stage_cells[key], cell_skills, facts, vote_scores=vote_scores)
             for key in sorted(stage_cells)
         },
     )

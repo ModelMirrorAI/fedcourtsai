@@ -171,9 +171,9 @@ from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
     cell_facts,
-    complete_vote_cells,
     evaluator_agreement,
     skill_components,
+    vote_scores,
 )
 from .matrix import (
     CappedMatrix,
@@ -4975,9 +4975,10 @@ def leaderboard(
         # stratum's per-band cut and the realized always-deny floor beside
         # accuracy, over the same cells and never a rank key.
         facts=cell_facts(cells, settings.data_root),
-        # The cells whose outcome carries a complete vote record: the only
-        # ones `mean_vote_accuracy` averages, counted as `vote_cells_scored`.
-        complete_votes=complete_vote_cells(cells, settings.data_root),
+        # Each merits cell's participating-bench vote accuracy, recomputed
+        # against a complete vote record: what `mean_vote_accuracy` averages,
+        # counted as `vote_cells_scored`.
+        vote_scores=vote_scores(cells, settings.data_root),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)

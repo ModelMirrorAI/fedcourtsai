@@ -172,9 +172,12 @@ stays outside the gate:
   predictor, accuracy, mean Brier score, mean vote accuracy — over the declared
   **merits** moments and nothing else, because an individual cert vote is never
   scored (`docs/decision-model.md`), so the ranked cert board carries no vote
-  mean, and only over cells whose outcome carries a complete vote record, with
-  `vote_cells_scored` beside it as its denominator — a mean reasoning-quality
-  summary, and counts (events scored,
+  mean, and only over cells whose outcome carries a complete vote record, each
+  scored over that record's whole sitting bench (recomputed at build, not read
+  off the evaluator), with `vote_cells_scored` beside it as its denominator; the
+  mean covers the decisions a vote source read completely — signed opinions
+  whose lineup parsed, which under-represents fractured lineups — not every
+  merits decision — a mean reasoning-quality summary, and counts (events scored,
   evaluations) reported **per stratum** — the `forward` and
   `retrospective` timing blocks plus the basis-driven `procedural` block,
   never blended into one number, with only the timing strata ranked. Two counts
