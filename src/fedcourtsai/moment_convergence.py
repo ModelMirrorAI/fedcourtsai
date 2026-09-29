@@ -139,13 +139,18 @@ def _scan_corpus(
     return rewrites, skipped
 
 
-def _scan_ledger(
-    data_root: Path, spec: moments.MomentSpec
-) -> tuple[list[MomentRewrite], list[tuple[str, str]]]:
-    """The ledger ``event.yaml`` files under ``spec``'s id carrying a different non-null moment."""
+def _scan_ledger(data_root: Path) -> tuple[list[MomentRewrite], list[tuple[str, str]]]:
+    """The ledger ``event.yaml`` files under a declared-moment id carrying a different moment.
+
+    One walk of the ledger, filtered on the directory name, rather than one per
+    declared moment.
+    """
     rewrites: list[MomentRewrite] = []
     skipped: list[tuple[str, str]] = []
-    for path in sorted((data_root / "cases").glob(f"*/*/events/{spec.event_id}/event.yaml")):
+    for path in sorted((data_root / "cases").glob("*/*/events/*/event.yaml")):
+        spec = moments.spec_for(path.parent.name)
+        if spec is None:
+            continue
         definition = read_model(path, PredictableEvent)
         if definition.moment is None or definition.moment == spec.moment:
             continue
@@ -180,15 +185,17 @@ def converge_event_moments(
     ``moment`` changed, then the corpus through
     :func:`fedcourtsai.corpus.stamp_event_moments`, which includes the casestore
     mirror. ``max_rewrites`` is the blast-radius bound. Over it, nothing is
-    written and ``refused`` is set.
+    written and ``refused`` is set. It is optional here, so an apply without it
+    is unbounded; the command makes it mandatory with ``--apply``.
     """
     result = MomentConvergenceResult(applied=apply)
     for spec in moments.DECLARED_MOMENTS:
         rows, row_skips = _scan_corpus(conn, data_root, spec)
-        files, file_skips = _scan_ledger(data_root, spec)
         result.corpus_rows.extend(rows)
-        result.ledger_files.extend(files)
-        result.skipped.extend(row_skips + file_skips)
+        result.skipped.extend(row_skips)
+    files, file_skips = _scan_ledger(data_root)
+    result.ledger_files.extend(files)
+    result.skipped.extend(file_skips)
 
     if apply and max_rewrites is not None and result.total > max_rewrites:
         result.refused = True

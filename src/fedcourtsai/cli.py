@@ -2548,7 +2548,8 @@ def relabel_application_events_cmd(
     baseline (`evt-petition-disposition`) still sitting on an application docket
     to that form, carrying every field and the `resolved` latch, atomically per
     case. The moment is re-derived for the interim stage rather than carried,
-    exactly as a fresh mint derives it. A case with committed ledger artifacts
+    exactly as a fresh mint derives it; `opened_at` is carried, and
+    `backfill-arrival-stamps` re-reads it from the snapshot. A case with committed ledger artifacts
     under the old identity, or whose existing `evt-motion-disposition` row is
     entry-pinned, is skipped and reported for triage rather than folded.
     Idempotent: a converged corpus renames nothing. Dry-run by default;

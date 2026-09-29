@@ -9,9 +9,11 @@ migration renames any cert-shaped baseline (``evt-petition-disposition`` /
 to that form via :func:`fedcourtsai.corpus.rename_event`, carrying every field
 and the ``resolved`` latch except the identity-derived ones: ``kind``, ``stage``
 and ``moment`` become the interim stage's, the moment re-derived exactly as
-``default_event`` mints it. Deterministic, offline, idempotent — a second run
-finds every application docket already on the motion baseline and renames
-nothing.
+``default_event`` mints it. ``opened_at`` is carried as it stands: the interim
+arrival reading needs the docket's submission entry, which only a snapshot
+re-read supplies, and that is the ``backfill-arrival-stamps`` sweep's job.
+Deterministic, offline, idempotent — a second run finds every application
+docket already on the motion baseline and renames nothing.
 
 Two shapes are skipped and reported rather than renamed, because folding them
 would falsify the record: a case whose git ledger holds committed artifacts
