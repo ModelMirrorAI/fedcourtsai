@@ -27,10 +27,11 @@ run-name: "summarize @ ${{ github.ref_name == 'main' && 'prod' || github.ref_nam
 #             case's record — the same staged record, and the same
 #             contact-detail scrub, a predict cell reads — under $RUNNER_TEMP.
 #   generate  the environment's Anthropic key and no cloud credential
-#             (asserted). One
-#             Messages API call per case with no tools; the harness validates
-#             each body and writes the file. Jails, validates and secret-scans
-#             the written files before anything leaves the runner.
+#             (asserted). One Messages API call per case with no tools,
+#             plus at most one retry in the same conversation when the
+#             harness rejects the body on a mechanical rule; the harness
+#             validates each body and writes the file. Jails, validates and
+#             secret-scans the written files before anything leaves the runner.
 #   publish   main only: the dev App token, opening or updating one reviewed
 #             PR from the fixed `summaries/refresh` branch. Never auto-merged —
 #             the collect jails do not cover this branch family, and an

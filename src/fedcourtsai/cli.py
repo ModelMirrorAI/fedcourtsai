@@ -10633,7 +10633,7 @@ def summarize_cmd(
     ],
     report: Annotated[
         Path | None,
-        typer.Option(help="Write the markdown result report (written, skipped, cost)."),
+        typer.Option(help="Write the markdown result report (written, skipped, retried, cost)."),
     ] = None,
     budget_minutes: Annotated[
         float,
@@ -10652,11 +10652,12 @@ def summarize_cmd(
     nothing else. A response is written to ``summaries/<snapshot day>.md`` only
     if it ends normally, carries exactly the current contract's sections in order,
     sits in the length band, opens no paragraph with "Whether", and passes the
-    secret scan; anything else, and any call that still fails after bounded
-    retries, is reported as skipped. The API key is read from the environment
-    variable ``summaries.API_KEY_ENV`` names. Exits 1 when
-    the plan held cases and none was written, so a dead key or a broken prompt
-    fails the run rather than reading as an empty success.
+    secret scan. A response rejected only on the body rules is retried once in
+    the same run, told why; anything else, a rejected retry, and any call that
+    still fails after bounded retries, is reported as skipped. The API key is
+    read from the environment variable ``summaries.API_KEY_ENV`` names. Exits 1
+    when the plan held cases and none was written, so a dead key or a broken
+    prompt fails the run rather than reading as an empty success.
     """
     settings = get_settings()
     api_key = os.environ.get(summaries.API_KEY_ENV, "")
