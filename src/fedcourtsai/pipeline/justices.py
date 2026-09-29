@@ -33,12 +33,13 @@ Two facts this module is the single home for:
   source that credits a Justice by silence — the syllabus lineup grammar does,
   under the Court's list-only-where-fewer-than-all convention — needs the bench
   a decision was actually made by, and :func:`bench_on` and
-  :func:`seated_after` are that bench.
+  :func:`seated_after` are that bench; :data:`CHIEF_JUSTICES` says which of
+  them an order list means by "The Chief Justice".
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from types import MappingProxyType
@@ -171,6 +172,19 @@ SERVICE: Final[tuple[Service, ...]] = (
     Service("Barrett", date(2020, 10, 27)),
     Service("Jackson", date(2022, 6, 30)),
 )
+
+
+#: Every Justice in :data:`SERVICE` who served as Chief Justice. An order list
+#: names the Chief by title alone ("The Chief Justice took no part …"), so a
+#: grammar resolving that title needs to know which bench member holds it. A
+#: new Chief adds one name here.
+CHIEF_JUSTICES: Final[frozenset[str]] = frozenset({"Roberts"})
+
+
+def chief_on_bench(bench: Sequence[str]) -> str | None:
+    """The one Chief Justice among ``bench``, or ``None`` when there is not exactly one."""
+    chiefs = [name for name in bench if name in CHIEF_JUSTICES]
+    return chiefs[0] if len(chiefs) == 1 else None
 
 
 def bench_on(day: date) -> tuple[str, ...]:

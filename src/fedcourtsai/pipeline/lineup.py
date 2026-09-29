@@ -21,9 +21,10 @@ and the bench and quorum are the caller's. A **grammar** reads one source's
 text into a :class:`Lineup` and stamps its own name and version on the result
 (:class:`LineupGrammar`), so a grammar fix can re-read cached text and the
 reader can tell which reading a stored lineup came from. The SCOTUS syllabus
-grammar is :mod:`fedcourtsai.pipeline.syllabus_lineup`; an order-list grammar,
-a separate-writing-header grammar, or a circuit panel grammar sits beside it
-over this same model.
+grammar is :mod:`fedcourtsai.pipeline.syllabus_lineup`; the order-list
+notation and separate-writing-header grammars are
+:mod:`fedcourtsai.pipeline.order_grammars`; a circuit panel grammar would sit
+beside them over this same model.
 
 :func:`lineup_from_writings` is the shared derivation from a complete set of
 writings to votes — the part of a merits lineup that is the same for every

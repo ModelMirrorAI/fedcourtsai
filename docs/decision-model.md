@@ -215,7 +215,8 @@ the rule is *never score*, whatever a particular record happens to contain.
 
 **Whether a Justice writes at all does not have that problem.** Absence is itself
 an observation: once the order list is final, every participating Justice is
-observed. It is not
+observed, provided every document published with the order is read (the rule
+the order-list parser applies, [data-sources.md](data-sources.md)). It is not
 disclosed by the pre-decision docket, and it is an increment from the
 prediction's vantage point — so it clears tests 1 and 2 of the five the
 withdrawn cert-signal set failed (`docs/outcome-decomposition.md`). It does **not** yet
@@ -564,7 +565,11 @@ about what is scored. (Building that channel first passes a separate gate:
 `validate`'s `outcome_votes_await_a_registered_source` refuses any committed
 vote list whose source is not registered in [data-sources.md](data-sources.md)
 — and the opinions source is registered for merits events only, so its
-records cannot reach a cert outcome at all.) That is what makes the rule
+records cannot reach a cert outcome at all. The order-list channel's parser
+exists, read-only and unregistered: `fedcourts order-notations` and its two
+grammars are described in [data-sources.md](data-sources.md). Its vote lists
+are always partial, and it sets complete writing roles only from every
+document published for an order's date.) That is what makes the rule
 structural rather than a
 property of what a particular record contains. A third seam covers the one the
 first two cannot: `vote_accuracy` is the evaluator's own field to write, so

@@ -116,6 +116,86 @@ what and who joined it.
   the cross-check of each parsed author and separate writer against the
   Court's Granted & Noted list, with disagreements reported, is not built.
 
+A second vote channel is **being built and is not registered**: **the Court's
+orders** — the per-Justice acts it publishes at the cert and interim stages.
+Nothing it reads may be committed. `vote_sources.py` does not carry it, so
+`validate` refuses any vote list that names it. Its records would be banked,
+never scored: `scores_votes` admits only merits moments
+([decision-model.md](decision-model.md)).
+
+- **Source and scope.** Fetched pipeline-side from supremecourt.gov, from two
+  per-Term listings:
+  - the order lists and miscellaneous orders (`/orders/ordersofthecourt/<YY>`);
+  - the *Opinions Relating to Orders* (`/opinions/relatingtoorders/<YY>`).
+
+  An order list prints one entry per docket, or per group of dockets sharing
+  an order. The writings published with it are appended after the list:
+  dissents from denial, statements, and a summary disposition's per curiam.
+  An order on an application usually appears only as an Opinion Relating to
+  Orders, with its writings.
+- **Terms and access.** The same as the opinions source: public-domain works
+  of the federal government, read through the same client (browser user agent,
+  about one request a second, one retry, no request off the Court's host).
+- **What is read, and by which grammar.** Two grammars over the shared lineup
+  model (`pipeline/order_grammars.py`). Each stamps its name and version on
+  what it reads.
+  - `scotus-order-notations` reads an order's own sentences:
+    - a noted vote, "Justice X would grant|deny the petition|application";
+    - an unwritten "X dissents from the denial of …";
+    - "X took no part in the consideration or decision of this petition",
+      recorded as `did-not-participate`.
+
+    A noted vote counts only when it is on the petition or the application,
+    whole.
+  - `scotus-writing-headers` reads the first sentence of each separate
+    writing, such as "JUSTICE ALITO, with whom JUSTICE THOMAS joins,
+    dissenting from the denial of certiorari." or "Statement of JUSTICE
+    SOTOMAYOR respecting the denial of certiorari." It records the kind,
+    author and joiners. It records a vote only where the header names the
+    act: a dissent from a denial is `grant`, a dissent from a grant is `deny`,
+    and a concurrence in either is that act's side. A statement, a
+    concurrence in the judgment, a bare "dissenting", and a joiner of only
+    part of a writing record no vote.
+  - "The Chief Justice" resolves to the bench's Chief, and every name resolves
+    through the roster against the bench in service on the order's date
+    (`bench_on`).
+- **Refusals.** Either grammar reports a problem, and the docket's vote list
+  is emptied, for:
+  - a name the roster does not carry;
+  - a Justice off the bench;
+  - a Justice read two ways;
+  - a noted act on a motion or a petition for rehearing;
+  - a vote limited to part of the matter;
+  - a writing announced as forthcoming;
+  - any sentence shaped like a Justice's act that no rule reads.
+
+  The channel never guesses a Justice. Its split has one cross-check of its
+  own: every writing prints its author in its running head, so a running
+  head naming a Justice with no header read in that section is a problem.
+- **Completeness.** The vote list is always `complete: false`, because a
+  Justice who noted nothing is unobserved, not a vote to deny. Writings
+  differ, as [decision-model.md](decision-model.md) says: once an order is
+  final, whether each participating Justice wrote is observed. The channel
+  sets `writings_complete` for a docket only when all of these hold:
+  - it read every document the Court lists for the order's date, each fetched
+    and extracted whole;
+  - the docket has no problem;
+  - no document that names the docket has a problem.
+
+  Then every participating Justice who wrote nothing records `none`.
+  Otherwise only the authors carry a role. One document read alone never
+  sets it.
+- **What exists today.** The two grammars and the read-only channel
+  (`pipeline/order_lineups.py`), with `fedcourts order-notations` printing
+  one reading per docket for a date or a single document ([cli.md](cli.md)).
+  As read on 2026-09-29, ten order dates from October Term 2025 read with
+  every notation and header in their text accounted for. Not built yet:
+  - the source registration;
+  - how a record carries two grammar stamps;
+  - a writer, and the backfill it would run;
+  - the live order-list ingest;
+  - a recorded spot check against the Court's documents.
+
 One more channel is planned and not yet adopted, **for historical depth
 only**: the **Supreme Court Database** (SCDB) — the standing academic coding
 of every Supreme Court decision since the 1946 Term, which would extend the
