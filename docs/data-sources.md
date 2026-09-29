@@ -170,8 +170,9 @@ never scored: `scores_votes` admits only merits moments
   - any sentence shaped like a Justice's act that no rule reads.
 
   The channel never guesses a Justice. Its split has one cross-check of its
-  own: every writing prints its author in its running head, so a running
-  head naming a Justice with no header read in that section is a problem.
+  own, run both ways within each section: every writing prints its author
+  in its running head. A running head naming a Justice with no header read
+  is a problem, and so is a header whose author no running head names.
 - **Completeness.** The vote list is always `complete: false`, because a
   Justice who noted nothing is unobserved, not a vote to deny. Writings
   differ, as [decision-model.md](decision-model.md) says: once an order is
@@ -179,8 +180,8 @@ never scored: `scores_votes` admits only merits moments
   sets `writings_complete` for a docket only when all of these hold:
   - it read every document the Court lists for the order's date, each fetched
     and extracted whole;
-  - the docket has no problem;
-  - no document that names the docket has a problem.
+  - no document read for that date has a problem;
+  - the docket has no problem.
 
   Then every participating Justice who wrote nothing records `none`.
   Otherwise only the authors carry a role. One document read alone never
@@ -188,8 +189,7 @@ never scored: `scores_votes` admits only merits moments
 - **What exists today.** The two grammars and the read-only channel
   (`pipeline/order_lineups.py`), with `fedcourts order-notations` printing
   one reading per docket for a date or a single document ([cli.md](cli.md)).
-  As read on 2026-09-29, ten order dates from October Term 2025 read with
-  every notation and header in their text accounted for. Not built yet:
+  Not built yet:
   - the source registration;
   - how a record carries two grammar stamps;
   - a writer, and the backfill it would run;

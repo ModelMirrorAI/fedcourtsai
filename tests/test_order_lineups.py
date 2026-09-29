@@ -553,3 +553,114 @@ def test_the_command_takes_exactly_one_of_date_or_url() -> None:
     neither = runner.invoke(app, ["order-notations"])
     off_host = runner.invoke(app, ["order-notations", "--url", "https://example.org/a.pdf"])
     assert (both.exit_code, neither.exit_code, off_host.exit_code) == (2, 2, 2)
+
+
+def test_the_command_prints_one_reading_per_docket(monkeypatch: pytest.MonkeyPatch) -> None:
+    _stub_extraction(monkeypatch)
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=RELATING.encode())
+
+    monkeypatch.setattr(
+        "fedcourtsai.cli.SupremeCourtClient",
+        lambda **_kw: _client(httpx.MockTransport(handle)),
+    )
+    result = CliRunner().invoke(
+        app, ["order-notations", "--url", "https://www.supremecourt.gov/opinions/25pdf/25-885.pdf"]
+    )
+    assert result.exit_code == 0, result.output
+    assert '"docket": "25-885"' in result.stdout
+    assert "1 dockets" in result.stderr and "not covered" in result.stderr
+
+
+# --- regressions: each would otherwise mis-assign, invent or over-complete -------
+
+
+def test_a_problem_on_a_document_that_names_no_docket_uncovers_the_day() -> None:
+    undated = RELATING.replace("No. 25\u2013885. Decided June 22, 2026", "No. 25\u2013885.")
+    reading = read_documents(
+        [
+            FetchedDocument(
+                "https://www.supremecourt.gov/orders/courtorders/a.pdf", None, ORDER_LIST
+            ),
+            FetchedDocument("https://www.supremecourt.gov/opinions/25pdf/b.pdf", None, undated),
+        ],
+        day=DAY,
+        covers_the_day=True,
+    )
+    assert reading.documents[1].problems
+    assert reading.documents[1].dockets == []
+    assert not reading.covers_the_day
+    assert not any(d.writings_complete for d in reading.dockets)
+
+
+def test_a_wrapped_line_opening_on_a_docket_number_is_not_a_caption() -> None:
+    split = split_document(
+        "25-100 SMITH V. JONES\n"
+        + "  The motion to consolidate this case with No.\n"
+        + "25-200 and a total of one hour is allotted for oral argument.\n"
+        + "Justice Alito took no part in the consideration or decision of this petition.\n"
+    )
+    assert [p.dockets for p in split.pieces] == [("25-100",)]
+
+
+def test_a_body_line_opening_on_a_name_is_not_a_header() -> None:
+    body = RELATING + (
+        "JUSTICE KAGAN, dissenting from the denial of certiorari in Doe v.\n"
+        + "Roe, warned that the question would recur.\n"
+    )
+    carter = _day(body)["25-885"]
+    assert [w.authors for w in carter.writings] == [["Alito"]]
+    assert carter.problems == []
+
+
+def test_a_header_no_running_head_names_is_a_problem() -> None:
+    extra = RELATING + "JUSTICE GORSUCH, dissenting.\nI would grant.\n"
+    carter = _day(extra)["25-885"]
+    assert any("header by Gorsuch has no running head" in p for p in carter.problems)
+    assert carter.votes == []
+    assert not carter.writings_complete
+
+
+def test_it_is_so_ordered_in_an_order_keeps_the_notation_before_it() -> None:
+    order = (
+        "SUPREME COURT OF THE UNITED STATES\nNo. 25A100\nSMITH v. JONES\n"
+        + "ON APPLICATION FOR STAY\n[June 22, 2026]\n"
+        + "The application for stay is granted. Justice Alito would deny the application. It is"
+        + " so ordered.\n"
+    )
+    reading = _day(order)["25A100"]
+    assert [(v.justice, v.vote) for v in reading.votes] == [("Alito", VoteValue.deny)]
+
+
+def test_orphan_act_text_is_a_problem_and_a_citation_line_does_not_close_an_entry() -> None:
+    orphaned = split_document(
+        "CERTIORARI DENIED\n25-1 A V. B\n  The petition is denied.\nHABEAS CORPUS DENIED\n"
+        + "Justice Alito dissents from the denial of certiorari.\n"
+    )
+    assert orphaned.problems
+    wrapped = split_document(
+        "25-2 C V. D\n  The petition is denied, as in Powell, 608 U. S.\n___ (2026).  Justice"
+        + " Thomas would grant the petition.\n"
+    )
+    (entry,) = wrapped.pieces
+    assert "Thomas would grant" in entry.text
+
+
+def test_a_section_with_no_pieces_still_seats_its_bench() -> None:
+    per_curiam = (
+        " Cite as: 608 U. S. ____ (2026) 1\nPer Curiam\nSUPREME COURT OF THE UNITED STATES\n"
+        + "No. 25\u2013300. Decided June 22, 2026\n PER CURIAM.\nWe reverse.\nIt is so ordered.\n"
+    )
+    reading = _day(per_curiam)["25-300"]
+    assert reading.bench == list(BENCH)
+    assert reading.writings_complete
+    assert set(reading.writing_roles) == set(BENCH)
+
+
+def test_a_plural_unwritten_dissent_is_read_and_a_bare_one_is_not() -> None:
+    assert _notes(
+        "The application is granted.  Justice Sotomayor and Justice Jackson dissent from the"
+        + " grant of the application."
+    ) == {"Sotomayor": VoteValue.deny, "Jackson": VoteValue.deny}
+    assert parse_order_notations("Justice Thomas dissents.", bench=BENCH).problems

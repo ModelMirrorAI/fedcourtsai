@@ -34,10 +34,13 @@ lines after the Court's own ``It is so ordered.``, where notations on a
 summary disposition are printed.
 
 **Cross-checks.** Every writing prints its author in its running head
-(``ALITO, J., dissenting``, ``Statement of SOTOMAYOR, J.``). A running head
-naming a Justice for whom no header was read in that section is a problem —
-the header the splitter missed would be a writing the reading lacks. An
-appended section dated other than its document is a problem too.
+(``ALITO, J., dissenting``, ``Statement of SOTOMAYOR, J.``), so the check
+runs both ways within each section: a running head naming a Justice for
+whom no header was read is a writing the split missed, and a header whose
+author no running head names is a line of some writing's body taken for a
+header. A header is only read where its sentence ends at a line's end, as a
+header's own paragraph does. Either mismatch is a problem, and so is an
+appended section dated other than its document.
 
 **Assembly and completeness.** Each docket's reading is the union of every
 piece that names it, across every document read. Votes merge — a Justice read
@@ -46,8 +49,9 @@ The vote list is never ``complete``: a Justice who noted nothing is
 unobserved. Writings are ``writings_complete`` — every participating Justice
 observed to have written or not — only when the reading covered **every
 document the Court lists for the order's date** (:func:`read_day`, every
-fetch and extraction whole), the docket has no problem, no document that
-names it has one, and no writing is announced as forthcoming. A single
+fetch and extraction whole), no document read for that date has a problem
+(one that names no docket included), the docket has none, and no writing
+is announced as forthcoming. A single
 document (:func:`read_url`) never covers an order's writings.
 """
 
@@ -110,7 +114,12 @@ _DAY_LINE_RE = re.compile(
     r"^(?:MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY),\s+(?P<d>[A-Z]+\s+\d{1,2},\s+\d{4})$"
 )
 _LIST_TOP_RE = re.compile(r"^\(ORDER LIST\b")
-_CAPTION_RE = re.compile(r"^(?P<docket>\d{2}-\d{1,5}|\d{2}[AMO]\d{1,5}|\d{1,3},\s*ORIG\.?)\s+\S")
+# A caption is printed in capitals; a name particle (McCAULEY, PhRMA) leaves at
+# most a stray lowercase letter, never a lowercase word, so a line of order text
+# that happens to open on a docket number is not a caption.
+_CAPTION_RE = re.compile(
+    r"^(?P<docket>\d{2}-\d{1,5}|\d{2}[AMO]\d{1,5}|\d{1,3},\s*ORIG\.?)\s+(?!.*[a-z]{3})\S"
+)
 _APPLICATION_LINE_RE = re.compile(r"^\((?P<docket>\d{2}A\d{1,5})\)$")
 _PAGE_NUMBER_RE = re.compile(r"^\d{1,3}$")
 _RULE_RE = re.compile(r"^[_\u2014\u2013\-]{3,}$")
@@ -130,8 +139,12 @@ _INLINE_START_RE = re.compile(
     r"(?:^|(?<=[.:)]\s))(?=(?:statement\s+of\s+)?(?:the\s+chief\s+justice|chief\s+justice|justice)\s)",
     re.I,
 )
+_HEADING_RE = re.compile(r"^[A-Z][A-Z .,'&\-]*$")
+# Orphan text that could be a Justice's act: any Justice named, or any act word.
 _TRIGGER_RE = re.compile(
-    r"\b(?:would\s+(?:grant|deny)|took\s+no\s+part|dissenting|concurring|respecting)\b", re.I
+    r"\bjustice\s+[a-z]|\bwould\s+(?:grant|deny)\b|\btook\s+no\s+part\b"
+    + r"|\bdissent|\bconcur|\brespecting\b",
+    re.I,
 )
 
 
@@ -342,7 +355,7 @@ def _split_list(  # noqa: PLR0912 - one branch per line shape the list prints
         if (application := _APPLICATION_LINE_RE.match(line)) is not None and current is not None:
             current.dockets.append(_docket(application.group("docket")))
             continue
-        if not re.search(r"[a-z]", line):
+        if _HEADING_RE.match(line):
             # A caption wrapped onto a second line, or a section heading.
             if current is not None and current.lines:
                 current = None
@@ -379,6 +392,22 @@ def _head_author(line: str) -> str | Literal[False] | None:
     if match is None:
         return None
     return resolve_surname(match.group("name").split()[-1]) or False
+
+
+def _line_header(body: Sequence[str], index: int) -> str | None:
+    """The header sentence opening at ``body[index]``, if it ends where a line ends.
+
+    A writing's header is set as its own paragraph, so its period closes a
+    line; a sentence of a writing's body that opens on a name and runs on
+    (``JUSTICE ALITO, dissenting from the denial of certiorari in Doe v. Roe,
+    warned …``) never ends at a line's end after its first period.
+    """
+    for end in range(index + 1, min(index + 4, len(body)) + 1):
+        joined = normalize_order_text("\n".join(body[index:end])).strip()
+        header = match_header(joined)
+        if header is not None and header.endswith(".") and header == joined:
+            return header
+    return None
 
 
 def _split_section(  # noqa: PLR0912 - one branch per line shape a section prints
@@ -421,13 +450,11 @@ def _split_section(  # noqa: PLR0912 - one branch per line shape a section print
         if _PER_CURIAM_RE.match(normalized):
             mode = "court"
             continue
-        if HEADER_START_RE.match(normalized):
-            header = match_header("\n".join(body[index : index + 4]))
-            if header is not None and header.endswith("."):
-                pieces.append(OrderPiece(key, "header", header, day, number))
-                mode = "writing"
-                continue
-        if mode in {"order", "court"} and _SO_ORDERED_RE.search(normalized):
+        if HEADER_START_RE.match(normalized) and (header := _line_header(body, index)):
+            pieces.append(OrderPiece(key, "header", header, day, number))
+            mode = "writing"
+            continue
+        if mode == "court" and _SO_ORDERED_RE.search(normalized):
             order_lines.append(normalized.split("It is so ordered.", 1)[1])
             mode = "order"
             continue
@@ -520,7 +547,7 @@ class OrderDocketReading(BaseModel):
     order_date: date | None
     documents: list[str]
     bench: list[str]
-    complete: bool = False
+    complete: Literal[False] = False
     writings_complete: bool
     votes: list[JusticeVote]
     writing_roles: dict[str, WritingRole | None]
@@ -595,6 +622,11 @@ def _assemble(  # noqa: PLR0912 - each merge rule is its own check
     """One docket's reading from every piece that names it."""
     problems = list(parts.problems)
     bench: tuple[str, ...] = ()
+    if parts.day is not None:
+        try:
+            bench = bench_on(parts.day)
+        except ValueError as exc:
+            problems.append(str(exc))
     votes: dict[str, VoteValue] = {}
     writings: dict[tuple[WritingKind, tuple[str, ...]], Writing] = {}
     for _, _, lineup in parts.lineups:
@@ -618,9 +650,14 @@ def _assemble(  # noqa: PLR0912 - each merge rule is its own check
     for writing in writings.values():
         for name in sorted(writing.signatories & absent):
             problems.append(f"{name} took no part but signs a {writing.kind}")
-    for name in _unmatched_heads(parts):
+    missing, unheaded = _unmatched_heads(parts)
+    for name in missing:
         problems.append(f"a running head names {name} but no header of theirs was read")
+    for name in unheaded:
+        problems.append(f"a header by {name} has no running head of theirs in its section")
 
+    if not bench:
+        problems.append("no bench to read the order against")
     complete_writings = covers_the_day and not problems
     roles: dict[str, list[WritingKind]] = {}
     if complete_writings:
@@ -662,12 +699,13 @@ def _assemble(  # noqa: PLR0912 - each merge rule is its own check
     )
 
 
-def _unmatched_heads(parts: _DocketParts) -> list[str]:
-    """Running-head authors of this docket's sections for whom no header was read.
+def _unmatched_heads(parts: _DocketParts) -> tuple[list[str], list[str]]:
+    """Running heads with no header read, and headers with no running head.
 
-    Per section: a head names the writing its page belongs to, so a head
-    whose author has no header in the same section is a writing the split
-    missed.
+    Per section, both ways: every page of a writing carries its author's
+    running head, so a head whose author has no header in the same section
+    is a writing the split missed, and a header whose author no head names
+    is a line of some writing's body the split took for a header.
     """
     read: dict[tuple[str, int], set[str]] = {}
     for document, piece, lineup in parts.lineups:
@@ -678,7 +716,10 @@ def _unmatched_heads(parts: _DocketParts) -> list[str]:
     missing: list[str] = []
     for key, authors in parts.heads.items():
         missing.extend(sorted(authors - read.get(key, set())))
-    return missing
+    unheaded: list[str] = []
+    for key, written in read.items():
+        unheaded.extend(sorted(written - parts.heads.get(key, frozenset())))
+    return missing, unheaded
 
 
 @dataclass(frozen=True)
@@ -769,6 +810,9 @@ def read_documents(  # noqa: PLR0912 - per-document failure paths, each recorded
                 problems=doc_problems,
             )
         )
+    # A problem on any document of the day — one that names no docket
+    # included — could be a writing the reading lacks, so it uncovers the day.
+    covers_the_day = covers_the_day and not any(r.problems or r.status != "read" for r in readings)
     return OrderDayReading(
         date=day,
         covers_the_day=covers_the_day,
@@ -798,7 +842,9 @@ class OrderFetcher:
 
     def _page(self, url: str) -> str:
         page = self._client.get_document(url)
-        return "" if page is None else page.decode("utf-8", errors="replace")
+        if page is None:
+            raise httpx.HTTPError(f"listing not served: {url}")
+        return page.decode("utf-8", errors="replace")
 
     def listed(self, term: int) -> list[OrderDocumentRef]:
         """Every document both listings carry for one Term."""

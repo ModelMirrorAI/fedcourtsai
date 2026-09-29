@@ -21,8 +21,9 @@ foot of an order published with its opinions::
   rehearing, or one limited ``in part``, ``as to`` or ``except`` something,
   is not read.
 - *An unwritten dissent or concurrence*: ``X dissents from the denial of
-  certiorari`` (``grant``), ``… from the grant of the application``
-  (``deny``), and ``X concurs in …`` the other way round.
+  certiorari`` (``grant``), ``X and Y dissent from the grant of the
+  application`` (``deny``), and ``X concurs in …`` the other way round. A
+  bare ``X dissents.`` names no act, so it is not read.
 - *Non-participation*: ``X took no part in the consideration or decision of
   this petition|application|case`` — ``did-not-participate``, since the
   sentence does not say whether it is a recusal.
@@ -115,7 +116,7 @@ _NOTED_RE = re.compile(
     re.I,
 )
 _UNWRITTEN_RE = re.compile(
-    rf"(?P<names>{_NAME_LIST})\s+(?P<verb>dissents|concurs)\b(?P<object>.*?){_SENTENCE_END}",
+    rf"(?P<names>{_NAME_LIST})\s+(?P<verb>dissents?|concurs?)\b(?P<object>.*?){_SENTENCE_END}",
     re.I,
 )
 _ABSENT_RE = re.compile(
@@ -164,7 +165,9 @@ _HEADER_RE = re.compile(
     rf"^\s*(?P<statement>statement\s+of\s+)?(?P<authors>{_NAME_LIST})"
     rf"(?:\s*,\s*with\s+whom\s+{_JOINS})?"
     r"(?:\s*,?\s*(?P<role>(?:dissenting|concurring|respecting)\b[^.:,]*?))?"
-    r"\s*(?P<end>[.:])",
+    # The period must end the sentence, not an abbreviation a body sentence
+    # carries ("… in Doe v. Roe", "… J. Smith").
+    r"(?<!\sv)(?<!\sV)(?<!\s(?-i:[A-Z]))\s*(?P<end>[.:])",
     re.I,
 )
 #: Where a header may begin: a name or a ``Statement of`` a name.
@@ -331,7 +334,9 @@ def parse_order_notations(text: str, *, bench: Sequence[str], chief: str | None 
         if who is None:
             continue
         act = _ACT_RE.match(match.group("object"))
-        sides = _DISSENT_SIDES if match.group("verb").lower() == "dissents" else _CONCUR_SIDES
+        sides = (
+            _DISSENT_SIDES if match.group("verb").lower().startswith("dissent") else _CONCUR_SIDES
+        )
         if act is None:
             problems.append(
                 f"an unwritten {match.group('verb').lower()} with no act read: "
