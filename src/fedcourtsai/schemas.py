@@ -772,7 +772,7 @@ class PredictionContext(_Strict):
         "over into a later Term. This is also what the cell was handed as "
         "DECIDED_BEFORE, and what it passed to `fedcourts query`. The day-level "
         "retrieval boundary is `cutoff` beside it, which is what REPLAY_CUTOFF "
-        "carries on a dated cell and what narrows that query further. Null on a "
+        "carries on a dated or truncated cell and what narrows that query further. Null on a "
         "forward cell, whose outcome does not exist yet",
     )
     signals_observable: bool = Field(
@@ -4955,6 +4955,37 @@ class CertBacktestDisclosureTally(_Strict):
     )
 
 
+class CertBacktestCellClock(_Strict):
+    """The replay clock one petition's cells were exported, and the arm it sat in.
+
+    Every predictor's cell on a petition is provisioned from the same case tree
+    and handed the same clock, so the record is per petition, not per
+    (petition, predictor). It is kept because the clock's width is an
+    information-set axis the arm counts do not capture: two dated cells with
+    the same Term and different cutoff days could retrieve different priors,
+    and a blind cell, having no day, is screened on its Term alone.
+    """
+
+    case_id: str = Field(description="The replayed petition")
+    snapshot_provenance: Literal["dated", "truncated", "blind"] = Field(
+        description="The arm the petition was provisioned under — the key it is "
+        "counted under in the report's `provisioning` and `provisioning_denied`"
+    )
+    decided_before: int = Field(
+        description="The Term half of the clock, exported to every cell on the "
+        "petition as `DECIDED_BEFORE`: the petition's own docket October-Term year, "
+        "which a prior must resolve strictly before to be retrieved"
+    )
+    replay_cutoff: date | None = Field(
+        default=None,
+        description="The day half, exported as `REPLAY_CUTOFF`: the day the cells were "
+        "provisioned at, which `fedcourts query` applies as a second, removal-only "
+        "screen (a prior resolved on or after it is dropped; an undated one stays). "
+        "Null on the blind arm, which was given no cutoff, so its cells were "
+        "screened on the Term alone",
+    )
+
+
 class CertBacktestProvenance(_Strict):
     """What produced a cert back-test report: the run, its dispatch, and its config.
 
@@ -5048,6 +5079,16 @@ class CertBacktestProvenance(_Strict):
         "predictor id, for every replayed predictor on the board. Engines differ "
         "in how often and how they write notes, so a count is read within one predictor, "
         "never as a cross-engine leakage comparison",
+    )
+    clocks: list[CertBacktestCellClock] = Field(
+        default_factory=list,
+        description="The replay clock every replayed petition's cells ran under, one "
+        "entry per petition, sorted by case id: its arm, its Term (`DECIDED_BEFORE`) "
+        "and, on the dated and truncated arms, its cutoff day (`REPLAY_CUTOFF`). The "
+        "day narrows what a cell could retrieve, so two runs over the same petitions "
+        "on different days are different information sets even where `provisioning` "
+        "matches. Empty on an offline run, which provisions no cell, and on reports "
+        "written before the clock was recorded",
     )
 
 
@@ -5212,6 +5253,25 @@ class CertBacktest(_Strict):
         "outcome-correlated feature, which raises the pooled floor and dilutes "
         "every lift measured over the union. Read the mix before reading the "
         "scores. Empty on reports written before the split existed",
+    )
+    provisioning_denied: dict[str, int] = Field(
+        default_factory=dict,
+        description="Of the petitions counted under each key of `provisioning`, how "
+        "many were realized denials — keyed the same, a zero stated rather than "
+        "omitted. Each arm's own always-deny floor is its count here over its count "
+        "there, which undoes the mixture in the floor: the pooled "
+        "`always_denied_accuracy` is those floors weighted by the arm sizes. It "
+        "does not split the scores — no entry's accuracy is broken out by arm — so "
+        "it says how much of the pooled floor the blind arm carries, not how an "
+        "entry did on each arm. Beside `provenance.clocks`, which names each "
+        "petition's arm, it states a named petition's outcome wherever its arm is "
+        "pure, which includes every arm of one. Over the whole replayed "
+        "set, like the pooled floor, so an entry short some cells "
+        "(`provenance.lost_cells`) is not floored by these either. A floor over an "
+        "arm of one to three petitions is a count, not a rate: read it as denials "
+        "over n, never as a percentage without its n. Empty where no "
+        "replay provisioned a petition, and on reports written before the per-arm "
+        "count existed",
     )
     provenance: CertBacktestProvenance | None = Field(
         default=None,

@@ -32,7 +32,7 @@ import subprocess
 import sys
 import threading
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from datetime import date
@@ -83,6 +83,7 @@ from .schemas import (
     CalibrationBin,
     CertBacktest,
     CertBacktestBigCase,
+    CertBacktestCellClock,
     CertBacktestCellLoss,
     CertBacktestDisclosure,
     CertBacktestDisclosureTally,
@@ -527,8 +528,8 @@ class ReplayOutcome:
     the scores were produced over. Everything there rides the report — stderr
     does not survive the runner.
 
-    ``clock_days`` maps each dated cell's case id to the cutoff day it was
-    clocked on, and carries no entry for a blind cell. It is what puts the
+    ``clock_days`` maps each non-blind (dated or truncated) cell's case id to
+    the cutoff day it was clocked on, and carries no entry for a blind cell. It is what puts the
     offline reference baseline on the same clock the engine cells are on
     (:func:`fedcourtsai.backtest.default_backtesters`), so the reference row is
     comparable with the engine rows rather than masked more loosely than they
@@ -543,6 +544,12 @@ class ReplayOutcome:
     subset a vote can be scored over, which a cell's own ``fedcourts query``
     does not (:class:`fedcourtsai.backtest.PriorIndex`).
 
+    ``clocks`` is the report's record of the same thing for every petition,
+    blind ones included: the arm it was provisioned under and both halves of
+    the clock its cells were exported (the Term and, where there is one, the
+    day). It rides the report's provenance, and the per-arm denial counts are
+    read off its arms.
+
     ``disclosures`` and ``disclosure_tally`` are what the cells said about
     themselves in ``flags.json`` (:func:`_read_replayed_flags`), carried to the
     report because the work root they were written into is discarded with the
@@ -554,9 +561,24 @@ class ReplayOutcome:
     unavailable: list[str]
     provisioning: dict[str, int]
     lost_cells: list[CertBacktestCellLoss]
-    clock_days: dict[str, date] = field(default_factory=dict)
+    clocks: list[CertBacktestCellClock] = field(default_factory=list)
     disclosures: list[CertBacktestDisclosure] = field(default_factory=list)
     disclosure_tally: dict[str, CertBacktestDisclosureTally] = field(default_factory=dict)
+
+    @property
+    def clock_days(self) -> dict[str, date]:
+        """The cutoff day of each petition that has one, read off ``clocks``."""
+        return clock_days(self.clocks)
+
+
+def clock_days(clocks: Iterable[CertBacktestCellClock]) -> dict[str, date]:
+    """Each non-blind petition's cutoff day, keyed by case id.
+
+    The one place the offline reference baseline's per-petition mask is read
+    off the recorded clocks, so the day that row is masked on and the day the
+    report says each cell was exported cannot come from two sources.
+    """
+    return {c.case_id: c.replay_cutoff for c in clocks if c.replay_cutoff is not None}
 
 
 # Which engine lane the current thread is running, for the log prefix. Set by
@@ -1240,8 +1262,9 @@ def replay_predictors(
     backend for offline ``stub``/``replay`` runs, and ``skip_engines`` opts
     named engines out) and collects its
     ``prediction.json``. Each cell carries the replay clock in two halves: its
-    own docket Term as ``DECIDED_BEFORE`` on every arm, and — on the dated arm
-    only — the day it was provisioned at as ``REPLAY_CUTOFF``, which
+    own docket Term as ``DECIDED_BEFORE`` on every arm, and — on the dated and
+    truncated arms, every cell but a blind one — the day it was provisioned at
+    as ``REPLAY_CUTOFF``, which
     ``fedcourts query`` applies as a second bar and which can only remove
     priors that had not yet resolved when the cell was placed. The offline
     prior-vote baseline is given the same per-cell day, so the reference row on
@@ -1250,7 +1273,7 @@ def replay_predictors(
     the :class:`ReplayedBacktester` list (one per predictor that produced
     predictions), the ids of predictors whose engine turned out to be
     **unavailable** mid-run, the per-cell losses, the provisioning mix, and
-    each dated cell's clock day.
+    each non-blind cell's clock day.
 
     Every run-time fault is absorbed rather than raised, for the same reason: a
     campaign that crashes strands the spend already made on every other cell and
@@ -1328,9 +1351,10 @@ def replay_predictors(
     # observe its own relist history at all, which is most of what a cert forecast
     # turns on, so a score over their union is a score over a mixture.
     provisioning: Counter[str] = Counter()
-    # Each dated cell's cutoff, for the offline baseline to mask on the same
-    # clock (see :class:`ReplayOutcome`). A blind cell contributes no entry.
-    clock_days: dict[str, date] = {}
+    # Every petition's arm and exported clock, for the report and — its dated
+    # days — for the offline baseline to mask on the same clock (see
+    # :class:`ReplayOutcome`); a blind petition is recorded with no day.
+    clocks: list[CertBacktestCellClock] = []
     for item in items:
         court, _, docket_raw = item.features.case_id.partition("/")
         docket = int(docket_raw)
@@ -1397,8 +1421,16 @@ def replay_predictors(
         if provenance != "dated" and cutoff is not None:
             snapshot_date = cutoff
         provisioning[provenance] += 1
-        if cutoff is not None:
-            clock_days[item.features.case_id] = cutoff
+        # What the cells below are exported, read off the same two values the
+        # RunRequest is built from, so the record cannot drift from the clock.
+        clocks.append(
+            CertBacktestCellClock(
+                case_id=item.features.case_id,
+                snapshot_provenance=provenance,
+                decided_before=item.features.year,
+                replay_cutoff=cutoff,
+            )
+        )
         # The cell's mode context: a replay cell runs with the same tools
         # as a forward one — etiquette, logging, and the cross-evaluator's leakage
         # grading replace walls — so the prompt contract needs the mode stated, not
@@ -1468,7 +1500,7 @@ def replay_predictors(
                     # DECIDED_BEFORE and REPLAY_CUTOFF. The Term is the case's
                     # own docket Term on every arm — self-excluding, and what
                     # the prompt contract anchors on. The day is this cell's
-                    # provisioned cutoff and only the dated arm has one; it
+                    # provisioned cutoff, which every non-blind cell has; it
                     # narrows retrieval to the priors that had actually resolved
                     # when the cell was placed, and can only remove.
                     decided_before=item.features.year,
@@ -1503,7 +1535,7 @@ def replay_predictors(
         backtesters=backtesters,
         unavailable=sorted(unavailable),
         provisioning=dict(provisioning),
-        clock_days=clock_days,
+        clocks=sorted(clocks, key=lambda clock: clock.case_id),
         # Every loss, including one on a predictor whose engine went missing
         # later in the campaign: unavailability drops the predictor from the
         # board, but the cells it already ran and lost were paid for and are
@@ -1760,6 +1792,12 @@ def run_cert_backtest(
     the two halves cannot disagree about what ran. Omitting it leaves the block
     null, which a reader must treat as *unknown provenance* rather than as an
     offline run — every report the CLI writes carries one.
+
+    ``provisioning_denied`` is read off ``provenance.clocks``, which records the
+    arm each replayed petition was provisioned under: per arm in
+    ``provisioning``, the petitions of this set that were realized denials, so
+    a reader can recover each arm's own always-deny floor from the pooled one.
+    Empty where no clock was recorded, which is every run with no replay.
     """
     if not items:
         return CertBacktest(
@@ -1800,6 +1838,29 @@ def run_cert_backtest(
         salience_version=SALIENCE_VERSION,
         always_denied_accuracy=always_denied_accuracy,
         provisioning=dict(provisioning or {}),
+        provisioning_denied=_denied_by_arm(items, provisioning, provenance),
         provenance=provenance,
         entries=entries,
     )
+
+
+def _denied_by_arm(
+    items: list[BacktestItem],
+    provisioning: Mapping[str, int] | None,
+    provenance: CertBacktestProvenance | None,
+) -> dict[str, int]:
+    """Realized denials per provisioning arm, keyed as ``provisioning`` is.
+
+    Every arm the mix names gets a key, a zero included — an arm with no denial
+    is a finding, and an absent key would read as not counted. Empty when no
+    clock records which arm a petition sat in.
+    """
+    if provenance is None or not provenance.clocks:
+        return {}
+    arm_of = {clock.case_id: clock.snapshot_provenance for clock in provenance.clocks}
+    denied = dict.fromkeys(provisioning or {}, 0)
+    for item in items:
+        arm = arm_of.get(item.features.case_id)
+        if arm is not None:
+            denied[arm] = denied.get(arm, 0) + int(item.actual_disposition == Disposition.denied)
+    return denied

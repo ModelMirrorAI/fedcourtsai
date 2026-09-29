@@ -5158,3 +5158,71 @@ freeze commit is recorded here.
   with a committed outcome. The runnable effect check once it is live:
   `uv run fedcourts process-digest --all` still prints the same six digests,
   and `FROZEN_SINCE` in `src/fedcourtsai/process_version.py` is unchanged.
+
+- **The cert back-test's replay retrieval mask gains a cutoff-day screen under
+  an unchanged process digest; recorded 2026-09-29.** A **masking-surface**
+  entry, recorded after the change reached `main` rather than ahead of it, and
+  ahead of the first scheduled report it governs. It moves what a replay cell
+  can retrieve, and nothing a digest witnesses, so without this entry the move
+  is legible only from promotion history.
+
+  **What moved.** A cert back-test replay cell's `fedcourts query` screens the
+  priors it retrieves on two bars rather than one. The first is unchanged: the
+  Term, `DECIDED_BEFORE`, the petition's own docket October-Term year, which a
+  prior's year must precede. The second is new: on a cell provisioned with a
+  cutoff (the `dated` and `truncated` arms), the cutoff day, `REPLAY_CUTOFF`,
+  which `fedcourts query` reads from the environment and applies on top of the
+  Term. A prior resolved on or after that day is dropped, a surviving row's
+  merits judgment dated on or after it is stripped, and an undated prior is
+  left to the Term. The day only **removes** rows the Term already admits,
+  the priors that had not yet resolved when the cell was placed; nothing about
+  the Term is derived from it. A `blind` cell has no cutoff and is screened on
+  its Term alone, as before. The offline `prior-vote` reference row in the same
+  report is masked on the same per-petition day, so it stays masked as the
+  engine rows are.
+
+  **Where it landed.** Merged to `staging` as `19d3eb986`
+  (`2026-09-20T23:43:40Z`) and carried to `main` by the promotion tagged
+  **`promotion/2026-09-21`** (merge commit `a2f84f2ee`, merged
+  `2026-09-21T18:01:19Z`). At that promotion's first parent `src/fedcourtsai/corpus.py`
+  has no day bar and `src/fedcourtsai/cli.py` does not read `REPLAY_CUTOFF`;
+  at its merge commit both do.
+
+  **What did not move.** No digest input. The promotion touches no prompt
+  template, neither `config/predictors.yaml` nor `config/evaluators.yaml`, and
+  `src/fedcourtsai/process_version.py` only in a comment. `uv run fedcourts
+  process-digest --all`, run over the trees of `a2f84f2ee^1` and `a2f84f2ee`,
+  prints the same output on both: `proc-v8` and the same six blessed digests.
+  Replay cells carry no process digest in any case, which is why this record
+  exists. **Forward cells never set the clock.** Only
+  `cert_backtest.replay_predictors` gives a cell a cutoff day, the runner
+  exports `REPLAY_CUTOFF` only when one is set, and `run-backtest.yml` is the
+  only workflow that names it. So no forward predict or evaluate cell's
+  information set moved, and no counted `proc-v8` cell is affected.
+
+  **The reading rule.** Two cert back-test reports produced on either side of
+  `a2f84f2ee` ran under different replay masks, even where their provenance
+  blocks agree. Provenance agreement is the fortnightly series' comparability
+  test, and it cannot see this change, so no series comparison spans the
+  boundary. No cert back-test report has ever been merged to `main`. The
+  reports on the earlier side are the ones on closed, unmerged review PRs,
+  each the tip of the `metrics/cert-backtest` review branch in its day:
+  `2386e03bb` (committed `2026-09-20T18:36:48Z`, the first real-engine
+  replay: 25 petitions, `provisioning` `{"blind": 5, "truncated": 20}`,
+  always-deny floor 0.600), whose 20 truncated cells ran without the day
+  screen; `ff85eb2ec` (`2026-09-03T11:41:48Z`: 25 petitions, the same mix and
+  floor, no provenance block); and `df4e578c3` (`2026-07-15T16:15:52Z`: 7
+  petitions, offline reference baselines only, no provisioning split). From
+  the report that first carries
+  `provenance.clocks` onward, each report records the `DECIDED_BEFORE` and
+  `REPLAY_CUTOFF` its petitions' cells were exported. A later change to the
+  clock that such a report's cells ran under is visible in that field.
+
+  **Observed so far.** The day screen has tests and no runner trace. The first
+  post-promotion dispatch (run `35636152823`) provisioned 4 blind petitions and
+  1 truncated one, and no `fedcourts query` invocation appears in its run
+  log, so there is no record of the screen acting. The dispatch after it (run `35643195366`) exited
+  non-zero and wrote no report. The runnable effect check, once a scheduled `spread` run lands its
+  report: `jq '[.provenance.clocks[] | select(.replay_cutoff != null)] |
+  length' metrics/cert-backtest.json` is non-zero wherever `.provisioning`
+  counts a `dated` or `truncated` petition.

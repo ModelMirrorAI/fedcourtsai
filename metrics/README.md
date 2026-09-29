@@ -1386,15 +1386,28 @@ the rendered table) and
   denial signal here, so the blind arm is selected on a feature that correlates
   with the outcome and comes out denial-purer than the rest. A blind-heavy draw
   therefore carries a *higher* pooled floor and dilutes every lift measured
-  over the union, rather than depressing them. Read the mix before the scores,
-  and read a shift in it between two fortnights the way you read a change of
-  dispatch. The weekly digest's cert back-test line carries the mix and the
-  dispatch beside the figure for that reason. Two things the mix does not
-  capture. The first is that the day bar narrows the **dated** cells'
-  retrieval and not the blind ones', so the two arms differ in what they could
-  *retrieve* as well as in what their snapshots showed — one more reason to
-  read the mix before the scores. The second is the offline `prior-vote` row:
-  it is masked on each dated cell's own cutoff day, the clock its engine cells
+  over the union, rather than depressing them. `provisioning_denied` gives
+  the size of that effect: keyed as `provisioning` is, a zero stated, it counts
+  each arm's realized denials, so each arm's own always-deny floor is its
+  count there over its count in `provisioning`, and the pooled floor is those
+  arm floors weighted by arm size. That separates the floor, not the scores:
+  no entry's accuracy is broken out by arm, so a lift cannot be split the same
+  way, and what the counts license is how much of the pooled floor the blind
+  arm carries — the floor over the non-blind arms alone is their denials over
+  their count. Like the pooled floor, the counts are over the whole replayed
+  set, so an entry short some cells is floored by neither. At the pinned
+  draw of ten an arm can hold one to three petitions, and a floor over an
+  arm that small is a count, not a rate: quote it as denials over n, never
+  as a percentage without its n. Read the mix before the scores, and read a
+  shift in it between two fortnights the way you read a change of dispatch.
+  The weekly digest's cert back-test line carries the mix and the dispatch
+  beside the figure for that reason. Two things the mix does not capture.
+  The first is that the day bar narrows the retrieval of every cell with a
+  cutoff — the **dated and truncated** arms — and not the blind ones', so the
+  arms differ in what they could *retrieve* as well as in what their
+  snapshots showed — one more reason to read the mix before the scores. The
+  second is the offline `prior-vote` row:
+  it is masked on each non-blind cell's own cutoff day, the clock its engine cells
   retrieved under, and only an **engine replay** provisions those cutoffs. So a
   run with no replay at all (`--engine` unset) carries a prior-vote row masked
   on the Terms alone, while any replay — a stub rehearsal included, since it
@@ -1405,7 +1418,23 @@ the rendered table) and
   replayed set's denial share, a property of the labels. Do not compare
   `prior-vote`'s top line between a replay run and a no-replay one regardless:
   `--engine` also narrows the population to the replayable petitions, so the
-  two are scored over different sets and their floors are different floors. Produced by the
+  two are scored over different sets and their floors are different floors.
+
+  `provenance.clocks` records, per replayed petition, the arm and the two
+  clock halves its cells were exported — `decided_before` (the Term) and
+  `replay_cutoff` (the day, null on a blind petition) — so the clock's width
+  is read from the report rather than assumed from the arm. Named petitions
+  beside their arms, with the arms' denial counts, state a named petition's
+  outcome wherever its arm is pure, which includes every arm of one, and the
+  draws of consecutive fortnights can overlap. So `cert-backtest` takes the
+  standing report out of the working tree while the cells run and puts it
+  back before writing the new one. That is a fence against an incidental
+  working-tree read and nothing more: the committed copy stays reachable
+  through version history, through the unmerged, force-pushed
+  `metrics/cert-backtest` review branch among the full-depth checkout's refs,
+  and through the public repository, which a cell's web tools can reach.
+
+  Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A
   real-engine replay spends tokens, so **the schedule asks and the hold
   spends**: no run spends without an explicit maintainer decision. The

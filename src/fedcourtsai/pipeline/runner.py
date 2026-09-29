@@ -133,7 +133,8 @@ class RunRequest:
     Term.
 
     ``replay_cutoff`` is the calendar day the cell was provisioned at, exported
-    as ``REPLAY_CUTOFF``, and only a **dated** cell has one (the blind arm was
+    as ``REPLAY_CUTOFF``, and every cell but a blind one has it — the
+    **dated** and **truncated** arms (the blind arm was
     given no cutoff). ``fedcourts query`` reads it for itself and applies it as
     a second bar on top of whatever ``--decided-before`` set. Because an undated
     prior cannot be tested against a day, that bar can only **remove** rows the
@@ -591,7 +592,7 @@ def _cell_env(request: RunRequest, model: str) -> dict[str, str]:
     engine runs (``MODEL_ID`` — the agent copies it into its artifact's ``model``
     field). ``DECIDED_BEFORE`` (the case's October-Term year) appears only on
     back-test replay cells, and ``REPLAY_CUTOFF`` (an ISO date) only on the
-    dated ones among them — the live workflows set neither. Auth is never
+    dated and truncated ones among them — the live workflows set neither. Auth is never
     assembled here: the agent inherits it from the scrubbed base environment
     (:func:`_agent_base_env`), which passes through only the engine's own.
     """
