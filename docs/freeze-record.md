@@ -5231,7 +5231,7 @@ freeze commit is recorded here.
   petitioner side's own served contact values, and its manifest says which
   passes ran, 2026-09-29.** A **conditioning** entry in the *what the pipeline
   provisions* class. It is the same class as the 2026-09-21 document-scrub
-  entry above, and it narrows that scrub further rather than replacing it.
+  entry, and it narrows that scrub further rather than replacing it.
 
   No prompt byte and no registry field moves, so no digest moves:
   `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
@@ -5243,7 +5243,7 @@ freeze commit is recorded here.
   a placeholder. The new manifest key below is visible only in that gitignored
   manifest, so the boundary exists only here.
 
-  On an affected docket the rule of the entry above now covers three segments:
+  On an affected docket the 2026-09-21 entry's rule now covers three segments:
   - cells provisioned before that scrub;
   - cells provisioned under its shape-only scrub;
   - cells provisioned after this change.
@@ -5289,32 +5289,39 @@ freeze commit is recorded here.
 
   The withheld strings are contact details, but they are not free of content.
   Most of the addresses the value pass newly reaches are prison-unit forms,
-  and a prison address says the filer is incarcerated. That fact still reaches
-  the cell, through:
-  - the staged snapshot's counsel-block keys;
-  - the institution names and register numbers the scrub does not touch;
-  - the docket's fee class.
-
-  So the cell loses the string, not the fact. The negative form of the entry
-  above holds here too. A movement in **either** direction across this boundary
+  and a prison address says the filer is incarcerated. Where the filer's block
+  carries a register number, the fact still reaches the cell. It comes through
+  that number, or through the presence marker the same-day snapshot entry
+  leaves in its place. Where the block carries none, the withheld address may
+  have been a carrier of the fact. Whether the fact still reaches those cells,
+  through institution names elsewhere in the text or through the docket's fee
+  class, is not measured. The negative form of the 2026-09-21 entry holds here
+  too. A movement in **either** direction across this boundary
   may not be read as a model effect. The design supports excluding one reading,
   not asserting a cause.
 
+  A same-day entry withholds the self-represented petitioner-side block's
+  contact keys from the staged snapshot too. If it lands in the same promotion
+  as this one, the two share this boundary. If it lands in a different
+  promotion, each promotion is a boundary of its own. Whichever lands second
+  says which case held.
+
   **The measurement, on the real function and the real text.** The pulled
   blob's newest pull stamp is `2026-09-28` and its newest stored snapshot is
-  `2026-07-13`. These are figures for the blob's stored payloads and documents.
+  `2026-07-13` (blob `sha256:8c72a4fb…`, no longer the committed pointer's).
+  These are figures for the blob's stored payloads and documents.
   The content store, which alone holds most current dockets, was not read.
 
-  The trigger reads **623** of the **2,925** cases with a stored payload as
-  unrepresented, the same count as the entry above. Their **924** stored
+  Of the **1,562** latest stored payloads that carry a petitioner-side block,
+  the trigger reads **623** as unrepresented, the same count as the 2026-09-21
+  entry. Their **924** stored
   documents are the scrubbed population. Against the 2026-09-21 scrub on the
   same documents:
   - the staged text of **149** of the 924 documents changes;
   - replacements go from **1,830** under the 2026-09-21 scrub to **1,984**
     withheld spans under both passes. The difference is not a count of newly
     withheld details, because one withheld span can merge what the old scrub
-    replaced as two. The figure also shares its digits with the 1,984 cases of
-    the entry above by coincidence;
+    replaced as two;
   - the fragmented-email shape matches **31** addresses the contiguous pattern
     does not, in **24** documents;
   - the value pass matches **914** times in **312** documents. **225** of those
@@ -5325,7 +5332,7 @@ freeze commit is recorded here.
   **The email ground truth** is the blocks' own `Email` strings, counted as
   (value, document) pairs wherever the text carries them in some spelling. A
   multi-address field is split into its addresses first, which is why these
-  counts differ from the 78 verbatim emails of the entry above.
+  counts differ from the 78 verbatim emails of the 2026-09-21 entry.
   - **Fragmented only: 10 pairs.** The 2026-09-21 scrub leaves **7** in the
     staged text, and the new shape pass alone leaves **1**. That is a
     measurement: the shape pass does not see the values.
@@ -5370,7 +5377,7 @@ freeze commit is recorded here.
   scored figure moves. `empty_text` is still read off the stored text before
   the scrub. Nothing is written to the corpus.
 
-  **The amendment debt.** It is unchanged in kind from the entry above. The
+  **The amendment debt.** It is unchanged in kind from the 2026-09-21 entry. The
   predict prompt does not describe the manifest's scrub keys, so
   `contact_scrub_passes` joins the reading rule owed at the next re-bless,
   with no ordering constraint.
