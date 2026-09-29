@@ -12,8 +12,10 @@ how much of a vote record is there.
 What is live is worth naming precisely, because the rest of this document is
 not. `Prediction.votes` carries a per-Justice vote forecast, and `vote_accuracy`
 scores it against `Outcome.votes` wherever both name the same Justice — on a
-declared **merits** moment only, the stage gate below — feeding the
-leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
+declared **merits** moment only, and only against a complete vote record, the
+two gates below; the leaderboard's `mean_vote_accuracy` (with its
+`vote_cells_scored` count) averages a whole-bench recomputation of the same
+comparison, `bench_vote_accuracy`. Event definitions carry a nullable
 `stage` — stamped on **all eight declared moments** (`cert` on the three cert
 moments, `interim` on the three interim moments, `merits` on the two merits
 moments) and on the SCOTUS entry-pinned stay/injunction motions the interim
@@ -91,7 +93,7 @@ counted differently and observed differently.
 | `A_stage` | grant iff at least **four** Justices vote to grant | relief iff a **majority**; a Circuit Justice may act alone before referring to the full Court | judgment by a **majority** of participating; the *opinion* may command fewer, which is a plurality |
 | `D` observed | always | always | always |
 | `V_j` observed | almost never, **and selectively** | partially | fully, with a vote source |
-| `W_j` observed | rarely non-`none` — but **absence is observed for every participating Justice** once the order list is final | sometimes | fully |
+| `W_j` observed | rarely non-`none` — but **absence is observed for every participating Justice** once the order list is final and every document listed with it is read | sometimes | fully |
 | `R_j` observed | iff `W_j ≠ none` | iff `W_j ≠ none` | iff `W_j ≠ none` |
 
 The last row is the one that is easiest to lose: reasoning censoring is
@@ -213,7 +215,9 @@ the rule is *never score*, whatever a particular record happens to contain.
 
 **Whether a Justice writes at all does not have that problem.** Absence is itself
 an observation: once the order list is final, every participating Justice is
-observed. It is not
+observed, provided every document the Court lists for the order's date is read
+without a problem (the rule
+the order-list parser applies, [data-sources.md](data-sources.md)). It is not
 disclosed by the pre-decision docket, and it is an increment from the
 prediction's vantage point — so it clears tests 1 and 2 of the five the
 withdrawn cert-signal set failed (`docs/outcome-decomposition.md`). It does **not** yet
@@ -501,36 +505,57 @@ case's own Term out, the minimum-sample floor keeps a thin pool from scoring at
 all, and the statpack's `parsed`/`granted` coverage is published beside the
 rate so the residue stays visible rather than assumed away.
 
-**The vote block is mandatory, and scored intersection-only.** Every merits
+**The vote block is mandatory, and scored twice.** Every merits
 prediction must carry a non-empty per-Justice `votes` block — the schema
 enforces "judgment set ⇒ votes non-empty" on the artifact, and the `validate`
 gate enforces "merits-stage event ⇒ the scored prediction carries a judgment"
 from the committed `event.yaml`, the two halves meeting because a prediction
-does not carry its event's stage. The block is scored by `vote_accuracy`
-alone: over the Justices the outcome record actually names, under
-`vote_provenance` — never over what the predictor attempted. Beyond that
-per-cell fraction it enters one aggregate only, the merits block's
-`mean_vote_accuracy`, and no ranked total anywhere. Today the merits outcome
+does not carry its event's stage. Per cell, `vote_accuracy` is the
+descriptive figure: the fraction matched over the Justices both lists name.
+The published figure is the merits block's `mean_vote_accuracy`, which
+averages a recomputation over the whole sitting bench instead (below); the
+block enters no other aggregate and no ranked total anywhere. Today the merits outcome
 writer records **no** votes, deliberately: the terminal docket entry's
 authorship recital names at most the opinion's author and never the
 participating count `VoteProvenance` requires as the aggregation denominator,
 so no honest provenance block can be built from docket text, and a vote list
 without one is illegible. The mandatory block is therefore elicitation ahead
-of its observation channel — banked, unscored — until a real vote source (an
-order list, the opinion, SCDB) populates `Outcome.votes` with provenance.
-That is the permitted side of the second constraint's line, and the
-constraint's own prohibition stands untouched: a *cert*-stage vote is never
-scored.
+of its observation channel — banked, unscored — until a real vote source
+populates `Outcome.votes` with provenance. One is registered: the Court's own
+opinions, whose syllabus lineup names every participating Justice's side
+([data-sources.md](data-sources.md)); its fetcher reads lineups today and no
+writer commits them yet. That is the permitted side of the second
+constraint's line, and the constraint's own prohibition stands untouched: a
+*cert*-stage vote is never scored.
+
+**Only a complete vote record is scored, and always over the whole bench.**
+`vote_accuracy` is null unless the outcome's `vote_provenance` says
+`complete: true` — every participating Justice's vote is present. The
+leaderboard goes further, because that field is the evaluator's own arithmetic
+over the Justices both lists name, a denominator the predictor partly chooses:
+`mean_vote_accuracy` averages a figure the board recomputes from the scored
+prediction and the committed outcome instead
+(`pipeline.evaluate.bench_vote_accuracy`). Its denominator is every Justice the
+complete record shows sitting; a sitting Justice the prediction omits is a
+miss, and a call on a Justice who took no part scores nothing. Every scored
+cell is therefore scored against the same bench every other predictor on that
+event faces, so the mean of per-cell fractions is a mean over like units, and
+trimming a vote block to the sure calls can only cost. The board publishes the
+mean's denominator, `vote_cells_scored`. A partial list is never scored — it is
+the subset a source happened to show — and neither is an unprovenanced one.
+The scored population is the decisions a vote source read completely, which
+for the opinions source means signed opinions whose lineup parsed; fractured
+lineups are expected to fail to parse more often, so the mean is read as over
+that population, not over every merits decision. The gates only ever turn a number null.
 
 **A check holds that prohibition, not the absence of a data source.**
 `pipeline.moments.scores_votes` is the gate, and it lives on the moments
 register because that table is the authority on an event's stage. It admits
-only the declared **merits** moments: `vote_accuracy` returns null on
-everything else before it reads either vote list, and `mean_vote_accuracy`
-re-applies the same predicate to each cell's own event as it aggregates, so a
-committed `Evaluation` that carries the figure anyway — written by an evaluator
-that computed the field itself — is dropped from the mean rather than averaged
-into it. Both seams key on the **event's declared moment**, not on the stage the
+only the declared **merits** moments: `vote_accuracy` and
+`bench_vote_accuracy` return null on everything else before they read either
+vote list, and `mean_vote_accuracy` re-applies the same predicate to each
+cell's own event as it aggregates, so a score that reached a non-merits cell
+by any route is dropped from the mean rather than averaged into it. Both seams key on the **event's declared moment**, not on the stage the
 board's join assigned the cell, so the two cannot disagree about which cells are
 scorable. Denial is the default rather than the cert stage being named: an id the
 register does not declare has no stage this code can state, so it is one that
@@ -539,9 +564,14 @@ populating `Outcome.votes` at the cert stage — noted dissents from denial are
 published on the order list and are the obvious candidate — changes nothing
 about what is scored. (Building that channel first passes a separate gate:
 `validate`'s `outcome_votes_await_a_registered_source` refuses any committed
-vote list until its source and terms are registered in
-[data-sources.md](data-sources.md), so the channel's own PR retires that check
-as it registers.) That is what makes the rule structural rather than a
+vote list whose source is not registered in [data-sources.md](data-sources.md)
+— and the opinions source is registered for merits events only, so its
+records cannot reach a cert outcome at all. The order-list channel's parser
+exists, read-only and unregistered: `fedcourts order-notations` and its two
+grammars are described in [data-sources.md](data-sources.md). Its vote lists
+are always partial, and it sets complete writing roles only from every
+document the Court lists for an order's date, each read without a problem.) That is what makes the rule
+structural rather than a
 property of what a particular record contains. A third seam covers the one the
 first two cannot: `vote_accuracy` is the evaluator's own field to write, so
 `validate`'s `vote_accuracy_only_on_merits_events` refuses to let a scored vote

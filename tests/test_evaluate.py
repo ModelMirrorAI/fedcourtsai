@@ -29,6 +29,7 @@ from fedcourtsai.pipeline.base_rates import (
     realized_band_rate,
 )
 from fedcourtsai.pipeline.evaluate import (
+    bench_vote_accuracy,
     brier_skill,
     brier_skill_score,
     is_correct,
@@ -59,6 +60,7 @@ from fedcourtsai.schemas import (
     StatPackTerm,
     StatPackTermSegment,
     StatPackTermVersionSegments,
+    VoteProvenance,
     VoteValue,
 )
 
@@ -988,8 +990,12 @@ def test_correct_stays_the_disposition_axis_off_the_merits_stage() -> None:
 # --- vote_accuracy: the stage gate on the one quantity that has one --------------
 
 #: One vote list, reused on both sides of every gate case below, so the only
-#: thing that varies between a scored 1.0 and a null is the event's stage.
-_VOTES = [JusticeVote(justice="roberts", vote=VoteValue.majority)]
+#: thing that varies between a scored 1.0 and a null is the gate under test.
+_VOTES = [
+    JusticeVote(justice=name, vote=VoteValue.majority)
+    for name in ("Roberts", "Thomas", "Alito", "Sotomayor", "Kagan", "Gorsuch")
+]
+_COMPLETE = VoteProvenance(source="supremecourt-opinions", participating=6, complete=True)
 
 
 def _voting_pair(event_id: str) -> tuple[Prediction, Outcome]:
@@ -1003,7 +1009,7 @@ def _voting_pair(event_id: str) -> tuple[Prediction, Outcome]:
         update={"event_id": event_id, "votes": _VOTES}
     )
     outcome = _merits_outcome(Judgment.reversed).model_copy(
-        update={"event_id": event_id, "votes": _VOTES}
+        update={"event_id": event_id, "votes": _VOTES, "vote_provenance": _COMPLETE}
     )
     return prediction, outcome
 
@@ -1043,6 +1049,24 @@ def test_vote_accuracy_is_denied_by_default_off_the_register() -> None:
     assert not scores_votes(undeclared)
     prediction, outcome = _voting_pair(undeclared)
     assert vote_accuracy(prediction, outcome) is None
+
+
+def test_vote_accuracy_scores_only_a_complete_vote_record() -> None:
+    """The completeness gate: a partial or unprovenanced list scores nothing.
+
+    Same pair, same merits moment; only the record's provenance varies. A
+    partial list is the subset a source happened to show, so scoring it would
+    let the source choose the denominator; an unprovenanced one says nothing
+    about how much of the bench it holds. Remove the completeness check in
+    `pipeline.evaluate.vote_accuracy` and both assertions read 1.0.
+    """
+    prediction, outcome = _voting_pair(moments_for(Stage.merits)[0].event_id)
+    assert vote_accuracy(prediction, outcome) == 1.0
+    partial = _COMPLETE.model_copy(update={"complete": False})
+    assert (
+        vote_accuracy(prediction, outcome.model_copy(update={"vote_provenance": partial})) is None
+    )
+    assert vote_accuracy(prediction, outcome.model_copy(update={"vote_provenance": None})) is None
 
 
 def test_vote_accuracy_is_not_scored_at_the_interim_stage() -> None:
@@ -1090,3 +1114,37 @@ def test_realized_band_rate_reads_a_retired_versions_alt_segments_block() -> Non
     assert (
         realized_band_rate("high", "sal-v9", 2025, pack, risk_set=False, own_grant_family=1) is None
     )
+
+
+# --- bench_vote_accuracy: the figure the vote mean averages --------------------
+
+
+def test_bench_vote_accuracy_divides_by_the_sitting_bench() -> None:
+    """The predictor cannot choose the denominator; non-participants score nothing."""
+    prediction, outcome = _voting_pair(moments_for(Stage.merits)[0].event_id)
+    assert bench_vote_accuracy(prediction, outcome) == 1.0
+    one = prediction.model_copy(update={"votes": _VOTES[:1]})
+    assert bench_vote_accuracy(one, outcome) == pytest.approx(1 / 6)
+    out = JusticeVote(justice="Kavanaugh", vote=VoteValue.did_not_participate)
+    record = outcome.model_copy(update={"votes": [*_VOTES, out]})
+    guessed = one.model_copy(update={"votes": [*_VOTES[:1], out]})
+    assert bench_vote_accuracy(guessed, record) == pytest.approx(1 / 6)
+
+
+def test_bench_vote_accuracy_reads_full_names_and_refuses_split_calls() -> None:
+    prediction, outcome = _voting_pair(moments_for(Stage.merits)[0].event_id)
+    spelled = [JusticeVote(justice=f"Justice {v.justice}", vote=VoteValue.majority) for v in _VOTES]
+    assert bench_vote_accuracy(prediction.model_copy(update={"votes": spelled}), outcome) == 1.0
+    split = [*_VOTES, JusticeVote(justice="Samuel A. Alito, Jr.", vote=VoteValue.dissent)]
+    got = bench_vote_accuracy(prediction.model_copy(update={"votes": split}), outcome)
+    assert got == pytest.approx(5 / 6)
+
+
+def test_bench_vote_accuracy_takes_both_gates() -> None:
+    prediction, outcome = _voting_pair(moments_for(Stage.cert)[0].event_id)
+    assert bench_vote_accuracy(prediction, outcome) is None
+    prediction, outcome = _voting_pair(moments_for(Stage.merits)[0].event_id)
+    partial = outcome.model_copy(
+        update={"vote_provenance": _COMPLETE.model_copy(update={"complete": False})}
+    )
+    assert bench_vote_accuracy(prediction, partial) is None

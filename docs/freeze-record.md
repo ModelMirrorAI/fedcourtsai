@@ -5158,3 +5158,473 @@ freeze commit is recorded here.
   with a committed outcome. The runnable effect check once it is live:
   `uv run fedcourts process-digest --all` still prints the same six digests,
   and `FROZEN_SINCE` in `src/fedcourtsai/process_version.py` is unchanged.
+
+- **The cert back-test's replay retrieval mask gains a cutoff-day screen under
+  an unchanged process digest; recorded 2026-09-29.** A **masking-surface**
+  entry, recorded after the change reached `main` rather than ahead of it, and
+  ahead of the first scheduled report it governs. It moves what a replay cell
+  can retrieve, and nothing a digest witnesses, so without this entry the move
+  is legible only from promotion history.
+
+  **What moved.** A cert back-test replay cell's `fedcourts query` screens the
+  priors it retrieves on two bars rather than one. The first is unchanged: the
+  Term, `DECIDED_BEFORE`, the petition's own docket October-Term year, which a
+  prior's year must precede. The second is new: on a cell provisioned with a
+  cutoff (the `dated` and `truncated` arms), the cutoff day, `REPLAY_CUTOFF`,
+  which `fedcourts query` reads from the environment and applies on top of the
+  Term. A prior resolved on or after that day is dropped, a surviving row's
+  merits judgment dated on or after it is stripped, and an undated prior is
+  left to the Term. The day only **removes** rows the Term already admits,
+  the priors that had not yet resolved when the cell was placed; nothing about
+  the Term is derived from it. A `blind` cell has no cutoff and is screened on
+  its Term alone, as before. The offline `prior-vote` reference row in the same
+  report is masked on the same per-petition day, so it stays masked as the
+  engine rows are.
+
+  **Where it landed.** Merged to `staging` as `19d3eb986`
+  (`2026-09-20T23:43:40Z`) and carried to `main` by the promotion tagged
+  **`promotion/2026-09-21`** (merge commit `a2f84f2ee`, merged
+  `2026-09-21T18:01:19Z`). At that promotion's first parent `src/fedcourtsai/corpus.py`
+  has no day bar and `src/fedcourtsai/cli.py` does not read `REPLAY_CUTOFF`;
+  at its merge commit both do.
+
+  **What did not move.** No digest input. The promotion touches no prompt
+  template, neither `config/predictors.yaml` nor `config/evaluators.yaml`, and
+  `src/fedcourtsai/process_version.py` only in a comment. `uv run fedcourts
+  process-digest --all`, run over the trees of `a2f84f2ee^1` and `a2f84f2ee`,
+  prints the same output on both: `proc-v8` and the same six blessed digests.
+  Replay cells carry no process digest in any case, which is why this record
+  exists. **Forward cells never set the clock.** Only
+  `cert_backtest.replay_predictors` gives a cell a cutoff day, the runner
+  exports `REPLAY_CUTOFF` only when one is set, and `run-backtest.yml` is the
+  only workflow that names it. So no forward predict or evaluate cell's
+  information set moved, and no counted `proc-v8` cell is affected.
+
+  **The reading rule.** Two cert back-test reports produced on either side of
+  `a2f84f2ee` ran under different replay masks, even where their provenance
+  blocks agree. Provenance agreement is the fortnightly series' comparability
+  test, and it cannot see this change, so no series comparison spans the
+  boundary. No cert back-test report has ever been merged to `main`. The
+  reports on the earlier side are the ones on closed, unmerged review PRs,
+  each the tip of the `metrics/cert-backtest` review branch in its day:
+  `2386e03bb` (committed `2026-09-20T18:36:48Z`, the first real-engine
+  replay: 25 petitions, `provisioning` `{"blind": 5, "truncated": 20}`,
+  always-deny floor 0.600), whose 20 truncated cells ran without the day
+  screen; `ff85eb2ec` (`2026-09-03T11:41:48Z`: 25 petitions, the same mix and
+  floor, no provenance block); and `df4e578c3` (`2026-07-15T16:15:52Z`: 7
+  petitions, offline reference baselines only, no provisioning split). From
+  the report that first carries
+  `provenance.clocks` onward, each report records the `DECIDED_BEFORE` and
+  `REPLAY_CUTOFF` its petitions' cells were exported. A later change to the
+  clock that such a report's cells ran under is visible in that field.
+
+  **Observed so far.** The day screen has tests and no runner trace. The first
+  post-promotion dispatch (run `35636152823`) provisioned 4 blind petitions and
+  1 truncated one, and no `fedcourts query` invocation appears in its run
+  log, so there is no record of the screen acting. The dispatch after it (run `35643195366`) exited
+  non-zero and wrote no report. The runnable effect check, once a scheduled `spread` run lands its
+  report: `jq '[.provenance.clocks[] | select(.replay_cutoff != null)] |
+  length' metrics/cert-backtest.json` is non-zero wherever `.provisioning`
+  counts a `dated` or `truncated` petition.
+
+- **The staged-text contact scrub reaches OCR-fragmented emails and the
+  petitioner side's own served contact values, and its manifest says which
+  passes ran, 2026-09-29.** A **conditioning** entry in the *what the pipeline
+  provisions* class. It is the same class as the 2026-09-21 document-scrub
+  entry, and it narrows that scrub further rather than replacing it.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary in the ledger. What a cell was provisioned
+  with lives in its gitignored `record/documents/`, and `prediction.json` has
+  no field separating a cell that read a fragmented address from one that read
+  a placeholder. The new manifest key below is visible only in that gitignored
+  manifest, so the boundary exists only here.
+
+  On an affected docket the 2026-09-21 entry's rule now covers three segments:
+  - cells provisioned before that scrub;
+  - cells provisioned under its shape-only scrub;
+  - cells provisioned after this change.
+
+  No two of these segments may be pooled. A stamped cell is post-change if the
+  carrying promotion's merge commit is an ancestor of, or equal to, its
+  `process_version.pipeline_sha`. The "or equal" matters: a run that starts on
+  the merge commit itself is post-change, and a bare ancestry test the other
+  way round would misfile it.
+
+  **What a cell no longer receives.** The trigger is unchanged: this applies on
+  every docket the 2026-09-21 trigger already scrubs, and on no other. On those
+  dockets the staged filed-document text loses two further kinds of string.
+  - **Fragmented email addresses.** An email address in the spellings a scan
+    leaves: a blank beside the `@` or beside a dot of the domain, a local part
+    set letter by letter or with an initial split off it, `(at)` / `(dot)`, and
+    `corn` for `com`. The letter-by-letter arm can also take a run of
+    single-character tokens standing just before an address; in prose that is
+    a lone article.
+  - **Served contact values.** Any `Email`, `Phone` and `Address` value on
+    every petitioner-side block, wherever the text spells it however the scan
+    spaced or line-broke it. A value is used only if it clears its floor: an
+    email must carry its `@`, a telephone number must have ten or more digits,
+    and an address must have a digit and eight or more significant characters.
+
+  Every pattern of both passes is matched against the original text, and
+  overlapping matches are withheld as one span. What the scrub withholds is
+  therefore a superset of what the 2026-09-21 scrub withheld on the same text.
+  Each withheld span becomes the same `[contact detail withheld]` token,
+  followed by every line boundary the span held, so the document's line count
+  is unchanged.
+
+  Each manifest entry gains `contact_scrub_passes`: `["value", "shape"]`,
+  `["shape"]`, or `[]` where the scrub did not run. So `contact_scrubbed: true`
+  no longer stands as the only statement of what the text went through. The
+  trigger, the stored row, the source PDF and the content store are untouched.
+  The case-summary lane stages through the same provisioning, so its
+  `summary-stage` artifact narrows the same way.
+
+  **Removal-only.** A post-change cell on an affected docket reads a subset of
+  the pre-change text. It loses the withheld strings and nothing else, apart
+  from the rare lone article noted above. No skill movement is predicted.
+
+  The withheld strings are contact details, but they are not free of content.
+  Most of the addresses the value pass newly reaches are prison-unit forms,
+  and a prison address says the filer is incarcerated. Where the filer's block
+  carries a register number, the fact still reaches the cell. It comes through
+  that number, or through the presence marker the same-day snapshot entry
+  leaves in its place. Where the block carries none, the withheld address may
+  have been a carrier of the fact. Whether the fact still reaches those cells,
+  through institution names elsewhere in the text or through the docket's fee
+  class, is not measured. The negative form of the 2026-09-21 entry holds here
+  too. A movement in **either** direction across this boundary
+  may not be read as a model effect. The design supports excluding one reading,
+  not asserting a cause.
+
+  A same-day entry withholds the self-represented petitioner-side block's
+  contact keys from the staged snapshot too. If it lands in the same promotion
+  as this one, the two share this boundary. If it lands in a different
+  promotion, each promotion is a boundary of its own. Whichever lands second
+  says which case held.
+
+  **The measurement, on the real function and the real text.** The pulled
+  blob's newest pull stamp is `2026-09-28` and its newest stored snapshot is
+  `2026-07-13` (blob `sha256:8c72a4fb…`, no longer the committed pointer's).
+  These are figures for the blob's stored payloads and documents.
+  The content store, which alone holds most current dockets, was not read.
+
+  Of the **1,562** latest stored payloads that carry a petitioner-side block,
+  the trigger reads **623** as unrepresented, the same count as the 2026-09-21
+  entry. Their **924** stored
+  documents are the scrubbed population. Against the 2026-09-21 scrub on the
+  same documents:
+  - the staged text of **149** of the 924 documents changes;
+  - replacements go from **1,830** under the 2026-09-21 scrub to **1,984**
+    withheld spans under both passes. The difference is not a count of newly
+    withheld details, because one withheld span can merge what the old scrub
+    replaced as two;
+  - the fragmented-email shape matches **31** addresses the contiguous pattern
+    does not, in **24** documents;
+  - the value pass matches **914** times in **312** documents. **225** of those
+    matches reach text the 2026-09-21 scrub left in place: 18 emails, 24
+    telephone numbers and 183 addresses. Most of the addresses are prison-unit
+    or rural-route forms, or are broken across two lines.
+
+  **The email ground truth** is the blocks' own `Email` strings, counted as
+  (value, document) pairs wherever the text carries them in some spelling. A
+  multi-address field is split into its addresses first, which is why these
+  counts differ from the 78 verbatim emails of the 2026-09-21 entry.
+  - **Fragmented only: 10 pairs.** The 2026-09-21 scrub leaves **7** in the
+    staged text, and the new shape pass alone leaves **1**. That is a
+    measurement: the shape pass does not see the values.
+  - **Verbatim: 84 pairs (81 distinct values).** The 2026-09-21 scrub leaves
+    **6**, each of which the text also prints in a fragmented copy. The new
+    shape pass alone leaves **1**.
+  - **Both passes leave 0 in either group, but that is by construction,** since
+    the value pass keys on exactly these strings.
+
+  The residual that construction does not cover is **5** email-like strings in
+  the 924 documents. Each has a domain split mid-label or a missing dot.
+
+  **The false-positive bound, for the shape.** The fragmented-email shape was
+  run by itself over all **3,077** stored documents, scrubbed dockets and
+  represented alike. It matches **138** strings the contiguous pattern does
+  not. All 138 were read in masked form, and every one is an email address.
+  **92** of them are a single institutional address with a blank before its
+  `@`, so the probe covers about 47 distinct other strings. None of the 3,077
+  documents yielded prose, a citation or a pin cite. That is a measured result
+  on this corpus, not a property of the pattern: a contrived sentence that puts
+  an `@` before a word and ". Us" after it would still be taken.
+
+  Two guards carry the result:
+  - the domain's first label must contain a letter, which keeps the pattern
+    off `410 U.S. @ 153`;
+  - after a gap, the top-level label must come from a closed list and must end
+    its word. This keeps it off "…@ the Court. The…" and off a following
+    "Co-counsel".
+
+  **The value pass's precision is argued, not measured.** Its floors keep it to
+  values specific enough not to recur in prose. Forty of its 225 beyond-shape
+  matches were read in masked form, and all were the served value.
+
+  **The cohort this lands over.** The long-conference cohort's cells, the
+  cells under a `2026-09-16`/`17`/`18` run id, were minted before this change
+  and before the 2026-09-21 scrub too. They read their staged text unscrubbed,
+  and this change leaves them exactly as they were. The boundary falls on cells
+  minted after the carrying promotion.
+
+  **What does not move.** No base rate re-prices: `pipeline.salience` and
+  `pipeline.base_rates` read no document text. No membership rule and no
+  scored figure moves. `empty_text` is still read off the stored text before
+  the scrub. Nothing is written to the corpus.
+
+  **The amendment debt.** It is unchanged in kind from the 2026-09-21 entry. The
+  predict prompt does not describe the manifest's scrub keys, so
+  `contact_scrub_passes` joins the reading rule owed at the next re-bless,
+  with no ordering constraint.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_documents.py tests/test_cli_provision.py` green, and `uv run
+  fedcourts process-digest --all` still printing `proc-v8` and the same six
+  digests. The scrub's own effect shows on the first cell provisioned from a
+  self-represented docket whose petitioner-side block serves a contact value.
+  The provisioning step echoes `<case> contact scrub: N detail(s) withheld
+  across M staged document(s) (no attorney named for the petitioner; passes:
+  value+shape)`, and that cell's `record/documents/documents.json` carries
+  `contact_scrub_passes: ["value", "shape"]`.
+
+- **A self-represented petitioner's contact keys are withheld from the staged
+  snapshot, 2026-09-29.** A **conditioning** entry in the *what the pipeline
+  provisions* class. It closes the residual that the 2026-09-21
+  document-scrub entry named and left out of scope: the staged snapshot beside
+  the scrubbed text.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary. The staged snapshot lives in the
+  gitignored `record/snapshots/`, and `prediction.json` has no field
+  separating a cell that read a filer's address from one that read a
+  placeholder there. The boundary exists only here, and a stamped cell is
+  post-change if the carrying promotion's merge commit is an ancestor of, or
+  equal to, its `process_version.pipeline_sha`.
+
+  On an affected docket, cells on either side of the boundary may not be
+  pooled. The same dockets carry the 2026-09-21 boundary and the boundary of
+  the fragmented-email entry directly above, which reached `staging` first. If
+  the two land on `main` in the same promotion, they share one boundary, and
+  that promotion's merge commit is the test for both. If they land in
+  different promotions, each promotion is a boundary of its own, and the
+  completion of this entry's placeholders says which case held.
+
+  **What a cell no longer receives.** The trigger is the docket-level reading
+  the 2026-09-21 document scrub keys on, and it is unchanged. The change
+  touches every petitioner-side counsel block of that docket that the
+  trigger's block-level test reads as naming nobody but the party. That test
+  also takes a block carrying a register number whatever its `Attorney` says,
+  so a counselled incarcerated petitioner's block loses its counsel's
+  professional details.
+
+  On those blocks, in the staged `record/snapshots/<date>.json`:
+  - each populated `Address`, `City`, `Zip`, `Phone`, `Email` and `Title` is
+    replaced by `[contact detail withheld]`. `Title` is free text that nothing
+    reads, and upstream sometimes files an inmate number there;
+  - a populated `PrisonerId` is replaced by `[register number withheld]`.
+
+  The block keeps `PartyName`, `Attorney`, `State` and `IsCounselofRecord`. It
+  also keeps the register number's **presence**, since the marker is
+  non-empty. That presence is upstream's marker for an incarcerated filer, and
+  the trigger's third arm reads it.
+
+  Staged as served:
+  - any other petitioner-side block;
+  - the respondent side, including a self-represented respondent's block (a
+    residual this entry leaves: four blocks on the pulled blob);
+  - amici;
+  - any key left empty.
+
+  The corpus row and the content-store payload are untouched. The staged copy
+  is built beside the payload rather than in place of it, so the cell context,
+  the trigger and the document scrub all read the payload as served.
+
+  Three lanes stage through the same provisioning: predict cells, evaluate
+  cells, and the case-summary lane's `summary-stage` artifact. All three narrow
+  the same way from the carrying promotion on. Summaries that already exist
+  were written from unscrubbed snapshots, and this change does not re-derive
+  them. A summary's record digest is taken off the corpus payload, so the
+  scrub moves no digest and re-owes no summary.
+
+  **Removal-only, and nothing scored reads what was removed.** A test pins two
+  halves.
+  - **Source half.** No module outside `pipeline/documents.py` names a
+    withheld key as an exact-case string literal, or imports the scrub's key
+    list or marker. The one exception is the short caption's institution word
+    `City`, which names no payload key.
+  - **Behavioural half.** For a scrubbed payload and its original, these are
+    all equal:
+    - the ingestion row, and the storage row that the statpack, salience and
+      its bands, the party census and the metrics read;
+    - the salience band;
+    - the cell context in both modes;
+    - the forward-leakage gate;
+    - the live probe;
+    - the backtest redaction;
+    - the trigger.
+
+  The corpus's normalized `counsel` column keeps only party, attorney, side and
+  counsel of record. The only generic reader of the staged file is the
+  case-summary prompt renderer, whose recipient is meant to read the scrubbed
+  copy.
+
+  **What a post-change cell reads.** It reads a subset of the pre-change
+  snapshot. On the 274 scrubbed blocks that carry a register number, the
+  marker keeps the fact that the filer is incarcerated. On the other 350, the
+  withheld `Address` may have been the snapshot's only carrier of that fact.
+  A keyword read flags between 15 and about 70 of those 350 as prison-style
+  addresses, depending on whether a post-office box counts. Whether the fact
+  still reaches those cells through the document text is not measured, and
+  that text is itself narrowed by the document scrub.
+
+  No skill movement is predicted. In the 2026-09-21 entry's negative form, a
+  movement in **either** direction across this boundary may not be read as a
+  model effect.
+
+  **The population.** This is an ad hoc read that runs the real trigger and
+  the real `scrub_snapshot_contacts` over each case's latest stored payload in
+  the pulled blob. That is the snapshot a forward cell stages. The blob is
+  `sha256:8c72a4fb…`, whose newest pull stamp is `2026-09-28` and newest stored
+  snapshot is `2026-07-13`. It is no longer the committed pointer's blob. The
+  per-case content store, which alone holds most current dockets, was not
+  read, so this is a figure about the blob and not about the provisioned
+  population.
+
+  Of the **1,562** latest payloads that carry a petitioner-side block, **623**
+  read unrepresented. All 623 staged snapshots change, with **2,537** values
+  withheld on **624** blocks:
+  - 624 each of `Address`, `City` and `Zip`;
+  - 269 `Phone`;
+  - 115 `Email`;
+  - 7 `Title`;
+  - 274 register numbers.
+
+  **2** petitioner-side blocks on those dockets name counsel, carry no register
+  number, and are staged as served.
+
+  **The cohort this lands over.** The long-conference cohort's cells, the cells
+  under a `2026-09-16`/`17`/`18` run id, were minted before this change. They
+  read their staged snapshot as served and are unaffected. The boundary falls
+  on cells minted after the carrying promotion.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus.
+
+  **The amendment debt.** The predict prompt and the summary prompt say
+  nothing about the placeholder or the marker in the snapshot. That reading
+  rule joins the ones owed at the next re-bless, with no ordering constraint: a
+  cell meeting the placeholder loses nothing it could have acted on.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_snapshot_scrub.py tests/test_cli_provision.py` is
+    green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+    six digests;
+  - on the first cell provisioned from a self-represented docket, the
+    provisioning step echoes `<case> snapshot contact scrub: N value(s)
+    withheld on M petitioner-side block(s)`. N can be 0 where the block serves
+    no contact key. That cell's staged snapshot carries
+    `[contact detail withheld]` in the block's populated contact keys.
+
+- **A vote is scored only against a complete vote record and over the whole
+  bench, the vote mean publishes its denominator, and the Court's opinions
+  register as the vote source, 2026-09-29.** A **membership-rule** entry
+  that also fixes the scored figure's definition before any value of it
+  exists: it narrows which cells the vote mean is computed over, states what
+  each cell contributes, and adds the mean's count. No prompt byte, registry
+  field or stamp moves, so no digest moves: `uv run fedcourts process-digest
+  --all` prints `proc-v8` and the same six blessed digests before and after
+  the change.
+
+  **What is scored, registered now.**
+
+  - **The aggregate.** `mean_vote_accuracy` averages, per cell, the
+    participating-bench vote accuracy the board recomputes from the scored
+    prediction and the committed outcome
+    (`pipeline.evaluate.bench_vote_accuracy`) — never the evaluator's
+    `vote_accuracy`, which is the evaluator's arithmetic over the Justices
+    both lists name, a denominator the predictor partly chooses. The
+    denominator is every Justice the outcome's complete record shows sitting
+    (all but `recused` and `did-not-participate`); a sitting Justice the
+    prediction omits, or names so that no roster surname can be read from
+    it, is a miss, and a call on a Justice who did not sit scores nothing.
+    Only a cell on a declared merits moment whose outcome's `vote_provenance`
+    says `complete: true` has a score. The mean stays a mean of per-cell
+    fractions, and with one denominator per event the cells are like units.
+    A cell is a **grading**, as for `accuracy`: the figure does not depend on
+    the judge, so a prediction three evaluators graded enters three times with
+    one value and the mean is weighted by panel depth. The new
+    `vote_cells_scored` field on every stratum publishes the mean's
+    denominator in the same grain, gradings, like `accuracy_scored`. A board
+    built without the recomputation fails closed: every vote mean null.
+    Neither field is a rank key.
+  - **Per cell.** `vote_accuracy` keeps the evaluate prompt's definition and
+    is now also null, where the harness computes it
+    (`pipeline.evaluate.vote_accuracy`, the offline runners), unless the
+    record is complete. It is descriptive; nothing averages it. The evaluate
+    prompt's own wording of the field omits the completeness gate, which only
+    the helper it points to carries, so an agent-written figure against an
+    incomplete record can still be committed — and stays descriptive, since
+    nothing averages it. The predict
+    prompt's sentence calling vote scoring "intersection-only" now describes
+    that field, not the published mean; its instruction — no reason to trim
+    the list — holds a fortiori under the bench denominator, and the sentence
+    is left as it stands because editing it moves every predictor digest.
+  - **The population.** The mean covers the decisions a vote source read
+    completely. For the opinions source that is signed merits opinions on
+    Term-form dockets whose syllabus lineup parsed with no problem —
+    per curiams and volume-linked Terms are not read, and fractured lineups
+    are expected to fail to parse more often — so it is read as over that
+    population, not
+    over every merits decision.
+  - **The source.** `supremecourt-opinions` is the one registered vote
+    source (`pipeline/vote_sources.py`, `docs/data-sources.md`): the
+    syllabus lineup of a signed merits opinion, read by the `scotus-syllabus`
+    grammar and stamped with its version (2 at this commit), from an opinion
+    PDF on the Court's own host, on a
+    Supreme Court merits-stage event, with every Justice spelled as the
+    roster spells them and, for a record claiming `complete`, exactly the
+    bench the seat roster seats on the outcome's `resolved_at`. It yields a
+    record only from a complete lineup whose lead author matches the
+    listing's initials and whose printed decision date matches the
+    listing's, so it writes no partial list.
+    `outcome_votes_await_a_registered_source` refuses any committed vote list
+    without a provenance block, naming any other source (SCDB included), or
+    departing from that shape.
+
+  **What does not move.** No base rate, no skill figure, no digest, and no
+  figure that exists: at `origin/staging` `751b1881c`, none of the 12,726
+  committed outcomes carries a vote (every `votes` list is empty and every
+  present `vote_provenance` is null), and none of the 246 committed
+  evaluations carries a numeric `vote_accuracy`, so every
+  `mean_vote_accuracy` is null before and after. No writer populates
+  `Outcome.votes` at this commit; the rule is registered before any vote
+  record, and so before any outcome it could be fitted to.
+
+  The carrying promotion is `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merged at>`). It must precede the
+  first committed outcome carrying votes for this entry to register ahead of
+  any record it governs. At that promotion, the census above re-run on `main`
+  reads `<FILL: committed outcomes carrying a non-empty votes list at the
+  promotion>` outcomes carrying votes and `<FILL: committed evaluations
+  carrying a numeric vote_accuracy at the promotion>` evaluations carrying a
+  vote score. The runnable effect check once it is live: `uv run fedcourts
+  leaderboard --all-versions --out /tmp/lb.json && jq '[.. | objects |
+  select(has("vote_cells_scored")) | .vote_cells_scored] | add // 0'
+  /tmp/lb.json` reads `0` (nothing has moved; the check does not exercise the
+  gate), and `uv run fedcourts process-digest --all` still prints the same
+  six digests.

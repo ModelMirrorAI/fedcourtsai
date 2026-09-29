@@ -321,11 +321,24 @@ scrubbed. Every document staged
 for such a docket has its emails, telephone numbers, post-office boxes and
 street addresses replaced by the fixed token `[contact detail withheld]`, which
 keeps the document's structure and tells a reader that something was withheld
-rather than that a line is missing. The manifest entry carries both halves of
-what happened: `contact_scrubbed`, whether the scrub ran over this document's
-staged text, and `contact_replacements`, how many it withheld — so `true, 0`
-(scrubbed, nothing found) stays distinguishable from `false, 0` (a represented
-docket's text, untouched). An opposition filed by counsel on such a docket is
+rather than that a line is missing. It runs as two passes. The **shape** pass
+matches what a contact detail looks like, including an email address as a scan
+fragments it (a blank beside the `@` or a dot, a letter-spaced local part,
+`(at)`), and never takes a line break. The **value** pass looks for the
+`Email`, `Phone` and `Address` strings on every served petitioner-side block
+(the filer's own, and any co-petitioner counsel's), however the scan spaced or
+line-broke them, and puts back every line break it consumed; it runs only
+where the docket serves a value specific enough to key on (an email with its
+`@`, a telephone number of ten or more digits, an address with a digit and
+eight or more significant characters). Both passes are matched against the
+original text and overlapping matches are withheld as one span, so adding a
+pass can only widen what is withheld. The manifest entry carries what happened: `contact_scrubbed`, whether
+the scrub ran over this document's staged text; `contact_replacements`, how
+many it withheld — so `true, 0` (scrubbed, nothing found) stays
+distinguishable from `false, 0` (a represented docket's text, untouched); and
+`contact_scrub_passes`, which passes ran (`["value", "shape"]`, `["shape"]`,
+or `[]` where the scrub did not run), so a shape-only scrub is not read as the
+complete one. An opposition filed by counsel on such a docket is
 scrubbed with the petition, since the reading is the docket's and taken once:
 the cost is a firm's switchboard number a cell had no use for.
 
@@ -354,16 +367,42 @@ so reading it would delete legal text from the cells the scrub exists for. Nor
 are a box spelled out in full, a number written with a slash or with no
 separators, a bare city/state/ZIP line — that shape is also how the Court's own
 address line is set — or an incarcerated filer's register number beside an
-institution name, which has no shape at all. And it reaches the document text
-only: the `record/snapshots/<date>.json` staged beside it is the upstream
-payload verbatim, so on the same docket it carries the counsel blocks' own
-`Address` / `City` / `Zip` / `Phone` / `Email` / `PrisonerId` keys — the same
-details in a more quotable form, plus a register number no shape can match.
-Both files are gitignored and neither is uploaded, so what can reach public git
-is what a cell's prose quotes, which is the exposure
-[data-sources.md](data-sources.md) already names. The scrub narrows what reaches
-the ledger; it does not make a filing anonymous, and a cell with retrieval
-rights can reach the same PDF upstream whatever was withheld from its copy.
+institution name, which has no shape at all.
+
+**The staged snapshot gets the same withholding, by key rather than by shape.**
+`record/snapshots/<date>.json` is the upstream payload, whose counsel blocks
+carry `Address` / `City` / `Zip` / `Phone` / `Email` / `PrisonerId` as labelled
+keys — on a self-represented docket the filer's own details in a more quotable
+form than any signature block. On such a docket, every petitioner-side block
+the trigger reads as naming nobody but the party — a block carrying a register
+number included, whatever its `Attorney` says, so a counselled incarcerated
+petitioner's block loses its counsel's professional details — has each
+populated `Address`, `City`, `Zip`, `Phone`, `Email` and `Title` (free text
+nothing reads, which upstream sometimes fills with an inmate number) replaced
+by `[contact detail withheld]`, and
+a populated `PrisonerId` replaced by `[register number withheld]`: the number is
+the personal datum, its presence is upstream's marker for an incarcerated filer,
+which the trigger's third arm reads and a cell may reason from, so the marker
+keeps the presence. `PartyName`, `Attorney`, `State` and every other block —
+a represented co-petitioner's, the respondent side, amici — stay as served, and
+an empty key stays empty. The respondent side is outside this scrub by
+scope — the trigger and the scrub both ask about the petitioner — so a
+self-represented respondent's block on such a docket keeps its contact keys, a
+residual of four blocks on the pulled blob. The copy is built beside the payload rather than in
+place of it, so the cell context, the trigger and the document scrub all read
+the payload as served; nothing scored or analytic reads the withheld keys (a
+test pins both halves: no module outside the scrub names them as literals or
+imports its key list, and every row, band, context and gate derived from a
+scrubbed payload equals the one from the original). The provisioning step echoes the counts, never a value:
+`snapshot contact scrub: N value(s) withheld on M petitioner-side block(s)`.
+Both files are gitignored, and no predict or evaluate cell uploads `record/`,
+so what can reach public git from a cell is what its prose quotes, which is the
+exposure [data-sources.md](data-sources.md) already names. The case-summary
+lane's one-day `summary-stage` artifact does carry both staged files, scrubbed
+as above ([case-summaries.md](case-summaries.md)). The scrub narrows what
+reaches the ledger; it does not make a filing anonymous, and a cell with
+retrieval rights can reach the same PDF and docket JSON upstream whatever was
+withheld from its copy.
 
 A cell can route around
 an empty extraction — the prompt has it read the document as
@@ -687,7 +726,8 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   input arrives before the instruction does, which is the argument for pairing
   them on the next bless rather than letting either land alone. **A third rides
   with them**: the contact scrub stages text carrying
-  `[contact detail withheld]` and two manifest keys the prompt describes none
+  `[contact detail withheld]` and three manifest keys (`contact_scrubbed`,
+  `contact_replacements`, `contact_scrub_passes`) the prompt describes none
   of — it has `documents.json` listing what is present, pages and truncation —
   so until that re-bless a cell meeting the token has to account for it
   unaided, and the likeliest cost is a `data-quality` flag spent on it.

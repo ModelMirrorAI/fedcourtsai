@@ -27,11 +27,21 @@ Two facts this module is the single home for:
   recital parser resolving against this set is what keeps it total if one ever
   does — and the parser resolves a multi-token capture against the roster
   rather than truncating to the final token.
+- **Who sat when.** :data:`SERVICE` carries each Justice's judicial oath and
+  end of service, as the Court's own *Members of the Supreme Court* page prints
+  them, for every Justice who served on or after :data:`SERVICE_FLOOR`. A vote
+  source that credits a Justice by silence — the syllabus lineup grammar does,
+  under the Court's list-only-where-fewer-than-all convention — needs the bench
+  a decision was actually made by, and :func:`bench_on` and
+  :func:`seated_after` are that bench; :data:`CHIEF_JUSTICES` says which of
+  them an order list means by "The Chief Justice".
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import date
 from types import MappingProxyType
 from typing import Final
 
@@ -124,3 +134,119 @@ def normalize_scdb_justice(justice_name: str) -> str | None:
     indistinguishable from a normalized one everywhere downstream.
     """
     return SCDB_JUSTICE_SURNAMES.get(justice_name)
+
+
+@dataclass(frozen=True)
+class Service:
+    """One Justice's time on the Court: oath through last day of service.
+
+    ``joined`` is the date the judicial oath was taken; ``left`` the date
+    service terminated (death, retirement, resignation), inclusive, and
+    ``None`` for a sitting Justice. Dates as the Court's *Members of the
+    Supreme Court* page prints them.
+    """
+
+    justice: str
+    joined: date
+    left: date | None = None
+
+
+#: The earliest decision date :func:`bench_on` answers for. The vote channel's
+#: scope is merits decisions from October Term 2016 on, and :data:`SERVICE`
+#: carries every Justice who served on or after this date — no earlier.
+SERVICE_FLOOR: Final = date(2016, 10, 1)
+
+#: Every Justice who served on or after :data:`SERVICE_FLOOR`, by seniority of
+#: oath. A new appointment adds one row, and a departure fills one ``left``.
+SERVICE: Final[tuple[Service, ...]] = (
+    Service("Kennedy", date(1988, 2, 18), date(2018, 7, 31)),
+    Service("Thomas", date(1991, 10, 23)),
+    Service("Ginsburg", date(1993, 8, 10), date(2020, 9, 18)),
+    Service("Breyer", date(1994, 8, 3), date(2022, 6, 30)),
+    Service("Roberts", date(2005, 9, 29)),
+    Service("Alito", date(2006, 1, 31)),
+    Service("Sotomayor", date(2009, 8, 8)),
+    Service("Kagan", date(2010, 8, 7)),
+    Service("Gorsuch", date(2017, 4, 10)),
+    Service("Kavanaugh", date(2018, 10, 6)),
+    Service("Barrett", date(2020, 10, 27)),
+    Service("Jackson", date(2022, 6, 30)),
+)
+
+
+#: Every Justice in :data:`SERVICE` who served as Chief Justice. An order list
+#: names the Chief by title alone ("The Chief Justice took no part …"), so a
+#: grammar resolving that title needs to know which bench member holds it. A
+#: new Chief adds one name here.
+CHIEF_JUSTICES: Final[frozenset[str]] = frozenset({"Roberts"})
+
+
+def chief_on_bench(bench: Sequence[str]) -> str | None:
+    """The one Chief Justice among ``bench``, or ``None`` when there is not exactly one."""
+    chiefs = [name for name in bench if name in CHIEF_JUSTICES]
+    return chiefs[0] if len(chiefs) == 1 else None
+
+
+def bench_on(day: date) -> tuple[str, ...]:
+    """The Justices who could have decided a case on ``day``, oldest oath first.
+
+    A Justice is on the bench from the day **after** the oath through the last
+    day of service, inclusive. The oath day is excluded because the Court's
+    one same-day handover in the span is exactly that shape: on 2022-06-30
+    Justice Breyer's retirement took effect at noon and Justice Jackson took
+    the oath after the day's opinions had been announced, so both of them are
+    in service that day and only Breyer decided anything. Counting the oath day
+    would seat ten.
+
+    Raises ``ValueError`` before :data:`SERVICE_FLOOR`, where the roster is not
+    carried, so an earlier decision is refused rather than read against a
+    bench missing its departed members.
+    """
+    if day < SERVICE_FLOOR:
+        raise ValueError(f"no bench roster before {SERVICE_FLOOR.isoformat()}: {day.isoformat()}")
+    return tuple(s.justice for s in SERVICE if s.joined < day and (s.left is None or day <= s.left))
+
+
+def seated_after(argued: date, bench: tuple[str, ...]) -> tuple[str, ...]:
+    """The Justices of ``bench`` who took the oath on or after ``argued``.
+
+    A Justice not yet seated when a case was argued did not hear it, and in
+    practice takes no part; whether the source says so is the reading's
+    question, not this roster's (``pipeline.syllabus_lineup``). The oath day
+    counts as not yet seated, as it does in :func:`bench_on`.
+    """
+    joined = {s.justice: s.joined for s in SERVICE}
+    return tuple(name for name in bench if joined[name] >= argued)
+
+
+# Tokens a Justice's name may carry around the surname: honorifics, the
+# Chief's title, and generational suffixes.
+_NAME_NOISE: Final[frozenset[str]] = frozenset(
+    {"justice", "chief", "associate", "mr", "mrs", "ms", "jr", "sr", "ii", "iii", "iv"}
+)
+
+
+def normalize_justice_name(raw: str) -> str | None:
+    """The roster surname a free-text Justice name refers to, or ``None``.
+
+    For names written by hand rather than read by a grammar — a predictor's
+    vote block spells "Samuel A. Alito, Jr.", "Justice Thomas" or plain
+    "Kagan" — so a scorer can compare them with a vote source's roster
+    spelling. Exactly one roster surname must appear among the name's tokens
+    (a compound surname counts as one); none, or two different ones, is
+    ``None``, since a guessed Justice would be scored as a real one.
+    """
+    tokens = [t for t in raw.replace(",", " ").replace(".", " ").split() if t]
+    tokens = [t for t in tokens if t.casefold() not in _NAME_NOISE]
+    found: set[str] = set()
+    index = 0
+    while index < len(tokens):
+        pair = " ".join(tokens[index : index + 2])
+        if index + 1 < len(tokens) and (surname := resolve_surname(pair)) is not None:
+            found.add(surname)
+            index += 2
+            continue
+        if (surname := resolve_surname(tokens[index])) is not None:
+            found.add(surname)
+        index += 1
+    return found.pop() if len(found) == 1 else None

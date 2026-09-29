@@ -2089,6 +2089,58 @@ def test_a_pro_se_dockets_staged_text_is_scrubbed_of_contact_details(
     entry = _documents_manifest(fixture_corpus)["petition"]
     assert entry["contact_scrubbed"] is True
     assert entry["contact_replacements"] == 3
+    # The docket serves no contact values to key on, so the shape pass alone ran
+    # — and the manifest says so rather than letting `true` read as complete.
+    assert entry["contact_scrub_passes"] == ["shape"]
+
+
+def test_the_filers_own_values_key_a_second_pass_that_reaches_fragmented_spellings(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A scanned petition sets its signer's address with the blanks and line
+    # breaks OCR leaves: an initial split off the local part, a blank before the
+    # sign, the domain broken after its dot. The shape pass cannot take the line
+    # break; the docket's own copy of the filer's values can, and the manifest
+    # records that both passes ran.
+    payload = {
+        **_PRO_SE_DOCKET,
+        "Petitioner": [
+            {
+                "PartyName": "Jane Doe",
+                "Attorney": "Jane Doe",
+                "Email": "jdoe.petitioner@example.com",
+                "Phone": "(713) 555-0147",
+                "Address": "Coffield Unit, 2661 FM 2054",
+            }
+        ],
+    }
+    scanned = (
+        "See Brady v. Maryland, 373 U.S. @ 87 (1963).\n"
+        + "Respectfully submitted,\n"
+        + "Jane Doe, Petitioner Pro Se\n"
+        + "Coffield Unit\n"
+        + "2661 FM 2054\n"
+        + "(713) 555 0147\n"
+        + "j doe.petitioner @example.\n"
+        + "com\n"
+    )
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, scanned)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    staged = CasePaths(fixture_corpus.data_root, "scotus", 305).document("petition").read_text()
+    assert "petitioner @example" not in staged
+    assert "Coffield Unit" not in staged
+    assert "555 0147" not in staged
+    # The pin cite written with the same sign survives, and so does every line.
+    assert "373 U.S. @ 87 (1963)" in staged
+    assert staged.count("\n") == scanned.count("\n")
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrub_passes"] == ["value", "shape"]
+    assert entry["contact_replacements"] == 3
+    assert "passes: value+shape" in result.output
 
 
 def test_the_scrub_does_not_reach_the_corpus_row_or_the_stored_text(
@@ -2124,6 +2176,7 @@ def test_a_represented_dockets_staged_text_is_left_alone(
     entry = _documents_manifest(fixture_corpus)["petition"]
     assert entry["contact_scrubbed"] is False
     assert entry["contact_replacements"] == 0
+    assert entry["contact_scrub_passes"] == []
 
 
 def test_a_scrubbed_document_with_nothing_to_withhold_still_says_it_was_scrubbed(
@@ -2144,13 +2197,14 @@ def test_a_scrubbed_document_with_nothing_to_withhold_still_says_it_was_scrubbed
     assert entry["empty_text"] is False
 
 
-def test_the_scrub_does_not_reach_the_provisioned_snapshot_payload(
+def test_a_pro_se_dockets_staged_snapshot_withholds_the_filers_contact_keys(
     fixture_corpus: FixtureCorpus,
 ) -> None:
-    # The scrub is on the staged document text and nothing else. The snapshot
-    # written beside it is the payload as the corpus served it, counsel blocks
-    # and all — pinned here because the two files land from the same command and
-    # a scrub that leaked into the payload would be invisible in the manifest.
+    # The staged snapshot is the other half of what a cell can quote: its
+    # petitioner-side block carries the filer's own contact details as labelled
+    # keys. They are withheld on the staged copy; the party name, the attorney
+    # field and the register number's presence survive, and the corpus row
+    # keeps the payload as served.
     payload = {
         **_PRO_SE_DOCKET,
         "Petitioner": [
@@ -2158,20 +2212,137 @@ def test_the_scrub_does_not_reach_the_provisioned_snapshot_payload(
                 "PartyName": "Jane Doe",
                 "Attorney": "Jane Doe",
                 "Address": "1234 Maple Street",
+                "City": "Houston",
+                "State": "TX",
+                "Zip": "77002",
                 "Phone": "713-555-0147",
+                "Email": "jane.doe@example.com",
+                "PrisonerId": "#01234567",
             }
         ],
     }
     _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
     _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
 
-    assert _provision_cell().exit_code == 0
+    result = _provision_cell()
 
+    assert result.exit_code == 0, result.output
     staged_payload = json.loads(
         CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2026-07-20").read_text()
     )
-    assert staged_payload["Petitioner"][0]["Address"] == "1234 Maple Street"
-    assert staged_payload["Petitioner"][0]["Phone"] == "713-555-0147"
+    block = staged_payload["Petitioner"][0]
+    for key in ("Address", "City", "Zip", "Phone", "Email"):
+        assert block[key] == "[contact detail withheld]"
+    assert block["PrisonerId"] == "[register number withheld]"
+    assert block["PartyName"] == "Jane Doe"
+    assert block["Attorney"] == "Jane Doe"
+    assert block["State"] == "TX"
+    for value in (
+        "1234 Maple Street",
+        "Houston",
+        "77002",
+        "713-555-0147",
+        "jane.doe@example.com",
+        "#01234567",
+    ):
+        assert value not in json.dumps(staged_payload)
+    # Counts only in the public run log, never a value.
+    assert "snapshot contact scrub: 6 value(s) withheld on 1 petitioner-side block(s)" in (
+        result.output
+    )
+    assert "jane.doe@example.com" not in result.output
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        stored = corpus.latest_snapshot(conn, "scotus/305")
+    assert stored is not None
+    assert stored[1]["Petitioner"][0]["Email"] == "jane.doe@example.com"
+
+
+def test_the_value_pass_keys_on_the_payload_as_served_not_the_scrubbed_snapshot(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # Both scrubs on one pro se docket. The staged snapshot's contact keys are
+    # withheld, and the document value pass must still key on the values as the
+    # docket served them. Each detail in the petition is spelled so only the
+    # value pass reaches it — an email broken after its dot, a digits-only
+    # telephone number, a prison-unit address over two lines — so a value pass
+    # handed the scrubbed copy (whose keys hold only the placeholder, below
+    # every value floor) would leave all three and report `["shape"]`.
+    payload = {
+        **_PRO_SE_DOCKET,
+        "Petitioner": [
+            {
+                "PartyName": "Jane Doe",
+                "Attorney": "Jane Doe",
+                "Email": "jdoe.petitioner@example.com",
+                "Phone": "(936) 555-0147",
+                "Address": "Coffield Unit, 2661 FM 2054",
+                "City": "Tennessee Colony",
+                "State": "TX",
+                "Zip": "75884",
+                "PrisonerId": "#01234567",
+            }
+        ],
+    }
+    petition = (
+        "The question presented arises under 28 U.S.C. 1254(1).\n"
+        + "Respectfully submitted,\n"
+        + "Jane Doe, Petitioner Pro Se\n"
+        + "Coffield Unit\n"
+        + "2661 FM 2054\n"
+        + "Tel. 9365550147\n"
+        + "E-mail: jdoe.petitioner@example.\n"
+        + "com\n"
+    )
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, petition)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    block = json.loads(paths.snapshot("2026-07-20").read_text())["Petitioner"][0]
+    assert block["Email"] == "[contact detail withheld]"
+    assert block["Address"] == "[contact detail withheld]"
+    assert block["PrisonerId"] == "[register number withheld]"
+    staged = paths.document("petition").read_text()
+    assert "jdoe.petitioner" not in staged
+    assert "9365550147" not in staged
+    assert "Coffield Unit" not in staged
+    assert "2661 FM 2054" not in staged
+    assert "28 U.S.C. 1254(1)" in staged
+    assert staged.count("\n") == petition.count("\n")
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrub_passes"] == ["value", "shape"]
+    assert entry["contact_replacements"] == 3
+    assert "passes: value+shape" in result.output
+    assert "snapshot contact scrub: 6 value(s) withheld on 1 petitioner-side block(s)" in (
+        result.output
+    )
+
+
+def test_a_represented_dockets_staged_snapshot_is_the_payload_as_served(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    payload = {
+        **_REPRESENTED_DOCKET,
+        "Petitioner": [
+            {
+                **_REPRESENTED_DOCKET["Petitioner"][0],
+                "Address": "1000 Maine Avenue SW",
+                "Phone": "202-555-0100",
+            }
+        ],
+    }
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    staged_payload = json.loads(
+        CasePaths(fixture_corpus.data_root, "scotus", 305).snapshot("2026-07-20").read_text()
+    )
+    assert staged_payload["Petitioner"][0]["Address"] == "1000 Maine Avenue SW"
+    assert "snapshot contact scrub" not in result.output
 
 
 def test_one_docket_level_reading_scrubs_every_staged_kind(

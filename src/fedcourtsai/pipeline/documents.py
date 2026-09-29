@@ -838,6 +838,41 @@ _EMAIL_RE = re.compile(
     r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}\b"
 )
 
+# The same address as a scanned page's text layer spells it: OCR sets a blank on
+# either side of the `@` or of a dot (`name @mail.com`, `name@mail. com`),
+# spaces out a short local part letter by letter, and an obfuscating filer
+# writes the sign as `(at)` or the dot as `(dot)`. Every gap is at most two
+# blanks or tabs and never a line break, so the no-newline rule above holds here
+# too. What keeps the wider shape off legal prose is its two ends. The domain's
+# first label must carry a letter, which is what separates an address from the
+# pin cite a brief writes with the same sign (`410 U.S. @ 153`). And once a gap
+# is allowed before the top-level label, that label is read off a closed list of
+# the ones filers use — including `corn`, the classic OCR misreading of `com` —
+# rather than as any run of letters, since "name@mail. The court held" must not
+# take the next sentence's first word — and it must end the word it is, so the
+# `Co` of a following "Co-counsel" is not read as one. The leading run of single
+# characters is the letter-by-letter local part (`j o h n@…`, and the `j doe@…`
+# a scan makes of an initial); it may take a run of single-character tokens
+# standing before an address with it — in prose, a lone article — which is the
+# whole of its cost.
+_EMAIL_GAP = r"[ \t]{0,2}"
+_EMAIL_AT = rf"(?:{_EMAIL_GAP}@{_EMAIL_GAP}|[ \t]{{0,2}}[(\[{{][ \t]?at[ \t]?[)\]}}][ \t]{{0,2}})"
+_EMAIL_DOT = (
+    rf"(?:{_EMAIL_GAP}\.{_EMAIL_GAP}|[ \t]{{0,2}}[(\[{{][ \t]?dot[ \t]?[)\]}}][ \t]{{0,2}})"
+)
+_EMAIL_LABEL = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+_EMAIL_TLDS = "com|corn|net|org|edu|gov|mil|us|info|biz|io|co|me|law|uk|ca"
+_FRAGMENTED_EMAIL_RE = re.compile(
+    r"(?<![\w.%+-])"
+    r"(?:[A-Za-z0-9][ \t]){0,24}"
+    r"[A-Za-z0-9._%+-]{1,64}"
+    rf"{_EMAIL_AT}"
+    r"(?=[0-9-]{0,62}[A-Za-z])"
+    rf"{_EMAIL_LABEL}(?:{_EMAIL_DOT}{_EMAIL_LABEL}){{0,4}}"
+    rf"{_EMAIL_DOT}(?:{_EMAIL_TLDS})(?![\w-])",
+    re.IGNORECASE,
+)
+
 # A North American telephone number, in the two spellings that carry their own
 # evidence of being one. Either the area code is **parenthesized**, which no
 # other figure in a filing is, or the two separators are punctuation and the
@@ -901,35 +936,169 @@ _STREET_RE = re.compile(
     r"|[ \t]*#[ \t]*[\w-]+)?"
 )
 
-# Applied in this order, and the order is load-bearing only at the first entry:
-# an email's domain can look like nothing else here, but scrubbing it first means
-# no later pattern reads part of one.
+# Every pattern here, and every value pattern below, is matched against the
+# **original** text, and overlapping matches are merged into one withheld span
+# before anything is replaced. Running them one after another instead would let
+# a shorter match that lands first cut a detail in two — a value ending before
+# the unit the street pattern would have taken with it, the fragmented pattern
+# stopping at `.co` of `.co.nz` — and leave the remainder outside every later
+# pattern's reach. Matched together, what the scrub withholds is a superset of
+# what any one pattern would, by construction.
 _CONTACT_PATTERNS: tuple[re.Pattern[str], ...] = (
     _EMAIL_RE,
+    _FRAGMENTED_EMAIL_RE,
     _PHONE_RE,
     _PO_BOX_RE,
     _STREET_RE,
 )
 
+# The fragmented-email shape needs a sign to anchor on, and its letter-spaced
+# prefix is the one part of it whose cost grows with the text rather than with
+# the address. A document carrying neither an `@` nor an `(at)` spelling cannot
+# hold a match, so the pattern is not run over it at all.
+_EMAIL_ANCHOR_RE = re.compile(r"@|[(\[{][ \t]?at[ \t]?[)\]}]", re.IGNORECASE)
+
+# --- The value-keyed pass ---------------------------------------------------
+#
+# The shapes above find what a contact detail looks like; the docket also says
+# what the petitioner side's details *are*. A petitioner-side counsel block
+# carries its `Email`, `Phone` and `Address` — upstream's copy of the strings the
+# filing's caption and signature block print — so the scrub can look for those
+# values themselves, in whatever spelling a scan made of them. Each value is
+# reduced to its significant characters (letters and digits, and an email's
+# `@`), and the text is searched for that sequence with up to three
+# non-alphanumeric characters allowed between any two of them: blanks, stray
+# punctuation, and a **line break**. That last is what reaches `name@mail.` /
+# `com` split across two lines, which no shape pattern may take. The line
+# structure survives anyway, because a withheld span is replaced by the
+# placeholder followed by every line break the span held, so the document keeps
+# its line count and a reader still sees where each line was.
+#
+# A value is keyed on only where it carries enough of its own to be specific: an
+# email must contain its `@`, a telephone number at least ten digits, and a
+# street address at least one digit and eight significant characters. Below
+# those floors a value — a bare "General Delivery", a four-digit extension — is
+# the kind of string legal prose can repeat, and the shape pass is left to it.
+
+_VALUE_GAP = r"[\W_]{0,3}"
+# Every character a line split reads as a boundary — a page break in OCR text
+# and the `\r` of a CRLF included — so a withheld span gives back each of them.
+_LINE_BOUNDARIES = frozenset("\n\r\f\v\x1c\x1d\x1e\x85\u2028\u2029")
+_VALUE_FIELDS = ("Email", "Phone", "Address")
+_MIN_PHONE_DIGITS = 10
+_MIN_ADDRESS_CHARS = 8
+
+SCRUB_PASS_SHAPE = "shape"
+"""The pass that withholds every contact-detail shape the patterns above name."""
+
+SCRUB_PASS_VALUE = "value"
+"""The pass that withholds the petitioner-side blocks' own contact values."""
+
+
+def petitioner_contact_values(payload: Mapping[str, Any]) -> tuple[str, ...]:
+    """The contact values served on the docket's petitioner-side counsel blocks.
+
+    Every petitioner-side block's ``Email`` (each address, where the field lists
+    several), ``Phone`` and ``Address``, in block order and without repeats —
+    the values the value-keyed pass looks for. Read off every such block rather
+    than only the self-represented one: on a docket the scrub runs over at all,
+    a represented co-petitioner's counsel loses only professional details, which
+    is the trade the trigger already makes. A payload serving no
+    petitioner-side block — the CourtListener REST shape — yields nothing, and
+    the scrub is then the shape pass alone.
+    """
+    blocks = payload.get("Petitioner")
+    if not isinstance(blocks, list):
+        return ()
+    values: list[str] = []
+    for block in blocks:
+        if not isinstance(block, Mapping):
+            continue
+        for field in _VALUE_FIELDS:
+            value = block.get(field)
+            if not isinstance(value, str):
+                continue
+            # A block can list more than one address in its `Email` field, or
+            # more than one number in its `Phone` field; each is a value of its
+            # own, since the filing need not print them together.
+            if field == "Email":
+                parts = re.split(r"[;,\s]+", value)
+            elif field == "Phone":
+                parts = re.split(r"[;,/]+", value)
+            else:
+                parts = [value]
+            for part in (p.strip() for p in parts):
+                if part and part not in values:
+                    values.append(part)
+    return tuple(values)
+
+
+def _value_pattern(value: str) -> re.Pattern[str] | None:
+    """The fragment-tolerant pattern for one contact value, or None below its floor."""
+    if "@" in value:
+        significant = [ch for ch in value if ch.isalnum() or ch == "@"]
+        if "@" not in significant or len(significant) < 3:
+            return None
+    else:
+        significant = [ch for ch in value if ch.isalnum()]
+        digits = sum(ch.isdigit() for ch in significant)
+        if digits == len(significant):
+            if digits < _MIN_PHONE_DIGITS:
+                return None
+        elif not digits or len(significant) < _MIN_ADDRESS_CHARS:
+            return None
+    body = _VALUE_GAP.join(re.escape(ch) for ch in significant)
+    # A telephone number's parenthesized area code or `+` opens on punctuation
+    # the significant characters leave out; take it with the number.
+    lead = r"(?:[(+][ \t]?)?" if significant[0].isdigit() else ""
+    return re.compile(rf"(?<![A-Za-z0-9]){lead}{body}(?![A-Za-z0-9])", re.IGNORECASE)
+
 
 @dataclass(frozen=True)
 class ScrubbedText:
-    """Staged text with contact-detail shapes withheld, and how many were."""
+    """Staged text with contact details withheld, how many were, and by which passes."""
 
     text: str
     replacements: int
+    passes: tuple[str, ...] = (SCRUB_PASS_SHAPE,)
 
 
-def scrub_contact_details(text: str) -> ScrubbedText:
-    """Replace every contact-detail shape in ``text`` with the fixed placeholder.
+def _merged_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Overlapping match spans merged into the withheld spans they jointly cover."""
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(spans):
+        if merged and start < merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
 
-    Four shapes: an email address, a North American telephone number, a
-    post-office box, and a street address (house number, name, street type, and
-    any unit after it). Nothing else is a target — a docket number, a date and a
-    reporter citation all lack the shapes above, which is why the patterns are
-    anchored on what a contact detail has and legal prose does not rather than
-    on where in the document it sits. No pattern spans a newline, so the
-    document's line structure is a property of the scrub rather than a hope.
+
+def scrub_contact_details(text: str, values: tuple[str, ...] = ()) -> ScrubbedText:
+    """Replace every contact detail in ``text`` with the fixed placeholder.
+
+    Two passes, matched together against the original text (see the comment on
+    the pattern list for why together). The **value-keyed** pass looks for each
+    of ``values`` — the petitioner-side blocks' own contact strings, from
+    :func:`petitioner_contact_values` — wherever the text spells it, however a
+    scan fragmented it, line breaks included (see the section comment above). It
+    runs only where a value clears its floor, and ``passes`` says whether it
+    did.
+
+    The **shape** pass matches five shapes: an email address in its contiguous
+    spelling, the same address as OCR fragments it (a blank beside the `@` or a
+    dot, a letter-spaced local part, `(at)` / `(dot)`), a North American
+    telephone number, a post-office box, and a street address (house number,
+    name, street type, and any unit after it). Nothing else is a target — a
+    docket number, a date, a pin cite and a reporter citation all lack the
+    shapes above, which is why the patterns are anchored on what a contact
+    detail has and legal prose does not rather than on where in the document it
+    sits. No shape pattern spans a newline.
+
+    Overlapping matches from either pass are merged, and each merged span is
+    replaced once, by the placeholder followed by every line boundary the span
+    held — so ``replacements`` counts withheld spans rather than pattern
+    matches, and the document keeps its line count.
 
     A court or clerk address is scrubbed exactly as a party's is where it is
     written with a street number, and survives where it is not (the Court's own
@@ -942,24 +1111,32 @@ def scrub_contact_details(text: str) -> ScrubbedText:
     alternative is a per-document reading of who signed it.
 
     **What it does not reach**, stated so the scrub is not read as a covered
-    surface: a detail the extractor broke across two lines; a box spelled out in
-    full ("Post Office Box"); a telephone number written with a slash or with
-    no separators at all; a bare city/state/ZIP line, which is left alone
-    because the two-letter state and five-digit ZIP shape is also how the
+    surface: under the shape pass alone, a detail the extractor broke across two
+    lines and an email whose local part or domain the scan split mid-word; a box
+    spelled out in full ("Post Office Box"); a telephone number written with a
+    slash or with no separators at all; a bare city/state/ZIP line, which is left
+    alone because the two-letter state and five-digit ZIP shape is also how the
     Court's own address line is set; and an incarcerated filer's register number
-    beside an institution name, which has no shape at all. Measured against the
-    docket's own copy of what the filing prints — the counsel block's `Email`,
-    `Phone` and `Address` strings, matched verbatim in the staged text — the
-    pulled blob at the `2026-09-20` pull stamp gives 78 of 78 emails, 99 of 101
-    telephone numbers and 118 of 147 addresses. The scrub narrows what reaches
-    the ledger; it does not make a filing anonymous.
+    beside an institution name, which has no shape at all. The value-keyed pass
+    closes the first two for the values the docket serves, and only those: a
+    spelling that drops or substitutes a character of a value is still missed,
+    as is a detail the docket does not carry. The scrub narrows what reaches the
+    ledger; it does not make a filing anonymous.
     """
-    scrubbed = text
-    replacements = 0
-    for pattern in _CONTACT_PATTERNS:
-        scrubbed, count = pattern.subn(CONTACT_PLACEHOLDER, scrubbed)
-        replacements += count
-    return ScrubbedText(text=scrubbed, replacements=replacements)
+    patterns = [p for p in (_value_pattern(v) for v in values) if p is not None]
+    passes = (SCRUB_PASS_VALUE, SCRUB_PASS_SHAPE) if patterns else (SCRUB_PASS_SHAPE,)
+    anchored = _EMAIL_ANCHOR_RE.search(text) is not None
+    patterns += [p for p in _CONTACT_PATTERNS if anchored or p is not _FRAGMENTED_EMAIL_RE]
+    spans = _merged_spans([m.span() for p in patterns for m in p.finditer(text)])
+    parts: list[str] = []
+    cursor = 0
+    for start, end in spans:
+        parts.append(text[cursor:start])
+        breaks = "".join(ch for ch in text[start:end] if ch in _LINE_BOUNDARIES)
+        parts.append(CONTACT_PLACEHOLDER + breaks)
+        cursor = end
+    parts.append(text[cursor:])
+    return ScrubbedText(text="".join(parts), replacements=len(spans), passes=passes)
 
 
 # --- Who signed the filing --------------------------------------------------
@@ -1075,6 +1252,89 @@ def _block_names_nobody_else(block: Mapping[str, Any]) -> bool:
     if not attorney:
         return True
     return attorney == _comparable_name(block.get("PartyName"))
+
+
+# --- The staged snapshot's counsel blocks -----------------------------------
+#
+# The snapshot staged beside the documents is the upstream payload, and on a
+# docket the scrub above runs over, a self-represented petitioner-side counsel
+# block carries the filer's own contact details as labelled keys — a more
+# quotable form of what the documents' signature blocks print, plus a prisoner
+# register number no shape could match. The same withholding is applied to
+# that copy: on every petitioner-side block that names nobody but the party
+# (the block-level half of the predicate above), each populated contact key is
+# replaced by the fixed placeholder.
+#
+# What is kept is what anything downstream reads. `PartyName` and `Attorney`
+# stay, since the predicate itself compares them and a cell names the party
+# from them. `State` stays: a two-letter state names no one. `Title` is
+# withheld with the contact keys: nothing reads it, and on a self-represented
+# block it is free text that can carry an inmate number upstream filed there
+# rather than under `PrisonerId`. `PrisonerId` keeps
+# its **presence** — the populated value becomes a fixed marker rather than
+# being blanked — because a register number on the block is upstream's own
+# marker for an incarcerated filer, which the predicate's third arm reads and a
+# cell may reason from; only the number itself, the personal datum, is
+# withheld. An empty key stays empty, so absence still reads as absence.
+
+SNAPSHOT_CONTACT_FIELDS: tuple[str, ...] = ("Address", "City", "Zip", "Phone", "Email", "Title")
+"""The counsel-block keys whose populated values the staged snapshot withholds."""
+
+REGISTER_NUMBER_WITHHELD = "[register number withheld]"
+"""The fixed marker a withheld ``PrisonerId`` carries, keeping its presence."""
+
+
+@dataclass(frozen=True)
+class ScrubbedSnapshot:
+    """A staged snapshot with self-represented petitioner contact keys withheld."""
+
+    payload: dict[str, Any]
+    blocks: int
+    fields: int
+
+
+def scrub_snapshot_contacts(payload: Mapping[str, Any]) -> ScrubbedSnapshot:
+    """``payload`` with each self-represented petitioner-side block's contacts withheld.
+
+    Returns a copy: the caller's payload — the one the trigger, the cell context
+    and the document scrub read — is never mutated. Only the ``Petitioner`` list
+    is rebuilt; every other key, the respondent-side and amicus blocks
+    included, is the object the payload served. ``blocks`` counts the blocks
+    that had anything withheld and ``fields`` the values withheld, the register
+    number included. A payload serving no petitioner-side block is returned as
+    an equal copy with both counts zero. Meant for a payload as served: run over
+    an already-scrubbed copy it would count the placeholders again.
+
+    The selection is the block-level predicate's, so a block carrying a
+    register number is scrubbed whatever its ``Attorney`` says — the few
+    counselled incarcerated petitioners lose their counsel's professional
+    details, the trade the document scrub already makes.
+    """
+    staged = dict(payload)
+    served = payload.get("Petitioner")
+    if not isinstance(served, list):
+        return ScrubbedSnapshot(payload=staged, blocks=0, fields=0)
+    rebuilt: list[Any] = []
+    touched = 0
+    withheld = 0
+    for block in served:
+        if not isinstance(block, Mapping) or not _block_names_nobody_else(block):
+            rebuilt.append(block)
+            continue
+        staged_block = dict(block)
+        count = 0
+        for field in SNAPSHOT_CONTACT_FIELDS:
+            if str(staged_block.get(field) or "").strip():
+                staged_block[field] = CONTACT_PLACEHOLDER
+                count += 1
+        if str(staged_block.get("PrisonerId") or "").strip():
+            staged_block["PrisonerId"] = REGISTER_NUMBER_WITHHELD
+            count += 1
+        touched += 1 if count else 0
+        withheld += count
+        rebuilt.append(staged_block)
+    staged["Petitioner"] = rebuilt
+    return ScrubbedSnapshot(payload=staged, blocks=touched, fields=withheld)
 
 
 def _is_toc_capture(capture: str) -> bool:

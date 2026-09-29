@@ -538,8 +538,11 @@ class JusticeVote(_Strict):
     vote: VoteValue
     writing: WritingRole | None = Field(
         default=None,
-        description="What this Justice wrote. Null means not stated — the record "
-        "was written without addressing writing at all. `none` is the opposite: an "
+        description="What this Justice wrote — where the record's authorship "
+        "lives, the opinion's author included. Null means not stated — the record "
+        "was written without addressing writing at all, or what the Justice wrote "
+        "has no single role (a writing concurring or dissenting only in part, or "
+        "two writings of different roles). `none` is the opposite: an "
         "affirmative observation that this Justice wrote nothing, which is what a "
         "final order list or opinion discloses about every participating Justice. "
         "Defaulting to `none` would turn every silent record into that claim",
@@ -566,9 +569,30 @@ class VoteProvenance(_Strict):
     """
 
     source: str = Field(
-        description="Where the votes were read from, e.g. 'scdb:2024-001', "
-        "'order-list:2025-03-10', 'opinion'. Free text, because the sources are "
-        "not yet an enumerable set"
+        description="The registered vote source the list was read from, e.g. "
+        "'supremecourt-opinions' (`pipeline.vote_sources`). A string rather than "
+        "an enum so the schema holds any record, but `validate` refuses a committed "
+        "outcome naming a source that is not registered"
+    )
+    document: str | None = Field(
+        default=None,
+        description="The document the votes were read from — for the "
+        "'supremecourt-opinions' source, the supremecourt.gov URL of the opinion "
+        "PDF whose syllabus lineup was read. Null only where a source reads no "
+        "single document",
+    )
+    grammar: str | None = Field(
+        default=None,
+        description="The grammar that read the lineup text, e.g. "
+        "'scotus-syllabus' (`pipeline.syllabus_lineup`). Null only for a source "
+        "not read by a grammar; set exactly when `grammar_version` is",
+    )
+    grammar_version: int | None = Field(
+        default=None,
+        ge=1,
+        description="The version of `grammar` that produced this list. A grammar "
+        "bumps it whenever it could read the same text differently, so a stored "
+        "list says which reading it is and can be re-read after a fix",
     )
     participating: int = Field(
         ge=QUORUM,
@@ -578,8 +602,16 @@ class VoteProvenance(_Strict):
     )
     complete: bool = Field(
         description="Whether every participating Justice's vote is present. False "
-        "means the rest are unobserved, NOT that they abstained"
+        "means the rest are unobserved, NOT that they abstained. Only a complete "
+        "record is scored: `vote_accuracy` is null against any other"
     )
+
+    @model_validator(mode="after")
+    def _grammar_stamp_coheres(self) -> VoteProvenance:
+        """A grammar name without its version names no particular reading."""
+        if (self.grammar is None) != (self.grammar_version is None):
+            raise ValueError("`grammar` and `grammar_version` are set together or not at all")
+        return self
 
 
 class ProcessVersion(_Strict):
@@ -772,7 +804,7 @@ class PredictionContext(_Strict):
         "over into a later Term. This is also what the cell was handed as "
         "DECIDED_BEFORE, and what it passed to `fedcourts query`. The day-level "
         "retrieval boundary is `cutoff` beside it, which is what REPLAY_CUTOFF "
-        "carries on a dated cell and what narrows that query further. Null on a "
+        "carries on a dated or truncated cell and what narrows that query further. Null on a "
         "forward cell, whose outcome does not exist yet",
     )
     signals_observable: bool = Field(
@@ -1342,6 +1374,38 @@ class Outcome(_Strict):
         "would invent an observation, exactly as an absent `signals` block does",
     )
 
+    @model_validator(mode="after")
+    def _vote_record_coheres(self) -> Outcome:
+        """A provenance block must describe the list it sits beside.
+
+        Only a provenanced list is checked, so a record written before the block
+        existed is unaffected. A block over an empty list states a source for
+        nothing; a Justice named twice is two readings of one vote; and a
+        complete record's `participating` must be the count of its votes that
+        are neither `recused` nor `did-not-participate`, because that count is
+        the denominator a vote threshold is taken against.
+        """
+        provenance = self.vote_provenance
+        if provenance is None:
+            return self
+        if not self.votes:
+            raise ValueError("`vote_provenance` is set but `votes` is empty")
+        names = [vote.justice for vote in self.votes]
+        if len(set(names)) != len(names):
+            raise ValueError("`votes` names a Justice more than once")
+        if provenance.complete:
+            sitting = sum(
+                1
+                for vote in self.votes
+                if vote.vote not in (VoteValue.recused, VoteValue.did_not_participate)
+            )
+            if sitting != provenance.participating:
+                raise ValueError(
+                    f"a complete vote record counts {sitting} participating votes "
+                    f"but `vote_provenance.participating` is {provenance.participating}"
+                )
+        return self
+
 
 class LeakageAssessment(_Strict):
     """The cross-evaluator's leakage grading of one prediction (a gate on membership).
@@ -1689,7 +1753,17 @@ class Evaluation(_Strict):
         "proper score: `brier_score` on the disturbed binary is the scored axis, "
         "and `correct` already carries this same comparison on a merits cell.",
     )
-    vote_accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
+    vote_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Fraction of the prediction's per-Justice votes that match the "
+        "outcome's, over the Justices both name. Merits-stage cells only, and only "
+        "against a vote record whose `vote_provenance` says `complete: true`; null "
+        "everywhere else (`pipeline.evaluate.vote_accuracy`). Descriptive: the "
+        "leaderboard does not average it, but recomputes each cell's "
+        "participating-bench accuracy (`pipeline.evaluate.bench_vote_accuracy`)",
+    )
     reasoning_quality: float | None = Field(default=None, ge=0.0, le=1.0)
     leakage_suspected: bool | None = Field(
         default=None,
@@ -2933,7 +3007,32 @@ class LeaderboardStratum(_Strict):
         "`grants_expected`. Null where `grants_realized` is",
     )
     mean_vote_accuracy: float | None = Field(
-        default=None, ge=0.0, le=1.0, description="Mean panel-vote accuracy where reported"
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean, over the `vote_cells_scored` cells, of each cell's "
+        "participating-bench vote accuracy: the fraction of the Justices the "
+        "outcome's complete vote record shows sitting whose vote the scored "
+        "prediction called, an omitted Justice a miss "
+        "(`pipeline.evaluate.bench_vote_accuracy`), recomputed from the committed "
+        "prediction and outcome rather than read off `Evaluation.vote_accuracy`. "
+        "Merits-moment cells whose outcome carries a complete vote record "
+        "(`vote_provenance.complete`) only, so it covers the decisions a vote "
+        "source read completely — signed opinions whose lineup parsed — not every "
+        "merits decision. Averaged over **gradings**, like `accuracy`: the "
+        "figure does not depend on the judge, so a prediction graded by three "
+        "evaluators enters three times with one value and the mean is weighted "
+        "by panel depth. Null where no cell qualifies. Never a rank key",
+    )
+    vote_cells_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Gradings that entered `mean_vote_accuracy` — its denominator, "
+        "counted per evaluation as `accuracy_scored` is, so it exceeds the number "
+        "of distinct predictions scored wherever a panel graded one more than "
+        "once. Below `evaluations` wherever a cell is off a merits moment, has no "
+        "readable scored prediction, or resolves against a vote record that is "
+        "absent or incomplete",
     )
     mean_reasoning_quality: float | None = Field(
         default=None, ge=0.0, le=1.0, description="Mean evaluator reasoning-quality score"
@@ -4955,6 +5054,37 @@ class CertBacktestDisclosureTally(_Strict):
     )
 
 
+class CertBacktestCellClock(_Strict):
+    """The replay clock one petition's cells were exported, and the arm it sat in.
+
+    Every predictor's cell on a petition is provisioned from the same case tree
+    and handed the same clock, so the record is per petition, not per
+    (petition, predictor). It is kept because the clock's width is an
+    information-set axis the arm counts do not capture: two dated cells with
+    the same Term and different cutoff days could retrieve different priors,
+    and a blind cell, having no day, is screened on its Term alone.
+    """
+
+    case_id: str = Field(description="The replayed petition")
+    snapshot_provenance: Literal["dated", "truncated", "blind"] = Field(
+        description="The arm the petition was provisioned under — the key it is "
+        "counted under in the report's `provisioning` and `provisioning_denied`"
+    )
+    decided_before: int = Field(
+        description="The Term half of the clock, exported to every cell on the "
+        "petition as `DECIDED_BEFORE`: the petition's own docket October-Term year, "
+        "which a prior must resolve strictly before to be retrieved"
+    )
+    replay_cutoff: date | None = Field(
+        default=None,
+        description="The day half, exported as `REPLAY_CUTOFF`: the day the cells were "
+        "provisioned at, which `fedcourts query` applies as a second, removal-only "
+        "screen (a prior resolved on or after it is dropped; an undated one stays). "
+        "Null on the blind arm, which was given no cutoff, so its cells were "
+        "screened on the Term alone",
+    )
+
+
 class CertBacktestProvenance(_Strict):
     """What produced a cert back-test report: the run, its dispatch, and its config.
 
@@ -5048,6 +5178,16 @@ class CertBacktestProvenance(_Strict):
         "predictor id, for every replayed predictor on the board. Engines differ "
         "in how often and how they write notes, so a count is read within one predictor, "
         "never as a cross-engine leakage comparison",
+    )
+    clocks: list[CertBacktestCellClock] = Field(
+        default_factory=list,
+        description="The replay clock every replayed petition's cells ran under, one "
+        "entry per petition, sorted by case id: its arm, its Term (`DECIDED_BEFORE`) "
+        "and, on the dated and truncated arms, its cutoff day (`REPLAY_CUTOFF`). The "
+        "day narrows what a cell could retrieve, so two runs over the same petitions "
+        "on different days are different information sets even where `provisioning` "
+        "matches. Empty on an offline run, which provisions no cell, and on reports "
+        "written before the clock was recorded",
     )
 
 
@@ -5212,6 +5352,25 @@ class CertBacktest(_Strict):
         "outcome-correlated feature, which raises the pooled floor and dilutes "
         "every lift measured over the union. Read the mix before reading the "
         "scores. Empty on reports written before the split existed",
+    )
+    provisioning_denied: dict[str, int] = Field(
+        default_factory=dict,
+        description="Of the petitions counted under each key of `provisioning`, how "
+        "many were realized denials — keyed the same, a zero stated rather than "
+        "omitted. Each arm's own always-deny floor is its count here over its count "
+        "there, which undoes the mixture in the floor: the pooled "
+        "`always_denied_accuracy` is those floors weighted by the arm sizes. It "
+        "does not split the scores — no entry's accuracy is broken out by arm — so "
+        "it says how much of the pooled floor the blind arm carries, not how an "
+        "entry did on each arm. Beside `provenance.clocks`, which names each "
+        "petition's arm, it states a named petition's outcome wherever its arm is "
+        "pure, which includes every arm of one. Over the whole replayed "
+        "set, like the pooled floor, so an entry short some cells "
+        "(`provenance.lost_cells`) is not floored by these either. A floor over an "
+        "arm of one to three petitions is a count, not a rate: read it as denials "
+        "over n, never as a percentage without its n. Empty where no "
+        "replay provisioned a petition, and on reports written before the per-arm "
+        "count existed",
     )
     provenance: CertBacktestProvenance | None = Field(
         default=None,
@@ -7835,8 +7994,9 @@ class PartyCensus(_Strict):
 
     Counts only, under one annotation rule and one date convention — both
     stamped, because a cell is comparable to another only where the pair
-    agrees. Grant rates by government-party status are an analytics cut with
-    its own scope strings and reweighting, not a field here.
+    agrees. Grant rates by government-party status are `party-rates`
+    (`PartyRates`), which carries its own population rules and denial
+    reweighting, not a field here.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -7911,6 +8071,184 @@ class PartyCensus(_Strict):
         default_factory=list, description="Non-empty cells only; zero cells are omitted, not zeroed"
     )
     named_president: list[PartyPresidentCell] = Field(default_factory=list)
+
+
+class PartyRateCell(_Strict):
+    """One administration x stratum x federal-side cell of the party rates cut.
+
+    Every share here is published beside its numerator and denominator, raw and
+    weighted: ``granted``/``resolved`` count docket rows once each, and
+    ``weighted_granted``/``weighted_resolved`` count each row ``sample_weight``
+    times, which is what restores the legacy one-in-ten sampled denial block to
+    full strength. ``grant_rate`` is the weighted pair's quotient; where the cell
+    holds no sampled row the two pairs are equal and so is the rate. On the
+    application stratum the population is the **substantive** asks only — the
+    extension, unreadable-ask and never-parsed rows are counted beside the cell,
+    never inside its rate.
+    """
+
+    administration: str | None = Field(
+        default=None,
+        description="Administration label (e.g. trump-47), or null where the row "
+        "carries no date under the cut's convention",
+    )
+    stratum: Literal["paid-cert", "ifp-cert", "application"] = Field(
+        description="Docket stratum the cell is keyed on"
+    )
+    federal_party: Literal["both", "petitioner", "respondent", "none"] = Field(
+        description="Which side(s) of the caption the federal government occupies; "
+        "`none` is the comparison cell — no federal party the caption names"
+    )
+    rows: int = Field(ge=0, description="Docket rows in the cell's population")
+    sampled_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows from the legacy sampled denial block (weight > 1)",
+    )
+    pending: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows with no disposition as of the cut's `through` "
+        "date (or, without one, in the blob at its vintage) — outside the rate, "
+        "so a window with many is censored",
+    )
+    unreadable: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows whose disposition is `other` (decided, label "
+        "unreadable) — outside the rate rather than read as a denial",
+    )
+    resolved: int = Field(
+        default=0, ge=0, description="Rows with a machine-readable disposition (raw)"
+    )
+    granted: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows on the granted side of the binary outcome "
+        "(`granted_labels`), raw",
+    )
+    weighted_resolved: int = Field(
+        default=0, ge=0, description="`resolved` with each row counted `sample_weight` times"
+    )
+    weighted_granted: int = Field(
+        default=0, ge=0, description="`granted` with each row counted `sample_weight` times"
+    )
+    grant_rate: float | None = Field(
+        default=None,
+        description="weighted_granted / weighted_resolved; null where nothing resolved",
+    )
+    dispositions: dict[str, int] = Field(
+        default_factory=dict,
+        description="Raw row count per machine-readable disposition label, so a "
+        "reader can recompute the rate under another convention (plenary grants "
+        "only, withdrawals dropped)",
+    )
+    excluded_extension: int = Field(
+        default=0,
+        ge=0,
+        description="Application stratum only: extension-of-time asks in the same "
+        "key, outside the population",
+    )
+    excluded_unknown_ask: int = Field(
+        default=0,
+        ge=0,
+        description="Application stratum only: parsed asks whose kind could not be read",
+    )
+    excluded_unparsed: int = Field(
+        default=0,
+        ge=0,
+        description="Application stratum only: applications never application-parsed",
+    )
+
+
+class PartyRates(_Strict):
+    """``party-rates`` result: grant rates by government-party status and administration.
+
+    An analytics artifact, not a prediction input: nothing a predict or evaluate
+    cell reads is derived from it. Cut under one annotation rule and one date
+    convention, both stamped, and optionally at a past moment (``through``) so a
+    published tally can be replicated as of its own date.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    rule_version: str = Field(description="The committed annotation rule, e.g. party-v2")
+    caption_rule_version: str = Field(
+        description="The caption rule the annotation rule composes over both halves"
+    )
+    as_of_field: str = Field(
+        description="Which date drove the administration attribution: filed | resolved"
+    )
+    through: date | None = Field(
+        default=None,
+        description="The cut's moment: rows filed after it are left out and "
+        "dispositions dated after it read as pending. Null = the whole blob",
+    )
+    since: date | None = Field(
+        default=None,
+        description="The cut's lower bound: rows filed before it are left out. "
+        "Null = from the start of the live slice",
+    )
+    granted_labels: list[str] = Field(
+        description="The disposition labels counted as granted (the binary outcome's granted side)"
+    )
+    corpus_sha256: str = Field(
+        default="",
+        description="sha256 of the corpus database the cut ran over — re-derivable "
+        "only against this exact corpus state",
+    )
+    latest_pull: date | None = Field(
+        default=None, description="Corpus vintage: newest `last_pulled` across the blob"
+    )
+    latest_snapshot: date | None = Field(
+        default=None, description="Corpus vintage: newest stored snapshot date across the blob"
+    )
+    rows: int = Field(
+        default=0,
+        ge=0,
+        description="Rows counted into some cell's rate population (application "
+        "exclusions, tallied on their cells, are not included)",
+    )
+    duplicate_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Live-slice rows dropped as a second corpus row for a docket "
+        "number already counted — one docket, one vote in a rate",
+    )
+    other_stratum: int = Field(
+        default=0,
+        ge=0,
+        description="Rows outside the three rated strata (original, miscellaneous, "
+        "unparseable docket numbers), left out",
+    )
+    filed_after_through: int = Field(
+        default=0,
+        ge=0,
+        description="Rows left out as later than `through`: filed after it, or — "
+        "carrying no filing date — resolved after it or not at all",
+    )
+    filed_before_since: int = Field(
+        default=0,
+        ge=0,
+        description="Rows left out as earlier than `since`: filed before it, or — "
+        "carrying no filing date — resolved before it, or carrying no date at "
+        "all (a row that cannot be placed after the bound is not admitted)",
+    )
+    undated: int = Field(
+        default=0,
+        ge=0,
+        description="Counted rows carrying no date under `as_of_field` — in the "
+        "unattributed cells, never imputed",
+    )
+    resolution_undated: int = Field(
+        default=0,
+        ge=0,
+        description="Resolved rows carrying no resolution date. Under `through` "
+        "they cannot be placed before or after the cut and are read as resolved; "
+        "this counts them so the assumption has a size",
+    )
+    cells: list[PartyRateCell] = Field(
+        default_factory=list, description="Non-empty cells only; an absent cell is not a zero"
+    )
 
 
 class DistributionBandTransition(_Strict):
@@ -8843,13 +9181,17 @@ _SHA256_DIGEST = r"^sha256:[0-9a-f]{64}$"
 
 
 class CaseSummaryUsage(_Strict):
-    """The token usage of the one call that wrote a case summary."""
+    """The token usage of the calls that wrote a case summary.
+
+    One call, or two when the first response was rejected on a mechanical rule
+    of the body contract and retried; the figures sum both.
+    """
 
     input_tokens: int = Field(ge=0, description="Uncached input tokens billed")
     output_tokens: int = Field(ge=0, description="Output tokens billed")
     estimated_cost_usd: float = Field(
         ge=0,
-        description="The call's on-demand cost at `pricing.MODEL_RATES` for `model` — "
+        description="The calls' on-demand cost at `pricing.MODEL_RATES` for `model` — "
         + "an estimate at the rate table's snapshot, like every figure it prices",
     )
 
@@ -8892,7 +9234,9 @@ class CaseSummaryFrontMatter(_Strict):
     )
     generated_at: datetime = Field(description="When the harness wrote the file (UTC)")
     usage: CaseSummaryUsage | None = Field(
-        default=None, description="The writing call's token usage, where the response carried it"
+        default=None,
+        description="The token usage of the calls that wrote the summary (a rejected first "
+        + "response's included), where the responses carried it",
     )
 
 

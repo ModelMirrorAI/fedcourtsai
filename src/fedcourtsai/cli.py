@@ -18,7 +18,8 @@ import sys
 import tempfile
 import textwrap
 import time
-from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
@@ -89,6 +90,7 @@ from .cert_backtest import (
     CERT_BACKTEST_SCOPES,
     ReplayOutcome,
     build_segment_context,
+    clock_days,
     replay_predictors,
     replayable_items,
     run_cert_backtest,
@@ -171,6 +173,7 @@ from .leaderboard import (
     cell_facts,
     evaluator_agreement,
     skill_components,
+    vote_scores,
 )
 from .matrix import (
     CappedMatrix,
@@ -195,6 +198,7 @@ from .merits_event_migration import (
     backfill_event_moments,
     backfill_merits_events,
 )
+from .moment_convergence import converge_event_moments
 from .ops import (
     DAILY_DIGEST_LABEL,
     DAILY_DIGEST_MARKER_LINES,
@@ -219,7 +223,17 @@ from .ops import (
     weekly_digest_week,
 )
 from .paths import CasePaths, EventPaths
-from .pipeline import arrival_cut, cell_context, historical, liveprobe, moments, qp_topics, semantic
+from .pipeline import (
+    arrival_cut,
+    cell_context,
+    historical,
+    liveprobe,
+    moments,
+    opinion_lineups,
+    order_lineups,
+    qp_topics,
+    semantic,
+)
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
 from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.arrival_cut import arrival_cut_ledger
@@ -246,14 +260,17 @@ from .pipeline.documents import (
     FETCH_LOSS_OFF_HOST,
     FETCH_LOSS_UNAVAILABLE,
     KIND_PETITION,
+    SCRUB_PASS_VALUE,
     QpExtractRow,
     TextCoverage,
     backfill_questions_presented,
     document_fetch_losses,
     document_text_coverage,
+    petitioner_contact_values,
     petitioner_is_unrepresented,
     questions_presented_extract,
     scrub_contact_details,
+    scrub_snapshot_contacts,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.ingest import UNSAMPLED_WEIGHT
@@ -279,6 +296,7 @@ from .pipeline.party import (
     PARTY_RULES,
     party_census,
 )
+from .pipeline.party_rates import DEFAULT_RATES_RULE, party_rates
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
     CaseDisposition,
@@ -325,6 +343,7 @@ from .schemas import (
     CellFailure,
     CellMode,
     CertBacktest,
+    CertBacktestCellClock,
     CertBacktestCellLoss,
     CertBacktestDisclosure,
     CertBacktestDisclosureTally,
@@ -1309,7 +1328,7 @@ def party_census_cmd(
     rule_version: str = typer.Option(
         PARTY_RULE_VERSION,
         "--rule-version",
-        help="Which registered party-annotation rule cuts the frame (party-v1).",
+        help="Which registered party-annotation rule cuts the frame (party-v1 or party-v2).",
     ),
 ) -> None:
     """The party census: federal/state parties by side, and by administration.
@@ -1323,8 +1342,8 @@ def party_census_cmd(
     (`pipeline.party`), which reads both caption halves through the caption
     classifier and attributes an administration from dates rather than from the
     officer a caption names. Counts only: grant rates by government-party status
-    are an analytics cut with its own scope strings and reweighting, not a
-    number this command may publish.
+    are `party-rates`, which carries its own population rules and reweighting,
+    not a number this command may publish.
 
     `--as-of` is required and stamped on the output, because a petition filed
     under one administration is routinely resolved under the next, so the two
@@ -1419,6 +1438,137 @@ def party_census_cmd(
             err=True,
         )
     typer.echo(census.model_dump_json())
+
+
+@app.command("party-rates")
+def party_rates_cmd(
+    as_of: str = typer.Option(
+        ...,
+        "--as-of",
+        help=(
+            "Required — which date attributes the administration: 'filed' (who "
+            "held office when the petition or application arrived) or 'resolved' "
+            "(who held office when the Court acted). No default, as on party-census."
+        ),
+    ),
+    through: str | None = typer.Option(
+        None,
+        "--through",
+        help=(
+            "Cut the corpus as of this ISO date: rows filed later are left out and "
+            "dispositions dated later read as pending. Omit for the whole blob."
+        ),
+    ),
+    since: str | None = typer.Option(
+        None,
+        "--since",
+        help=(
+            "Leave out rows filed before this ISO date (and rows that cannot be "
+            "dated after it) — the bound a comparison "
+            "needs where coverage begins mid-window (the application docket is "
+            "captured whole only from 2025-04-18). Omit for the whole live slice."
+        ),
+    ),
+    rule_version: str = typer.Option(
+        DEFAULT_RATES_RULE,
+        "--rule-version",
+        help="Which registered party-annotation rule keys the cells (party-v2).",
+    ),
+) -> None:
+    """Grant rates by government-party status and administration (`pipeline.party_rates`).
+
+    Cert grant rates (paid and IFP) and emergency-docket grant rates (substantive
+    applications), keyed on administration x docket stratum x which side of the
+    caption the federal government occupies — `none` being the comparison cell.
+    Every rate is printed beside the numerator and denominator it divides — the
+    weighted pair, which restores the legacy one-in-ten sampled denial block to
+    full strength; a cell holding sampled rows prints the raw pair beside it.
+    An analytics artifact: nothing a predict or evaluate cell reads comes
+    from it. Prints a `PartyRates`; the human cut and the corpus vintage go to
+    stderr. `pending` on the human line is a raw row count. Fails loud if the
+    corpus is absent (exit 1), or on an unregistered rule, an unknown `--as-of`
+    or an unreadable `--through` / `--since` (exit 2).
+    """
+    if rule_version not in PARTY_RULES:
+        typer.echo(
+            f"unregistered party rule {rule_version!r}; "
+            f"registered: {', '.join(sorted(PARTY_RULES))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if as_of not in PARTY_AS_OF_FIELDS:
+        typer.echo(
+            f"unknown --as-of {as_of!r}; choose {' or '.join(PARTY_AS_OF_FIELDS)}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    bounds: dict[str, date | None] = {}
+    for flag, value in (("--through", through), ("--since", since)):
+        try:
+            bounds[flag] = date.fromisoformat(value) if value is not None else None
+        except ValueError:
+            typer.echo(f"unreadable {flag} {value!r}; give an ISO date (YYYY-MM-DD)", err=True)
+            raise typer.Exit(code=2) from None
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the party rates.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    corpus_sha = _census_corpus_sha(settings, db_path)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        rates = party_rates(
+            conn,
+            as_of_field=as_of,
+            through=bounds["--through"],
+            since=bounds["--since"],
+            corpus_sha256=corpus_sha,
+            rule_version=rule_version,
+        )
+    pulled = rates.latest_pull.isoformat() if rates.latest_pull else "never pulled"
+    snapshot = rates.latest_snapshot.isoformat() if rates.latest_snapshot else "none"
+    moment = rates.through.isoformat() if rates.through else "whole blob"
+    start = f"since {rates.since.isoformat()}, " if rates.since else ""
+    typer.echo(
+        f"party rates ({rates.rule_version} over {rates.caption_rule_version}, "
+        f"as-of {rates.as_of_field}, {start}through {moment}): {rates.rows} row(s) rated, "
+        f"{rates.duplicate_rows} duplicate docket row(s) dropped, {rates.other_stratum} "
+        f"other-stratum row(s) left out, {rates.filed_before_since} earlier and "
+        f"{rates.filed_after_through} later than the cut, {rates.undated} undated, "
+        f"{rates.resolution_undated} resolved without a resolution date; "
+        f"corpus latest pull {pulled}, latest snapshot {snapshot}",
+        err=True,
+    )
+    for cell in rates.cells:
+        rate = f"{cell.grant_rate:.1%}" if cell.grant_rate is not None else "-"
+        # The printed pair is the one the rate divides — the weighted pair,
+        # equal to the raw one wherever the cell holds no sampled row — so the
+        # quotient on the line is always the quotient of the numbers beside it.
+        weighted = (
+            f" (raw {cell.granted}/{cell.resolved}, {cell.sampled_rows} sampled row(s) "
+            "counted at their weight)"
+            if cell.sampled_rows
+            else ""
+        )
+        excluded = (
+            f" excluded extension={cell.excluded_extension} "
+            f"unknown-ask={cell.excluded_unknown_ask} unparsed={cell.excluded_unparsed}"
+            if cell.stratum == "application"
+            else ""
+        )
+        labels = " ".join(f"{label}={n}" for label, n in cell.dispositions.items())
+        typer.echo(
+            f"{cell.administration or 'unattributed'} {cell.stratum} "
+            f"federal-{cell.federal_party}: granted "
+            f"{cell.weighted_granted}/{cell.weighted_resolved} = {rate}"
+            f"{weighted}; rows={cell.rows} pending={cell.pending} "
+            f"unreadable={cell.unreadable} [{labels}]{excluded}",
+            err=True,
+        )
+    typer.echo(rates.model_dump_json())
 
 
 @app.command("distribution-census")
@@ -2540,13 +2690,16 @@ def relabel_application_events_cmd(
     injunction application is a motion under the interim standard, not a cert
     petition. This deterministic convergence sweep renames any cert-shaped
     baseline (`evt-petition-disposition`) still sitting on an application docket
-    to that form, carrying every field and the `resolved` latch, atomically per
-    case. A case with committed ledger artifacts under the old identity, or
-    whose existing `evt-motion-disposition` row is entry-pinned, is skipped and
-    reported for triage rather than folded. Idempotent: a converged corpus
-    renames nothing. Dry-run by default; `--apply` writes. Run where the corpus
-    is pulled, `corpus-push` after an `--apply`. Fails loud if the corpus is
-    absent.
+    to that form, atomically per case. `kind`, `stage` and the moment become the
+    interim stage's, the moment re-derived exactly as a fresh mint derives it;
+    every other field and the `resolved` latch are carried. That includes
+    `opened_at`, which `backfill-arrival-stamps` re-reads from the snapshot. A
+    case with committed ledger artifacts under the old identity, or whose
+    existing `evt-motion-disposition` row is entry-pinned, is skipped and
+    reported for triage rather than folded.
+    Idempotent: a converged corpus renames nothing. Dry-run by default;
+    `--apply` writes. Run where the corpus is pulled, `corpus-push` after an
+    `--apply`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -2573,6 +2726,92 @@ def relabel_application_events_cmd(
         typer.echo(f"  {', '.join(preview)}{suffix}")
     for case_id, reason in result.skipped:
         typer.echo(f"  skipped {case_id}: {reason}")
+
+
+@app.command("converge-event-moments")
+def converge_event_moments_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the re-derived moments; omit for a dry-run report."),
+    ] = False,
+    max_rewrites: Annotated[
+        int | None,
+        typer.Option(
+            "--max-rewrites",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this "
+            "(corpus rows and ledger files together).",
+        ),
+    ] = None,
+) -> None:
+    """Re-stamp declared-moment events whose stored moment disagrees with their id.
+
+    A declared-moment event id names exactly one forecast moment, and the
+    declared-moments table is the authority on which. This sweep finds every
+    un-pinned corpus row and every ledger `event.yaml` under such an id whose
+    stored moment is non-null and different from the declared one, and
+    re-stamps it. The population this exists for is application baselines the
+    relabel moved from the cert petition id while carrying its `distribution`
+    moment onto `evt-motion-disposition`, whose declared moment is `arrival`.
+    Decided applications are not re-read by the live rotation, so nothing else
+    converges them. A null moment is `backfill-event-moments`' population, not
+    this one.
+
+    An event with committed predictions or evaluations under it is skipped in
+    both stores and reported, because moving its moment moves scored cells
+    between moment strata. So is an entry-pinned row, or one whose stage is
+    not the declared moment's stage.
+
+    Idempotent. Run where the corpus is pulled: a dev checkout dry-runs it,
+    and the apply half belongs on a run-repair pass, which holds the
+    corpus-write credentials and commits the ledger half beside the corpus it
+    must match. `--apply` refuses above `--max-rewrites`. The population is
+    finite, because the relabel re-derives the moment and so no write path
+    produces this shape; a count above the dry run's means the predicate
+    widened. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_rewrites is None:
+        typer.echo(
+            "converge-event-moments: --apply requires an explicit --max-rewrites. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the convergence.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = converge_event_moments(
+            conn, settings.data_root, apply=apply, max_rewrites=max_rewrites
+        )
+    if result.refused:
+        typer.echo(
+            f"converge-event-moments: refusing to apply {result.total} rewrite(s) "
+            f"(--max-rewrites {max_rewrites}). The population is finite: the relabel "
+            "re-derives the moment, so no write path produces this shape; a count this "
+            "size means the predicate widened — triage before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "re-stamped" if apply else "would re-stamp"
+    typer.echo(
+        f"converge-event-moments ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.corpus_rows)} corpus row(s) and "
+        f"{len(result.ledger_files)} ledger event.yaml file(s); "
+        f"skipped {len(result.skipped)} for triage"
+    )
+    for label, rewrites in (("corpus", result.corpus_rows), ("ledger", result.ledger_files)):
+        for rewrite in rewrites:
+            typer.echo(
+                f"  {label} {rewrite.case_id}/{rewrite.event_id}: {rewrite.was} -> {rewrite.now}"
+            )
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
 
 
 @app.command("reopen-misattributed-outcomes")
@@ -4959,6 +5198,10 @@ def leaderboard(
         # stratum's per-band cut and the realized always-deny floor beside
         # accuracy, over the same cells and never a rank key.
         facts=cell_facts(cells, settings.data_root),
+        # Each merits cell's participating-bench vote accuracy, recomputed
+        # against a complete vote record: what `mean_vote_accuracy` averages,
+        # counted as `vote_cells_scored`.
+        vote_scores=vote_scores(cells, settings.data_root),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -5456,6 +5699,40 @@ def backtest(
     )
 
 
+@contextmanager
+def _standing_report_withheld(report_path: Path) -> Iterator[None]:
+    """Keep the standing cert back-test report out of the tree while cells run.
+
+    The report names every replayed petition beside the arm it was provisioned
+    under, and counts each arm's denials — so wherever an arm is pure, which
+    includes every arm of one, the two together state a named petition's
+    outcome. The draws of consecutive
+    fortnights can overlap, and a replay cell runs with the checkout as its
+    working directory, so a petition's next replay would find its own outcome
+    one search away. The file is about to be replaced anyway: its bytes are
+    held in memory for the replay and written back on the way out, whatever
+    happened in between, and the new report then overwrites them.
+
+    A fence against an incidental working-tree read and nothing more, like the
+    ledger's removal: the committed copy stays reachable through version
+    history, through the unmerged, force-pushed ``metrics/cert-backtest``
+    review branch among a full-depth checkout's refs, and through the public
+    repository, which a cell's web tools can reach. It keys on ``--out``, so a
+    standing report at any other path is not withheld; and a process killed
+    outright skips the ``finally``, leaving the file absent — harmless in CI,
+    where a failed replay skips the review-PR step and the runner is discarded,
+    and restored locally from the commit.
+    """
+    held = report_path.read_bytes() if report_path.is_file() else None
+    if held is not None:
+        report_path.unlink()
+    try:
+        yield
+    finally:
+        if held is not None:
+            report_path.write_bytes(held)
+
+
 def _report_replay_drops(
     outcome: ReplayOutcome,
     roster: list[PredictorConfig],
@@ -5703,7 +5980,7 @@ def cert_backtest_cmd(
         disclosures: list[CertBacktestDisclosure] = []  # the cells' own flags.json notes
         tally: dict[str, CertBacktestDisclosureTally] = {}  # their per-predictor counts
         replayed: list[Backtester] = []  # the engine cells' backtesters, if any ran
-        clock_days: dict[str, date] = {}  # each dated cell's cutoff; empty offline
+        clocks: list[CertBacktestCellClock] = []  # every petition's arm and exported clock
         if engine:
             items, unreplayable = replayable_items(db_path, items)
             if unreplayable:
@@ -5730,19 +6007,20 @@ def cert_backtest_cmd(
                     "opted out of engine(s): " + ", ".join(sorted(skipped_engines)), err=True
                 )
             replay_run_id = ids.run_id()
-            outcome = replay_predictors(
-                items,
-                corpus_db_path=db_path,
-                config_root=settings.config_root,
-                work_root=work_root,
-                engine_override=None if engine == "auto" else engine,
-                skip_engines=skipped_engines,
-                run_id=replay_run_id,
-                workers=workers,
-            )
+            with _standing_report_withheld(destination):
+                outcome = replay_predictors(
+                    items,
+                    corpus_db_path=db_path,
+                    config_root=settings.config_root,
+                    work_root=work_root,
+                    engine_override=None if engine == "auto" else engine,
+                    skip_engines=skipped_engines,
+                    run_id=replay_run_id,
+                    workers=workers,
+                )
             provisioning, lost_cells = outcome.provisioning, outcome.lost_cells
             disclosures, tally = outcome.disclosures, outcome.disclosure_tally
-            clock_days = outcome.clock_days
+            clocks = outcome.clocks
             dropped = _report_replay_drops(
                 outcome,
                 enabled_predictors(settings.config_root / "predictors.yaml"),
@@ -5758,7 +6036,13 @@ def cert_backtest_cmd(
         # masked on its Term alone — and `--engine` also narrows the population
         # to the replayable petitions, so the two runs' floors are over
         # different sets and prior-vote's top line does not compare across them.
-        backtesters = default_backtesters(conn, replay_days=clock_days) + replayed
+        backtesters = (
+            default_backtesters(
+                conn,
+                replay_days=clock_days(clocks),
+            )
+            + replayed
+        )
         # The leakage-safe segment context (band + per-Term base rate) mirrors
         # the forward stratum's yardstick; segment_base_rate masks each item to
         # Terms strictly before its own, so a full-corpus statpack is safe here.
@@ -5780,6 +6064,7 @@ def cert_backtest_cmd(
                 lost_cells=lost_cells,
                 disclosures=disclosures,
                 disclosure_tally=tally,
+                clocks=clocks,
             ),
         )
     write_json(destination, report)
@@ -8887,6 +9172,163 @@ def probe_live_terms(
             fh.write(table + "\n")
 
 
+@app.command("opinion-lineups")
+def opinion_lineups_command(
+    term: Annotated[
+        int,
+        typer.Option(help="Two-digit October Term whose opinions listing to read (e.g. 25)."),
+    ],
+    docket: Annotated[
+        str,
+        typer.Option(help="Comma-separated docket numbers to read (e.g. 24-43); all if empty."),
+    ] = "",
+    limit: Annotated[
+        int | None,
+        typer.Option(help="Read at most this many in-scope opinions (skipped rows still listed)."),
+    ] = None,
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(help="Keep fetched opinion PDFs here and re-read them from here."),
+    ] = None,
+) -> None:
+    """Read merits vote lineups from a Term's opinions on supremecourt.gov.
+
+    Fetches the Term's opinions listing, then each in-scope opinion PDF, locates
+    the syllabus lineup paragraph, and reads it with the syllabus grammar
+    against the bench the seat roster says sat. Prints one JSON reading per
+    listing row on stdout — the lineup, its problems, and, where the lineup is
+    complete and passes the listing cross-checks, the ``votes`` list and
+    ``vote_provenance`` block a writer would commit — and a count summary on
+    stderr.
+
+    Strictly **read-only**: writes no corpus, content store or ledger, and
+    nothing at all but the optional PDF cache. The supremecourt.gov channel —
+    no token, no budget; browser UA, ~1 req/s and host-scoped fetches built in.
+    """
+    if throttle <= 0:
+        typer.echo("--throttle must be positive", err=True)
+        raise typer.Exit(code=2)
+    if limit is not None and limit < 1:
+        typer.echo("--limit must be at least 1", err=True)
+        raise typer.Exit(code=2)
+    try:
+        opinion_lineups.listing_url(term)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    dockets = [d.strip() for d in docket.split(",") if d.strip()]
+    with SupremeCourtClient(throttle_seconds=throttle) as client:
+        fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
+        try:
+            readings = opinion_lineups.read_term(term, fetcher, dockets=dockets, limit=limit)
+        except httpx.HTTPError as exc:
+            # Only the listing fetch can raise here; each opinion's failure is
+            # recorded on its own reading.
+            typer.echo(f"OT{term:02d}: the opinions listing could not be fetched: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    typer.echo(json.dumps([r.model_dump(mode="json") for r in readings], indent=2))
+    read = [r for r in readings if r.status == "read"]
+    typer.echo(
+        f"OT{term:02d}: {len(readings)} listing rows — {len(read)} read "
+        f"({sum(1 for r in read if r.votes is not None)} with a complete vote record), "
+        f"{sum(1 for r in readings if r.status == 'skipped')} skipped, "
+        f"{sum(1 for r in readings if r.status == 'failed')} failed",
+        err=True,
+    )
+
+
+@app.command("order-notations")
+def order_notations_command(
+    on: Annotated[
+        str | None,
+        typer.Option(
+            "--date",
+            help="Order date (YYYY-MM-DD): read every order and opinion relating to "
+            "orders the Court lists for it.",
+        ),
+    ] = None,
+    url: Annotated[
+        str | None,
+        typer.Option(help="Read one order or opinion-relating-to-orders PDF on supremecourt.gov."),
+    ] = None,
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Keep fetched PDFs here and re-read them from here (a dev cache: "
+            "read without host scoping, so never for a publishing lane)."
+        ),
+    ] = None,
+) -> None:
+    """Read cert- and interim-stage per-Justice notations from the Court's orders.
+
+    With ``--date``, fetches the October Term's order-list and Opinions Relating
+    to Orders listings and every document they list for that date; with
+    ``--url``, one document. Splits each into order entries, order text and
+    separate-writing headers, reads them with the order-notation and
+    writing-header grammars against the bench the seat roster says sat, and
+    prints one JSON reading per docket on stdout — the partial vote list, the
+    writings, each piece's reading with its grammar stamp, and every problem —
+    and a count summary on stderr. Writing roles are complete for a docket only
+    when every document listed for the date was read whole without a problem;
+    a single ``--url`` document never is.
+
+    Strictly **read-only**: writes no corpus, content store, ledger or
+    ``data/``, and nothing at all but the optional PDF cache. The channel is
+    not a registered vote source. supremecourt.gov only — no token, no budget;
+    browser UA, ~1 req/s and host-scoped fetches built in.
+    """
+    if (on is None) == (url is None):
+        typer.echo("give exactly one of --date or --url", err=True)
+        raise typer.Exit(code=2)
+    if throttle <= 0:
+        typer.echo("--throttle must be positive", err=True)
+        raise typer.Exit(code=2)
+    day: date | None = None
+    if on is not None:
+        try:
+            day = date.fromisoformat(on)
+        except ValueError as exc:
+            typer.echo(f"--date must be YYYY-MM-DD: {on!r}", err=True)
+            raise typer.Exit(code=2) from exc
+    if url is not None and not order_lineups.is_order_document_url(url):
+        typer.echo(f"not an order or opinion PDF on supremecourt.gov: {url}", err=True)
+        raise typer.Exit(code=2)
+    with SupremeCourtClient(throttle_seconds=throttle) as client:
+        fetcher = order_lineups.OrderFetcher(client, cache_dir=cache_dir)
+        try:
+            if day is not None:
+                reading = order_lineups.read_day(day, fetcher)
+            else:
+                assert url is not None
+                reading = order_lineups.read_url(url, fetcher)
+        except httpx.HTTPError as exc:
+            # Only a listing fetch can raise here; each document's failure is
+            # recorded on its own reading.
+            typer.echo(f"the orders listings could not be fetched: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    typer.echo(json.dumps(reading.model_dump(mode="json"), indent=2))
+    read = [d for d in reading.documents if d.status == "read"]
+    dockets = reading.dockets
+    typer.echo(
+        f"{on or url}: {len(reading.documents)} documents ({len(read)} read, "
+        f"{len(reading.documents) - len(read)} failed; the day is "
+        f"{'covered' if reading.covers_the_day else 'not covered'}) — {len(dockets)} dockets, "
+        f"{sum(1 for d in dockets if d.votes)} with noted votes, "
+        f"{sum(1 for d in dockets if d.writings)} with writings, "
+        f"{sum(1 for d in dockets if d.writings_complete)} with complete writing roles, "
+        f"{sum(1 for d in dockets if d.problems)} with problems",
+        err=True,
+    )
+
+
 @app.command("refresh-historical")
 def refresh_historical_cmd(
     term: Annotated[
@@ -10333,8 +10775,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     scrub** where the snapshot names nobody but the petitioner to write to:
     emails, telephone numbers, post-office boxes and street
     addresses replaced by ``[contact detail withheld]``, with
-    ``contact_scrubbed`` and ``contact_replacements`` on each manifest entry
-    recording that it ran and what it withheld. The stored row and the source
+    ``contact_scrubbed``, ``contact_replacements`` and ``contact_scrub_passes``
+    on each manifest entry recording that it ran, what it withheld, and whether
+    the value pass keyed on the petitioner block's own contact values ran beside
+    the shape pass. On the same docket the staged snapshot has the
+    self-represented petitioner-side block's contact keys withheld and its
+    register number replaced by a presence marker
+    (:func:`~fedcourtsai.pipeline.documents.scrub_snapshot_contacts`). The
+    stored row and the source
     PDF are untouched — the staged copy is the one a cell can quote into the
     public ledger.
 
@@ -10452,7 +10900,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     documents = placement.documents
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
-    write_raw_json(dest, payload)
+    # The staged snapshot is the payload with a self-represented petitioner's
+    # own contact keys withheld (`scrub_snapshot_contacts`): the copy a cell can
+    # quote from, on the same docket-level reading the document scrub below
+    # keys on. A separate object, so everything else here — the cell context,
+    # the scrub trigger, the document scrub — reads the payload as served.
+    unrepresented = petitioner_is_unrepresented(payload)
+    staged_snapshot = scrub_snapshot_contacts(payload) if unrepresented else None
+    write_raw_json(dest, payload if staged_snapshot is None else staged_snapshot.payload)
     # The cell's context: its mode, and the conditioning state it is about to run
     # against. Both are stated at provisioning — the mode so the prompt contract
     # keys replay etiquette on it rather than inferring from env vars, and the
@@ -10481,21 +10936,36 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         else ""
     )
     typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}){placed} -> {dest}")
+    if staged_snapshot is not None:
+        # Counts only, never a value: the run log is public.
+        typer.echo(
+            f"{case} snapshot contact scrub: {staged_snapshot.fields} value(s) withheld on "
+            f"{staged_snapshot.blocks} petitioner-side block(s)"
+        )
     if documents:
         # The contact-detail scrub, keyed on the docket-level reading that
         # separates a filing signed by counsel from one signed in person:
         # whether the snapshot names anyone but the petitioner to write to.
-        # Where it does not, every document staged for this cell has
-        # its contact-detail shapes withheld — the whole docket rather than the
-        # petition alone, since deciding per document who signed it would be a
-        # second reading with its own failure mode, and an opposition filed by
-        # counsel loses only professional details the cell has no use for. The
+        # Where it does not, every document staged for this cell has its
+        # contact details withheld (shapes and served values) — the whole
+        # docket rather than the petition alone, since deciding per document
+        # who signed it would be a second reading with its own failure mode,
+        # and an opposition filed by counsel loses only professional details
+        # the cell has no use for. The
         # corpus row and the source PDF are untouched: the scrub is on the copy
         # staged under `record/`, which is the copy a cell can quote into the
         # public ledger.
-        scrubbing = petitioner_is_unrepresented(payload)
+        scrubbing = unrepresented
+        # The filer's own contact values, off the same served blocks the
+        # trigger read, key the scrub's value pass: it finds them however a
+        # scan fragmented them, which no shape pattern can promise. Read off
+        # `payload` — the payload as served — and never off the staged
+        # snapshot copy, whose contact keys hold the placeholder: keyed on
+        # that, the pass would look for the placeholder and miss the values.
+        contact_values = petitioner_contact_values(payload) if scrubbing else ()
         staged = [
-            (doc, scrub_contact_details(doc.text) if scrubbing else None) for doc in documents
+            (doc, scrub_contact_details(doc.text, contact_values) if scrubbing else None)
+            for doc in documents
         ]
         for doc, scrubbed in staged:
             write_text(paths.document(doc.kind), doc.text if scrubbed is None else scrubbed.text)
@@ -10526,6 +10996,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
                     # can tell from here that the pipeline put it there.
                     "contact_scrubbed": scrubbed is not None,
                     "contact_replacements": 0 if scrubbed is None else scrubbed.replacements,
+                    # Which passes ran: `shape` always where the scrub ran, and
+                    # `value` only where the docket served a contact value
+                    # specific enough to key on. A shape-only scrub is the
+                    # weaker of the two — it misses a detail a scan split
+                    # mid-word or across a line — so the manifest says which
+                    # one the text went through rather than letting
+                    # `contact_scrubbed` read as complete.
+                    "contact_scrub_passes": [] if scrubbed is None else list(scrubbed.passes),
                 }
                 for doc, scrubbed in staged
             ],
@@ -10540,9 +11018,12 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             # all — the manifest that records it is gitignored with the rest of
             # `record/`.
             withheld = sum(0 if done is None else done.replacements for _, done in staged)
+            keyed = any(done is not None and SCRUB_PASS_VALUE in done.passes for _, done in staged)
+            passes = "value+shape" if keyed else "shape only"
             typer.echo(
                 f"{case} contact scrub: {withheld} detail(s) withheld across "
-                f"{len(staged)} staged document(s) (no attorney named for the petitioner)"
+                f"{len(staged)} staged document(s) (no attorney named for the petitioner; "
+                f"passes: {passes})"
             )
 
 
@@ -10633,7 +11114,7 @@ def summarize_cmd(
     ],
     report: Annotated[
         Path | None,
-        typer.Option(help="Write the markdown result report (written, skipped, cost)."),
+        typer.Option(help="Write the markdown result report (written, skipped, retried, cost)."),
     ] = None,
     budget_minutes: Annotated[
         float,
@@ -10652,11 +11133,12 @@ def summarize_cmd(
     nothing else. A response is written to ``summaries/<snapshot day>.md`` only
     if it ends normally, carries exactly the current contract's sections in order,
     sits in the length band, opens no paragraph with "Whether", and passes the
-    secret scan; anything else, and any call that still fails after bounded
-    retries, is reported as skipped. The API key is read from the environment
-    variable ``summaries.API_KEY_ENV`` names. Exits 1 when
-    the plan held cases and none was written, so a dead key or a broken prompt
-    fails the run rather than reading as an empty success.
+    secret scan. A response rejected only on the body rules is retried once in
+    the same run, told why; anything else, a rejected retry, and any call that
+    still fails after bounded retries, is reported as skipped. The API key is
+    read from the environment variable ``summaries.API_KEY_ENV`` names. Exits 1
+    when the plan held cases and none was written, so a dead key or a broken
+    prompt fails the run rather than reading as an empty success.
     """
     settings = get_settings()
     api_key = os.environ.get(summaries.API_KEY_ENV, "")

@@ -33,7 +33,7 @@ model: claude-sonnet-5
 prompt_digest: sha256:…     # .github/prompts/summarize.md as sent
 body_version: 2             # the body contract below it was written to
 generated_at: '2026-09-23T04:02:11Z'
-usage:
+usage:                      # every call that wrote it, a retry's included
   input_tokens: 48210
   output_tokens: 391
   estimated_cost_usd: 0.100330
@@ -107,8 +107,10 @@ the length band is left to generation time.
 The prompt is `.github/prompts/summarize.md`. Its rules:
 
 - **Grounded in the record only.** The request carries the prompt and the
-  staged record — the snapshot and the stored documents — and nothing else: no
-  tools, no retrieval, thinking off. So a summary cannot carry a post-snapshot
+  staged record — the snapshot and the stored documents — and nothing from
+  outside the record: no tools, no retrieval, thinking off. A retry (below)
+  adds only the model's own rejected response and the harness's fixed retry
+  instruction. So a summary cannot carry a post-snapshot
   development, commentary, or an outcome the record does not show; the model is
   also told not to add what it may know from training.
 - **Neutral.** Both sides' positions; no prediction, no view on the merits, no
@@ -158,8 +160,29 @@ formatting — and passes the secret scan. The markup rule is the harness's,
 not only the prompt's: a summary reaches a public page, its text derives from
 third-party filings, and an instruction injected into a filing that survived
 into the output could otherwise place a script, a tracking image or a link
-there. Anything else is not written; the case is reported skipped with the
-reason, and the cost of the call is still counted.
+there. Anything else is not written (after the one retry below, where it
+applies); the case is reported skipped with the reason, and the cost of every
+call is still counted.
+
+A response rejected only on those body rules — its sections, the headline,
+the word band, a "Whether" opening, markup — is **retried once in the same
+run**, as a continuation of the same conversation: the record, the rejected
+response, then a fixed instruction (`summaries.RETRY_INSTRUCTION`, in the
+harness rather than the prompt file, so its wording is reviewed in one place)
+listing each rejection reason and restating the headline limit. The retry is
+held to the same checks. A second rejection skips the case with the retry's
+reason (`rejected on retry: …`, `on retry: stop_reason …` for a truncated
+retry, or `retry failed: …` when the retry call itself fails), and it stays
+owed for the next run; there is never a second retry. A response that did not
+end normally (`end_turn`), an empty one, or one with a secret-scan finding is
+not retried, nor is a case whose run has spent its `--budget-minutes`. The
+front matter's `prompt_digest` covers the prompt file only, not the retry
+instruction; a summary written from a retry shows it only in its `usage`
+(about twice a single call's). The neutrality and accuracy rules above are not
+machine-checked, so nothing retries on them. A summary written from a retry
+records both calls in its `usage`, and the run's result report splits written
+cases into first-response and after-retry, counts the skipped cases whose
+retry failed too, and lists each retried case with its first rejection.
 
 ## Which cases, and when
 
@@ -261,7 +284,8 @@ spend.
 
 **Staged like a cell.** The record a summary reads is the one a forward predict
 cell reads — `provision-snapshot`'s latest snapshot and stored documents, with
-its contact-detail scrub applied to the staged text — taken without a moment
+its contact-detail scrub applied to the staged text and the staged snapshot —
+taken without a moment
 cut, since a summary describes the newest record.
 
 **Publication.** Before anything leaves the runner, the change set must hold
@@ -314,8 +338,8 @@ engine's advantage.
 
 **The staged record is a public artifact for a day.** The `summary-stage`
 artifact carries each planned case's staged record between the stage and
-generate jobs: the newest snapshot payload and every stored document's text
-(after the contact-detail scrub). This repository is public, so any signed-in
+generate jobs: the newest snapshot payload and every stored document's text,
+both after the contact-detail scrub. This repository is public, so any signed-in
 user can download a run artifact while it exists; its retention is the
 shortest GitHub offers, one day. It rides the qp-topic extract's footing —
 supremecourt.gov content only, since the plan and `summarize` both refuse a
@@ -374,6 +398,11 @@ over 195 cases, recorded a median of $0.095 and a total of $19.76 at a median
 of 516 output tokens; input dominates, so the version-2 body's extra ~80 words
 (≈150 output tokens, ≈$0.0015 at Sonnet 5's output rate) leaves a summary at
 roughly $0.10 and the regeneration pass at roughly $15–25 for today's cases.
+
+A retried case pays for two calls, and the retry re-sends the whole record, so
+it costs about twice a first-pass summary; the report's cost line and each
+summary's `usage` include it. The plan's estimate prices one call per case, so
+a run costs more than the estimate by roughly its first-pass rejection rate.
 
 ## Non-goals
 

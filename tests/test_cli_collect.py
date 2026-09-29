@@ -50,6 +50,14 @@ def test_assert_paths_run_id_scope(tmp_path: Path) -> None:
     assert "not under run id 'R'" in result.output
 
 
+def test_assert_paths_refuses_an_agent_instruction_file(tmp_path: Path) -> None:
+    changes = _write_changes(tmp_path, "A\tdata/cases/scotus/1/events/e/x/R/Claude.md\n")
+    result = runner.invoke(app, ["assert-paths", "--name-status-file", str(changes)])
+    assert result.exit_code == 1
+    assert "::error::" in result.output
+    assert "agent instruction file" in result.output
+
+
 def test_collect_union_refusal_warns_but_exits_zero(tmp_path: Path) -> None:
     # A refused stale file is the guard working, not a collect failure: the loop
     # must keep unioning the remaining cells, so the command never exits non-zero.

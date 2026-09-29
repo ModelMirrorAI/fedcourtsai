@@ -14,6 +14,7 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import analytics, cert_backtest, corpus
+from fedcourtsai import cli as cli_module
 from fedcourtsai.backtest import (
     BacktestFeatures,
     BacktestItem,
@@ -50,8 +51,10 @@ from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
     CertBacktest,
+    CertBacktestCellClock,
     CertBacktestCellLoss,
     CertBacktestDisclosureTally,
+    CertBacktestProvenance,
     Disposition,
     FlagCategory,
     PredictionContext,
@@ -661,6 +664,41 @@ def test_a_dated_replay_cell_carries_both_halves_of_its_clock(
     assert context.decided_before == "2022"
 
 
+def test_the_replay_outcome_records_each_petitions_exported_clock(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The report's clock record is read off the same two values the cells are
+    # exported, on both arms: a dated petition carries its day, a blind one none.
+    cut = date(2024, 5, 20)
+    for supplied, arm in ((cut, "truncated"), (None, "blind")):
+        monkeypatch.setattr(
+            cert_backtest, "replay_cutoff", lambda payload, resolved_at, day=supplied: day
+        )
+        exported: list[tuple[int | None, date | None]] = []
+        monkeypatch.setattr(
+            cert_backtest, "get_runner", lambda backend="stub", e=exported: _ClockRecordingRunner(e)
+        )
+        with corpus.connect(fixture_corpus.db_path) as conn:
+            items = select_cert_backtest_set(conn)
+        outcome = cert_backtest.replay_predictors(
+            items,
+            corpus_db_path=fixture_corpus.db_path,
+            config_root=Path("config"),
+            work_root=tmp_path / arm,
+            run_id="20260706T000000Z",
+        )
+        assert outcome.clocks == [
+            CertBacktestCellClock(
+                case_id="scotus/304",
+                snapshot_provenance=arm,
+                decided_before=2022,
+                replay_cutoff=supplied,
+            )
+        ]
+        assert {(c.decided_before, c.replay_cutoff) for c in outcome.clocks} == set(exported)
+        assert outcome.provisioning == {arm: 1}
+
+
 def test_a_blind_replay_cell_carries_the_term_half_only(
     fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1178,6 +1216,62 @@ def test_the_cli_names_a_quota_drop_as_that(
     assert "dropped predictor gemini-baseline: its engine's quota was exhausted" in result.stderr
 
 
+class _ReportProbingRunner:
+    """Delegates to the stub but records whether the standing report is readable."""
+
+    def __init__(self, report: Path, seen: list[bool]) -> None:
+        self._report = report
+        self._seen = seen
+        self._stub = StubRunner()
+
+    def run(self, request: RunRequest) -> object:
+        self._seen.append(self._report.exists())
+        return self._stub.run(request)
+
+
+def test_the_standing_report_is_out_of_the_tree_while_cells_run(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The standing report names each replayed petition beside its arm and counts
+    # the arms' denials, so a pure arm states a named petition's outcome. A cell
+    # replaying that petition again must not find it beside it.
+    out = tmp_path / "cert-backtest.json"
+    out.write_text("standing report")
+    seen: list[bool] = []
+    monkeypatch.setattr(
+        cert_backtest, "get_runner", lambda backend="stub": _ReportProbingRunner(out, seen)
+    )
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(out), "--engine", "stub", "--work-dir", str(tmp_path / "w")],
+    )
+    assert result.exit_code == 0, result.output
+    assert seen and not any(seen)
+    read_model(out, CertBacktest)  # replaced by the new report
+
+
+def test_the_standing_report_is_restored_when_the_replay_fails(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out = tmp_path / "cert-backtest.json"
+    out.write_text("standing report")
+
+    present: list[bool] = []
+
+    def explode(*args: object, **kwargs: object) -> object:
+        present.append(out.exists())
+        raise RuntimeError("replay failed")
+
+    monkeypatch.setattr(cli_module, "replay_predictors", explode)
+    result = runner.invoke(
+        app,
+        ["cert-backtest", "--out", str(out), "--engine", "stub", "--work-dir", str(tmp_path / "w")],
+    )
+    assert result.exit_code != 0
+    assert present == [False]  # withheld while the replay ran, as on the success path
+    assert out.read_text() == "standing report"
+
+
 def test_a_partly_lost_predictor_is_scored_over_what_came_back() -> None:
     """An entry short some cells is scored, and floored, over the ones it has.
 
@@ -1373,6 +1467,12 @@ def test_cli_writes_valid_report_with_stub_replay(
     assert {"constant-denied", "prior-vote"} <= ids
     assert {p.id for p in enabled_predictors(Path("config") / "predictors.yaml")} <= ids
     assert "always-deny floor" in result.output
+    # Every replayed petition's clock rides the provenance, and its arm keys the
+    # per-arm denial count beside the mix.
+    assert report.provenance is not None
+    assert [c.case_id for c in report.provenance.clocks] == ["scotus/304"]
+    assert report.provisioning_denied.keys() == report.provisioning.keys()
+    assert sum(report.provisioning_denied.values()) == 1  # the fixture petition was denied
 
 
 def test_cli_stub_report_self_identifies_as_stub(
@@ -1907,6 +2007,51 @@ def test_the_report_carries_the_provisioning_mix() -> None:
     assert report.provisioning == {"truncated": 7, "blind": 2}
     # Absent rather than fabricated where no replay ran.
     assert run_cert_backtest([], []).provisioning == {}
+    # No clock says which arm a petition sat in, so no per-arm count is guessed.
+    assert report.provisioning_denied == {}
+
+
+def _clock(case_id: str, arm: str, cutoff: date | None = None) -> CertBacktestCellClock:
+    return CertBacktestCellClock.model_validate(
+        {
+            "case_id": case_id,
+            "snapshot_provenance": arm,
+            "decided_before": 2024,
+            "replay_cutoff": cutoff,
+        }
+    )
+
+
+def test_the_report_counts_denials_per_provisioning_arm() -> None:
+    """The pooled floor is the arms' floors weighted by their sizes; the per-arm
+    denial counts are what let a reader take it apart again. An arm with no
+    denial is stated as a zero, not left out."""
+    items = [
+        _item("scotus/1", Disposition.denied),
+        _item("scotus/2", Disposition.granted),
+        _item("scotus/3", Disposition.denied),
+        _item("scotus/4", Disposition.denied),
+        _item("scotus/5", Disposition.granted),
+    ]
+    clocks = [
+        _clock("scotus/1", "dated", date(2025, 1, 10)),
+        _clock("scotus/2", "dated", date(2025, 2, 14)),
+        _clock("scotus/3", "blind"),
+        _clock("scotus/4", "blind"),
+        _clock("scotus/5", "truncated", date(2025, 3, 7)),
+    ]
+    report = run_cert_backtest(
+        [ConstantBacktester(id="constant-denied", disposition=Disposition.denied)],
+        items,
+        provisioning={"dated": 2, "blind": 2, "truncated": 1},
+        provenance=CertBacktestProvenance(clocks=clocks),
+    )
+    assert report.provisioning_denied == {"dated": 1, "blind": 2, "truncated": 0}
+    # The arms reassemble the pooled floor exactly.
+    assert sum(report.provisioning_denied.values()) / report.events_scored == pytest.approx(
+        report.always_denied_accuracy
+    )
+    assert report.provenance is not None and report.provenance.clocks == clocks
 
 
 # --- The cells' own flags.json: recorded, never a filter --------------------

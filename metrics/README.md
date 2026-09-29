@@ -179,7 +179,13 @@ stays outside the gate:
   sit on the entry rather than the stratum, because they describe the whole
   entry: `evaluators`, the distinct judges that scored it, and `events_scored`
   pooled across its strata, which the coverage contract below reads against the
-  board's own. The **accuracy** column is the mean of each cell's `correct`,
+  board's own. The vote mean averages only cells whose outcome carries a
+  complete vote record, each scored over that record's whole sitting bench
+  (recomputed at build, not read off the evaluator), with `vote_cells_scored`
+  beside it as its denominator; it covers the decisions a vote source read
+  completely — signed opinions whose lineup parsed, which is expected to
+  under-represent fractured lineups — not every merits decision. The
+  **accuracy** column is the mean of each cell's `correct`,
   which the harness stamps on **every** stage — cert included, unlike the skill
   record beside it — from the scored prediction's committed label and the
   outcome's, so the board's first rank key is recomputed from committed
@@ -1386,15 +1392,28 @@ the rendered table) and
   denial signal here, so the blind arm is selected on a feature that correlates
   with the outcome and comes out denial-purer than the rest. A blind-heavy draw
   therefore carries a *higher* pooled floor and dilutes every lift measured
-  over the union, rather than depressing them. Read the mix before the scores,
-  and read a shift in it between two fortnights the way you read a change of
-  dispatch. The weekly digest's cert back-test line carries the mix and the
-  dispatch beside the figure for that reason. Two things the mix does not
-  capture. The first is that the day bar narrows the **dated** cells'
-  retrieval and not the blind ones', so the two arms differ in what they could
-  *retrieve* as well as in what their snapshots showed — one more reason to
-  read the mix before the scores. The second is the offline `prior-vote` row:
-  it is masked on each dated cell's own cutoff day, the clock its engine cells
+  over the union, rather than depressing them. `provisioning_denied` gives
+  the size of that effect: keyed as `provisioning` is, a zero stated, it counts
+  each arm's realized denials, so each arm's own always-deny floor is its
+  count there over its count in `provisioning`, and the pooled floor is those
+  arm floors weighted by arm size. That separates the floor, not the scores:
+  no entry's accuracy is broken out by arm, so a lift cannot be split the same
+  way, and what the counts license is how much of the pooled floor the blind
+  arm carries — the floor over the non-blind arms alone is their denials over
+  their count. Like the pooled floor, the counts are over the whole replayed
+  set, so an entry short some cells is floored by neither. At the pinned
+  draw of ten an arm can hold one to three petitions, and a floor over an
+  arm that small is a count, not a rate: quote it as denials over n, never
+  as a percentage without its n. Read the mix before the scores, and read a
+  shift in it between two fortnights the way you read a change of dispatch.
+  The weekly digest's cert back-test line carries the mix and the dispatch
+  beside the figure for that reason. Two things the mix does not capture.
+  The first is that the day bar narrows the retrieval of every cell with a
+  cutoff — the **dated and truncated** arms — and not the blind ones', so the
+  arms differ in what they could *retrieve* as well as in what their
+  snapshots showed — one more reason to read the mix before the scores. The
+  second is the offline `prior-vote` row:
+  it is masked on each non-blind cell's own cutoff day, the clock its engine cells
   retrieved under, and only an **engine replay** provisions those cutoffs. So a
   run with no replay at all (`--engine` unset) carries a prior-vote row masked
   on the Terms alone, while any replay — a stub rehearsal included, since it
@@ -1405,7 +1424,23 @@ the rendered table) and
   replayed set's denial share, a property of the labels. Do not compare
   `prior-vote`'s top line between a replay run and a no-replay one regardless:
   `--engine` also narrows the population to the replayable petitions, so the
-  two are scored over different sets and their floors are different floors. Produced by the
+  two are scored over different sets and their floors are different floors.
+
+  `provenance.clocks` records, per replayed petition, the arm and the two
+  clock halves its cells were exported — `decided_before` (the Term) and
+  `replay_cutoff` (the day, null on a blind petition) — so the clock's width
+  is read from the report rather than assumed from the arm. Named petitions
+  beside their arms, with the arms' denial counts, state a named petition's
+  outcome wherever its arm is pure, which includes every arm of one, and the
+  draws of consecutive fortnights can overlap. So `cert-backtest` takes the
+  standing report out of the working tree while the cells run and puts it
+  back before writing the new one. That is a fence against an incidental
+  working-tree read and nothing more: the committed copy stays reachable
+  through version history, through the unmerged, force-pushed
+  `metrics/cert-backtest` review branch among the full-depth checkout's refs,
+  and through the public repository, which a cell's web tools can reach.
+
+  Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A
   real-engine replay spends tokens, so **the schedule asks and the hold
   spends**: no run spends without an explicit maintainer decision. The
@@ -2241,8 +2276,9 @@ in, and a president's surname appearing as a party — and prints the counts. It
 is descriptive corpus structure, not a performance instrument: no annotation
 enters a claim score, a leaderboard rank, or any denominator here, and the
 census publishes **counts only**. A grant rate by government-party status is a
-different artifact with its own scope string and denial reweighting; computing
-one from these cells would inherit every caveat below without carrying them.
+different artifact — `fedcourts party-rates`, below — with its own population
+rules and denial reweighting; computing one from these cells would inherit
+every caveat below without carrying them.
 Six rules travel with any figure quoted from it, and the first two are the ones
 that invert a conclusion when they are skipped. **No cross-administration reading
 without holding the docket stratum fixed.** The windows hold very different
@@ -2263,7 +2299,7 @@ it fixed**: because the exclusion *is* the IFP stratum, the older windows'
 `ifp-cert` cells are the complement of a systematic sample — frame coverage of
 the estimated IFP stratum runs about 3.6% in each of the two older windows
 against 74% in the newest — so no `ifp-cert` series may be read across windows
-until this census gains reweighted cuts. **Always with the date convention and
+from this census — the reweighted IFP rates are `party-rates`, below. **Always with the date convention and
 the rule version**, both stamped on the artifact (`as_of_field`,
 `rule_version`): a petition filed under one administration is routinely
 resolved under the next, so two cuts are comparable only where both stamps
@@ -2298,6 +2334,137 @@ limit — a styled caption (`In re`, `Ex parte`) has one party and is annotated
 from it, and an anonymized or initialized IFP caption carries no classifiable
 party at all, so `none` means "no sovereign the caption names", never "no
 sovereign".
+
+**What may be claimed from the party rates.** `fedcourts party-rates`
+(`pipeline.party_rates`, [docs/cli.md](../docs/cli.md)) publishes cert and
+emergency-docket grant rates keyed on administration × docket stratum × the
+side of the caption the federal government occupies, with `none` — the same
+window and stratum, no federal party the caption names — as the comparison
+cell. It is an analytics artifact: no predict or evaluate input, base rate,
+claim score or leaderboard rank reads it. A rate is granted over resolved, the
+binary outcome's projection (`granted_labels`; GVRs and partial grants on the
+granted side), and **every share is quoted with its numerator and denominator**
+— the cells hold tens of rows in exactly the places a reader most wants them
+(a federal applicant's substantive asks, a federal petitioner's paid petitions),
+so the pair is what tells a reader how far the share can move. Every rule the
+census carries travels here too — the date convention, the rule version, the
+corpus vintage, the date-not-caption attribution, rows not disputes — and
+nine more are specific to rates.
+
+- **Hold the stratum fixed, and compare against `none`, not across cells of
+  different strata.** A paid-cert rate, an IFP-cert rate and an application
+  rate are three populations an order of magnitude apart; the within-window,
+  within-stratum `none` cell is the reference a government-party rate is read
+  beside. It is a **descriptive reference, not a counterfactual**: it holds
+  whatever the other litigants brought — on the application docket, mostly
+  capital-stay and self-represented asks — not the same ask made by a
+  non-government party.
+- **The application stratum is a census only from 2025-04-18.** The live
+  channel captures the application docket whole for filings from that date
+  (OT2024's `24A1000` on), save a second, week-long gap at the end of OT2024:
+  `24A1274`–`24A1295` are uncaptioned shell rows outside the live slice, so
+  whether any of them is a federal application cannot be read from the blob. Before it, the live slice holds a selected set of
+  high-profile applications — mostly the federal government's — while the
+  ordinary applications of the same months sit outside it as never-polled
+  shell rows; the live slice carries 35 application rows filed in July–August
+  2024, then a handful a month until April 2025 (blob pulled 2026-09-28, newest
+  stored snapshot 2026-07-13). So before that date a federal-applicant cell is
+  nearly complete while its `none` and `respondent` comparison cells are not:
+  a government-versus-`none` reading of the application stratum is cut with
+  `--since 2025-04-18` (or later) and says so. **And under `--as-of filed` it
+  quotes the unattributed `none` cell beside the attributed one**: 113 live
+  application rows carry no filing date, overwhelmingly execution-eve capital
+  stays that are almost all denied, so they drop out of the `trump-47` cell
+  into the unattributed one and inflate the reference — on the same blob,
+  `--since 2025-04-18` gives `trump-47` `none` 13/188 (6.9%) beside
+  unattributed `none` 1/81, 14/269 (5.2%) pooled, against the federal
+  applicant's 16/26. `--as-of resolved` dates those rows by their disposition
+  instead and needs no such pairing. The same gap means `trump-45`
+  holds no application cell at all and `biden-46` two federal-applicant
+  substantive asks against the 19 applications a published count gives that
+  administration: no emergency-docket rate reads across administrations on
+  this corpus, and the absent cells are absences, not zeros.
+- **`trump-45` does not span its administration either.** The live slice's
+  earliest filing is 2017-06-27 and it holds no OT2016 docket, so a
+  `trump-45` cell under `filed` covers roughly 43 of the administration's 48
+  months, and fewer under `resolved`.
+- **The application population is the substantive asks.** Extensions are
+  granted as a matter of course and would swamp the rate, so they, the
+  unreadable asks and the never-parsed applications are counted beside each
+  cell as exclusions — by count only, with no labels. An unreadable ask can be
+  a real emergency application (two federal applications decided by the
+  replication moment below are), so a quoted rate names the exclusion counts
+  beside it.
+- **A partial grant of an application can carry the `denied` label.** At the
+  replication moment below, two of the four federal-applicant rows labeled
+  `denied` are applications the Court's own orders granted in part (`24A949`,
+  `25A103`) and one was denied as moot (`24A790`). The emergency-docket rate is
+  therefore a floor on "relief in whole or in part", and the per-label counts
+  are what a reader re-cuts it from.
+- **GVRs are grants here.** On the paid-cert federal-petitioner cells a third
+  of the grants are GVRs (20 of 67 under `trump-45`, 23 of 64 under `biden-46`,
+  `filed` convention, same blob); plenary grants alone are 47 of 96 and 41 of
+  81. A comparison with a published "the Solicitor General wins cert about 70%
+  of the time" figure has to say which of the two it is quoting.
+- **The IFP rate is a weighted estimate.** The legacy one-in-ten sampled denial
+  block is restored to full strength (`weighted_granted` /
+  `weighted_resolved`, each row counted `sample_weight` times), and
+  `grant_rate` is that pair's quotient; the raw pair beside it is the rows
+  actually held. A cell with `sampled_rows` above zero is an estimate resting
+  on the sample being a systematic one-in-ten draw of denials, and its raw pair
+  is never quoted as a rate. `pending` stays a raw row count.
+- **Without `--through`, the newest window is right-censored.** Under `filed`
+  its pending rows sit outside the rate (18 of the 45 `trump-47` paid-cert
+  federal-petitioner rows on the same blob), and the petitions still pending
+  are disproportionately the relisted and CVSG'd ones, so a rate over what has
+  resolved is not yet the window's rate. Under `resolved` the pending rows move
+  to the unattributed cells. `--through` places the cut at a fixed past moment
+  instead — rows filed later leave, dispositions dated later read as pending —
+  which is how a published tally is compared as of its own date.
+- **The rule version moves rows between cells, not only into them.** The cut
+  defaults to `party-v2`: `party-v1` plus an analytics-side supplement to the
+  federal class for caption shapes `caption-v2` reads as private — the
+  officer-then-department caption the Department of Homeland Security's
+  applications carry, the Commissioner of Social Security, and federal agencies
+  named in full that the caption rules list only as initialisms or not at all.
+  Per caption half the widening is one-directional by construction (153 halves
+  of the census frame move from `private` to `federal` on the same blob, each
+  inspected as a federal party, and none moves the other way), but per row the
+  side composition moves rows out of cells too: over the rows the rates cut
+  reads, 148 move `none` → `respondent`, 17 `none` → `petitioner` and one
+  `respondent` → `both` — a removed NCUA board member suing individually and
+  in his official capacity, whom the class reads as the government. The census stays on `party-v1` by default, so a census
+  count and a rates cell are comparable only where both name the same rule.
+
+**Validation against the published administration tallies.** The
+emergency-docket cell was checked against two published counts of the federal
+government's applications, each cut `--as-of filed --through <the tally's
+date>` on the same blob, federal applicant meaning `federal_party`
+`petitioner` or `both`, and every non-extension ask counted. It validates the
+federal-applicant **numerator** — how completely the corpus holds the
+government's applications and how it labels their outcomes — and says nothing
+about the comparison cells, whose coverage the rule above governs.
+
+| Published figure | This corpus | Reconciliation |
+|---|---|---|
+| 28 applications filed by the administration from 2025-01-20 to 2025-10-01, 2 withdrawn (Ballotpedia, 2025-10-01) | 25 — 22 substantive `petitioner` rows, 2 unreadable-ask rows and 1 `both` row (`25A312`) — 2 of them withdrawn | The 3 absent (`24A885` and `24A886`, the birthright-citizenship companions, and `24A904`) are stored only as uncaptioned shell rows outside the live slice, never live-polled — inside the pre-2025-04-18 coverage gap, not misclassified |
+| Of the 23 decided: 19 granted in full, 2 in part, 1 denied, 1 dismissed as moot — 19/23 = 82.6% granted in full | 16 granted, 4 `denied`, of 20 decided — 80.0% | The 4 `denied` (`24A790`, `24A831`, `24A949`, `25A103`) match the published 2 partial grants, 1 denial and 1 mootness dismissal in count and — per the Court's orders, an external check the corpus cannot reproduce — in identity; the 3 absent applications were all granted, and adding them gives 19/23. "In full" follows the published source's convention: the partial stays granted in `24A884` carry `granted` in both |
+| 3 pending on 2025-10-01 | 3 pending (including `25A312`, the `both` row) | Agrees |
+| 19 applications in the administration's first 20 weeks, to 2025-06-09 (Vladeck) | 16 | The same 3 absent applications all fall in the window |
+| 19 applications across the whole of `biden-46`; 41 across `trump-45` (Vladeck) | 2 and 0 | Coverage: the application docket is not captured before mid-2024, and only selectively until 2025-04-18 |
+
+The "16 granted" counts the two unreadable-ask applications (`24A884`,
+`24A1203`, both `granted`), which the published cell excludes by count and
+without labels — so that figure needs the rows themselves, not the artifact
+alone. Under `party-v1` the first row reads 18 rather than 25: the five
+Department of Homeland Security applications in the window (`24A949`,
+`24A1059`, `24A1079`, `25A169`, `25A326`), the National Institutes of Health
+application (`25A103`) and the DOGE Service application (`24A1122`) caption as
+private under the census's rule — the measured reason the rates cut defaults
+to `party-v2`. The published cell under the repository's own convention —
+substantive asks only, withdrawals resolved and not granted — is 14 of 20
+(70.0%) at that moment, with the 2 unreadable-ask applications excluded beside
+it.
 
 **What may be claimed from the tool-usage rollup.** `fedcourts tool-usage`
 publishes call counts, per-engine result observability, per-cell cost, and a

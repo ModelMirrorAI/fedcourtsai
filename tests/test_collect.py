@@ -32,6 +32,7 @@ from fedcourtsai.collect import (
     code_mode_lift_blind,
     collect_plan,
     feedback_marker,
+    is_agent_context_path,
     parse_cell_artifact_name,
     parse_name_status,
     parse_run_branch,
@@ -108,6 +109,96 @@ def test_non_addition_is_rejected(status: str) -> None:
     changes = parse_name_status(f"{status}\tdata/cases/scotus/1/events/e/outcome.json\n")
     with pytest.raises(PathJailError, match="data PRs only add files"):
         assert_within_jail(changes)
+
+
+_CELL = "data/cases/scotus/1/events/e/predictions/claude-baseline/R"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        f"{_CELL}/CLAUDE.md",
+        f"{_CELL}/claude.md",
+        f"{_CELL}/Claude.MD",
+        f"{_CELL}/CLAUDE.local.md",
+        f"{_CELL}/AGENTS.md",
+        f"{_CELL}/agents.override.md",
+        f"{_CELL}/GEMINI.md",
+        f"{_CELL}/memory.md",
+        f"{_CELL}/.cursorrules",
+        f"{_CELL}/.clinerules",
+        f"{_CELL}/.windsurfrules",
+        f"{_CELL}/copilot-instructions.md",
+        f"{_CELL}/agent.md",
+        f"{_CELL}/CODEX.md",
+        f"{_CELL}/.mcp.json",
+        # Nested below the cell, directly under data/, and one level up the tree.
+        f"{_CELL}/notes/deeper/AGENTS.md",
+        "data/CLAUDE.md",
+        "data/cases/scotus/1/AGENTS.md",
+        # A config/rules/skills directory at any depth, whatever the file in it.
+        f"{_CELL}/.claude/settings.json",
+        f"{_CELL}/.Claude/skills/x/SKILL.md",
+        f"{_CELL}/.codex/config.toml",
+        f"{_CELL}/.gemini/settings.json",
+        f"{_CELL}/.agents/skills/x/SKILL.md",
+        f"{_CELL}/.cursor/rules/x.mdc",
+        f"{_CELL}/.clinerules/rule.md",
+        f"{_CELL}/.windsurf/rules/x.md",
+        f"{_CELL}/.roo/rules/x.md",
+        f"{_CELL}/.github/copilot-instructions.md",
+        "data/.github/instructions/x.instructions.md",
+    ],
+)
+def test_jail_refuses_an_agent_instruction_file(path: str) -> None:
+    # A later cell of any engine that reads this part of the ledger would load
+    # the file as instructions, so the jail refuses it even as a pure addition
+    # under data/ and under the run id.
+    with pytest.raises(PathJailError, match="agent instruction file"):
+        assert_within_jail(parse_name_status(f"A\t{path}\n"), run_id="R")
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        f"{_CELL}/prediction.json",
+        f"{_CELL}/reasoning.md",
+        f"{_CELL}/predicted_reasoning.md",
+        f"{_CELL}/flags.json",
+        f"{_CELL}/usage.json",
+        f"{_CELL}/retrieval_log.json",
+        f"{_CELL}/retrieval.md",
+        f"{_CELL}/tooling.json",
+        f"{_CELL}/attempt.json",
+        "data/cases/.gitkeep",
+        # Near-misses: the denylist matches whole names, not substrings.
+        f"{_CELL}/claude.md.bak",
+        f"{_CELL}/my-agents.md",
+        f"{_CELL}/claude/notes.md",
+        f"{_CELL}/memory.json",
+    ],
+)
+def test_jail_admits_legitimate_cell_files(path: str) -> None:
+    assert not is_agent_context_path(path)
+    assert_within_jail(parse_name_status(f"A\t{path}\n"))  # does not raise
+
+
+def test_a_quoted_non_ascii_path_is_refused_before_the_name_check() -> None:
+    # With the default core.quotePath, a non-ASCII path arrives wrapped in quotes
+    # with octal escapes; the leading quote puts it outside the data/ prefix, so
+    # it fails closed rather than slipping a disguised name past the denylist.
+    changes = parse_name_status('A\t"data/cases/\\303\\251/CLAUDE.md"\n')
+    with pytest.raises(PathJailError, match="outside the data/ jail"):
+        assert_within_jail(changes)
+
+
+def test_agent_file_refusal_names_only_the_offending_path() -> None:
+    changes = parse_name_status(f"A\t{_CELL}/AGENTS.md\nA\t{_CELL}/prediction.json\n")
+    with pytest.raises(PathJailError) as excinfo:
+        assert_within_jail(changes)
+    message = str(excinfo.value)
+    assert "AGENTS.md" in message
+    assert "prediction.json" not in message
 
 
 # --- cleanup jail ----------------------------------------------------------
