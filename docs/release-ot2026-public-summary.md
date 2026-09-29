@@ -2,8 +2,8 @@
 
 The reader-facing layer of Release 1. It sits beside
 [release-ot2026-long-conference.md](release-ot2026-long-conference.md), which is
-the audit record; this page is what goes on the fedcourts.ai Results page, the
-first newsletter post and funder outreach.
+the audit record; this page is what goes on the fedcourts.ai Results page and
+into funder outreach.
 
 **It is committed before the conference (2026-09-28)** so that what gets shown,
 and how, is fixed before any outcome exists. It adds no numbers of its own:
@@ -187,7 +187,6 @@ something stronger›
 - The exact data behind this page: ‹the dataset record's reserved DOI link› ·
   the code that produced it: tag `results/ot2026-longconf`, in
   [10.5281/zenodo.22966596](https://doi.org/10.5281/zenodo.22966596)
-- Follow along: ‹newsletter link›
 
 ---
 
