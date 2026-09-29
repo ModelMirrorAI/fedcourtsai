@@ -39,12 +39,51 @@ CourtListener roles once funding allows — see *The planned end-state* in
 [data-pipeline.md](data-pipeline.md). Adopting it requires reviewing that
 agreement's terms alongside the licenses below.
 
-A second such channel is planned and not yet adopted: the **Supreme Court
-Database** (SCDB) — the standing academic coding of every Supreme Court
-decision since the 1946 Term, and the only realistic route to per-Justice
-merits votes at scale. It is the channel [decision-model.md](decision-model.md)
-names as one that could populate `Outcome.votes` with the provenance block no
-docket text supports today. Its terms are why it is not adopted, and they are
+Another channel is being built and not yet registered: **the Court's own
+opinions**, the planned source of per-Justice merits votes and authorship —
+the channel [decision-model.md](decision-model.md) needs to populate
+`Outcome.votes` with the provenance block no docket text supports. Every
+signed opinion's syllabus closes with a lineup paragraph ("ALITO, J.,
+delivered the opinion of the Court, in which … joined. SOTOMAYOR, J., filed a
+dissenting opinion, in which … joined."), and that paragraph names who wrote
+what and who joined it.
+
+- **Source and scope.** Fetched pipeline-side from supremecourt.gov: the slip
+  opinion, then the preliminary print or the bound volume for earlier Terms.
+  Merits decisions from roughly OT16 onward, the Terms the site serves in
+  those shapes. Cert-stage votes from order lists are not part of it.
+- **Terms.** The opinions are works of the federal government in the public
+  domain, with no third-party license, and a lineup is a fact about the
+  published decision. A vote list read from one therefore redistributes
+  nobody's coded values when it lands in public git, which is what separates
+  this channel from SCDB below. Its registration is the provenance statement
+  itself: which document each vote list was read from, and which grammar
+  version read it.
+- **Method and credit.** The lineup grammar is a Python implementation of the
+  syllabus-lineup grammar documented in `docs/justices.md` of
+  [ceRt](https://github.com/baldrige/ceRt) (baldrige/ceRt). It is written
+  from that documentation of the Court's printing conventions, and no ceRt
+  code or data is used; ceRt publishes no license, so its conventions, which
+  describe how the Court prints a lineup, are all this project takes from it.
+  Names resolve through the same roster the authorship recital parser uses
+  (`pipeline/justices.py`), so one surname spelling serves every vote surface.
+- **Completeness.** A vote list is `complete` only when every participating
+  Justice is accounted for, with a Justice who took no part recorded as not
+  participating. A paragraph the grammar cannot read yields an incomplete
+  lineup with no votes rather than a best-effort one.
+- **What exists today.** The lineup model and the Supreme Court syllabus
+  grammar (`pipeline/lineup.py`, `pipeline/syllabus_lineup.py`), as a library
+  with no caller. The fetcher, the channel's registration, and the
+  cross-check of each parsed author and separate writer against the Court's
+  Granted & Noted list, with disagreements reported, are not built, and until
+  the channel registers here the hold described below applies to it as to
+  any source.
+
+One more channel is planned and not yet adopted, **for historical depth
+only**: the **Supreme Court Database** (SCDB) — the standing academic coding
+of every Supreme Court decision since the 1946 Term, which would extend the
+vote record back past the Terms the opinions channel reads. Its terms are why
+it is not adopted, and they are
 split across two hosts that do not agree. Everything in this section is **as
 read on 2026-08-15**, from the hosts named in it; it is a record of a reading,
 not a live check, so an adoption decision re-reads both hosts first:
@@ -133,10 +172,11 @@ the Court's history holds, so the normalization target holds in fact. The map
 is many-to-one where surnames repeat across the span (two Jacksons, seven
 decades apart — no two same-surname Justices sit in one Term); the
 docket-number-plus-Term join above is what disambiguates, never the name.
-Until the terms above are settled, the hold is mechanical as well as stated:
-`validate`'s `outcome_votes_await_a_registered_source` check refuses any
-committed outcome carrying votes or a provenance block, and the import retires
-it in the PR that registers its source's terms.
+The hold is mechanical as well as stated: `validate`'s
+`outcome_votes_await_a_registered_source` check refuses any committed outcome
+carrying votes or a provenance block until a vote source is registered here.
+The first channel to register retires it in that PR, and an SCDB import
+additionally settles the terms above before it writes any value.
 
 Two layers of rights apply, and they are different:
 
@@ -327,8 +367,9 @@ material**:
 - **Sealed, privileged, or otherwise sensitive material is never fed into the
   pipeline** — asserted in [SECURITY.md](../SECURITY.md) and restated here. The
   scope is public-record federal appellate and Supreme Court dockets only.
-- **A vote record raises no PII question.** The only people named in an SCDB
-  vote list are the Justices, acting as public officials in a published
+- **A vote record raises no PII question.** The only people named in a vote
+  list, whether read from an opinion's lineup or from SCDB, are the Justices,
+  acting as public officials in a published
   decision; nothing about who they are is collected, and the values are their
   official acts rather than personal data.
 
