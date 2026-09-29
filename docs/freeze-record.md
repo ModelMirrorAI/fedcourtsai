@@ -5575,7 +5575,11 @@ freeze commit is recorded here.
   - **Per cell.** `vote_accuracy` keeps the evaluate prompt's definition and
     is now also null, where the harness computes it
     (`pipeline.evaluate.vote_accuracy`, the offline runners), unless the
-    record is complete. It is descriptive; nothing averages it. The predict
+    record is complete. It is descriptive; nothing averages it. The evaluate
+    prompt's own wording of the field omits the completeness gate, which only
+    the helper it points to carries, so an agent-written figure against an
+    incomplete record can still be committed — and stays descriptive, since
+    nothing averages it. The predict
     prompt's sentence calling vote scoring "intersection-only" now describes
     that field, not the published mean; its instruction — no reason to trim
     the list — holds a fortiori under the bench denominator, and the sentence
@@ -5584,12 +5588,14 @@ freeze commit is recorded here.
     completely. For the opinions source that is signed merits opinions on
     Term-form dockets whose syllabus lineup parsed with no problem —
     per curiams and volume-linked Terms are not read, and fractured lineups
-    fail to parse more often — so it is read as over that population, not
+    are expected to fail to parse more often — so it is read as over that
+    population, not
     over every merits decision.
   - **The source.** `supremecourt-opinions` is the one registered vote
     source (`pipeline/vote_sources.py`, `docs/data-sources.md`): the
     syllabus lineup of a signed merits opinion, read by the `scotus-syllabus`
-    grammar at version 2, from an opinion PDF on the Court's own host, on a
+    grammar and stamped with its version (2 at this commit), from an opinion
+    PDF on the Court's own host, on a
     Supreme Court merits-stage event, with every Justice spelled as the
     roster spells them and, for a record claiming `complete`, exactly the
     bench the seat roster seats on the outcome's `resolved_at`. It yields a

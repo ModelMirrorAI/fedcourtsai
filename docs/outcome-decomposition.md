@@ -962,7 +962,7 @@ the harness can mint it. Retiring it costs the set nothing, whereas a claim
 declared on it would settle that question by inertia.
 
 **What stays out, and why.** The merits vote and writing claims wait for a
-real vote source:
+populated vote source:
 `Outcome.votes` is `[]` in every committed outcome — the merits outcome
 writer deliberately records none, because docket text discloses no
 provenance denominator — and nothing records

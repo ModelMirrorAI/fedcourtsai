@@ -58,8 +58,8 @@ what and who joined it.
   syllabus prints no lineup and a dissent without a writing is recorded only in
   the opinion's body, and a Term whose listing links into a whole
   preliminary-print or bound volume is skipped until volume pages are read.
-  On the listings as they stand, that leaves OT16–OT19 and part of OT20
-  unread. Cert-stage votes from order lists are not part of this source.
+  As read on 2026-09-29 (a `fedcourts opinion-lineups` pass over the
+  listings), that leaves OT16–OT19 and 15 of OT20's 68 rows unread. Cert-stage votes from order lists are not part of this source.
 - **Terms.** The opinions are works of the federal government in the public
   domain, with no third-party license, and a lineup is a fact about the
   published decision. A vote list read from one therefore redistributes

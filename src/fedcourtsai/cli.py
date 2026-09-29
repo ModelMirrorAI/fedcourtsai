@@ -8978,8 +8978,9 @@ def opinion_lineups_command(
     the syllabus lineup paragraph, and reads it with the syllabus grammar
     against the bench the seat roster says sat. Prints one JSON reading per
     listing row on stdout — the lineup, its problems, and, where the lineup is
-    complete, the ``votes`` list and ``vote_provenance`` block a writer would
-    commit — and a count summary on stderr.
+    complete and passes the listing cross-checks, the ``votes`` list and
+    ``vote_provenance`` block a writer would commit — and a count summary on
+    stderr.
 
     Strictly **read-only**: writes no corpus, content store or ledger, and
     nothing at all but the optional PDF cache. The supremecourt.gov channel —

@@ -13,8 +13,9 @@ What is live is worth naming precisely, because the rest of this document is
 not. `Prediction.votes` carries a per-Justice vote forecast, and `vote_accuracy`
 scores it against `Outcome.votes` wherever both name the same Justice — on a
 declared **merits** moment only, and only against a complete vote record, the
-two gates below — feeding the leaderboard's `mean_vote_accuracy` and its
-`vote_cells_scored` count. Event definitions carry a nullable
+two gates below; the leaderboard's `mean_vote_accuracy` (with its
+`vote_cells_scored` count) averages a whole-bench recomputation of the same
+comparison, `bench_vote_accuracy`. Event definitions carry a nullable
 `stage` — stamped on **all eight declared moments** (`cert` on the three cert
 moments, `interim` on the three interim moments, `merits` on the two merits
 moments) and on the SCOTUS entry-pinned stay/injunction motions the interim
@@ -502,16 +503,16 @@ case's own Term out, the minimum-sample floor keeps a thin pool from scoring at
 all, and the statpack's `parsed`/`granted` coverage is published beside the
 rate so the residue stays visible rather than assumed away.
 
-**The vote block is mandatory, and scored intersection-only.** Every merits
+**The vote block is mandatory, and scored twice.** Every merits
 prediction must carry a non-empty per-Justice `votes` block — the schema
 enforces "judgment set ⇒ votes non-empty" on the artifact, and the `validate`
 gate enforces "merits-stage event ⇒ the scored prediction carries a judgment"
 from the committed `event.yaml`, the two halves meeting because a prediction
-does not carry its event's stage. The block is scored by `vote_accuracy`
-alone: over the Justices the outcome record actually names, under
-`vote_provenance` — never over what the predictor attempted. Beyond that
-per-cell fraction it enters one aggregate only, the merits block's
-`mean_vote_accuracy`, and no ranked total anywhere. Today the merits outcome
+does not carry its event's stage. Per cell, `vote_accuracy` is the
+descriptive figure: the fraction matched over the Justices both lists name.
+The published figure is the merits block's `mean_vote_accuracy`, which
+averages a recomputation over the whole sitting bench instead (below); the
+block enters no other aggregate and no ranked total anywhere. Today the merits outcome
 writer records **no** votes, deliberately: the terminal docket entry's
 authorship recital names at most the opinion's author and never the
 participating count `VoteProvenance` requires as the aggregation denominator,
@@ -542,18 +543,17 @@ mean's denominator, `vote_cells_scored`. A partial list is never scored — it i
 the subset a source happened to show — and neither is an unprovenanced one.
 The scored population is the decisions a vote source read completely, which
 for the opinions source means signed opinions whose lineup parsed; fractured
-lineups fail to parse more often, so the mean is read as over that population,
-not over every merits decision. The gates only ever turn a number null.
+lineups are expected to fail to parse more often, so the mean is read as over
+that population, not over every merits decision. The gates only ever turn a number null.
 
 **A check holds that prohibition, not the absence of a data source.**
 `pipeline.moments.scores_votes` is the gate, and it lives on the moments
 register because that table is the authority on an event's stage. It admits
-only the declared **merits** moments: `vote_accuracy` returns null on
-everything else before it reads either vote list, and `mean_vote_accuracy`
-re-applies the same predicate to each cell's own event as it aggregates, so a
-committed `Evaluation` that carries the figure anyway — written by an evaluator
-that computed the field itself — is dropped from the mean rather than averaged
-into it. Both seams key on the **event's declared moment**, not on the stage the
+only the declared **merits** moments: `vote_accuracy` and
+`bench_vote_accuracy` return null on everything else before they read either
+vote list, and `mean_vote_accuracy` re-applies the same predicate to each
+cell's own event as it aggregates, so a score that reached a non-merits cell
+by any route is dropped from the mean rather than averaged into it. Both seams key on the **event's declared moment**, not on the stage the
 board's join assigned the cell, so the two cannot disagree about which cells are
 scorable. Denial is the default rather than the cert stage being named: an id the
 register does not declare has no stage this code can state, so it is one that
