@@ -26,11 +26,14 @@ from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.pipeline.party import (
     ADMINISTRATIONS,
     PARTY_RULE_VERSION,
+    PARTY_RULE_VERSION_V2,
     PARTY_RULES,
     administration_for,
     as_of_date,
+    classify_party_v2,
     docket_stratum,
     party_annotations,
+    party_annotations_v2,
     party_census,
     party_rule,
     respondent_caption,
@@ -231,9 +234,65 @@ def test_the_as_of_field_selects_which_date_the_cut_reads() -> None:
 def test_only_registered_rules_annotate() -> None:
     """An unregistered label raises rather than falling back to the current rule."""
     assert party_rule(PARTY_RULE_VERSION) is party_annotations
-    assert set(PARTY_RULES) == {PARTY_RULE_VERSION}
+    assert party_rule(PARTY_RULE_VERSION_V2) is party_annotations_v2
+    assert set(PARTY_RULES) == {PARTY_RULE_VERSION, PARTY_RULE_VERSION_V2}
     with pytest.raises(KeyError):
         party_rule("party-v9")
+
+
+@pytest.mark.parametrize(
+    "caption",
+    [
+        # The officer-then-department shape the Department of Homeland
+        # Security's emergency applications carry.
+        "Kristi Noem, Secretary, Department of Homeland Security, et al.",
+        "Director, Office of Workers' Compensation Programs, Department of Labor, et al.",
+        "Andrew M. Saul, Commissioner of Social Security",
+        "Nancy A. Berryhill, Acting Commissioner of Social Security",
+        "National Institutes of Health, et al.",
+        "Office of Personnel Management",
+        "U.S. Doge Service, et al.",
+        "Bureau of Alcohol, Tobacco, Firearms and Explosives, et al.",
+        "Kelly Loeffler, Administrator, Small Business Administration, et al.",
+        "Office of the President",
+    ],
+)
+def test_party_v2_reads_the_federal_shapes_caption_v2_misses(caption: str) -> None:
+    """Each fixture is a caption `party-v1` reads as private and `party-v2` as federal."""
+    row = _row("scotus/1", f"{caption} v. Jane Doe")
+    assert party_annotations(row, IN_TRUMP_47).federal_party == "none"
+    widened = party_annotations_v2(row, IN_TRUMP_47)
+    assert widened.federal_party == "petitioner"
+    assert widened.rule_version == PARTY_RULE_VERSION_V2
+    assert widened.administration == "trump-47"
+
+
+@pytest.mark.parametrize(
+    "caption",
+    [
+        # A jurisdiction's own department: the name does not follow a comma.
+        "Melissa Aviles-Ramos, Chancellor of the New York City Department of Education",
+        "New York City Department of Education",
+        # A relator sues in the government's name; the party is private.
+        "United States ex rel. Jane Doe, Office of Personnel Management",
+        # An office named inside a longer title is not the President's office.
+        "Office of the President of Acme University",
+        "Jane Doe",
+    ],
+)
+def test_party_v2_keeps_the_private_captions_private(caption: str) -> None:
+    """The supplement fires on the measured federal shapes and nothing near them."""
+    assert classify_party_v2(caption) == "private"
+
+
+def test_party_v2_never_loses_a_class_party_v1_had() -> None:
+    """The widening is one-directional: v1's non-private reads survive unchanged."""
+    for caption in ("United States", "Oklahoma", "Merrick B. Garland, Attorney General"):
+        row = _row("scotus/1", f"{caption} v. Jane Doe")
+        assert (
+            party_annotations_v2(row, IN_BIDEN_46).petitioner_class
+            == party_annotations(row, IN_BIDEN_46).petitioner_class
+        )
 
 
 def test_the_docket_stratum_partitions_the_frame() -> None:

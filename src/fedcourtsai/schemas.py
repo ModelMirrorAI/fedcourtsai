@@ -7973,6 +7973,166 @@ class PartyCensus(_Strict):
     named_president: list[PartyPresidentCell] = Field(default_factory=list)
 
 
+class PartyRateCell(_Strict):
+    """One administration x stratum x federal-side cell of the party rates cut.
+
+    Every share here is published beside its numerator and denominator, raw and
+    weighted: ``granted``/``resolved`` count docket rows once each, and
+    ``weighted_granted``/``weighted_resolved`` count each row ``sample_weight``
+    times, which is what restores the legacy one-in-ten sampled denial block to
+    full strength. ``grant_rate`` is the weighted pair's quotient; where the cell
+    holds no sampled row the two pairs are equal and so is the rate. On the
+    application stratum the population is the **substantive** asks only — the
+    extension, unreadable-ask and never-parsed rows are counted beside the cell,
+    never inside its rate.
+    """
+
+    administration: str | None = Field(
+        default=None,
+        description="Administration label (e.g. trump-47), or null where the row "
+        "carries no date under the cut's convention",
+    )
+    stratum: Literal["paid-cert", "ifp-cert", "application"] = Field(
+        description="Docket stratum the cell is keyed on"
+    )
+    federal_party: Literal["both", "petitioner", "respondent", "none"] = Field(
+        description="Which side(s) of the caption the federal government occupies; "
+        "`none` is the comparison cell — no federal party the caption names"
+    )
+    rows: int = Field(ge=0, description="Docket rows in the cell's population")
+    sampled_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows from the legacy sampled denial block (weight > 1)",
+    )
+    pending: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows with no disposition as of the cut's `through` "
+        "date (or today) — outside the rate, so a window with many is censored",
+    )
+    unreadable: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows whose disposition is `other` (decided, label "
+        "unreadable) — outside the rate rather than read as a denial",
+    )
+    resolved: int = Field(
+        default=0, ge=0, description="Rows with a machine-readable disposition (raw)"
+    )
+    granted: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows on the granted side of the binary outcome "
+        "(`granted_labels`), raw",
+    )
+    weighted_resolved: int = Field(
+        default=0, ge=0, description="`resolved` with each row counted `sample_weight` times"
+    )
+    weighted_granted: int = Field(
+        default=0, ge=0, description="`granted` with each row counted `sample_weight` times"
+    )
+    grant_rate: float | None = Field(
+        default=None,
+        description="weighted_granted / weighted_resolved; null where nothing resolved",
+    )
+    dispositions: dict[str, int] = Field(
+        default_factory=dict,
+        description="Raw row count per machine-readable disposition label, so a "
+        "reader can recompute the rate under another convention (plenary grants "
+        "only, withdrawals dropped)",
+    )
+    excluded_extension: int = Field(
+        default=0,
+        ge=0,
+        description="Application stratum only: extension-of-time asks in the same "
+        "key, outside the population",
+    )
+    excluded_unknown_ask: int = Field(
+        default=0,
+        ge=0,
+        description="Application stratum only: parsed asks whose kind could not be read",
+    )
+    excluded_unparsed: int = Field(
+        default=0,
+        ge=0,
+        description="Application stratum only: applications never application-parsed",
+    )
+
+
+class PartyRates(_Strict):
+    """``party-rates`` result: grant rates by government-party status and administration.
+
+    An analytics artifact, not a prediction input: nothing a predict or evaluate
+    cell reads is derived from it. Cut under one annotation rule and one date
+    convention, both stamped, and optionally at a past moment (``through``) so a
+    published tally can be replicated as of its own date.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    rule_version: str = Field(description="The committed annotation rule, e.g. party-v2")
+    caption_rule_version: str = Field(
+        description="The caption rule the annotation rule composes over both halves"
+    )
+    as_of_field: str = Field(
+        description="Which date drove the administration attribution: filed | resolved"
+    )
+    through: date | None = Field(
+        default=None,
+        description="The cut's moment: rows filed after it are left out and "
+        "dispositions dated after it read as pending. Null = the whole blob",
+    )
+    granted_labels: list[str] = Field(
+        description="The disposition labels counted as granted (the binary outcome's granted side)"
+    )
+    corpus_sha256: str = Field(
+        default="",
+        description="sha256 of the corpus database the cut ran over — re-derivable "
+        "only against this exact corpus state",
+    )
+    latest_pull: date | None = Field(
+        default=None, description="Corpus vintage: newest `last_pulled` across the blob"
+    )
+    latest_snapshot: date | None = Field(
+        default=None, description="Corpus vintage: newest stored snapshot date across the blob"
+    )
+    rows: int = Field(default=0, ge=0, description="Rows counted into some cell")
+    duplicate_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Live-slice rows dropped as a second corpus row for a docket "
+        "number already counted — one docket, one vote in a rate",
+    )
+    other_stratum: int = Field(
+        default=0,
+        ge=0,
+        description="Rows outside the three rated strata (original, miscellaneous, "
+        "unparseable docket numbers), left out",
+    )
+    filed_after_through: int = Field(
+        default=0,
+        ge=0,
+        description="Rows left out as later than `through`: filed after it, or — "
+        "carrying no filing date — resolved after it or not at all",
+    )
+    undated: int = Field(
+        default=0,
+        ge=0,
+        description="Counted rows carrying no date under `as_of_field` — in the "
+        "unattributed cells, never imputed",
+    )
+    resolution_undated: int = Field(
+        default=0,
+        ge=0,
+        description="Resolved rows carrying no resolution date. Under `through` "
+        "they cannot be placed before or after the cut and are read as resolved; "
+        "this counts them so the assumption has a size",
+    )
+    cells: list[PartyRateCell] = Field(
+        default_factory=list, description="Non-empty cells only; an absent cell is not a zero"
+    )
+
+
 class DistributionBandTransition(_Strict):
     """One cell of the band-transition matrix: how many cases moved from → to."""
 

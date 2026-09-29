@@ -2270,8 +2270,9 @@ in, and a president's surname appearing as a party — and prints the counts. It
 is descriptive corpus structure, not a performance instrument: no annotation
 enters a claim score, a leaderboard rank, or any denominator here, and the
 census publishes **counts only**. A grant rate by government-party status is a
-different artifact with its own scope string and denial reweighting; computing
-one from these cells would inherit every caveat below without carrying them.
+different artifact — `fedcourts party-rates`, below — with its own population
+rules and denial reweighting; computing one from these cells would inherit
+every caveat below without carrying them.
 Six rules travel with any figure quoted from it, and the first two are the ones
 that invert a conclusion when they are skipped. **No cross-administration reading
 without holding the docket stratum fixed.** The windows hold very different
@@ -2327,6 +2328,102 @@ limit — a styled caption (`In re`, `Ex parte`) has one party and is annotated
 from it, and an anonymized or initialized IFP caption carries no classifiable
 party at all, so `none` means "no sovereign the caption names", never "no
 sovereign".
+
+**What may be claimed from the party rates.** `fedcourts party-rates`
+(`pipeline.party_rates`, [docs/cli.md](../docs/cli.md)) publishes cert and
+emergency-docket grant rates keyed on administration × docket stratum × the
+side of the caption the federal government occupies, with `none` — the same
+window and stratum, no federal party the caption names — as the comparison
+cell. It is an analytics artifact: no predict or evaluate input, base rate,
+claim score or leaderboard rank reads it. A rate is granted over resolved, the
+binary outcome's projection (`granted_labels`; GVRs and partial grants on the
+granted side), and **every share is quoted with its numerator and denominator**
+— the cells hold tens of rows in exactly the places a reader most wants them
+(a federal applicant's substantive asks, a federal petitioner's paid petitions),
+so the pair is what tells a reader how far the share can move. Every rule the
+census carries travels here too — the date convention, the rule version, the
+corpus vintage, the date-not-caption attribution, rows not disputes — and seven
+more are specific to rates.
+
+- **Hold the stratum fixed, and compare against `none`, not across cells of
+  different strata.** A paid-cert rate, an IFP-cert rate and an application
+  rate are three populations an order of magnitude apart; the within-window
+  `none` cell is the comparison a government-party effect is read against.
+- **The application stratum does not span the administrations.** The live
+  channel captured application dockets only from mid-2024, so on the blob
+  pulled 2026-09-28 (newest stored snapshot 2026-07-13) `trump-45` holds no
+  application cell at all and `biden-46` two federal-applicant substantive asks
+  against the 19 applications a published count gives that administration. No
+  emergency-docket rate reads across administrations on this corpus; the
+  `trump-47` cell stands alone, and its absent predecessors are absences, not
+  zeros.
+- **The application population is the substantive asks.** Extensions are
+  granted as a matter of course and would swamp the rate, so they, the
+  unreadable asks and the never-parsed applications are counted beside each
+  cell as exclusions. An unreadable ask can be a real emergency application
+  (two federal applications decided by the replication moment below are), so
+  a quoted rate names the exclusion counts beside it.
+- **A partial grant of an application can carry the `denied` label.** At the
+  replication moment below, two of the four federal-applicant rows labeled
+  `denied` are applications the published tally counts as granted in part, and
+  one is a dismissal as moot. The emergency-docket rate is therefore a floor on
+  "relief in whole or in part", and the per-label counts are what a reader
+  re-cuts it from.
+- **GVRs are grants here.** On the paid-cert federal-petitioner cells a third
+  of the grants are GVRs (20 of 67 under `trump-45`, 23 of 64 under `biden-46`,
+  `filed` convention, same blob); plenary grants alone are 47 of 96 and 41 of
+  81. A comparison with a published "the Solicitor General wins cert about 70%
+  of the time" figure has to say which of the two it is quoting.
+- **The IFP rate is a weighted estimate.** The legacy one-in-ten sampled denial
+  block is restored to full strength (`weighted_granted` /
+  `weighted_resolved`, each row counted `sample_weight` times), and
+  `grant_rate` is that pair's quotient; the raw pair beside it is the rows
+  actually held. A cell with `sampled_rows` above zero is an estimate resting
+  on the sample being a systematic one-in-ten draw of denials, and its raw pair
+  is never quoted as a rate.
+- **Without `--through`, the newest window is right-censored.** Under `filed`
+  its pending rows sit outside the rate (18 of the 45 `trump-47` paid-cert
+  federal-petitioner rows on the same blob), and the petitions still pending
+  are disproportionately the relisted and CVSG'd ones, so a rate over what has
+  resolved is not yet the window's rate. Under `resolved` the pending rows move
+  to the unattributed cells. `--through` places the cut at a fixed past moment
+  instead — rows filed later leave, dispositions dated later read as pending —
+  which is how a published tally is compared as of its own date.
+
+The rule the cut defaults to is `party-v2`: `party-v1` plus an analytics-side
+supplement to the federal class for caption shapes `caption-v2` reads as
+private — the officer-then-department caption the Department of Homeland
+Security's applications carry, the Commissioner of Social Security, and federal
+agencies named in full that the caption rules list only as initialisms or not
+at all. On the same blob it moves 153 caption halves of the census frame from `private` to
+`federal` and no other way (the widening is one-directional by construction),
+each inspected as a federal party. The census stays on `party-v1` by default,
+so a census count and a rates cell are comparable only where both name the same
+rule.
+
+**Validation against the published administration tallies.** The
+emergency-docket cell was checked against two published counts of the federal
+government's applications, each cut `--as-of filed --through <the tally's
+date>` on the same blob, federal applicant meaning `federal_party`
+`petitioner` or `both`, and every non-extension ask counted:
+
+| Published figure | This corpus | Reconciliation |
+|---|---|---|
+| 28 applications filed by the administration from 2025-01-20 to 2025-10-01, 2 withdrawn (Ballotpedia, 2025-10-01) | 25, 2 withdrawn | The 3 missing (the two companion birthright-citizenship applications and the federal-workforce application of that spring) are absent from the corpus altogether, not misclassified |
+| Of the 23 decided: 19 granted in full, 2 in part, 1 denied, 1 dismissed as moot — 19/23 = 82.6% granted in full | 16 granted, 4 `denied`, of 20 decided — 80.0% | The 4 `denied` are exactly the published tally's 2 partial grants, 1 denial and 1 mootness dismissal; the 3 missing applications are all grants, and adding them gives 19/23 |
+| 3 pending on 2025-10-01 | 3 pending | Agrees |
+| 19 applications in the administration's first 20 weeks, to 2025-06-09 (Vladeck) | 16 | The same 3 absent applications all fall in the window |
+| 19 applications across the whole of `biden-46`; 41 across `trump-45` (Vladeck) | 2 and 0 | Coverage: the live channel's application capture begins in mid-2024 |
+
+Under `party-v1` the first row reads 18 of 28 rather than 25: the four
+Department of Homeland Security applications, the National Institutes of
+Health application and the DOGE Service application in the window caption as
+private under the census's rule, which is the measured reason the rates cut
+defaults to `party-v2`. The published cell under the repository's own
+convention — substantive asks only, withdrawals resolved and not granted — is
+14 of 20 (70.0%) at that moment, with 2 unreadable-ask applications excluded
+beside it; the table re-cuts the same rows to the published tally's convention
+from the cell's per-label counts.
 
 **What may be claimed from the tool-usage rollup.** `fedcourts tool-usage`
 publishes call counts, per-engine result observability, per-cell cost, and a

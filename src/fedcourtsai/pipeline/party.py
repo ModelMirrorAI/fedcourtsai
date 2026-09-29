@@ -18,6 +18,11 @@ selection-grade predicates are called and never touched: ``caption-v1`` is the
 move selection. The respondent half is a call site :mod:`.salience` has no
 analogue for — it reads the petitioner caption only — which is exactly why the
 composition lives here under its own label rather than inside a caption rule.
+``party-v2`` is registered beside it: the same composition over
+:func:`classify_party_v2`, which adds an analytics-side supplement to the
+federal class for the caption shapes ``caption-v2`` measurably reads as
+private — the supplement lives here, never in :mod:`.caption`, for the same
+reason.
 
 **The administration comes from dates, never from the caption's names.** A
 federal officer is captioned in official capacity ("Noem, Secretary of Homeland
@@ -325,6 +330,47 @@ def _named_president(text: str) -> str | None:
     return next(name for name in _PRESIDENT_SURNAMES if name.casefold() == matched)
 
 
+def _annotate(
+    row: corpus.CorpusRow,
+    as_of: date | None,
+    *,
+    classify: Callable[[str], PetitionerClass],
+    rule_version: str,
+) -> PartyAnnotations:
+    """Compose one class predicate over both caption halves — the body every rule shares.
+
+    Registered rules differ only in the class predicate they run over the two
+    halves; the side composition, the president flag and the date attribution
+    are the same, so a new rule is a new predicate under a new label rather
+    than a second copy of this function.
+    """
+    petitioner_text = petitioner_caption(row)
+    respondent_text = respondent_caption(row)
+    petitioner_cls = classify(petitioner_text)
+    respondent_cls = classify(respondent_text) if respondent_text else None
+    federal = _side(petitioner_cls == "federal", respondent_cls == "federal")
+    state = _side(petitioner_cls == "state", respondent_cls == "state")
+    president = _named_president(petitioner_text)
+    president_side: Literal["petitioner", "respondent"] | None = None
+    if president is not None:
+        president_side = "petitioner"
+    elif respondent_text is not None:
+        president = _named_president(respondent_text)
+        if president is not None:
+            president_side = "respondent"
+    return PartyAnnotations(
+        rule_version=rule_version,
+        petitioner_class=petitioner_cls,
+        respondent_class=respondent_cls,
+        federal_party=federal,
+        state_party=state,
+        named_president=president,
+        named_president_side=president_side,
+        as_of=as_of,
+        administration=administration_for(as_of) if federal != "none" else None,
+    )
+
+
 def party_annotations(row: corpus.CorpusRow, as_of: date | None) -> PartyAnnotations:
     """The ``party-v1`` annotation of ``row`` as of ``as_of``.
 
@@ -346,38 +392,104 @@ def party_annotations(row: corpus.CorpusRow, as_of: date | None) -> PartyAnnotat
     Pure and total, like the caption classifiers: no lookup, no I/O, and no
     caption shape raises.
     """
-    petitioner_text = petitioner_caption(row)
-    respondent_text = respondent_caption(row)
-    petitioner_cls = classify_petitioner_v2(petitioner_text)
-    respondent_cls = classify_petitioner_v2(respondent_text) if respondent_text else None
-    federal = _side(petitioner_cls == "federal", respondent_cls == "federal")
-    state = _side(petitioner_cls == "state", respondent_cls == "state")
-    president = _named_president(petitioner_text)
-    president_side: Literal["petitioner", "respondent"] | None = None
-    if president is not None:
-        president_side = "petitioner"
-    elif respondent_text is not None:
-        president = _named_president(respondent_text)
-        if president is not None:
-            president_side = "respondent"
-    return PartyAnnotations(
-        rule_version=PARTY_RULE_VERSION,
-        petitioner_class=petitioner_cls,
-        respondent_class=respondent_cls,
-        federal_party=federal,
-        state_party=state,
-        named_president=president,
-        named_president_side=president_side,
-        as_of=as_of,
-        administration=administration_for(as_of) if federal != "none" else None,
-    )
+    return _annotate(row, as_of, classify=classify_petitioner_v2, rule_version=PARTY_RULE_VERSION)
+
+
+#: ``party-v2``: ``party-v1`` plus an analytics-side supplement to the federal
+#: class, for the caption shapes ``caption-v2`` measurably reads as ``private``
+#: on the census frame. It exists because the emergency-docket cut is a
+#: federal-*applicant* series, and the shape the Department of Homeland
+#: Security's applications caption in ("Noem, Secretary, Department of Homeland
+#: Security, et al.") is one ``caption-v2`` misses — an officer whose office is
+#: followed by a department rather than qualified by one. The supplement lives
+#: here, not in :mod:`.caption`, because the caption rules are frozen selection
+#: predicates and this one feeds analytics only.
+PARTY_RULE_VERSION_V2: Final[str] = "party-v2"
+
+#: The federal departments whose name, set off by a comma after an officer's
+#: office or leading a half, names the federal government. A state or local
+#: department is always qualified by its jurisdiction ("New York City
+#: Department of Education", "Arizona Department of Corrections"), which is why
+#: the name must begin the half or follow a comma directly — anywhere else it is
+#: the tail of a jurisdiction's own department.
+_FEDERAL_DEPARTMENTS: Final[str] = (
+    "Justice|State|Education|Defense|Energy|Commerce|Labor|Transportation|"
+    "Agriculture|(?:the\\s+)?Interior|(?:the\\s+)?Treasury|Homeland Security|"
+    "Health and Human Services|Housing and Urban Development|Veterans Affairs|"
+    "the Army|the Navy|the Air Force"
+)
+
+# The supplement's three shapes, each a family the census frame shows
+# ``caption-v2`` reading as private:
+#
+# - a federal department set off by a comma — the officer-then-department
+#   caption ("<name>, Secretary, Department of Homeland Security", "Director,
+#   Office of Workers' Compensation Programs, Department of Labor");
+# - federal agencies named in full that neither caption rule lists (``caption-v1``
+#   carries several only as initialisms: OPM, CIA, DEA, TSA, SBA);
+# - the Commissioner of Social Security, whose office qualifier is neither a
+#   department nor "the United States".
+_FEDERAL_PARTY_SUPPLEMENT_RE: Final = re.compile(
+    rf"(?:^|,\s*)(?:United States\s+)?Department of (?:{_FEDERAL_DEPARTMENTS})\b"
+    r"|\bCommissioner of Social Security\b"
+    r"|\bOffice of Personnel Management\b"
+    r"|\bNational Institutes of Health\b"
+    r"|\bCentral Intelligence Agency\b"
+    r"|\bBureau of Alcohol, Tobacco, Firearms,? and Explosives\b"
+    r"|\bDrug Enforcement Administration\b"
+    r"|\bCommodity Futures Trading Commission\b"
+    r"|\bTransportation Security Administration\b"
+    r"|\bSmall Business Administration\b"
+    r"|\bArmy Corps of Engineers\b"
+    r"|\bNational Aeronautics and Space Administration\b"
+    r"|\bNational Credit Union Administration\b"
+    r"|\bPostal Regulatory Commission\b"
+    r"|\bBureau of the Fiscal Service\b"
+    r"|\bCitizenship (?:&|and) Immigration Services\b"
+    r"|\bRailroad Retirement Board\b"
+    r"|\bBureau of Indian Affairs\b"
+    r"|\bNational Park Service\b"
+    r"|\bDOGE Service\b"
+    r"|^Office of the President\s*(?:$|[,;])",
+    re.IGNORECASE,
+)
+
+# A relator petitions in the government's name ("United States ex rel. <relator>"),
+# so the party is private whatever agency the caption goes on to name — the same
+# precedence the caption rules give qui tam.
+_EX_REL_RE: Final = re.compile(r"\bex\.?\s*rel\b", re.IGNORECASE)
+
+
+def classify_party_v2(text: str) -> PetitionerClass:
+    """``party-v2``'s class predicate: ``caption-v2``, then the federal supplement.
+
+    ``caption-v2`` runs first and is final wherever it is not ``private``, so
+    the widening is one-directional by construction — no half loses a
+    ``federal`` or ``state`` reading it had under ``party-v1`` — and the delta
+    between the two rules is drawn from the ``private`` cell alone. Pure and
+    total like the caption predicates.
+    """
+    baseline = classify_petitioner_v2(text)
+    if baseline != "private":
+        return baseline
+    stripped = text.strip()
+    if not stripped or _EX_REL_RE.search(stripped):
+        return "private"
+    return "federal" if _FEDERAL_PARTY_SUPPLEMENT_RE.search(stripped) else "private"
+
+
+def party_annotations_v2(row: corpus.CorpusRow, as_of: date | None) -> PartyAnnotations:
+    """The ``party-v2`` annotation: :func:`party_annotations` over :func:`classify_party_v2`."""
+    return _annotate(row, as_of, classify=classify_party_v2, rule_version=PARTY_RULE_VERSION_V2)
 
 
 #: Every registered annotation rule, keyed by version label. Added to, never
 #: edited: a cut names the rule it ran under, and that number replays only
 #: against the rule that produced it.
 PARTY_RULES: Final[Mapping[str, Callable[[corpus.CorpusRow, date | None], PartyAnnotations]]] = (
-    MappingProxyType({PARTY_RULE_VERSION: party_annotations})
+    MappingProxyType(
+        {PARTY_RULE_VERSION: party_annotations, PARTY_RULE_VERSION_V2: party_annotations_v2}
+    )
 )
 
 
@@ -436,9 +548,9 @@ def party_census(
 ) -> PartyCensus:
     """The live-slice party census: who the sovereign parties are, by administration.
 
-    Counts only. Grant rates by government-party status belong to the analytics
-    cuts that carry scope strings and denial-reweighting, and a rate published
-    from here would be one nobody reviewed; what this artifact answers is the
+    Counts only. Grant rates by government-party status are the party rates
+    cut (:mod:`.party_rates`), which carries its own population rules and
+    denial reweighting; what this artifact answers is the
     prior question — how much of the frame each annotation cell holds, and how
     much of it the caption cannot classify at all.
 

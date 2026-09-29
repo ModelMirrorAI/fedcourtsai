@@ -284,6 +284,7 @@ from .pipeline.party import (
     PARTY_RULES,
     party_census,
 )
+from .pipeline.party_rates import DEFAULT_RATES_RULE, party_rates
 from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
     CaseDisposition,
@@ -1315,7 +1316,7 @@ def party_census_cmd(
     rule_version: str = typer.Option(
         PARTY_RULE_VERSION,
         "--rule-version",
-        help="Which registered party-annotation rule cuts the frame (party-v1).",
+        help="Which registered party-annotation rule cuts the frame (party-v1 or party-v2).",
     ),
 ) -> None:
     """The party census: federal/state parties by side, and by administration.
@@ -1329,8 +1330,8 @@ def party_census_cmd(
     (`pipeline.party`), which reads both caption halves through the caption
     classifier and attributes an administration from dates rather than from the
     officer a caption names. Counts only: grant rates by government-party status
-    are an analytics cut with its own scope strings and reweighting, not a
-    number this command may publish.
+    are `party-rates`, which carries its own population rules and reweighting,
+    not a number this command may publish.
 
     `--as-of` is required and stamped on the output, because a petition filed
     under one administration is routinely resolved under the next, so the two
@@ -1425,6 +1426,120 @@ def party_census_cmd(
             err=True,
         )
     typer.echo(census.model_dump_json())
+
+
+@app.command("party-rates")
+def party_rates_cmd(
+    as_of: str = typer.Option(
+        ...,
+        "--as-of",
+        help=(
+            "Required — which date attributes the administration: 'filed' (who "
+            "held office when the petition or application arrived) or 'resolved' "
+            "(who held office when the Court acted). No default, as on party-census."
+        ),
+    ),
+    through: str | None = typer.Option(
+        None,
+        "--through",
+        help=(
+            "Cut the corpus as of this ISO date: rows filed later are left out and "
+            "dispositions dated later read as pending. Omit for the whole blob."
+        ),
+    ),
+    rule_version: str = typer.Option(
+        DEFAULT_RATES_RULE,
+        "--rule-version",
+        help="Which registered party-annotation rule keys the cells (party-v2).",
+    ),
+) -> None:
+    """Grant rates by government-party status and administration (`pipeline.party_rates`).
+
+    Cert grant rates (paid and IFP) and emergency-docket grant rates (substantive
+    applications), keyed on administration x docket stratum x which side of the
+    caption the federal government occupies — `none` being the comparison cell.
+    Every rate is printed beside its numerator and denominator; a cell holding
+    rows of the legacy one-in-ten sampled denial block also prints the weighted
+    pair that restores that block to full strength, and the rate is the weighted
+    pair's. An analytics artifact: nothing a predict or evaluate cell reads comes
+    from it. Prints a `PartyRates`; the human cut and the corpus vintage go to
+    stderr. Fails loud if the corpus is absent (exit 1), or on an unregistered
+    rule, an unknown `--as-of` or an unreadable `--through` (exit 2).
+    """
+    if rule_version not in PARTY_RULES:
+        typer.echo(
+            f"unregistered party rule {rule_version!r}; "
+            f"registered: {', '.join(sorted(PARTY_RULES))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if as_of not in PARTY_AS_OF_FIELDS:
+        typer.echo(
+            f"unknown --as-of {as_of!r}; choose {' or '.join(PARTY_AS_OF_FIELDS)}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    try:
+        through_date = date.fromisoformat(through) if through is not None else None
+    except ValueError:
+        typer.echo(f"unreadable --through {through!r}; give an ISO date (YYYY-MM-DD)", err=True)
+        raise typer.Exit(code=2) from None
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the party rates.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    corpus_sha = _census_corpus_sha(settings, db_path)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        rates = party_rates(
+            conn,
+            as_of_field=as_of,
+            through=through_date,
+            corpus_sha256=corpus_sha,
+            rule_version=rule_version,
+        )
+    pulled = rates.latest_pull.isoformat() if rates.latest_pull else "never pulled"
+    snapshot = rates.latest_snapshot.isoformat() if rates.latest_snapshot else "none"
+    moment = rates.through.isoformat() if rates.through else "whole blob"
+    typer.echo(
+        f"party rates ({rates.rule_version} over {rates.caption_rule_version}, "
+        f"as-of {rates.as_of_field}, through {moment}): {rates.rows} row(s) rated, "
+        f"{rates.duplicate_rows} duplicate docket row(s) dropped, {rates.other_stratum} "
+        f"other-stratum row(s) left out, {rates.filed_after_through} later than the cut, "
+        f"{rates.undated} undated; corpus latest pull {pulled}, latest snapshot {snapshot}",
+        err=True,
+    )
+    for cell in rates.cells:
+        rate = f"{cell.grant_rate:.1%}" if cell.grant_rate is not None else "-"
+        # The printed pair is the one the rate divides — the weighted pair,
+        # equal to the raw one wherever the cell holds no sampled row — so the
+        # quotient on the line is always the quotient of the numbers beside it.
+        weighted = (
+            f" (raw {cell.granted}/{cell.resolved}, {cell.sampled_rows} sampled row(s) "
+            "counted at their weight)"
+            if cell.sampled_rows
+            else ""
+        )
+        excluded = (
+            f" excluded extension={cell.excluded_extension} "
+            f"unknown-ask={cell.excluded_unknown_ask} unparsed={cell.excluded_unparsed}"
+            if cell.stratum == "application"
+            else ""
+        )
+        labels = " ".join(f"{label}={n}" for label, n in cell.dispositions.items())
+        typer.echo(
+            f"{cell.administration or 'unattributed'} {cell.stratum} "
+            f"federal-{cell.federal_party}: granted "
+            f"{cell.weighted_granted}/{cell.weighted_resolved} = {rate}"
+            f"{weighted}; rows={cell.rows} pending={cell.pending} "
+            f"unreadable={cell.unreadable} [{labels}]{excluded}",
+            err=True,
+        )
+    typer.echo(rates.model_dump_json())
 
 
 @app.command("distribution-census")
