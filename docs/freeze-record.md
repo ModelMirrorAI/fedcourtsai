@@ -5382,8 +5382,8 @@ freeze commit is recorded here.
   `contact_scrub_passes` joins the reading rule owed at the next re-bless,
   with no ordering constraint.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-09-29` (merge commit
+  `adccd9c427be6e1dd4b43d92b2472d7d21fd8d24`, merged `2026-09-29T23:30:38Z`).
 
   The runnable effect check once it is live: `uv run pytest
   tests/test_documents.py tests/test_cli_provision.py` green, and `uv run
@@ -5526,8 +5526,8 @@ freeze commit is recorded here.
   rule joins the ones owed at the next re-bless, with no ordering constraint: a
   cell meeting the placeholder loses nothing it could have acted on.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-09-29` (merge commit
+  `adccd9c427be6e1dd4b43d92b2472d7d21fd8d24`, merged `2026-09-29T23:30:38Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_snapshot_scrub.py tests/test_cli_provision.py` is
@@ -5615,14 +5615,12 @@ freeze commit is recorded here.
   `Outcome.votes` at this commit; the rule is registered before any vote
   record, and so before any outcome it could be fitted to.
 
-  The carrying promotion is `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merged at>`). It must precede the
+  The carrying promotion is `promotion/2026-09-29` (merge commit
+  `adccd9c427be6e1dd4b43d92b2472d7d21fd8d24`, merged `2026-09-29T23:30:38Z`). It must precede the
   first committed outcome carrying votes for this entry to register ahead of
   any record it governs. At that promotion, the census above re-run on `main`
-  reads `<FILL: committed outcomes carrying a non-empty votes list at the
-  promotion>` outcomes carrying votes and `<FILL: committed evaluations
-  carrying a numeric vote_accuracy at the promotion>` evaluations carrying a
-  vote score. The runnable effect check once it is live: `uv run fedcourts
+  reads `0` outcomes carrying votes (of 12,733 committed) and `0`
+  evaluations carrying a vote score (of 246 committed). The runnable effect check once it is live: `uv run fedcourts
   leaderboard --all-versions --out /tmp/lb.json && jq '[.. | objects |
   select(has("vote_cells_scored")) | .vote_cells_scored] | add // 0'
   /tmp/lb.json` reads `0` (nothing has moved; the check does not exercise the
