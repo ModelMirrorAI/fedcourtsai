@@ -73,6 +73,11 @@ of them while every gate stays green:
   at startup and again whenever a file tool touches a path beneath it, so a
   context file anywhere in the tree would be standing instructions to every
   gemini cell that no prompt, config or schema records;
+* the **ledger instruction-file surface** — every engine's cells read under
+  `data/`, and Claude Code, Codex and gemini-cli each load a context file
+  (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, …) from the tree they work in,
+  so one committed anywhere in the ledger would be standing instructions to a
+  later cell; the tree is pinned against the path jail's own name set;
 * the **run-surface retry** — the run-record steps and the handoff writes both
   route their `gh` calls through `scripts/gh_retry.sh`'s `gh_retry`; the steps
   that cannot safely source it carry an inline copy, which only stays a copy
@@ -103,7 +108,12 @@ from fedcourtsai.agent_feedback import (
     _GH_TIMEOUT_SECONDS,
 )
 from fedcourtsai.cli import _echo_text_coverage
-from fedcourtsai.collect import BOARD_ARTIFACTS, BOARD_BRANCH, BOARD_JAIL_PATHS
+from fedcourtsai.collect import (
+    BOARD_ARTIFACTS,
+    BOARD_BRANCH,
+    BOARD_JAIL_PATHS,
+    is_agent_context_path,
+)
 from fedcourtsai.config import Settings
 from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
 from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
@@ -862,6 +872,27 @@ def test_no_file_in_the_checkout_is_a_gemini_context_file() -> None:
     )
     assert found == [], (
         "these files are read into every gemini cell's context by name: " + ", ".join(found)
+    )
+
+
+def test_no_file_under_data_is_an_agent_instruction_file() -> None:
+    """Every engine's cells read the ledger, so no agent context file lives in it.
+
+    Claude Code loads a nested `CLAUDE.md` when it reads a file in that
+    directory, Codex gathers `AGENTS.md` from the root down to its working
+    directory, and
+    gemini-cli discovers `GEMINI.md` / `MEMORY.md` anywhere in its workspace. A
+    cell that browses `data/` would take one committed there as instructions.
+    The path jail refuses such an addition on the auto-merged lanes; this pins
+    the tree itself, so one that arrived by any other writer fails CI too. The
+    name set is the jail's own, case-insensitive, at any depth.
+    """
+    data_root = REPO_ROOT / "data"
+    assert data_root.is_dir(), "no data/ tree at the repo root — the scan would pass vacuously"
+    files = (p.relative_to(REPO_ROOT).as_posix() for p in data_root.rglob("*") if p.is_file())
+    found = sorted(rel for rel in files if is_agent_context_path(rel))
+    assert found == [], (
+        "these files under data/ are read as instructions by an agent cell: " + ", ".join(found)
     )
 
 

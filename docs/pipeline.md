@@ -2168,7 +2168,9 @@ any salvageable partial output split into a single companion **draft** PR. So a
 fan-out of dozens of cells yields one (or two) PRs for the run, not one per cell.
 The append-only `data/` path jail (`fedcourts assert-paths`) is enforced in
 `collect` before the commit and again as the required `paths` check, so an
-auto-merged PR can only add artifacts under `data/`; a schema re-validation and a
+auto-merged PR can only add artifacts under `data/`, and never an agent
+instruction file or config directory (`CLAUDE.md`, `AGENTS.md`, `.claude/` and
+the like) a later cell would load from the ledger as instructions; a schema re-validation and a
 secret scan (`fedcourts scan-diff-for-secrets`) run beside it producer-side —
 a validation failure downgrades the PR to a draft, while a secret-scan hit
 **withholds the branch entirely** (nothing pushed; a redacted report lands on
