@@ -199,14 +199,21 @@ def vote_accuracy(prediction: Prediction, outcome: Outcome) -> float | None:
     channel that starts writing ``Outcome.votes`` on a cert outcome changes
     nothing here. The vote block a non-merits cell submits is banked, unscored.
 
-    Where the gate opens, scoring is intersection-only: over the Justices the
-    outcome actually records, so a Justice whose vote was never observed costs a
-    predictor nothing — the denominator is what the record discloses, never what
-    the predictor attempted. ``Outcome.vote_provenance`` is what says whether a
-    short list means "only these are public" or "nobody looked"; this function
-    needs only the intersection either way.
+    The second gate is **completeness**: only an outcome whose
+    ``vote_provenance`` says ``complete: true`` is scored, so every scored cell
+    is scored against the whole participating bench. A partial list — the
+    Justices a source happened to show — would score a predictor over a subset
+    chosen by the source rather than by the case, and a one-of-one match would
+    weigh the same in the mean as nine of nine; an unprovenanced list says
+    nothing about how much of the bench it holds. Either is null here.
+
+    Where both gates open, scoring is over the Justices both lists name: on a
+    complete record that is every participating Justice the prediction voted,
+    so a predictor that left a Justice out is scored over the rest.
     """
     if not scores_votes(prediction.event_id):
+        return None
+    if outcome.vote_provenance is None or not outcome.vote_provenance.complete:
         return None
     if not prediction.votes or not outcome.votes:
         return None

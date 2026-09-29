@@ -12,8 +12,9 @@ how much of a vote record is there.
 What is live is worth naming precisely, because the rest of this document is
 not. `Prediction.votes` carries a per-Justice vote forecast, and `vote_accuracy`
 scores it against `Outcome.votes` wherever both name the same Justice — on a
-declared **merits** moment only, the stage gate below — feeding the
-leaderboard's `mean_vote_accuracy`. Event definitions carry a nullable
+declared **merits** moment only, and only against a complete vote record, the
+two gates below — feeding the leaderboard's `mean_vote_accuracy` and its
+`vote_cells_scored` count. Event definitions carry a nullable
 `stage` — stamped on **all eight declared moments** (`cert` on the three cert
 moments, `interim` on the three interim moments, `merits` on the two merits
 moments) and on the SCOTUS entry-pinned stay/injunction motions the interim
@@ -516,11 +517,26 @@ authorship recital names at most the opinion's author and never the
 participating count `VoteProvenance` requires as the aggregation denominator,
 so no honest provenance block can be built from docket text, and a vote list
 without one is illegible. The mandatory block is therefore elicitation ahead
-of its observation channel — banked, unscored — until a real vote source (an
-order list, the opinion, SCDB) populates `Outcome.votes` with provenance.
-That is the permitted side of the second constraint's line, and the
-constraint's own prohibition stands untouched: a *cert*-stage vote is never
-scored.
+of its observation channel — banked, unscored — until a real vote source
+populates `Outcome.votes` with provenance. One is registered: the Court's own
+opinions, whose syllabus lineup names every participating Justice's side
+([data-sources.md](data-sources.md)); its fetcher reads lineups today and no
+writer commits them yet. That is the permitted side of the second
+constraint's line, and the constraint's own prohibition stands untouched: a
+*cert*-stage vote is never scored.
+
+**Only a complete vote record is scored.** `vote_accuracy` is null unless the
+outcome's `vote_provenance` says `complete: true` — every participating
+Justice's vote is present — and `mean_vote_accuracy` re-applies the same
+condition to each cell as it aggregates, reading the cell's committed outcome,
+and publishes its own denominator, `vote_cells_scored`. The reason is the
+unit of account. A partial list is the subset a source happened to show, so
+scoring against it would let the source choose which Justices a predictor is
+scored on, and a one-of-one match would weigh the same in a cell-weighted mean
+as nine of nine; with the gate, every scored cell is scored against the whole
+participating bench and the mean of per-cell fractions is a mean over like
+units. An unprovenanced list says nothing about how much of the bench it
+holds, so it is not scored either. The gate only ever turns a number null.
 
 **A check holds that prohibition, not the absence of a data source.**
 `pipeline.moments.scores_votes` is the gate, and it lives on the moments
@@ -539,9 +555,10 @@ populating `Outcome.votes` at the cert stage — noted dissents from denial are
 published on the order list and are the obvious candidate — changes nothing
 about what is scored. (Building that channel first passes a separate gate:
 `validate`'s `outcome_votes_await_a_registered_source` refuses any committed
-vote list until its source and terms are registered in
-[data-sources.md](data-sources.md), so the channel's own PR retires that check
-as it registers.) That is what makes the rule structural rather than a
+vote list whose source is not registered in [data-sources.md](data-sources.md)
+— and the opinions source is registered for merits events only, so its
+records cannot reach a cert outcome at all.) That is what makes the rule
+structural rather than a
 property of what a particular record contains. A third seam covers the one the
 first two cannot: `vote_accuracy` is the evaluator's own field to write, so
 `validate`'s `vote_accuracy_only_on_merits_events` refuses to let a scored vote

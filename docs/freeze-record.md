@@ -5539,3 +5539,61 @@ freeze commit is recorded here.
     withheld on M petitioner-side block(s)`. N can be 0 where the block serves
     no contact key. That cell's staged snapshot carries
     `[contact detail withheld]` in the block's populated contact keys.
+
+- **A vote is scored only against a complete vote record, the vote mean
+  publishes its denominator, and the Court's opinions register as the vote
+  source, 2026-09-29.** A **membership-rule** entry: it narrows which cells
+  a published figure is computed over and adds that figure's count, and it
+  moves no value that exists. No prompt byte, registry field or stamp
+  moves, so no digest moves: `uv run fedcourts process-digest --all` prints
+  `proc-v8` and the same six blessed digests before and after the change.
+
+  **What is scored, registered now.**
+
+  - **Per cell.** `vote_accuracy` stays gated to the declared merits moments
+    and is now also null unless the outcome's `vote_provenance` says
+    `complete: true` — every participating Justice's vote present. A partial
+    list, or a list with no provenance block, scores nothing
+    (`pipeline.evaluate.vote_accuracy`).
+  - **The aggregate.** `mean_vote_accuracy` averages only cells that carry a
+    vote score on a declared merits moment **and** whose committed outcome
+    carries a complete vote record, re-read from the outcome at render
+    because a committed `vote_accuracy` may be an evaluator's own number. A
+    board built without that reading fails closed: every vote mean null.
+    The mean stays cell-weighted, a mean of per-cell fractions; with every
+    scored cell scored against the whole participating bench, each cell is a
+    like unit. The new `vote_cells_scored` field on every stratum publishes
+    the mean's denominator. Neither is a rank key.
+  - **The source.** `supremecourt-opinions` is the one registered vote
+    source (`pipeline/vote_sources.py`, `docs/data-sources.md`): the
+    syllabus lineup of a signed merits opinion, read by the `scotus-syllabus`
+    grammar at version 2, from a document on the Court's own host, on a
+    Supreme Court merits-stage event, with every Justice spelled as the
+    roster spells them. It yields a record only from a complete lineup whose
+    lead author matches the listing's initials and whose printed decision
+    date matches the listing's, so it writes no partial list.
+    `outcome_votes_await_a_registered_source` refuses any committed vote list
+    without a provenance block, naming any other source (SCDB included), or
+    departing from that shape.
+
+  **What does not move.** No base rate, no skill figure, no digest, and no
+  figure that exists: at `origin/staging` `751b1881c`, none of the 12,726
+  committed outcomes carries a vote (every `votes` list is empty and every
+  present `vote_provenance` is null), and no committed evaluation carries a
+  numeric `vote_accuracy`, so every `mean_vote_accuracy` is null before and
+  after. No writer populates `Outcome.votes` at this commit; the rule is
+  registered before any vote record, and so before any outcome it could be
+  fitted to.
+
+  The carrying promotion is `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merged at>`). It must precede the
+  first committed outcome carrying votes for this entry to register ahead of
+  any record it governs. At that promotion, the census above re-run on `main`
+  reads `<FILL: committed outcomes carrying a non-empty votes list at the
+  promotion>` outcomes carrying votes and `<FILL: committed evaluations
+  carrying a numeric vote_accuracy at the promotion>` evaluations carrying a
+  vote score. The runnable effect check once it is live: `uv run fedcourts
+  leaderboard --all-versions --out /tmp/lb.json && jq '[.. | objects |
+  select(has("vote_cells_scored")) | .vote_cells_scored] | add' /tmp/lb.json`
+  reads `0`, and `uv run fedcourts process-digest --all` still prints the same
+  six digests.

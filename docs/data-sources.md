@@ -39,27 +39,40 @@ CourtListener roles once funding allows — see *The planned end-state* in
 [data-pipeline.md](data-pipeline.md). Adopting it requires reviewing that
 agreement's terms alongside the licenses below.
 
-Another channel is being built and not yet registered: **the Court's own
-opinions**, the planned source of per-Justice merits votes and authorship —
-the channel [decision-model.md](decision-model.md) needs to populate
-`Outcome.votes` with the provenance block no docket text supports. Every
-signed opinion's syllabus closes with a lineup paragraph ("ALITO, J.,
+One vote source is **registered**: **the Court's own opinions**
+(`supremecourt-opinions`), the source of per-Justice merits votes and
+authorship — the channel [decision-model.md](decision-model.md) needs to
+populate `Outcome.votes` with the provenance block no docket text supports.
+Every signed opinion's syllabus closes with a lineup paragraph ("ALITO, J.,
 delivered the opinion of the Court, in which … joined. SOTOMAYOR, J., filed a
 dissenting opinion, in which … joined."), and that paragraph names who wrote
 what and who joined it.
 
-- **Source and scope.** To be fetched pipeline-side from supremecourt.gov:
-  the slip opinion, then the preliminary print or the bound volume for
-  earlier Terms. The channel's chosen scope is merits decisions from roughly
-  OT16 onward; earlier Terms are the historical depth SCDB below would serve.
-  Cert-stage votes from order lists are not part of it.
+- **Source and scope.** Fetched pipeline-side from supremecourt.gov: each
+  October Term's opinions listing (`/opinions/slipopinion/<YY>`), then the
+  opinion PDF each row links — the slip opinion until the preliminary print
+  replaces it, then the print. The chosen scope is merits decisions from
+  roughly OT16 onward. A row is read only when it is a signed opinion on a
+  Term-form docket with a per-opinion PDF: applications (interim rulings) and
+  original actions are out of scope, a per curiam is skipped because its
+  syllabus prints no lineup and a dissent without a writing is recorded only in
+  the opinion's body, and a Term whose listing links into a whole
+  preliminary-print or bound volume is skipped until volume pages are read.
+  On the listings as they stand, that leaves OT16–OT19 and part of OT20
+  unread. Cert-stage votes from order lists are not part of this source.
 - **Terms.** The opinions are works of the federal government in the public
   domain, with no third-party license, and a lineup is a fact about the
   published decision. A vote list read from one therefore redistributes
   nobody's coded values when it lands in public git, which is what separates
-  this channel from SCDB below. Its registration is the provenance statement
-  itself: which document each vote list was read from, and which grammar
-  version read it.
+  this source from SCDB below. Its registration is the provenance statement
+  itself: every record's `vote_provenance` names the source, the document
+  (the opinion PDF's supremecourt.gov URL) and the grammar and grammar version
+  that read it.
+- **Access.** The same public, token-free, budget-free channel as the live
+  docket JSON ([live-sources.md](live-sources.md)), through the same client:
+  a browser user agent, about one request a second, one retry after a pause,
+  and no request that leaves the Court's host — the listing's links and every
+  redirect are held to it.
 - **Method and credit.** The lineup grammar is a Python implementation of the
   syllabus-lineup grammar documented in `docs/justices.md` of
   [ceRt](https://github.com/baldrige/ceRt) (baldrige/ceRt). It is written
@@ -68,23 +81,43 @@ what and who joined it.
   describe how the Court prints a lineup, are all this project takes from it.
   Names resolve through the same roster the authorship recital parser uses
   (`pipeline/justices.py`), so one surname spelling serves every vote surface.
+- **The bench.** The grammar credits a Justice by silence where the Court's
+  convention does, so it reads against the bench that decided the case: the
+  Justices in service on the printed decision date, from the seat roster in
+  `pipeline/justices.py` (each Justice's oath and end of service as the
+  Court's *Members* page prints them; the oath day itself does not seat). A
+  Justice who took the oath after the printed argument date — the latest,
+  for a reargued case — is never credited by the convention: only the
+  paragraph can place them, and the syllabus ordinarily says they took no
+  part. A paragraph silent about such a Justice leaves the lineup incomplete
+  rather than guessing either way.
 - **Completeness.** A vote list is `complete` only when every participating
   Justice is accounted for, with a Justice who took no part recorded as not
   participating. A paragraph the grammar cannot read yields an incomplete
   lineup with no votes rather than a best-effort one, and a Justice the
-  writings do not place leaves the lineup incomplete.
-- **What exists today.** The lineup model and the Supreme Court syllabus
-  grammar (`pipeline/lineup.py`, `pipeline/syllabus_lineup.py`), as a library
-  with no caller. The fetcher, the channel's registration, and the
-  cross-check of each parsed author and separate writer against the Court's
-  Granted & Noted list, with disagreements reported, are not built, and until
-  the channel registers here the vote-source hold below applies to it as to
-  any source.
+  writings do not place leaves the lineup incomplete. The channel yields a
+  vote record only from a complete lineup that also passes two cross-checks —
+  the listing's author initials name the lead opinion's author, and the
+  printed decision date is the listing's — so it never writes a partial list.
+- **Writing roles.** Authorship lives in `votes[].writing`. A Justice's
+  writings map onto `WritingRole` one to one where a role says them
+  faithfully; a writing concurring or dissenting only in part, or two writings
+  of different roles, has no single role and records null ("not stated")
+  rather than the nearer of two wrong values. A Justice observed to write
+  nothing records `none`.
+- **What exists today.** The lineup model, the syllabus grammar and the
+  read-only fetcher (`pipeline/lineup.py`, `pipeline/syllabus_lineup.py`,
+  `pipeline/opinion_lineups.py`), with `fedcourts opinion-lineups` printing
+  what the channel would write for a Term ([cli.md](cli.md)); and the
+  registration in code (`pipeline/vote_sources.py`) that `validate` holds
+  every committed vote list to. No writer populates `Outcome.votes` yet, and
+  the cross-check of each parsed author and separate writer against the
+  Court's Granted & Noted list, with disagreements reported, is not built.
 
 One more channel is planned and not yet adopted, **for historical depth
 only**: the **Supreme Court Database** (SCDB) — the standing academic coding
 of every Supreme Court decision since the 1946 Term, which would extend the
-vote record back past the Terms the opinions channel reads. Its terms are why
+vote record back past the Terms the opinions source reads. Its terms are why
 it is not adopted, and they are
 split across two hosts that do not agree. Everything in this section is **as
 read on 2026-08-15**, from the hosts named in it; it is a record of a reading,
@@ -178,11 +211,14 @@ docket-number-plus-Term join above is what disambiguates, never the name.
 **The vote-source hold.** No vote reaches public git before its source is
 registered here, and the hold is mechanical as well as stated: `validate`'s
 `outcome_votes_await_a_registered_source` check refuses any committed outcome
-carrying votes or a provenance block. The first channel to register retires
-that check in the same PR, replacing it with the source's own conformance
-checks keyed on the registered provenance, so a source that has not
-registered, SCDB included, stays refused. An SCDB import additionally settles
-the terms above before it writes any value.
+carrying votes without a `vote_provenance` block, or a block naming a source
+that is not registered. A registered source's records are held to the shape
+its registration states (`pipeline/vote_sources.py`): for the opinions
+source, a Supreme Court case, a merits-stage event, the `scotus-syllabus`
+grammar with its version, a document on the Court's own host, and every
+Justice spelled as the roster spells them. A source that has not registered,
+SCDB included, stays refused; an SCDB import additionally settles the terms
+above before it writes any value.
 
 Two layers of rights apply, and they are different:
 

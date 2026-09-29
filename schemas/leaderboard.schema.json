@@ -595,7 +595,7 @@
             }
           ],
           "default": null,
-          "description": "Mean panel-vote accuracy where reported",
+          "description": "Mean per-cell `vote_accuracy` over the `vote_cells_scored` cells: merits-moment cells whose outcome carries a complete vote record (`vote_provenance.complete`). Each cell weighs the same, and every one is scored against the full participating bench. Null where no cell qualifies. Never a rank key",
           "title": "Mean Vote Accuracy"
         },
         "population_brier_skill_score": {
@@ -638,6 +638,13 @@
           "description": "Evaluations contributing to population_brier_skill_score \u2014 the cells carrying a non-null skill score. The figure's true denominator, which can be far below `evaluations` (a cell scores skill only where a segment base rate exists), so the figure must be read beside this count. A cell is also excluded where its recorded skill does not reproduce from its own inputs, or where a merits cell's recorded rate contradicts the harness's own pooled merits baseline",
           "minimum": 0,
           "title": "Skill Scored",
+          "type": "integer"
+        },
+        "vote_cells_scored": {
+          "default": 0,
+          "description": "Cells whose `vote_accuracy` entered `mean_vote_accuracy` \u2014 its denominator. Below `evaluations` wherever a cell is off a merits moment, carries no vote score, or resolves against a vote record that is absent or incomplete",
+          "minimum": 0,
+          "title": "Vote Cells Scored",
           "type": "integer"
         }
       },

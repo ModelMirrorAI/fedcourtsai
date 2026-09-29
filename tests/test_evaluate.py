@@ -59,6 +59,7 @@ from fedcourtsai.schemas import (
     StatPackTerm,
     StatPackTermSegment,
     StatPackTermVersionSegments,
+    VoteProvenance,
     VoteValue,
 )
 
@@ -988,8 +989,12 @@ def test_correct_stays_the_disposition_axis_off_the_merits_stage() -> None:
 # --- vote_accuracy: the stage gate on the one quantity that has one --------------
 
 #: One vote list, reused on both sides of every gate case below, so the only
-#: thing that varies between a scored 1.0 and a null is the event's stage.
-_VOTES = [JusticeVote(justice="roberts", vote=VoteValue.majority)]
+#: thing that varies between a scored 1.0 and a null is the gate under test.
+_VOTES = [
+    JusticeVote(justice=name, vote=VoteValue.majority)
+    for name in ("Roberts", "Thomas", "Alito", "Sotomayor", "Kagan", "Gorsuch")
+]
+_COMPLETE = VoteProvenance(source="supremecourt-opinions", participating=6, complete=True)
 
 
 def _voting_pair(event_id: str) -> tuple[Prediction, Outcome]:
@@ -1003,7 +1008,7 @@ def _voting_pair(event_id: str) -> tuple[Prediction, Outcome]:
         update={"event_id": event_id, "votes": _VOTES}
     )
     outcome = _merits_outcome(Judgment.reversed).model_copy(
-        update={"event_id": event_id, "votes": _VOTES}
+        update={"event_id": event_id, "votes": _VOTES, "vote_provenance": _COMPLETE}
     )
     return prediction, outcome
 
@@ -1043,6 +1048,24 @@ def test_vote_accuracy_is_denied_by_default_off_the_register() -> None:
     assert not scores_votes(undeclared)
     prediction, outcome = _voting_pair(undeclared)
     assert vote_accuracy(prediction, outcome) is None
+
+
+def test_vote_accuracy_scores_only_a_complete_vote_record() -> None:
+    """The completeness gate: a partial or unprovenanced list scores nothing.
+
+    Same pair, same merits moment; only the record's provenance varies. A
+    partial list is the subset a source happened to show, so scoring it would
+    let the source choose the denominator; an unprovenanced one says nothing
+    about how much of the bench it holds. Remove the completeness check in
+    `pipeline.evaluate.vote_accuracy` and both assertions read 1.0.
+    """
+    prediction, outcome = _voting_pair(moments_for(Stage.merits)[0].event_id)
+    assert vote_accuracy(prediction, outcome) == 1.0
+    partial = _COMPLETE.model_copy(update={"complete": False})
+    assert (
+        vote_accuracy(prediction, outcome.model_copy(update={"vote_provenance": partial})) is None
+    )
+    assert vote_accuracy(prediction, outcome.model_copy(update={"vote_provenance": None})) is None
 
 
 def test_vote_accuracy_is_not_scored_at_the_interim_stage() -> None:

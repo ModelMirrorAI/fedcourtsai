@@ -171,6 +171,7 @@ from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
     cell_facts,
+    complete_vote_cells,
     evaluator_agreement,
     skill_components,
 )
@@ -221,7 +222,16 @@ from .ops import (
     weekly_digest_week,
 )
 from .paths import CasePaths, EventPaths
-from .pipeline import arrival_cut, cell_context, historical, liveprobe, moments, qp_topics, semantic
+from .pipeline import (
+    arrival_cut,
+    cell_context,
+    historical,
+    liveprobe,
+    moments,
+    opinion_lineups,
+    qp_topics,
+    semantic,
+)
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
 from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.arrival_cut import arrival_cut_ledger
@@ -4965,6 +4975,9 @@ def leaderboard(
         # stratum's per-band cut and the realized always-deny floor beside
         # accuracy, over the same cells and never a rank key.
         facts=cell_facts(cells, settings.data_root),
+        # The cells whose outcome carries a complete vote record: the only
+        # ones `mean_vote_accuracy` averages, counted as `vote_cells_scored`.
+        complete_votes=complete_vote_cells(cells, settings.data_root),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -8933,6 +8946,68 @@ def probe_live_terms(
     if summary_out is not None:
         with summary_out.open("a", encoding="utf-8") as fh:
             fh.write(table + "\n")
+
+
+@app.command("opinion-lineups")
+def opinion_lineups_command(
+    term: Annotated[
+        int,
+        typer.Option(help="Two-digit October Term whose opinions listing to read (e.g. 25)."),
+    ],
+    docket: Annotated[
+        str,
+        typer.Option(help="Comma-separated docket numbers to read (e.g. 24-43); all if empty."),
+    ] = "",
+    limit: Annotated[
+        int | None,
+        typer.Option(help="Read at most this many in-scope opinions (skipped rows still listed)."),
+    ] = None,
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(help="Keep fetched opinion PDFs here and re-read them from here."),
+    ] = None,
+) -> None:
+    """Read merits vote lineups from a Term's opinions on supremecourt.gov.
+
+    Fetches the Term's opinions listing, then each in-scope opinion PDF, locates
+    the syllabus lineup paragraph, and reads it with the syllabus grammar
+    against the bench the seat roster says sat. Prints one JSON reading per
+    listing row on stdout — the lineup, its problems, and, where the lineup is
+    complete, the ``votes`` list and ``vote_provenance`` block a writer would
+    commit — and a count summary on stderr.
+
+    Strictly **read-only**: writes no corpus, content store or ledger, and
+    nothing at all but the optional PDF cache. The supremecourt.gov channel —
+    no token, no budget; browser UA, ~1 req/s and host-scoped fetches built in.
+    """
+    if throttle <= 0:
+        typer.echo("--throttle must be positive", err=True)
+        raise typer.Exit(code=2)
+    if limit is not None and limit < 1:
+        typer.echo("--limit must be at least 1", err=True)
+        raise typer.Exit(code=2)
+    try:
+        opinion_lineups.listing_url(term)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    dockets = [d.strip() for d in docket.split(",") if d.strip()]
+    with SupremeCourtClient(throttle_seconds=throttle) as client:
+        fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
+        readings = opinion_lineups.read_term(term, fetcher, dockets=dockets, limit=limit)
+    typer.echo(json.dumps([r.model_dump(mode="json") for r in readings], indent=2))
+    read = [r for r in readings if r.status == "read"]
+    typer.echo(
+        f"OT{term:02d}: {len(readings)} listing rows — {len(read)} read "
+        f"({sum(1 for r in read if r.votes is not None)} with a complete vote record), "
+        f"{sum(1 for r in readings if r.status == 'skipped')} skipped, "
+        f"{sum(1 for r in readings if r.status == 'failed')} failed",
+        err=True,
+    )
 
 
 @app.command("refresh-historical")

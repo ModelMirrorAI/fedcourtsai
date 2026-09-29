@@ -32,9 +32,11 @@ Two layers of checks:
   no evaluation carries a ``vote_accuracy`` off a merits event, since an
   individual cert vote is never scored and that field is the evaluator's own to
   write; one cell's current gradings record the same ``correct`` bit, that bit
-  being a function of two committed artifacts rather than a judgment; and no
+  being a function of two committed artifacts rather than a judgment; no
   outcome carries a ``judgment`` off a merits event, that field's presence being
-  what routes the accuracy comparison onto the merits axis.
+  what routes the accuracy comparison onto the merits axis; and every committed
+  vote list cites a registered vote source and takes the shape that source's
+  registration requires.
 
 The verdict is a pure function of its inputs (corpus, ledger, baseline,
 tracked courts, as-of date), with no clock or network, so it is deterministic and
@@ -63,7 +65,9 @@ from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.claims import claim_block_problems
 from .pipeline.interim_signals import ApplicationKind
+from .pipeline.justices import resolve_surname
 from .pipeline.semantic import semantic_claim_problems, semantic_grade_problems
+from .pipeline.vote_sources import REGISTERED_VOTE_SOURCES, VoteSource
 from .schemas import (
     FILENAME_MODELS,
     MERITS_PROCEEDING_DISPOSITIONS,
@@ -74,6 +78,7 @@ from .schemas import (
     Evaluation,
     EventKind,
     LedgerValidation,
+    Outcome,
     PredictableEvent,
     Prediction,
     PredictionContext,
@@ -138,7 +143,9 @@ CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
 CHECK_CORRECT_AGREES = "evaluation_correct_agrees"
 # Only a merits outcome has a judgment to record, and the field routes `correct`.
 CHECK_JUDGMENT_ONLY_MERITS = "judgment_only_on_merits_outcomes"
-# Votes reach git only through a source whose redistribution terms are settled.
+# Votes reach git only through a registered vote source, in that source's shape.
+# The id reads as the refusal every unregistered source still meets, and stays
+# stable across reports.
 CHECK_OUTCOME_VOTES_HELD = "outcome_votes_await_a_registered_source"
 CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
 # Advisory, not a failure: ingest strips the marking at the write site, but rows
@@ -1395,29 +1402,35 @@ def check_scored_votes(data_root: Path) -> CorpusCheck:
 
 
 def check_outcome_votes_held(data_root: Path) -> CorpusCheck:
-    """No committed outcome may carry votes or a vote-provenance block.
+    """Every committed vote list cites a registered source, in that source's shape.
 
     Provenance discipline, made mechanical: ``outcome.json`` lives in public
-    git, so a vote list reaching the ledger is published — and no vote source
-    is registered in ``docs/data-sources.md`` yet, so there is nothing a
-    published list could cite for where its values came from or on what terms.
-    What the registration must settle differs by source — for SCDB, the entry
-    records unresolved redistribution terms as the blocker (another project's
-    coded values); for an order-list or opinion-derived channel the records are
-    public and the registration is the provenance statement itself — but the
-    rule is one rule: no vote reaches git before its source is registered. The
-    check refuses the artifact, so neither an agent cell nor an early import
-    can land votes meanwhile; the channel that first populates
-    ``Outcome.votes`` retires it in the same PR that registers its source,
-    replacing it with the source's own conformance checks.
+    git, so a vote list reaching the ledger is published, and it may cite only a
+    source registered in ``docs/data-sources.md`` — mirrored in code by
+    :data:`fedcourtsai.pipeline.vote_sources.REGISTERED_VOTE_SOURCES`. What a
+    registration settles differs by source (for SCDB, still unregistered, the
+    blocker is another project's redistribution terms; for the Court's own
+    opinions the records are public and the registration is the provenance
+    statement itself), but the rule is one rule, and the check refuses the
+    artifact, so neither an agent cell nor an early import can land votes from
+    anywhere else:
 
-    Read raw rather than through ``Outcome``, like the judgment-routing check
-    beside it: a file that does not parse is ``validate_ledger``'s concern
-    (schema law), and this check's question — is the key populated at all — is
-    answerable on the raw payload of any shape.
+    - votes with no ``vote_provenance`` block cite nothing, and are refused;
+    - a block naming a source that is not registered is refused, votes or not;
+    - a registered source's record must sit on a court and an event stage the
+      source is registered for (read off the committed ``event.yaml``), carry a
+      grammar stamp the source reads with, name a document the source reads,
+      and spell every Justice as the roster does.
+
+    Read raw first, like the judgment-routing check beside it: the registration
+    question — is the key populated, and by whom — is answerable on a payload
+    of any shape. The shape questions need the parsed ``Outcome``; a file that
+    does not parse is ``validate_ledger``'s concern (schema law) and is held to
+    the registration rule alone.
     """
     problems: list[str] = []
     checked = 0
+    cases_root = data_root / "cases"
     for path in _ledger_files(data_root, "*/*/events/*/outcome.json"):
         try:
             payload = json.loads(path.read_text())
@@ -1426,17 +1439,66 @@ def check_outcome_votes_held(data_root: Path) -> CorpusCheck:
         if not isinstance(payload, dict):
             continue
         checked += 1
-        if payload.get("votes"):
+        provenance = payload.get("vote_provenance")
+        if provenance is None:
+            if payload.get("votes"):
+                problems.append(
+                    f"outcome {path}: carries votes with no vote_provenance block, so "
+                    f"they cite no registered vote source (docs/data-sources.md)"
+                )
+            continue
+        source_id = provenance.get("source") if isinstance(provenance, dict) else None
+        source = REGISTERED_VOTE_SOURCES.get(source_id) if isinstance(source_id, str) else None
+        if source is None:
             problems.append(
-                f"outcome {path}: carries a non-empty votes list, but no vote "
-                f"source's redistribution terms are registered (docs/data-sources.md)"
+                f"outcome {path}: cites vote source {source_id!r}, which is not a "
+                f"registered vote source (docs/data-sources.md)"
             )
-        if payload.get("vote_provenance") is not None:
-            problems.append(
-                f"outcome {path}: carries a vote_provenance block, but no vote "
-                f"source's redistribution terms are registered (docs/data-sources.md)"
-            )
+            continue
+        try:
+            outcome = Outcome.model_validate(payload)
+        except ValidationError:
+            continue
+        court = path.relative_to(cases_root).parts[0]
+        problems.extend(
+            f"outcome {path}: {problem}"
+            for problem in _vote_source_problems(outcome, source, court, path.parent)
+        )
     return _check(CHECK_OUTCOME_VOTES_HELD, problems, checked=checked)
+
+
+def _vote_source_problems(
+    outcome: Outcome, source: VoteSource, court: str, event_dir: Path
+) -> list[str]:
+    """How one provenanced outcome departs from its registered source's shape."""
+    provenance = outcome.vote_provenance
+    if provenance is None:
+        return []
+    found: list[str] = []
+    if court not in source.courts:
+        found.append(f"{source.source} votes on a {court} case")
+    try:
+        event = PredictableEvent.model_validate(
+            yaml.safe_load((event_dir / "event.yaml").read_text())
+        )
+        stage: Stage | None = event.stage
+    except (OSError, ValueError, ValidationError):
+        stage = None
+    if stage not in source.stages:
+        found.append(f"{source.source} votes on a {stage or 'stage-less'}-stage event")
+    if provenance.grammar not in source.grammars or provenance.grammar_version is None:
+        found.append(
+            f"{source.source} votes read by grammar {provenance.grammar!r}, "
+            f"which the source does not read with"
+        )
+    if provenance.document is None or not source.document(provenance.document):
+        found.append(f"{source.source} votes read from {provenance.document!r}")
+    found.extend(
+        f"Justice {vote.justice!r} is not spelled as the roster spells a Justice"
+        for vote in outcome.votes
+        if resolve_surname(vote.justice) != vote.justice
+    )
+    return found
 
 
 def check_evaluation_correct_agrees(data_root: Path) -> CorpusCheck:
