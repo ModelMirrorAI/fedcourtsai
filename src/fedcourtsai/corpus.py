@@ -4265,6 +4265,33 @@ def stamp_first_moments(conn: sqlite3.Connection, stage: Stage, moment: Moment) 
     return int(stamped)
 
 
+def stamp_event_moments(conn: sqlite3.Connection, stamps: Sequence[tuple[str, str, Moment]]) -> int:
+    """Write ``moment`` on the named event rows, in one transaction.
+
+    The moment convergence's sole writer
+    (:func:`fedcourtsai.moment_convergence.converge_event_moments`). A direct
+    ``UPDATE`` rather than an upsert: the caller has already decided which rows
+    move and to what, reading the declared moment off the table this module
+    sits below, and an upsert round trip would rewrite every other column of a
+    row it is not changing. As there, the write bypasses the
+    upsert mirror hook, so the touched cases are re-mirrored here. Returns the
+    rows written.
+    """
+    if not stamps:
+        return 0
+    with conn:
+        written = sum(
+            conn.execute(
+                "UPDATE events SET moment = ? WHERE case_id = ? AND event_id = ?",
+                (moment.value, case_id, event_id),
+            ).rowcount
+            for case_id, event_id, moment in stamps
+        )
+    if (sink := _mirror_sink()) is not None:
+        sink.mirror_events_for_cases(conn, sorted({case_id for case_id, _, _ in stamps}))
+    return int(written)
+
+
 def stamp_event_opened_at(conn: sqlite3.Connection, stamps: Sequence[tuple[str, str, date]]) -> int:
     """Write ``opened_at`` on the named event rows, in one transaction.
 
@@ -4309,6 +4336,10 @@ def rename_event(
     or neither. ``resolved`` keeps its latch across the rename: the new row takes
     the MAX over the old row, ``new_event``, and any pre-existing row under the
     new id, so a rename can never reopen an event a prior outcome closed.
+    Every other column is written exactly as ``new_event`` carries it. A field
+    derived from the identity, ``moment`` above all, is therefore the caller's
+    to re-derive for the new id: this module sits below the declared-moments
+    table and cannot tell a carried moment from a correct one.
     Raises ``ValueError`` when ``new_event`` names a different case, keeps the
     same event id (upsert-then-delete would silently *drop* the event — use
     :func:`upsert_events` to rewrite in place), or the old row is absent — a

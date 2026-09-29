@@ -198,6 +198,7 @@ from .merits_event_migration import (
     backfill_event_moments,
     backfill_merits_events,
 )
+from .moment_convergence import converge_event_moments
 from .ops import (
     DAILY_DIGEST_LABEL,
     DAILY_DIGEST_MARKER_LINES,
@@ -2557,13 +2558,16 @@ def relabel_application_events_cmd(
     injunction application is a motion under the interim standard, not a cert
     petition. This deterministic convergence sweep renames any cert-shaped
     baseline (`evt-petition-disposition`) still sitting on an application docket
-    to that form, carrying every field and the `resolved` latch, atomically per
-    case. A case with committed ledger artifacts under the old identity, or
-    whose existing `evt-motion-disposition` row is entry-pinned, is skipped and
-    reported for triage rather than folded. Idempotent: a converged corpus
-    renames nothing. Dry-run by default; `--apply` writes. Run where the corpus
-    is pulled, `corpus-push` after an `--apply`. Fails loud if the corpus is
-    absent.
+    to that form, atomically per case. `kind`, `stage` and the moment become the
+    interim stage's, the moment re-derived exactly as a fresh mint derives it;
+    every other field and the `resolved` latch are carried. That includes
+    `opened_at`, which `backfill-arrival-stamps` re-reads from the snapshot. A
+    case with committed ledger artifacts under the old identity, or whose
+    existing `evt-motion-disposition` row is entry-pinned, is skipped and
+    reported for triage rather than folded.
+    Idempotent: a converged corpus renames nothing. Dry-run by default;
+    `--apply` writes. Run where the corpus is pulled, `corpus-push` after an
+    `--apply`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -2590,6 +2594,92 @@ def relabel_application_events_cmd(
         typer.echo(f"  {', '.join(preview)}{suffix}")
     for case_id, reason in result.skipped:
         typer.echo(f"  skipped {case_id}: {reason}")
+
+
+@app.command("converge-event-moments")
+def converge_event_moments_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the re-derived moments; omit for a dry-run report."),
+    ] = False,
+    max_rewrites: Annotated[
+        int | None,
+        typer.Option(
+            "--max-rewrites",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this "
+            "(corpus rows and ledger files together).",
+        ),
+    ] = None,
+) -> None:
+    """Re-stamp declared-moment events whose stored moment disagrees with their id.
+
+    A declared-moment event id names exactly one forecast moment, and the
+    declared-moments table is the authority on which. This sweep finds every
+    un-pinned corpus row and every ledger `event.yaml` under such an id whose
+    stored moment is non-null and different from the declared one, and
+    re-stamps it. The population this exists for is application baselines the
+    relabel moved from the cert petition id while carrying its `distribution`
+    moment onto `evt-motion-disposition`, whose declared moment is `arrival`.
+    Decided applications are not re-read by the live rotation, so nothing else
+    converges them. A null moment is `backfill-event-moments`' population, not
+    this one.
+
+    An event with committed predictions or evaluations under it is skipped in
+    both stores and reported, because moving its moment moves scored cells
+    between moment strata. So is an entry-pinned row, or one whose stage is
+    not the declared moment's stage.
+
+    Idempotent. Run where the corpus is pulled: a dev checkout dry-runs it,
+    and the apply half belongs on a run-repair pass, which holds the
+    corpus-write credentials and commits the ledger half beside the corpus it
+    must match. `--apply` refuses above `--max-rewrites`. The population is
+    finite, because the relabel re-derives the moment and so no write path
+    produces this shape; a count above the dry run's means the predicate
+    widened. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_rewrites is None:
+        typer.echo(
+            "converge-event-moments: --apply requires an explicit --max-rewrites. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the convergence.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = converge_event_moments(
+            conn, settings.data_root, apply=apply, max_rewrites=max_rewrites
+        )
+    if result.refused:
+        typer.echo(
+            f"converge-event-moments: refusing to apply {result.total} rewrite(s) "
+            f"(--max-rewrites {max_rewrites}). The population is finite: the relabel "
+            "re-derives the moment, so no write path produces this shape; a count this "
+            "size means the predicate widened — triage before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "re-stamped" if apply else "would re-stamp"
+    typer.echo(
+        f"converge-event-moments ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.corpus_rows)} corpus row(s) and "
+        f"{len(result.ledger_files)} ledger event.yaml file(s); "
+        f"skipped {len(result.skipped)} for triage"
+    )
+    for label, rewrites in (("corpus", result.corpus_rows), ("ledger", result.ledger_files)):
+        for rewrite in rewrites:
+            typer.echo(
+                f"  {label} {rewrite.case_id}/{rewrite.event_id}: {rewrite.was} -> {rewrite.now}"
+            )
+    for ref, reason in result.skipped:
+        typer.echo(f"  skipped {ref}: {reason}")
 
 
 @app.command("reopen-misattributed-outcomes")

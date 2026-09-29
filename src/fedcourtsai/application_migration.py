@@ -7,9 +7,13 @@ baseline event is ``evt-motion-disposition`` with ``kind = motion`` /
 migration renames any cert-shaped baseline (``evt-petition-disposition`` /
 ``kind = petition`` / ``stage = cert``) still sitting on an application docket
 to that form via :func:`fedcourtsai.corpus.rename_event`, carrying every field
-and the ``resolved`` latch. Deterministic, offline, idempotent — a second run
-finds every application docket already on the motion baseline and renames
-nothing.
+and the ``resolved`` latch except the identity-derived ones: ``kind``, ``stage``
+and ``moment`` become the interim stage's, the moment re-derived exactly as
+``default_event`` mints it. ``opened_at`` is carried as it stands: the interim
+arrival reading needs the docket's submission entry, which only a snapshot
+re-read supplies, and that is the ``backfill-arrival-stamps`` sweep's job.
+Deterministic, offline, idempotent — a second run finds every application
+docket already on the motion baseline and renames nothing.
 
 Two shapes are skipped and reported rather than renamed, because folding them
 would falsify the record: a case whose git ledger holds committed artifacts
@@ -40,6 +44,7 @@ from pathlib import Path
 
 from . import corpus, ids
 from .paths import CasePaths
+from .pipeline import moments
 from .schemas import EventKind, Stage
 from .supremecourt import parse_scotus_application_number
 
@@ -118,13 +123,18 @@ def relabel_application_baseline_events(
                 case_id,
                 PETITION_BASELINE_EVENT_ID,
                 # Re-validated (not model_copy) so every carried field normalizes
-                # and a future CorpusEvent field travels by construction.
+                # and a future CorpusEvent field travels by construction. The
+                # moment is re-derived, not carried: it belongs to the stage, and
+                # the cert baseline's `distribution` is not an interim moment.
+                # Same derivation as `default_event`, so the relabel and a fresh
+                # mint of the docket agree on it.
                 corpus.CorpusEvent.model_validate(
                     {
                         **old.model_dump(),
                         "event_id": MOTION_BASELINE_EVENT_ID,
                         "kind": EventKind.motion,
                         "stage": Stage.interim,
+                        "moment": moments.first_moment(Stage.interim),
                     }
                 ),
             )

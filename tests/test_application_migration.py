@@ -20,7 +20,7 @@ from fedcourtsai.application_migration import (
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.ingest import default_event, from_bulk_row
-from fedcourtsai.schemas import EventKind
+from fedcourtsai.schemas import EventKind, Moment
 
 runner = CliRunner()
 
@@ -102,6 +102,27 @@ def test_apply_renames_and_carries_every_field(tmp_path: Path) -> None:
     assert event.decision_target == "disposition"
     assert event.opened_at == date(2024, 8, 1)
     assert event.resolved is False
+
+
+def test_apply_rederives_the_moment_rather_than_carrying_it(tmp_path: Path) -> None:
+    # The cert-shaped baseline was minted at the cert stage's `distribution`
+    # moment. Carried across the rename it would label an interim event with a
+    # moment the interim stage does not have; the relabel re-derives it exactly
+    # as a fresh mint of the docket does.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row(_APPLICATION, "24A1099")])
+        corpus.upsert_events(
+            conn, [_cert_shaped_baseline(_APPLICATION, moment=Moment.distribution, resolved=True)]
+        )
+        relabel_application_baseline_events(conn, _data_root(tmp_path), apply=True)
+        (event,) = corpus.events_for_case(conn, _APPLICATION)
+    minted = default_event(
+        from_bulk_row({"id": "900001", "court_id": "scotus", "docket_number": "24A1099"})
+    )
+    assert event.moment == Moment.arrival
+    assert event.moment == minted.moment
+    assert event.resolved is True
 
 
 def test_apply_preserves_the_resolved_latch(tmp_path: Path) -> None:
