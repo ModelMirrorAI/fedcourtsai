@@ -5204,16 +5204,24 @@ freeze commit is recorded here.
   `a2f84f2ee` ran under different replay masks, even where their provenance
   blocks agree. Provenance agreement is the fortnightly series' comparability
   test, and it cannot see this change, so no series comparison spans the
-  boundary. No cert back-test report is committed on `main` at this entry's
-  commit, so none is on the earlier side. From the report that first carries
+  boundary. No cert back-test report has ever been merged to `main`. The
+  reports on the earlier side are the ones on closed, unmerged review PRs,
+  each the tip of the `metrics/cert-backtest` review branch in its day:
+  `2386e03bb` (committed `2026-09-20T18:36:48Z`, the first real-engine
+  replay: 25 petitions, `provisioning` `{"blind": 5, "truncated": 20}`,
+  always-deny floor 0.600), whose 20 truncated cells ran without the day
+  screen; `ff85eb2ec` (`2026-09-03T11:41:48Z`: 25 petitions, the same mix and
+  floor, no provenance block); and `df4e578c3` (`2026-07-15T16:15:52Z`: 7
+  petitions, offline reference baselines only, no provisioning split). From
+  the report that first carries
   `provenance.clocks` onward, each report records the `DECIDED_BEFORE` and
   `REPLAY_CUTOFF` its petitions' cells were exported. A later change to the
   clock that such a report's cells ran under is visible in that field.
 
   **Observed so far.** The day screen has tests and no runner trace. The first
   post-promotion dispatch (run `35636152823`) provisioned 4 blind petitions and
-  1 truncated one, and none of its cells ran `fedcourts query`, so the screen
-  had nothing to act on. The dispatch after it (run `35643195366`) exited
+  1 truncated one, and no `fedcourts query` invocation appears in its run
+  log, so there is no record of the screen acting. The dispatch after it (run `35643195366`) exited
   non-zero and wrote no report. The runnable effect check, once a scheduled `spread` run lands its
   report: `jq '[.provenance.clocks[] | select(.replay_cutoff != null)] |
   length' metrics/cert-backtest.json` is non-zero wherever `.provisioning`

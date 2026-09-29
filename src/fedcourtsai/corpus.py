@@ -3301,12 +3301,12 @@ def _precedes_replay_clock(row: CorpusRow, query: PriorQuery) -> bool:
     """Whether one row provably precedes the query's replay clock.
 
     One doctrine at two resolutions: history that cannot be proven to precede
-    the cutoff is never consulted. Where the clock carries a **day** that is the
-    whole rule — the row's resolution date must exist and strictly precede it,
-    so an undated row is refused however old it looks. Where it carries only a
-    **Term year**, the best-known year stands in for the same question at Term
-    granularity, and a row with no derivable year is refused for the same
-    reason.
+    the cutoff is never consulted. Where the clock carries a **Term year**, the
+    best-known year must strictly precede it, and a row with no derivable year
+    is refused. Where it also carries a **day**, a row whose resolution date is
+    known must strictly precede that day too; a row with no resolution date
+    cannot be tested against a day, so it passes the day check and is left to
+    the Term screen.
 
     The two are halves of one clock and conjoin; neither replaces the other.
     The Term is the coarse half and the only one that can speak for an undated

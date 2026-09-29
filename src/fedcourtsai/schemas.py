@@ -772,7 +772,7 @@ class PredictionContext(_Strict):
         "over into a later Term. This is also what the cell was handed as "
         "DECIDED_BEFORE, and what it passed to `fedcourts query`. The day-level "
         "retrieval boundary is `cutoff` beside it, which is what REPLAY_CUTOFF "
-        "carries on a dated cell and what narrows that query further. Null on a "
+        "carries on a dated or truncated cell and what narrows that query further. Null on a "
         "forward cell, whose outcome does not exist yet",
     )
     signals_observable: bool = Field(
@@ -5263,9 +5263,13 @@ class CertBacktest(_Strict):
         "`always_denied_accuracy` is those floors weighted by the arm sizes. It "
         "does not split the scores — no entry's accuracy is broken out by arm — so "
         "it says how much of the pooled floor the blind arm carries, not how an "
-        "entry did on each arm. Over the whole replayed "
+        "entry did on each arm. Beside `provenance.clocks`, which names each "
+        "petition's arm, it states a named petition's outcome wherever its arm is "
+        "pure, which includes every arm of one. Over the whole replayed "
         "set, like the pooled floor, so an entry short some cells "
-        "(`provenance.lost_cells`) is not floored by these either. Empty where no "
+        "(`provenance.lost_cells`) is not floored by these either. A floor over an "
+        "arm of one to three petitions is a count, not a rate: read it as denials "
+        "over n, never as a percentage without its n. Empty where no "
         "replay provisioned a petition, and on reports written before the per-arm "
         "count existed",
     )

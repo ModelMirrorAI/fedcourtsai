@@ -90,6 +90,7 @@ from .cert_backtest import (
     CERT_BACKTEST_SCOPES,
     ReplayOutcome,
     build_segment_context,
+    clock_days,
     replay_predictors,
     replayable_items,
     run_cert_backtest,
@@ -5463,15 +5464,24 @@ def _standing_report_withheld(report_path: Path) -> Iterator[None]:
     """Keep the standing cert back-test report out of the tree while cells run.
 
     The report names every replayed petition beside the arm it was provisioned
-    under, and counts each arm's denials — so where an arm came out pure, the
-    two together state a named petition's outcome. The draws of consecutive
+    under, and counts each arm's denials — so wherever an arm is pure, which
+    includes every arm of one, the two together state a named petition's
+    outcome. The draws of consecutive
     fortnights can overlap, and a replay cell runs with the checkout as its
     working directory, so a petition's next replay would find its own outcome
     one search away. The file is about to be replaced anyway: its bytes are
     held in memory for the replay and written back on the way out, whatever
-    happened in between, and the new report then overwrites them. A fence
-    against an incidental read, like the ledger's removal: the committed copy
-    stays reachable through version history.
+    happened in between, and the new report then overwrites them.
+
+    A fence against an incidental working-tree read and nothing more, like the
+    ledger's removal: the committed copy stays reachable through version
+    history, through the unmerged, force-pushed ``metrics/cert-backtest``
+    review branch among a full-depth checkout's refs, and through the public
+    repository, which a cell's web tools can reach. It keys on ``--out``, so a
+    standing report at any other path is not withheld; and a process killed
+    outright skips the ``finally``, leaving the file absent — harmless in CI,
+    where a failed replay skips the review-PR step and the runner is discarded,
+    and restored locally from the commit.
     """
     held = report_path.read_bytes() if report_path.is_file() else None
     if held is not None:
@@ -5789,7 +5799,7 @@ def cert_backtest_cmd(
         backtesters = (
             default_backtesters(
                 conn,
-                replay_days={c.case_id: c.replay_cutoff for c in clocks if c.replay_cutoff},
+                replay_days=clock_days(clocks),
             )
             + replayed
         )

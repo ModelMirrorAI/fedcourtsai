@@ -32,7 +32,7 @@ import subprocess
 import sys
 import threading
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from datetime import date
@@ -528,8 +528,8 @@ class ReplayOutcome:
     the scores were produced over. Everything there rides the report — stderr
     does not survive the runner.
 
-    ``clock_days`` maps each dated cell's case id to the cutoff day it was
-    clocked on, and carries no entry for a blind cell. It is what puts the
+    ``clock_days`` maps each non-blind (dated or truncated) cell's case id to
+    the cutoff day it was clocked on, and carries no entry for a blind cell. It is what puts the
     offline reference baseline on the same clock the engine cells are on
     (:func:`fedcourtsai.backtest.default_backtesters`), so the reference row is
     comparable with the engine rows rather than masked more loosely than they
@@ -561,10 +561,24 @@ class ReplayOutcome:
     unavailable: list[str]
     provisioning: dict[str, int]
     lost_cells: list[CertBacktestCellLoss]
-    clock_days: dict[str, date] = field(default_factory=dict)
     clocks: list[CertBacktestCellClock] = field(default_factory=list)
     disclosures: list[CertBacktestDisclosure] = field(default_factory=list)
     disclosure_tally: dict[str, CertBacktestDisclosureTally] = field(default_factory=dict)
+
+    @property
+    def clock_days(self) -> dict[str, date]:
+        """The cutoff day of each petition that has one, read off ``clocks``."""
+        return clock_days(self.clocks)
+
+
+def clock_days(clocks: Iterable[CertBacktestCellClock]) -> dict[str, date]:
+    """Each non-blind petition's cutoff day, keyed by case id.
+
+    The one place the offline reference baseline's per-petition mask is read
+    off the recorded clocks, so the day that row is masked on and the day the
+    report says each cell was exported cannot come from two sources.
+    """
+    return {c.case_id: c.replay_cutoff for c in clocks if c.replay_cutoff is not None}
 
 
 # Which engine lane the current thread is running, for the log prefix. Set by
@@ -1248,8 +1262,9 @@ def replay_predictors(
     backend for offline ``stub``/``replay`` runs, and ``skip_engines`` opts
     named engines out) and collects its
     ``prediction.json``. Each cell carries the replay clock in two halves: its
-    own docket Term as ``DECIDED_BEFORE`` on every arm, and — on the dated arm
-    only — the day it was provisioned at as ``REPLAY_CUTOFF``, which
+    own docket Term as ``DECIDED_BEFORE`` on every arm, and — on the dated and
+    truncated arms, every cell but a blind one — the day it was provisioned at
+    as ``REPLAY_CUTOFF``, which
     ``fedcourts query`` applies as a second bar and which can only remove
     priors that had not yet resolved when the cell was placed. The offline
     prior-vote baseline is given the same per-cell day, so the reference row on
@@ -1258,7 +1273,7 @@ def replay_predictors(
     the :class:`ReplayedBacktester` list (one per predictor that produced
     predictions), the ids of predictors whose engine turned out to be
     **unavailable** mid-run, the per-cell losses, the provisioning mix, and
-    each dated cell's clock day.
+    each non-blind cell's clock day.
 
     Every run-time fault is absorbed rather than raised, for the same reason: a
     campaign that crashes strands the spend already made on every other cell and
@@ -1485,7 +1500,7 @@ def replay_predictors(
                     # DECIDED_BEFORE and REPLAY_CUTOFF. The Term is the case's
                     # own docket Term on every arm — self-excluding, and what
                     # the prompt contract anchors on. The day is this cell's
-                    # provisioned cutoff and only the dated arm has one; it
+                    # provisioned cutoff, which every non-blind cell has; it
                     # narrows retrieval to the priors that had actually resolved
                     # when the cell was placed, and can only remove.
                     decided_before=item.features.year,
@@ -1520,11 +1535,6 @@ def replay_predictors(
         backtesters=backtesters,
         unavailable=sorted(unavailable),
         provisioning=dict(provisioning),
-        clock_days={
-            clock.case_id: clock.replay_cutoff
-            for clock in clocks
-            if clock.replay_cutoff is not None
-        },
         clocks=sorted(clocks, key=lambda clock: clock.case_id),
         # Every loss, including one on a predictor whose engine went missing
         # later in the campaign: unavailability drops the predictor from the

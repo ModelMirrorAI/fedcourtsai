@@ -1256,7 +1256,10 @@ def test_the_standing_report_is_restored_when_the_replay_fails(
     out = tmp_path / "cert-backtest.json"
     out.write_text("standing report")
 
+    present: list[bool] = []
+
     def explode(*args: object, **kwargs: object) -> object:
+        present.append(out.exists())
         raise RuntimeError("replay failed")
 
     monkeypatch.setattr(cli_module, "replay_predictors", explode)
@@ -1265,6 +1268,7 @@ def test_the_standing_report_is_restored_when_the_replay_fails(
         ["cert-backtest", "--out", str(out), "--engine", "stub", "--work-dir", str(tmp_path / "w")],
     )
     assert result.exit_code != 0
+    assert present == [False]  # withheld while the replay ran, as on the success path
     assert out.read_text() == "standing report"
 
 
