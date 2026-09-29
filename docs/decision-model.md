@@ -93,7 +93,7 @@ counted differently and observed differently.
 | `A_stage` | grant iff at least **four** Justices vote to grant | relief iff a **majority**; a Circuit Justice may act alone before referring to the full Court | judgment by a **majority** of participating; the *opinion* may command fewer, which is a plurality |
 | `D` observed | always | always | always |
 | `V_j` observed | almost never, **and selectively** | partially | fully, with a vote source |
-| `W_j` observed | rarely non-`none` — but **absence is observed for every participating Justice** once the order list is final | sometimes | fully |
+| `W_j` observed | rarely non-`none` — but **absence is observed for every participating Justice** once the order list is final and every document listed with it is read | sometimes | fully |
 | `R_j` observed | iff `W_j ≠ none` | iff `W_j ≠ none` | iff `W_j ≠ none` |
 
 The last row is the one that is easiest to lose: reasoning censoring is
@@ -215,7 +215,8 @@ the rule is *never score*, whatever a particular record happens to contain.
 
 **Whether a Justice writes at all does not have that problem.** Absence is itself
 an observation: once the order list is final, every participating Justice is
-observed, provided every document published with the order is read (the rule
+observed, provided every document the Court lists for the order's date is read
+without a problem (the rule
 the order-list parser applies, [data-sources.md](data-sources.md)). It is not
 disclosed by the pre-decision docket, and it is an increment from the
 prediction's vantage point — so it clears tests 1 and 2 of the five the
@@ -569,7 +570,7 @@ records cannot reach a cert outcome at all. The order-list channel's parser
 exists, read-only and unregistered: `fedcourts order-notations` and its two
 grammars are described in [data-sources.md](data-sources.md). Its vote lists
 are always partial, and it sets complete writing roles only from every
-document published for an order's date.) That is what makes the rule
+document the Court lists for an order's date, each read without a problem.) That is what makes the rule
 structural rather than a
 property of what a particular record contains. A third seam covers the one the
 first two cannot: `vote_accuracy` is the evaluator's own field to write, so

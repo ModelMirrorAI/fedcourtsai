@@ -53,11 +53,13 @@ colon::
 
 **Both grammars refuse rather than guess.** A name the roster
 (:mod:`fedcourtsai.pipeline.justices`) does not carry, a Justice off the
-bench, a Justice read two ways, an object the grammar does not read, or — for
-notations — any leftover sentence shaped like a Justice's act that no rule
-read, is a ``problem``, and any problem empties the vote list: an unread
-sentence could be the very notation that moves a Justice. A header the
-grammar cannot read yields no writing. "The Chief Justice" resolves to the
+bench, or a Justice read two ways is a ``problem`` in either grammar; for
+notations, so is an object the grammar does not read and any leftover
+sentence shaped like a Justice's act that no rule read. Any problem empties
+the vote list: an unread sentence could be the very notation that moves a
+Justice. A header the grammar cannot read yields no writing and a problem;
+a header whose object it does not read (a motion, a petition for
+rehearing, part of the matter) yields its writing and no vote. "The Chief Justice" resolves to the
 bench's Chief (:data:`~fedcourtsai.pipeline.justices.CHIEF_JUSTICES`), never to
 whoever is most senior.
 

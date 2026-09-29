@@ -131,8 +131,8 @@ never scored: `scores_votes` admits only merits moments
   An order list prints one entry per docket, or per group of dockets sharing
   an order. The writings published with it are appended after the list:
   dissents from denial, statements, and a summary disposition's per curiam.
-  An order on an application usually appears only as an Opinion Relating to
-  Orders, with its writings.
+  An order on an application that carries writings usually appears as an
+  Opinion Relating to Orders.
 - **Terms and access.** The same as the opinions source: public-domain works
   of the federal government, read through the same client (browser user agent,
   about one request a second, one retry, no request off the Court's host).
@@ -159,20 +159,35 @@ never scored: `scores_votes` admits only merits moments
   - "The Chief Justice" resolves to the bench's Chief, and every name resolves
     through the roster against the bench in service on the order's date
     (`bench_on`).
-- **Refusals.** Either grammar reports a problem, and the docket's vote list
-  is emptied, for:
+- **Refusals.** Any problem empties the docket's vote list. Either grammar
+  reports one for:
   - a name the roster does not carry;
   - a Justice off the bench;
   - a Justice read two ways;
+  - a header it cannot read at all.
+
+  The notation grammar also reports one for:
   - a noted act on a motion or a petition for rehearing;
   - a vote limited to part of the matter;
+  - non-participation in anything but a petition, an application, a case or
+    a matter;
   - a writing announced as forthcoming;
   - any sentence shaped like a Justice's act that no rule reads.
 
-  The channel never guesses a Justice. Its split has one cross-check of its
-  own, run both ways within each section: every writing prints its author
-  in its running head. A running head naming a Justice with no header read
-  is a problem, and so is a header whose author no running head names.
+  A header whose act is on a motion, a petition for rehearing, or part of the
+  matter, or whose writing is mixed ("concurring in part and dissenting in
+  part"), is not a problem: the header grammar records the writing with no
+  vote.
+
+  The channel never guesses a Justice. Its split adds cross-checks of its
+  own, each a problem when it fails:
+  - Every writing prints its author in its running head, and the check runs
+    both ways within each section: a running head naming a Justice with no
+    header read, and a header whose author no running head names.
+  - An appended section must carry its document's date, and a document must
+    print the date its listing gives.
+  - A Justice who took no part must not sign a writing.
+  - A document's text must not be cut at the extraction cap.
 - **Completeness.** The vote list is always `complete: false`, because a
   Justice who noted nothing is unobserved, not a vote to deny. Writings
   differ, as [decision-model.md](decision-model.md) says: once an order is
