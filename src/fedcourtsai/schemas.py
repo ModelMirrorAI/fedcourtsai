@@ -8124,7 +8124,8 @@ class PartyRates(_Strict):
         default=0,
         ge=0,
         description="Rows left out as earlier than `since`: filed before it, or — "
-        "carrying no filing date — resolved before it or not at all",
+        "carrying no filing date — resolved before it, or carrying no date at "
+        "all (a row that cannot be placed after the bound is not admitted)",
     )
     undated: int = Field(
         default=0,

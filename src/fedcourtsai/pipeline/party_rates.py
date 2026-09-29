@@ -61,7 +61,8 @@ cells.
 
 ``since`` bounds the other end, and exists for the same reason the census keys
 every cell on a stratum: coverage. The live channel's capture of the
-application docket is complete only for filings from 2025-04-18; before that
+application docket is complete only for filings from 2025-04-18 (save a
+week-long gap at the end of OT2024); before that
 the live slice holds a selected set of high-profile applications, mostly the
 federal government's, while the ordinary applications of the same months sit
 outside it as never-polled shell rows. A federal-applicant cell and its

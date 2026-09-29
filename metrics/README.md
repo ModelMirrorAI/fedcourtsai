@@ -2355,7 +2355,9 @@ nine more are specific to rates.
   non-government party.
 - **The application stratum is a census only from 2025-04-18.** The live
   channel captures the application docket whole for filings from that date
-  (OT2024's `24A1000` on). Before it, the live slice holds a selected set of
+  (OT2024's `24A1000` on), save a second, week-long gap at the end of OT2024:
+  `24A1274`–`24A1295` are uncaptioned shell rows outside the live slice, so
+  whether any of them is a federal application cannot be read from the blob. Before it, the live slice holds a selected set of
   high-profile applications — mostly the federal government's — while the
   ordinary applications of the same months sit outside it as never-polled
   shell rows; the live slice carries 35 application rows filed in July–August
@@ -2363,7 +2365,15 @@ nine more are specific to rates.
   stored snapshot 2026-07-13). So before that date a federal-applicant cell is
   nearly complete while its `none` and `respondent` comparison cells are not:
   a government-versus-`none` reading of the application stratum is cut with
-  `--since 2025-04-18` (or later) and says so. The same gap means `trump-45`
+  `--since 2025-04-18` (or later) and says so. **And under `--as-of filed` it
+  quotes the unattributed `none` cell beside the attributed one**: 113 live
+  application rows carry no filing date, overwhelmingly execution-eve capital
+  stays that are almost all denied, so they drop out of the `trump-47` cell
+  into the unattributed one and inflate the reference — on the same blob,
+  `--since 2025-04-18` gives `trump-47` `none` 13/188 (6.9%) beside
+  unattributed `none` 1/81, 14/269 (5.2%) pooled, against the federal
+  applicant's 16/26. `--as-of resolved` dates those rows by their disposition
+  instead and needs no such pairing. The same gap means `trump-45`
   holds no application cell at all and `biden-46` two federal-applicant
   substantive asks against the 19 applications a published count gives that
   administration: no emergency-docket rate reads across administrations on
@@ -2431,7 +2441,7 @@ about the comparison cells, whose coverage the rule above governs.
 | Published figure | This corpus | Reconciliation |
 |---|---|---|
 | 28 applications filed by the administration from 2025-01-20 to 2025-10-01, 2 withdrawn (Ballotpedia, 2025-10-01) | 25 — 22 substantive `petitioner` rows, 2 unreadable-ask rows and 1 `both` row (`25A312`) — 2 of them withdrawn | The 3 absent (`24A885` and `24A886`, the birthright-citizenship companions, and `24A904`) are stored only as uncaptioned shell rows outside the live slice, never live-polled — inside the pre-2025-04-18 coverage gap, not misclassified |
-| Of the 23 decided: 19 granted in full, 2 in part, 1 denied, 1 dismissed as moot — 19/23 = 82.6% granted in full | 16 granted, 4 `denied`, of 20 decided — 80.0% | The 4 `denied` (`24A790`, `24A831`, `24A949`, `25A103`) match the published 2 partial grants, 1 denial and 1 mootness dismissal in count and, by the orders' own text, in identity; the 3 absent applications were all granted, and adding them gives 19/23. "In full" follows the published source's convention: the partial stays granted in `24A884` carry `granted` in both |
+| Of the 23 decided: 19 granted in full, 2 in part, 1 denied, 1 dismissed as moot — 19/23 = 82.6% granted in full | 16 granted, 4 `denied`, of 20 decided — 80.0% | The 4 `denied` (`24A790`, `24A831`, `24A949`, `25A103`) match the published 2 partial grants, 1 denial and 1 mootness dismissal in count and — per the Court's orders, an external check the corpus cannot reproduce — in identity; the 3 absent applications were all granted, and adding them gives 19/23. "In full" follows the published source's convention: the partial stays granted in `24A884` carry `granted` in both |
 | 3 pending on 2025-10-01 | 3 pending (including `25A312`, the `both` row) | Agrees |
 | 19 applications in the administration's first 20 weeks, to 2025-06-09 (Vladeck) | 16 | The same 3 absent applications all fall in the window |
 | 19 applications across the whole of `biden-46`; 41 across `trump-45` (Vladeck) | 2 and 0 | Coverage: the application docket is not captured before mid-2024, and only selectively until 2025-04-18 |
