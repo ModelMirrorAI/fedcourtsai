@@ -229,6 +229,7 @@ from .pipeline import (
     liveprobe,
     moments,
     opinion_lineups,
+    order_lineups,
     qp_topics,
     semantic,
 )
@@ -9014,6 +9015,94 @@ def opinion_lineups_command(
         f"({sum(1 for r in read if r.votes is not None)} with a complete vote record), "
         f"{sum(1 for r in readings if r.status == 'skipped')} skipped, "
         f"{sum(1 for r in readings if r.status == 'failed')} failed",
+        err=True,
+    )
+
+
+@app.command("order-notations")
+def order_notations_command(
+    on: Annotated[
+        str | None,
+        typer.Option(
+            "--date",
+            help="Order date (YYYY-MM-DD): read every order and opinion relating to "
+            "orders the Court lists for it.",
+        ),
+    ] = None,
+    url: Annotated[
+        str | None,
+        typer.Option(help="Read one order or opinion-relating-to-orders PDF on supremecourt.gov."),
+    ] = None,
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Keep fetched PDFs here and re-read them from here (a dev cache: "
+            "read without host scoping, so never for a publishing lane)."
+        ),
+    ] = None,
+) -> None:
+    """Read cert- and interim-stage per-Justice notations from the Court's orders.
+
+    With ``--date``, fetches the October Term's order-list and Opinions Relating
+    to Orders listings and every document they list for that date; with
+    ``--url``, one document. Splits each into order entries, order text and
+    separate-writing headers, reads them with the order-notation and
+    writing-header grammars against the bench the seat roster says sat, and
+    prints one JSON reading per docket on stdout — the partial vote list, the
+    writings, each piece's reading with its grammar stamp, and every problem —
+    and a count summary on stderr. Writing roles are complete for a docket only
+    when every document listed for the date was read whole without a problem;
+    a single ``--url`` document never is.
+
+    Strictly **read-only**: writes no corpus, content store, ledger or
+    ``data/``, and nothing at all but the optional PDF cache. The channel is
+    not a registered vote source. supremecourt.gov only — no token, no budget;
+    browser UA, ~1 req/s and host-scoped fetches built in.
+    """
+    if (on is None) == (url is None):
+        typer.echo("give exactly one of --date or --url", err=True)
+        raise typer.Exit(code=2)
+    if throttle <= 0:
+        typer.echo("--throttle must be positive", err=True)
+        raise typer.Exit(code=2)
+    day: date | None = None
+    if on is not None:
+        try:
+            day = date.fromisoformat(on)
+        except ValueError as exc:
+            typer.echo(f"--date must be YYYY-MM-DD: {on!r}", err=True)
+            raise typer.Exit(code=2) from exc
+    if url is not None and not order_lineups.is_order_document_url(url):
+        typer.echo(f"not an order or opinion PDF on supremecourt.gov: {url}", err=True)
+        raise typer.Exit(code=2)
+    with SupremeCourtClient(throttle_seconds=throttle) as client:
+        fetcher = order_lineups.OrderFetcher(client, cache_dir=cache_dir)
+        try:
+            if day is not None:
+                reading = order_lineups.read_day(day, fetcher)
+            else:
+                assert url is not None
+                reading = order_lineups.read_url(url, fetcher)
+        except httpx.HTTPError as exc:
+            # Only a listing fetch can raise here; each document's failure is
+            # recorded on its own reading.
+            typer.echo(f"the orders listings could not be fetched: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    typer.echo(json.dumps(reading.model_dump(mode="json"), indent=2))
+    read = [d for d in reading.documents if d.status == "read"]
+    dockets = reading.dockets
+    typer.echo(
+        f"{on or url}: {len(reading.documents)} documents ({len(read)} read, "
+        f"{len(reading.documents) - len(read)} failed; the day is "
+        f"{'covered' if reading.covers_the_day else 'not covered'}) — {len(dockets)} dockets, "
+        f"{sum(1 for d in dockets if d.votes)} with noted votes, "
+        f"{sum(1 for d in dockets if d.writings)} with writings, "
+        f"{sum(1 for d in dockets if d.writings_complete)} with complete writing roles, "
+        f"{sum(1 for d in dockets if d.problems)} with problems",
         err=True,
     )
 
