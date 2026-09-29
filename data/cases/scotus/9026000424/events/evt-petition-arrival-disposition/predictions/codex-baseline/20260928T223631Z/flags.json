@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000424",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Docket-only forecast: no documents directory or questions-presented text was provisioned, and a bounded CourtListener search for the Fourth Circuit opinion in No. 26-1130 returned no results. The substantive issue and stakes could not be assessed; big_case_score is null with a rationale. Zero distributions and no CVSG are expected at arrival and are not flagged as missing signals. Prediction completed without outcome retrieval.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260928T223631Z",
+  "schema_version": "1.0"
+}
