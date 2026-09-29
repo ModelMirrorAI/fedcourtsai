@@ -76,11 +76,16 @@ from .justices import bench_on, resolve_surname
 from .lineup import Lineup, Writing, WritingKind, writing_role
 from .opinion_lineups import OpinionFetcher, WritingReading
 from .order_grammars import (
-    HEADER_START_RE,
     ORDER_NOTATIONS,
     WRITING_HEADERS,
     match_header,
     normalize_order_text,
+)
+
+#: Where a header may begin: a name or a ``Statement of`` a name.
+HEADER_START_RE: Final = re.compile(
+    r"^\s*(?:statement\s+of\s+)?(?:the\s+chief\s+justice|chief\s+justice|justice)\s+[A-Za-z]",
+    re.I,
 )
 
 #: The Court's per-Term list of order lists and miscellaneous orders.
