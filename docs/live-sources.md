@@ -367,16 +367,42 @@ so reading it would delete legal text from the cells the scrub exists for. Nor
 are a box spelled out in full, a number written with a slash or with no
 separators, a bare city/state/ZIP line — that shape is also how the Court's own
 address line is set — or an incarcerated filer's register number beside an
-institution name, which has no shape at all. And it reaches the document text
-only: the `record/snapshots/<date>.json` staged beside it is the upstream
-payload verbatim, so on the same docket it carries the counsel blocks' own
-`Address` / `City` / `Zip` / `Phone` / `Email` / `PrisonerId` keys — the same
-details in a more quotable form, plus a register number no shape can match.
-Both files are gitignored and neither is uploaded, so what can reach public git
-is what a cell's prose quotes, which is the exposure
-[data-sources.md](data-sources.md) already names. The scrub narrows what reaches
-the ledger; it does not make a filing anonymous, and a cell with retrieval
-rights can reach the same PDF upstream whatever was withheld from its copy.
+institution name, which has no shape at all.
+
+**The staged snapshot gets the same withholding, by key rather than by shape.**
+`record/snapshots/<date>.json` is the upstream payload, whose counsel blocks
+carry `Address` / `City` / `Zip` / `Phone` / `Email` / `PrisonerId` as labelled
+keys — on a self-represented docket the filer's own details in a more quotable
+form than any signature block. On such a docket, every petitioner-side block
+the trigger reads as naming nobody but the party — a block carrying a register
+number included, whatever its `Attorney` says, so a counselled incarcerated
+petitioner's block loses its counsel's professional details — has each
+populated `Address`, `City`, `Zip`, `Phone`, `Email` and `Title` (free text
+nothing reads, which upstream sometimes fills with an inmate number) replaced
+by `[contact detail withheld]`, and
+a populated `PrisonerId` replaced by `[register number withheld]`: the number is
+the personal datum, its presence is upstream's marker for an incarcerated filer,
+which the trigger's third arm reads and a cell may reason from, so the marker
+keeps the presence. `PartyName`, `Attorney`, `State` and every other block —
+a represented co-petitioner's, the respondent side, amici — stay as served, and
+an empty key stays empty. The respondent side is outside this scrub by
+scope — the trigger and the scrub both ask about the petitioner — so a
+self-represented respondent's block on such a docket keeps its contact keys, a
+residual of four blocks on the pulled blob. The copy is built beside the payload rather than in
+place of it, so the cell context, the trigger and the document scrub all read
+the payload as served; nothing scored or analytic reads the withheld keys (a
+test pins both halves: no module outside the scrub names them as literals or
+imports its key list, and every row, band, context and gate derived from a
+scrubbed payload equals the one from the original). The provisioning step echoes the counts, never a value:
+`snapshot contact scrub: N value(s) withheld on M petitioner-side block(s)`.
+Both files are gitignored, and no predict or evaluate cell uploads `record/`,
+so what can reach public git from a cell is what its prose quotes, which is the
+exposure [data-sources.md](data-sources.md) already names. The case-summary
+lane's one-day `summary-stage` artifact does carry both staged files, scrubbed
+as above ([case-summaries.md](case-summaries.md)). The scrub narrows what
+reaches the ledger; it does not make a filing anonymous, and a cell with
+retrieval rights can reach the same PDF and docket JSON upstream whatever was
+withheld from its copy.
 
 A cell can route around
 an empty extraction — the prompt has it read the document as

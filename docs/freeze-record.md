@@ -5394,3 +5394,148 @@ freeze commit is recorded here.
   across M staged document(s) (no attorney named for the petitioner; passes:
   value+shape)`, and that cell's `record/documents/documents.json` carries
   `contact_scrub_passes: ["value", "shape"]`.
+
+- **A self-represented petitioner's contact keys are withheld from the staged
+  snapshot, 2026-09-29.** A **conditioning** entry in the *what the pipeline
+  provisions* class. It closes the residual that the 2026-09-21
+  document-scrub entry named and left out of scope: the staged snapshot beside
+  the scrubbed text.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary. The staged snapshot lives in the
+  gitignored `record/snapshots/`, and `prediction.json` has no field
+  separating a cell that read a filer's address from one that read a
+  placeholder there. The boundary exists only here, and a stamped cell is
+  post-change if the carrying promotion's merge commit is an ancestor of, or
+  equal to, its `process_version.pipeline_sha`.
+
+  On an affected docket, cells on either side of the boundary may not be
+  pooled. The same dockets carry the 2026-09-21 boundary and the boundary of
+  the fragmented-email entry directly above, which reached `staging` first. If
+  the two land on `main` in the same promotion, they share one boundary, and
+  that promotion's merge commit is the test for both. If they land in
+  different promotions, each promotion is a boundary of its own, and the
+  completion of this entry's placeholders says which case held.
+
+  **What a cell no longer receives.** The trigger is the docket-level reading
+  the 2026-09-21 document scrub keys on, and it is unchanged. The change
+  touches every petitioner-side counsel block of that docket that the
+  trigger's block-level test reads as naming nobody but the party. That test
+  also takes a block carrying a register number whatever its `Attorney` says,
+  so a counselled incarcerated petitioner's block loses its counsel's
+  professional details.
+
+  On those blocks, in the staged `record/snapshots/<date>.json`:
+  - each populated `Address`, `City`, `Zip`, `Phone`, `Email` and `Title` is
+    replaced by `[contact detail withheld]`. `Title` is free text that nothing
+    reads, and upstream sometimes files an inmate number there;
+  - a populated `PrisonerId` is replaced by `[register number withheld]`.
+
+  The block keeps `PartyName`, `Attorney`, `State` and `IsCounselofRecord`. It
+  also keeps the register number's **presence**, since the marker is
+  non-empty. That presence is upstream's marker for an incarcerated filer, and
+  the trigger's third arm reads it.
+
+  Staged as served:
+  - any other petitioner-side block;
+  - the respondent side, including a self-represented respondent's block (a
+    residual this entry leaves: four blocks on the pulled blob);
+  - amici;
+  - any key left empty.
+
+  The corpus row and the content-store payload are untouched. The staged copy
+  is built beside the payload rather than in place of it, so the cell context,
+  the trigger and the document scrub all read the payload as served.
+
+  Three lanes stage through the same provisioning: predict cells, evaluate
+  cells, and the case-summary lane's `summary-stage` artifact. All three narrow
+  the same way from the carrying promotion on. Summaries that already exist
+  were written from unscrubbed snapshots, and this change does not re-derive
+  them. A summary's record digest is taken off the corpus payload, so the
+  scrub moves no digest and re-owes no summary.
+
+  **Removal-only, and nothing scored reads what was removed.** A test pins two
+  halves.
+  - **Source half.** No module outside `pipeline/documents.py` names a
+    withheld key as an exact-case string literal, or imports the scrub's key
+    list or marker. The one exception is the short caption's institution word
+    `City`, which names no payload key.
+  - **Behavioural half.** For a scrubbed payload and its original, these are
+    all equal:
+    - the ingestion row, and the storage row that the statpack, salience and
+      its bands, the party census and the metrics read;
+    - the salience band;
+    - the cell context in both modes;
+    - the forward-leakage gate;
+    - the live probe;
+    - the backtest redaction;
+    - the trigger.
+
+  The corpus's normalized `counsel` column keeps only party, attorney, side and
+  counsel of record. The only generic reader of the staged file is the
+  case-summary prompt renderer, whose recipient is meant to read the scrubbed
+  copy.
+
+  **What a post-change cell reads.** It reads a subset of the pre-change
+  snapshot. On the 274 scrubbed blocks that carry a register number, the
+  marker keeps the fact that the filer is incarcerated. On the other 350, the
+  withheld `Address` may have been the snapshot's only carrier of that fact.
+  A keyword read flags between 15 and about 70 of those 350 as prison-style
+  addresses, depending on whether a post-office box counts. Whether the fact
+  still reaches those cells through the document text is not measured, and
+  that text is itself narrowed by the document scrub.
+
+  No skill movement is predicted. In the 2026-09-21 entry's negative form, a
+  movement in **either** direction across this boundary may not be read as a
+  model effect.
+
+  **The population.** This is an ad hoc read that runs the real trigger and
+  the real `scrub_snapshot_contacts` over each case's latest stored payload in
+  the pulled blob. That is the snapshot a forward cell stages. The blob is
+  `sha256:8c72a4fb…`, whose newest pull stamp is `2026-09-28` and newest stored
+  snapshot is `2026-07-13`. It is no longer the committed pointer's blob. The
+  per-case content store, which alone holds most current dockets, was not
+  read, so this is a figure about the blob and not about the provisioned
+  population.
+
+  Of the **1,562** latest payloads that carry a petitioner-side block, **623**
+  read unrepresented. All 623 staged snapshots change, with **2,537** values
+  withheld on **624** blocks:
+  - 624 each of `Address`, `City` and `Zip`;
+  - 269 `Phone`;
+  - 115 `Email`;
+  - 7 `Title`;
+  - 274 register numbers.
+
+  **2** petitioner-side blocks on those dockets name counsel, carry no register
+  number, and are staged as served.
+
+  **The cohort this lands over.** The long-conference cohort's cells, the cells
+  under a `2026-09-16`/`17`/`18` run id, were minted before this change. They
+  read their staged snapshot as served and are unaffected. The boundary falls
+  on cells minted after the carrying promotion.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus.
+
+  **The amendment debt.** The predict prompt and the summary prompt say
+  nothing about the placeholder or the marker in the snapshot. That reading
+  rule joins the ones owed at the next re-bless, with no ordering constraint: a
+  cell meeting the placeholder loses nothing it could have acted on.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_snapshot_scrub.py tests/test_cli_provision.py` is
+    green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+    six digests;
+  - on the first cell provisioned from a self-represented docket, the
+    provisioning step echoes `<case> snapshot contact scrub: N value(s)
+    withheld on M petitioner-side block(s)`. N can be 0 where the block serves
+    no contact key. That cell's staged snapshot carries
+    `[contact detail withheld]` in the block's populated contact keys.
