@@ -321,11 +321,24 @@ scrubbed. Every document staged
 for such a docket has its emails, telephone numbers, post-office boxes and
 street addresses replaced by the fixed token `[contact detail withheld]`, which
 keeps the document's structure and tells a reader that something was withheld
-rather than that a line is missing. The manifest entry carries both halves of
-what happened: `contact_scrubbed`, whether the scrub ran over this document's
-staged text, and `contact_replacements`, how many it withheld — so `true, 0`
-(scrubbed, nothing found) stays distinguishable from `false, 0` (a represented
-docket's text, untouched). An opposition filed by counsel on such a docket is
+rather than that a line is missing. It runs as two passes. The **shape** pass
+matches what a contact detail looks like, including an email address as a scan
+fragments it (a blank beside the `@` or a dot, a letter-spaced local part,
+`(at)`), and never takes a line break. The **value** pass looks for the
+`Email`, `Phone` and `Address` strings on every served petitioner-side block
+(the filer's own, and any co-petitioner counsel's), however the scan spaced or
+line-broke them, and puts back every line break it consumed; it runs only
+where the docket serves a value specific enough to key on (an email with its
+`@`, a telephone number of ten or more digits, an address with a digit and
+eight or more significant characters). Both passes are matched against the
+original text and overlapping matches are withheld as one span, so adding a
+pass can only widen what is withheld. The manifest entry carries what happened: `contact_scrubbed`, whether
+the scrub ran over this document's staged text; `contact_replacements`, how
+many it withheld — so `true, 0` (scrubbed, nothing found) stays
+distinguishable from `false, 0` (a represented docket's text, untouched); and
+`contact_scrub_passes`, which passes ran (`["value", "shape"]`, `["shape"]`,
+or `[]` where the scrub did not run), so a shape-only scrub is not read as the
+complete one. An opposition filed by counsel on such a docket is
 scrubbed with the petition, since the reading is the docket's and taken once:
 the cost is a firm's switchboard number a cell had no use for.
 
@@ -687,7 +700,8 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   input arrives before the instruction does, which is the argument for pairing
   them on the next bless rather than letting either land alone. **A third rides
   with them**: the contact scrub stages text carrying
-  `[contact detail withheld]` and two manifest keys the prompt describes none
+  `[contact detail withheld]` and three manifest keys (`contact_scrubbed`,
+  `contact_replacements`, `contact_scrub_passes`) the prompt describes none
   of — it has `documents.json` listing what is present, pages and truncation —
   so until that re-bless a cell meeting the token has to account for it
   unaided, and the likeliest cost is a `data-quality` flag spent on it.

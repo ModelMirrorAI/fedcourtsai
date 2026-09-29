@@ -2089,6 +2089,58 @@ def test_a_pro_se_dockets_staged_text_is_scrubbed_of_contact_details(
     entry = _documents_manifest(fixture_corpus)["petition"]
     assert entry["contact_scrubbed"] is True
     assert entry["contact_replacements"] == 3
+    # The docket serves no contact values to key on, so the shape pass alone ran
+    # — and the manifest says so rather than letting `true` read as complete.
+    assert entry["contact_scrub_passes"] == ["shape"]
+
+
+def test_the_filers_own_values_key_a_second_pass_that_reaches_fragmented_spellings(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A scanned petition sets its signer's address with the blanks and line
+    # breaks OCR leaves: an initial split off the local part, a blank before the
+    # sign, the domain broken after its dot. The shape pass cannot take the line
+    # break; the docket's own copy of the filer's values can, and the manifest
+    # records that both passes ran.
+    payload = {
+        **_PRO_SE_DOCKET,
+        "Petitioner": [
+            {
+                "PartyName": "Jane Doe",
+                "Attorney": "Jane Doe",
+                "Email": "jdoe.petitioner@example.com",
+                "Phone": "(713) 555-0147",
+                "Address": "Coffield Unit, 2661 FM 2054",
+            }
+        ],
+    }
+    scanned = (
+        "See Brady v. Maryland, 373 U.S. @ 87 (1963).\n"
+        + "Respectfully submitted,\n"
+        + "Jane Doe, Petitioner Pro Se\n"
+        + "Coffield Unit\n"
+        + "2661 FM 2054\n"
+        + "(713) 555 0147\n"
+        + "j doe.petitioner @example.\n"
+        + "com\n"
+    )
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, scanned)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    staged = CasePaths(fixture_corpus.data_root, "scotus", 305).document("petition").read_text()
+    assert "petitioner @example" not in staged
+    assert "Coffield Unit" not in staged
+    assert "555 0147" not in staged
+    # The pin cite written with the same sign survives, and so does every line.
+    assert "373 U.S. @ 87 (1963)" in staged
+    assert staged.count("\n") == scanned.count("\n")
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrub_passes"] == ["value", "shape"]
+    assert entry["contact_replacements"] == 3
+    assert "passes: value+shape" in result.output
 
 
 def test_the_scrub_does_not_reach_the_corpus_row_or_the_stored_text(
@@ -2124,6 +2176,7 @@ def test_a_represented_dockets_staged_text_is_left_alone(
     entry = _documents_manifest(fixture_corpus)["petition"]
     assert entry["contact_scrubbed"] is False
     assert entry["contact_replacements"] == 0
+    assert entry["contact_scrub_passes"] == []
 
 
 def test_a_scrubbed_document_with_nothing_to_withhold_still_says_it_was_scrubbed(

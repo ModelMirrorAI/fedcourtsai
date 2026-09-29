@@ -18,6 +18,7 @@ from fedcourtsai import corpus, supremecourt
 from fedcourtsai.cert_backtest import redact_snapshot
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import documents as documents_module
 from fedcourtsai.pipeline.documents import (
     _QP_END_RE,
     _QP_MIN_CHARS,
@@ -31,6 +32,8 @@ from fedcourtsai.pipeline.documents import (
     KIND_MERITS_REPLY_RESPONDENT,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
+    SCRUB_PASS_SHAPE,
+    SCRUB_PASS_VALUE,
     DocumentFetchLosses,
     _qp_stored_is_fragment,
     backfill_questions_presented,
@@ -40,6 +43,7 @@ from fedcourtsai.pipeline.documents import (
     extract_questions_presented,
     fetch_case_documents,
     merits_entry_matched,
+    petitioner_contact_values,
     petitioner_is_unrepresented,
     questions_presented_extract,
     reset_document_fetch_losses,
@@ -3486,6 +3490,260 @@ def test_the_scrub_of_text_with_nothing_to_withhold_is_the_identity() -> None:
 
     assert scrubbed.text == text
     assert scrubbed.replacements == 0
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        # A blank on either side of the sign, or both.
+        "jane.doe @ example.com",
+        "jane.doe@ example.com",
+        "jane.doe @example.com",
+        # A blank beside a dot of the domain, the commonest OCR split.
+        "jane.doe@example. com",
+        "jane.doe@example .com",
+        "jd@mail. example. org",
+        # The local part spelled letter by letter, and an initial split off it.
+        "j o h n @ example.com",
+        "j doe@example.com",
+        # The obfuscated spellings a filer writes by hand.
+        "jane.doe(at)example.com",
+        "jane.doe [at] example [dot] com",
+        # `corn`, the scan's reading of `com`.
+        "jane.doe@example. corn",
+        "JANE.DOE@EXAMPLE. COM",
+    ],
+)
+def test_the_scrub_withholds_an_ocr_fragmented_email_address(detail: str) -> None:
+    scrubbed = scrub_contact_details(f"Respectfully submitted,\nJane Doe\n{detail}\n")
+
+    assert scrubbed.text == f"Respectfully submitted,\nJane Doe\n{CONTACT_PLACEHOLDER}\n"
+    assert scrubbed.replacements == 1
+
+
+@pytest.mark.parametrize(
+    "survivor",
+    [
+        # The pin cite a brief writes with the same sign: the label after it is
+        # a page number, never a domain.
+        "Roe v. Wade, 410 U.S. @ 153 (1973)",
+        "Brady, 373 U.S. @ 87. Co-defendants were tried separately.",
+        "Id. @ 45. See also Giglio v. United States, 405 U.S. 150 (1972).",
+        # A sentence break after an address-like run must not read as a domain:
+        # the top-level label after a gap comes off a closed list.
+        "He wrote to the clerk @ the Court. The clerk did not answer.",
+        "petitioner @ his home. Us marshals arrived.",
+        # Statutes, section symbols and the abbreviations legal prose is made of.
+        "18 U.S.C. § 3582(c)(1)(A)(i)",
+        "42 U.S.C. §§ 1983, 1985(3)",
+        "Fed. R. Civ. P. 12(b)(6); Sup. Ct. R. 14.1(a)",
+        "the U.S. Court of Appeals for the D.C. Circuit",
+        # Docket numbers, the Court's and the lower court's.
+        "No. 25-5001",
+        "No. 2:24-cv-01234-JLR (W.D. Wash.)",
+        # URLs a brief cites, which carry dots and domains but no sign.
+        "https://www.supremecourt.gov/search.aspx?filename=/docket/docketfiles/html/public/"
+        + "25-5001.html",
+        "Available at www.uscourts.gov/rules-policies (last visited May 1, 2026).",
+    ],
+)
+def test_the_fragmented_email_shape_leaves_legal_text_alone(survivor: str) -> None:
+    scrubbed = scrub_contact_details(survivor)
+
+    assert scrubbed.text == survivor
+    assert scrubbed.replacements == 0
+
+
+@pytest.mark.parametrize(
+    ("text", "values", "expected"),
+    [
+        # A value ending before the unit the street pattern takes with it: the
+        # two matches merge, and the unit is withheld with the rest.
+        (
+            "Write 123 Main St Apt 4B, Austin",
+            ("123 Main St",),
+            f"Write {CONTACT_PLACEHOLDER}, Austin",
+        ),
+        # A second-level country domain: the fragmented pattern stops at the
+        # listed `.co`, the contiguous one runs on to `.nz`, and the union goes.
+        ("Email: jane@mail.co.nz\n", (), f"Email: {CONTACT_PLACEHOLDER}\n"),
+        ("Email: jane@mail.com.au\n", (), f"Email: {CONTACT_PLACEHOLDER}\n"),
+    ],
+)
+def test_overlapping_matches_are_withheld_as_their_union(
+    text: str, values: tuple[str, ...], expected: str
+) -> None:
+    scrubbed = scrub_contact_details(text, values)
+
+    assert scrubbed.text == expected
+    assert scrubbed.replacements == 1
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Respectfully submitted,\nJane Doe\n1234 Maple Street, Apt. 4B\n(713) 555-0147\n"
+        + "jane.doe@example.com\nP.O. Box 4417\n",
+        "Served on counsel at 700 Grand Ridge Road and j.doe99@mail.example.co.uk.\n",
+        "Write 123 Main St Apt 4B, Austin; call 202-555-0147 or (202) 555-0100.\n",
+    ],
+)
+def test_the_scrub_withholds_everything_any_single_shape_would(text: str) -> None:
+    # Every shape pattern's own matches, taken alone, must be inside what the
+    # combined scrub withholds — with and without values to key on — so adding a
+    # pattern or a pass can only ever widen what is withheld.
+    for values in ((), ("123 Main St", "jane.doe@example.com")):
+        scrubbed = scrub_contact_details(text, values).text
+        for pattern in documents_module._CONTACT_PATTERNS:
+            for match in pattern.finditer(text):
+                assert match.group(0) not in scrubbed
+
+
+def test_a_listed_top_level_label_must_end_its_word() -> None:
+    text = "Contact j.doe@mail. Co-counsel filed the reply."
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == text
+
+
+def test_a_withheld_span_gives_back_every_line_boundary_it_held() -> None:
+    # A page break in OCR text and the `\r` of a CRLF are line boundaries too.
+    text = "a\r\n1234 Maple\fStreet Apt 4\r\nz"
+
+    scrubbed = scrub_contact_details(text, ("1234 Maple Street Apt 4",))
+
+    assert scrubbed.text == f"a\r\n{CONTACT_PLACEHOLDER}\f\r\nz"
+    assert len(scrubbed.text.splitlines()) == len(text.splitlines())
+
+
+def test_a_phone_field_listing_two_numbers_keys_on_each() -> None:
+    values = petitioner_contact_values(
+        {"Petitioner": [{"PartyName": "Jane Doe", "Phone": "713-555-0147; 713-555-0148"}]}
+    )
+
+    assert values == ("713-555-0147", "713-555-0148")
+    scrubbed = scrub_contact_details("Call 713 555 0148 or 713 555 0147.", values)
+    assert scrubbed.text == f"Call {CONTACT_PLACEHOLDER} or {CONTACT_PLACEHOLDER}."
+
+
+def test_the_shape_pass_alone_says_so() -> None:
+    # With no values to key on, only the shape pass ran — which the manifest
+    # carries, so a shape-only scrub is not read as the complete one.
+    scrubbed = scrub_contact_details("Whether the court of appeals erred.")
+
+    assert scrubbed.passes == (SCRUB_PASS_SHAPE,)
+
+
+def test_the_value_pass_withholds_an_email_split_across_a_line() -> None:
+    # No shape pattern may take a line break, so an address the extractor broke
+    # after its dot is out of the shape pass's reach. The filer's own value is
+    # not: it is found across the break, and the break itself is put back after
+    # the placeholder so the document keeps its line count.
+    text = "Respectfully submitted,\nE-mail: jane.doe@example.\ncom\nJane Doe\n"
+
+    scrubbed = scrub_contact_details(text, ("jane.doe@example.com",))
+
+    assert scrubbed.text == (
+        "Respectfully submitted,\nE-mail: " + CONTACT_PLACEHOLDER + "\n\nJane Doe\n"
+    )
+    assert scrubbed.text.count("\n") == text.count("\n")
+    assert scrubbed.replacements == 1
+    assert scrubbed.passes == (SCRUB_PASS_VALUE, SCRUB_PASS_SHAPE)
+
+
+@pytest.mark.parametrize(
+    ("value", "spelled"),
+    [
+        # A value the shape pass would take only in part: the whole of it goes.
+        ("jdoe@example.com", "j doe@example.com"),
+        ("jane.doe@example.com", "jane. doe @ exam ple.com"),
+        # A telephone number in the blank-separated spelling no shape reads.
+        ("(713) 555-0147", "(713) 555 0147"),
+        ("713-555-0147", "7135550147"),
+        # A street address broken across two lines, and one outside the shape
+        # pass's street-type list.
+        ("1234 Maple Street, Apt. 4B", "1234 Maple\nStreet, Apt 4B"),
+        ("Coffield Unit, 2661 FM 2054", "Coffield Unit\n2661 FM 2054"),
+    ],
+)
+def test_the_value_pass_withholds_the_filers_own_values_however_spelled(
+    value: str, spelled: str
+) -> None:
+    text = f"Jane Doe, Petitioner Pro Se\n{spelled}\nTennessee Colony, Texas\n"
+
+    scrubbed = scrub_contact_details(text, (value,))
+
+    assert scrubbed.text == (
+        "Jane Doe, Petitioner Pro Se\n"
+        + CONTACT_PLACEHOLDER
+        + "\n" * spelled.count("\n")
+        + "\nTennessee Colony, Texas\n"
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        # Below each value's floor: too little of its own to be specific.
+        "55-0147",
+        "General Delivery",
+        "Box 12",
+        "not-an-email",
+    ],
+)
+def test_the_value_pass_keys_on_nothing_below_its_floor(value: str) -> None:
+    text = "Mail General Delivery, Box 12, not-an-email, 55-0147.\n"
+
+    scrubbed = scrub_contact_details(text, (value,))
+
+    assert scrubbed.passes == (SCRUB_PASS_SHAPE,)
+    assert "General Delivery" in scrubbed.text
+
+
+def test_the_value_pass_leaves_legal_text_around_the_value_alone() -> None:
+    text = (
+        "Roe v. Wade, 410 U.S. 113 (1973); 28 U.S.C. § 1254(1).\n"
+        + "Jane Doe, 1234 Maple Street\n"
+        + "No. 25-5001\n"
+    )
+
+    scrubbed = scrub_contact_details(text, ("1234 Maple Street", "713-555-0147", "j@x.com"))
+
+    assert scrubbed.text == (
+        "Roe v. Wade, 410 U.S. 113 (1973); 28 U.S.C. § 1254(1).\n"
+        + f"Jane Doe, {CONTACT_PLACEHOLDER}\n"
+        + "No. 25-5001\n"
+    )
+
+
+def test_the_contact_values_are_read_off_every_petitioner_side_block() -> None:
+    payload = {
+        "Petitioner": [
+            {
+                "PartyName": "Jane Doe",
+                "Attorney": "Jane Doe",
+                "Email": "jane.doe@example.com; jd@example.org",
+                "Phone": "713-555-0147",
+                "Address": "1234 Maple Street",
+                "City": "Houston",
+            },
+            {"PartyName": "John Roe", "Attorney": "John Roe", "Phone": "713-555-0147"},
+            {"PartyName": "Richard Roe", "Email": None, "Phone": "  "},
+        ],
+        "Respondent": [{"PartyName": "Texas", "Email": "counsel@oag.example.gov"}],
+    }
+
+    assert petitioner_contact_values(payload) == (
+        "jane.doe@example.com",
+        "jd@example.org",
+        "713-555-0147",
+        "1234 Maple Street",
+    )
+
+
+def test_a_payload_serving_no_petitioner_block_has_no_contact_values() -> None:
+    assert petitioner_contact_values({"docket_entries": []}) == ()
 
 
 def test_a_docket_naming_counsel_for_the_petitioner_reads_represented() -> None:

@@ -5226,3 +5226,171 @@ freeze commit is recorded here.
   report: `jq '[.provenance.clocks[] | select(.replay_cutoff != null)] |
   length' metrics/cert-backtest.json` is non-zero wherever `.provisioning`
   counts a `dated` or `truncated` petition.
+
+- **The staged-text contact scrub reaches OCR-fragmented emails and the
+  petitioner side's own served contact values, and its manifest says which
+  passes ran, 2026-09-29.** A **conditioning** entry in the *what the pipeline
+  provisions* class. It is the same class as the 2026-09-21 document-scrub
+  entry, and it narrows that scrub further rather than replacing it.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary in the ledger. What a cell was provisioned
+  with lives in its gitignored `record/documents/`, and `prediction.json` has
+  no field separating a cell that read a fragmented address from one that read
+  a placeholder. The new manifest key below is visible only in that gitignored
+  manifest, so the boundary exists only here.
+
+  On an affected docket the 2026-09-21 entry's rule now covers three segments:
+  - cells provisioned before that scrub;
+  - cells provisioned under its shape-only scrub;
+  - cells provisioned after this change.
+
+  No two of these segments may be pooled. A stamped cell is post-change if the
+  carrying promotion's merge commit is an ancestor of, or equal to, its
+  `process_version.pipeline_sha`. The "or equal" matters: a run that starts on
+  the merge commit itself is post-change, and a bare ancestry test the other
+  way round would misfile it.
+
+  **What a cell no longer receives.** The trigger is unchanged: this applies on
+  every docket the 2026-09-21 trigger already scrubs, and on no other. On those
+  dockets the staged filed-document text loses two further kinds of string.
+  - **Fragmented email addresses.** An email address in the spellings a scan
+    leaves: a blank beside the `@` or beside a dot of the domain, a local part
+    set letter by letter or with an initial split off it, `(at)` / `(dot)`, and
+    `corn` for `com`. The letter-by-letter arm can also take a run of
+    single-character tokens standing just before an address; in prose that is
+    a lone article.
+  - **Served contact values.** Any `Email`, `Phone` and `Address` value on
+    every petitioner-side block, wherever the text spells it however the scan
+    spaced or line-broke it. A value is used only if it clears its floor: an
+    email must carry its `@`, a telephone number must have ten or more digits,
+    and an address must have a digit and eight or more significant characters.
+
+  Every pattern of both passes is matched against the original text, and
+  overlapping matches are withheld as one span. What the scrub withholds is
+  therefore a superset of what the 2026-09-21 scrub withheld on the same text.
+  Each withheld span becomes the same `[contact detail withheld]` token,
+  followed by every line boundary the span held, so the document's line count
+  is unchanged.
+
+  Each manifest entry gains `contact_scrub_passes`: `["value", "shape"]`,
+  `["shape"]`, or `[]` where the scrub did not run. So `contact_scrubbed: true`
+  no longer stands as the only statement of what the text went through. The
+  trigger, the stored row, the source PDF and the content store are untouched.
+  The case-summary lane stages through the same provisioning, so its
+  `summary-stage` artifact narrows the same way.
+
+  **Removal-only.** A post-change cell on an affected docket reads a subset of
+  the pre-change text. It loses the withheld strings and nothing else, apart
+  from the rare lone article noted above. No skill movement is predicted.
+
+  The withheld strings are contact details, but they are not free of content.
+  Most of the addresses the value pass newly reaches are prison-unit forms,
+  and a prison address says the filer is incarcerated. Where the filer's block
+  carries a register number, the fact still reaches the cell. It comes through
+  that number, or through the presence marker the same-day snapshot entry
+  leaves in its place. Where the block carries none, the withheld address may
+  have been a carrier of the fact. Whether the fact still reaches those cells,
+  through institution names elsewhere in the text or through the docket's fee
+  class, is not measured. The negative form of the 2026-09-21 entry holds here
+  too. A movement in **either** direction across this boundary
+  may not be read as a model effect. The design supports excluding one reading,
+  not asserting a cause.
+
+  A same-day entry withholds the self-represented petitioner-side block's
+  contact keys from the staged snapshot too. If it lands in the same promotion
+  as this one, the two share this boundary. If it lands in a different
+  promotion, each promotion is a boundary of its own. Whichever lands second
+  says which case held.
+
+  **The measurement, on the real function and the real text.** The pulled
+  blob's newest pull stamp is `2026-09-28` and its newest stored snapshot is
+  `2026-07-13` (blob `sha256:8c72a4fb…`, no longer the committed pointer's).
+  These are figures for the blob's stored payloads and documents.
+  The content store, which alone holds most current dockets, was not read.
+
+  Of the **1,562** latest stored payloads that carry a petitioner-side block,
+  the trigger reads **623** as unrepresented, the same count as the 2026-09-21
+  entry. Their **924** stored
+  documents are the scrubbed population. Against the 2026-09-21 scrub on the
+  same documents:
+  - the staged text of **149** of the 924 documents changes;
+  - replacements go from **1,830** under the 2026-09-21 scrub to **1,984**
+    withheld spans under both passes. The difference is not a count of newly
+    withheld details, because one withheld span can merge what the old scrub
+    replaced as two;
+  - the fragmented-email shape matches **31** addresses the contiguous pattern
+    does not, in **24** documents;
+  - the value pass matches **914** times in **312** documents. **225** of those
+    matches reach text the 2026-09-21 scrub left in place: 18 emails, 24
+    telephone numbers and 183 addresses. Most of the addresses are prison-unit
+    or rural-route forms, or are broken across two lines.
+
+  **The email ground truth** is the blocks' own `Email` strings, counted as
+  (value, document) pairs wherever the text carries them in some spelling. A
+  multi-address field is split into its addresses first, which is why these
+  counts differ from the 78 verbatim emails of the 2026-09-21 entry.
+  - **Fragmented only: 10 pairs.** The 2026-09-21 scrub leaves **7** in the
+    staged text, and the new shape pass alone leaves **1**. That is a
+    measurement: the shape pass does not see the values.
+  - **Verbatim: 84 pairs (81 distinct values).** The 2026-09-21 scrub leaves
+    **6**, each of which the text also prints in a fragmented copy. The new
+    shape pass alone leaves **1**.
+  - **Both passes leave 0 in either group, but that is by construction,** since
+    the value pass keys on exactly these strings.
+
+  The residual that construction does not cover is **5** email-like strings in
+  the 924 documents. Each has a domain split mid-label or a missing dot.
+
+  **The false-positive bound, for the shape.** The fragmented-email shape was
+  run by itself over all **3,077** stored documents, scrubbed dockets and
+  represented alike. It matches **138** strings the contiguous pattern does
+  not. All 138 were read in masked form, and every one is an email address.
+  **92** of them are a single institutional address with a blank before its
+  `@`, so the probe covers about 47 distinct other strings. None of the 3,077
+  documents yielded prose, a citation or a pin cite. That is a measured result
+  on this corpus, not a property of the pattern: a contrived sentence that puts
+  an `@` before a word and ". Us" after it would still be taken.
+
+  Two guards carry the result:
+  - the domain's first label must contain a letter, which keeps the pattern
+    off `410 U.S. @ 153`;
+  - after a gap, the top-level label must come from a closed list and must end
+    its word. This keeps it off "…@ the Court. The…" and off a following
+    "Co-counsel".
+
+  **The value pass's precision is argued, not measured.** Its floors keep it to
+  values specific enough not to recur in prose. Forty of its 225 beyond-shape
+  matches were read in masked form, and all were the served value.
+
+  **The cohort this lands over.** The long-conference cohort's cells, the
+  cells under a `2026-09-16`/`17`/`18` run id, were minted before this change
+  and before the 2026-09-21 scrub too. They read their staged text unscrubbed,
+  and this change leaves them exactly as they were. The boundary falls on cells
+  minted after the carrying promotion.
+
+  **What does not move.** No base rate re-prices: `pipeline.salience` and
+  `pipeline.base_rates` read no document text. No membership rule and no
+  scored figure moves. `empty_text` is still read off the stored text before
+  the scrub. Nothing is written to the corpus.
+
+  **The amendment debt.** It is unchanged in kind from the 2026-09-21 entry. The
+  predict prompt does not describe the manifest's scrub keys, so
+  `contact_scrub_passes` joins the reading rule owed at the next re-bless,
+  with no ordering constraint.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_documents.py tests/test_cli_provision.py` green, and `uv run
+  fedcourts process-digest --all` still printing `proc-v8` and the same six
+  digests. The scrub's own effect shows on the first cell provisioned from a
+  self-represented docket whose petitioner-side block serves a contact value.
+  The provisioning step echoes `<case> contact scrub: N detail(s) withheld
+  across M staged document(s) (no attorney named for the petitioner; passes:
+  value+shape)`, and that cell's `record/documents/documents.json` carries
+  `contact_scrub_passes: ["value", "shape"]`.
