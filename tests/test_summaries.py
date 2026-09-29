@@ -501,8 +501,9 @@ def test_summarize_skips_a_case_whose_retry_call_fails(tmp_path: Path) -> None:
         (GOOD_BODY + "\n\nThe key is " + FAKE_KEY, "end_turn", "secret scan"),
         (LONG_HEADLINE_BODY + "\n\nThe key is " + FAKE_KEY, "end_turn", "secret scan"),
         (LONG_HEADLINE_BODY, "max_tokens", "stop_reason 'max_tokens'"),
+        ("", "end_turn", "rejected: "),
     ],
-    ids=["secret", "secret-with-contract-problem", "truncated"],
+    ids=["secret", "secret-with-contract-problem", "truncated", "empty"],
 )
 def test_summarize_does_not_retry_a_truncated_or_secret_bearing_response(
     tmp_path: Path, body: str, stop: str, reason: str
@@ -552,6 +553,30 @@ def test_summarize_does_not_retry_past_the_time_budget(tmp_path: Path) -> None:
     assert len(calls) == 1
     assert outcome.retried == []
     assert outcome.skipped[0][1] == "rejected: " + HEADLINE_REASON
+
+
+def test_summarize_marks_a_truncated_retry_as_the_retrys(tmp_path: Path) -> None:
+    calls: list[int] = []
+
+    def truncating(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        if len(calls) == 1:
+            return _response(LONG_HEADLINE_BODY)
+        return _response(GOOD_BODY, stop="max_tokens")
+
+    outcome, _ = _run(tmp_path, truncating)
+    assert len(calls) == 2
+    assert [reason for _, reason, _ in outcome.skipped] == ["on retry: stop_reason 'max_tokens'"]
+
+
+def test_the_retry_instruction_restates_the_prompts_headline_limits() -> None:
+    # The retry turn and the prompt must name the same limits.
+    prompt = summaries.PROMPT_PATH.read_text()
+    assert f"no more than {summaries.HEADLINE_TARGET_WORDS} words" in prompt
+    assert f"over {summaries.HEADLINE_MAX_WORDS} words is rejected" in prompt
+    instruction = summaries.retry_instruction(["x"])
+    assert f"no more than {summaries.HEADLINE_TARGET_WORDS} words" in instruction
+    assert f"over {summaries.HEADLINE_MAX_WORDS} words is rejected" in instruction
 
 
 def test_the_outcome_report_without_retries() -> None:

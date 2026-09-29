@@ -15,11 +15,12 @@ Three pieces, each a small pure function the CLI wraps:
   payload's generation stamp moves — and a day-keyed rule would pay to rewrite
   an identical summary every day.
 - **The call** is one Messages API request carrying the system prompt and the
-  staged record, and nothing else: no tools, no retrieval, no thinking. That
-  shape is what makes "grounded in the record only" a property of the request
-  rather than a promise in the prompt. A response that breaks a mechanical
-  rule of the body contract is retried once, in the same conversation, told
-  why it was rejected (:data:`RETRY_INSTRUCTION`).
+  staged record, and nothing from outside the record: no tools, no retrieval,
+  no thinking. That shape is what makes "grounded in the record only" a
+  property of the request rather than a promise in the prompt. A response that
+  breaks a mechanical rule of the body contract is retried once, in the same
+  conversation, adding only that response and why it was rejected
+  (:data:`RETRY_INSTRUCTION`).
 - **The file** is harness-written front matter (:class:`CaseSummaryFrontMatter`)
   over the model's body, which is accepted only if it has exactly the current
   contract's sections in order, sits inside a tolerant length band, opens no
@@ -646,7 +647,7 @@ class RetryTurn:
 def build_request(
     config: SummariesConfig, system: str, record: str, retry: RetryTurn | None = None
 ) -> dict[str, Any]:
-    """The request body: the system prompt and the record, and nothing else.
+    """The request body: the system prompt and the record, and nothing from outside it.
 
     No ``tools`` key, so the model can retrieve nothing; thinking explicitly
     off, because on the configured model an omitted ``thinking`` runs adaptive
@@ -987,8 +988,9 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
     sections, headline, word band, a "Whether" opening, markup — is retried
     once, told why it was rejected, if ``may_retry()`` still holds (the run's
     time budget). A second rejection skips the case with the retry's reason,
-    and it stays owed. A truncated response or a secret-scan finding is not
-    retried. The written summary's ``usage`` sums both calls.
+    and it stays owed. A response that did not end normally, an empty one, or
+    one with a secret-scan finding is not retried. The written summary's
+    ``usage`` sums both calls.
     """
     target = CasePaths(data_root, case.court_id, case.docket_id).summary(case.snapshot.isoformat())
     if target.is_file() and is_current(committed_front(target), case.record_digest):
@@ -1017,7 +1019,8 @@ def summarize_case(  # noqa: PLR0913 - one case's inputs, each load-bearing
     cost = estimate_cost_usd(config.model, usage)
     refusal, retryable = _refusal(result, str(target), api_key)
     first_rejection = ""
-    if refusal and retryable and may_retry():
+    # An empty response is not retried: the API refuses an empty assistant turn.
+    if refusal and retryable and result.text.strip() and may_retry():
         first_rejection = refusal
         retry = RetryTurn(result.text, tuple(retryable))
         try:

@@ -107,8 +107,10 @@ the length band is left to generation time.
 The prompt is `.github/prompts/summarize.md`. Its rules:
 
 - **Grounded in the record only.** The request carries the prompt and the
-  staged record — the snapshot and the stored documents — and nothing else: no
-  tools, no retrieval, thinking off. So a summary cannot carry a post-snapshot
+  staged record — the snapshot and the stored documents — and nothing from
+  outside the record: no tools, no retrieval, thinking off. A retry (below)
+  adds only the model's own rejected response and the harness's fixed retry
+  instruction. So a summary cannot carry a post-snapshot
   development, commentary, or an outcome the record does not show; the model is
   also told not to add what it may know from training.
 - **Neutral.** Both sides' positions; no prediction, no view on the merits, no
@@ -158,8 +160,9 @@ formatting — and passes the secret scan. The markup rule is the harness's,
 not only the prompt's: a summary reaches a public page, its text derives from
 third-party filings, and an instruction injected into a filing that survived
 into the output could otherwise place a script, a tracking image or a link
-there. Anything else is not written; the case is reported skipped with the
-reason, and the cost of the call is still counted.
+there. Anything else is not written (after the one retry below, where it
+applies); the case is reported skipped with the reason, and the cost of every
+call is still counted.
 
 A response rejected only on those body rules — its sections, the headline,
 the word band, a "Whether" opening, markup — is **retried once in the same
@@ -168,10 +171,14 @@ response, then a fixed instruction (`summaries.RETRY_INSTRUCTION`, in the
 harness rather than the prompt file, so its wording is reviewed in one place)
 listing each rejection reason and restating the headline limit. The retry is
 held to the same checks. A second rejection skips the case with the retry's
-reason (`rejected on retry: …`), and it stays owed for the next run; there is
-never a second retry. A truncated response (`max_tokens`) or a secret-scan
-finding is not retried, nor is a case whose run has spent its
-`--budget-minutes`. The neutrality and accuracy rules above are not
+reason (`rejected on retry: …`, `on retry: stop_reason …` for a truncated
+retry, or `retry failed: …` when the retry call itself fails), and it stays
+owed for the next run; there is never a second retry. A response that did not
+end normally (`end_turn`), an empty one, or one with a secret-scan finding is
+not retried, nor is a case whose run has spent its `--budget-minutes`. The
+front matter's `prompt_digest` covers the prompt file only, not the retry
+instruction; a summary written from a retry shows it only in its `usage`
+(about twice a single call's). The neutrality and accuracy rules above are not
 machine-checked, so nothing retries on them. A summary written from a retry
 records both calls in its `usage`, and the run's result report splits written
 cases into first-response and after-retry, counts the skipped cases whose
@@ -394,7 +401,7 @@ roughly $0.10 and the regeneration pass at roughly $15–25 for today's cases.
 A retried case pays for two calls, and the retry re-sends the whole record, so
 it costs about twice a first-pass summary; the report's cost line and each
 summary's `usage` include it. The plan's estimate prices one call per case, so
-retries run a few percent over it at the rejection rates seen so far.
+a run costs more than the estimate by roughly its first-pass rejection rate.
 
 ## Non-goals
 
