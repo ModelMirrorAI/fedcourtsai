@@ -1,5 +1,5 @@
 {
-  "cases": 211,
+  "cases": 212,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
@@ -8,7 +8,7 @@
       "n": 3
     },
     {
-      "cases": 22,
+      "cases": 23,
       "n": 2
     },
     {
@@ -16,8 +16,8 @@
       "n": 1
     }
   ],
-  "current_reads": 632,
-  "declared_no_view": 5,
+  "current_reads": 635,
+  "declared_no_view": 6,
   "frozen_process": {
     "digests": [
       "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
@@ -1293,9 +1293,9 @@
         }
       ],
       "docket_id": 73274882,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-198",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-198.html",
       "events": [
         {
           "actual_disposition": null,
@@ -3150,9 +3150,9 @@
         }
       ],
       "docket_id": 73274837,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-153",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-153.html",
       "events": [
         {
           "actual_disposition": null,
@@ -4705,9 +4705,9 @@
         }
       ],
       "docket_id": 73281694,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1208",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1208.html",
       "events": [
         {
           "actual_disposition": null,
@@ -6085,9 +6085,9 @@
         }
       ],
       "docket_id": 73500223,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1322",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1322.html",
       "events": [
         {
           "actual_disposition": null,
@@ -6198,9 +6198,9 @@
         }
       ],
       "docket_id": 73281354,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1070",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1070.html",
       "events": [
         {
           "actual_disposition": null,
@@ -6752,9 +6752,9 @@
         }
       ],
       "docket_id": 73280982,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-944",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-944.html",
       "events": [
         {
           "actual_disposition": null,
@@ -7637,9 +7637,9 @@
         }
       ],
       "docket_id": 73248556,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1219",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1219.html",
       "events": [
         {
           "actual_disposition": null,
@@ -9384,9 +9384,9 @@
         }
       ],
       "docket_id": 73281043,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1003",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1003.html",
       "events": [
         {
           "actual_disposition": null,
@@ -11668,9 +11668,9 @@
         }
       ],
       "docket_id": 73281382,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1099",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1099.html",
       "events": [
         {
           "actual_disposition": null,
@@ -12297,9 +12297,9 @@
         }
       ],
       "docket_id": 73253921,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1223",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1223.html",
       "events": [
         {
           "actual_disposition": null,
@@ -12517,9 +12517,9 @@
         }
       ],
       "docket_id": 73331499,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1277",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1277.html",
       "events": [
         {
           "actual_disposition": null,
@@ -13305,9 +13305,9 @@
         }
       ],
       "docket_id": 73298285,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1250",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1250.html",
       "events": [
         {
           "actual_disposition": null,
@@ -15717,9 +15717,9 @@
         }
       ],
       "docket_id": 73500250,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1347",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1347.html",
       "events": [
         {
           "actual_disposition": null,
@@ -16552,9 +16552,9 @@
         }
       ],
       "docket_id": 73500287,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1385",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1385.html",
       "events": [
         {
           "actual_disposition": null,
@@ -18462,9 +18462,9 @@
         }
       ],
       "docket_id": 73279493,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-651",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-651.html",
       "events": [
         {
           "actual_disposition": null,
@@ -19931,9 +19931,9 @@
         }
       ],
       "docket_id": 73292885,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1249",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1249.html",
       "events": [
         {
           "actual_disposition": null,
@@ -20711,9 +20711,9 @@
         }
       ],
       "docket_id": 73500221,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1320",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1320.html",
       "events": [
         {
           "actual_disposition": null,
@@ -23010,9 +23010,9 @@
         }
       ],
       "docket_id": 73303792,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1258",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1258.html",
       "events": [
         {
           "actual_disposition": null,
@@ -25439,9 +25439,122 @@
       "score_range": 0.01,
       "short_caption": "In re Farr",
       "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Boddie",
+      "caption": "Beckie Boddie v. United States District Court for the District of Maryland",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000424",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A pro se third-party claimant's petition from an unpublished per curiam denial of mandamus in the FTC's Sanctuary Belize receivership; no legal question of general reach and no party but the petitioner is affected.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20260928T223631Z"
+        },
+        {
+          "big_case_rationale": "No questions presented, petition text, or lower-court opinion was available; the caption and docket dates alone do not establish the substantive stakes.",
+          "big_case_score": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20260928T223631Z"
+        },
+        {
+          "big_case_rationale": "A pro se petition against a district court, lacking broad significance.",
+          "big_case_score": 0.0,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20260928T223631Z"
+        }
+      ],
+      "docket_id": 9026000424,
+      "docket_number": "26-424",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-424.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A pro se third-party claimant's petition from an unpublished per curiam denial of mandamus in the FTC's Sanctuary Belize receivership; no legal question of general reach and no party but the petitioner is affected.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000424/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260928T223631Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000424/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260928T223631Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20260928T223631Z"
+            },
+            {
+              "big_case_rationale": "No questions presented, petition text, or lower-court opinion was available; the caption and docket dates alone do not establish the substantive stakes.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9026000424/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260928T223631Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000424/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260928T223631Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.01,
+              "run_id": "20260928T223631Z"
+            },
+            {
+              "big_case_rationale": "A pro se petition against a district court, lacking broad significance.",
+              "big_case_score": 0.0,
+              "cell_path": "data/cases/scotus/9026000424/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260928T223631Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000424/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260928T223631Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.002,
+              "run_id": "20260928T223631Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Beckie Boddie v. United States District Court for the District of Maryland"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.015,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-09-28",
+      "n": 2,
+      "other_party": "United States District Court",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Boddie's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Boddie's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.03,
+      "score_min": 0.0,
+      "score_range": 0.03,
+      "short_caption": "Boddie v. United States District Court",
+      "status": "pending"
     }
   ],
   "rows_with_leakage_flag": 2,
   "schema_version": "1.2",
-  "scored_reads": 607
+  "scored_reads": 609
 }
