@@ -351,8 +351,9 @@ material**:
   prisoner register number — the
   filed-document text staged under a cell's `record/documents/` has its
   contact-detail shapes — emails, telephone numbers, post-office boxes, street
-  addresses — replaced by a fixed placeholder, and the cell's manifest records
-  that it was ([live-sources.md](live-sources.md)). The question is asked on the
+  addresses — and the contact values on every petitioner-side block replaced by a
+  fixed placeholder, and the cell's manifest records that it was, and by which
+  passes ([live-sources.md](live-sources.md)). The question is asked on the
   **petitioner** side alone, so a self-represented respondent's opposition on a
   counselled docket is staged as filed: widening it to the respondent side would
   read "unrepresented" on every docket whose opposition has not been filed yet.

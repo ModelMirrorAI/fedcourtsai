@@ -248,11 +248,13 @@ from .pipeline.documents import (
     FETCH_LOSS_OFF_HOST,
     FETCH_LOSS_UNAVAILABLE,
     KIND_PETITION,
+    SCRUB_PASS_VALUE,
     QpExtractRow,
     TextCoverage,
     backfill_questions_presented,
     document_fetch_losses,
     document_text_coverage,
+    petitioner_contact_values,
     petitioner_is_unrepresented,
     questions_presented_extract,
     scrub_contact_details,
@@ -10378,8 +10380,10 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     scrub** where the snapshot names nobody but the petitioner to write to:
     emails, telephone numbers, post-office boxes and street
     addresses replaced by ``[contact detail withheld]``, with
-    ``contact_scrubbed`` and ``contact_replacements`` on each manifest entry
-    recording that it ran and what it withheld. The stored row and the source
+    ``contact_scrubbed``, ``contact_replacements`` and ``contact_scrub_passes``
+    on each manifest entry recording that it ran, what it withheld, and whether
+    the value pass keyed on the petitioner block's own contact values ran beside
+    the shape pass. The stored row and the source
     PDF are untouched — the staged copy is the one a cell can quote into the
     public ledger.
 
@@ -10530,17 +10534,23 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         # The contact-detail scrub, keyed on the docket-level reading that
         # separates a filing signed by counsel from one signed in person:
         # whether the snapshot names anyone but the petitioner to write to.
-        # Where it does not, every document staged for this cell has
-        # its contact-detail shapes withheld — the whole docket rather than the
-        # petition alone, since deciding per document who signed it would be a
-        # second reading with its own failure mode, and an opposition filed by
-        # counsel loses only professional details the cell has no use for. The
+        # Where it does not, every document staged for this cell has its
+        # contact details withheld (shapes and served values) — the whole
+        # docket rather than the petition alone, since deciding per document
+        # who signed it would be a second reading with its own failure mode,
+        # and an opposition filed by counsel loses only professional details
+        # the cell has no use for. The
         # corpus row and the source PDF are untouched: the scrub is on the copy
         # staged under `record/`, which is the copy a cell can quote into the
         # public ledger.
         scrubbing = petitioner_is_unrepresented(payload)
+        # The filer's own contact values, off the same served blocks the
+        # trigger read, key the scrub's value pass: it finds them however a
+        # scan fragmented them, which no shape pattern can promise.
+        contact_values = petitioner_contact_values(payload) if scrubbing else ()
         staged = [
-            (doc, scrub_contact_details(doc.text) if scrubbing else None) for doc in documents
+            (doc, scrub_contact_details(doc.text, contact_values) if scrubbing else None)
+            for doc in documents
         ]
         for doc, scrubbed in staged:
             write_text(paths.document(doc.kind), doc.text if scrubbed is None else scrubbed.text)
@@ -10571,6 +10581,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
                     # can tell from here that the pipeline put it there.
                     "contact_scrubbed": scrubbed is not None,
                     "contact_replacements": 0 if scrubbed is None else scrubbed.replacements,
+                    # Which passes ran: `shape` always where the scrub ran, and
+                    # `value` only where the docket served a contact value
+                    # specific enough to key on. A shape-only scrub is the
+                    # weaker of the two — it misses a detail a scan split
+                    # mid-word or across a line — so the manifest says which
+                    # one the text went through rather than letting
+                    # `contact_scrubbed` read as complete.
+                    "contact_scrub_passes": [] if scrubbed is None else list(scrubbed.passes),
                 }
                 for doc, scrubbed in staged
             ],
@@ -10585,9 +10603,12 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             # all — the manifest that records it is gitignored with the rest of
             # `record/`.
             withheld = sum(0 if done is None else done.replacements for _, done in staged)
+            keyed = any(done is not None and SCRUB_PASS_VALUE in done.passes for _, done in staged)
+            passes = "value+shape" if keyed else "shape only"
             typer.echo(
                 f"{case} contact scrub: {withheld} detail(s) withheld across "
-                f"{len(staged)} staged document(s) (no attorney named for the petitioner)"
+                f"{len(staged)} staged document(s) (no attorney named for the petitioner; "
+                f"passes: {passes})"
             )
 
 
