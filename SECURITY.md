@@ -480,12 +480,15 @@ runbook, [docs/security.md](docs/security.md).
 - **The ledger carries no agent instructions.** Cells of every engine read files
   under `data/`, and Claude Code, Codex and gemini-cli each load instruction files
   (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, …) or config directories (`.claude/`,
-  `.codex/`, `.gemini/`, …) from the tree they work in. The `data/` path jail
-  therefore refuses any added file with such a name, or any file under such a
-  directory, at any depth and in any case: producer-side in `collect` and again
-  in the required `paths` check. A test pins that none exists under `data/`. The
-  deterministic writers that push to `main` write only code-derived file names
-  and are covered by that test on push, not by the jail.
+  `.codex/`, `.gemini/`, …) from the tree they work in. An added file with such a
+  name, or any file under such a directory, at any depth and in any case,
+  therefore fails the `data/` path jail: producer-side in `collect`, which
+  demotes the run PR to a draft, and again in the required `paths` check, which
+  blocks its merge. A test pins that none exists under `data/`; every other PR
+  into `main` meets it in the required `gate`. The deterministic writers that
+  push to `main` write only code-derived file names, so they are safe by
+  construction; the jail does not run on them, and the test catches a violation
+  only after the fact, in the CI run on `main` that follows the push.
 - **`persist-credentials: false`** on read-only checkouts.
 - **Secrets are never written to `data/` or logs.** The `validate` gate, the
   collect job's secret scan (which withholds a run branch rather than push

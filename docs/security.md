@@ -210,9 +210,10 @@ pre-registration record's commit ids.
     instruction file or agent config directory (`AGENT_CONTEXT_FILENAMES` /
     `AGENT_CONFIG_DIRS` in `src/fedcourtsai/collect.py`): a later cell browsing
     the ledger would read such a file as standing instructions, a cross-cell
-    prompt-injection channel that outlives the run. The list is a denylist, so an
-    engine added to `config/predictors.yaml` or `config/evaluators.yaml` brings
-    its discovery names in the same change. The same check carries the
+    prompt-injection channel that outlives the run. The list is a denylist, so
+    an engine added to `config/predictors.yaml` or `config/evaluators.yaml`
+    brings its discovery names in the same change (review-enforced, not tested).
+    The same check carries the
     second auto-merged lane's jail: `run-analytics`'s daily `big-cases` job opens
     its board PR on the `metrics/big-cases` branch, and there `paths` runs
     `fedcourts assert-board-paths`, which admits writes of
