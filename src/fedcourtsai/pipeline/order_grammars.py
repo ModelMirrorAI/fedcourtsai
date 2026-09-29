@@ -174,12 +174,6 @@ _HEADER_RE = re.compile(
     r"(?<!\sv)(?<!\sV)(?<!\s(?-i:[A-Z]))\s*(?P<end>[.:])",
     re.I,
 )
-#: Where a header may begin: a name or a ``Statement of`` a name.
-HEADER_START_RE: Final = re.compile(
-    r"^\s*(?:statement\s+of\s+)?(?:the\s+chief\s+justice|chief\s+justice|justice)\s+[A-Za-z]",
-    re.I,
-)
-
 # Unwritten acts: from which act of the Court, and the side that implies.
 _DISSENT_SIDES: Final = {"denial": VoteValue.grant, "grant": VoteValue.deny}
 _CONCUR_SIDES: Final = {"denial": VoteValue.deny, "grant": VoteValue.grant}

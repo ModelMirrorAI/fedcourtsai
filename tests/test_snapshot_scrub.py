@@ -24,7 +24,6 @@ from typing import Any
 
 import pytest
 
-import fedcourtsai
 from fedcourtsai import cert_backtest
 from fedcourtsai.pipeline import cell_context, ingest, liveprobe, outcome, salience
 from fedcourtsai.pipeline.documents import (
@@ -269,7 +268,7 @@ def test_no_code_outside_the_scrub_names_a_withheld_key() -> None:
     keys = set(WITHHELD_KEYS)
     exports = {"SNAPSHOT_CONTACT_FIELDS", "REGISTER_NUMBER_WITHHELD", "scrub_snapshot_contacts"}
     allowed = {"short_caption.py": {"City"}}
-    package = Path(fedcourtsai.__file__).parent
+    package = Path(cert_backtest.__file__).parent
     offenders: dict[str, set[str]] = {}
     for path in sorted(package.rglob("*.py")):
         rel = path.relative_to(package).as_posix()
