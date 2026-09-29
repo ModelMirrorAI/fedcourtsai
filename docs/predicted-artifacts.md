@@ -739,7 +739,9 @@ in prose.
   binary, `judgment_correct` on a merits cell only, `vote_accuracy` over the
   Justices both sides name — also on a merits cell only, since that is the one
   stage whose votes are scored at all and an individual cert vote never is
-  (`docs/decision-model.md`) — `reasoning_quality`, a structured `leakage`
+  (`docs/decision-model.md`), and only against a complete vote record; the
+  leaderboard's vote mean recomputes its own whole-bench figure rather than
+  averaging this field — `reasoning_quality`, a structured `leakage`
   assessment over the harness-captured retrieval log, and the evaluator's own
   independent `big_case` read. `correct`, `claim_scores`,
   `base_rate_salience_version`, `prediction_run_id` (which prediction run this

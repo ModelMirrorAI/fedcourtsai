@@ -8999,7 +8999,13 @@ def opinion_lineups_command(
     dockets = [d.strip() for d in docket.split(",") if d.strip()]
     with SupremeCourtClient(throttle_seconds=throttle) as client:
         fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
-        readings = opinion_lineups.read_term(term, fetcher, dockets=dockets, limit=limit)
+        try:
+            readings = opinion_lineups.read_term(term, fetcher, dockets=dockets, limit=limit)
+        except httpx.HTTPError as exc:
+            # Only the listing fetch can raise here; each opinion's failure is
+            # recorded on its own reading.
+            typer.echo(f"OT{term:02d}: the opinions listing could not be fetched: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
     typer.echo(json.dumps([r.model_dump(mode="json") for r in readings], indent=2))
     read = [r for r in readings if r.status == "read"]
     typer.echo(

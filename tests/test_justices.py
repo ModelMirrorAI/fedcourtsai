@@ -123,6 +123,8 @@ def test_seated_after_names_the_justices_who_missed_the_argument() -> None:
     bench = bench_on(date(2021, 4, 5))
     assert seated_after(date(2020, 10, 5), bench) == ("Barrett",)
     assert seated_after(date(2020, 11, 2), bench) == ()
+    # The oath day itself counts as not yet seated, as `bench_on` has it.
+    assert seated_after(date(2020, 10, 27), bench) == ("Barrett",)
 
 
 def test_hand_written_names_normalize_to_the_roster_surname() -> None:

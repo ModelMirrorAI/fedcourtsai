@@ -50,7 +50,8 @@ truncated paragraph reads as a unanimous one.
 them who took the oath after the printed argument date (the latest, where the
 case was reargued) is passed to the grammar as seated after argument, so only
 the paragraph can place them — the convention never credits them. A decision
-with no printed argument date is read against the decision-date bench.
+with no printed argument date treats everyone sworn in since the July before
+its Term that way, since any of them could have missed the argument.
 
 **Cross-checks.** The listing's author initials must name the lead opinion's
 author, and the printed decision date must equal the listing's; either
@@ -62,6 +63,7 @@ from __future__ import annotations
 
 import hashlib
 import html
+import os
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -74,7 +76,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict
 
 from ..schemas import JusticeVote, VoteProvenance
-from ..supremecourt import SupremeCourtClient, parse_scotus_docket_number
+from ..supremecourt import SupremeCourtClient, october_term_year, parse_scotus_docket_number
 from .documents import extract_pdf_text
 from .justices import bench_on, resolve_surname, seated_after
 from .lineup import LEAD_KINDS, Lineup, justice_votes
@@ -135,9 +137,17 @@ _END_RES: Final = (
     re.compile(r"^\s*(?:PER CURIAM|Per Curiam)\.\s*$"),
     re.compile(r"^\s*Counsel\s*$"),
     # A counsel line opening on a person's full name ("Michael L. Zuckerman,
-    # Deputy Solicitor General …"): a lineup line never opens on two capitalized
-    # words, since its names are always separated by a comma or "and".
-    re.compile(r"^\s*[A-Z][a-z]+(?:\s+[A-Z]\.)?\s+[A-Z][a-z'\-]+,"),
+    # Deputy Solicitor General …"). Justices' names in a lineup are always
+    # separated by a comma or "and", so two capitalized words then a comma open
+    # a lineup line only where the first is a scope word a wrapped join left at
+    # the line's start ("Part V. Kagan, J., filed …") or a title; those are
+    # excluded, and the pattern ends nothing else.
+    re.compile(
+        r"^\s*(?!(?:Parts?|[Ff]ootnotes?|Chief|The|Justice|Justices)\b)"
+        + r"[A-Z][a-z]+(?:\s+[A-Z]\.)?\s+[A-Z][a-z'\-]+,"
+    ),
+    # The preliminary print's counsel list. Anywhere in the line, because no
+    # lineup sentence uses any of these words.
     re.compile(r"\b(?:re)?argued\b|\bon\s+the\s+briefs?\b|\bsubmitted\s+for\b", re.I),
 )
 # Running heads a page break drops into the paragraph.
@@ -442,7 +452,7 @@ class OpinionFetcher:
         data = self._client.get_document(url)
         if data is not None:
             self._cache_dir.mkdir(parents=True, exist_ok=True)
-            partial = path.with_suffix(".part")
+            partial = path.with_suffix(f".{os.getpid()}.part")
             partial.write_bytes(data)
             partial.replace(path)
         return data
@@ -479,7 +489,11 @@ def read_text(entry: OpinionListing, text: str, *, truncated: bool) -> OpinionLi
         bench = bench_on(located.decided)
     except ValueError as exc:
         return _reading(entry, status="failed", reason=str(exc), decided=located.decided)
-    late = seated_after(located.argued, bench) if located.argued is not None else ()
+    # With no printed argument date, anyone sworn in since the July before the
+    # decision's Term could have missed the argument, so the convention credits
+    # none of them: only the paragraph may place them.
+    since = located.argued or date(october_term_year(located.decided), 7, 1)
+    late = seated_after(since, bench)
     lineup = SCOTUS_SYLLABUS.parse(located.paragraph, bench=bench, seated_after_argument=late)
     problems = [*lineup.problems, *_cross_check(entry, lineup, located.decided)]
     usable = lineup.complete and not problems

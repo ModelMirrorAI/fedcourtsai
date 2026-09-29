@@ -261,6 +261,46 @@ def test_the_print_paragraph_ends_at_the_counsel_list() -> None:
     assert located.paragraph.rstrip().endswith("p. 127.")
 
 
+def test_a_wrapped_scope_word_does_not_end_the_paragraph() -> None:
+    """`Part V. Kagan, J., filed` opens on two capitalized words and a comma.
+
+    That is the counsel-line shape, but here it is a join's scope wrapped to
+    the next line, and ending the paragraph there would drop Kagan's dissent —
+    a lineup cut short, which reads as more unanimous than it was.
+    """
+    text = (
+        "No. 20\u20131. Argued March 1, 2021\u2014Decided June 1, 2021\n"
+        + "Alito, J., delivered the opinion of the Court, in which Roberts, C. J.,\n"
+        + "and Thomas, Gorsuch, Kavanaugh, and Barrett, JJ., joined. Thomas, J.,\n"
+        + "fled a concurring opinion, in which Breyer, J., joined as to\n"
+        + "Part V. Kagan, J., fled a dissenting opinion, in which Sotomayor, J.,\n"
+        + "joined.\n"
+        + "Michael L. Zuckerman, Deputy Solicitor General, argued the cause.\n"
+    )
+    located = locate_lineup(text)
+    assert located.paragraph is not None
+    assert located.paragraph.endswith("joined.")
+    assert "Zuckerman" not in located.paragraph
+
+
+def test_with_no_argument_date_a_newly_seated_justice_is_never_credited() -> None:
+    """Missing the printed argument date must not switch the guard off.
+
+    Decided 2018-12-10 with no argument date printed: Kavanaugh, sworn in on
+    2018-10-06, could have missed the argument, so a silent unanimous
+    paragraph cannot credit him and yields no record.
+    """
+    text = (
+        "No. 17\u20131. Decided December 10, 2018\n"
+        + "GINSBURG, J., delivered the opinion for a unanimous Court.\n"
+        + "NOTICE: This opinion is subject to formal revision.\n"
+    )
+    entry = _entry(docket="17-1", author="G", decided=date(2018, 12, 10))
+    reading = read_text(entry, text, truncated=False)
+    assert reading.seated_after_argument == ["Kavanaugh"]
+    assert not reading.complete and reading.votes is None
+
+
 def test_a_paragraph_running_into_the_extraction_cap_is_refused() -> None:
     """A truncated paragraph reads as a unanimous one, so it is never read."""
     cut = SLIP.split("_________________", maxsplit=1)[0]

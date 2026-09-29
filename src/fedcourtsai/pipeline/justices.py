@@ -194,14 +194,15 @@ def bench_on(day: date) -> tuple[str, ...]:
 
 
 def seated_after(argued: date, bench: tuple[str, ...]) -> tuple[str, ...]:
-    """The Justices of ``bench`` who took the oath after ``argued``.
+    """The Justices of ``bench`` who took the oath on or after ``argued``.
 
     A Justice not yet seated when a case was argued did not hear it, and in
     practice takes no part; whether the source says so is the reading's
-    question, not this roster's (``pipeline.syllabus_lineup``).
+    question, not this roster's (``pipeline.syllabus_lineup``). The oath day
+    counts as not yet seated, as it does in :func:`bench_on`.
     """
     joined = {s.justice: s.joined for s in SERVICE}
-    return tuple(name for name in bench if joined[name] > argued)
+    return tuple(name for name in bench if joined[name] >= argued)
 
 
 # Tokens a Justice's name may carry around the surname: honorifics, the

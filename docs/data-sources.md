@@ -86,11 +86,13 @@ what and who joined it.
   Justices in service on the printed decision date, from the seat roster in
   `pipeline/justices.py` (each Justice's oath and end of service as the
   Court's *Members* page prints them; the oath day itself does not seat). A
-  Justice who took the oath after the printed argument date — the latest,
-  for a reargued case — is never credited by the convention: only the
+  Justice who took the oath on or after the printed argument date — the
+  latest, for a reargued case — is never credited by the convention: only the
   paragraph can place them, and the syllabus ordinarily says they took no
-  part. A paragraph silent about such a Justice leaves the lineup incomplete
-  rather than guessing either way.
+  part. Where no argument date is printed, everyone sworn in since the July
+  before the decision's Term is treated the same way. A paragraph silent
+  about such a Justice leaves the lineup incomplete rather than guessing
+  either way.
 - **Completeness.** A vote list is `complete` only when every participating
   Justice is accounted for, with a Justice who took no part recorded as not
   participating. A paragraph the grammar cannot read yields an incomplete
