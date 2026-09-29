@@ -112,7 +112,7 @@ PARTY_SIDES: Final[tuple[PartySide, ...]] = ("both", "petitioner", "respondent",
 #: produced it.
 PARTY_RULE_VERSION = "party-v1"
 
-#: The caption rule ``party-v1`` composes over both halves. Stamped on the
+#: The caption rule ``party-v1`` and ``party-v2`` compose over both halves. Stamped on the
 #: census beside the party rule so the artifact is self-describing: a party
 #: label names which caption predicate produced its classes, rather than leaving
 #: a reader to recover the pairing from the source at the commit that ran it.

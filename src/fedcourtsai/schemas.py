@@ -7895,8 +7895,9 @@ class PartyCensus(_Strict):
 
     Counts only, under one annotation rule and one date convention — both
     stamped, because a cell is comparable to another only where the pair
-    agrees. Grant rates by government-party status are an analytics cut with
-    its own scope strings and reweighting, not a field here.
+    agrees. Grant rates by government-party status are `party-rates`
+    (`PartyRates`), which carries its own population rules and denial
+    reweighting, not a field here.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -8009,7 +8010,8 @@ class PartyRateCell(_Strict):
         default=0,
         ge=0,
         description="Of those, rows with no disposition as of the cut's `through` "
-        "date (or today) — outside the rate, so a window with many is censored",
+        "date (or, without one, in the blob at its vintage) — outside the rate, "
+        "so a window with many is censored",
     )
     unreadable: int = Field(
         default=0,
@@ -8101,7 +8103,12 @@ class PartyRates(_Strict):
     latest_snapshot: date | None = Field(
         default=None, description="Corpus vintage: newest stored snapshot date across the blob"
     )
-    rows: int = Field(default=0, ge=0, description="Rows counted into some cell")
+    rows: int = Field(
+        default=0,
+        ge=0,
+        description="Rows counted into some cell's rate population (application "
+        "exclusions, tallied on their cells, are not included)",
+    )
     duplicate_rows: int = Field(
         default=0,
         ge=0,

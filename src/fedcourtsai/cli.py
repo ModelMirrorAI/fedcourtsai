@@ -1451,7 +1451,8 @@ def party_rates_cmd(
         None,
         "--since",
         help=(
-            "Leave out rows filed before this ISO date — the bound a comparison "
+            "Leave out rows filed before this ISO date (and rows that cannot be "
+            "dated after it) — the bound a comparison "
             "needs where coverage begins mid-window (the application docket is "
             "captured whole only from 2025-04-18). Omit for the whole live slice."
         ),
@@ -1467,10 +1468,10 @@ def party_rates_cmd(
     Cert grant rates (paid and IFP) and emergency-docket grant rates (substantive
     applications), keyed on administration x docket stratum x which side of the
     caption the federal government occupies — `none` being the comparison cell.
-    Every rate is printed beside its numerator and denominator; a cell holding
-    rows of the legacy one-in-ten sampled denial block also prints the weighted
-    pair that restores that block to full strength, and the rate is the weighted
-    pair's. An analytics artifact: nothing a predict or evaluate cell reads comes
+    Every rate is printed beside the numerator and denominator it divides — the
+    weighted pair, which restores the legacy one-in-ten sampled denial block to
+    full strength; a cell holding sampled rows prints the raw pair beside it.
+    An analytics artifact: nothing a predict or evaluate cell reads comes
     from it. Prints a `PartyRates`; the human cut and the corpus vintage go to
     stderr. `pending` on the human line is a raw row count. Fails loud if the
     corpus is absent (exit 1), or on an unregistered rule, an unknown `--as-of`
