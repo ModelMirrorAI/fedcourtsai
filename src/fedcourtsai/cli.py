@@ -18,7 +18,8 @@ import sys
 import tempfile
 import textwrap
 import time
-from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
@@ -325,6 +326,7 @@ from .schemas import (
     CellFailure,
     CellMode,
     CertBacktest,
+    CertBacktestCellClock,
     CertBacktestCellLoss,
     CertBacktestDisclosure,
     CertBacktestDisclosureTally,
@@ -5456,6 +5458,31 @@ def backtest(
     )
 
 
+@contextmanager
+def _standing_report_withheld(report_path: Path) -> Iterator[None]:
+    """Keep the standing cert back-test report out of the tree while cells run.
+
+    The report names every replayed petition beside the arm it was provisioned
+    under, and counts each arm's denials — so where an arm came out pure, the
+    two together state a named petition's outcome. The draws of consecutive
+    fortnights can overlap, and a replay cell runs with the checkout as its
+    working directory, so a petition's next replay would find its own outcome
+    one search away. The file is about to be replaced anyway: its bytes are
+    held in memory for the replay and written back on the way out, whatever
+    happened in between, and the new report then overwrites them. A fence
+    against an incidental read, like the ledger's removal: the committed copy
+    stays reachable through version history.
+    """
+    held = report_path.read_bytes() if report_path.is_file() else None
+    if held is not None:
+        report_path.unlink()
+    try:
+        yield
+    finally:
+        if held is not None:
+            report_path.write_bytes(held)
+
+
 def _report_replay_drops(
     outcome: ReplayOutcome,
     roster: list[PredictorConfig],
@@ -5703,7 +5730,7 @@ def cert_backtest_cmd(
         disclosures: list[CertBacktestDisclosure] = []  # the cells' own flags.json notes
         tally: dict[str, CertBacktestDisclosureTally] = {}  # their per-predictor counts
         replayed: list[Backtester] = []  # the engine cells' backtesters, if any ran
-        clock_days: dict[str, date] = {}  # each dated cell's cutoff; empty offline
+        clocks: list[CertBacktestCellClock] = []  # every petition's arm and exported clock
         if engine:
             items, unreplayable = replayable_items(db_path, items)
             if unreplayable:
@@ -5730,19 +5757,20 @@ def cert_backtest_cmd(
                     "opted out of engine(s): " + ", ".join(sorted(skipped_engines)), err=True
                 )
             replay_run_id = ids.run_id()
-            outcome = replay_predictors(
-                items,
-                corpus_db_path=db_path,
-                config_root=settings.config_root,
-                work_root=work_root,
-                engine_override=None if engine == "auto" else engine,
-                skip_engines=skipped_engines,
-                run_id=replay_run_id,
-                workers=workers,
-            )
+            with _standing_report_withheld(destination):
+                outcome = replay_predictors(
+                    items,
+                    corpus_db_path=db_path,
+                    config_root=settings.config_root,
+                    work_root=work_root,
+                    engine_override=None if engine == "auto" else engine,
+                    skip_engines=skipped_engines,
+                    run_id=replay_run_id,
+                    workers=workers,
+                )
             provisioning, lost_cells = outcome.provisioning, outcome.lost_cells
             disclosures, tally = outcome.disclosures, outcome.disclosure_tally
-            clock_days = outcome.clock_days
+            clocks = outcome.clocks
             dropped = _report_replay_drops(
                 outcome,
                 enabled_predictors(settings.config_root / "predictors.yaml"),
@@ -5758,7 +5786,13 @@ def cert_backtest_cmd(
         # masked on its Term alone — and `--engine` also narrows the population
         # to the replayable petitions, so the two runs' floors are over
         # different sets and prior-vote's top line does not compare across them.
-        backtesters = default_backtesters(conn, replay_days=clock_days) + replayed
+        backtesters = (
+            default_backtesters(
+                conn,
+                replay_days={c.case_id: c.replay_cutoff for c in clocks if c.replay_cutoff},
+            )
+            + replayed
+        )
         # The leakage-safe segment context (band + per-Term base rate) mirrors
         # the forward stratum's yardstick; segment_base_rate masks each item to
         # Terms strictly before its own, so a full-corpus statpack is safe here.
@@ -5780,6 +5814,7 @@ def cert_backtest_cmd(
                 lost_cells=lost_cells,
                 disclosures=disclosures,
                 disclosure_tally=tally,
+                clocks=clocks,
             ),
         )
     write_json(destination, report)

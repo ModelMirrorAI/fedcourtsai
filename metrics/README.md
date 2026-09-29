@@ -1386,14 +1386,33 @@ the rendered table) and
   denial signal here, so the blind arm is selected on a feature that correlates
   with the outcome and comes out denial-purer than the rest. A blind-heavy draw
   therefore carries a *higher* pooled floor and dilutes every lift measured
-  over the union, rather than depressing them. Read the mix before the scores,
-  and read a shift in it between two fortnights the way you read a change of
-  dispatch. The weekly digest's cert back-test line carries the mix and the
+  over the union, rather than depressing them. `provisioning_denied` gives
+  the size of that effect: keyed as `provisioning` is, a zero stated, it counts
+  each arm's realized denials, so each arm's own always-deny floor is its
+  count there over its count in `provisioning`, and the pooled floor is those
+  arm floors weighted by arm size. That separates the floor, not the scores:
+  no entry's accuracy is broken out by arm, so a lift cannot be split the same
+  way, and what the counts license is how much of the pooled floor the blind
+  arm carries — the floor over the non-blind arms alone is their denials over
+  their count. Like the pooled floor, the counts are over the whole replayed
+  set, so an entry short some cells is floored by neither. Read the
+  mix before the scores, and read a shift in it between two fortnights the way
+  you read a change of dispatch. The weekly digest's cert back-test line carries the mix and the
   dispatch beside the figure for that reason. Two things the mix does not
   capture. The first is that the day bar narrows the **dated** cells'
   retrieval and not the blind ones', so the two arms differ in what they could
   *retrieve* as well as in what their snapshots showed — one more reason to
-  read the mix before the scores. The second is the offline `prior-vote` row:
+  read the mix before the scores. `provenance.clocks` records, per replayed
+  petition, the arm and the two clock halves its cells were exported —
+  `decided_before` (the Term) and `replay_cutoff` (the day, null on a blind
+  petition) — so the clock's width is read from the report rather than
+  assumed from the arm. Named petitions beside their arms, with the arms'
+  denial counts, state a petition's outcome wherever its arm came out pure,
+  and the draws of consecutive fortnights can overlap. So `cert-backtest`
+  takes the standing report out of the tree while the cells run and puts it
+  back before writing the new one, a fence against an incidental read (the
+  committed copy stays in version history). The second is the offline
+  `prior-vote` row:
   it is masked on each dated cell's own cutoff day, the clock its engine cells
   retrieved under, and only an **engine replay** provisions those cutoffs. So a
   run with no replay at all (`--engine` unset) carries a prior-vote row masked
