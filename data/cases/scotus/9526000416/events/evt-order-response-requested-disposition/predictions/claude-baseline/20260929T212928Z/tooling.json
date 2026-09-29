@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000416",
+  "run_id": "20260929T212928Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "CourtListener MCP search",
+    "CourtListener MCP call_endpoint docket-entries",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "Full application text under record/documents/ with the D.C. Circuit's ruling characterized in it",
+    "context.json's frozen escalation flags (response_requested, referred_to_court, amicus_briefs)",
+    "Corpus query rows carrying response_requested / referred_to_court / amicus_briefs per application, which allowed a ladder cross-tab",
+    "CourtListener docket-entries for the court of appeals briefing schedule"
+  ],
+  "gaps": [
+    "fedcourts query cannot filter on application_kind, response_requested, or referred_to_court, so an escalation-ladder cut needs a wide pull filtered locally",
+    "No committed conditional base rate for applications with a requested response; the statpack's escalation columns are not as-at-prediction",
+    "No provisioned text of the court of appeals stay order itself"
+  ],
+  "notes": "Retrieval healthy throughout: four corpus queries, four MCP calls, within the advisory budget."
+}
