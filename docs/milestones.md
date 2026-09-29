@@ -1,7 +1,7 @@
 # Milestones
 
 Where the project is, and what each increment of funding buys. The scaling
-plan is four milestones taken in order, each with the annual funding level the
+plan is five milestones taken in order, each with the annual funding level the
 project needs to reach **before committing to it**. Dollar figures are rough
 planning estimates built on the rates in [budget.md](budget.md); the ledger
 re-measures them as each step lands. (The project's accountable forecasts are
@@ -40,8 +40,9 @@ the docket, how many moments, and how many models each release covers.
 | Today — bootstrapping | ≈$15K (of the $24K envelope) | $7K | **≈$31K** |
 | 1. More prediction events | ≈$20K (of the $24K envelope) | $7K | **≈$31K** |
 | 2. All paid cases | ≈$40K | $28K | **≈$68K** |
-| 3. Seven model developers | ≈$60K | $28K | **≈$88K** |
-| 4. Prompt lenses | up to $120K | $28K | **≈$148K** |
+| 3. A D.C. Circuit slice | ≈$45K | $28K | **≈$73K** |
+| 4. Seven model developers | ≈$65K | $28K | **≈$93K** |
+| 5. Prompt lenses | up to $120K | $28K | **≈$148K** |
 
 Every column is cumulative: each row is the whole project's annual run rate
 at that milestone, not the increment over the row above. The first two rows
@@ -52,7 +53,10 @@ bootstrapping to the scaling level at milestone 2, when volume starts to grow.
 The order is deliberate. New moments are cheap and raise the value of every
 case already covered, so they come first. Coverage comes before more models
 because the project's claims are coverage claims, and every later predictor
-multiplies over the events this step buys. New developers come before prompt
+multiplies over the events this step buys. The circuit slice follows full
+SCOTUS coverage, so it is measured against a finished baseline, and comes
+before new models, so its sourcing and costs are learned at three predictors
+rather than seven. New developers come before prompt
 variants because a baseline for each model has to exist before a variant of it
 means anything.
 
@@ -85,7 +89,52 @@ substantive applications. Roughly 2,100–2,500 events a Term, up from
 ~850–1,100. At this point salience stops being a spend control and survives
 as the public, pre-registered ranking.
 
-### 3. Seven model developers — ≈$88K / yr
+### 3. A D.C. Circuit slice — ≈$73K / yr
+
+Forecast a small, pre-registered slice of the U.S. Court of Appeals for the
+D.C. Circuit: on the order of 25–50 argued cases a year, chosen by a rule
+committed before the first forecast. The slice is a test, not a coverage
+claim. It proves circuit sourcing, cost, and resolution end to end before any
+wider lower-court work is planned or priced.
+
+The D.C. Circuit fits a first slice. Its docket leans toward agency and
+government cases, which often reach the Supreme Court. It runs CM/ECF on
+PACER, its opinions are free, and it posts argument audio. The corpus already
+ingests `cadc`, so base rates and retrieval history exist.
+
+What the step adds:
+
+- **Three moments per case, around the panel.** A forecast when argument is
+  scheduled but the panel is not yet known; another once the court posts the
+  panel, about 30 days before argument; and a third after argument. The first
+  two are built first. The post-argument moment follows once argument audio
+  can be transcribed, since the court posts audio but no transcript.
+- **What the panel changes.** The first two forecasts are on the same case and
+  record, differing mainly in whether the panel is known. Comparing them
+  measures how much knowing who will judge a case moves and improves the
+  forecast, prospectively and on the public ledger. At slice size this is a
+  description, not a significance test.
+- **Circuit outcomes** — affirm, reverse, vacate, remand, or dismiss, in whole
+  or in part, or no merits decision at all. Once the panel is known, also each
+  judge's vote and whether anyone dissents. Nothing is voided: a panel swap or
+  a settlement is something forecasts price in, and a case can be re-predicted
+  beside its earlier forecasts, which still score.
+- **Circuit documents** — briefs and orders from the RECAP archive, or bought
+  from PACER through RECAP Fetch when missing, which returns them to the
+  public archive. Roughly $20–40 a case.
+- **Docket push** — CourtListener docket-alert webhooks through a small relay,
+  since the circuit docket has no free live source. Webhook access is unpriced
+  pending Free Law Project's commercial terms, and getting a real quote is one
+  aim of this step.
+
+Circuit records are larger than SCOTUS ones, so a fully evaluated event is
+estimated at ≈$30–60 rather than $15–17, to be re-measured on the first
+events. Two moments on about 50 cases is about 100 events a year, ≈$5K of
+model spend; the post-argument moment adds about half again, plus
+transcription. Circuit forecasts are scored in their own stratum and never
+enter SCOTUS headline figures.
+
+### 4. Seven model developers — ≈$93K / yr
 
 Add a baseline predictor for four more developers — **xAI, Moonshot, Meta, and
 Alibaba** — each running its most capable model inside its own coding harness
@@ -105,7 +154,7 @@ runner, and its own steps in both cell workflows. That adapter work is in none
 of the figures above, and it is why prompt lenses — which are a registry entry plus a prompt template — come
 last.
 
-### 4. Prompt lenses — up to ≈$148K / yr
+### 5. Prompt lenses — up to ≈$148K / yr
 
 Field three **prompt-lens variants** that instruct a model to reason from one
 perspective — **legal/doctrinal, political, economic** — and let the
@@ -128,5 +177,10 @@ against the lenses when the milestone opens:
   track forecasting skill within a family?
 - **Retrieval ablations** — closed-book or no-CourtListener variants, which
   double as a contamination probe.
+- **A second circuit with different panel practice** — the 4th, 7th and
+  Federal Circuits do not announce panels before argument, so every
+  pre-argument forecast there is panel-blind. Set beside the D.C. Circuit
+  slice, it asks whether courts that reveal panels early are more predictable
+  before argument.
 - **Open-harness twins** — each model re-run inside one shared open-source
   harness, separating the model's contribution from its vendor harness's.
