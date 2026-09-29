@@ -494,8 +494,9 @@ def test_a_multi_token_surname_stays_whole() -> None:
         "Cardozo",
     )
     with pytest.raises(ValueError, match="roster"):
-        # Hughes-court Justices before the modern span are not on the roster;
-        # the bench is an input, so an unknown name is refused outright.
+        # The roster carries the modern span plus the one compound surname,
+        # so the rest of this bench is unknown; the bench is an input, and an
+        # unknown name in it is refused outright.
         parse_syllabus_lineup("PER CURIAM.", bench=bench)
     lineup = parse_syllabus_lineup(
         "ROBERTS, C. J., delivered the opinion of the Court, in which THOMAS, ALITO, "
@@ -612,10 +613,80 @@ def test_normalization_collapses_titles_and_drops_page_cites() -> None:
             "THOMAS and ALITO, JJ., delivered the opinion of the Court.",
             id="two-lead-authors",
         ),
+        pytest.param(
+            "KAGAN, J., delivered the opinion for a unanimous Court. THOMAS, J., filed a "
+            + "dissenting opinion.",
+            id="unanimous-and-a-dissent",
+        ),
+        pytest.param(
+            "KAGAN, J., delivered the opinion of the Court, in which all other Members "
+            + "joined. THOMAS, J., filed a dissenting opinion.",
+            id="all-others-and-a-dissent",
+        ),
+        pytest.param(
+            "KAGAN, J., delivered the opinion of the Court, in which ROBERTS, C. J., and "
+            + "THOMAS, ALITO, SOTOMAYOR, GORSUCH, KAVANAUGH, BARRETT, and JACKSON, JJ., "
+            + "joined. THOMAS, J., filed a dissenting opinion.",
+            id="full-joiner-and-a-dissent",
+        ),
+        pytest.param(
+            "KAGAN, J., delivered the opinion of the Court, in which all other Members "
+            + "joined, and in which THOMAS, J., joined as to Part I. THOMAS, J., filed a "
+            + "dissenting opinion.",
+            id="joined-twice-and-a-dissent",
+        ),
+        pytest.param(
+            "KAGAN, J., delivered the opinion of the Court. KAGAN, J., filed a dissenting "
+            + "opinion.",
+            id="author-dissents-from-own-opinion",
+        ),
+        pytest.param(
+            "KAGAN, J., delivered the opinion of the Court. THOMAS, J., filed an opinion "
+            + "concurring in part.",
+            id="bare-concurring-in-part",
+        ),
+        pytest.param(
+            "GORSUCH, J., delivered the opinion of the Court, except as to Part II. "
+            + "ROBERTS, C. J., and THOMAS, ALITO, SOTOMAYOR, KAGAN, KAVANAUGH, BARRETT, "
+            + "and JACKSON, JJ., joined that opinion in full, and GORSUCH, J., joined "
+            + "except as to Part II.",
+            id="author-as-follower-joiner",
+        ),
+        pytest.param(
+            "KAGAN, J., delivered the opinion of the Court, in which ROBERTS, C. J., and "
+            + "THOMAS, THOMAS, ALITO, SOTOMAYOR, GORSUCH, KAVANAUGH, BARRETT, and JACKSON, "
+            + "JJ., joined.",
+            id="duplicate-lead-joiner",
+        ),
+        pytest.param(
+            "KAGAN, J., delivered the opinion of the Court, in which ROBERTS, C. J., and "
+            + "ALITO, SOTOMAYOR, GORSUCH, KAVANAUGH, BARRETT, and JACKSON, JJ., joined. "
+            + "THOMAS, J., filed a dissenting opinion, in which THOMAS, J., joined.",
+            id="self-join-of-a-dissent",
+        ),
     ],
 )
 def test_an_unreadable_paragraph_is_refused_never_guessed(text: str) -> None:
     _assert_refused(parse_syllabus_lineup(text, bench=OT23))
+
+
+def test_a_bare_lead_reads_as_every_participant_joining() -> None:
+    """The Court's convention, and why the caller must deliver the whole paragraph."""
+    lineup = parse_syllabus_lineup("KAGAN, J., delivered the opinion of the Court.", bench=OT23)
+    assert lineup.complete
+    assert _votes(lineup) == dict.fromkeys(OT23, M)
+
+
+def test_dissenting_in_part_alone_is_both_sides() -> None:
+    lineup = parse_syllabus_lineup(
+        "KAGAN, J., delivered the opinion of the Court, in which ROBERTS, C. J., and "
+        "SOTOMAYOR, GORSUCH, KAVANAUGH, BARRETT, and JACKSON, JJ., joined, and in which "
+        "THOMAS and ALITO, JJ., joined as to Part I. THOMAS, J., filed an opinion "
+        "dissenting in part, in which ALITO, J., joined.",
+        bench=OT23,
+    )
+    assert lineup.complete
+    assert lineup.votes["Thomas"] is MIXED and lineup.votes["Alito"] is MIXED
 
 
 def test_a_justice_the_explicit_joins_never_place_keeps_the_lineup_incomplete() -> None:

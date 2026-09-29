@@ -48,10 +48,11 @@ delivered the opinion of the Court, in which … joined. SOTOMAYOR, J., filed a
 dissenting opinion, in which … joined."), and that paragraph names who wrote
 what and who joined it.
 
-- **Source and scope.** Fetched pipeline-side from supremecourt.gov: the slip
-  opinion, then the preliminary print or the bound volume for earlier Terms.
-  Merits decisions from roughly OT16 onward, the Terms the site serves in
-  those shapes. Cert-stage votes from order lists are not part of it.
+- **Source and scope.** To be fetched pipeline-side from supremecourt.gov:
+  the slip opinion, then the preliminary print or the bound volume for
+  earlier Terms. The channel's chosen scope is merits decisions from roughly
+  OT16 onward; earlier Terms are the historical depth SCDB below would serve.
+  Cert-stage votes from order lists are not part of it.
 - **Terms.** The opinions are works of the federal government in the public
   domain, with no third-party license, and a lineup is a fact about the
   published decision. A vote list read from one therefore redistributes
@@ -70,13 +71,14 @@ what and who joined it.
 - **Completeness.** A vote list is `complete` only when every participating
   Justice is accounted for, with a Justice who took no part recorded as not
   participating. A paragraph the grammar cannot read yields an incomplete
-  lineup with no votes rather than a best-effort one.
+  lineup with no votes rather than a best-effort one, and a Justice the
+  writings do not place leaves the lineup incomplete.
 - **What exists today.** The lineup model and the Supreme Court syllabus
   grammar (`pipeline/lineup.py`, `pipeline/syllabus_lineup.py`), as a library
   with no caller. The fetcher, the channel's registration, and the
   cross-check of each parsed author and separate writer against the Court's
   Granted & Noted list, with disagreements reported, are not built, and until
-  the channel registers here the hold described below applies to it as to
+  the channel registers here the vote-source hold below applies to it as to
   any source.
 
 One more channel is planned and not yet adopted, **for historical depth
@@ -172,11 +174,15 @@ the Court's history holds, so the normalization target holds in fact. The map
 is many-to-one where surnames repeat across the span (two Jacksons, seven
 decades apart — no two same-surname Justices sit in one Term); the
 docket-number-plus-Term join above is what disambiguates, never the name.
-The hold is mechanical as well as stated: `validate`'s
+
+**The vote-source hold.** No vote reaches public git before its source is
+registered here, and the hold is mechanical as well as stated: `validate`'s
 `outcome_votes_await_a_registered_source` check refuses any committed outcome
-carrying votes or a provenance block until a vote source is registered here.
-The first channel to register retires it in that PR, and an SCDB import
-additionally settles the terms above before it writes any value.
+carrying votes or a provenance block. The first channel to register retires
+that check in the same PR, replacing it with the source's own conformance
+checks keyed on the registered provenance, so a source that has not
+registered, SCDB included, stays refused. An SCDB import additionally settles
+the terms above before it writes any value.
 
 Two layers of rights apply, and they are different:
 

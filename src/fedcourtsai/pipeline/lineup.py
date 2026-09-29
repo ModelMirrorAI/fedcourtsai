@@ -242,6 +242,40 @@ def _derive_vote(justice: str, lead: Writing, separate: Sequence[Writing]) -> Vo
     return None
 
 
+def _join_conflicts(writing: Writing) -> list[str]:
+    """A writing whose joiner list repeats a name or names its own author."""
+    found: list[str] = []
+    seen: set[str] = set()
+    for join in writing.joins:
+        if join.justice in writing.authors:
+            found.append(f"{join.justice} joins their own {writing.kind}")
+        elif join.justice in seen:
+            found.append(f"{join.justice} joins one {writing.kind} twice")
+        seen.add(join.justice)
+    return found
+
+
+def _side_conflicts(lead: Writing, separate: Sequence[Writing]) -> list[str]:
+    """Justices a reading puts wholly behind the lead and also against it.
+
+    Both sides is a real vote only where the lead join is qualified; the
+    lead's author, or a Justice joining it in full, who also signs a dissent
+    is a text that contradicts itself, which is how a misread or a merged
+    paragraph shows up. Refused, never resolved to both sides.
+    """
+    full = set(lead.authors) | {j.justice for j in lead.joins if not j.partial}
+    against = {
+        name
+        for w in separate
+        if w.kind in {WritingKind.dissent, WritingKind.concurrence_in_part_dissent_in_part}
+        for name in w.signatories
+    }
+    return [
+        f"{name} is read as joining the lead in full and as dissenting"
+        for name in sorted(full & against)
+    ]
+
+
 def lineup_from_writings(
     *,
     court: str,
@@ -279,6 +313,9 @@ def lineup_from_writings(
             found.append(f"{name} signs a {writing.kind} but is not on the bench")
         for name in sorted(writing.signatories & absent):
             found.append(f"{name} took no part but signs a {writing.kind}")
+        found.extend(_join_conflicts(writing))
+    if len(leads) == 1:
+        found.extend(_side_conflicts(leads[0], [w for w in writings_t if w is not leads[0]]))
 
     if found:
         return Lineup(

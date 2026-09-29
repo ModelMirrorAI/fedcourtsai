@@ -18,7 +18,7 @@ description of the Court's conventions, and no ceRt code or data is used.
 **The sentences.** The paragraph is one statement per sentence:
 
 - *Lead*: ``X delivered the opinion of the Court[, in which A, B, and C
-  joined]`` \u2014 or ``for a unanimous Court``, ``in which all other Members
+  joined]`` — or ``for a unanimous Court``, ``in which all other Members
   joined``, the scoped form ``with respect to Parts I and II, … and an opinion
   with respect to Part III, in which …``, the split form ``except as to
   Part II`` (its joiners named in the sentences that follow: ``A and B joined
@@ -39,16 +39,18 @@ which`` of its own was joined by every participant who did not sign a writing
 that departs from it (a dissent, a partial concurrence, a concurrence in the
 judgment); a per curiam likewise speaks for everyone not writing or joining
 such a separate opinion. That is why :func:`parse_syllabus_lineup` takes the
-bench \u2014 the Justices who could have sat \u2014 and why the bench must be right: a
-Justice on it whom the paragraph neither names nor excludes is credited to
-the lead under this convention. Non-participation the paragraph states is
+bench — the Justices who could have sat — and why the bench must be right:
+wherever the lead clause prints no joiners of its own, a Justice on the bench
+whom the paragraph neither names nor excludes is credited to the lead. Where
+the lead does print its joiners, such a Justice is unplaced instead and the
+lineup is incomplete. Non-participation the paragraph states is
 honored; a vacancy or a Justice seated after argument is the caller's to
 leave off the bench.
 
 **What it refuses to do.** Any sentence the grammar cannot read, any name the
 roster (:mod:`fedcourtsai.pipeline.justices`) does not carry, a missing or
 doubled lead, or a Justice the writings do not place is reported in
-``problems`` and leaves the lineup ``complete=False`` \u2014 with no votes at all
+``problems`` and leaves the lineup ``complete=False`` — with no votes at all
 when the paragraph itself did not parse, because a lineup read around an
 unparsed sentence could be missing the dissent that moves a Justice's side.
 
@@ -267,7 +269,9 @@ def _writing_kind(desc: str) -> WritingKind | None:
     if not concurring:
         return None
     if "concurring in part" in lowered:
-        return WritingKind.concurrence_in_part
+        # Joined some of the lead and supported the judgment; without "the
+        # judgment" the description does not say which side its author is on.
+        return WritingKind.concurrence_in_part if "judgment" in words else None
     if "judgment" in words:
         return None if in_part else WritingKind.concurrence_in_judgment
     return WritingKind.concurrence if lowered == "concurring" else None
@@ -394,6 +398,8 @@ def _lead_writing(
         if name == lead.author:
             problems.append(f"{name} is read both as the lead's author and a joiner")
             continue
+        if len({index for index, _ in held}) != len(held):
+            problems.append(f"{name} joins one lead clause twice")
         joins.append(_lead_join(name, held, lead.clauses))
     for names, q in lead.followers:
         for name in others if names == [_ALL_OTHERS] else names:
@@ -423,6 +429,11 @@ def parse_syllabus_lineup(text: str, *, bench: Sequence[str]) -> Lineup:
     (``ValueError``), because the bench is an input, not a reading. Anything
     the paragraph itself does not settle is a ``problem`` on an incomplete
     lineup, never an exception.
+
+    ``text`` must be the **whole** paragraph. Under the Court's convention a
+    bare lead sentence reads as every participant joining, so a paragraph cut
+    short at a sentence boundary is indistinguishable from a unanimous one;
+    the caller that locates the paragraph owns delivering all of it.
     """
     roster = _roster(bench)
     reading = _read_paragraph(text)
