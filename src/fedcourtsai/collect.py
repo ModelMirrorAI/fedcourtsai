@@ -11,7 +11,8 @@ live here as small pure functions the CLI wraps so the YAML only runs git/gh:
 
 - The **path jail** (:func:`assert_within_jail`): an auto-merged data PR may only
   *add* files under ``data/``. Anything else — a touched workflow, a modified or
-  deleted artifact, a write into another run's directory — is rejected. It runs
+  deleted artifact, a write into another run's directory, an agent instruction
+  file such as a nested ``CLAUDE.md`` or ``AGENTS.md`` — is rejected. It runs
   producer-side in the ``collect`` job (before the commit) and again as a required
   status check on the PR, so the guarantee holds independently of the workflow
   that produced the branch.
@@ -56,6 +57,73 @@ _PARTIAL_WARNING = (
 )
 
 
+#: File names a coding agent loads as instructions or configuration from the
+#: tree it works in, lower-cased: Claude Code's `CLAUDE.md` / `CLAUDE.local.md`
+#: (a nested one loads when the agent reads a file beside it) and `.mcp.json`,
+#: Codex's `AGENTS.md` / `AGENTS.override.md` (gathered from the project root
+#: down to its working directory) and the older `codex.md`, gemini-cli's
+#: `GEMINI.md` / `MEMORY.md`, the singular `agent.md` several tools read, and
+#: the Cursor, Cline, Windsurf and Copilot rule files. A cell under `data/` has
+#: no reason to write any of them, and one committed to the ledger would be read
+#: as instructions by a later cell of any engine that browses that part of the
+#: tree — a prompt-injection channel that outlives the run. A denylist rather
+#: than an allow-list of cell file names, so a legitimate artifact the cell
+#: contract grows is never refused; the cost is that an engine added to the
+#: registry brings its discovery names here in the same change.
+AGENT_CONTEXT_FILENAMES = frozenset(
+    {
+        "claude.md",
+        "claude.local.md",
+        "agents.md",
+        "agents.override.md",
+        "agent.md",
+        "codex.md",
+        ".mcp.json",
+        "gemini.md",
+        "memory.md",
+        ".cursorrules",
+        ".clinerules",
+        ".windsurfrules",
+        "copilot-instructions.md",
+    }
+)
+
+#: Directory names an agent reads configuration, rules, skills or instructions
+#: from, lower-cased. Any path with one as a component is refused for the same
+#: reason as :data:`AGENT_CONTEXT_FILENAMES`: nothing a cell writes lives there.
+AGENT_CONFIG_DIRS = frozenset(
+    {
+        ".claude",
+        ".codex",
+        ".gemini",
+        ".agents",
+        ".cursor",
+        ".clinerules",
+        ".windsurf",
+        ".roo",
+        ".kiro",
+        ".continue",
+        ".junie",
+        ".github",
+    }
+)
+
+
+def is_agent_context_path(path: str) -> bool:
+    """True when ``path`` names an agent instruction/context file or config dir.
+
+    Case-insensitive, because a case-insensitive filesystem resolves any
+    spelling to the name the agent looks for; matches the file name anywhere in
+    the tree and a config directory at any depth.
+    """
+    parts = [part.lower() for part in path.split("/") if part]
+    if not parts:
+        return False
+    return parts[-1] in AGENT_CONTEXT_FILENAMES or any(
+        part in AGENT_CONFIG_DIRS for part in parts[:-1]
+    )
+
+
 class PathJailError(Exception):
     """A data-production PR changed a path outside the append-only ``data/`` jail."""
 
@@ -96,7 +164,9 @@ def assert_within_jail(changes: Iterable[PathChange], *, run_id: str | None = No
     each writes a fresh ``<...>/<run_id>/`` directory and never touches code,
     workflows, config, or an existing artifact. This enforces exactly that — any
     path outside ``data/``, and any status other than add (modify, delete,
-    rename, copy, type-change), is a violation. When ``run_id`` is given, every
+    rename, copy, type-change), is a violation. So is an addition that
+    :func:`is_agent_context_path` names an agent instruction file or config
+    directory, whatever its case and depth. When ``run_id`` is given, every
     path must also contain that run id, so the change set can only add the current
     run's files.
     """
@@ -107,6 +177,11 @@ def assert_within_jail(changes: Iterable[PathChange], *, run_id: str | None = No
         elif change.status != "A":
             violations.append(
                 f"{change.path!r} has status {change.status!r}; data PRs only add files"
+            )
+        elif is_agent_context_path(change.path):
+            violations.append(
+                f"{change.path!r} is an agent instruction file or config directory; "
+                "a data PR may not add one"
             )
         elif run_id is not None and f"/{run_id}/" not in f"/{change.path}":
             violations.append(f"{change.path!r} is not under run id {run_id!r}")
