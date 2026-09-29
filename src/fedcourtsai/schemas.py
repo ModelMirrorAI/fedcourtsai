@@ -8082,6 +8082,11 @@ class PartyRates(_Strict):
         description="The cut's moment: rows filed after it are left out and "
         "dispositions dated after it read as pending. Null = the whole blob",
     )
+    since: date | None = Field(
+        default=None,
+        description="The cut's lower bound: rows filed before it are left out. "
+        "Null = from the start of the live slice",
+    )
     granted_labels: list[str] = Field(
         description="The disposition labels counted as granted (the binary outcome's granted side)"
     )
@@ -8114,6 +8119,12 @@ class PartyRates(_Strict):
         ge=0,
         description="Rows left out as later than `through`: filed after it, or — "
         "carrying no filing date — resolved after it or not at all",
+    )
+    filed_before_since: int = Field(
+        default=0,
+        ge=0,
+        description="Rows left out as earlier than `since`: filed before it, or — "
+        "carrying no filing date — resolved before it or not at all",
     )
     undated: int = Field(
         default=0,

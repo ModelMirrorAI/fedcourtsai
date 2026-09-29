@@ -58,6 +58,16 @@ since the petitions still pending are disproportionately the relisted and
 CVSG'd ones, that window's rate over what has resolved is not yet its rate.
 Under ``resolved`` a pending row has no date and lands in the unattributed
 cells.
+
+``since`` bounds the other end, and exists for the same reason the census keys
+every cell on a stratum: coverage. The live channel's capture of the
+application docket is complete only for filings from 2025-04-18; before that
+the live slice holds a selected set of high-profile applications, mostly the
+federal government's, while the ordinary applications of the same months sit
+outside it as never-polled shell rows. A federal-applicant cell and its
+``none`` comparison cell are sampled the same way only from that date, so a
+government-versus-``none`` reading of the application stratum is cut with
+``since`` at or after it.
 """
 
 from __future__ import annotations
@@ -189,6 +199,7 @@ def party_rates(
     *,
     as_of_field: str,
     through: date | None = None,
+    since: date | None = None,
     corpus_sha256: str = "",
     rule_version: str = DEFAULT_RATES_RULE,
 ) -> PartyRates:
@@ -208,6 +219,7 @@ def party_rates(
         corpus.iter_rows(conn, court="scotus", live_slice=True),
         as_of_field=as_of_field,
         through=through,
+        since=since,
         corpus_sha256=corpus_sha256,
         rule_version=rule_version,
         latest_pull=corpus.latest_pull_date(conn),
@@ -220,6 +232,7 @@ def _rates(
     *,
     as_of_field: str,
     through: date | None,
+    since: date | None,
     corpus_sha256: str,
     rule_version: str,
     latest_pull: date | None,
@@ -229,7 +242,8 @@ def _rates(
     annotator = party_rule(rule_version)
     accs: dict[tuple[str | None, DocketStratum, PartySide], _Acc] = {}
     seen: set[str] = set()
-    counted = duplicates = other_stratum = after_through = undated = resolution_undated = 0
+    counted = duplicates = other_stratum = after_through = before_since = 0
+    undated = resolution_undated = 0
     for row in rows:
         key = _docket_key(row)
         if key is not None:
@@ -243,8 +257,11 @@ def _rates(
             continue
         resolution = corpus.resolution_date(row)
         disposition = row.disposition
+        anchor = row.date_filed or resolution
+        if since is not None and (anchor is None or anchor < since):
+            before_since += 1
+            continue
         if through is not None:
-            anchor = row.date_filed or resolution
             if anchor is None or anchor > through:
                 after_through += 1
                 continue
@@ -279,6 +296,7 @@ def _rates(
         caption_rule_version=PARTY_CAPTION_RULE_VERSION,
         as_of_field=as_of_field,
         through=through,
+        since=since,
         granted_labels=sorted(label.value for label in GRANTED_DISPOSITIONS),
         corpus_sha256=corpus_sha256,
         latest_pull=latest_pull,
@@ -287,6 +305,7 @@ def _rates(
         duplicate_rows=duplicates,
         other_stratum=other_stratum,
         filed_after_through=after_through,
+        filed_before_since=before_since,
         undated=undated,
         resolution_undated=resolution_undated,
         cells=cells,

@@ -275,14 +275,18 @@ def test_party_v2_reads_the_federal_shapes_caption_v2_misses(caption: str) -> No
         "New York City Department of Education",
         # A relator sues in the government's name; the party is private.
         "United States ex rel. Jane Doe, Office of Personnel Management",
+        # A state department whose name extends a federal department's.
+        "Jennifer Berrier, Secretary, Department of Labor and Industry",
+        "Commissioner, Department of State Health Services, et al.",
+        "Department of Justice of Puerto Rico",
         # An office named inside a longer title is not the President's office.
         "Office of the President of Acme University",
         "Jane Doe",
     ],
 )
-def test_party_v2_keeps_the_private_captions_private(caption: str) -> None:
-    """The supplement fires on the measured federal shapes and nothing near them."""
-    assert classify_party_v2(caption) == "private"
+def test_party_v2_reads_nothing_near_the_shapes_as_federal(caption: str) -> None:
+    """No caption near the measured shapes reads federal (a state one may read state)."""
+    assert classify_party_v2(caption) != "federal"
 
 
 def test_party_v2_never_loses_a_class_party_v1_had() -> None:

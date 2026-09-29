@@ -184,6 +184,32 @@ def test_through_places_the_cut_at_a_past_moment(tmp_path: Path) -> None:
     assert at_april.filed_after_through == 4
 
 
+def test_since_bounds_the_cut_from_below(tmp_path: Path) -> None:
+    """Rows filed before `since` leave, so a coverage start can bound both cells."""
+    db = tmp_path / "corpus.db"
+    _rates_corpus(db)
+    with corpus.connect(db) as conn:
+        rates = party_rates(conn, as_of_field="filed", since=date(2025, 4, 18))
+    cell = _cells(rates)[("trump-47", "application", "petitioner")]
+    # The March DHS ask leaves; the May and September asks stay.
+    assert (cell.rows, cell.resolved, cell.granted) == (2, 2, 1)
+    assert rates.since == date(2025, 4, 18)
+    # Before the bound: the March ask (its duplicate is dropped first) and the
+    # four 2019 cert rows.
+    assert rates.filed_before_since == 5
+
+
+def test_a_sampled_row_decided_after_the_cut_is_pending(tmp_path: Path) -> None:
+    """Under `through` a sampled denial dated later drops out of both pairs."""
+    db = tmp_path / "corpus.db"
+    _rates_corpus(db)
+    with corpus.connect(db) as conn:
+        rates = party_rates(conn, as_of_field="filed", through=date(2019, 9, 1))
+    ifp = _cells(rates)[("trump-45", "ifp-cert", "respondent")]
+    assert (ifp.rows, ifp.sampled_rows, ifp.pending) == (2, 1, 2)
+    assert (ifp.weighted_resolved, ifp.grant_rate) == (0, None)
+
+
 def test_the_resolved_convention_moves_pending_rows_to_unattributed(tmp_path: Path) -> None:
     """Under `resolved` a row with no outcome at the cut has no date to attribute."""
     db = tmp_path / "corpus.db"
@@ -238,6 +264,7 @@ def test_the_command_prints_the_rates_with_its_vintage(
         (["--as-of", "argued"], "unknown --as-of"),
         (["--as-of", "filed", "--rule-version", "party-v9"], "unregistered party rule"),
         (["--as-of", "filed", "--through", "October"], "unreadable --through"),
+        (["--as-of", "filed", "--since", "April"], "unreadable --since"),
     ],
 )
 def test_the_command_refuses_what_it_cannot_cut(

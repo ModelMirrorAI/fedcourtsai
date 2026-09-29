@@ -1447,6 +1447,15 @@ def party_rates_cmd(
             "dispositions dated later read as pending. Omit for the whole blob."
         ),
     ),
+    since: str | None = typer.Option(
+        None,
+        "--since",
+        help=(
+            "Leave out rows filed before this ISO date — the bound a comparison "
+            "needs where coverage begins mid-window (the application docket is "
+            "captured whole only from 2025-04-18). Omit for the whole live slice."
+        ),
+    ),
     rule_version: str = typer.Option(
         DEFAULT_RATES_RULE,
         "--rule-version",
@@ -1463,8 +1472,9 @@ def party_rates_cmd(
     pair that restores that block to full strength, and the rate is the weighted
     pair's. An analytics artifact: nothing a predict or evaluate cell reads comes
     from it. Prints a `PartyRates`; the human cut and the corpus vintage go to
-    stderr. Fails loud if the corpus is absent (exit 1), or on an unregistered
-    rule, an unknown `--as-of` or an unreadable `--through` (exit 2).
+    stderr. `pending` on the human line is a raw row count. Fails loud if the
+    corpus is absent (exit 1), or on an unregistered rule, an unknown `--as-of`
+    or an unreadable `--through` / `--since` (exit 2).
     """
     if rule_version not in PARTY_RULES:
         typer.echo(
@@ -1479,11 +1489,13 @@ def party_rates_cmd(
             err=True,
         )
         raise typer.Exit(code=2)
-    try:
-        through_date = date.fromisoformat(through) if through is not None else None
-    except ValueError:
-        typer.echo(f"unreadable --through {through!r}; give an ISO date (YYYY-MM-DD)", err=True)
-        raise typer.Exit(code=2) from None
+    bounds: dict[str, date | None] = {}
+    for flag, value in (("--through", through), ("--since", since)):
+        try:
+            bounds[flag] = date.fromisoformat(value) if value is not None else None
+        except ValueError:
+            typer.echo(f"unreadable {flag} {value!r}; give an ISO date (YYYY-MM-DD)", err=True)
+            raise typer.Exit(code=2) from None
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if not db_path.exists():
@@ -1498,19 +1510,23 @@ def party_rates_cmd(
         rates = party_rates(
             conn,
             as_of_field=as_of,
-            through=through_date,
+            through=bounds["--through"],
+            since=bounds["--since"],
             corpus_sha256=corpus_sha,
             rule_version=rule_version,
         )
     pulled = rates.latest_pull.isoformat() if rates.latest_pull else "never pulled"
     snapshot = rates.latest_snapshot.isoformat() if rates.latest_snapshot else "none"
     moment = rates.through.isoformat() if rates.through else "whole blob"
+    start = f"since {rates.since.isoformat()}, " if rates.since else ""
     typer.echo(
         f"party rates ({rates.rule_version} over {rates.caption_rule_version}, "
-        f"as-of {rates.as_of_field}, through {moment}): {rates.rows} row(s) rated, "
+        f"as-of {rates.as_of_field}, {start}through {moment}): {rates.rows} row(s) rated, "
         f"{rates.duplicate_rows} duplicate docket row(s) dropped, {rates.other_stratum} "
-        f"other-stratum row(s) left out, {rates.filed_after_through} later than the cut, "
-        f"{rates.undated} undated; corpus latest pull {pulled}, latest snapshot {snapshot}",
+        f"other-stratum row(s) left out, {rates.filed_before_since} earlier and "
+        f"{rates.filed_after_through} later than the cut, {rates.undated} undated, "
+        f"{rates.resolution_undated} resolved without a resolution date; "
+        f"corpus latest pull {pulled}, latest snapshot {snapshot}",
         err=True,
     )
     for cell in rates.cells:

@@ -411,7 +411,10 @@ PARTY_RULE_VERSION_V2: Final[str] = "party-v2"
 #: department is always qualified by its jurisdiction ("New York City
 #: Department of Education", "Arizona Department of Corrections"), which is why
 #: the name must begin the half or follow a comma directly — anywhere else it is
-#: the tail of a jurisdiction's own department.
+#: the tail of a jurisdiction's own department. It must also END its segment: a
+#: state department whose name extends a federal one ("Department of Labor and
+#: Industry", "Department of State Health Services", "Department of Justice of
+#: Puerto Rico") is not the federal department.
 _FEDERAL_DEPARTMENTS: Final[str] = (
     "Justice|State|Education|Defense|Energy|Commerce|Labor|Transportation|"
     "Agriculture|(?:the\\s+)?Interior|(?:the\\s+)?Treasury|Homeland Security|"
@@ -430,7 +433,8 @@ _FEDERAL_DEPARTMENTS: Final[str] = (
 # - the Commissioner of Social Security, whose office qualifier is neither a
 #   department nor "the United States".
 _FEDERAL_PARTY_SUPPLEMENT_RE: Final = re.compile(
-    rf"(?:^|,\s*)(?:United States\s+)?Department of (?:{_FEDERAL_DEPARTMENTS})\b"
+    rf"(?:^|,\s*)(?:United States\s+)?Department of (?:{_FEDERAL_DEPARTMENTS})"
+    r"(?=\s*(?:$|[,;]))"
     r"|\bCommissioner of Social Security\b"
     r"|\bOffice of Personnel Management\b"
     r"|\bNational Institutes of Health\b"
