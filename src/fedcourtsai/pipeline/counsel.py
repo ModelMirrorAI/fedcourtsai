@@ -33,7 +33,8 @@ carries one. A granted petition's merits judgment is not stored on the row
 measured on), so a granted docket's life runs a fixed :data:`MERITS_SPAN` past
 the grant. A pending docket runs to the cut's moment, or is open-ended without
 one. A docket that cannot be dated at all answers ``unknown`` for any side a
-roster name sits on, rather than a guess.
+roster name sits on, rather than a guess, and so does a resolved docket that
+stores no closing date, unless the member was in office when it was filed.
 
 **A successor signing after the resolution.** The stored counsel list is as of
 the row's last write, and a later filing on a closed docket — a rehearing
@@ -287,7 +288,8 @@ SG_OFFICE_ROSTER: Final[tuple[RosterMember, ...]] = (
                 start=date(2015, 10, 5),
                 end=None,
                 source="career deputy throughout the roster's coverage; start is "
-                "the coverage floor (OT2015's opening), not an appointment",
+                "the coverage floor (OT2015's opening), not an appointment, so a "
+                "docket filed before it reads his entry as private practice",
             ),
         ),
     ),
@@ -355,10 +357,16 @@ def _federal_party(party: str) -> bool:
 
 @dataclass(frozen=True)
 class DocketLife:
-    """The span a docket was live, from its own dates; ``None`` bounds are open."""
+    """The span a docket was live, from its own dates.
+
+    ``end`` is ``None`` for a docket still live (open-ended) and for a resolved
+    docket that stores no closing date; ``closed`` tells the two apart, since
+    the first overlaps every later span and the second cannot be placed.
+    """
 
     start: date | None
     end: date | None
+    closed: bool = False
 
 
 def docket_life(row: corpus.CorpusRow, moment: date | None) -> DocketLife:
@@ -367,7 +375,9 @@ def docket_life(row: corpus.CorpusRow, moment: date | None) -> DocketLife:
     ``start`` is the filing date, or the earliest stored resolution date where
     the row carries none. ``end`` is ``date_decided`` or the cert denial date,
     whichever is later; a granted row with neither runs :data:`MERITS_SPAN` past
-    its grant; a pending row is open-ended. A ``moment`` caps ``end`` (a span
+    its grant; a pending row is open-ended. A resolved row that stores none of
+    those dates has an unknown end (``closed`` with ``end`` ``None``), which no
+    ``moment`` stands in for. A ``moment`` otherwise caps ``end`` (a span
     starting after the cut had not started at it).
     """
     resolutions = [d for d in (row.date_cert_granted, row.date_cert_denied, row.date_decided) if d]
@@ -378,6 +388,8 @@ def docket_life(row: corpus.CorpusRow, moment: date | None) -> DocketLife:
         end = max(closing)
     elif row.date_cert_granted is not None:
         end = row.date_cert_granted + MERITS_SPAN
+    elif row.disposition is not None:
+        return DocketLife(start=start, end=None, closed=True)
     else:
         end = None
     if moment is not None and (end is None or end > moment):
@@ -404,18 +416,29 @@ def _read_entry(
     office too where a span began after the life ended — a successor's late
     write — but only on a federal party and only for a span begun by the cut's
     ``moment``; private practice otherwise, including every span that ended
-    before the docket was filed.
+    before the docket was filed. A resolved docket with no closing date is
+    placed only where a span covers its filing; a span opening after the
+    filing cannot be told apart from a future appearance there, so it reads
+    undated.
     """
     if life.start is None:
         return "undated"
     successor = False
+    unplaced = False
     for span in member.spans:
         if span.end is not None and span.end < life.start:
             continue  # left office before the docket was filed: never the office
+        if span.start <= life.start:
+            return "office"  # in office at the filing
+        if life.closed and life.end is None:
+            unplaced = True  # opened after the filing; the docket's end is unknown
+            continue
         if life.end is None or span.start <= life.end:
             return "office"
         # Took office after the docket's life ended: a late write, if by the cut.
         successor = successor or moment is None or span.start <= moment
+    if unplaced:
+        return "undated"
     return "office" if successor and _federal_party(party) else "private"
 
 

@@ -8175,8 +8175,9 @@ class PartyRateCell(_Strict):
         default=None,
         description="Which side(s) the Solicitor General's office is counsel for under "
         "the cut's `counsel_rule_version`, read from the petitioner and respondent "
-        "counsel entries only; `unknown` = the row carries no such entry (resolved "
-        "IFP rows, in the index today) or a roster name on it cannot be dated. Null "
+        "counsel entries only; `unknown` = the row carries no petitioner or respondent "
+        "entry at all (resolved IFP rows, in the index today) or a roster name on "
+        "it cannot be dated. Null "
         "when the cut was taken without a counsel rule",
     )
     rows: int = Field(ge=0, description="Docket rows in the cell's population")

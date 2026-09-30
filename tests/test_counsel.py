@@ -319,3 +319,53 @@ def test_the_command_prints_the_counsel_side(
     )
     assert refused.exit_code == 2
     assert "unregistered counsel rule" in refused.stderr
+
+
+def test_a_resolved_row_without_a_closing_date_is_not_open_ended() -> None:
+    """Decided, no date: a span opening after the filing cannot be placed on it."""
+    future = _row(
+        _counsel("D. John Sauer", "State of Missouri"),
+        date_filed=date(2019, 2, 3),
+        disposition=Disposition.denied,
+    )
+    annotation = sg_office_annotations(future, None)
+    assert (annotation.respondent, annotation.side, annotation.private_practice) == (
+        "unknown",
+        "unknown",
+        0,
+    )
+    in_office = _row(
+        _counsel("Noel John Francisco", "United States"),
+        date_filed=date(2018, 2, 3),
+        disposition=Disposition.denied,
+    )
+    assert sg_office_annotations(in_office, None).respondent == "yes"
+
+
+def test_party_rates_reads_counsel_at_the_cut(tmp_path: Path) -> None:
+    """A cut before the successor took office: the late write is not the office yet."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    _counsel("D. John Sauer", "Federal Respondents"),
+                    docket_number="24-593",
+                    case_name="Jane Doe v. Acme Corp.",
+                    date_filed=date(2024, 12, 2),
+                    date_cert_denied=date(2025, 2, 24),
+                    disposition=Disposition.denied,
+                )
+            ],
+        )
+        early = party_rates(
+            conn,
+            as_of_field="filed",
+            through=date(2025, 3, 1),
+            counsel_rule_version="sg-office-v1",
+        )
+        late = party_rates(conn, as_of_field="filed", counsel_rule_version="sg-office-v1")
+    assert [(c.sg_counsel, c.resolved) for c in early.cells] == [("none", 1)]
+    assert early.counsel_private_practice == 1
+    assert [(c.sg_counsel, c.resolved) for c in late.cells] == [("respondent", 1)]
