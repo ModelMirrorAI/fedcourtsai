@@ -8171,6 +8171,15 @@ class PartyRateCell(_Strict):
         description="Which side(s) of the caption the federal government occupies; "
         "`none` is the comparison cell — no federal party the caption names"
     )
+    sg_counsel: Literal["both", "petitioner", "respondent", "none", "unknown"] | None = Field(
+        default=None,
+        description="Which side(s) the Solicitor General's office is counsel for under "
+        "the cut's `counsel_rule_version`, read from the petitioner and respondent "
+        "counsel entries only; `unknown` = the row carries no petitioner or respondent "
+        "entry at all (nearly every resolved IFP row, in the index today) or a roster name on "
+        "it cannot be dated. Null "
+        "when the cut was taken without a counsel rule",
+    )
     rows: int = Field(ge=0, description="Docket rows in the cell's population")
     sampled_rows: int = Field(
         default=0,
@@ -8247,6 +8256,11 @@ class PartyRates(_Strict):
     caption_rule_version: str = Field(
         description="The caption rule the annotation rule composes over both halves"
     )
+    counsel_rule_version: str | None = Field(
+        default=None,
+        description="The counsel annotation rule keying `sg_counsel` on every cell "
+        "(e.g. sg-office-v1, its dated roster included), or null for a caption-only cut",
+    )
     as_of_field: str = Field(
         description="Which date drove the administration attribution: filed | resolved"
     )
@@ -8317,6 +8331,14 @@ class PartyRates(_Strict):
         description="Resolved rows carrying no resolution date. Under `through` "
         "they cannot be placed before or after the cut and are read as resolved; "
         "this counts them so the assumption has a size",
+    )
+    counsel_private_practice: int = Field(
+        default=0,
+        ge=0,
+        description="Counted rows on which the counsel rule's dated roster set aside "
+        "a roster name on the petitioner or respondent side as private practice — "
+        "a name an undated roster would have read as the office. 0 without a "
+        "counsel rule",
     )
     cells: list[PartyRateCell] = Field(
         default_factory=list, description="Non-empty cells only; an absent cell is not a zero"
