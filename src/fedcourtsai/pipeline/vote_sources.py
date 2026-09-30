@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from datetime import date
 from types import MappingProxyType
 from typing import Final
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from ..schemas import Stage
 from ..supremecourt import is_court_url
@@ -47,6 +47,11 @@ SUPREMECOURT_OPINIONS: Final = "supremecourt-opinions"
 SUPREMECOURT_ORDERS: Final = "supremecourt-orders"
 
 
+def _has_dot_segment(path: str) -> bool:
+    """Whether any path segment is, or percent-decodes to, ``.`` or ``..``."""
+    return any(unquote(segment) in {".", ".."} for segment in path.split("/"))
+
+
 def is_opinion_pdf(url: str) -> bool:
     """Whether ``url`` is an opinion PDF on the Court's own host.
 
@@ -56,7 +61,7 @@ def is_opinion_pdf(url: str) -> bool:
     if not is_court_url(url):
         return False
     path = urlsplit(url).path
-    if "/../" in path or "/./" in path:
+    if _has_dot_segment(path):
         return False
     return path.startswith("/opinions/") and path.lower().endswith(".pdf")
 
@@ -70,7 +75,7 @@ def is_order_document_url(url: str) -> bool:
     if not is_court_url(url):
         return False
     path = urlsplit(url).path
-    if "/../" in path or "/./" in path:
+    if _has_dot_segment(path):
         return False
     return path.lower().endswith(".pdf") and (
         path.startswith("/orders/") or path.startswith("/opinions/")

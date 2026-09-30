@@ -1925,7 +1925,11 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Converge event moments", ()),
     ("repair", "Repair the sampled-frame weights", ()),
     ("regrade", "Re-grade named cells", ()),
-    ("votes", "Stamp vote records", ()),
+    (
+        "votes",
+        "Stamp vote records",
+        ("AWS credential variables reached", "OIDC token minting is reachable"),
+    ),
 )
 
 
@@ -4339,9 +4343,21 @@ def test_the_vote_writer_mints_its_write_token_only_after_the_stamper_on_an_appl
 
 
 def test_the_vote_stamper_runs_with_the_aws_session_blanked() -> None:
-    """The stamper reads the pulled local index only, so it holds no AWS session."""
+    """The stamper holds no AWS session and cannot request an OIDC token for one.
+
+    The job binds `prod` with `id-token: write`, and the read-write corpus
+    role trusts that environment too, so the OIDC request pair is blanked with
+    the session the pull assumed, and the step checks both before it runs.
+    """
     (stamp,) = [s for s in _votes_steps() if s.get("name") == "Stamp vote records"]
     env = stamp.get("env", {})
-    for key in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
+    assert "OIDC token minting is reachable" in str(stamp["run"])
+    for key in (
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+    ):
         assert env.get(key) == "", f"{key} is not blanked on the stamp step"
     assert "GH_TOKEN" not in env

@@ -22,7 +22,7 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus, fixture, vote_writer
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline import opinion_lineups, order_lineups
+from fedcourtsai.pipeline import opinion_lineups, order_lineups, vote_sources
 from fedcourtsai.pipeline.documents import ExtractedText
 from fedcourtsai.pipeline.opinion_lineups import OpinionFetcher
 from fedcourtsai.pipeline.order_lineups import OrderDocketReading, OrderFetcher, OrderPartReading
@@ -656,3 +656,7 @@ def test_an_opinion_url_with_a_dot_segment_is_not_the_sources_document() -> None
     assert is_opinion_pdf("https://www.supremecourt.gov/opinions/25pdf/24-43_2b35.pdf")
     assert not is_opinion_pdf("https://www.supremecourt.gov/opinions/../orders/x.pdf")
     assert not is_opinion_pdf("https://www.supremecourt.gov/opinions/./x.pdf")
+    assert not is_opinion_pdf("https://www.supremecourt.gov/opinions/%2e%2e/orders/x.pdf")
+    assert not vote_sources.is_order_document_url(
+        "https://www.supremecourt.gov/orders/%2E%2E/x.pdf"
+    )

@@ -2392,20 +2392,36 @@ jobs:
       # until it has exited, and only on an apply: it rides only the commit
       # step's env. That separates the token from the stamper in time, not by
       # a process boundary — the two run as the same user on the same runner.
-      # The read-only AWS session the corpus pull assumed is blanked here too:
-      # the stamper opens the pulled local index and makes no S3 call.
+      # The read-only AWS session the corpus pull assumed is blanked here too,
+      # and so is the OIDC request pair: the job holds `id-token: write` under
+      # `prod`, whose trust the read-write corpus role also names, so a step
+      # that could request a token could assume more than the session it was
+      # given. The stamper opens the pulled local index and makes no S3 call,
+      # and the step asserts both properties before it runs anything.
       - name: Stamp vote records
         timeout-minutes: 45
         env:
           AWS_ACCESS_KEY_ID: ""
           AWS_SECRET_ACCESS_KEY: ""
           AWS_SESSION_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
           REPAIR_OPTIONS: ${{ inputs.repair_options }}
         run: |
           set -euo pipefail
+          # The credential tripwire, as on the summarize generate job: no AWS
+          # credential and no way to mint one may reach the stamper.
+          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables reached the vote stamper"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the vote stamper"
+            exit 1
+          fi
           # Validate the bound and the option vocabulary before anything else:
           # a dispatch that cannot legally apply should say so in seconds, not
           # after a fetch campaign. `Validate the repair selector` duplicates
