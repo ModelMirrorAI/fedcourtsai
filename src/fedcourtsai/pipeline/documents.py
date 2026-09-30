@@ -978,7 +978,9 @@ _EMAIL_ANCHOR_RE = re.compile(r"@|[(\[{][ \t]?at[ \t]?[)\]}]", re.IGNORECASE)
 # email must contain its `@`, a telephone number at least ten digits, and a
 # street address at least one digit and eight significant characters. Below
 # those floors a value — a bare "General Delivery", a four-digit extension — is
-# the kind of string legal prose can repeat, and the shape pass is left to it.
+# the kind of string legal prose can repeat, and the shape pass is left to it —
+# where the shape pass runs at all: on a docket scrubbed by the value pass alone
+# (see `scrub_contact_details`), a value below its floor is not withheld.
 
 _VALUE_GAP = r"[\W_]{0,3}"
 # Every character a line split reads as a boundary — a page break in OCR text

@@ -2556,6 +2556,10 @@ def test_an_amicus_with_no_keyable_value_leaves_the_documents_as_filed(
         result.output
     )
     assert "detail(s) withheld across" not in result.output
+    assert (
+        "contact scrub: not run across 1 staged document(s) (no attorney named for the "
+        + "amicus; no value specific enough to key on)"
+    ) in result.output
 
 
 def test_a_pro_se_petitioner_beside_an_amicus_runs_both_passes(
@@ -2582,7 +2586,7 @@ def test_a_pro_se_petitioner_beside_an_amicus_runs_both_passes(
     assert "jscholar" not in staged
     manifest = _documents_manifest(fixture_corpus)
     assert manifest["petition"]["contact_scrub_passes"] == ["value", "shape"]
-    assert "(no attorney named for the petitioner/amicus; passes: value+shape)" in (result.output)
+    assert "(no attorney named for the petitioner/amicus; passes: value+shape)" in result.output
 
 
 def test_one_docket_level_reading_scrubs_every_staged_kind(

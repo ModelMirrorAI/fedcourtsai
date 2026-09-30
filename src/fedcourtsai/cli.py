@@ -263,6 +263,7 @@ from .pipeline.documents import (
     FETCH_LOSS_UNAVAILABLE,
     KIND_PETITION,
     OTHER_LIST,
+    SCRUB_PASS_SHAPE,
     SCRUB_PASS_VALUE,
     QpExtractRow,
     ScrubbedText,
@@ -11063,6 +11064,33 @@ def _staged_scrub(
     return done if done.passes else None
 
 
+def _document_scrub_echo(
+    case: str, staged: Sequence[tuple[object, ScrubbedText | None]], sides: tuple[str, ...]
+) -> str:
+    """The run-log line for the staged documents' contact scrub: counts only, never a value.
+
+    The passes named are the ones that ran, read off the results. On a docket
+    where the trigger fired but nothing ran — an amicus-only docket whose amici
+    serve no value that clears its floor — the line says so, so that case is
+    not silent in the one public trace a scrub leaves.
+    """
+    done = [result for _, result in staged if result is not None]
+    reason = f"no attorney named for the {_sides_named(sides)}"
+    if not done:
+        return (
+            f"{case} contact scrub: not run across {len(staged)} staged document(s) "
+            f"({reason}; no value specific enough to key on)"
+        )
+    ran = {name for result in done for name in result.passes}
+    keyed = SCRUB_PASS_VALUE in ran
+    passes = ("value+shape" if keyed else "shape only") if SCRUB_PASS_SHAPE in ran else "value"
+    withheld = sum(result.replacements for result in done)
+    return (
+        f"{case} contact scrub: {withheld} detail(s) withheld across "
+        f"{len(staged)} staged document(s) ({reason}; passes: {passes})"
+    )
+
+
 @app.command("provision-snapshot")
 def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     *,
@@ -11404,23 +11432,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         )
         kinds = ", ".join(doc.kind for doc in documents)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
-        if any(done is not None for _, done in staged):
+        if unrepresented:
             # Echoed for the same reason the cut counts are: the size of a
             # scrub is itself a signal. A pattern that began matching legal
             # prose would show up here as a count no signature block could
             # produce, and the run log is the only place it could show up at
             # all — the manifest that records it is gitignored with the rest of
             # `record/`.
-            withheld = sum(0 if done is None else done.replacements for _, done in staged)
-            keyed = any(done is not None and SCRUB_PASS_VALUE in done.passes for _, done in staged)
-            shaped = unrepresented != (OTHER_LIST,)
-            passes = ("value+shape" if keyed else "shape only") if shaped else "value"
-            typer.echo(
-                f"{case} contact scrub: {withheld} detail(s) withheld across "
-                f"{len(staged)} staged document(s) (no attorney named for the "
-                f"{_sides_named(unrepresented)}; "
-                f"passes: {passes})"
-            )
+            typer.echo(_document_scrub_echo(case, staged, unrepresented))
 
 
 @app.command("summarize-plan")
