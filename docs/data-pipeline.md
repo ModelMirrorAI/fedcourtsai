@@ -1488,8 +1488,11 @@ read the corpus — one column, each case's docket number — through the
 read-only role every corpus consumer uses, fetch from supremecourt.gov, and
 write only committed `outcome.json` files, so they hold the read-only role and
 the App token and nothing that can write the corpus remote or the content
-store. The App token and the git credential helper live only in the job's
-commit step, which runs after the stamper and parses nothing fetched. All three jobs commit straight to `main` on the writers'
+store. The App token is minted only on an apply, after the stamper has
+exited, and rides only the commit step's env; the stamper's step also blanks
+the read-only AWS session, since it reads only the pulled local index. That
+separates the token from the stamper in time, not by a process boundary: both
+run as the same user on the same runner. All three jobs commit straight to `main` on the writers'
 rebase-and-backoff push path.
 
 **Ordering between passes is the maintainer's.** Three pairs matter. The

@@ -56,6 +56,8 @@ def is_opinion_pdf(url: str) -> bool:
     if not is_court_url(url):
         return False
     path = urlsplit(url).path
+    if "/../" in path or "/./" in path:
+        return False
     return path.startswith("/opinions/") and path.lower().endswith(".pdf")
 
 

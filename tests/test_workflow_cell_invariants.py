@@ -4307,3 +4307,41 @@ def test_the_freeze_probe_unprivuser_turn_is_the_base_turn_with_two_fields_varie
     assert surface["env"]["CODEX_USER"] == codex_user, (
         "the rollout-surfacing step reads a different user's home than the turn wrote"
     )
+
+
+def _votes_steps() -> list[dict[str, Any]]:
+    steps = _load("run-repair.yml")["jobs"]["votes"]["steps"]
+    assert isinstance(steps, list)
+    return steps
+
+
+def test_the_vote_writer_mints_its_write_token_only_after_the_stamper_on_an_apply() -> None:
+    """No write credential exists while the stamper parses fetched pages.
+
+    The App token, the git identity it configures and the commit that uses it
+    all come after the stamp step and all run on an apply only, so a dry run
+    mints nothing that can write and an apply mints it once the stamper has
+    exited. That is a separation in time, not a process boundary.
+    """
+    steps = _votes_steps()
+    names = [str(s.get("name", s.get("uses", ""))) for s in steps]
+    stamp = names.index("Stamp vote records")
+    for name in ("Mint app token", "Configure git identity", "Commit the stamped outcomes"):
+        index = names.index(name)
+        assert index > stamp, f"{name!r} runs before the stamper"
+        assert _norm(str(steps[index].get("if", ""))) == "${{ inputs.repair_mode == 'apply' }}", (
+            f"{name!r} is not gated to an apply"
+        )
+    token_steps = [
+        n for n, s in zip(names, steps, strict=True) if "steps.app-token" in yaml.safe_dump(s)
+    ]
+    assert set(token_steps) == {"Configure git identity", "Commit the stamped outcomes"}
+
+
+def test_the_vote_stamper_runs_with_the_aws_session_blanked() -> None:
+    """The stamper reads the pulled local index only, so it holds no AWS session."""
+    (stamp,) = [s for s in _votes_steps() if s.get("name") == "Stamp vote records"]
+    env = stamp.get("env", {})
+    for key in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
+        assert env.get(key) == "", f"{key} is not blanked on the stamp step"
+    assert "GH_TOKEN" not in env

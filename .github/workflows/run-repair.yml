@@ -2349,14 +2349,6 @@ jobs:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
     steps:
-      - name: Mint app token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
-          permission-contents: write
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -2373,12 +2365,6 @@ jobs:
           git reset --hard FETCH_HEAD
 
       - uses: ./.github/actions/setup-python-env
-
-      - name: Configure git identity
-        uses: ./.github/actions/configure-git-identity
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          app-slug: ${{ steps.app-token.outputs.app-slug }}
 
       # The committed pointer's blob, read-only: the writer reads each case's
       # docket number from it and writes nothing back.
@@ -2401,13 +2387,19 @@ jobs:
       # dispatch's dry run, as everywhere; an apply whose count exceeds it is
       # refused whole, and so is one whose listings could not all be read.
       #
-      # No credential reaches this step: the stamper parses pages fetched from
-      # the Court's site for up to 45 minutes, so the App token and the git
-      # credential helper live only in the commit step below, which runs after
-      # it and parses nothing.
+      # No credential reaches this step. The stamper parses pages fetched from
+      # the Court's site for up to 45 minutes, so the App token is not minted
+      # until it has exited, and only on an apply: it rides only the commit
+      # step's env. That separates the token from the stamper in time, not by
+      # a process boundary — the two run as the same user on the same runner.
+      # The read-only AWS session the corpus pull assumed is blanked here too:
+      # the stamper opens the pulled local index and makes no S3 call.
       - name: Stamp vote records
         timeout-minutes: 45
         env:
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
@@ -2467,6 +2459,25 @@ jobs:
           if [ "${REPAIR_MODE}" != "apply" ]; then
             echo "dry-run only; nothing written."
           fi
+
+      # The write credential exists only on an apply, and only from here on,
+      # after the stamper has exited: minted, handed to the git identity, and
+      # held by the commit step, none of which parses anything fetched.
+      - name: Mint app token
+        if: ${{ inputs.repair_mode == 'apply' }}
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Configure git identity
+        if: ${{ inputs.repair_mode == 'apply' }}
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
 
       # The only step holding a credential that can write: it stages what the
       # stamp step wrote, commits it and pushes. It parses nothing fetched.

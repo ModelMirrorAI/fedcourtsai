@@ -26,6 +26,7 @@ from fedcourtsai.pipeline import opinion_lineups, order_lineups
 from fedcourtsai.pipeline.documents import ExtractedText
 from fedcourtsai.pipeline.opinion_lineups import OpinionFetcher
 from fedcourtsai.pipeline.order_lineups import OrderDocketReading, OrderFetcher, OrderPartReading
+from fedcourtsai.pipeline.vote_sources import is_opinion_pdf
 from fedcourtsai.schemas import (
     Disposition,
     EventKind,
@@ -649,3 +650,9 @@ def test_docket_numbers_read_the_real_corpus_schema(tmp_path: Path) -> None:
     with corpus.connect_readonly(db, backend="local") as conn:
         numbers = vote_writer.docket_numbers(conn, ["scotus/304", "scotus/306", "scotus/999"])
     assert numbers == {"scotus/304": "22-845", "scotus/306": "26A11"}
+
+
+def test_an_opinion_url_with_a_dot_segment_is_not_the_sources_document() -> None:
+    assert is_opinion_pdf("https://www.supremecourt.gov/opinions/25pdf/24-43_2b35.pdf")
+    assert not is_opinion_pdf("https://www.supremecourt.gov/opinions/../orders/x.pdf")
+    assert not is_opinion_pdf("https://www.supremecourt.gov/opinions/./x.pdf")
