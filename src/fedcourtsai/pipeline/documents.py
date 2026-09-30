@@ -978,7 +978,9 @@ _EMAIL_ANCHOR_RE = re.compile(r"@|[(\[{][ \t]?at[ \t]?[)\]}]", re.IGNORECASE)
 # email must contain its `@`, a telephone number at least ten digits, and a
 # street address at least one digit and eight significant characters. Below
 # those floors a value — a bare "General Delivery", a four-digit extension — is
-# the kind of string legal prose can repeat, and the shape pass is left to it.
+# the kind of string legal prose can repeat, and the shape pass is left to it —
+# where the shape pass runs at all: on a docket scrubbed by the value pass alone
+# (see `scrub_contact_details`), a value below its floor is not withheld.
 
 _VALUE_GAP = r"[\W_]{0,3}"
 # Every character a line split reads as a boundary — a page break in OCR text
@@ -997,23 +999,38 @@ SCRUB_PASS_VALUE = "value"
 COUNSEL_SIDES: tuple[str, ...] = ("Petitioner", "Respondent")
 """The payload keys holding a party side's counsel blocks, which the scrubs read."""
 
+OTHER_LIST = "Other"
+"""The payload key holding the amicus and other non-party filers' counsel blocks."""
+
+SCRUBBED_LISTS: tuple[str, ...] = (*COUNSEL_SIDES, OTHER_LIST)
+"""Every counsel-block list the scrubs read: both party sides, then the ``Other`` list."""
+
 
 def party_contact_values(payload: Mapping[str, Any], sides: Sequence[str]) -> tuple[str, ...]:
     """The contact values served on the counsel blocks of each of ``sides``.
 
     Every block's ``Email`` (each address, where the field lists several),
-    ``Phone`` and ``Address`` on each named side, in side and block order and
+    ``Phone`` and ``Address`` on each named list, in list and block order and
     without repeats — the values the value-keyed pass looks for. The caller
-    passes the sides :func:`unrepresented_sides` reads as self-represented, so a
-    represented side's counsel is never keyed on. Within a named side every
-    block is read rather than only the self-represented one: a represented
-    co-party's counsel loses only professional details, which is the trade the
-    trigger already makes. A payload serving no block on a named side — the
-    CourtListener REST shape — yields nothing, and the scrub is then the shape
-    pass alone.
+    passes the lists :func:`unrepresented_sides` reads as self-represented, so a
+    represented side's counsel is never keyed on. Within a named party side
+    every block is read rather than only the self-represented one: a
+    represented co-party's counsel loses only professional details, which is
+    the trade the trigger already makes. The ``Other`` list is the exception:
+    its blocks are unrelated filers rather than co-parties, so only the blocks
+    that qualify there — the ones the snapshot scrub withholds — are read, and a
+    represented amicus's counsel is never keyed on. A payload serving no block
+    on a named list — the CourtListener REST shape — yields nothing, and the
+    scrub is then the shape pass alone where it runs one, and nothing on a
+    docket scrubbed by the value pass alone.
     """
     values: list[str] = []
-    for block in (block for side in sides for block in _served_blocks(payload, side)):
+    for block in (
+        block
+        for side in sides
+        for block in _served_blocks(payload, side)
+        if side != OTHER_LIST or _block_qualifies(block, side)
+    ):
         for field in _VALUE_FIELDS:
             value = block.get(field)
             if not isinstance(value, str):
@@ -1074,7 +1091,9 @@ def _merged_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
-def scrub_contact_details(text: str, values: tuple[str, ...] = ()) -> ScrubbedText:
+def scrub_contact_details(
+    text: str, values: tuple[str, ...] = (), *, shape: bool = True
+) -> ScrubbedText:
     """Replace every contact detail in ``text`` with the fixed placeholder.
 
     Two passes, matched together against the original text (see the comment on
@@ -1083,7 +1102,13 @@ def scrub_contact_details(text: str, values: tuple[str, ...] = ()) -> ScrubbedTe
     :func:`party_contact_values` — wherever the text spells it, however a
     scan fragmented it, line breaks included (see the section comment above). It
     runs only where a value clears its floor, and ``passes`` says whether it
-    did.
+    did. ``shape=False`` runs the value pass alone — the caller's choice on a
+    docket read as self-represented on its ``Other`` list alone, whose amici's
+    own briefs are not a staged kind: there the staged filings are counsel's,
+    and the shape pass would cost their text its misreads of legal prose (a case
+    name led by a street number, a regulation number in telephone shape).
+    ``passes`` is then ``("value",)``, or empty where no value cleared its floor
+    and nothing ran.
 
     The **shape** pass matches five shapes: an email address in its contiguous
     spelling, the same address as OCR fragments it (a blank beside the `@` or a
@@ -1124,9 +1149,10 @@ def scrub_contact_details(text: str, values: tuple[str, ...] = ()) -> ScrubbedTe
     ledger; it does not make a filing anonymous.
     """
     patterns = [p for p in (_value_pattern(v) for v in values) if p is not None]
-    passes = (SCRUB_PASS_VALUE, SCRUB_PASS_SHAPE) if patterns else (SCRUB_PASS_SHAPE,)
-    anchored = _EMAIL_ANCHOR_RE.search(text) is not None
-    patterns += [p for p in _CONTACT_PATTERNS if anchored or p is not _FRAGMENTED_EMAIL_RE]
+    passes = ((SCRUB_PASS_VALUE,) if patterns else ()) + ((SCRUB_PASS_SHAPE,) if shape else ())
+    if shape:
+        anchored = _EMAIL_ANCHOR_RE.search(text) is not None
+        patterns += [p for p in _CONTACT_PATTERNS if anchored or p is not _FRAGMENTED_EMAIL_RE]
     spans = _merged_spans([m.span() for p in patterns for m in p.finditer(text)])
     parts: list[str] = []
     cursor = 0
@@ -1186,15 +1212,15 @@ def _comparable_name(raw: Any) -> frozenset[str]:
 
 
 def unrepresented_sides(payload: Mapping[str, Any]) -> tuple[str, ...]:
-    """The party sides whose served counsel blocks name nobody but the party.
+    """The counsel-block lists whose served blocks name nobody but the filer.
 
     The question both contact scrubs key on, answered from the docket's own
-    counsel blocks and **only** from them: each of :data:`COUNSEL_SIDES` — the
-    petitioner side and the respondent side — on which some served block names
-    nobody to write to but the party itself, in :data:`COUNSEL_SIDES` order. A
-    side whose blocks all name an attorney who is a different person is absent,
-    and so is a side the payload carries no block for. The docket is scrubbed
-    where the result is non-empty.
+    counsel blocks and **only** from them: each of :data:`SCRUBBED_LISTS` — the
+    petitioner side, the respondent side and the ``Other`` list — on which some
+    served block names nobody to write to but the filer itself, in
+    :data:`SCRUBBED_LISTS` order. A list whose blocks all name an attorney who
+    is a different person is absent, and so is a list the payload carries no
+    block for. The docket is scrubbed where the result is non-empty.
 
     That last arm is the one worth stating positively: an absent or empty side
     list is **unknown**, not unrepresented. The snapshots key space holds two
@@ -1244,13 +1270,27 @@ def unrepresented_sides(payload: Mapping[str, Any]) -> tuple[str, ...]:
 
     Any one qualifying block is enough for its side — a docket carrying a
     represented co-petitioner beside a self-represented one still stages that
-    filer's details, so the scrub runs. The ``Other`` list (amici and other
-    non-party filers) is not a party side and is not read.
+    filer's details, so the scrub runs.
+
+    The ``Other`` list — amici and other non-party filers — is read too, last
+    in :data:`SCRUBBED_LISTS` order, on the first two arms only. An amicus
+    served as its own attorney (in practice an individual lawyer or law
+    professor whose served name carries no title) is served exactly as a
+    self-represented party is, and withholding its contact keys costs a cell
+    nothing. The name comparison is the party sides' own, so a ``PartyName``
+    carrying a title or joinder the ``Attorney`` field lacks does not read as
+    self-represented. The register-number arm is not
+    asked there, because ``PrisonerId`` on an ``Other`` block is not a register
+    number: over the pulled blob at the ``2026-09-29`` pull stamp every one of
+    the 7 populated values on that list is an address-shaped string or a
+    phrase, each on an organisation served with separate counsel, while every
+    petitioner-side value is a register number. Read there, the arm would take
+    a represented organisation for an incarcerated filer.
     """
     return tuple(
         side
-        for side in COUNSEL_SIDES
-        if any(_block_names_nobody_else(block) for block in _served_blocks(payload, side))
+        for side in SCRUBBED_LISTS
+        if any(_block_qualifies(block, side) for block in _served_blocks(payload, side))
     )
 
 
@@ -1262,9 +1302,19 @@ def _served_blocks(payload: Mapping[str, Any], side: str) -> list[Mapping[str, A
     return [block for block in served if isinstance(block, Mapping)]
 
 
-def _block_names_nobody_else(block: Mapping[str, Any]) -> bool:
-    """Whether one counsel block names nobody but its party."""
-    if str(block.get("PrisonerId") or "").strip():
+def _block_qualifies(block: Mapping[str, Any], side: str) -> bool:
+    """Whether one block on ``side`` reads as self-represented, with that list's arms."""
+    return _block_names_nobody_else(block, register_number_arm=side != OTHER_LIST)
+
+
+def _block_names_nobody_else(block: Mapping[str, Any], *, register_number_arm: bool) -> bool:
+    """Whether one counsel block names nobody but its party.
+
+    ``register_number_arm`` asks the prisoner register-number arm; it is off on
+    the ``Other`` list, where ``PrisonerId`` is not a register number (see
+    :func:`unrepresented_sides`).
+    """
+    if register_number_arm and str(block.get("PrisonerId") or "").strip():
         return True
     attorney = _comparable_name(block.get("Attorney"))
     if not attorney:
@@ -1275,13 +1325,14 @@ def _block_names_nobody_else(block: Mapping[str, Any]) -> bool:
 # --- The staged snapshot's counsel blocks -----------------------------------
 #
 # The snapshot staged beside the documents is the upstream payload, and on a
-# docket the scrub above runs over, a self-represented party's counsel block —
-# petitioner side or respondent side — carries the filer's own contact details
-# as labelled keys — a more quotable form of what the documents' signature
-# blocks print, plus a prisoner register number no shape could match. The same
-# withholding is applied to that copy: on every block of either party side that
-# names nobody but the party (the block-level half of the predicate above), each
-# populated contact key is replaced by the fixed placeholder.
+# docket the scrub above runs over, a self-represented filer's counsel block —
+# petitioner side, respondent side or the `Other` list of amici — carries the
+# filer's own contact details as labelled keys — a more quotable form of what
+# the documents' signature blocks print, plus a prisoner register number no
+# shape could match. The same withholding is applied to that copy: on every
+# block of any of those lists that names nobody but the filer (the block-level
+# half of the predicate above, with that list's arms), each populated contact
+# key is replaced by the fixed placeholder.
 #
 # What is kept is what anything downstream reads. `PartyName` and `Attorney`
 # stay, since the predicate itself compares them and a cell names the party
@@ -1293,7 +1344,10 @@ def _block_names_nobody_else(block: Mapping[str, Any]) -> bool:
 # being blanked — because a register number on the block is upstream's own
 # marker for an incarcerated filer, which the predicate's third arm reads and a
 # cell may reason from; only the number itself, the personal datum, is
-# withheld. An empty key stays empty, so absence still reads as absence.
+# withheld. On the `Other` list the key holds no register number, so a
+# populated one on a qualifying block there is withheld with the contact
+# placeholder rather than marked. An empty key stays empty, so absence still
+# reads as absence.
 
 SNAPSHOT_CONTACT_FIELDS: tuple[str, ...] = ("Address", "City", "Zip", "Phone", "Email", "Title")
 """The counsel-block keys whose populated values the staged snapshot withholds."""
@@ -1304,7 +1358,7 @@ REGISTER_NUMBER_WITHHELD = "[register number withheld]"
 
 @dataclass(frozen=True)
 class ScrubbedSnapshot:
-    """A staged snapshot with self-represented parties' contact keys withheld."""
+    """A staged snapshot with self-represented filers' contact keys withheld."""
 
     payload: dict[str, Any]
     blocks: int
@@ -1312,37 +1366,43 @@ class ScrubbedSnapshot:
 
 
 def scrub_snapshot_contacts(payload: Mapping[str, Any]) -> ScrubbedSnapshot:
-    """``payload`` with each self-represented party-side block's contacts withheld.
+    """``payload`` with each self-represented block's contacts withheld.
 
     Returns a copy: the caller's payload — the one the trigger, the cell context
-    and the document scrub read — is never mutated. Only the party-side lists
-    (:data:`COUNSEL_SIDES`) are rebuilt, and within them only a qualifying block
-    is a new object; every other key and block — a represented party's counsel,
-    the ``Other`` list of amici — is the object the payload served. ``blocks``
-    counts the blocks that had anything withheld and ``fields`` the values
-    withheld, the register number included. A payload serving no party-side
-    block is returned as an equal copy with both counts zero. The staged payload
-    is a fixed point — scrubbing it again changes nothing, since the kept name
-    fields and the register number's marker keep each block qualifying and the
-    placeholders are what a second pass would write — but the counts are meant for a
-    payload as served: run over an already-scrubbed copy they would count the
-    placeholders again.
+    and the document scrub read — is never mutated. Only the counsel-block lists
+    (:data:`SCRUBBED_LISTS`: both party sides and the ``Other`` list) are
+    rebuilt, and within them only a qualifying block is a new object; every
+    other key and block — a represented party's counsel, a represented amicus —
+    is the object the payload served. ``blocks`` counts the blocks that had
+    anything withheld and ``fields`` the values withheld, the register number
+    included. A payload serving no counsel block is returned as an equal copy
+    with both counts zero. The staged payload is a fixed point — scrubbing it
+    again changes nothing, since the kept name fields and the register number's
+    marker keep each block qualifying and the placeholders are what a second
+    pass would write — but the counts are meant for a payload as served: run
+    over an already-scrubbed copy they would count the placeholders again.
 
-    The selection is the block-level predicate's, on either side, so a block
-    carrying a register number is scrubbed whatever its ``Attorney`` says — the
-    few counselled incarcerated parties lose their counsel's professional
-    details, the trade the document scrub already makes.
+    The selection is the block-level predicate's, with each list's arms, so a
+    party-side block carrying a register number is scrubbed whatever its
+    ``Attorney`` says — the few counselled incarcerated parties lose their
+    counsel's professional details, the trade the document scrub already makes.
+    An ``Other`` block qualifies only by naming nobody but its filer, since the
+    register-number arm is not asked there; a populated ``PrisonerId`` on a
+    qualifying one is withheld with the contact placeholder.
     """
     staged = dict(payload)
     touched = 0
     withheld = 0
-    for side in COUNSEL_SIDES:
+    for side in SCRUBBED_LISTS:
         served = payload.get(side)
         if not isinstance(served, list):
             continue
+        # On the `Other` list `PrisonerId` is not a register number, so a
+        # populated one there is withheld as the free text it is, not marked.
+        prisoner_marker = REGISTER_NUMBER_WITHHELD if side != OTHER_LIST else CONTACT_PLACEHOLDER
         rebuilt: list[Any] = []
         for block in served:
-            if not isinstance(block, Mapping) or not _block_names_nobody_else(block):
+            if not isinstance(block, Mapping) or not _block_qualifies(block, side):
                 rebuilt.append(block)
                 continue
             staged_block = dict(block)
@@ -1352,7 +1412,7 @@ def scrub_snapshot_contacts(payload: Mapping[str, Any]) -> ScrubbedSnapshot:
                     staged_block[field] = CONTACT_PLACEHOLDER
                     count += 1
             if str(staged_block.get("PrisonerId") or "").strip():
-                staged_block["PrisonerId"] = REGISTER_NUMBER_WITHHELD
+                staged_block["PrisonerId"] = prisoner_marker
                 count += 1
             touched += 1 if count else 0
             withheld += count

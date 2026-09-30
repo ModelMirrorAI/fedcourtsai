@@ -4095,11 +4095,141 @@ def test_both_sides_self_represented_read_in_side_order() -> None:
     assert unrepresented_sides(payload) == ("Petitioner", "Respondent")
 
 
-def test_an_amicus_filing_in_person_is_not_a_party_side() -> None:
-    # The `Other` list holds amici and other non-party filers, not a party side.
+@pytest.mark.parametrize(
+    "block",
+    [
+        # Self-naming and no attorney named: the two arms the `Other` list asks.
+        {"PartyName": "Jane Scholar", "Attorney": "Jane Q. Scholar"},
+        {"PartyName": "Scholar, Jane"},
+    ],
+)
+def test_an_amicus_filing_in_its_own_name_reads_on_the_other_list(
+    block: dict[str, object],
+) -> None:
     payload = {
         "Petitioner": [{"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"}],
-        "Other": [{"PartyName": "Jane Scholar", "Attorney": "Jane Scholar"}],
+        "Other": [{"PartyName": "Example Chamber of Commerce", "Attorney": "Ann Counsel"}, block],
+    }
+
+    assert unrepresented_sides(payload) == ("Other",)
+
+
+def test_the_register_number_arm_is_not_asked_of_the_other_list() -> None:
+    # `PrisonerId` on an `Other` block holds free text — an address-shaped
+    # string or a phrase on an organisation served with separate counsel — not
+    # a register number, so it does not make the block read as self-represented.
+    payload = {
+        "Petitioner": [{"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"}],
+        "Other": [
+            {
+                "PartyName": "Example Association for Liberty",
+                "Attorney": "Ann B. Advocate",
+                "PrisonerId": "1234 Sample Drive, Suite 000-000",
+            }
+        ],
     }
 
     assert unrepresented_sides(payload) == ()
+
+
+def test_all_three_lists_read_in_order() -> None:
+    payload = {
+        "Other": [{"PartyName": "Jane Scholar", "Attorney": "Jane Scholar"}],
+        "Respondent": [{"PartyName": "Richard Roe", "Attorney": "Richard Roe"}],
+        "Petitioner": [{"PartyName": "Jane Doe", "Attorney": "Jane Doe"}],
+    }
+
+    assert unrepresented_sides(payload) == ("Petitioner", "Respondent", "Other")
+
+
+def test_the_amicus_values_are_read_off_the_qualifying_blocks_only() -> None:
+    # The `Other` list's blocks are unrelated filers, not co-parties: a
+    # represented amicus's counsel is not keyed on beside a self-represented one.
+    payload = {
+        "Petitioner": [{"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"}],
+        "Other": [
+            {
+                "PartyName": "Example Chamber of Commerce",
+                "Attorney": "Ann Counsel",
+                "Email": "counsel@firm.example.com",
+                "Phone": "(555) 555-0177",
+            },
+            {
+                "PartyName": "Jane Scholar",
+                "Attorney": "Jane Scholar",
+                "Email": "jscholar@law.example.edu",
+                "Phone": "(555) 555-0142",
+                "Address": "100 Campus Drive",
+            },
+        ],
+    }
+    sides = unrepresented_sides(payload)
+
+    assert sides == ("Other",)
+    assert party_contact_values(payload, sides) == (
+        "jscholar@law.example.edu",
+        "(555) 555-0142",
+        "100 Campus Drive",
+    )
+
+
+def test_the_value_pass_alone_leaves_every_shape_it_was_not_keyed_on() -> None:
+    # `shape=False`: the amicus's own values go, however the scan broke them,
+    # and a counsel block's address and number — shapes only the shape pass
+    # reads — survive, as does a citation the shape pass would misread.
+    text = (
+        "Counsel of Record\n"
+        + "1000 Maine Avenue SW\n"
+        + "(202) 555-0100\n"
+        + "(citing 16 Front St., L.L.C. v. Example)\n"
+        + "Amicus: jscholar@law.example.\n"
+        + "edu\n"
+    )
+
+    scrubbed = scrub_contact_details(text, ("jscholar@law.example.edu",), shape=False)
+    both = scrub_contact_details(text, ("jscholar@law.example.edu",))
+
+    assert scrubbed.passes == (SCRUB_PASS_VALUE,)
+    assert scrubbed.replacements == 1
+    assert scrubbed.text == (
+        "Counsel of Record\n"
+        + "1000 Maine Avenue SW\n"
+        + "(202) 555-0100\n"
+        + "(citing 16 Front St., L.L.C. v. Example)\n"
+        + f"Amicus: {CONTACT_PLACEHOLDER}\n\n"
+    )
+    # The default runs both passes.
+    assert both.passes == (SCRUB_PASS_VALUE, SCRUB_PASS_SHAPE)
+    assert "1000 Maine Avenue SW" not in both.text
+
+
+def test_the_value_pass_alone_with_nothing_to_key_on_runs_nothing() -> None:
+    scrubbed = scrub_contact_details("Tel. (202) 555-0100\n", ("General Delivery",), shape=False)
+
+    assert scrubbed.passes == ()
+    assert scrubbed.replacements == 0
+    assert scrubbed.text == "Tel. (202) 555-0100\n"
+
+
+def test_party_values_come_first_then_the_qualifying_amicus_values() -> None:
+    # A self-represented petitioner beside a qualifying and a represented
+    # amicus: the party side's values, then the qualifying amicus's alone, with
+    # a value repeated across lists kept once.
+    payload = {
+        "Petitioner": [
+            {"PartyName": "Jane Doe", "Attorney": "Jane Doe", "Email": "shared@example.com"}
+        ],
+        "Other": [
+            {"PartyName": "Example Chamber", "Attorney": "Ann Counsel", "Email": "ac@example.com"},
+            {
+                "PartyName": "Jane Scholar",
+                "Attorney": "Jane Scholar",
+                "Email": "shared@example.com",
+                "Phone": "(555) 555-0142",
+            },
+        ],
+    }
+    sides = unrepresented_sides(payload)
+
+    assert sides == ("Petitioner", "Other")
+    assert party_contact_values(payload, sides) == ("shared@example.com", "(555) 555-0142")

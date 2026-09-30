@@ -319,8 +319,33 @@ address a filing carries most reliably. The arms are the same on either side,
 and any one qualifying block is enough, so a docket carrying a represented
 co-petitioner beside a self-represented one is scrubbed, and so is a counselled
 petition answered by a respondent filing in person. The `Other` list — amici
-and other non-party filers — is not a party side and is not read. Every
-document staged for such a docket has its emails, telephone numbers, post-office boxes and
+and other non-party filers — is read too, on the first two arms only: an
+amicus served as its own attorney (in practice individual lawyers and law
+professors whose served name carries no title) or with no attorney named. The
+comparison is the party sides' own, so a self-filing amicus whose `PartyName`
+carries a title or a joinder the `Attorney` field lacks ("Professor …",
+"Hon. … (Ret.)", "… and …") is not read as self-represented and stays as
+served; on the pulled blob no organisation's block qualifies, since every one
+names a person as `Attorney`. The register-number
+arm is not asked there, because `PrisonerId` on an `Other` block is not a
+register number: on the pulled blob at pull stamp `2026-09-29` every populated
+value on that list is an address-shaped string or a phrase on an organisation
+served with separate counsel, which the arm would read as an incarcerated
+filer. The residual is a represented amicus block that did carry a real
+register number (none on that blob): it would stay as served, where a
+party-side one is withheld whatever its `Attorney` says. A docket whose only
+qualifying block is an amicus's gets the **value pass alone** (below): the
+amicus's own brief is not a staged kind, so what is staged there is counsel's
+filings, and the shape pass would cost their text its misreads of legal prose —
+a case name led by a street number, a regulation number in telephone shape —
+where the staged filers are represented. The premise is about amici, whose
+briefs are never staged; a self-represented non-amicus `Other` filer (an
+intervenor, say) whose own opposition is staged would get the value pass alone
+too, so a detail of theirs spelled otherwise than the docket serves it would
+stay (none on the pulled blob). Where no amicus value clears its
+floor, nothing runs and the documents are staged as filed. On a docket read as
+self-represented on a party side, every
+document staged has its emails, telephone numbers, post-office boxes and
 street addresses replaced by the fixed token `[contact detail withheld]`, which
 keeps the document's structure and tells a reader that something was withheld
 rather than that a line is missing. It runs as two passes. The **shape** pass
@@ -329,7 +354,8 @@ fragments it (a blank beside the `@` or a dot, a letter-spaced local part,
 `(at)`), and never takes a line break. The **value** pass looks for the
 `Email`, `Phone` and `Address` strings on every served block of each side read
 as self-represented (the filer's own, and any co-party counsel's on that side
-— never a side whose blocks all name counsel), however the scan spaced or
+— never a side whose blocks all name counsel; on the `Other` list, the
+qualifying blocks' alone, since amici are not co-parties), however the scan spaced or
 line-broke them, and puts back every line break it consumed; it runs only
 where the docket serves a value specific enough to key on (an email with its
 `@`, a telephone number of ten or more digits, an address with a digit and
@@ -338,10 +364,14 @@ original text and overlapping matches are withheld as one span, so adding a
 pass can only widen what is withheld. The manifest entry carries what happened: `contact_scrubbed`, whether
 the scrub ran over this document's staged text; `contact_replacements`, how
 many it withheld — so `true, 0` (scrubbed, nothing found) stays
-distinguishable from `false, 0` (a represented docket's text, untouched); and
+distinguishable from `false, 0` (a represented docket's text, or the text of
+an amicus-only docket whose amici serve no value specific enough to key on,
+untouched — the run log says `not run` for the latter); and
 `contact_scrub_passes`, which passes ran (`["value", "shape"]`, `["shape"]`,
-or `[]` where the scrub did not run), so a shape-only scrub is not read as the
-complete one. A filing by the other side's counsel on such a docket is
+`["value"]` on an amicus-only docket, or `[]` where the scrub did not run), so
+a shape-only or value-only scrub is not read as the complete one. A filing by
+the other side's counsel on a docket read as self-represented on a party side
+is
 scrubbed with the rest, since the reading is the docket's and taken once:
 the cost is a firm's switchboard number a cell had no use for.
 
@@ -356,7 +386,7 @@ other one — a CourtListener REST docket, which carries no counsel blocks
 anywhere — names nobody because it has nowhere to. Reading that as
 self-representation would scrub on the strength of a payload shape rather than
 of a fact about the docket, and over the stored payloads in the corpus it would
-take 1,984 of 2,925 cases rather than 623. So the scrub fires on evidence rather
+take 2,012 of 2,925 cases rather than 654 (pull stamp `2026-09-29`). So the scrub fires on evidence rather
 than on the absence of it, and a docket whose counsel the corpus does not carry
 stages its text as filed. What the scrub
 reads is **representation**, which is a different fact from the **fee** class
@@ -382,28 +412,32 @@ institution name, which has no shape at all.
 carry `Address` / `City` / `Zip` / `Phone` / `Email` / `PrisonerId` as labelled
 keys — on a self-represented docket the filer's own details in a more quotable
 form than any signature block. On such a docket, every block on either party
-side that the trigger reads as naming nobody but the party — a block carrying a
-register number included, whatever its `Attorney` says, so a counselled
-incarcerated party's block loses its counsel's professional details — has each
+side or the `Other` list that the trigger reads as naming nobody but its filer
+— on a party side a block carrying a register number included, whatever its
+`Attorney` says, so a counselled incarcerated party's block loses its
+counsel's professional details — has each
 populated `Address`, `City`, `Zip`, `Phone`, `Email` and `Title` (free text
 nothing reads, which upstream sometimes fills with an inmate number) replaced
 by `[contact detail withheld]`, and
 a populated `PrisonerId` replaced by `[register number withheld]`: the number is
 the personal datum, its presence is upstream's marker for an incarcerated filer,
 which the trigger's third arm reads and a cell may reason from, so the marker
-keeps the presence. `PartyName`, `Attorney`, `State` and every other block —
-a represented party's counsel on either side, amici — stay as served, and an
-empty key stays empty. The copy is built beside the payload rather than in
+keeps the presence. On a qualifying `Other` block, where the key holds no
+register number, a populated `PrisonerId` is withheld with
+`[contact detail withheld]` instead. `PartyName`, `Attorney`, `State` and
+every other block — a represented party's counsel on either side, a
+represented amicus — stay as served, and an empty key stays empty. The copy is built beside the payload rather than in
 place of it, so the cell context, the trigger and the document scrub all read
 the payload as served; nothing scored or analytic reads the withheld keys (a
 test pins both halves: no module outside the scrub names them as literals or
 imports its key list, and every row, band, context and gate derived from a
 scrubbed payload equals the one from the original). The provisioning step echoes the counts, never a value:
 `snapshot contact scrub: N value(s) withheld on M petitioner-side block(s)`,
-with `respondent-side` or `petitioner/respondent-side` naming the sides read as
-self-represented; the document scrub's line names them the same way (`no
-attorney named for the petitioner`, `the respondent`, or
-`the petitioner/respondent`).
+with `respondent-side`, `amicus-side` or a `/`-joined list such as
+`petitioner/respondent-side` naming the lists read as self-represented (the
+`Other` list is named `amicus`); the document scrub's line names them the same
+way (`no attorney named for the petitioner`, `the respondent`, `the amicus`, or
+`the petitioner/respondent`), with `passes: value` on an amicus-only docket.
 Both files are gitignored, and no predict or evaluate cell uploads `record/`,
 so what can reach public git from a cell is what its prose quotes, which is the
 exposure [data-sources.md](data-sources.md) already names. The case-summary
