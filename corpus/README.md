@@ -157,9 +157,10 @@ would erase a live reading if the same docket ever took a REST or bulk write.
 The upsert therefore latches it: an empty incoming list keeps the stored one,
 and a non-empty reading (the live channel's re-read) replaces it, so a
 corrected parse still lands. A row last written before the column existed
-stays empty until a live re-poll or a re-walk re-serves it — the same
-legacy-row shape as `sample_weight` below. A decided docket leaves the live
-rotation, so on a resolved row that re-serve does not come on its own.
+stays empty until a live re-poll, a re-walk or `refresh-dockets` re-serves it —
+the same legacy-row shape as `sample_weight` below. A decided docket leaves the
+live rotation (a granted docket stays in it until its judgment), so on a
+decided row that re-serve does not come on its own.
 
 `last_pulled` is per-case **tracking state**, not a docket fact: `pull` stamps it
 on every refresh and the budget governor rotates the oldest-`last_pulled`-first
