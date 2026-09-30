@@ -5708,6 +5708,14 @@ freeze commit is recorded here.
     and 2 `Title`. None carries a register number. The other **11**
     respondent-side blocks on those dockets name counsel and are staged as
     served.
+  - All 4 are individuals, and none is a government official named as
+    respondent and appearing as their own counsel of record. Two carry a law
+    firm in `Title`, so they are lawyers sued in person and answering for
+    themselves, and part of what is withheld is professional. The comparison
+    that reads self-naming was tuned on the petitioner side. An official
+    respondent who is their own counsel of record would read as
+    self-represented and be over-scrubbed, which withholds more and exposes
+    nothing.
   - The value pass on those 4 dockets now also keys on the respondent side's
     values. Their **6** stored documents, petitions and questions-presented
     rows, contain none of those values, so no staged document text changes on
@@ -5740,4 +5748,7 @@ freeze commit is recorded here.
     value(s) withheld on M respondent-side block(s)` (or
     `petitioner/respondent-side`). That cell's staged snapshot carries
     `[contact detail withheld]` in the respondent block's populated contact
-    keys.
+    keys. A known docket settles it without waiting for one: `uv run fedcourts
+    provision-snapshot --court scotus --docket 73272708 --out <scratch>` echoes
+    `petitioner/respondent-side` on the snapshot line, where its latest
+    payload still serves the self-represented respondent's block.
