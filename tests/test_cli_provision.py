@@ -2439,6 +2439,31 @@ def test_a_self_represented_respondent_is_scrubbed_on_a_counselled_petition(
     assert "rroe.respondent@example.com" not in result.output
 
 
+def test_both_sides_self_represented_are_named_in_both_echoes(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    payload = {
+        **_PRO_SE_DOCKET,
+        "Petitioner": [{**_PRO_SE_DOCKET["Petitioner"][0], "Email": "jane.doe@example.com"}],
+        "Respondent": [
+            {"PartyName": "Richard Roe", "Attorney": "Richard Roe", "Phone": "(936) 555-0199"}
+        ],
+    }
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "snapshot contact scrub: 2 value(s) withheld on 2 petitioner/respondent-side block(s)"
+        in result.output
+    )
+    assert "(no attorney named for the petitioner/respondent; passes: value+shape)" in (
+        result.output
+    )
+
+
 def test_one_docket_level_reading_scrubs_every_staged_kind(
     fixture_corpus: FixtureCorpus,
 ) -> None:
@@ -2492,6 +2517,8 @@ def test_the_run_log_reports_what_the_scrub_withheld(fixture_corpus: FixtureCorp
 
     assert result.exit_code == 0, result.output
     assert "contact scrub: 3 detail(s) withheld across 1 staged document(s)" in result.output
+    # A docket fired by its petitioner alone names that side and no other.
+    assert "(no attorney named for the petitioner; passes: " in result.output
 
 
 def test_a_represented_docket_says_nothing_about_a_scrub_in_the_run_log(

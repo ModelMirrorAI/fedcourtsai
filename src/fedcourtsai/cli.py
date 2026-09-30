@@ -10909,8 +10909,9 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     # The staged snapshot is the payload with a self-represented party's own
     # contact keys withheld, on either party side (`scrub_snapshot_contacts`):
     # the copy a cell can quote from, on the same docket-level reading the
-    # document scrub below keys on. A separate object, so everything else here — the cell context,
-    # the scrub trigger, the document scrub — reads the payload as served.
+    # document scrub below keys on. A separate object, so everything else
+    # here — the cell context, the scrub trigger, the document scrub — reads
+    # the payload as served.
     unrepresented = unrepresented_sides(payload)
     staged_snapshot = scrub_snapshot_contacts(payload) if unrepresented else None
     write_raw_json(dest, payload if staged_snapshot is None else staged_snapshot.payload)

@@ -240,10 +240,10 @@ def test_both_sides_self_represented_are_both_scrubbed() -> None:
 
     assert scrubbed.blocks == 2
     assert scrubbed.fields == 6 + 5
-    staged = repr(scrubbed.payload)
-    for value in (*_pro_se_respondent().values(), *payload["Petitioner"][0].values()):
-        if isinstance(value, str) and value not in {"Richard Roe", "John Doe", "John Q. Doe", "TX"}:
-            assert value not in staged
+    for side, index in (("Petitioner", 0), ("Respondent", 0)):
+        block = scrubbed.payload[side][index]
+        for key in SNAPSHOT_CONTACT_FIELDS:
+            assert block[key] in (None, CONTACT_PLACEHOLDER)
 
 
 def test_the_staged_snapshot_is_a_fixed_point() -> None:
@@ -272,8 +272,16 @@ def test_a_payload_serving_no_petitioner_block_is_an_equal_copy() -> None:
 # --- nothing scored or analytic reads what was withheld ---------------------
 
 
-def test_every_scored_and_analytic_reading_of_the_payload_is_unchanged() -> None:
+@pytest.mark.parametrize(
+    ("respondent_pro_se", "sides"),
+    [(False, ("Petitioner",)), (True, ("Petitioner", "Respondent"))],
+)
+def test_every_scored_and_analytic_reading_of_the_payload_is_unchanged(
+    respondent_pro_se: bool, sides: tuple[str, ...]
+) -> None:
     payload = _payload()
+    if respondent_pro_se:
+        payload["Respondent"].append(_pro_se_respondent())
     staged = scrub_snapshot_contacts(copy.deepcopy(payload)).payload
     assert staged != payload  # the scrub did withhold something
 
@@ -304,7 +312,7 @@ def test_every_scored_and_analytic_reading_of_the_payload_is_unchanged() -> None
     )
     # And the scrub trigger reads the same docket either way: the register
     # number's marker keeps the block reading as self-represented.
-    assert unrepresented_sides(staged) == unrepresented_sides(payload) == ("Petitioner",)
+    assert unrepresented_sides(staged) == unrepresented_sides(payload) == sides
 
 
 def _key_literals(tree: ast.AST) -> set[str]:
