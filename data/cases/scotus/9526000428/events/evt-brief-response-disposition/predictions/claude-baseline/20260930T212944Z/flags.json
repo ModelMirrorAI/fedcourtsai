@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9526000428",
+  "run_id": "20260930T212944Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "Timing: the application, the response, and the State's reply were all docketed on 2026-09-30, the scheduled execution date, and this cell ran at ~21:30 UTC that day. The Court typically disposes of a State's execution-stay vacatur application within hours of full briefing, so the disposition may already exist and postdate the snapshot by less than a day. I did not look up the 26A428 docket's current state; no outcome-revealing material surfaced in any retrieval (the Sixth Circuit docket read via CourtListener was current as of 14:34 UTC and showed the stay still in force). The forecast rests on the pre-disposition record only."
+    }
+  ]
+}

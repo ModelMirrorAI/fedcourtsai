@@ -1,0 +1,67 @@
+{
+  "big_case_rationale": "Immediate life-or-death consequences in a capital case, with disputed childhood-abuse mitigation and the integrity of federal habeas review at issue. Very high individual and public stakes, although a short interim order need not establish a broad new rule.",
+  "big_case_score": 0.85,
+  "case_id": "scotus/9526000428",
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.78
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.04
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.08
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": 0,
+    "band": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-01",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": false,
+    "response_requested": false,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-30",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-09-30T21:55:18Z",
+  "engine": "codex",
+  "event_id": "evt-brief-response-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-09-30.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.78,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "ed58070618d81519a48b5dbeeb2a8a2ed4373bc5",
+    "stamped_at": "2026-09-30T21:57:12.779183Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260930T212944Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
