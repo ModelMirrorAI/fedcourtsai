@@ -6009,3 +6009,115 @@ freeze commit is recorded here.
     `snapshot contact scrub: N value(s) withheld on M amicus-side block(s)` and
     `(no attorney named for the amicus; passes: value)`, where its latest
     payload still serves the two self-named amicus blocks.
+
+- **OT2024's unpolled applications are back-filled into the interim docket,
+  moving the population the pooled interim base rate is computed over,
+  2026-09-30.** A **scoring-baseline** entry, and a **conditioning** one
+  through the same number. It registers the move before the apply that makes
+  it: the `application-backfill` run-repair pass
+  (`fedcourts backfill-applications`). No prompt byte, registry field or stamp
+  moves, so no digest moves: `uv run fedcourts process-digest --all` prints
+  `proc-v8` and the same six blessed digests before and after the change.
+
+  **What moves, and why.** Application capture started mid-OT2024, at
+  `24A1000`. Below it the corpus holds CourtListener stubs: a number, a filing
+  date and a court below, with no ask and no disposition. The statpack's
+  interim section counts a stub as `unparsed`, so it never enters the
+  substantive pool that `pipeline.base_rates.interim_base_rate` pools over
+  Terms strictly before a cell's application Term. The pass lands each stub
+  through the live channel's own ingest seam, so it arrives parsed and joins
+  the pool. The provisioned statpack's interim section is what interim cells
+  anchor on, and its pooled rate is the baseline their harness skill is stamped
+  against, so both the conditioning
+  and the scoring baseline move for every interim cell provisioned or stamped
+  after the next statpack refresh that follows the apply. **This entry
+  registers OT2024 alone.** Every Term inside the lookback sits in the pool
+  and each earlier one holds a thousand or more unparsed stubs, so each other
+  Term's apply is its own scoring-baseline move, needing its own entry; the
+  command refuses an apply for a Term outside `REGISTERED_APPLY_TERMS`, which
+  holds only OT2024. The two OT2024
+  numbers the stubs lacked outright (`24A149`, `24A1235`) are minted as
+  reserved-range rows.
+
+  **The dry run, read 2026-09-30.** Against blob `sha256:ce9359e9…` (latest
+  pull 2026-09-29, latest stored snapshot 2026-07-13), with every OT2024
+  serial fetched from supremecourt.gov that day. It would land **974** rows:
+  972 enriched stubs and 2 onboarded. The Term's end read at `24A1295`
+  (10 consecutive misses after it), with 321 serials already live-owned and
+  never fetched, no withheld serial, no held row and no failure.
+  - By kind: 797 extension, 126 substantive, 51 unknown. Capital: 77 (25 of
+    them substantive). Referred to the Court: 86. None pending.
+  - The 126 substantive rows are all machine-readably resolved: 4 granted and
+    122 denied.
+  - **The pool for OT2026 application cells** (OT2024 and OT2025) moves from
+    **31/296 = 10.5%** to **35/422 = 8.3%**.
+  - **The pool for OT2025 application cells** (OT2024 alone; no earlier Term
+    has a parsed application) moves from **14/70 = 20.0%** to
+    **18/196 = 9.2%**.
+  - These are the counts the statpack will print, which count rows. Four
+    OT2024 docket numbers are stored as two live-polled rows each, two of them
+    substantive grants (`24A910`, `24A931`), so counted by application the
+    parsed slice is 12/68 = 17.6% and the projections are 33/420 = 7.9%
+    (OT2026 cells) and 16/194 = 8.2% (OT2025 cells). That duplication predates
+    this change and is not corrected here; removing it is its own baseline
+    move.
+  - The direction is the one the coverage caveat predicted: the rows the live
+    poller reached in OT2024 were the late, active ones, and the parsed slice
+    granted at 17.6% by application (20.0% by row) against 3.2% (4/126) in the
+    stubs.
+  - Two of the three granted federal applications the corpus lacked, `24A885`
+    and `24A886`, land with an `unknown` ask, so they do not enter the
+    substantive pool; `24A904` lands as a granted substantive application.
+
+  **Why the apply waits.** It moves a registered anchor inside the
+  long-conference window, so it is dispatched only after the long-conference
+  release. Only the dry run runs before it. The pooled figures above are a
+  projection from the dry-run ledger and the blob named; the apply's own
+  ledger and the next statpack are the record.
+
+  **The straddling cohort, and how interim skill is read.** A stamp reads the
+  statpack current at stamp time, so an interim cell provisioned before the
+  refresh and stamped after it anchored on one pool and is scored against the
+  other, and cohort-mates stop sharing a pool. The boundary is the statpack
+  refresh commit named below; a stamped `segment_base_rate` marks which side a
+  cell sits on (≈0.105 before and ≈0.083 after for OT2026 cells, at the
+  dry-run counts). Interim skill is read split at that commit, never pooled
+  across it.
+
+  **What else moves in the provisioned statpack.** The OT2024 interim row's
+  escalation columns (`referred_to_court` by 86, and whatever
+  `response_requested` and `with_amicus` the ingest parses, all at their
+  terminal state), the pack-level interim totals, the live-slice coverage
+  counts (`live_slice_rows` and `live_slice_resolved`, by 974), and the
+  pack's court, era and resolved-disposition totals, with about 800 extension
+  rows newly resolved. Those are conditioning too, since the pack is
+  provisioned. The newly resolved rows also become reachable to similar-case
+  priors retrieval, which filters by court, topic and disposition; a replay
+  cell's retrieval stays masked by its event date.
+
+  **What does not move.** No committed `evaluation.json` is rewritten: a
+  stamped harness skill keeps the base rate it was stamped with, and a re-grade
+  is a separate dispatch. No cert rate moves: the pass writes application
+  rows only. Nothing is written by this change itself; the pass runs only as a
+  dispatched `run-repair` apply.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`). Applied by run
+  `<FILL: apply run id>` on `<FILL: apply date>`, landing
+  `<FILL: rows landed>` rows. The first statpack refreshed after it, at commit
+  `<FILL: statpack refresh commit>`, reads the OT2026 pool as
+  `<FILL: OT2026 pool granted/resolved>` (from
+  `<FILL: OT2026 pool before, granted/resolved>`) and the OT2025 pool as
+  `<FILL: OT2025 pool granted/resolved>` (from
+  `<FILL: OT2025 pool before, granted/resolved>`).
+
+  The runnable effect check once it is live:
+  - `uv run fedcourts backfill-applications --term 24 --limit 20` (a dev
+    checkout over a pulled corpus) prints a ledger and writes nothing;
+  - after the apply, the `application-backfill` control dry run reports
+    `would land 0 row(s)`;
+  - after the apply and a statpack refresh, the statpack's interim section
+    reports OT2024 with `unparsed` **0** and `applications` **1299** (1,297
+    rows plus the 2 onboarded); any residue is named here rather than
+    rounded away. `uv run fedcourts process-digest --all` still prints
+    `proc-v8` and the same six digests.

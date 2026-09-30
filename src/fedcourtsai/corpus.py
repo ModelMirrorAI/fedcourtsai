@@ -1992,14 +1992,41 @@ def scotus_case_id_by_docket_number(conn: sqlite3.Connection, raw: str | None) -
     norm = normalize_docket_number(raw)
     if norm is None:
         return None
+    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) = ?", norm).get(norm)
+
+
+def scotus_case_ids_by_docket_number_prefix(
+    conn: sqlite3.Connection, prefix: str
+) -> dict[str, str]:
+    """:func:`scotus_case_id_by_docket_number` for every number under ``prefix``, in one read.
+
+    Keyed by the normalized number, with the same lowest-docket-id rule. The
+    single join cannot use an index — ``norm_dn`` is a Python function — so each
+    call walks every SCOTUS row; a caller resolving a whole Term's serials reads
+    them once here instead of once per serial. ``prefix`` is a normalized prefix
+    free of GLOB metacharacters (``"24A"``).
+    """
+    if any(char in prefix for char in "*?[]"):
+        raise ValueError(f"not a plain docket-number prefix: {prefix!r}")
+    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) GLOB ?", f"{prefix}*")
+
+
+def _scotus_docket_number_matches(
+    conn: sqlite3.Connection, predicate: str, parameter: str
+) -> dict[str, str]:
+    """Normalized docket number -> the lowest-docket-id SCOTUS row matching ``predicate``."""
     cur = conn.execute(
-        "SELECT case_id FROM cases WHERE court = 'scotus' AND norm_dn(docket_number) = ?",
-        (norm,),
+        "SELECT norm_dn(docket_number) AS norm, case_id FROM cases "
+        f"WHERE court = 'scotus' AND {predicate}",
+        (parameter,),
     )
-    case_ids: list[str] = [str(record["case_id"]) for record in cur]
-    if not case_ids:
-        return None
-    return min(case_ids, key=lambda cid: int(cid.rsplit("/", 1)[-1]))
+    best: dict[str, str] = {}
+    for record in cur:
+        norm, case_id = str(record["norm"]), str(record["case_id"])
+        held = best.get(norm)
+        if held is None or int(case_id.rsplit("/", 1)[-1]) < int(held.rsplit("/", 1)[-1]):
+            best[norm] = case_id
+    return best
 
 
 # The Judiciary Act of 1925 (the "Judges' Bill") made the Supreme Court's

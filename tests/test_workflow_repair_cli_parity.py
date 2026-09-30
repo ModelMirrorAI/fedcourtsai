@@ -1,6 +1,6 @@
 """`run-repair`'s embedded CLI strings, executed against the fixture corpus.
 
-`run-repair.yml` is dispatch-only, so its seventeen maintenance passes are argv that
+`run-repair.yml` is dispatch-only, so its eighteen maintenance passes are argv that
 nothing runs until a maintainer runs one — in front of the maintainer, at the
 moment they most want it to work. A flag renamed in `cli.py` leaves the workflow
 string behind, and the whole cost of that drift lands on the dispatch as a usage
@@ -32,7 +32,8 @@ The passes' own semantics are pinned at their unit seams
 `tests/test_documents.py`,
 `tests/test_document_backfill.py`,
 `tests/test_document_mirror.py`,
-`tests/test_arrival_backfill.py` and
+`tests/test_arrival_backfill.py`,
+`tests/test_application_backfill.py` and
 `tests/test_cli_stamp.py`), which is why a
 near-empty fixture corpus is enough here — a pass with nothing to do still
 parses every flag it was given.
@@ -60,6 +61,7 @@ from fedcourtsai.pipeline.ocr_recovery import (
     DOCUMENT_BUDGET_SECONDS,
     ESTIMATED_CANDIDATE_OVERHEAD_SECONDS,
 )
+from fedcourtsai.supremecourt import SupremeCourtClient
 from tests.conftest import seed_evaluation, seed_prediction
 from tests.test_documents import _seed_qp_backfill_corpus
 from tests.workflow_argv import command_argv, expand, logical_lines, shell_arrays
@@ -79,6 +81,16 @@ REPAIR_BOUND = "1"
 #: label with its own error (`tests/test_distribution_rederive.py`), so an
 #: unregistered stand-in would mask a renamed `--parse` behind a refusal.
 REPAIR_PARSE_LABEL = "dist-v2"
+
+#: The back-fill's Term. `REPAIR_TARGET` is one input read three ways — a parse
+#: label, a cell list, a Term — so each pass that splices it gets its own value.
+REPAIR_TERM = "24"
+
+#: Commands that fetch from supremecourt.gov as their dry run. The offline gate
+#: must not reach the Court's site, so for these the client's transport answers
+#: every docket as unserved: the walk then ends on its miss threshold having
+#: parsed every flag and landed nothing.
+OFFLINE_FETCHERS = frozenset({"backfill-applications"})
 
 #: One re-grade subject, in the `court/docket/event/run_id/actor` grammar the
 #: workflow greps a dispatch's cell list against. Asserted against that pattern
@@ -196,13 +208,14 @@ def _regrade_fields() -> dict[str, str]:
     return {"court": court, "docket": docket, "event": event, "run": run, "actor": actor}
 
 
-def _values() -> dict[str, str]:
+def _values(pass_name: str | None = None) -> dict[str, str]:
     """What each shell variable the pass argv reads stands for in this test."""
     return {
         "REPAIR_BOUND": REPAIR_BOUND,
-        # Only the re-derivation splices `REPAIR_TARGET` into argv directly; the
-        # re-grade reads its own target through the five fields below.
-        "REPAIR_TARGET": REPAIR_PARSE_LABEL,
+        # The re-derivation and the back-fill splice `REPAIR_TARGET` into argv
+        # directly; the re-grade reads its own target through the five fields
+        # below.
+        "REPAIR_TARGET": REPAIR_TERM if pass_name == "application-backfill" else REPAIR_PARSE_LABEL,
         **_regrade_fields(),
     }
 
@@ -221,7 +234,7 @@ def _pass_invocations(pass_name: str) -> list[list[str]]:
         body = str(step["run"])
         for arrays in ({}, shell_arrays(body)):
             for argv in command_argv(body, FEDCOURTS):
-                concrete = _runnable(expand(argv, arrays=arrays, values=_values()))
+                concrete = _runnable(expand(argv, arrays=arrays, values=_values(pass_name)))
                 if concrete and tuple(concrete) not in seen:
                     seen.add(tuple(concrete))
                     invocations.append(concrete)
@@ -262,7 +275,10 @@ def _run(argv: list[str], tmp_path: Path) -> None:
         "FEDCOURTS_CASESTORE_URL": "",
         "FEDCOURTS_CORPUS_BACKEND": "local",
     }
-    result = CliRunner().invoke(app, argv, env=env)
+    with pytest.MonkeyPatch.context() as patch:
+        if argv[0] in OFFLINE_FETCHERS:
+            patch.setattr(SupremeCourtClient, "_fetch", lambda self, url: None)
+        result = CliRunner().invoke(app, argv, env=env)
     rendered = " ".join(argv)
 
     # Exit 2 is Click's usage error — an option the CLI no longer defines, or a

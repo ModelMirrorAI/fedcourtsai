@@ -49,7 +49,7 @@ from __future__ import annotations
 
 import sqlite3
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -149,6 +149,7 @@ def _resolve_identity(
     serial: int,
     *,
     form: Literal["cert", "application"] = "cert",
+    matches: Mapping[str, str] | None = None,
 ) -> int:
     """The docket id this petition's row keys on: the matched row's, or a live mint.
 
@@ -156,10 +157,19 @@ def _resolve_identity(
     number onto any existing SCOTUS row and enrich it; only a genuinely unseen
     petition mints the deterministic reserved-range id. The minted id is
     permanent — see :func:`fedcourtsai.supremecourt.live_docket_id`.
+
+    ``matches`` is the same join read once for a whole Term
+    (:func:`~fedcourtsai.corpus.scotus_case_ids_by_docket_number_prefix`), for a
+    caller resolving many serials of it; it must cover the served number's
+    prefix, since a number it lacks reads as unseen.
     """
     separator = "A" if form == "application" else "-"
     raw_number = str(payload.get("CaseNumber") or f"{term:02d}{separator}{serial}")
-    existing = corpus.scotus_case_id_by_docket_number(conn, raw_number)
+    if matches is None:
+        existing = corpus.scotus_case_id_by_docket_number(conn, raw_number)
+    else:
+        norm = corpus.normalize_docket_number(raw_number)
+        existing = None if norm is None else matches.get(norm)
     if existing is not None:
         return int(existing.rsplit("/", 1)[-1])
     if form == "application":
