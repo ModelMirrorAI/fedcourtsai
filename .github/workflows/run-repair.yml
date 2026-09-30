@@ -321,7 +321,8 @@ jobs:
           fi
           # No separate "target is required" refusal: each target grammar above
           # already rejects the empty string — the parse label against its
-          # regex, the cell list against the emptiness guard — so a missing
+          # regex, the Term against its two-digit grammar, the cell list
+          # against the emptiness guard — so a missing
           # target is refused in the words of the pass that wanted it rather
           # than a generic second message that could never be reached.
           echo "repair=${REPAIR} mode=${REPAIR_MODE} accepted; the step of record re-checks every refusal above."
@@ -2602,9 +2603,11 @@ jobs:
       # leading dry run would double the pass's traffic to the Court's site.
       - name: Read the application back-fill ledger
         if: ${{ inputs.repair_mode == 'dry-run' }}
-        # The walk stops itself at 40 minutes (`--max-run-seconds`) and prints
-        # what it read, five minutes inside this cap, so a slow upstream still
-        # leaves a ledger. A Term runs about 1,000 to 1,500 paced fetches.
+        # The walk stops itself at 30 minutes (`--max-run-seconds`) and prints
+        # what it read, well inside this cap, so a slow upstream still leaves a
+        # ledger. The deadline is the apply's own, so a dry run that reaches the
+        # Term's end predicts an apply whose walk fits too. A Term runs about
+        # 1,000 to 1,500 paced fetches.
         timeout-minutes: 45
         env:
           AWS_ACCESS_KEY_ID: ""
@@ -2631,7 +2634,7 @@ jobs:
             exit 1
           fi
           uv run fedcourts backfill-applications --term "${REPAIR_TARGET}" \
-            --max-run-seconds 2400 2>&1 \
+            --max-run-seconds 1800 2>&1 \
             | tee -a "$GITHUB_STEP_SUMMARY"
           echo "dry-run only; nothing written."
 
