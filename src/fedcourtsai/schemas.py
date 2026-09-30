@@ -549,6 +549,22 @@ class JusticeVote(_Strict):
     )
 
 
+class GrammarStamp(_Strict):
+    """The grammar, and its version, that read a vote record's text."""
+
+    grammar: str = Field(
+        description="The grammar's name, e.g. 'scotus-syllabus' "
+        "(`pipeline.syllabus_lineup`) or 'scotus-order-notations' "
+        "(`pipeline.order_grammars`)"
+    )
+    version: int = Field(
+        ge=1,
+        description="The version of `grammar` that produced the reading. A grammar "
+        "bumps it whenever it could read the same text differently, so a stored "
+        "record says which reading it is and can be re-read after a fix",
+    )
+
+
 class VoteProvenance(_Strict):
     """Where a vote list came from, and how much of it is there.
 
@@ -574,31 +590,30 @@ class VoteProvenance(_Strict):
         "an enum so the schema holds any record, but `validate` refuses a committed "
         "outcome naming a source that is not registered"
     )
-    document: str | None = Field(
-        default=None,
-        description="The document the votes were read from — for the "
-        "'supremecourt-opinions' source, the supremecourt.gov URL of the opinion "
-        "PDF whose syllabus lineup was read. Null only where a source reads no "
-        "single document",
+    documents: list[str] = Field(
+        default_factory=list,
+        description="Every document the record was read from, each a "
+        "supremecourt.gov URL: for 'supremecourt-opinions', the one opinion PDF "
+        "whose syllabus lineup was read; for 'supremecourt-orders', every order "
+        "list, miscellaneous order and opinion relating to orders the Court lists "
+        "for the order's date that names the docket. Empty only where a source "
+        "reads no document; `validate` refuses a registered source's record "
+        "naming none, or one the source does not read",
     )
-    grammar: str | None = Field(
-        default=None,
-        description="The grammar that read the lineup text, e.g. "
-        "'scotus-syllabus' (`pipeline.syllabus_lineup`). Null only for a source "
-        "not read by a grammar; set exactly when `grammar_version` is",
-    )
-    grammar_version: int | None = Field(
-        default=None,
-        ge=1,
-        description="The version of `grammar` that produced this list. A grammar "
-        "bumps it whenever it could read the same text differently, so a stored "
-        "list says which reading it is and can be re-read after a fix",
+    grammars: list[GrammarStamp] = Field(
+        default_factory=list,
+        description="One stamp per grammar that read the record's text, each "
+        "with its own version — the syllabus grammar alone for an opinion, the "
+        "order-notation and writing-header grammars for an order. Empty only for "
+        "a source not read by a grammar; no grammar is stamped twice",
     )
     participating: int = Field(
         ge=QUORUM,
         le=SEATS,
         description="Justices who took part — the aggregation denominator a "
-        "threshold counts against, which recusals move",
+        "threshold counts against, which recusals move. On a partial record it "
+        "is the bench the roster seats on the record's date less every Justice "
+        "the record observes not taking part",
     )
     complete: bool = Field(
         description="Whether every participating Justice's vote is present. False "
@@ -607,11 +622,29 @@ class VoteProvenance(_Strict):
     )
 
     @model_validator(mode="after")
-    def _grammar_stamp_coheres(self) -> VoteProvenance:
-        """A grammar name without its version names no particular reading."""
-        if (self.grammar is None) != (self.grammar_version is None):
-            raise ValueError("`grammar` and `grammar_version` are set together or not at all")
+    def _grammar_stamps_cohere(self) -> VoteProvenance:
+        """One stamp per grammar: two versions of one grammar name no one reading."""
+        names = [stamp.grammar for stamp in self.grammars]
+        if len(set(names)) != len(names):
+            raise ValueError("`grammars` stamps a grammar more than once")
         return self
+
+
+class JusticeWriting(_Strict):
+    """One Justice's observed writing role, apart from any vote.
+
+    The unit of :attr:`Outcome.writing_roles`: at the cert and interim stages
+    what a Justice wrote is observable for the whole bench while their vote is
+    not, so the role cannot ride on a :class:`JusticeVote`, which needs one.
+    """
+
+    justice: str = Field(description="The Justice's name, as the roster spells it")
+    writing: WritingRole | None = Field(
+        description="What this Justice wrote. `none` is the observation that they "
+        "wrote nothing; null means they wrote but no single role says what (a "
+        "writing concurring or dissenting only in part, or two writings of "
+        "different roles)"
+    )
 
 
 class ProcessVersion(_Strict):
@@ -1331,6 +1364,19 @@ class Outcome(_Strict):
         "with complete=false means the missing votes are unobserved rather than "
         "absent. Without it a short vote list cannot be told from an unexamined one",
     )
+    writing_roles: list[JusticeWriting] | None = Field(
+        default=None,
+        description="What every participating Justice wrote, observed apart from "
+        "how they voted: present only where the source observed the whole "
+        "participating bench's writings — every writing the Court published for "
+        "the act read without a problem — so a Justice listed as `none` is "
+        "observed to have written nothing. Absent means not observed, never "
+        "observed-as-none. Kept off `votes` because at the cert and interim "
+        "stages the roles are observable for every Justice while the votes are "
+        "not, and a vote entry needs a vote. Nothing scores it: vote scoring and "
+        "its completeness gate read `votes` and `vote_provenance` only. Read "
+        "beside `vote_provenance`, which it requires",
+    )
     judgment: Judgment | None = Field(
         default=None,
         description="What the Court did to the judgment below — the merits axis, "
@@ -1376,34 +1422,60 @@ class Outcome(_Strict):
 
     @model_validator(mode="after")
     def _vote_record_coheres(self) -> Outcome:
-        """A provenance block must describe the list it sits beside.
+        """A provenance block must describe the lists it sits beside.
 
-        Only a provenanced list is checked, so a record written before the block
-        existed is unaffected. A block over an empty list states a source for
-        nothing; a Justice named twice is two readings of one vote; and a
-        complete record's `participating` must be the count of its votes that
-        are neither `recused` nor `did-not-participate`, because that count is
-        the denominator a vote threshold is taken against.
+        Only a provenanced record is checked, so a record written before the
+        block existed is unaffected. A block states a source for something: a
+        vote list, or the whole bench's observed writing roles (an order read
+        in full where no Justice noted a vote). A Justice named twice in
+        either list is two readings of one fact. A complete record's
+        `participating` must be the count of its votes that are neither
+        `recused` nor `did-not-participate`, because that count is the
+        denominator a vote threshold is taken against; observed writing roles
+        cover exactly the participating Justices, none of them recorded as not
+        taking part, and a vote's own `writing` may not contradict its
+        Justice's role.
         """
         provenance = self.vote_provenance
+        roles = self.writing_roles
         if provenance is None:
+            if roles is not None:
+                raise ValueError("`writing_roles` is set but `vote_provenance` is not")
             return self
-        if not self.votes:
-            raise ValueError("`vote_provenance` is set but `votes` is empty")
+        if not self.votes and not roles:
+            raise ValueError("`vote_provenance` is set but `votes` and `writing_roles` are empty")
         names = [vote.justice for vote in self.votes]
         if len(set(names)) != len(names):
             raise ValueError("`votes` names a Justice more than once")
+        absent = {
+            vote.justice
+            for vote in self.votes
+            if vote.vote in (VoteValue.recused, VoteValue.did_not_participate)
+        }
         if provenance.complete:
-            sitting = sum(
-                1
-                for vote in self.votes
-                if vote.vote not in (VoteValue.recused, VoteValue.did_not_participate)
-            )
+            sitting = len(self.votes) - len(absent)
             if sitting != provenance.participating:
                 raise ValueError(
                     f"a complete vote record counts {sitting} participating votes "
                     f"but `vote_provenance.participating` is {provenance.participating}"
                 )
+        if roles is not None:
+            role_of = {role.justice: role.writing for role in roles}
+            if len(role_of) != len(roles):
+                raise ValueError("`writing_roles` names a Justice more than once")
+            if len(roles) != provenance.participating:
+                raise ValueError(
+                    f"`writing_roles` names {len(roles)} Justices but "
+                    f"`vote_provenance.participating` is {provenance.participating}"
+                )
+            if absent & role_of.keys():
+                raise ValueError("`writing_roles` names a Justice the votes record as not sitting")
+            for vote in self.votes:
+                if vote.justice in role_of and vote.writing != role_of[vote.justice]:
+                    raise ValueError(
+                        f"{vote.justice}'s vote records writing {vote.writing!r} but "
+                        f"`writing_roles` records {role_of[vote.justice]!r}"
+                    )
         return self
 
 

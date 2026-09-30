@@ -514,17 +514,20 @@ does not carry its event's stage. Per cell, `vote_accuracy` is the
 descriptive figure: the fraction matched over the Justices both lists name.
 The published figure is the merits block's `mean_vote_accuracy`, which
 averages a recomputation over the whole sitting bench instead (below); the
-block enters no other aggregate and no ranked total anywhere. Today the merits outcome
+block enters no other aggregate and no ranked total anywhere. The merits outcome
 writer records **no** votes, deliberately: the terminal docket entry's
 authorship recital names at most the opinion's author and never the
 participating count `VoteProvenance` requires as the aggregation denominator,
 so no honest provenance block can be built from docket text, and a vote list
 without one is illegible. The mandatory block is therefore elicitation ahead
 of its observation channel — banked, unscored — until a real vote source
-populates `Outcome.votes` with provenance. One is registered: the Court's own
-opinions, whose syllabus lineup names every participating Justice's side
-([data-sources.md](data-sources.md)); its fetcher reads lineups today and no
-writer commits them yet. That is the permitted side of the second
+populates `Outcome.votes` with provenance. One is registered for merits
+events: the Court's own opinions, whose syllabus lineup names every
+participating Justice's side ([data-sources.md](data-sources.md)). Its
+records reach a committed outcome only through the vote writer's
+`opinion-votes` pass on `run-repair`, which stamps a merits outcome after it
+is written, and only from a complete lineup the Court's Granted & Noted list
+agrees with. That is the permitted side of the second
 constraint's line, and the constraint's own prohibition stands untouched: a
 *cert*-stage vote is never scored.
 
@@ -562,15 +565,23 @@ register does not declare has no stage this code can state, so it is one that
 cannot be shown *not* to be cert. The consequence is that an ingestion channel
 populating `Outcome.votes` at the cert stage — noted dissents from denial are
 published on the order list and are the obvious candidate — changes nothing
-about what is scored. (Building that channel first passes a separate gate:
-`validate`'s `outcome_votes_await_a_registered_source` refuses any committed
-vote list whose source is not registered in [data-sources.md](data-sources.md)
-— and the opinions source is registered for merits events only, so its
-records cannot reach a cert outcome at all. The order-list channel's parser
-exists, read-only and unregistered: `fedcourts order-notations` and its two
-grammars are described in [data-sources.md](data-sources.md). Its vote lists
-are always partial, and it sets complete writing roles only from every
-document the Court lists for an order's date, each read without a problem.) That is what makes the rule
+about what is scored. That channel exists: the Court's orders are registered
+as a second vote source for the cert and interim stages only, and the vote
+writer's `order-votes` pass stamps their records onto committed cert and
+interim outcomes ([data-sources.md](data-sources.md)). Its vote lists are
+partial by construction and `validate` refuses one claiming `complete`, so
+each is shut out twice — by the stage gate and by the completeness gate.
+What it adds beside the partial list is `Outcome.writing_roles`: every
+participating Justice's observed writing role, `none` included, set only
+from every document the Court lists for an order's date, each read without
+a problem, and only once the order is a week old. Nothing scores that field
+either; it is the observation the writing claim above would resolve against,
+banked ahead of any decision to score it. (Every source passes a separate
+gate first: `validate`'s `outcome_votes_await_a_registered_source` refuses
+any committed vote list whose source is not registered in
+[data-sources.md](data-sources.md), or that departs from its registration —
+the opinions source's records cannot reach a cert outcome at all, nor the
+orders source's a merits one.) That is what makes the rule
 structural rather than a
 property of what a particular record contains. A third seam covers the one the
 first two cannot: `vote_accuracy` is the evaluator's own field to write, so

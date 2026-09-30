@@ -5753,3 +5753,83 @@ freeze commit is recorded here.
     provision-snapshot --court scotus --docket 73272708 --out <scratch>` echoes
     `petitioner/respondent-side` on the snapshot line, where its latest
     payload still serves the self-represented respondent's block.
+
+- **The Court's orders register as a second vote source, banked and never
+  scored, and a writer stamps both sources' records onto committed outcomes,
+  2026-09-30.** A **membership-rule** entry. It registers what reaches
+  `Outcome.votes`, and through the merits source what the vote mean can be
+  computed over, before any record exists. No prompt byte, registry field or
+  stamp moves, so no digest moves: `uv run fedcourts process-digest --all`
+  prints `proc-v8` and the same six blessed digests before and after the
+  change.
+
+  **What is registered now.**
+
+  - **The orders source.** `supremecourt-orders` (`pipeline/vote_sources.py`,
+    `docs/data-sources.md`): the notations and separate-writing headers of the
+    Court's order lists, miscellaneous orders and opinions relating to orders,
+    read by the `scotus-order-notations` and `scotus-writing-headers`
+    grammars, on Supreme Court **cert- and interim-stage** events only. Its
+    records are always partial: `validate` refuses one claiming `complete`.
+    They are banked, never scored — `scores_votes` admits only declared
+    merits moments and `bench_vote_accuracy` reads only a complete record, so
+    each record is shut out twice. Noted votes on rehearing petitions and
+    motions stay refused, and non-participation is recorded only where it
+    attaches to the cert or application act: the writer reads a docket only
+    on its outcome's `resolved_at`, the date of the disposing order, and holds
+    back a docket whose order text on that date mentions a rehearing.
+  - **The record's shape.** `VoteProvenance` carries a list of grammar stamps
+    (`grammars`, one per grammar, each with its own version) and a list of
+    `documents`, in place of one grammar name, one version and one document:
+    an order reading combines two grammars and several documents. Observed
+    writing roles go in a separate field, `Outcome.writing_roles` — every
+    participating Justice's role, `none` included, present only where every
+    writing of the act was read without a problem. `Outcome.votes` stays
+    votes-only, so neither vote scoring nor its completeness gate reads the new
+    field, and nothing else does either. The orders writer sets
+    `writing_roles` only for an order at least seven days old, since a
+    writing respecting an order can follow it; the backfill of past Terms is
+    unaffected by that window.
+  - **The merits writer's admission rule.** The opinions source's records
+    reach a committed outcome only through the `opinion-votes` pass, which
+    stamps a record only when all of these hold: the lineup is complete and
+    passes the listing cross-checks the source already registered; the
+    Court's Granted & Noted list for the Term prints the same decision date,
+    lead author, and set of separate writers with what each wrote; and the
+    outcome resolved on the date the opinion is dated. The Granted & Noted
+    entry also maps a consolidated case's other dockets onto the one opinion
+    the listing prints. This narrows the population the earlier vote entry
+    describes as "the decisions a vote source read completely" to those whose
+    complete reading an independent record of the Court's agrees with; the
+    mean is read as over that population.
+  - **The conformance check, tightened.** `outcome_votes_await_a_registered_source`
+    now also holds every record, partial ones included, to the bench the seat
+    roster seats on the outcome's `resolved_at`: every Justice it names sat,
+    and `participating` is that bench less the Justices recorded not taking
+    part. Observed writing roles must name exactly the Justices who took
+    part.
+
+  **What does not move.** No base rate, no skill figure, no digest, and no
+  figure that exists: at `origin/staging` `6553835b3`, none of the 12,738
+  committed outcomes carries a vote record, and none is a merits outcome, so
+  every `mean_vote_accuracy` is null before and after. Nothing is written by
+  this change; the writer runs only as dispatched `run-repair` passes.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`). It must precede
+  the first `order-votes` or `opinion-votes` apply for this entry to register
+  ahead of any record it governs. At that promotion, the census above re-run
+  on `main` reads `<FILL: outcomes carrying a vote record>` outcomes carrying
+  a vote record (of `<FILL: committed outcomes>` committed).
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.pipeline.vote_sources import
+    REGISTERED_VOTE_SOURCES as R; print(sorted(R))"` prints
+    `['supremecourt-opinions', 'supremecourt-orders']`;
+  - `uv run fedcourts process-digest --all` still prints `proc-v8` and the
+    same six digests;
+  - after the first `order-votes` apply, `uv run fedcourts leaderboard
+    --all-versions --out /tmp/lb.json && jq '[.. | objects |
+    select(has("vote_cells_scored")) | .vote_cells_scored] | add // 0'
+    /tmp/lb.json` still reads `0`, and `uv run fedcourts validate data`
+    passes.

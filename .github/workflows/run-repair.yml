@@ -69,6 +69,8 @@ on:
           - sampled-frame-weight-repair
           - amicus-rederive
           - regrade-stale
+          - opinion-votes
+          - order-votes
       repair_mode:
         description: "dry-run prints the pass's ledger and writes nothing for the pass itself; apply writes and pushes; prerequisites apply either way — see docs/data-pipeline.md, Maintenance passes."
         required: false
@@ -182,6 +184,9 @@ jobs:
               bound_flag="--max-changes"; bound_required_on_apply=1 ;;
             regrade-stale)
               target_kind="cells" ;;
+            opinion-votes|order-votes)
+              bound_flag="--max-stamps"; bound_required_on_apply=1
+              accepted_options="replace-differing" ;;
             *)
               echo "::error::unknown repair pass '${REPAIR}' — the selector and this validation have drifted apart; correct the workflow."
               exit 1 ;;
@@ -2305,6 +2310,170 @@ jobs:
           # mint where it exists; a skipped step's output is the empty string,
           # so every other pass falls through to the opening token.
           token: ${{ steps.app-token-ocr.outputs.token || steps.app-token.outputs.token }}
+
+  # The vote writer passes, in their own job because their risk class is
+  # neither of the other two: they READ the corpus (one column, each case's
+  # docket number, which is how a ledger case is found in the Court's
+  # documents), FETCH from supremecourt.gov, and WRITE only committed
+  # `outcome.json` files. So the corpus comes through the read-only role, like
+  # every corpus consumer's, and no step here holds a credential that can
+  # write the corpus remote or the content store; the App token pushes the
+  # `data/` commit, as on the re-grade.
+  #
+  # `opinion-votes` stamps merits outcomes from their opinion's syllabus
+  # lineup (`fedcourts stamp-opinion-votes`); `order-votes` stamps cert and
+  # interim outcomes from the notations and writing headers of the order that
+  # disposed of them (`fedcourts stamp-order-votes`). Two selector values, not
+  # one pass with a mode, because a dispatch reads one ledger and applies one
+  # bound: the two sources' populations, fetches and record shapes share
+  # nothing but the stamping.
+  votes:
+    needs: [validate]
+    if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' }}
+    # It commits to `main` on the same push path as the corpus writers, so it
+    # joins their lock rather than racing their pointer commits — and takes the
+    # throwaway group when it will be skipped, for the corpus job's reason.
+    concurrency:
+      group: ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes') && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # The pass's own 45-minute cap plus setup, the read-only corpus pull and
+    # the push.
+    timeout-minutes: 60
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # Same stale-base hazard as the corpus job: a run that queued behind a
+        # writer on the shared lock checked out a frozen sha, and the outcomes
+        # being stamped arrive by the writers' own commits. The repo is
+        # public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # The committed pointer's blob, read-only: the writer reads each case's
+      # docket number from it and writes nothing back.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+
+      # Read each outcome's record off the Court's documents and stamp
+      # `votes`, `vote_provenance` and `writing_roles` onto it. An outcome
+      # carrying the same record is left alone, which makes a re-run the
+      # control; one carrying a different record is held back and reported
+      # unless `replace-differing` is set.
+      #
+      # One invocation per dispatch, not a dry run and then the apply: each
+      # run fetches every listing and document it reads, so a leading dry run
+      # would double the pass's traffic to the Court's site for a ledger the
+      # apply prints anyway. The ledger the bound is read from is the previous
+      # dispatch's dry run, as everywhere; an apply whose count exceeds it is
+      # refused whole, and so is one whose listings could not all be read.
+      - name: Stamp vote records
+        timeout-minutes: 45
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+          REPAIR_OPTIONS: ${{ inputs.repair_options }}
+        run: |
+          set -euo pipefail
+          # Validate the bound and the option vocabulary before anything else:
+          # a dispatch that cannot legally apply should say so in seconds, not
+          # after a fetch campaign. `Validate the repair selector` duplicates
+          # both refusals word for word so a bad dispatch dies before any
+          # credential is minted; these copies are the ones of record.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          accepted_options="replace-differing"
+          replace_differing=0
+          option_malformed=0
+          while IFS= read -r option; do
+            [ -n "$option" ] || continue
+            case " ${accepted_options} " in
+              *" ${option} "*) ;;
+              *)
+                echo "::error::repair=${REPAIR} does not accept the option '${option}' — it accepts: ${accepted_options:-none}."
+                option_malformed=1
+                continue ;;
+            esac
+            case "$option" in
+              replace-differing) replace_differing=1 ;;
+            esac
+          done < <(printf '%s\n' "${REPAIR_OPTIONS}" | tr -s ', \t\r' '\n')
+          if [ "$option_malformed" -ne 0 ]; then
+            echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
+            exit 1
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # Stamp on top of the remote tip, not this checkout's: the outcomes
+          # being stamped arrive by the writers' own commits. Fast-forward
+          # only, so an unpushed local commit fails this closed.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          write_args=()
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            write_args+=(--apply --max-stamps "${REPAIR_BOUND}")
+          fi
+          if [ "$replace_differing" -eq 1 ]; then
+            write_args+=(--replace-differing)
+          fi
+          if [ "${REPAIR}" = "opinion-votes" ]; then
+            uv run fedcourts stamp-opinion-votes "${write_args[@]}" 2>&1 \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            source_label="opinions"
+          else
+            uv run fedcourts stamp-order-votes "${write_args[@]}" 2>&1 \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            source_label="orders"
+          fi
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          # Stage the stamped outcomes only, never a blanket `git add data/`:
+          # this commit carries no corpus pointer, and the pass writes nothing
+          # but `outcome.json`, so anything else changed under `data/` is not
+          # this pass's to publish.
+          git add -- ':(glob)data/cases/*/*/events/*/outcome.json'
+          if git diff --cached --quiet; then
+            echo "Every outcome already carries its record; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: stamp vote records (${source_label})"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "vote-record ledger"
 
   # The ledger-only pass, in its own job because its credentials are a strict
   # subset: it recomputes graded fields out of committed artifacts and writes

@@ -17,7 +17,7 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
-from fedcourtsai.pipeline import order_lineups
+from fedcourtsai.pipeline import order_lineups, vote_sources
 from fedcourtsai.pipeline.documents import ExtractedText
 from fedcourtsai.pipeline.justices import bench_on, chief_on_bench
 from fedcourtsai.pipeline.lineup import WritingKind
@@ -669,7 +669,7 @@ def test_a_long_name_list_that_fails_to_match_does_not_backtrack_exponentially()
 
 
 def test_a_path_that_climbs_out_of_the_orders_tree_is_not_an_order_document() -> None:
-    assert not order_lineups.is_order_document_url("https://www.supremecourt.gov/orders/../x.pdf")
+    assert not vote_sources.is_order_document_url("https://www.supremecourt.gov/orders/../x.pdf")
 
 
 def test_a_plural_unwritten_dissent_is_read_and_a_bare_one_is_not() -> None:

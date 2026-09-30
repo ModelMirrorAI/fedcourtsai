@@ -39,10 +39,11 @@ CourtListener roles once funding allows — see *The planned end-state* in
 [data-pipeline.md](data-pipeline.md). Adopting it requires reviewing that
 agreement's terms alongside the licenses below.
 
-One vote source is **registered**: **the Court's own opinions**
-(`supremecourt-opinions`), the source of per-Justice merits votes and
-authorship — the channel [decision-model.md](decision-model.md) needs to
-populate `Outcome.votes` with the provenance block no docket text supports.
+Two vote sources are **registered**, both the Court's own documents. The
+first is **the Court's own opinions** (`supremecourt-opinions`), the source of
+per-Justice merits votes and authorship — the channel
+[decision-model.md](decision-model.md) needs to populate `Outcome.votes` with
+the provenance block no docket text supports.
 Every signed opinion's syllabus closes with a lineup paragraph ("ALITO, J.,
 delivered the opinion of the Court, in which … joined. SOTOMAYOR, J., filed a
 dissenting opinion, in which … joined."), and that paragraph names who wrote
@@ -59,15 +60,16 @@ what and who joined it.
   the opinion's body, and a Term whose listing links into a whole
   preliminary-print or bound volume is skipped until volume pages are read.
   As read on 2026-09-29 (a `fedcourts opinion-lineups` pass over the
-  listings), that leaves OT16–OT19 and 15 of OT20's 68 rows unread. Cert-stage votes from order lists are not part of this source.
+  listings), that leaves OT16–OT19 and 15 of OT20's 68 rows unread.
+  Cert- and interim-stage acts are the orders source's, below.
 - **Terms.** The opinions are works of the federal government in the public
   domain, with no third-party license, and a lineup is a fact about the
   published decision. A vote list read from one therefore redistributes
   nobody's coded values when it lands in public git, which is what separates
   this source from SCDB below. Its registration is the provenance statement
-  itself: every record's `vote_provenance` names the source, the document
-  (the opinion PDF's supremecourt.gov URL) and the grammar and grammar version
-  that read it.
+  itself: every record's `vote_provenance` names the source, the documents
+  (the opinion PDF's supremecourt.gov URL) and a stamp of each grammar that
+  read it, with that grammar's version.
 - **Access.** The same public, token-free, budget-free channel as the live
   docket JSON ([live-sources.md](live-sources.md)), through the same client:
   a browser user agent, about one request a second, one retry after a pause,
@@ -106,21 +108,34 @@ what and who joined it.
   faithfully; a writing concurring or dissenting only in part, or two writings
   of different roles, has no single role and records null ("not stated")
   rather than the nearer of two wrong values. A Justice observed to write
-  nothing records `none`.
-- **What exists today.** The lineup model, the syllabus grammar and the
-  read-only fetcher (`pipeline/lineup.py`, `pipeline/syllabus_lineup.py`,
+  nothing records `none`. Where the syllabus shows every participating
+  Justice's writing, the same roles are also stamped in `Outcome.writing_roles`
+  (below), so the field means one thing whichever source wrote it.
+- **The Granted & Noted cross-check.** Each Term the Court also publishes a
+  *Granted & Noted* list (`/orders/<YY>grantednotedlist.pdf`): per argued
+  case, the dockets decided together, the decision date, the author of the
+  Court's opinion, and every other Justice who wrote, with a code for what
+  (`C`, `D`, `C/J`, `C/P`, `D/P`). It is a second, independently prepared
+  record of what the lineup says, so the two are compared
+  (`pipeline/granted_noted.py`): the decision date, the lead author, and the
+  set of separate writers with the kind each wrote. The list is a check and
+  never a source — nothing it says is written — and `fedcourts
+  granted-noted-check` prints a Term's disagreements. It also says which
+  dockets one opinion decides, which the opinions listing does not: the
+  listing prints only the lead docket of a consolidated case.
+- **What exists.** The lineup model, the syllabus grammar and the read-only
+  fetcher (`pipeline/lineup.py`, `pipeline/syllabus_lineup.py`,
   `pipeline/opinion_lineups.py`), with `fedcourts opinion-lineups` printing
-  what the channel would write for a Term ([cli.md](cli.md)); and the
+  what the channel would write for a Term ([cli.md](cli.md)); the
   registration in code (`pipeline/vote_sources.py`) that `validate` holds
-  every committed vote list to. No writer populates `Outcome.votes` yet, and
-  the cross-check of each parsed author and separate writer against the
-  Court's Granted & Noted list, with disagreements reported, is not built.
+  every committed vote list to; the Granted & Noted cross-check; and the
+  writer, *The vote writer* below.
 
-A second vote channel is **being built and is not registered**: **the Court's
-orders** — the per-Justice acts it publishes at the cert and interim stages.
-Nothing it reads may be committed. `vote_sources.py` does not carry it, so
-`validate` refuses any vote list that names it. Its records would be banked,
-never scored: `scores_votes` admits only merits moments
+The second registered source is **the Court's orders**
+(`supremecourt-orders`) — the per-Justice acts it publishes at the cert and
+interim stages. Its records are banked, never scored: `scores_votes` admits
+only merits moments, and vote scoring reads only a record whose provenance
+says `complete`, which this source's never does
 ([decision-model.md](decision-model.md)).
 
 - **Source and scope.** Fetched pipeline-side from supremecourt.gov, from two
@@ -189,10 +204,11 @@ never scored: `scores_votes` admits only merits moments
   - A Justice who took no part must not sign a writing.
   - A document's text must not be cut at the extraction cap.
 - **Completeness.** The vote list is always `complete: false`, because a
-  Justice who noted nothing is unobserved, not a vote to deny. Writings
-  differ, as [decision-model.md](decision-model.md) says: once an order is
-  final, whether each participating Justice wrote is observed. The channel
-  sets `writings_complete` for a docket only when all of these hold:
+  Justice who noted nothing is unobserved, not a vote to deny; `validate`
+  refuses a record from this source claiming otherwise. Writings differ, as
+  [decision-model.md](decision-model.md) says: once an order is final,
+  whether each participating Justice wrote is observed. The channel sets
+  `writings_complete` for a docket only when all of these hold:
   - it read every document the Court lists for the order's date, each fetched
     and extracted whole;
   - no document read for that date has a problem;
@@ -200,16 +216,59 @@ never scored: `scores_votes` admits only merits moments
 
   Then every participating Justice who wrote nothing records `none`.
   Otherwise only the authors carry a role. One document read alone never
-  sets it.
-- **What exists today.** The two grammars and the read-only channel
+  sets it. A writing respecting an order is ordinarily published with it but
+  can follow it, so the writer reads an order date only once it is seven
+  days old: a same-week reading could record as having written nothing a
+  Justice who has not written yet.
+- **What a record holds.** `votes` carries only the Justices the order names
+  — a noted vote, an unwritten dissent, a writing whose header names the act,
+  or non-participation — each with its writing role where one is observed.
+  `writing_roles` carries every participating Justice's role, `none`
+  included, and is present only where writings are complete; it is a
+  separate field because a Justice who noted nothing has no vote to hang a
+  role on. `vote_provenance` names the source, every document of the date
+  that names the docket, one stamp per grammar with its own version, and
+  `participating`: the bench the roster seats on the order's date less every
+  Justice the order records not taking part.
+- **Rehearing and motions.** A noted vote on a petition for rehearing or a
+  motion is refused by the grammar. Non-participation is recorded only when
+  it attaches to the cert or application act: the writer reads a docket only
+  on the date of the order disposing of its petition or application (the
+  outcome's `resolved_at`), and holds back a docket whose order text on that
+  date mentions a rehearing.
+- **What exists.** The two grammars and the read-only channel
   (`pipeline/order_lineups.py`), with `fedcourts order-notations` printing
-  one reading per docket for a date or a single document ([cli.md](cli.md)).
-  Not built yet:
-  - the source registration;
-  - how a record carries two grammar stamps;
-  - a writer, and the backfill it would run;
-  - the live order-list ingest;
-  - a recorded spot check against the Court's documents.
+  one reading per docket for a date or a single document ([cli.md](cli.md));
+  the registration; and the writer, below. The live ingest of new order
+  lists — stamping each as it settles rather than by a dispatched backfill —
+  is not built.
+
+**The vote writer** (`vote_writer.py`) is how either source reaches
+`outcome.json`. It reads the corpus for one column — each case's docket
+number, which is how a ledger case is found in the Court's documents — and
+writes nothing but committed `outcome.json` files: `votes`,
+`vote_provenance` and `writing_roles`. It runs only as two `run-repair`
+passes, dry run first ([data-pipeline.md](data-pipeline.md), *Maintenance
+passes*):
+
+- `opinion-votes` (`fedcourts stamp-opinion-votes`) stamps merits-stage
+  outcomes resolved in OT2020 or later — the Terms whose listing links a PDF
+  per opinion. It maps the outcome's docket through the Term's Granted &
+  Noted list to every docket decided with it, reads the one opinion the
+  listing prints for them, and stamps only a complete record that the Granted
+  & Noted list agrees with, onto an outcome resolved on the date the opinion
+  is dated.
+- `order-votes` (`fedcourts stamp-order-votes`) stamps cert- and
+  interim-stage outcomes resolved in OT2024 or OT2025, the two most recent
+  complete Terms: both sat the same bench, both grammars were checked against
+  real orders of the later one, and every interim outcome in the ledger is
+  among them. A docket with no noted vote and writings not complete has
+  nothing to stamp.
+
+An outcome already carrying the same record is left alone, so a re-run is a
+no-op; one carrying a different record is held back unless the dispatch
+names `replace-differing`. An apply refuses above its bound, and refuses
+outright when a listing or a Granted & Noted list could not be read.
 
 One more channel is planned and not yet adopted, **for historical depth
 only**: the **Supreme Court Database** (SCDB) — the standing academic coding
@@ -310,14 +369,19 @@ registered here, and the hold is mechanical as well as stated: `validate`'s
 `outcome_votes_await_a_registered_source` check refuses any committed outcome
 carrying votes without a `vote_provenance` block, or a block naming a source
 that is not registered. A registered source's records are held to the shape
-its registration states (`pipeline/vote_sources.py`): for the opinions
-source, a Supreme Court case, a merits-stage event, the `scotus-syllabus`
-grammar with its version, an opinion PDF on the Court's own host, every Justice
-spelled as the roster spells them, and — for a record claiming `complete` —
-exactly the bench the seat roster seats on the outcome's decision date, since
-that bit is what vote scoring is gated on. A source that has not registered,
-SCDB included, stays refused; an SCDB import additionally settles the terms
-above before it writes any value.
+its registration states (`pipeline/vote_sources.py`). For the opinions
+source: a Supreme Court case, a merits-stage event, a `scotus-syllabus`
+grammar stamp with its version, an opinion PDF on the Court's own host. For
+the orders source: a Supreme Court case, a cert- or interim-stage event,
+stamps only of its two grammars, only order and opinion PDFs on the Court's
+own host, and never `complete`. For both: every Justice — in `votes` and in
+`writing_roles` — spelled as the roster spells them and seated on the
+outcome's decision date by the seat roster; `participating` equal to that
+bench less the Justices recorded not taking part; for a record claiming
+`complete`, exactly that bench, since that bit is what vote scoring is gated
+on; and `writing_roles`, where present, naming exactly the Justices who took
+part. A source that has not registered, SCDB included, stays refused; an
+SCDB import additionally settles the terms above before it writes any value.
 
 Two layers of rights apply, and they are different:
 

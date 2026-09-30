@@ -109,7 +109,7 @@ docket's disposition entry):
 | Claim | Resolves against |
 | --- | --- |
 | Judgment (`judgment-disturbed`, declared under `merits-v1`) | `Outcome.judgment` through the disturbed projection (`pipeline.judgment.judgment_disturbed`) — the declared form is binary, exactly as the cert disposition claim's is; the multi-class form waits on a per-label distribution no schema field carries |
-| Each justice's vote | `Outcome.votes`, per justice — **not declared**: the merits outcome writer records no votes (docket text discloses no provenance denominator), and the registered opinions source has no writer yet, so the resolution channel is empty; see `docs/decision-model.md` |
+| Each justice's vote | `Outcome.votes`, per justice — **not declared**: the merits outcome writer records no votes (docket text discloses no provenance denominator), and the registered opinions source is written only by a dispatched `run-repair` pass (`opinion-votes`), so the resolution channel is empty until that pass stamps a merits outcome; see `docs/decision-model.md` |
 | Majority author | *no field yet* |
 | A concurrence is filed | *no field yet* |
 | A dissent is filed | *no field yet* |
@@ -1026,7 +1026,7 @@ pre-registered rule that keeps it there permanently.
 | merits | The ground the majority rests on | `majority-ground` (`semantic-v1`) | **Graded**, not scored. The machinery is live end to end; every unit masks until opinion bodies accrue, and the vantage caveat travels as prose |
 | merits | How broad that ground is | `ground-breadth` (`semantic-v1`) | The same, on a separate axis — never a conjunct of the row above |
 | merits | The ground stated coarsely (statutory vs constitutional, which provision) | **Rejected** | Fails test 2: the question presented already discloses it, so it is a level the snapshot hands the predictor rather than a forecast |
-| merits | The vote lineup and the split | Context-only, banked in `votes` | Pre-registered pending a populated vote source: `Outcome.votes` is empty on every committed outcome because docket text discloses no provenance denominator, and the registered opinions source has no writer yet. Merits votes are banked and scored against complete records the day one is written; cert votes never are |
+| merits | The vote lineup and the split | Context-only, banked in `votes` | Pre-registered pending a populated vote source: `Outcome.votes` is empty on every committed outcome because docket text discloses no provenance denominator, and the registered opinions source is written only by the dispatched `opinion-votes` pass. Merits votes are banked and scored against complete records the day one is written; cert votes never are |
 | merits | Whether a separate writing splits the rationale from the result | Context-only; **mechanical** family the day a field records it | Existence is a countable docket fact, not a reader's judgment, so it belongs with a real baseline and a proper score rather than as prose graded by impression. `semantic-v1` holds no place for it |
 | merits | Which question presented the Court reaches and which it leaves | Context-only | The merits-side twin of the cert QP row, with the same framing gap |
 | merits | Authorship and the writing roles | Context-only | No artifact records either; the prompt says so and tells the cell not to present them as the scoreable part |

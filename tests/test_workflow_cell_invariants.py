@@ -1925,6 +1925,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Converge event moments", ()),
     ("repair", "Repair the sampled-frame weights", ()),
     ("regrade", "Re-grade named cells", ()),
+    ("votes", "Stamp vote records", ()),
 )
 
 
