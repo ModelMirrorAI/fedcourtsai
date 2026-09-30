@@ -71,16 +71,22 @@ CODE_KINDS: Final[Mapping[frozenset[str], WritingKind]] = MappingProxyType(
 # by anything but more of a number — the closing parenthesis a consolidated
 # group prints after each member, a ``*`` or ``#`` marker, or the caption.
 _DOCKET_LINE_RE = re.compile(r"^\s*(\d{2}-\d{1,5}|\d{2}A\d{1,4})(?![\d-])")
-_DECIDED_RE = re.compile(r"\bDecided:\s*(\d{1,2}/\d{1,2}/\d{2,4})")
-# "Decided: 6/30/26 (with No. 24-38)": the entry's opinion also decides these.
-_WITH_RE = re.compile(r"\(with Nos?\.\s*([^)]*)\)")
 _DOCKET_RE = re.compile(r"\b(\d{2}-\d{1,5}|\d{2}A\d{1,4})\b")
+
+
+def _spaced(word: str) -> str:
+    """A word as printed, letter-spaced or not (``D e c i d e d``)."""
+    return r"\s*".join(re.escape(letter) for letter in word)
 
 
 def _label(word: str) -> str:
     """A field label as printed, letter-spaced or not (``A u t h o r :``)."""
-    return r"\b" + r"\s*".join(word) + r"\s*:"
+    return r"\b" + _spaced(word) + r"\s*:"
 
+
+_DECIDED_RE = re.compile(_label("Decided") + r"\s*(\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{2,4})")
+# "Decided: 6/30/26 (with No. 24-38)": the entry's opinion also decides these.
+_WITH_RE = re.compile(r"\(\s*" + _spaced("with") + r"\s+" + _spaced("No") + r"s?\s*\.\s*([^)]*)\)")
 
 _AUTHOR_RE = re.compile(_label("Author") + r"\s*(.*?)\s*(?:" + _label("Other") + r"|$)")
 _OTHER_RE = re.compile(_label("Other") + r"\s*(.*)$")
@@ -193,7 +199,7 @@ def _entry(draft: _Draft) -> GrantedNotedEntry:
     for raw_line in draft.lines:
         line = " ".join(raw_line.split())
         if (match := _DECIDED_RE.search(line)) is not None:
-            decided = _parse_date(match.group(1))
+            decided = _parse_date("".join(match.group(1).split()))
             if (with_match := _WITH_RE.search(line[match.end() :])) is not None:
                 joined.extend(d.upper() for d in _DOCKET_RE.findall(with_match.group(1)))
         if (found := _AUTHOR_RE.search(line)) is not None:
@@ -238,6 +244,11 @@ def parse_granted_noted(text: str) -> list[GrantedNotedEntry]:
     opening = False
     for line in text.splitlines():
         match = _DOCKET_LINE_RE.match(line)
+        # A docket number wrapped out of an open parenthesis — "(with No." at
+        # one line's end and "24-38)" at the next's start — continues the
+        # entry; it does not open one.
+        if match is not None and draft is not None and _open_paren(draft.lines):
+            match = None
         if match is not None:
             if draft is None or not opening:
                 if draft is not None:
@@ -252,6 +263,12 @@ def parse_granted_noted(text: str) -> list[GrantedNotedEntry]:
     if draft is not None:
         entries.append(_entry(draft))
     return entries
+
+
+def _open_paren(lines: Sequence[str]) -> bool:
+    """Whether the entry's text so far leaves a parenthesis open."""
+    text = "".join(lines)
+    return text.count("(") > text.count(")")
 
 
 def by_docket(entries: Iterable[GrantedNotedEntry]) -> dict[str, GrantedNotedEntry]:
@@ -324,11 +341,16 @@ def disagreements(
 
     Empty when they agree on the decision date, the lead author and every
     separate writer with what they wrote. An entry the list could not be read
-    for, or a per curiam (whose lineup is not read), disagrees.
+    for, a per curiam (whose lineup is not read), or either side with no
+    decision date to compare disagrees: the check fails closed.
     """
     found = [f"the list could not be read: {p}" for p in entry.problems]
     if entry.per_curiam:
         found.append("the list prints a per curiam")
+    if entry.decided is None:
+        found.append("the list prints no decision date that could be read")
+    if decided is None:
+        found.append("the opinion prints no decision date that could be read")
     if decided is not None and entry.decided is not None and decided != entry.decided:
         found.append(
             f"the list dates the decision {entry.decided.isoformat()}, "

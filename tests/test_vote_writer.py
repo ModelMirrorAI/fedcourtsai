@@ -19,6 +19,7 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
+from fedcourtsai import corpus, fixture, vote_writer
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import opinion_lineups, order_lineups
@@ -28,6 +29,7 @@ from fedcourtsai.pipeline.order_lineups import OrderDocketReading, OrderFetcher,
 from fedcourtsai.schemas import (
     Disposition,
     EventKind,
+    GrammarStamp,
     Judgment,
     JusticeVote,
     JusticeWriting,
@@ -558,3 +560,92 @@ def test_writing_roles_cohere_with_the_record() -> None:
         with pytest.raises(ValueError):
             Outcome.model_validate(payload)
     assert json.loads(ok.model_dump_json())["writing_roles"] == roles
+
+
+# --- review follow-ups -------------------------------------------------------------
+
+
+def test_a_petition_grouped_with_an_application_is_held_back(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """One order disposes of a stay application and a cert petition together.
+
+    Ramey's entry groups `26-5637` with `(26A380)`; a noted vote on the stay
+    would otherwise be read onto the petition. Both outcomes are held back.
+    """
+    _stub_extraction(monkeypatch, order_lineups)
+    data_root = tmp_path / "data"
+    _outcome(data_root, 5)
+    _outcome(data_root, 6, event_id="evt-motion-disposition", stage=Stage.interim)
+    conn = _corpus(tmp_path, {5: "26-5637", 6: "26A380"})
+    result = _stamp_orders(data_root, conn, [], apply=False)
+    assert result.stamps == []
+    reasons = dict(result.held_back)
+    assert reasons["scotus/5/evt-petition-disposition"].startswith(
+        "the docket shares its order or a writing with a docket of the other stage"
+    )
+    assert "scotus/6/evt-motion-disposition" in reasons
+
+
+def test_a_record_the_ledger_check_would_refuse_is_held_back(tmp_path: Path) -> None:
+    """The writer runs validate's per-record check before it plans a stamp."""
+    data_root = tmp_path / "data"
+    path = _outcome(data_root, 1)
+    target = vote_writer.OutcomeTarget(
+        path, "scotus/1", "evt-petition-disposition", "cert", read_model(path, Outcome)
+    )
+    record = vote_writer.VoteRecord(
+        votes=(JusticeVote(justice="Alito", vote=VoteValue.grant),),
+        # Nine sat on the order's date and none is recorded absent.
+        provenance=VoteProvenance(
+            source="supremecourt-orders",
+            documents=["https://www.supremecourt.gov/orders/courtorders/x.pdf"],
+            grammars=[GrammarStamp(grammar="scotus-order-notations", version=1)],
+            participating=8,
+            complete=False,
+        ),
+        writing_roles=None,
+    )
+    result = vote_writer.VoteWriteResult(source="supremecourt-orders")
+    vote_writer._classify(target, record, result, replace_differing=False)
+    assert result.stamps == []
+    ((_, reason),) = result.held_back
+    assert reason.startswith("the record departs from its source's registration")
+    assert "`participating` is 8" in reason
+
+
+def test_a_dockets_own_listing_row_is_never_replaced_by_a_group_mates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Where the listing prints a row for the docket, only that row is read."""
+    _stub_extraction(monkeypatch, opinion_lineups)
+    per_curiam = (
+        "<tr><td>69</td><td>6/30/26</td><td>24-38</td>"
+        + "<td><a href='/opinions/25pdf/24-38_pc.pdf'>Little v. Hecox</a></td>"
+        + "<td>PC</td><td><span>609/3</span></td></tr></table>"
+    )
+    listing = LISTING.replace("</table>", per_curiam)
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/opinions/slipopinion/25":
+            return httpx.Response(200, text=listing)
+        if request.url.path.endswith("24-43_2b35.pdf"):
+            return httpx.Response(200, content=SLIP.encode())
+        return httpx.Response(404)
+
+    data_root, conn = _merits_ledger(tmp_path)
+    with _client(handle) as client:
+        result = stamp_opinion_votes(
+            conn, data_root, OpinionFetcher(client), lambda _t: GRANTED_NOTED, apply=False
+        )
+    assert [s.target.case_id for s in result.stamps] == ["scotus/43"]
+    assert dict(result.skipped)["scotus/38/evt-order-judgment"].startswith(
+        "the listing's opinion is not read: per curiam"
+    )
+
+
+def test_docket_numbers_read_the_real_corpus_schema(tmp_path: Path) -> None:
+    db = fixture.build_fixture_corpus(corpus.corpus_db_path(tmp_path / "corpus"))
+    with corpus.connect_readonly(db, backend="local") as conn:
+        numbers = vote_writer.docket_numbers(conn, ["scotus/304", "scotus/306", "scotus/999"])
+    assert numbers == {"scotus/304": "22-845", "scotus/306": "26A11"}

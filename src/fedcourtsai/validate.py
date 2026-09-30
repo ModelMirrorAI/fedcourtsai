@@ -1479,6 +1479,23 @@ def check_outcome_votes_held(data_root: Path) -> CorpusCheck:
     return _check(CHECK_OUTCOME_VOTES_HELD, problems, checked=checked)
 
 
+def vote_record_problems(outcome: Outcome, event_dir: Path) -> list[str]:
+    """How one outcome's vote record departs from its source's registration.
+
+    The per-record half of ``outcome_votes_await_a_registered_source``, for a
+    writer to hold a record back before committing it: ``event_dir`` is the
+    ledger directory the outcome sits in (``cases/<court>/<docket>/events/<id>``),
+    whose ``event.yaml`` names the stage. Empty for an outcome with no record.
+    """
+    provenance = outcome.vote_provenance
+    if provenance is None:
+        return ["votes with no vote_provenance block"] if outcome.votes else []
+    source = REGISTERED_VOTE_SOURCES.get(provenance.source)
+    if source is None:
+        return [f"vote source {provenance.source!r} is not registered"]
+    return _vote_source_problems(outcome, source, event_dir.parents[2].name, event_dir)
+
+
 def _vote_source_problems(
     outcome: Outcome, source: VoteSource, court: str, event_dir: Path
 ) -> list[str]:
@@ -1495,9 +1512,7 @@ def _vote_source_problems(
         )
         # The event's own stage, else the one its id declares: the cert
         # baselines are written with none of their own.
-        stage: Stage | None = event.stage
-        if stage is None and (spec := moments.spec_for(event.event_id)) is not None:
-            stage = spec.stage
+        stage: Stage | None = moments.event_stage(event.stage, event.event_id)
     except (OSError, ValueError, ValidationError):
         stage = None
     if stage not in source.stages:

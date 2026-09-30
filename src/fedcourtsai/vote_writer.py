@@ -67,6 +67,7 @@ from pathlib import Path
 from typing import Final
 
 import httpx
+from pydantic import ValidationError
 
 from .corpus import ReadConnection
 from .pipeline import granted_noted, moments, opinion_lineups, order_lineups
@@ -84,6 +85,7 @@ from .schemas import (
 )
 from .serialize import read_model, write_json
 from .supremecourt import october_term_year
+from .validate import vote_record_problems
 
 #: The first October Term whose opinions listing links a PDF per opinion; the
 #: Terms before it link whole volumes, which the reader does not read.
@@ -102,6 +104,7 @@ SETTLING_DAYS: Final = 7
 
 _NOT_SITTING: Final = frozenset({VoteValue.recused, VoteValue.did_not_participate})
 _TERM_DOCKET_RE: Final = re.compile(r"\b\d{2}-\d+\b")
+_APPLICATION_RE: Final = re.compile(r"^\d{2}A\d+$")
 
 
 @dataclass(frozen=True)
@@ -170,6 +173,43 @@ def _same(outcome: Outcome, record: VoteRecord) -> bool:
     )
 
 
+def stamped(outcome: Outcome, record: VoteRecord) -> Outcome:
+    """``outcome`` with ``record``'s three fields written, validated whole.
+
+    Raises ``pydantic.ValidationError`` on a record the model refuses.
+    """
+    return Outcome.model_validate(
+        {
+            **outcome.model_dump(mode="json"),
+            "votes": [v.model_dump(mode="json") for v in record.votes],
+            "vote_provenance": record.provenance.model_dump(mode="json"),
+            "writing_roles": (
+                None
+                if record.writing_roles is None
+                else [r.model_dump(mode="json") for r in record.writing_roles]
+            ),
+        }
+    )
+
+
+def _conformance(target: OutcomeTarget, record: VoteRecord) -> str | None:
+    """Why the stamped outcome would fail the ledger's vote check, or ``None``.
+
+    The same check ``validate`` holds every committed outcome to
+    (:func:`fedcourtsai.validate.vote_record_problems`), run before the record
+    is planned — in the dry run as in the apply — so a record the ledger would
+    refuse is held back and reported rather than committed to ``main``.
+    """
+    try:
+        outcome = stamped(target.outcome, record)
+    except ValidationError as exc:
+        return f"the record does not validate: {exc.errors()[0]['msg']}"
+    problems = vote_record_problems(outcome, target.path.parent)
+    if problems:
+        return "the record departs from its source's registration: " + "; ".join(problems)
+    return None
+
+
 def _classify(
     target: OutcomeTarget,
     record: VoteRecord,
@@ -179,10 +219,14 @@ def _classify(
 ) -> None:
     """File one reading against its outcome: new, unchanged, replacement, or held."""
     outcome = target.outcome
+    if _same(outcome, record):
+        result.unchanged.append(target.ref)
+        return
+    if (why := _conformance(target, record)) is not None:
+        result.held_back.append((target.ref, why))
+        return
     if _blank(outcome):
         result.stamps.append(VoteStamp(target, record))
-    elif _same(outcome, record):
-        result.unchanged.append(target.ref)
     elif replace_differing:
         result.stamps.append(VoteStamp(target, record, replaces=True))
     else:
@@ -205,8 +249,9 @@ def _targets(
 
     The stage is the committed ``event.yaml``'s, or where it records none — the
     cert baselines carry none of their own — the declared moment's
-    (:func:`event_stage`), the same reading the ``validate`` conformance check
-    makes. It is read only for outcomes the date filter admits.
+    (:func:`fedcourtsai.pipeline.moments.event_stage`), the reading the
+    ``validate`` conformance check makes. It is read only for outcomes the date
+    filter admits.
     """
     found: list[OutcomeTarget] = []
     for path in sorted((data_root / "cases").glob("scotus/*/events/*/outcome.json")):
@@ -216,24 +261,12 @@ def _targets(
         event_file = path.parent / "event.yaml"
         if not event_file.is_file():
             continue
-        stage = event_stage(read_model(event_file, PredictableEvent))
+        event = read_model(event_file, PredictableEvent)
+        stage = moments.event_stage(event.stage, event.event_id)
         if stage is None or str(stage) not in stages:
             continue
         found.append(OutcomeTarget(path, outcome.case_id, outcome.event_id, str(stage), outcome))
     return found
-
-
-def event_stage(event: PredictableEvent) -> Stage | None:
-    """An event's stage: its own, else the one its id declares, else none.
-
-    A committed ``event.yaml`` may carry no stage — the cert petition baselines
-    are written without one — and the declared-moments table is the authority
-    on what a declared id's stage is (:mod:`fedcourtsai.pipeline.moments`).
-    """
-    if event.stage is not None:
-        return Stage(event.stage)
-    spec = moments.spec_for(event.event_id)
-    return spec.stage if spec is not None else None
 
 
 def docket_numbers(conn: ReadConnection, case_ids: Iterable[str]) -> dict[str, str]:
@@ -313,19 +346,19 @@ def _opinion_target(  # noqa: PLR0911 - one return per reason an outcome gets no
         return None, "the corpus holds no docket number", False
     entry = entries.get(number)
     group = set(entry.dockets) if entry is not None else {number}
-    rows = [row for row in listing if _listed_dockets(row) & group]
-    in_scope = [row for row in rows if opinion_lineups.skip_reason(row) is None]
+    # The docket's own row where the listing prints one; a consolidated
+    # group's row only where the docket has none of its own. Either way
+    # exactly one opinion, or the record is held back: a group-mate's opinion
+    # must never stand in for one the listing prints for this docket.
+    own = [row for row in listing if number in _listed_dockets(row)]
+    rows = own or [row for row in listing if _listed_dockets(row) & group]
     if not rows:
         return None, f"no opinion on the listing names the docket: {number}", False
-    if not in_scope:
-        return (
-            None,
-            f"the listing's opinion is not read: {opinion_lineups.skip_reason(rows[0])}",
-            False,
-        )
-    if len({row.url for row in in_scope}) > 1:
+    if len({row.url for row in rows}) > 1:
         return None, f"several opinions on the listing name the docket: {number}", True
-    row = in_scope[0]
+    row = rows[0]
+    if (reason := opinion_lineups.skip_reason(row)) is not None:
+        return None, f"the listing's opinion is not read: {reason}", False
     reading = readings.get(row.url)
     if reading is None:
         reading = opinion_lineups.read_entry(row, fetcher)
@@ -399,19 +432,27 @@ def stamp_opinion_votes(
 
 
 def order_record(  # noqa: PLR0911 - one return per reason a reading yields no record
-    reading: order_lineups.OrderDocketReading,
+    reading: order_lineups.OrderDocketReading, *, shared_across_stages: bool = False
 ) -> tuple[VoteRecord | None, str | None]:
     """The partial record one docket's order-date reading yields, or why none.
 
     Held back: any problem on the reading (the channel has already emptied its
-    votes), no order text for the docket on the date (only a writing names
-    it), or order text mentioning a rehearing — a noted act or a
+    votes); an order or writing the docket shares with a docket of the other
+    stage (``shared_across_stages`` — a cert petition grouped with an
+    application, where a noted vote on the stay would otherwise be read onto
+    the petition); no order text for the docket on the date (only a writing
+    names it); or order text mentioning a rehearing — a noted act or a
     non-participation there attaches to the rehearing, not to the cert or
     application act. Nothing to stamp: no noted vote and writings not
     observed in full.
     """
     if reading.problems:
         return None, "the reading has problems: " + "; ".join(reading.problems)
+    if shared_across_stages:
+        return None, (
+            "the docket shares its order or a writing with a docket of the other stage: "
+            "a cert petition grouped with an application"
+        )
     acts = [p for p in reading.parts if p.where != "header"]
     if not acts:
         return None, "only a writing names the docket on the date"
@@ -436,7 +477,7 @@ def order_record(  # noqa: PLR0911 - one return per reason a reading yields no r
     try:
         provenance = VoteProvenance(
             source=SUPREMECOURT_ORDERS,
-            documents=list(reading.documents),
+            documents=sorted(reading.documents),
             grammars=[GrammarStamp(grammar=g, version=v) for g, v in stamps],
             participating=len(bench) - absent,
             complete=False,
@@ -444,6 +485,31 @@ def order_record(  # noqa: PLR0911 - one return per reason a reading yields no r
     except ValueError as exc:
         return None, f"no valid provenance: {exc}"
     return VoteRecord(votes, provenance, roles), None
+
+
+def _is_application(docket: str) -> bool:
+    return _APPLICATION_RE.match(docket) is not None
+
+
+def _shared_across_stages(dockets: Sequence[order_lineups.OrderDocketReading]) -> set[str]:
+    """Dockets sharing a piece of order text or a writing with the other stage's form.
+
+    An order-list entry groups the dockets one order disposes of, and an
+    application docket (``24A500``) can sit in a cert petition's group. The
+    channel reads each piece onto every docket it names, so a notation on the
+    application's act would read onto the petition too. Pieces are matched by
+    document, place and text.
+    """
+    by_piece: dict[tuple[str, str, str], set[str]] = defaultdict(set)
+    for docket in dockets:
+        for part in docket.parts:
+            by_piece[(part.document, part.where, part.text)].add(docket.docket)
+    mixed: set[str] = set()
+    for group in by_piece.values():
+        forms = {_is_application(d) for d in group}
+        if len(forms) > 1:
+            mixed |= group
+    return mixed
 
 
 def _stamp_order_day(
@@ -461,6 +527,7 @@ def _stamp_order_day(
     covers = all(d.text is not None and not d.truncated for d in documents)
     reading = order_lineups.read_documents(documents, day=day, covers_the_day=covers)
     dockets = {d.docket: d for d in reading.dockets}
+    mixed = _shared_across_stages(reading.dockets)
     for target in members:
         number = numbers.get(target.case_id)
         if number is None:
@@ -472,7 +539,7 @@ def _stamp_order_day(
                 (target.ref, f"not named in the date's documents: {number} on {day}")
             )
             continue
-        record, why = order_record(found)
+        record, why = order_record(found, shared_across_stages=number in mixed)
         if record is not None:
             _classify(target, record, result, replace_differing=replace_differing)
         elif why is None:
@@ -562,19 +629,7 @@ def _finish(result: VoteWriteResult, *, apply: bool, max_stamps: int | None) -> 
     planned: list[tuple[Path, Outcome]] = []
     for stamp in result.stamps:
         current = read_model(stamp.target.path, Outcome)
-        updated = Outcome.model_validate(
-            {
-                **current.model_dump(mode="json"),
-                "votes": [v.model_dump(mode="json") for v in stamp.record.votes],
-                "vote_provenance": stamp.record.provenance.model_dump(mode="json"),
-                "writing_roles": (
-                    None
-                    if stamp.record.writing_roles is None
-                    else [r.model_dump(mode="json") for r in stamp.record.writing_roles]
-                ),
-            }
-        )
-        planned.append((stamp.target.path, updated))
+        planned.append((stamp.target.path, stamped(current, stamp.record)))
     for path, outcome in planned:
         write_json(path, outcome)
     return result

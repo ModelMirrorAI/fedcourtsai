@@ -1646,9 +1646,10 @@ gh workflow run run-repair.yml --ref main \
 # supremecourt.gov in both modes, so an apply does not run a dry run first:
 # the ledger comes from the previous dispatch, and an apply whose count
 # exceeds it, or whose listings could not all be read, is refused whole.
-# Re-dispatching in `dry-run` after the apply is the control: it must report
-# `would stamp 0` with every stamped outcome counted as already carrying its
-# record. `replace-differing` (in repair_options) is only for an outcome whose
+# Re-dispatching in `dry-run` after the apply is the control: every stamped
+# outcome must count as already carrying its record, and `would stamp` may
+# name only order dates that crossed the 7-day settling window since the
+# apply. `replace-differing` (in repair_options) is only for an outcome whose
 # existing record the ledger lists as held back and the maintainer has read.
 gh workflow run run-repair.yml --ref main \
   -f repair=order-votes -f repair_mode=dry-run

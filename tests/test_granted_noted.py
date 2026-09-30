@@ -127,3 +127,23 @@ def test_the_chief_justice_is_seated_at_comparison() -> None:
         ]
     )
     assert disagreements(entry, reading, bench=bench, decided=date(2021, 6, 21)) == []
+
+
+def test_a_letter_spaced_decided_and_a_wrapped_with_are_read() -> None:
+    text = (
+        "19-1\n   D e c i d e d : 3 / 25 / 21 (with\n"
+        + "   No.\n19-2)\n   A u t h o r : J. Thomas\n19-2 CFX X V. Y\n"
+        + "   Decided: 3/25/21\n   Author: J. Thomas\n"
+    )
+    entries = parse_granted_noted(text)
+    assert [e.dockets for e in entries] == [("19-1",), ("19-2",)]
+    assert entries[0].decided == date(2021, 3, 25)
+    assert entries[0].author == "Thomas"
+
+
+def test_an_entry_with_no_decision_date_never_agrees() -> None:
+    (entry,) = parse_granted_noted("20-1 CFX X V. Y\n   Author: J. Thomas\n")
+    reading = summarize([(WritingKind.opinion_of_the_court, ("Thomas",))])
+    found = disagreements(entry, reading, bench=bench_on(date(2021, 3, 1)), decided=None)
+    assert "the list prints no decision date that could be read" in found
+    assert "the opinion prints no decision date that could be read" in found

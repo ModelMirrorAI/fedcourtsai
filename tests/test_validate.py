@@ -1900,13 +1900,14 @@ def _write_voting_outcome(
     stage: Stage | None = Stage.merits,
     provenance: dict[str, object] | None,
     votes: list[dict[str, object]] | None = None,
+    event_id: str = "evt-order-judgment",
 ) -> Path:
     """A merits outcome carrying the full bench's votes and ``provenance``, raw."""
-    ep = CasePaths(data_root, court, 22451).event("evt-order-judgment")
+    ep = CasePaths(data_root, court, 22451).event(event_id)
     write_yaml(
         ep.event_file,
         PredictableEvent(
-            event_id="evt-order-judgment",
+            event_id=event_id,
             case_id=f"{court}/22451",
             kind=EventKind.order,
             stage=stage,
@@ -1916,7 +1917,7 @@ def _write_voting_outcome(
     )
     payload = Outcome(
         case_id=f"{court}/22451",
-        event_id="evt-order-judgment",
+        event_id=event_id,
         resolved_at=date(2026, 6, 30),
         actual_disposition=Disposition.other,
         actual_granted=1,
@@ -2083,10 +2084,21 @@ def test_a_registered_source_is_held_to_its_registered_shape(
         stage=stage,
         provenance=_opinions_provenance(**overrides),
         votes=votes,
+        # A stage-less event under an id the moments table does not declare,
+        # so no declared moment supplies a stage either.
+        event_id="evt-order-judgment" if stage is not None else "evt-order-entry-99",
     )
     check = _votes_hold_check(data_root)
     assert not check.passed
     assert any(expected in p for p in check.problems), check.problems
+
+
+def test_a_stage_less_event_takes_the_stage_its_id_declares(tmp_path: Path) -> None:
+    """A cert baseline's `event.yaml` carries no stage; its declared moment names one."""
+    data_root = tmp_path / "data"
+    _write_voting_outcome(data_root, stage=None, provenance=_opinions_provenance())
+    check = _votes_hold_check(data_root)
+    assert check.passed, check.problems
 
 
 def test_a_voteless_outcome_passes_the_source_hold(tmp_path: Path) -> None:
