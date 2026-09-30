@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000382",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "claude-baseline discloses a machine-generated web summary asserting an August 24, 2026 grant, before the September 17 application. It expressly rejects that summary against the pending official docket. The supplied actual outcome is September 29 denial. Exposure to a purported outcome is recorded conservatively, with influence none and leakage_suspected false; this is a retrieval-quality incident, not evidence that a decided case was provisioned forward. The staged log confirms a captured web search but provides only a digest, so the summary's details rely on the candidate's disclosure.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260930T201759Z",
+  "schema_version": "1.0"
+}

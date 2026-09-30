@@ -1,0 +1,1 @@
+codex-baseline provided excellent reasoning, weighing the strength of the First Amendment claims against the interlocutory posture and the fact that it is a private commercial dispute. The prediction correctly leaned towards denial. It is an interim-stage cell, so the baseline and skill are the harness's.

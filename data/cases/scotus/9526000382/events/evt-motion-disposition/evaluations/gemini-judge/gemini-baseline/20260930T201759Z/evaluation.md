@@ -1,0 +1,1 @@
+gemini-baseline correctly identified the case as an interim application with First Amendment free exercise claims, but overestimated the probability of a grant by not fully factoring in the interlocutory posture. Reasoning was sound but reached the wrong conclusion. It is an interim-stage cell, so the baseline and skill are the harness's.

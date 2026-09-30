@@ -1,0 +1,74 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": null,
+  "brier_score": 0.019600000000000003,
+  "brier_skill_score": 0.975546121751513,
+  "case_id": "scotus/9526000406",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.86,
+        "score": 0.7819088568298028
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.65,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7819088568298028,
+    "total": 0.7819088568298028
+  },
+  "correct": 1,
+  "created_at": "2026-09-30T20:42:35Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The September 27 log has 36 captured calls out of 38. Its two unobserved web calls concern historical stay standards, not the target application; their missing results are not treated as empty results. Other authority retrieval concerns the 2010 Hollingsworth standard. The rationale distinguishes the earlier 2025 proceedings from the unresolved target and does not cite the September 29 disposition. No target-outcome exposure is indicated.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "6d8016edd63e6294895a439d13806f7b62a7e30d",
+    "stamped_at": "2026-09-30T20:44:17.819522Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20260930T201759Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
