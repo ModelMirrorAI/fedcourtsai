@@ -61,8 +61,8 @@ edit to this one. The rule reads the party-v2 class predicate
 (:func:`.party.classify_party_v2`) and changes nothing about it.
 
 Honest limits, stated here and in the reading rule (``metrics/README.md``):
-resolved IFP rows carry no counsel in the index today, so they read
-``unknown``, not ``no``; counsel blocks accrue after docketing, so a pending
+all but about a dozen resolved IFP rows carry no counsel in the index today,
+so they read ``unknown``, not ``no``; counsel blocks accrue after docketing, so a pending
 docket's ``no`` is provisional and a ``--through`` cut still reads the counsel
 the row holds now; the roster names the office's leadership (Solicitors
 General, acting Solicitors General, principal deputies) and one career deputy,
@@ -296,8 +296,7 @@ SG_OFFICE_ROSTER: Final[tuple[RosterMember, ...]] = (
                 start=date(2015, 10, 5),
                 end=None,
                 source="career deputy throughout the roster's coverage; start is "
-                "the coverage floor (OT2015's opening), not an appointment, so a "
-                "docket filed before it reads his entry as private practice",
+                "the coverage floor (OT2015's opening), not an appointment",
             ),
         ),
     ),
