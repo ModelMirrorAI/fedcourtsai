@@ -3055,6 +3055,78 @@ def test_counsel_round_trips_with_its_side(tmp_path: Path) -> None:
     assert stored.counsel[1].counsel_of_record is False
 
 
+def test_counsel_survives_a_counsel_less_write_and_a_fresh_reading_replaces_it(
+    tmp_path: Path,
+) -> None:
+    """A channel that maps no counsel blocks writes a confident empty list, which
+    must not erase the live channel's per-side reading; a non-empty re-read still
+    lands. The latch is the column's own — every neighbouring column keeps the
+    rule it had, latched or not."""
+    db = tmp_path / "corpus.db"
+    case_id = "scotus/9024007060"
+    first = [
+        corpus.CounselEntry(
+            party="Jane Doe", attorney="A. Lawyer", role=corpus.CounselRole.petitioner
+        ),
+        corpus.CounselEntry(
+            party="State", attorney="B. Solicitor", role=corpus.CounselRole.respondent
+        ),
+    ]
+    fresh = [
+        corpus.CounselEntry(
+            party="Jane Doe",
+            attorney="C. Appointed",
+            role=corpus.CounselRole.petitioner,
+            counsel_of_record=True,
+        )
+    ]
+    base = {"court": "scotus", "docket_number": "24-7060"}
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id,
+                    **base,
+                    counsel=first,
+                    parties=["Jane Doe", "State"],
+                    last_live_polled=date(2026, 7, 13),
+                    cvsg_date=date(2026, 5, 1),
+                    distribution_count=2,
+                    application_kind="substantive",
+                    sample_weight=10,
+                )
+            ],
+        )
+        # A counsel-less write (a REST- or bulk-shaped row) with its own
+        # readings of the neighbouring columns.
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id,
+                    **base,
+                    distribution_count=1,
+                    application_kind="extension",
+                    sample_weight=1,
+                )
+            ],
+        )
+        kept = corpus.get_row(conn, case_id)
+        corpus.upsert_rows(conn, [_row(case_id, **base, counsel=fresh)])
+        replaced = corpus.get_row(conn, case_id)
+    assert kept is not None and replaced is not None
+    assert kept.counsel == first
+    # The neighbours behave exactly as their own rules say.
+    assert kept.parties == []  # unlatched: takes the incoming value
+    assert kept.last_live_polled == date(2026, 7, 13)  # fill-in latch
+    assert kept.cvsg_date == date(2026, 5, 1)  # fill-in latch
+    assert kept.distribution_count == 2  # max-latch
+    assert kept.application_kind == "extension"  # a real reading replaces
+    assert kept.sample_weight == 1  # min-latch
+    assert replaced.counsel == fresh
+
+
 def test_event_stage_round_trips_and_null_stays_null(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
