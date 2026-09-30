@@ -333,12 +333,15 @@ value on that list is an address-shaped string or a phrase on an organisation
 served with separate counsel, which the arm would read as an incarcerated
 filer. The residual is a represented amicus block that did carry a real
 register number (none on that blob): it would stay as served, where a
-party-side one is withheld whatever its `Attorney` says. A docket whose only qualifying block is an amicus's is scrubbed like
-any other, so a counselled petition and opposition on it lose their counsel's
-professional details, and the shape pass's misreads of legal prose — a case
-name led by a street number, a regulation number in telephone shape — reach
-those counselled filings too. Every
-document staged for such a docket has its emails, telephone numbers, post-office boxes and
+party-side one is withheld whatever its `Attorney` says. A docket whose only
+qualifying block is an amicus's gets the **value pass alone** (below): the
+amicus's own brief is not a staged kind, so what is staged there is counsel's
+filings, and the shape pass would cost their text its misreads of legal prose —
+a case name led by a street number, a regulation number in telephone shape —
+for no personal detail it alone could reach. Where no amicus value clears its
+floor, nothing runs and the documents are staged as filed. On a docket read as
+self-represented on a party side, every
+document staged has its emails, telephone numbers, post-office boxes and
 street addresses replaced by the fixed token `[contact detail withheld]`, which
 keeps the document's structure and tells a reader that something was withheld
 rather than that a line is missing. It runs as two passes. The **shape** pass
@@ -359,8 +362,8 @@ the scrub ran over this document's staged text; `contact_replacements`, how
 many it withheld — so `true, 0` (scrubbed, nothing found) stays
 distinguishable from `false, 0` (a represented docket's text, untouched); and
 `contact_scrub_passes`, which passes ran (`["value", "shape"]`, `["shape"]`,
-or `[]` where the scrub did not run), so a shape-only scrub is not read as the
-complete one. A filing by the other side's counsel on such a docket is
+`["value"]` on an amicus-only docket, or `[]` where the scrub did not run), so
+a shape-only or value-only scrub is not read as the complete one. A filing by the other side's counsel on such a docket is
 scrubbed with the rest, since the reading is the docket's and taken once:
 the cost is a firm's switchboard number a cell had no use for.
 
@@ -426,7 +429,7 @@ with `respondent-side`, `amicus-side` or a `/`-joined list such as
 `petitioner/respondent-side` naming the lists read as self-represented (the
 `Other` list is named `amicus`); the document scrub's line names them the same
 way (`no attorney named for the petitioner`, `the respondent`, `the amicus`, or
-`the petitioner/respondent`).
+`the petitioner/respondent`), with `passes: value` on an amicus-only docket.
 Both files are gitignored, and no predict or evaluate cell uploads `record/`,
 so what can reach public git from a cell is what its prose quotes, which is the
 exposure [data-sources.md](data-sources.md) already names. The case-summary

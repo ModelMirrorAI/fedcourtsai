@@ -265,6 +265,7 @@ from .pipeline.documents import (
     OTHER_LIST,
     SCRUB_PASS_VALUE,
     QpExtractRow,
+    ScrubbedText,
     TextCoverage,
     backfill_questions_presented,
     document_fetch_losses,
@@ -11043,6 +11044,25 @@ def _sides_named(sides: tuple[str, ...]) -> str:
     return "/".join("amicus" if side == OTHER_LIST else side.lower() for side in sides)
 
 
+def _staged_scrub(
+    text: str, values: tuple[str, ...], sides: tuple[str, ...]
+) -> ScrubbedText | None:
+    """One staged document's contact scrub on a docket read as self-represented on ``sides``.
+
+    None where the docket is not scrubbed. A docket read so on a party side runs
+    both passes. One read so on its `Other` list alone runs the value pass only:
+    the amicus's own brief is not a staged kind, so what is staged there is
+    counsel's filings, and the shape pass would cost their text its misreads of
+    legal prose for no personal detail it alone could reach. Where no amicus
+    value clears its floor nothing runs, and the document is staged as filed and
+    recorded as unscrubbed (None).
+    """
+    if not sides:
+        return None
+    done = scrub_contact_details(text, values, shape=any(side != OTHER_LIST for side in sides))
+    return done if done.passes else None
+
+
 @app.command("provision-snapshot")
 def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     *,
@@ -11144,7 +11164,9 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     ``contact_scrubbed``, ``contact_replacements`` and ``contact_scrub_passes``
     on each manifest entry recording that it ran, what it withheld, and whether
     the value pass keyed on the self-represented filers' own contact values ran
-    beside the shape pass. On the same docket the staged snapshot has each
+    beside the shape pass. On a docket read so on its ``Other`` list alone the
+    value pass runs without the shape pass, since what is staged there is
+    counsel's filings. On the same docket the staged snapshot has each
     self-represented block's contact keys withheld and a party's register
     number replaced by a presence marker
     (:func:`~fedcourtsai.pipeline.documents.scrub_snapshot_contacts`). The
@@ -11316,7 +11338,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         # whether the snapshot names anyone but the filer to write to, on
         # either party side or on an amicus block.
         # Where it does not, every document staged for this cell has its
-        # contact details withheld (shapes and served values) — the whole
+        # contact details withheld (shapes and served values; served values
+        # alone where only an amicus reads so, see `_staged_scrub`) — the whole
         # docket rather than the petition alone, since deciding per document
         # who signed it would be a second reading with its own failure mode,
         # and a filing by the other side's counsel loses only professional
@@ -11324,7 +11347,6 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         # corpus row and the source PDF are untouched: the scrub is on the copy
         # staged under `record/`, which is the copy a cell can quote into the
         # public ledger.
-        scrubbing = bool(unrepresented)
         # The filer's own contact values, off every served block on the sides
         # the trigger read as self-represented (on the `Other` list, off the
         # qualifying blocks alone), key the scrub's value pass: it
@@ -11335,8 +11357,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         # that, the pass would look for the placeholder and miss the values.
         contact_values = party_contact_values(payload, unrepresented)
         staged = [
-            (doc, scrub_contact_details(doc.text, contact_values) if scrubbing else None)
-            for doc in documents
+            (doc, _staged_scrub(doc.text, contact_values, unrepresented)) for doc in documents
         ]
         for doc, scrubbed in staged:
             write_text(paths.document(doc.kind), doc.text if scrubbed is None else scrubbed.text)
@@ -11367,9 +11388,11 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
                     # can tell from here that the pipeline put it there.
                     "contact_scrubbed": scrubbed is not None,
                     "contact_replacements": 0 if scrubbed is None else scrubbed.replacements,
-                    # Which passes ran: `shape` always where the scrub ran, and
-                    # `value` only where the docket served a contact value
-                    # specific enough to key on. A shape-only scrub is the
+                    # Which passes ran: `shape` wherever the scrub ran on a
+                    # docket read as self-represented on a party side, `value`
+                    # only where the docket served a contact value specific
+                    # enough to key on — and `value` alone on a docket read so
+                    # on its `Other` list alone. A shape-only scrub is the
                     # weaker of the two — it misses a detail a scan split
                     # mid-word or across a line — so the manifest says which
                     # one the text went through rather than letting
@@ -11381,7 +11404,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         )
         kinds = ", ".join(doc.kind for doc in documents)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
-        if scrubbing:
+        if any(done is not None for _, done in staged):
             # Echoed for the same reason the cut counts are: the size of a
             # scrub is itself a signal. A pattern that began matching legal
             # prose would show up here as a count no signature block could
@@ -11390,7 +11413,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             # `record/`.
             withheld = sum(0 if done is None else done.replacements for _, done in staged)
             keyed = any(done is not None and SCRUB_PASS_VALUE in done.passes for _, done in staged)
-            passes = "value+shape" if keyed else "shape only"
+            shaped = unrepresented != (OTHER_LIST,)
+            passes = ("value+shape" if keyed else "shape only") if shaped else "value"
             typer.echo(
                 f"{case} contact scrub: {withheld} detail(s) withheld across "
                 f"{len(staged)} staged document(s) (no attorney named for the "

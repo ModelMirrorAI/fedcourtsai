@@ -1088,7 +1088,9 @@ def _merged_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
-def scrub_contact_details(text: str, values: tuple[str, ...] = ()) -> ScrubbedText:
+def scrub_contact_details(
+    text: str, values: tuple[str, ...] = (), *, shape: bool = True
+) -> ScrubbedText:
     """Replace every contact detail in ``text`` with the fixed placeholder.
 
     Two passes, matched together against the original text (see the comment on
@@ -1097,7 +1099,12 @@ def scrub_contact_details(text: str, values: tuple[str, ...] = ()) -> ScrubbedTe
     :func:`party_contact_values` — wherever the text spells it, however a
     scan fragmented it, line breaks included (see the section comment above). It
     runs only where a value clears its floor, and ``passes`` says whether it
-    did.
+    did. ``shape=False`` runs the value pass alone — the caller's choice on a
+    docket whose only self-represented filer is an amicus, whose own brief is
+    not a staged kind: there the staged filings are counsel's, and the shape
+    pass would cost their text the misreads named below for no personal detail
+    it alone could reach. ``passes`` is then ``("value",)``, or empty where no
+    value cleared its floor and nothing ran.
 
     The **shape** pass matches five shapes: an email address in its contiguous
     spelling, the same address as OCR fragments it (a blank beside the `@` or a
@@ -1138,9 +1145,10 @@ def scrub_contact_details(text: str, values: tuple[str, ...] = ()) -> ScrubbedTe
     ledger; it does not make a filing anonymous.
     """
     patterns = [p for p in (_value_pattern(v) for v in values) if p is not None]
-    passes = (SCRUB_PASS_VALUE, SCRUB_PASS_SHAPE) if patterns else (SCRUB_PASS_SHAPE,)
-    anchored = _EMAIL_ANCHOR_RE.search(text) is not None
-    patterns += [p for p in _CONTACT_PATTERNS if anchored or p is not _FRAGMENTED_EMAIL_RE]
+    passes = ((SCRUB_PASS_VALUE,) if patterns else ()) + ((SCRUB_PASS_SHAPE,) if shape else ())
+    if shape:
+        anchored = _EMAIL_ANCHOR_RE.search(text) is not None
+        patterns += [p for p in _CONTACT_PATTERNS if anchored or p is not _FRAGMENTED_EMAIL_RE]
     spans = _merged_spans([m.span() for p in patterns for m in p.finditer(text)])
     parts: list[str] = []
     cursor = 0

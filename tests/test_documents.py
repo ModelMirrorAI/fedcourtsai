@@ -4173,6 +4173,44 @@ def test_the_amicus_values_are_read_off_the_qualifying_blocks_only() -> None:
     )
 
 
+def test_the_value_pass_alone_leaves_every_shape_it_was_not_keyed_on() -> None:
+    # `shape=False`: the amicus's own values go, however the scan broke them,
+    # and a counsel block's address and number — shapes only the shape pass
+    # reads — survive, as does a citation the shape pass would misread.
+    text = (
+        "Counsel of Record\n"
+        + "1000 Maine Avenue SW\n"
+        + "(202) 555-0100\n"
+        + "(citing 16 Front St., L.L.C. v. Example)\n"
+        + "Amicus: jscholar@law.example.\n"
+        + "edu\n"
+    )
+
+    scrubbed = scrub_contact_details(text, ("jscholar@law.example.edu",), shape=False)
+    both = scrub_contact_details(text, ("jscholar@law.example.edu",))
+
+    assert scrubbed.passes == (SCRUB_PASS_VALUE,)
+    assert scrubbed.replacements == 1
+    assert scrubbed.text == (
+        "Counsel of Record\n"
+        + "1000 Maine Avenue SW\n"
+        + "(202) 555-0100\n"
+        + "(citing 16 Front St., L.L.C. v. Example)\n"
+        + f"Amicus: {CONTACT_PLACEHOLDER}\n\n"
+    )
+    # The default is both passes, exactly as before.
+    assert both.passes == (SCRUB_PASS_VALUE, SCRUB_PASS_SHAPE)
+    assert "1000 Maine Avenue SW" not in both.text
+
+
+def test_the_value_pass_alone_with_nothing_to_key_on_runs_nothing() -> None:
+    scrubbed = scrub_contact_details("Tel. (202) 555-0100\n", ("General Delivery",), shape=False)
+
+    assert scrubbed.passes == ()
+    assert scrubbed.replacements == 0
+    assert scrubbed.text == "Tel. (202) 555-0100\n"
+
+
 def test_party_values_come_first_then_the_qualifying_amicus_values() -> None:
     # A self-represented petitioner beside a qualifying and a represented
     # amicus: the party side's values, then the qualifying amicus's alone, with

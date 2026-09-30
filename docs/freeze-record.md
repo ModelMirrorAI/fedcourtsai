@@ -5889,9 +5889,17 @@ freeze commit is recorded here.
     `[register number withheld]` marker on it.
   - **Trigger.** The docket-level trigger (`unrepresented_sides`) now also
     fires where an `Other` block qualifies, and returns `Other` after the
-    party sides. A docket whose only qualifying block is an amicus's is
-    scrubbed like any other: **every** staged document on it, including a
-    counselled petition and opposition, passes through the shape pass.
+    party sides.
+  - **Document scrub on an amicus-only docket: the value pass alone.** Where
+    the only qualifying block is an amicus's, every staged document on the
+    docket gets the value pass keyed on that amicus's own values and **no
+    shape pass**. The amicus's own brief is not a staged kind, so what is
+    staged there is counsel's filings, and the shape pass would cost their
+    text its misreads of legal prose for no personal detail it alone could
+    reach. Where no amicus value clears its floor nothing runs, and the
+    document is staged as filed and recorded as unscrubbed. A docket read as
+    self-represented on a party side keeps both passes, keyed on the union of
+    its party-side values and any qualifying amicus's.
   - **Staged snapshot.** A qualifying `Other` block has each populated
     `Address`, `City`, `Zip`, `Phone`, `Email` and `Title` replaced by
     `[contact detail withheld]`. A populated `PrisonerId` on one, which holds
@@ -5902,17 +5910,18 @@ freeze commit is recorded here.
     keyed on, since amici are not co-parties. The party sides key exactly as
     before: every block of a side read as self-represented.
   - **Manifest and run log.** `documents.json` records the same
-    `contact_scrub_passes` names, so no schema moves. The run-log echoes name
-    the `Other` list `amicus`: `amicus-side` (or, for example,
-    `petitioner/amicus-side`) on the snapshot line, and `no attorney named for
-    the amicus` on the document line.
+    `contact_scrub_passes` names, so no schema moves; an amicus-only docket's
+    documents record `["value"]`. The run-log echoes name the `Other` list
+    `amicus`: `amicus-side` (or, for example, `petitioner/amicus-side`) on the
+    snapshot line, and `no attorney named for the amicus; passes: value` on
+    the document line of an amicus-only docket.
   - **Party-side snapshot blocks unchanged.** The staged petitioner- and
     respondent-side blocks are byte for byte what they were: a test pins it,
     and over the blob below no payload's staged party-side blocks differ
-    between a run with its `Other` list and one without. Staged **document
-    text** does change: on a docket newly fired by an amicus alone every
-    staged document is scrubbed, and on a docket already fired by a party side
-    the qualifying amicus's values join the value pass.
+    between a run with its `Other` list and one without. Staged document
+    text on a party-fired docket differs only where a qualifying amicus's own
+    value appears in it; over the blob below, none of the **924** stored
+    documents on party-fired dockets stages differently from `staging`.
 
   The corpus row, the content-store payload and the source PDF are untouched.
   The three lanes that stage through this provisioning narrow the same way
@@ -5952,15 +5961,16 @@ freeze commit is recorded here.
   - The trigger now reads **654** dockets rather than **623**. **31** of the 32
     are newly scrubbed (fired by their `Other` list alone); the other one was
     already fired by its petitioner.
-  - On the 32 dockets, **52** of the **82** stored documents (petitions,
-    oppositions and questions-presented rows) stage differently. On the 31
-    newly scrubbed dockets the shape pass withholds **460** spans. They are
-    mostly counsel's office addresses, telephone numbers and emails, and the
-    professional details the design already accepts losing. A sample also
-    shows the shape pass's known misreads of legal prose: a case name led by a
-    street number in a citation, and a regulation number in telephone shape.
-    Those dockets carry amici, so they skew toward the salient end of the
-    docket. This is the largest cost of the entry.
+  - On the 31 amicus-only dockets, the value pass alone withholds **0** spans
+    across their **81** stored documents (petitions, oppositions and
+    questions-presented rows): no amicus's own value appears in them, so none
+    stages differently. Every one records `contact_scrubbed: true` with
+    `["value"]`, since each of those amici serves a value that clears its
+    floor. Run with the shape pass as well, the same documents would have lost
+    **460** spans, mostly counsel's office details, and with them two misreads
+    of legal prose found in a sample: a case name led by a street number in a
+    citation (`16 Front St., L.L.C. v. …`) and a regulation number in telephone
+    shape. Both survive under the value pass alone.
   - The dockets: 68237529, 68305309, 68381998, 68472798, 69232353, 69262307,
     69262312, 69366590, 69437012, 69535496, 69797216, 69830688, 69920276,
     69926223, 69926779, 70003535, 71573389, 71644700, 71644707, 71895450,
@@ -5969,7 +5979,7 @@ freeze commit is recorded here.
 
   **What a post-change cell reads.** On an affected docket, the cell reads a
   subset of the pre-change snapshot, and a subset of the pre-change document
-  text. No skill movement is predicted. In the 2026-09-21 entry's negative
+  text wherever a qualifying amicus's own value appears in it. No skill movement is predicted. In the 2026-09-21 entry's negative
   form, a movement in **either** direction across this boundary may not be
   read as a model effect.
 
@@ -5990,5 +6000,5 @@ freeze commit is recorded here.
   - `uv run fedcourts provision-snapshot --court scotus --docket 71978744`
     (with the data root pointed at a scratch directory) echoes
     `snapshot contact scrub: N value(s) withheld on M amicus-side block(s)` and
-    `(no attorney named for the amicus; passes: value+shape)`, where its latest
+    `(no attorney named for the amicus; passes: value)`, where its latest
     payload still serves the two self-named amicus blocks.
