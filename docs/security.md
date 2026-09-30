@@ -68,7 +68,7 @@ environment-scoped one correctly resolves empty. Each workflow mints a token sco
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
 | `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
-| `run-repair` | data | contents (both writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the validation job holds no credential |
+| `run-repair` | data | contents (all three writer jobs); none at all on the selector-validation job | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. The re-grade job holds no corpus role and no `id-token`; the vote-writer job holds the read-only corpus role for its pull and writes only `outcome.json`, minting the App token only on an apply, after the stamper exits, for its commit step alone (separated from the stamper in time, not by a process boundary), and blanking the AWS session and the OIDC request token on the stamper's step; the validation job holds no credential |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner. The watchdog brackets every engine; this token is minted on codex cells alone |
 | `integration-test` (codex-application-repro leg and the codex-freeze-probe job) | dev on a prod-bound dispatch; staging telemetry App on a staging-bound one | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The credentials select per bound environment, and the arm/disarm steps pass the matching channel, so a staging rehearsal's rows land on the rehearsal channel's own issue under an App whose platform-enforced ceiling is Issues alone; a leg bound to neither environment mints nothing, warns, and degrades to its runner-local account |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
@@ -920,7 +920,9 @@ pair the third one writes:
   never do — see below), and `corpus-readonly` for the full-pull consumers —
   the predict/evaluate **plan** jobs, whose backlog derivation scans every open
   event, and the scan-heavy `run-analytics` / the metrics refresh and
-  `run-backtest`. Two operational facts ride this role. Its IAM **maximum
+  `run-backtest`, and `run-repair`'s vote-writer job, which reads one column
+  of the index (each case's docket number) and writes only committed
+  `outcome.json` files. Two operational facts ride this role. Its IAM **maximum
   session duration** must allow the sessions its callers request —
   `run-backtest`'s replay job asks for 21600 s (6 h), the census for 8100 s —
   because a
@@ -951,6 +953,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus job only) | read-write | corpus writers (`corpus-push` + content-store mirror) |
 | `run-predict`, `run-evaluate` — plan jobs  | read-only     | each derives its own backlog — a scan over every open (resolved) event, so it pulls the index rather than reading it in place |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
+| `run-repair` — votes job                  | read-only     | the vote writer: full index `corpus-pull` for each case's docket number, then fetches from supremecourt.gov; its only write is the `outcome.json` commit the data App pushes |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store; the text-coverage mode reads wider on the same terms — a document-manifest round trip per live-slice case plus each stored document's text body |
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |

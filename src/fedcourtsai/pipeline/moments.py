@@ -209,6 +209,19 @@ def spec_for(event_id: str) -> MomentSpec | None:
     return _BY_EVENT_ID.get(event_id)
 
 
+def event_stage(stage: Stage | str | None, event_id: str) -> Stage | None:
+    """An event's stage: its own where it records one, else the one its id declares.
+
+    A committed ``event.yaml`` may carry no stage — the cert petition baselines
+    are written without one — and this table is the authority on a declared
+    id's stage. ``None`` for a stage-less event whose id declares nothing.
+    """
+    if stage is not None:
+        return Stage(stage)
+    spec = spec_for(event_id)
+    return spec.stage if spec is not None else None
+
+
 def minted_moment_ids() -> frozenset[str]:
     """The declared moments whose ledger ``event.yaml`` is owed **at the mint**.
 

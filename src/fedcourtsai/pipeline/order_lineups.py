@@ -16,8 +16,10 @@ in two places on supremecourt.gov, and this module reads both:
 
 **Read-only.** Nothing here writes the corpus, the content store, the ledger or
 ``data/``: :func:`read_day` and :func:`read_url` return readings, and the
-``order-notations`` command prints them. No vote source is registered for this
-channel, so nothing it reads may be committed.
+``order-notations`` command prints them. The channel is registered as the
+``supremecourt-orders`` vote source (:mod:`fedcourtsai.pipeline.vote_sources`),
+and what it reads reaches the ledger only through the writer
+(:mod:`fedcourtsai.vote_writer`).
 
 **Splitting a document.** The list proper runs to the first appended caption.
 A line opening on a docket number starts an entry (consecutive ones share the
@@ -64,13 +66,13 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 from typing import Final, Literal
-from urllib.parse import urldefrag, urljoin, urlsplit
+from urllib.parse import urldefrag, urljoin
 
 import httpx
 from pydantic import BaseModel
 
 from ..schemas import JusticeVote, VoteValue, WritingRole
-from ..supremecourt import SupremeCourtClient, is_court_url, october_term_year
+from ..supremecourt import SupremeCourtClient, october_term_year
 from .documents import extract_pdf_text
 from .justices import bench_on, resolve_surname
 from .lineup import Lineup, Writing, WritingKind, writing_role
@@ -81,6 +83,7 @@ from .order_grammars import (
     match_header,
     normalize_order_text,
 )
+from .vote_sources import is_order_document_url
 
 #: Where a header may begin: a name or a ``Statement of`` a name.
 HEADER_START_RE: Final = re.compile(
@@ -179,18 +182,6 @@ def relating_listing_url(term: int) -> str:
     if not 0 <= term < 100:
         raise ValueError(f"term out of range: {term}")
     return RELATING_LISTING_URL.format(term=term)
-
-
-def is_order_document_url(url: str) -> bool:
-    """Whether ``url`` is an order or opinion PDF on the Court's own host."""
-    if not is_court_url(url):
-        return False
-    path = urlsplit(url).path
-    if "/../" in path or "/./" in path:
-        return False
-    return path.lower().endswith(".pdf") and (
-        path.startswith("/orders/") or path.startswith("/opinions/")
-    )
 
 
 def _listed_day(raw: str) -> date | None:

@@ -226,6 +226,7 @@ from .paths import CasePaths, EventPaths
 from .pipeline import (
     arrival_cut,
     cell_context,
+    granted_noted,
     historical,
     liveprobe,
     moments,
@@ -233,6 +234,7 @@ from .pipeline import (
     order_lineups,
     qp_topics,
     semantic,
+    vote_sources,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
 from .pipeline.arrival_backfill import backfill_arrival_stamps
@@ -266,6 +268,7 @@ from .pipeline.documents import (
     backfill_questions_presented,
     document_fetch_losses,
     document_text_coverage,
+    extract_pdf_text,
     party_contact_values,
     questions_presented_extract,
     scrub_contact_details,
@@ -275,6 +278,7 @@ from .pipeline.documents import (
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.ingest import UNSAMPLED_WEIGHT
 from .pipeline.judgment import backfill_merits_judgments
+from .pipeline.lineup import WritingKind
 from .pipeline.live import live_poll_all
 from .pipeline.missed import (
     MISSED_LOOKBACK_DAYS,
@@ -427,6 +431,12 @@ from .validate import (
     run_ledger_referential_checks,
     run_scope_audit,
     validate_ledger,
+)
+from .vote_writer import (
+    VoteWriteResult,
+    reason_counts,
+    stamp_opinion_votes,
+    stamp_order_votes,
 )
 from .watchdog_telemetry import arm_checkin, disarm_checkin
 
@@ -9202,7 +9212,7 @@ def opinion_lineups_command(
     against the bench the seat roster says sat. Prints one JSON reading per
     listing row on stdout — the lineup, its problems, and, where the lineup is
     complete and passes the listing cross-checks, the ``votes`` list and
-    ``vote_provenance`` block a writer would commit — and a count summary on
+    ``vote_provenance`` block a writer may commit — and a count summary on
     stderr.
 
     Strictly **read-only**: writes no corpus, content store or ledger, and
@@ -9281,9 +9291,10 @@ def order_notations_command(
     a single ``--url`` document never is.
 
     Strictly **read-only**: writes no corpus, content store, ledger or
-    ``data/``, and nothing at all but the optional PDF cache. The channel is
-    not a registered vote source. supremecourt.gov only — no token, no budget;
-    browser UA, ~1 req/s and host-scoped fetches built in.
+    ``data/``, and nothing at all but the optional PDF cache. It is the
+    reader behind the registered ``supremecourt-orders`` vote source, whose
+    writer is ``stamp-order-votes``. supremecourt.gov only — no token, no
+    budget; browser UA, ~1 req/s and host-scoped fetches built in.
     """
     if (on is None) == (url is None):
         typer.echo("give exactly one of --date or --url", err=True)
@@ -9298,7 +9309,7 @@ def order_notations_command(
         except ValueError as exc:
             typer.echo(f"--date must be YYYY-MM-DD: {on!r}", err=True)
             raise typer.Exit(code=2) from exc
-    if url is not None and not order_lineups.is_order_document_url(url):
+    if url is not None and not vote_sources.is_order_document_url(url):
         typer.echo(f"not an order or opinion PDF on supremecourt.gov: {url}", err=True)
         raise typer.Exit(code=2)
     with SupremeCourtClient(throttle_seconds=throttle) as client:
@@ -9325,6 +9336,349 @@ def order_notations_command(
         f"{sum(1 for d in dockets if d.writings)} with writings, "
         f"{sum(1 for d in dockets if d.writings_complete)} with complete writing roles, "
         f"{sum(1 for d in dockets if d.problems)} with problems",
+        err=True,
+    )
+
+
+def _granted_noted_text(fetcher: opinion_lineups.OpinionFetcher, term: int) -> str | None:
+    """One Term's Granted & Noted list as extracted text, or ``None`` if unreadable."""
+    try:
+        data = fetcher.opinion(granted_noted.GRANTED_NOTED_URL.format(term=term))
+    except httpx.HTTPError:
+        return None
+    if data is None:
+        return None
+    extracted = extract_pdf_text(data, char_cap=granted_noted.TEXT_CHAR_CAP)
+    if extracted.truncated or not extracted.text.strip():
+        return None
+    return extracted.text
+
+
+def _vote_write_preflight(
+    command: str, *, apply: bool, max_stamps: int | None, cache_dir: Path | None, throttle: float
+) -> Path:
+    """Refuse a malformed invocation, and return the corpus path to read."""
+    if apply and max_stamps is None:
+        typer.echo(
+            f"{command}: --apply requires an explicit --max-stamps. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if apply and cache_dir is not None:
+        typer.echo(
+            f"{command}: --cache-dir is a dev cache read without host scoping, so an "
+            "apply never reads through one — drop it.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if throttle <= 0:
+        typer.echo("--throttle must be positive", err=True)
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(get_settings().corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "first — the writer reads each case's docket number from it.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    return db_path
+
+
+def _report_vote_write(command: str, result: VoteWriteResult, max_stamps: int | None) -> None:
+    """Print a pass's ledger — the reading an apply's bound is taken from."""
+    if result.refused and result.failures:
+        typer.echo(
+            f"{command}: refusing to apply — the pass could not read everything it "
+            "needs: " + "; ".join(result.failures),
+            err=True,
+        )
+    elif result.refused:
+        typer.echo(
+            f"{command}: refusing to apply {len(result.stamps)} stamp(s) "
+            f"(--max-stamps {max_stamps}). Read a fresh dry run before raising the bound.",
+            err=True,
+        )
+    verb = "stamped" if result.applied else "would stamp"
+    new = sum(1 for s in result.stamps if not s.replaces)
+    complete = sum(1 for s in result.stamps if s.record.provenance.complete)
+    with_votes = sum(1 for s in result.stamps if s.record.votes)
+    with_roles = sum(1 for s in result.stamps if s.record.writing_roles is not None)
+    by_stage: dict[str, int] = {}
+    for stamp in result.stamps:
+        by_stage[stamp.target.stage] = by_stage.get(stamp.target.stage, 0) + 1
+    stages = ", ".join(f"{stage} {count}" for stage, count in sorted(by_stage.items()))
+    typer.echo(
+        f"{command} ({'applied' if result.applied else 'dry-run'}, source {result.source}): "
+        f"{result.population} outcome(s) in the population; {verb} {len(result.stamps)} "
+        f"({new} new, {len(result.stamps) - new} replacing a different record; "
+        f"{stages or 'none'}) — {complete} complete, {with_votes} with votes, "
+        f"{with_roles} with writing roles; {len(result.unchanged)} already carry the same "
+        f"record; {len(result.held_back)} held back; {len(result.skipped)} with nothing to stamp"
+    )
+    for failure in result.failures:
+        typer.echo(f"  failed: {failure}")
+    for label, entries in (("held back", result.held_back), ("nothing to stamp", result.skipped)):
+        for reason, count in reason_counts(entries).items():
+            typer.echo(f"  {label} ({count}): {reason}")
+    for stamp in result.stamps:
+        record = stamp.record
+        votes = ", ".join(f"{v.justice} {v.vote}" for v in record.votes) or "no votes"
+        roles = (
+            ""
+            if record.writing_roles is None
+            else "; writing roles: "
+            + ", ".join(f"{r.justice} {r.writing}" for r in record.writing_roles)
+        )
+        typer.echo(
+            f"  {'replace' if stamp.replaces else 'stamp'} {stamp.target.ref} "
+            f"({stamp.target.stage}, {stamp.target.outcome.resolved_at}): {votes}{roles}"
+        )
+    for ref, reason in result.held_back:
+        typer.echo(f"  held back {ref}: {reason}")
+    # The two classes that are the ordinary state of most outcomes are counted
+    # above and not listed one by one; every other reason is.
+    for ref, reason in result.skipped:
+        if not reason.startswith(("nothing observed", "inside the")):
+            typer.echo(f"  nothing to stamp {ref}: {reason}")
+
+
+@app.command("stamp-opinion-votes")
+def stamp_opinion_votes_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the vote records; omit for a dry-run report."),
+    ] = False,
+    max_stamps: Annotated[
+        int | None,
+        typer.Option(
+            "--max-stamps",
+            help="Blast-radius bound, required with --apply: refuse to write more than "
+            "this many outcomes (new records and replacements together).",
+        ),
+    ] = None,
+    replace_differing: Annotated[
+        bool,
+        typer.Option(
+            "--replace-differing",
+            help="Replace an outcome's existing, different vote record instead of holding it back.",
+        ),
+    ] = False,
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Dry run only: keep fetched PDFs here and re-read them from here (a dev "
+            "cache read without host scoping, refused with --apply)."
+        ),
+    ] = None,
+) -> None:
+    """Stamp merits outcomes with the vote lineup of the opinion deciding them.
+
+    The `supremecourt-opinions` writer. Its population is every committed
+    merits-stage outcome resolved in an October Term from 2020 on, the Terms
+    whose opinions listing links a PDF per opinion. For each, the case's
+    docket number is read from the corpus; the Term's Granted & Noted list
+    maps it to the dockets decided with it; the listing names the opinion,
+    whose syllabus lineup is read (`opinion-lineups`). A record is stamped only
+    from a complete lineup whose lead author, decision date and separate
+    writers the Granted & Noted list prints the same, and only onto an outcome
+    resolved the day the opinion is dated. `votes` and `vote_provenance` are
+    written, and `writing_roles` where the syllabus shows every participating
+    Justice's writing.
+
+    Reads the corpus, writes only `outcome.json` under `data/`. An outcome
+    carrying the same record is left alone; one carrying a different record is
+    held back unless `--replace-differing`. `--apply` refuses above
+    `--max-stamps`, and refuses outright if a listing or list could not be
+    read. With nothing in the population no request is made. The apply half
+    belongs on the `opinion-votes` run-repair pass.
+    """
+    db_path = _vote_write_preflight(
+        "stamp-opinion-votes",
+        apply=apply,
+        max_stamps=max_stamps,
+        cache_dir=cache_dir,
+        throttle=throttle,
+    )
+    settings = get_settings()
+    with (
+        corpus.connect_readonly(db_path) as conn,
+        SupremeCourtClient(throttle_seconds=throttle) as client,
+    ):
+        fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
+        result = stamp_opinion_votes(
+            conn,
+            settings.data_root,
+            fetcher,
+            lambda term: _granted_noted_text(fetcher, term),
+            apply=apply,
+            max_stamps=max_stamps,
+            replace_differing=replace_differing,
+        )
+    _report_vote_write("stamp-opinion-votes", result, max_stamps)
+    if result.refused or result.failures:
+        raise typer.Exit(code=1)
+
+
+@app.command("stamp-order-votes")
+def stamp_order_votes_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the vote records; omit for a dry-run report."),
+    ] = False,
+    max_stamps: Annotated[
+        int | None,
+        typer.Option(
+            "--max-stamps",
+            help="Blast-radius bound, required with --apply: refuse to write more than "
+            "this many outcomes (new records and replacements together).",
+        ),
+    ] = None,
+    replace_differing: Annotated[
+        bool,
+        typer.Option(
+            "--replace-differing",
+            help="Replace an outcome's existing, different vote record instead of holding it back.",
+        ),
+    ] = False,
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Dry run only: keep fetched PDFs here and re-read them from here (a dev "
+            "cache read without host scoping, refused with --apply)."
+        ),
+    ] = None,
+) -> None:
+    """Stamp cert and interim outcomes with their disposing order's per-Justice notations.
+
+    The `supremecourt-orders` writer. Its population is every committed cert-
+    and interim-stage outcome resolved in October Terms 2024 and 2025. For
+    each resolution date it reads every order list, miscellaneous order and
+    opinion relating to orders the Court lists for that date
+    (`order-notations`), and stamps each outcome with its docket's reading:
+    the partial vote list (`complete: false` always — only noted votes and
+    non-participation are observable), and `writing_roles` where every
+    participating Justice's writing was observed. Nothing is read for a date
+    inside the 7-day settling window, since a writing can follow its order.
+    A docket whose reading has a problem, whose order text mentions a
+    rehearing, or which only a writing names is held back; one with no noted
+    vote and writings not complete has nothing to stamp.
+
+    Reads the corpus, writes only `outcome.json` under `data/`. An outcome
+    carrying the same record is left alone; one carrying a different record is
+    held back unless `--replace-differing`. `--apply` refuses above
+    `--max-stamps`, and refuses outright if a Term's listings could not be
+    read. These records are banked, never scored: vote scoring is gated on a
+    merits moment and a complete record. The apply half belongs on the
+    `order-votes` run-repair pass.
+    """
+    db_path = _vote_write_preflight(
+        "stamp-order-votes",
+        apply=apply,
+        max_stamps=max_stamps,
+        cache_dir=cache_dir,
+        throttle=throttle,
+    )
+    settings = get_settings()
+    with (
+        corpus.connect_readonly(db_path) as conn,
+        SupremeCourtClient(throttle_seconds=throttle) as client,
+    ):
+        fetcher = order_lineups.OrderFetcher(client, cache_dir=cache_dir)
+        result = stamp_order_votes(
+            conn,
+            settings.data_root,
+            fetcher,
+            today=datetime.now(UTC).date(),
+            apply=apply,
+            max_stamps=max_stamps,
+            replace_differing=replace_differing,
+        )
+    _report_vote_write("stamp-order-votes", result, max_stamps)
+    if result.refused or result.failures:
+        raise typer.Exit(code=1)
+
+
+@app.command("granted-noted-check")
+def granted_noted_check_cmd(
+    term: Annotated[int, typer.Option(help="Two-digit October Term, e.g. 24.")],
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Keep fetched PDFs here and re-read them from here (a dev cache read "
+            "without host scoping)."
+        ),
+    ] = None,
+) -> None:
+    """Cross-check a Term's opinion lineups against the Court's Granted & Noted list.
+
+    Reads every opinion on the Term's listing (`opinion-lineups`) and the
+    Term's Granted & Noted list, and compares each complete lineup with the
+    list's entry for its docket: decision date, the author of the Court's
+    opinion, and every other Justice who wrote with what they wrote. Prints
+    one JSON line per compared opinion that disagrees or has no entry, and a
+    count summary on stderr.
+
+    Strictly **read-only**: writes nothing but the optional PDF cache. The
+    same comparison gates the merits vote writer (`stamp-opinion-votes`).
+    """
+    if throttle <= 0:
+        typer.echo("--throttle must be positive", err=True)
+        raise typer.Exit(code=2)
+    try:
+        opinion_lineups.listing_url(term)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    with SupremeCourtClient(throttle_seconds=throttle) as client:
+        fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
+        text = _granted_noted_text(fetcher, term)
+        if text is None:
+            typer.echo(f"OT{term:02d}: the Granted & Noted list could not be read", err=True)
+            raise typer.Exit(code=1)
+        try:
+            readings = opinion_lineups.read_term(term, fetcher)
+        except httpx.HTTPError as exc:
+            typer.echo(f"OT{term:02d}: the opinions listing could not be fetched: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    entries = granted_noted.by_docket(granted_noted.parse_granted_noted(text))
+    compared = agreeing = unlisted = 0
+    for reading in readings:
+        if reading.votes is None or reading.docket_number is None:
+            continue
+        compared += 1
+        entry = entries.get(reading.docket_number)
+        if entry is None:
+            unlisted += 1
+            typer.echo(json.dumps({"docket": reading.docket_number, "entry": None}))
+            continue
+        summary = granted_noted.summarize(
+            [(WritingKind(w.kind), tuple(w.authors)) for w in reading.writings]
+        )
+        found = granted_noted.disagreements(
+            entry, summary, bench=reading.bench, decided=reading.decided
+        )
+        if not found:
+            agreeing += 1
+            continue
+        typer.echo(json.dumps({"docket": reading.docket_number, "disagreements": found}))
+    typer.echo(
+        f"OT{term:02d}: {len(readings)} listing rows, {compared} complete lineups compared — "
+        f"{agreeing} agree, {compared - agreeing - unlisted} disagree, {unlisted} with no "
+        f"Granted & Noted entry",
         err=True,
     )
 

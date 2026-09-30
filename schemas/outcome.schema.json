@@ -15,6 +15,29 @@
       "title": "Disposition",
       "type": "string"
     },
+    "GrammarStamp": {
+      "additionalProperties": false,
+      "description": "The grammar, and its version, that read a vote record's text.",
+      "properties": {
+        "grammar": {
+          "description": "The grammar's name, e.g. 'scotus-syllabus' (`pipeline.syllabus_lineup`) or 'scotus-order-notations' (`pipeline.order_grammars`)",
+          "title": "Grammar",
+          "type": "string"
+        },
+        "version": {
+          "description": "The version of `grammar` that produced the reading. A grammar bumps it whenever it could read the same text differently, so a stored record says which reading it is and can be re-read after a fix",
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "grammar",
+        "version"
+      ],
+      "title": "GrammarStamp",
+      "type": "object"
+    },
     "InterimResolutionSignals": {
       "additionalProperties": false,
       "description": "The interim docket's escalation signals as at resolution, frozen into the outcome.\n\nThe interim twin of :class:`ResolutionSignals`, and a *different* block\nrather than an extension of it: the cert signals (a distribution count, a\nCVSG) are observations nobody makes on an application, and these three are\nobservations nobody makes on a petition. Sharing one block would have every\nconsumer branch on which half is populated.\n\nIt carries the same two properties that make the cert block scoreable. All\nthree signals are **monotone** over an application's life \u2014 the Court does\nnot un-request a response, un-refer an application, or un-file an amicus\nbrief \u2014 so a forecast about them is a forecast about an increment, which\nneeds the value as at prediction as well: that end is\n``Prediction.context`` (:class:`PredictionContext`), which carries the same\nthree fields. And the corpus columns behind them hold the *current* value,\nnot the value at any fixed moment, so copying them onto the outcome at\nresolution is what makes a re-score of the same cell reproduce the same\nnumber.\n\n**Deliberately no dates.** The corpus's ``*_at`` columns are moment-minting\ndates read from entry text, and an undated entry is skipped there by rule \u2014\nso they carry a known undercount that the max-latched booleans do not. The\nresolution *value* is the flag; the date's job is opening an event, and it\nkeeps it.",
@@ -89,6 +112,34 @@
       "title": "JusticeVote",
       "type": "object"
     },
+    "JusticeWriting": {
+      "additionalProperties": false,
+      "description": "One Justice's observed writing role, apart from any vote.\n\nThe unit of :attr:`Outcome.writing_roles`: at the cert and interim stages\nwhat a Justice wrote is observable for the whole bench while their vote is\nnot, so the role cannot ride on a :class:`JusticeVote`, which needs one.",
+      "properties": {
+        "justice": {
+          "description": "The Justice's name, as the roster spells it",
+          "title": "Justice",
+          "type": "string"
+        },
+        "writing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WritingRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What this Justice wrote. `none` is the observation that they wrote nothing; null means they wrote but no single role says what (a writing concurring or dissenting only in part, or two writings of different roles)"
+        }
+      },
+      "required": [
+        "justice",
+        "writing"
+      ],
+      "title": "JusticeWriting",
+      "type": "object"
+    },
     "ResolutionSignals": {
       "additionalProperties": false,
       "description": "The docket-progress signals as at resolution, frozen into the outcome.\n\nThe corpus carries these as live-parsed columns, but a corpus column holds the\n*current* value, not the value at any fixed moment. A forecast about them \u2014\nwhether the petition would be relisted, whether the Court would call for the\nSolicitor General's views \u2014 therefore has nothing immutable to resolve\nagainst: re-scoring the same cell later reads a column that has moved on, and\na pre-registration record cannot rest on that. Copying them onto the outcome\nat resolution fixes the *resolution* end of that comparison, and makes it\nreproducible.\n\nIt is not sufficient on its own. These signals only ever grow, so a forecast\nabout them is a forecast about an increment, and an increment needs both ends\n\u2014 the value as at prediction as well as as at resolution. The prediction end\nis ``Prediction.context`` (the harness-written ``PredictionContext``), so a\nclaim resting on this block alone can only be specified as an absolute\nlevel, which is trivially true wherever the signal had already fired when\nthe cell ran. See ``docs/outcome-decomposition.md``.\n\nThe block is present only when the proceedings were live-parsed. That is the\nsame coverage rule the corpus uses: ``CorpusRow.distribution_count`` is the\nsentinel for the whole live-signal family, so where it is absent nothing here\nwas observed. Absent block means *not observed*; present block means observed,\nand inside it ``cvsg_date`` of ``None`` genuinely means no CVSG rather than no\nrecord \u2014 which is the distinction a claim has to be able to make.",
@@ -142,48 +193,24 @@
           "title": "Complete",
           "type": "boolean"
         },
-        "document": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The document the votes were read from \u2014 for the 'supremecourt-opinions' source, the supremecourt.gov URL of the opinion PDF whose syllabus lineup was read. Null only where a source reads no single document",
-          "title": "Document"
+        "documents": {
+          "description": "Every document the record was read from, each a supremecourt.gov URL: for 'supremecourt-opinions', the one opinion PDF whose syllabus lineup was read; for 'supremecourt-orders', every order list, miscellaneous order and opinion relating to orders the Court lists for the order's date that names the docket. Empty only where a source reads no document; `validate` refuses a registered source's record naming none, or one the source does not read",
+          "items": {
+            "type": "string"
+          },
+          "title": "Documents",
+          "type": "array"
         },
-        "grammar": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The grammar that read the lineup text, e.g. 'scotus-syllabus' (`pipeline.syllabus_lineup`). Null only for a source not read by a grammar; set exactly when `grammar_version` is",
-          "title": "Grammar"
-        },
-        "grammar_version": {
-          "anyOf": [
-            {
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "The version of `grammar` that produced this list. A grammar bumps it whenever it could read the same text differently, so a stored list says which reading it is and can be re-read after a fix",
-          "title": "Grammar Version"
+        "grammars": {
+          "description": "One stamp per grammar that read the record's text, each with its own version \u2014 the syllabus grammar alone for an opinion, the order-notation and writing-header grammars for an order. Empty only for a source not read by a grammar; no grammar is stamped twice",
+          "items": {
+            "$ref": "#/$defs/GrammarStamp"
+          },
+          "title": "Grammars",
+          "type": "array"
         },
         "participating": {
-          "description": "Justices who took part \u2014 the aggregation denominator a threshold counts against, which recusals move",
+          "description": "Justices who took part \u2014 the aggregation denominator a threshold counts against, which recusals move. On a partial record it is the bench the roster seats on the record's date less every Justice the record observes not taking part",
           "maximum": 9,
           "minimum": 6,
           "title": "Participating",
@@ -374,6 +401,22 @@
       },
       "title": "Votes",
       "type": "array"
+    },
+    "writing_roles": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/JusticeWriting"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What every participating Justice wrote, observed apart from how they voted: present only where the source observed the whole participating bench's writings \u2014 every writing the Court published for the act read without a problem \u2014 so a Justice listed as `none` is observed to have written nothing. Absent means not observed, never observed-as-none. Kept off `votes` because at the cert and interim stages the roles are observable for every Justice while the votes are not, and a vote entry needs a vote. Nothing scores it: vote scoring and its completeness gate read `votes` and `vote_provenance` only. Read beside `vote_provenance`, which it requires",
+      "title": "Writing Roles"
     }
   },
   "required": [

@@ -963,6 +963,18 @@ stores and reported, since moving its moment moves scored cells between moment
 strata; unlike the disposition and phantom passes there is no option that
 widens onto them. Its bound counts corpus rows and ledger files together.
 
+`opinion-votes` and `order-votes` are the vote writer: they stamp `votes`,
+`vote_provenance` and `writing_roles` onto committed outcomes from the Court's
+own documents — merits outcomes from their opinion's syllabus lineup, cert and
+interim outcomes from the notations and writing headers of the order that
+disposed of them ([data-sources.md](data-sources.md), *The vote writer*). They
+run in their own job, which reads the corpus through the read-only role and
+writes only `outcome.json`. Each run fetches from supremecourt.gov, so an apply
+dispatch does not lead with a dry run; the bound is read off the previous
+dry-run dispatch, and a re-dispatched dry run after the apply is the control.
+An outcome carrying a different record is held back unless `replace-differing`
+is set. The order-list records are banked, never scored.
+
 `sampled-frame-weight-repair` restores the derived sampling weight on the legacy
 denial-sampling frame's latched-down rows: grid denials genuinely inside sampled
 ranges that a channel writing with certainty min-latched to 1, leaving the nine

@@ -137,8 +137,9 @@ Three workflows carry five writer jobs over one corpus — `run-pull`'s **pull**
 `run-repair`'s dispatch-only **repair** bench —
 differing on every axis that matters, while the shared `corpus-write` lock keeps
 at most one running at a time. Five is the count of jobs that write the
-*corpus*; run-repair carries a sixth writer job, the ledger-only **regrade**,
-which takes the same lock and commits to `main` without touching a corpus row
+*corpus*; run-repair carries two more writer jobs that write only the
+ledger — the **regrade** and the **votes** job — which take the same lock (the
+votes job only on an apply) and commit to `main` without touching a corpus row
 (*[Corpus-writer coordination](#corpus-writer-coordination)*). These jobs are the **only** place *production*
 corpus writes can happen: the write role is job-scoped and the pointer commit
 rides the data App, neither of which any interactive session holds — so a
@@ -490,9 +491,12 @@ in `run-pull` (pull, live, enrich), `run-seed` (historical) and `run-repair`
 (the maintenance bench), shares the
 repo-level `corpus-write` concurrency group (`cancel-in-progress: false`), so
 corpus writers never run simultaneously even across workflows. run-repair's
-ledger-only re-grade job joins the group as a sixth member without touching the
-corpus: it commits to `main` on the same push path, so it serializes against the
-pointer commits rather than racing them. Its selector-validation job is
+two ledger-only jobs, the re-grade and the vote writer, join the group without
+touching the corpus: each commits to `main` on the same push path, so it
+serializes against the pointer commits rather than racing them. The vote
+writer joins it on an apply only: its dry run writes and pushes nothing, and
+holding the lock through a read-only fetch campaign would queue the scheduled
+windows behind it. Its selector-validation job is
 deliberately outside the group — it holds no credential and writes nothing, so a
 malformed dispatch is refused in seconds instead of queuing behind a walk to be
 told about a typo — and **reset to
@@ -1239,10 +1243,12 @@ pass's ledger to the run summary and writes nothing, the maintainer reads the
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. Four passes skip it, and for the same reason: the
-distribution re-derivation, whose plan *is* its write set, and the two fetching
-passes and the store mirror, whose apply ledgers already state the class they
-found before writing.
+before the write. Six passes skip it: the distribution re-derivation, whose
+plan *is* its write set, and the two fetching passes and the store mirror,
+whose apply ledgers already state the class they found before writing; and the
+two vote-writer passes, whose every run fetches its listings and documents
+from supremecourt.gov again, so a leading dry run would double the pass's
+traffic to the Court's site for a ledger the apply prints anyway.
 In each, the receipt would be bought with a whole extra full-population read of
 the content store — the third, on those applies, which already re-read the
 class as their own write witness — and on the document back-fill it would also
@@ -1289,6 +1295,8 @@ population and apply against another.
 | `sampled-frame-weight-repair` | `repair-sampled-frame-weights` | `--max-repairs` | — | — |
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
+| `opinion-votes` | `stamp-opinion-votes` | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
+| `order-votes` | `stamp-order-votes` | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -1474,8 +1482,20 @@ absent, which is what keeps a failed install from reading as a converged class.
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
-corpus row, so it holds only the App token that pushes its `data/` commit. Both
-jobs commit straight to `main` on the writers' rebase-and-backoff push path.
+corpus row, so it holds only the App token that pushes its `data/` commit.
+`opinion-votes` and `order-votes` run in a third job between the two: they
+read the corpus — one column, each case's docket number — through the
+read-only role every corpus consumer uses, fetch from supremecourt.gov, and
+write only committed `outcome.json` files, so they hold the read-only role and
+the App token and nothing that can write the corpus remote or the content
+store. The App token is minted only on an apply, after the stamper has
+exited, and rides only the commit step's env; the stamper's step also blanks
+the read-only AWS session and the OIDC request token (the job's `prod` binding
+is one the read-write corpus role also trusts), since it reads only the pulled
+local index, and it checks both before it runs. That
+separates the token from the stamper in time, not by a process boundary: both
+run as the same user on the same runner. All three jobs commit straight to `main` on the writers'
+rebase-and-backoff push path.
 
 **Ordering between passes is the maintainer's.** Three pairs matter. The
 distribution re-derivation must precede an overhang clear, never follow it in
@@ -1631,6 +1651,23 @@ gh workflow run run-repair.yml --ref main \
   -f repair=moment-convergence -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
   -f repair=moment-convergence -f repair_mode=apply -f repair_bound=<corpus rows + ledger files>
+
+# The vote writer stamps committed outcomes from the Court's documents; each
+# pass's bound is the dry run's "would stamp N". It fetches from
+# supremecourt.gov in both modes, so an apply does not run a dry run first:
+# the ledger comes from the previous dispatch, and an apply whose count
+# exceeds it, or whose listings could not all be read, is refused whole.
+# Re-dispatching in `dry-run` after the apply is the control: every stamped
+# outcome must count as already carrying its record, and `would stamp` may
+# name only outcomes committed since the apply or, on `order-votes`, order
+# dates that crossed the 7-day settling window since. `replace-differing` (in repair_options) is only for an outcome whose
+# existing record the ledger lists as held back and the maintainer has read.
+gh workflow run run-repair.yml --ref main \
+  -f repair=order-votes -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=order-votes -f repair_mode=apply -f repair_bound=<would stamp N>
+gh workflow run run-repair.yml --ref main \
+  -f repair=opinion-votes -f repair_mode=dry-run
 ```
 
 **After a pass that removes rows**, let the run's trailing verdict step finish.

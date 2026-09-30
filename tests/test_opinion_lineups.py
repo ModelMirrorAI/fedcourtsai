@@ -35,6 +35,7 @@ from fedcourtsai.pipeline.opinion_lineups import (
 from fedcourtsai.pipeline.syllabus_lineup import GRAMMAR_NAME, GRAMMAR_VERSION
 from fedcourtsai.schemas import (
     Disposition,
+    GrammarStamp,
     Judgment,
     JusticeVote,
     Outcome,
@@ -348,9 +349,8 @@ def test_a_slip_opinion_reads_to_a_complete_vote_record() -> None:
     assert votes["Kagan"].vote == VoteValue.concur_in_part
     assert reading.vote_provenance == VoteProvenance(
         source="supremecourt-opinions",
-        document="https://www.supremecourt.gov/opinions/25pdf/24-43_2b35.pdf",
-        grammar=GRAMMAR_NAME,
-        grammar_version=GRAMMAR_VERSION,
+        documents=["https://www.supremecourt.gov/opinions/25pdf/24-43_2b35.pdf"],
+        grammars=[GrammarStamp(grammar=GRAMMAR_NAME, version=GRAMMAR_VERSION)],
         participating=9,
         complete=True,
     )
@@ -465,7 +465,7 @@ def test_a_complete_record_counts_its_participating_votes() -> None:
 
 
 def test_a_provenance_block_must_describe_a_list() -> None:
-    with pytest.raises(ValidationError, match="`votes` is empty"):
+    with pytest.raises(ValidationError, match="`writing_roles` are empty"):
         _outcome(vote_provenance=_COMPLETE_SIX)
     with pytest.raises(ValidationError, match="more than once"):
         _outcome(votes=[*_SIX, _SIX[0]], vote_provenance=_COMPLETE_SIX)
@@ -474,9 +474,12 @@ def test_a_provenance_block_must_describe_a_list() -> None:
     assert _outcome(votes=_SIX[:2], vote_provenance=partial).votes == _SIX[:2]
 
 
-def test_a_grammar_is_stamped_with_its_version() -> None:
-    with pytest.raises(ValidationError, match="set together"):
-        VoteProvenance(source="x", participating=9, complete=True, grammar="scotus-syllabus")
+def test_a_grammar_is_stamped_with_its_version_once() -> None:
+    with pytest.raises(ValidationError, match="version"):
+        GrammarStamp.model_validate({"grammar": "scotus-syllabus"})
+    stamp = GrammarStamp(grammar="scotus-syllabus", version=2)
+    with pytest.raises(ValidationError, match="more than once"):
+        VoteProvenance(source="x", participating=9, complete=True, grammars=[stamp, stamp])
 
 
 # --- the fetch -------------------------------------------------------------------

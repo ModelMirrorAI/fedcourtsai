@@ -86,6 +86,7 @@ from .schemas import (
     ScopeExclusion,
     ScopeUnclassified,
     Stage,
+    VoteValue,
 )
 from .summaries import summary_file_problems
 
@@ -1418,12 +1419,20 @@ def check_outcome_votes_held(data_root: Path) -> CorpusCheck:
     - votes with no ``vote_provenance`` block cite nothing, and are refused;
     - a block naming a source that is not registered is refused, votes or not;
     - a registered source's record must sit on a court and an event stage the
-      source is registered for (read off the committed ``event.yaml``), carry a
-      grammar stamp the source reads with, name a document the source reads,
-      and spell every Justice as the roster does; and where the source records
-      whole benches, a record claiming ``complete`` must name exactly the
-      bench the roster seats on its ``resolved_at``, since that bit is what
-      vote scoring is gated on.
+      source is registered for (read off the committed ``event.yaml``, or,
+      where it records none, the stage its declared moment names), carry
+      at least one grammar stamp and only stamps of grammars the source reads
+      with, name at least one document and only documents the source reads,
+      and spell every Justice — in ``votes`` and in ``writing_roles`` — as the
+      roster does;
+    - a record from a source that never records a whole bench (the orders
+      source) may not claim ``complete``, since that bit is what vote scoring
+      is gated on;
+    - against the bench the roster seats on the outcome's ``resolved_at``:
+      every Justice named sat; ``participating`` is that bench less the
+      Justices recorded not taking part; a ``complete`` record names exactly
+      the bench; and observed ``writing_roles`` name exactly the Justices who
+      took part.
 
     Read raw first, like the judgment-routing check beside it: the registration
     question — is the key populated, and by whom — is answerable on a payload
@@ -1470,6 +1479,23 @@ def check_outcome_votes_held(data_root: Path) -> CorpusCheck:
     return _check(CHECK_OUTCOME_VOTES_HELD, problems, checked=checked)
 
 
+def vote_record_problems(outcome: Outcome, event_dir: Path) -> list[str]:
+    """How one outcome's vote record departs from its source's registration.
+
+    The per-record half of ``outcome_votes_await_a_registered_source``, for a
+    writer to hold a record back before committing it: ``event_dir`` is the
+    ledger directory the outcome sits in (``cases/<court>/<docket>/events/<id>``),
+    whose ``event.yaml`` names the stage. Empty for an outcome with no record.
+    """
+    provenance = outcome.vote_provenance
+    if provenance is None:
+        return ["votes with no vote_provenance block"] if outcome.votes else []
+    source = REGISTERED_VOTE_SOURCES.get(provenance.source)
+    if source is None:
+        return [f"vote source {provenance.source!r} is not registered"]
+    return _vote_source_problems(outcome, source, event_dir.parents[2].name, event_dir)
+
+
 def _vote_source_problems(
     outcome: Outcome, source: VoteSource, court: str, event_dir: Path
 ) -> list[str]:
@@ -1484,41 +1510,87 @@ def _vote_source_problems(
         event = PredictableEvent.model_validate(
             yaml.safe_load((event_dir / "event.yaml").read_text())
         )
-        stage: Stage | None = event.stage
+        # The event's own stage, else the one its id declares: the cert
+        # baselines are written with none of their own.
+        stage: Stage | None = moments.event_stage(event.stage, event.event_id)
     except (OSError, ValueError, ValidationError):
         stage = None
     if stage not in source.stages:
         found.append(f"{source.source} votes on a {stage or 'stage-less'}-stage event")
-    if provenance.grammar not in source.grammars or provenance.grammar_version is None:
-        found.append(
-            f"{source.source} votes read by grammar {provenance.grammar!r}, "
-            f"which the source does not read with"
-        )
-    if provenance.document is None or not source.document(provenance.document):
-        found.append(f"{source.source} votes read from {provenance.document!r}")
+    if not provenance.grammars:
+        found.append(f"{source.source} votes stamped with no grammar")
     found.extend(
-        f"Justice {vote.justice!r} is not spelled as the roster spells a Justice"
-        for vote in outcome.votes
-        if resolve_surname(vote.justice) != vote.justice
+        f"{source.source} votes read by grammar {stamp.grammar!r}, "
+        f"which the source does not read with"
+        for stamp in provenance.grammars
+        if stamp.grammar not in source.grammars
     )
-    if provenance.complete and source.bench is not None:
+    if not provenance.documents:
+        found.append(f"{source.source} votes read from no document")
+    found.extend(
+        f"{source.source} votes read from {document!r}"
+        for document in provenance.documents
+        if not source.document(document)
+    )
+    if provenance.complete and not source.complete:
+        found.append(f"{source.source} records no whole bench, but this record claims complete")
+    named = [vote.justice for vote in outcome.votes]
+    named.extend(role.justice for role in outcome.writing_roles or ())
+    found.extend(
+        f"Justice {name!r} is not spelled as the roster spells a Justice"
+        for name in dict.fromkeys(named)
+        if resolve_surname(name) != name
+    )
+    if source.bench is not None:
         found.extend(_bench_problems(outcome, source.bench))
     return found
 
 
 def _bench_problems(outcome: Outcome, bench: Callable[[date], tuple[str, ...]]) -> list[str]:
-    """Whether a complete record names exactly the bench of its decision date."""
+    """Whether a record fits the bench the roster seats on its ``resolved_at``.
+
+    Every Justice it names sat then; ``participating`` is that bench less the
+    Justices it records not taking part; a complete record names the whole
+    bench; and observed writing roles name every Justice who took part.
+    """
+    provenance = outcome.vote_provenance
+    if provenance is None:
+        return []
     try:
         sat = set(bench(outcome.resolved_at))
     except ValueError as exc:
-        return [f"a complete vote record on {outcome.resolved_at}: {exc}"]
+        return [f"a vote record on {outcome.resolved_at}: {exc}"]
+    found: list[str] = []
     named = {vote.justice for vote in outcome.votes}
-    if named == sat:
-        return []
-    return [
-        f"a complete vote record names {sorted(named)}, but the bench on "
-        f"{outcome.resolved_at} is {sorted(sat)}"
-    ]
+    roles = {role.justice for role in outcome.writing_roles or ()}
+    off_bench = (named | roles) - sat
+    if off_bench:
+        found.append(
+            f"names {sorted(off_bench)}, who did not sit on {outcome.resolved_at} "
+            f"(the bench then is {sorted(sat)})"
+        )
+    absent = {
+        vote.justice
+        for vote in outcome.votes
+        if vote.vote in (VoteValue.recused, VoteValue.did_not_participate)
+    }
+    if provenance.participating != len(sat - absent):
+        found.append(
+            f"`participating` is {provenance.participating}, but the bench on "
+            f"{outcome.resolved_at} less the Justices recorded not taking part is "
+            f"{len(sat - absent)}"
+        )
+    if provenance.complete and named != sat:
+        found.append(
+            f"a complete vote record names {sorted(named)}, but the bench on "
+            f"{outcome.resolved_at} is {sorted(sat)}"
+        )
+    if outcome.writing_roles is not None and roles != sat - absent:
+        found.append(
+            f"writing roles name {sorted(roles)}, but the Justices taking part on "
+            f"{outcome.resolved_at} are {sorted(sat - absent)}"
+        )
+    return found
 
 
 def check_evaluation_correct_agrees(data_root: Path) -> CorpusCheck:
