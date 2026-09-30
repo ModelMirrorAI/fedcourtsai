@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000114",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "courtlistener MCP read_document"
+  ],
+  "helpful": [
+    "Provisioned petition, QP, and BIO text: the BIO was decisive for weighing the split claim.",
+    "Salience-band per-Term table with bracketed reached rates: a clean pooled anchor.",
+    "CourtListener read_document on the CA4 opinion let me check the petition's characterization of the holding against the text."
+  ],
+  "gaps": [
+    "The reply brief is on the docket (Sep 25) but not provisioned; it would have answered the BIO's illusory-split argument.",
+    "No corpus-conditioned relist hazard from a given distribution state; the relist cut buckets by terminal count.",
+    "A corpus signal distinguishing a superseded first distribution (response requested) from a true relist would make distribution_count more usable.",
+    "fedcourts query cannot filter by legal topic on SCOTUS rows, so no doctrinally similar priors could be pulled."
+  ],
+  "notes": "Roughly 7 retrieval calls total (3 corpus queries, 1 MCP search, 3 MCP document reads), well inside the advisory budget."
+}

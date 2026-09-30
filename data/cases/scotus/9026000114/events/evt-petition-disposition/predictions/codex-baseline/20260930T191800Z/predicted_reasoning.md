@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will most likely deny the petition, without a separate writing, after the October 16, 2026 conference or a subsequent autumn conference. P(any grant), including a summary reversal or GVR, is **0.16**. A denial will leave the lower-court judgment standing without supplying a Supreme Court merits rationale.
+
+The baseline records **two distributions**: July 29 for the September 28 conference, and September 30 for the October 16 conference. It records a requested response and completed opposition and reply filings, but no CVSG. From this two-distribution state, I assign **0.30** to at least one additional distribution. Zero further distributions is the modal forecast; if the case is distributed again, one or two additional distributions are more likely than a long sequence. I do not assume that the two recorded distributions establish two completed substantive conference considerations.
+
+I expect no call for the Solicitor General's views: **0.02** for a new CVSG. The petition principally asks about appellate procedure, and I expect the Court to resolve its certworthiness without seeking the federal government's institutional views. If a CVSG does issue, I expect it during the autumn consideration of the petition rather than after an immediate disposition.
+
+If the Court grants plenary review, it will most likely take the first question, focused on whether a court hearing a collateral-order immunity appeal can review an earlier reopening order on the rationale used here. A general answer about pendent appellate jurisdiction is more plausible than a ruling reopening the underlying copyright-abrogation question. Conditional on review of that jurisdictional issue, I expect the Court to require a tighter connection than the mere fact that the earlier order enabled the later litigation.
+
+Conditional on any grant, I assign **0.40** to disposition in the cert order itself and **0.60** to a merits proceeding. The principal summary route would be correction of the alleged party-presentation departure, potentially by summary reversal; reconsideration in light of the party-presentation precedents invoked in the petition is another possibility. This is not an unconditional 40% chance of summary relief: its joint probability is 6.4%. The contested waiver record and the panel's express use of both Swint categories make summary intervention less likely than plenary consideration among grant outcomes.
+
+Conditional on denial, the probability of a noted dissent or statement respecting denial is **0.05**. I predict no such writing and make no individual-Justice vote or authorship forecast.

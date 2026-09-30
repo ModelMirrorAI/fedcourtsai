@@ -1,0 +1,7 @@
+The petition has been distributed twice: first on August 12 (based on the respondents' waiver), which prompted the Court to request a response, and then on September 30 for the October 16 conference following full briefing and the submission of six amicus briefs. 
+
+Given the high-profile nature of the case, the numerous amici, and the Court's affirmative request for a response, I expect the petition to be relisted at least once more (most likely two additional relists) as the Justices thoroughly evaluate the record and the significant Due Process questions presented. 
+
+Because the case touches on U.S. military operations, international adoption, and immigration (the child was brought to the U.S. from Afghanistan), there is a substantial possibility the Court will call for the views of the Solicitor General (CVSG) to understand the federal government's position before making a final determination.
+
+If granted, the Court would likely take the sole question presented as written—addressing whether and when nonparent caretakers have a cognizable liberty interest under the Due Process Clause—as it directly attacks the Virginia Supreme Court's 4-3 decision. A summary disposition route (like a GVR) is unlikely given the lack of an obvious intervening precedent and the need to resolve the core constitutional question on the merits. Should the Court ultimately deny review, expect a written dissent from denial given the tragic facts, the divided court below, and the significant amicus pressure.

@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000114",
+  "gaps": [
+    "Reply text was not provisioned despite a reply filing in the snapshot.",
+    "Petition metadata reports truncation of the 203-page filing.",
+    "Web attempts returned no usable content.",
+    "Distribution entries do not establish whether an earlier conference actually considered the petition."
+  ],
+  "helpful": [
+    "Provisioned opposition and appended lower-court opinion permit checking the petition's split characterization.",
+    "Unrounded prior-Term reached fields support the correct denominator-weighted band anchor.",
+    "Targeted MCP opinion snippets verify general precedent without seeking this petition's outcome."
+  ],
+  "notes": "The default uv cache was read-only; a writable temporary cache resolved the operational error. No live corpus query was necessary. Base-rate computation used only prior Terms, while the terminal signal cuts were treated as descriptive checks rather than transition hazards.",
+  "role": "predictor",
+  "run_id": "20260930T191800Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned documents",
+    "committed statpack",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

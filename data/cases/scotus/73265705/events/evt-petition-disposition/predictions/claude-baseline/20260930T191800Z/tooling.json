@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/73265705",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "CourtListener MCP search", "WebFetch", "WebSearch", "pypdf (local PDF text extraction)"],
+  "tool_manifest": ["courtlistener"],
+  "helpful": [
+    "Provisioned petition, both briefs in opposition, and the QP text",
+    "Salience band table with bracketed reached rates",
+    "Ability to fetch the reply brief and companion dockets from supremecourt.gov in forward mode"
+  ],
+  "gaps": [
+    "fedcourts query ranks by recency and has no subject or text filter, so it cannot surface topical priors (e.g., earlier IPR discretionary-denial petitions the briefs cite)",
+    "No statpack cut for a call-for-response (Response Requested) signal, which is the main non-CVSG signal on this docket",
+    "Reply briefs submitted before the conference are not provisioned even when the docket shows them",
+    "Companion-petition detection: nothing in the record flags the three related pending petitions"
+  ],
+  "notes": "WebFetch returned the reply PDF as binary; extracting text locally with pypdf worked. CourtListener opinion search for the Federal Circuit's nonprecedential mandamus orders returned nothing."
+}

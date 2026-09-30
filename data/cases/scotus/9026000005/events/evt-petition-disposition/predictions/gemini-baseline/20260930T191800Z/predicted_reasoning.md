@@ -1,0 +1,5 @@
+Distributed twice so far (relisted once after the Long Conference); expect one or two further relists before a decision on the petition. A CVSG is impossible as the federal government is already the respondent. 
+
+The petition challenges the President's removal of an NLRB member without cause, raising a separation-of-powers challenge to the agency's statutory removal protections. However, the Court's recent decision in *Trump v. Slaughter* (2026), which overruled *Humphrey's Executor* and held that FTC commissioners may be removed at will, directly controls. The D.C. Circuit already ruled in favor of the President here, anticipating the outcome that *Slaughter* made explicit. Therefore, the Court is highly likely to deny certiorari, as it did for the MSPB in *Harris v. Bessent*. 
+
+If granted, the likeliest route is a summary disposition (such as a GVR in light of *Slaughter*, though unnecessary since the D.C. Circuit's judgment aligns with it). A dissent from denial (or a statement respecting denial) is plausible, given the stakes of independent agency removal protections, which may be driving the current relist.

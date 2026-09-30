@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000114",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The petition is marked truncated in documents.json (203 source pages), and the snapshot records a September 25 reply whose text was not provisioned. The QPs, substantive petition arguments, relevant appended jurisdiction discussion, and opposition were available. The prediction discounts certainty about the disputed waiver and procedural history rather than treating unavailable material as absent from the litigation.",
+      "severity": "info"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen distribution_count=2 is retained. July 29 distribution for September 28 preceded a requested response filed September 16; September 30 redistribution is for October 16. The record does not establish that both distributions represent substantive conference consideration. The forecast avoids equating this mechanically counted increment with confirmed repeated merits scrutiny.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20260930T191800Z",
+  "schema_version": "1.0"
+}

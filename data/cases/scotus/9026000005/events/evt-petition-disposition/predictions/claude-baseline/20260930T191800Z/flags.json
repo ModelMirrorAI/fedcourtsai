@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000005",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal predating the snapshot: Trump v. Slaughter (No. 25-332, decided 2026-06-29) overruled Humphrey's Executor and held in-house adjudication is executive power, and the companion MSPB petition Harris v. Bessent (No. 25-1110, same D.C. Circuit opinion) was denied 2026-06-30. Both are reported in the provisioned brief in opposition and I confirmed Slaughter from the opinion text via CourtListener. Neither is this case's own disposition; the petition is set for the 2026-10-16 conference. Disclosed as hygiene, not leakage."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2, but the docket's second DISTRIBUTED entry (2026-09-30, for the 10/16 conference) is a redistribution after the Court requested a response on 2026-08-13 and the BIO was filed 2026-09-14; the petition has not yet been considered at any conference. The statpack's relist caption already notes a reschedule before first consideration adds a distribution entry. I stated relist-increment from the count of 2 as the contract requires; readers of the relist cut should treat this cell as a zero-relist state."
+    }
+  ]
+}

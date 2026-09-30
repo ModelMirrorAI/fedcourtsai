@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73266074",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "web search"
+  ],
+  "helpful": [
+    "The provisioned petition, both briefs in opposition, and the QP cut were the decisive inputs; the salience-band table's bracketed reached figures gave a clean anchor for the frozen band."
+  ],
+  "gaps": [
+    "No statpack cut conditioned on a call for response after a respondent waiver, which is exactly this docket's state; the relist-count cut reads the interrupted first distribution as a relist.",
+    "fedcourts query has no subject-matter filter for SCOTUS rows, so a Contract Clause / attainder prior search is not possible; a --disposition granted --era 2020s query returned mostly substantive applications rather than cert grants."
+  ],
+  "notes": "CourtListener's docket index returned no row for this petition, so the supremecourt.gov-derived snapshot was the only docket source."
+}
