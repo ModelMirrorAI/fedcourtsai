@@ -183,8 +183,17 @@ def test_a_successor_signing_after_the_resolution_counts_on_a_federal_party_only
         disposition=Disposition.denied,
     )
     assert sg_office_annotations(federal, None).respondent == "yes"
-    # ...but not at a cut taken before the successor took office.
-    assert sg_office_annotations(federal, date(2025, 3, 1)).respondent == "no"
+    # A cut before the successor took office rewinds the life, not the list:
+    # the name is still a late write on a federal party.
+    at_cut = sg_office_annotations(federal, date(2025, 3, 1))
+    assert (at_cut.respondent, at_cut.private_practice) == ("yes", 0)
+    private = _row(
+        _counsel("D. John Sauer", "Doe Holdings, LLC"),
+        date_filed=date(2024, 12, 2),
+        date_cert_denied=date(2025, 2, 24),
+        disposition=Disposition.denied,
+    )
+    assert sg_office_annotations(private, date(2025, 3, 1)).respondent == "no"
 
 
 def test_amicus_entries_are_never_read() -> None:
@@ -342,8 +351,8 @@ def test_a_resolved_row_without_a_closing_date_is_not_open_ended() -> None:
     assert sg_office_annotations(in_office, None).respondent == "yes"
 
 
-def test_party_rates_reads_counsel_at_the_cut(tmp_path: Path) -> None:
-    """A cut before the successor took office: the late write is not the office yet."""
+def test_party_rates_does_not_rewind_the_counsel_list(tmp_path: Path) -> None:
+    """A cut before the successor took office still reads the list the row holds now."""
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
@@ -366,6 +375,6 @@ def test_party_rates_reads_counsel_at_the_cut(tmp_path: Path) -> None:
             counsel_rule_version="sg-office-v1",
         )
         late = party_rates(conn, as_of_field="filed", counsel_rule_version="sg-office-v1")
-    assert [(c.sg_counsel, c.resolved) for c in early.cells] == [("none", 1)]
-    assert early.counsel_private_practice == 1
+    assert [(c.sg_counsel, c.resolved) for c in early.cells] == [("respondent", 1)]
+    assert early.counsel_private_practice == 0
     assert [(c.sg_counsel, c.resolved) for c in late.cells] == [("respondent", 1)]

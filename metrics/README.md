@@ -2449,40 +2449,57 @@ roster, so a cell quoted from it names `counsel_rule_version` beside the party
 rule. Every figure below is from the blob pulled 2026-09-29, newest stored
 snapshot 2026-07-13. Six rules travel with it.
 
-- **Paid cert and applications only.** The index carries no counsel on
-  resolved IFP rows today — an ingestion gap, not a property of IFP dockets —
-  so those rows read `unknown`, and an IFP cell keyed on `sg_counsel` holds
-  pending rows' readings and little else. No IFP rate is quoted by counsel
-  side, and no paid-versus-IFP comparison is drawn from this dimension, until
-  the gap is closed and backfilled.
+- **Paid cert and applications only.** The index carries no counsel on all
+  but about a dozen resolved IFP rows today — an ingestion gap, not a property
+  of IFP dockets — so those rows read `unknown`, and an IFP cell keyed on
+  `sg_counsel` holds pending rows' readings and little else; the few resolved
+  IFP rows that do carry counsel are grant-enriched, one more reason no IFP
+  rate is quoted by counsel side. No paid-versus-IFP comparison is drawn from
+  this dimension until the gap is closed and backfilled. The application half
+  inherits the application stratum's own coverage rule above: a
+  counsel-keyed application cell is cut with `--since 2025-04-18` or later.
 - **Counsel accrues after docketing, and the list is as of the row's last
   write.** A response or waiver adds the respondent's counsel, and the Court
   calls for a response before most grants, so a resolved docket with no
   respondent counsel is enriched in denials by construction and a pending
-  docket's `none` is provisional. `--through` does not rewind the list either:
-  a cut at a past moment still reads the counsel the row holds now. So
+  docket's `none` is provisional. `--through` rewinds the docket's life, not
+  its counsel list: a cut at a past moment still reads the counsel the row
+  holds now, and a successor the list gained after the cut reads as the office
+  on a federal party, as any late write does. A granted docket's life also
+  runs a year past its grant where a denied one ends at the denial, so the
+  life depends on the outcome in one direction: setting that year to zero
+  moves 7 rows, all granted, out of the office cells on this blob. So
   `sg_counsel` says who the office answered for by the docket's end — a
   descriptive split beside the caption, never an arrival-time covariate or a
   predictor of the grant.
 - **Read it beside `federal_party`, not instead of it.** The two disagree on a
   measured mass, and that is what the dimension is for: over the whole blob
-  under `filed`, 503 paid-cert rows whose caption names no federal party carry
-  the office as respondent counsel (an `In re` petition, a court or an
-  officer the caption rules read as private), and 26 whose caption names a
-  federal respondent carry counsel but no office entry.
+  under `filed`, 503 paid-cert rows (475 resolved) whose caption names no
+  federal party carry the office as respondent counsel (an `In re` petition, a
+  court or an officer the caption rules read as private), 14 carry it as
+  petitioner counsel, and 26 (21 resolved) whose caption names a federal
+  respondent carry counsel but no office entry. The pending rows among them
+  are provisional readings, per the rule above.
 - **The dates are what make it precise.** The same roster read without dates
   counts a former Solicitor General at a firm, or a future one as a state
   solicitor general or private counsel, as the office. Scored against the
   firm/office `Title` field — which the index does not store, so only on the
   sample that carries it: the latest stored live snapshot of 1,567 OT2023–OT2025
-  dockets, grant-enriched and not random, with no applications — the dated rule
-  reads 45 of 46 petitioner-side and 595 of 597 respondent-side roster entries
-  as the office where Title says Solicitor General or Department of Justice,
-  against 46 of 60 and 595 of 603 for the undated roster. The three
-  disagreements carry a blank Title and a federal party; the one Title hit the
-  rule drops is a Title recorded after the docket closed, naming the office
-  the attorney joined later. The Francisco, Wall and Fletcher years are not in
-  the sample and are untested against Title. Corpus-wide, the spans set aside
+  dockets, grant-enriched and not random, with no applications — of the 46
+  petitioner-side and 597 respondent-side entries the dated rule reads as the
+  office, 45 and 595 carry a Title naming it (the rest have a blank Title and
+  a federal party); the undated roster reads 60 and 603, of which 46 and 595.
+  That is precision. The dated rule drops 1 of the 46 petitioner-side and none
+  of the 595 respondent-side entries whose Title names the office, and the one
+  it drops is a Title recorded after the docket closed, naming the office the
+  attorney joined later. The Title predicate (it contains "solicitor general"
+  or "department of justice") is a loose proxy: it also matches state
+  offices — 46 non-roster entries in the sample, New York's solicitor general
+  and several state justice departments among them — which is harmless only
+  because no roster entry in this window carries a state Title. The sample
+  covers filings from 2023-06-30 on: the Francisco and Wall years and
+  Prelogar's first two are untested against Title, and 459 of the 643 office
+  readings it scores are Sauer's. Corpus-wide, the spans set aside
   156 roster entries (99 petitioner-side) on 154 live-slice dockets — all 57
   respondent-side entries and a sample of 30 petitioner-side ones inspected,
   every one a private-practice or state appearance — and the dockets read as

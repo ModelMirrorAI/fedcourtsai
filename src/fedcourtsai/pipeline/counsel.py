@@ -46,6 +46,14 @@ never have represented in private practice. A span that ended *before* the
 docket was filed never counts, because a successor, never a predecessor, is
 what a late write adds.
 
+**A cut rewinds the docket's life, not its counsel list.** Under a ``moment``
+the life ends at the cut, but the list is still the one the row holds now, so a
+successor the list gained after the cut is on it. That name takes the same
+path as any late write — the office on a federal party, private practice
+otherwise — rather than being read as a private appearance because the cut
+predates the span: the list is post-cut either way, and a successor's name on
+a federal party is the office.
+
 **Versioned like the party rules, and for the same reason.** ``sg-office-v1``
 is this roster together with this rule; :data:`COUNSEL_RULES` registers it
 under that label, and a change to either one is a new label beside it, never an
@@ -407,15 +415,13 @@ _READ_ROLES: Final[frozenset[corpus.CounselRole]] = frozenset(
 )
 
 
-def _read_entry(
-    member: RosterMember, party: str, life: DocketLife, moment: date | None
-) -> EntryReading:
+def _read_entry(member: RosterMember, party: str, life: DocketLife) -> EntryReading:
     """One roster name on one docket: the office, private practice, or undatable.
 
     The office where one of the member's spans overlaps the docket's life; the
     office too where a span began after the life ended — a successor's late
-    write — but only on a federal party and only for a span begun by the cut's
-    ``moment``; private practice otherwise, including every span that ended
+    write, or, under a cut, a name the list gained after it — but only on a
+    federal party; private practice otherwise, including every span that ended
     before the docket was filed. A resolved docket with no closing date is
     placed only where a span covers its filing; a span opening after the
     filing cannot be told apart from a future appearance there, so it reads
@@ -435,8 +441,7 @@ def _read_entry(
             continue
         if life.end is None or span.start <= life.end:
             return "office"
-        # Took office after the docket's life ended: a late write, if by the cut.
-        successor = successor or moment is None or span.start <= moment
+        successor = True  # took office after the life ended (or after the cut)
     if unplaced:
         return "undated"
     return "office" if successor and _federal_party(party) else "private"
@@ -492,7 +497,7 @@ def sg_office_annotations(row: corpus.CorpusRow, moment: date | None) -> Counsel
         if member is None:
             continue
         role = entry.role.value
-        reading = _read_entry(member, entry.party, life, moment)
+        reading = _read_entry(member, entry.party, life)
         if reading == "office":
             readings[role] = "yes"
         elif reading == "undated" and readings[role] == "no":
