@@ -239,7 +239,12 @@ exactly like a cell that called nothing, and a real transcript is the only
 thing that separates the two. That distinction is why the distillation is
 worth uploading at all — under code mode a manifest call is not an item but a
 call written inside a freeform call's own source, so what the parser must key
-on is a shape no item census would have revealed. Read the artifact against the environment the
+on is a shape no item census would have revealed. Those code-mode literals —
+the freeform `exec` tool, the `tools.` prefix, the lifted builtin names — are
+codex's rather than this repository's, so a canary in `tests/test_retrieval.py`
+records the codex version they were confirmed at, fails when any pin under
+`.github/` names another version or a codex-action step runs unpinned, and
+names what to re-check before moving it — this artifact included. Read the artifact against the environment the
 dispatch bound: where that environment carries no CourtListener token the
 sidecar runs token-free, the handshake and tool listing still succeed, and
 tool *calls* error — the shapes are then an errored call's, which still
