@@ -13,6 +13,9 @@ of them while every gate stays green:
   outcome its cells are forecasting; `run-backtest` removes it before the cells
   and restores it from the commit before anything downstream reads the
   checkout, and every clause of that is step order and one restore source;
+  the big-case board (`metrics/big-cases.{json,md}`), which names decided
+  cases beside their outcomes and moments, leaves and comes back from the
+  commit on the same terms, before the review PR step stages `metrics/`;
 * the **qp labels push guard** — the labeler's PR step refuses a push whose
   batch ledger does not strictly extend `main`'s or whose labeler-sourced rows
   do not contain `main`'s byte for byte, reading both operands from files
@@ -450,6 +453,59 @@ def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> Non
     assert "if" not in steps[remove]
     # The restore, by contrast, must run behind a failed or timed-out replay
     # too — the steps after it read this checkout either way.
+    assert steps[restore].get("if") == "${{ !cancelled() }}"
+    assert "continue-on-error" not in steps[restore]
+
+
+def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal() -> None:
+    """The big-case board names decided petitions beside their outcomes, and
+    its decided cases are among the petitions the replay can draw: each resolved
+    event in the JSON carries `actual_disposition`, and in both files a case's
+    moment names its newest predicted event, where a merits moment discloses
+    the grant. So both halves leave the tree with the ledger. The review PR
+    step stages all of `metrics/`, which makes the restore load-bearing twice
+    over: a restore that lands after that step commits the board's deletion,
+    and one that restores from the index rather than the commit reinstates
+    bytes a cell could have staged. Nothing the replay runs reads the board —
+    it is a render target of `fedcourts big-cases` and the metrics refresh,
+    neither of which runs here.
+    """
+    # The fenced paths are the board's own, every half of it, so a rename or a
+    # new companion file breaks here rather than on the runner.
+    paths = " ".join(f"metrics/{name}" for name in BOARD_ARTIFACTS)
+    for name in BOARD_ARTIFACTS:
+        assert (REPO_ROOT / "metrics" / name).is_file()
+    steps = _load("run-backtest.yml")["jobs"]["backtest"]["steps"]
+    runs = [str(step.get("run") or "") for step in steps]
+
+    def index(needle: str) -> int:
+        found = [i for i, run in enumerate(runs) if needle in run]
+        assert len(found) == 1, f"expected exactly one step running {needle!r}, found {found}"
+        return found[0]
+
+    # The fence step runs the removal and nothing else.
+    fences = [i for i, run in enumerate(runs) if run.strip() == f"rm -f {paths}"]
+    assert len(fences) == 1, f"expected exactly one bare removal of {paths}, found {fences}"
+    remove = fences[0]
+    cells = index('--work-dir "$work_dir"')
+    restore = index(f"git checkout HEAD -- {paths}")
+    salience = index('fedcourts salience-replay --terms "$BT_TERMS"')
+    pr = index("gh pr create")
+    stage = index("git add -A metrics/")
+
+    assert remove < cells, "the board leaves the tree before the replay cells run"
+    assert cells < restore < salience, (
+        "the restore follows the cells and precedes the salience-gate arm"
+    )
+    assert restore < stage and stage == pr, (
+        "the board is back before the review PR step stages metrics/"
+    )
+    assert f"git status --porcelain -- {paths}" in runs[restore], (
+        "the pristine assertion must refuse a board differing from the commit"
+    )
+    # Unconditional, like the ledger fence: a condition that evaluates false
+    # re-admits the board with every check still green.
+    assert "if" not in steps[remove]
     assert steps[restore].get("if") == "${{ !cancelled() }}"
     assert "continue-on-error" not in steps[restore]
 

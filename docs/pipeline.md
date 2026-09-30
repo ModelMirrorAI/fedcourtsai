@@ -1927,6 +1927,18 @@ from the corpus, and every cell is provisioned under `--work-dir`. The
 misplaced-write probe is unaffected — an engine following the prompt template's
 `data/cases/...` path recreates the directory the probe looks for.
 
+The big-case board, `metrics/big-cases.json` and `metrics/big-cases.md`,
+leaves the tree with the ledger on the same terms. Its decided cases are among
+the petitions the replay can draw, and it names them beside their outcomes:
+each resolved event in the JSON carries `actual_disposition`, and in both
+files a case's moment names its newest predicted event, where a merits moment
+discloses the grant the way a merits event in the ledger does. Nothing the
+replay runs reads either file. The review PR step stages all of `metrics/`, so
+the board comes back from the commit, asserted pristine, before the
+salience-gate arm and that step run, and its removal never reaches what the PR
+commits. The standing `metrics/cert-backtest.json` is withheld by
+`cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)).
+
 Two residuals ride that fence, and both are the reason it is described as
 structural rather than as a wall. The checkout is full-depth, so the ledger
 stays one `git show HEAD:data/cases/...` away, and a tidy agent running `git
@@ -1935,7 +1947,8 @@ stops is the *incidental* read, a cell opening what sits in front of it. And
 nothing at run time would catch a deliberate one: this job writes no retrieval
 log and uploads no transcript, so an agent's own stdout in the expiring run log
 is the only record a tool call leaves. The same two hold for the `data/qp-topics`
-oracle the job deletes beside it.
+oracle the job deletes beside it and for the big-case board, which carries a
+third: it is published, and a cell's web tools can reach the public repository.
 
 A predict cell refuses to run for three reasons, all landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP
