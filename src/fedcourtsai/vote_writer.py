@@ -93,8 +93,8 @@ OPINION_VOTE_TERM_FLOOR: Final = 2020
 
 #: The October Terms the order-list pass reads: the two most recent complete
 #: Terms. Both sat the same nine-Justice bench, both grammars were checked
-#: against real OT2025 orders, and every interim outcome in the ledger is among
-#: them.
+#: against real OT2025 orders, and every interim outcome in the ledger as of
+#: 2026-09-30 is among them.
 ORDER_VOTE_TERMS: Final = (2024, 2025)
 
 #: Days after an order date before its writings are read as complete. A writing

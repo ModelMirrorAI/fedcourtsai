@@ -183,8 +183,12 @@ stays outside the gate:
   complete vote record, each scored over that record's whole sitting bench
   (recomputed at build, not read off the evaluator), with `vote_cells_scored`
   beside it as its denominator; it covers the decisions a vote source read
-  completely — signed opinions whose lineup parsed, which is expected to
-  under-represent fractured lineups — not every merits decision. The
+  completely and its writer admitted — signed opinions whose lineup parsed and
+  whose date, lead author and separate writers the Court's Granted & Noted list
+  agrees with, on an outcome resolved the day the opinion is dated — which is
+  expected to under-represent fractured lineups, not every merits decision. A
+  consolidated case enters once for each of its dockets that carries a scored
+  cell. The
   **accuracy** column is the mean of each cell's `correct`,
   which the harness stamps on **every** stage — cert included, unlike the skill
   record beside it — from the scored prediction's committed label and the

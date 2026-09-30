@@ -1240,10 +1240,12 @@ pass's ledger to the run summary and writes nothing, the maintainer reads the
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. Four passes skip it, and for the same reason: the
-distribution re-derivation, whose plan *is* its write set, and the two fetching
-passes and the store mirror, whose apply ledgers already state the class they
-found before writing.
+before the write. Six passes skip it: the distribution re-derivation, whose
+plan *is* its write set, and the two fetching passes and the store mirror,
+whose apply ledgers already state the class they found before writing; and the
+two vote-writer passes, whose every run fetches its listings and documents
+from supremecourt.gov again, so a leading dry run would double the pass's
+traffic to the Court's site for a ledger the apply prints anyway.
 In each, the receipt would be bought with a whole extra full-population read of
 the content store — the third, on those applies, which already re-read the
 class as their own write witness — and on the document back-fill it would also
@@ -1648,8 +1650,8 @@ gh workflow run run-repair.yml --ref main \
 # exceeds it, or whose listings could not all be read, is refused whole.
 # Re-dispatching in `dry-run` after the apply is the control: every stamped
 # outcome must count as already carrying its record, and `would stamp` may
-# name only order dates that crossed the 7-day settling window since the
-# apply. `replace-differing` (in repair_options) is only for an outcome whose
+# name only outcomes committed since the apply or, on `order-votes`, order
+# dates that crossed the 7-day settling window since. `replace-differing` (in repair_options) is only for an outcome whose
 # existing record the ledger lists as held back and the maintainer has read.
 gh workflow run run-repair.yml --ref main \
   -f repair=order-votes -f repair_mode=dry-run

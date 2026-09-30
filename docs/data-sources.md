@@ -240,7 +240,10 @@ says `complete`, which this source's never does
   it attaches to the cert or application act: the writer reads a docket only
   on the date of the order disposing of its petition or application (the
   outcome's `resolved_at`), and holds back a docket whose order text on that
-  date mentions a rehearing.
+  date mentions a rehearing. It also holds back a docket that shares its
+  order or a writing with a docket of the other stage — a cert petition
+  grouped in one order-list entry with an application — since a notation on
+  the stay would otherwise be read onto the petition.
 - **A day's writings stand or fall together.** One problem on any
   document the Court lists for a date leaves every docket on that date
   without writing roles, and a docket whose reading has a problem gets no
@@ -283,8 +286,8 @@ passes*):
 - `order-votes` (`fedcourts stamp-order-votes`) stamps cert- and
   interim-stage outcomes resolved in OT2024 or OT2025, the two most recent
   complete Terms: both sat the same bench, both grammars were checked against
-  real orders of the later one, and every interim outcome in the ledger is
-  among them. A docket with no noted vote and writings not complete has
+  real orders of the later one, and every interim outcome in the ledger (as
+  of 2026-09-30) is among them. A docket with no noted vote and writings not complete has
   nothing to stamp.
 
 An outcome already carrying the same record is left alone, so a re-run is a

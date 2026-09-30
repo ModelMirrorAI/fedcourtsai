@@ -9212,7 +9212,7 @@ def opinion_lineups_command(
     against the bench the seat roster says sat. Prints one JSON reading per
     listing row on stdout — the lineup, its problems, and, where the lineup is
     complete and passes the listing cross-checks, the ``votes`` list and
-    ``vote_provenance`` block a writer would commit — and a count summary on
+    ``vote_provenance`` block a writer may commit — and a count summary on
     stderr.
 
     Strictly **read-only**: writes no corpus, content store or ledger, and
@@ -9291,9 +9291,10 @@ def order_notations_command(
     a single ``--url`` document never is.
 
     Strictly **read-only**: writes no corpus, content store, ledger or
-    ``data/``, and nothing at all but the optional PDF cache. The channel is
-    not a registered vote source. supremecourt.gov only — no token, no budget;
-    browser UA, ~1 req/s and host-scoped fetches built in.
+    ``data/``, and nothing at all but the optional PDF cache. It is the
+    reader behind the registered ``supremecourt-orders`` vote source, whose
+    writer is ``stamp-order-votes``. supremecourt.gov only — no token, no
+    budget; browser UA, ~1 req/s and host-scoped fetches built in.
     """
     if (on is None) == (url is None):
         typer.echo("give exactly one of --date or --url", err=True)

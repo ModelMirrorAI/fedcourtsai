@@ -13,7 +13,8 @@ a code for what they wrote::
 
 It is a second, independently prepared record of what the syllabus lineup
 says (:mod:`fedcourtsai.pipeline.opinion_lineups`), so the two are compared:
-the lead author, and the set of separate writers with the kind each wrote.
+the decision date, the lead author, and the set of separate writers with the
+kind each wrote. Joins are not compared: the list prints none.
 A disagreement means one of the two readings is wrong, and the merits vote
 writer (:mod:`fedcourtsai.vote_writer`) holds such a record back rather than
 publish it. The list itself is never published: it is a check, not a vote

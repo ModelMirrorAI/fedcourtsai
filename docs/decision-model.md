@@ -39,8 +39,8 @@ The merits **cell** runs: both prompts carry a merits section, the fan-out
 admits the merits event on a row whose grant opened a merits proceeding
 (`store.forecastable_events`), and the provisioning guard is keyed on the
 event, so the grant order that opened the cell does not refuse it.
-What remains unbuilt: no **outcome** record carries a
-writing role or a real vote record with provenance (the outcome writer
+What remains unpopulated: no **outcome** record carries a
+writing role or a real vote record with provenance yet (the outcome writer
 records no votes, for the reason given below — the forecast side already
 carries both, on `Prediction.votes`); no schema carries a vote
 *margin*; and no aggregation rule is applied to anything. The scoring design
@@ -547,10 +547,15 @@ event faces, so the mean of per-cell fractions is a mean over like units, and
 trimming a vote block to the sure calls can only cost. The board publishes the
 mean's denominator, `vote_cells_scored`. A partial list is never scored — it is
 the subset a source happened to show — and neither is an unprovenanced one.
-The scored population is the decisions a vote source read completely, which
-for the opinions source means signed opinions whose lineup parsed; fractured
-lineups are expected to fail to parse more often, so the mean is read as over
-that population, not over every merits decision. The gates only ever turn a number null.
+The scored population is the decisions a vote source read completely and the
+writer admitted: for the opinions source, signed opinions whose lineup parsed
+and whose decision date, lead author and separate writers the Court's Granted &
+Noted list agrees with, stamped onto a merits outcome resolved on the opinion's
+date. Fractured lineups are expected both to fail to parse and to disagree
+with the list more often, so the mean is read as over that population, not
+over every merits decision. A consolidated case's opinion is stamped onto each
+of its dockets, so one decision enters the mean once for each of its dockets
+that carries a scored cell. The gates only ever turn a number null.
 
 **A check holds that prohibition, not the absence of a data source.**
 `pipeline.moments.scores_votes` is the gate, and it lives on the moments

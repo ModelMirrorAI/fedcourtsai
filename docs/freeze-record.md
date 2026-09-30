@@ -5786,10 +5786,9 @@ freeze commit is recorded here.
     participating Justice's role, `none` included, present only where every
     writing of the act was read without a problem. `Outcome.votes` stays
     votes-only, so neither vote scoring nor its completeness gate reads the new
-    field, and nothing else does either. The orders writer sets
-    `writing_roles` only for an order at least seven days old, since a
-    writing respecting an order can follow it; the backfill of past Terms is
-    unaffected by that window.
+    field, and nothing else does either. The orders writer reads an order
+    date only once it is seven days old, since a writing respecting an order
+    can follow it; the backfill of past Terms is unaffected by that window.
   - **The merits writer's admission rule, and what it does to the vote
     mean's population.** The opinions source's records reach a committed
     outcome only through the `opinion-votes` pass, which stamps a record only
@@ -5798,7 +5797,7 @@ freeze commit is recorded here.
     list for the Term prints the same decision date, lead author, and set of
     separate writers with what each wrote; and the outcome resolved on the
     date the opinion is dated. Three effects on the population "the decisions
-    a vote source read completely" (the earlier vote entry) are registered
+    a vote source read completely" (the 2026-09-29 vote entry) are registered
     here:
     - **It narrows, and not neutrally.** A decision is admitted only when an
       independent record of the Court's agrees on its date, lead author and
@@ -5830,6 +5829,7 @@ freeze commit is recorded here.
       `scores_votes` keys on. A stage-less event whose id declares a merits
       moment can therefore carry an opinions record where the check refused
       it before; it is the same population `scores_votes` already admits.
+
   **What does not move.** No base rate, no skill figure, no digest, and no
   figure that exists: at `origin/staging` `6553835b3`, none of the 12,738
   committed outcomes carries a vote record, and none is a merits outcome, so
