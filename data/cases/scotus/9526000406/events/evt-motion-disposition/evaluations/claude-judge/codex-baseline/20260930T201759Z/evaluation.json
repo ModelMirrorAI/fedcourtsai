@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.85,
+    "notes": "Third emergency trip to the Court on the same nationwide third-country-removal policy, now with the Court treating the application as a cert petition, granting it, and setting December 2026 argument on district-court jurisdiction over such claims, whether 1252(f)(1) bars classwide declaratory relief and APA vacatur (a remedies question Biden v. Texas left open), and the legality of the Guidance under 1231(b), due process, and FARRA/CAT. Stakes: thousands of removals, torture/persecution protections, foreign relations, and the reach of classwide remedies against the executive. Formed from the record and outcome, not from the candidates' scores."
+  },
+  "brier_score": 0.019600000000000003,
+  "brier_skill_score": 0.975546121751513,
+  "case_id": "scotus/9526000406",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.86,
+        "score": 0.7819088568298028
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.65,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7819088568298028,
+    "total": 0.7819088568298028
+  },
+  "correct": 1,
+  "created_at": "2026-09-30T20:37:28Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-27, event resolved 2026-09-29, so the case was genuinely pending. Log (38 calls, capture 0.95) is local reads of the provisioned inputs, prompt, schemas and statpack, two unobserved web searches whose queries seek only the general stay standard (Nken; a Cornell LII page), and three CourtListener calls verifying Hollingsworth v. Perry, 558 U.S. 183. No query names this case, 26A406, or its outcome. One shell find carries the literal 'data/qp-topics/' only inside a -not -path exclusion while locating AGENTS.md, so nothing under that path was read or listed; I grade it as not a read. No retrieved_doc_date at all.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6d8016edd63e6294895a439d13806f7b62a7e30d",
+    "stamped_at": "2026-09-30T20:39:32.017189Z"
+  },
+  "reasoning_quality": 0.84,
+  "run_id": "20260930T201759Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

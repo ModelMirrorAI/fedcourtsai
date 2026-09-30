@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000406",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate bundles",
+    "Per-call result-capture markers and timestamps",
+    "Explicit interim-stage scoring contract",
+    "Committed interim statpack"
+  ],
+  "notes": "No external retrieval was needed. Unobserved call results limit retrospective content assessment but are not treated as failed or empty retrieval. The optional significance assessment was omitted. Baseline, skill, claim scores, and provenance stamps remain harness-owned.",
+  "role": "evaluator",
+  "run_id": "20260930T201759Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "local Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

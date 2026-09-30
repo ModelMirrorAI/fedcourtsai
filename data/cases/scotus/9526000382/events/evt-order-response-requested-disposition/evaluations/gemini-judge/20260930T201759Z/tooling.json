@@ -1,0 +1,12 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000382",
+  "role": "evaluator",
+  "run_id": "20260930T201759Z",
+  "used_base_rates": false,
+  "used_corpus_query": false,
+  "tools_used": ["shell"],
+  "helpful": ["shell"],
+  "gaps": [],
+  "notes": ""
+}

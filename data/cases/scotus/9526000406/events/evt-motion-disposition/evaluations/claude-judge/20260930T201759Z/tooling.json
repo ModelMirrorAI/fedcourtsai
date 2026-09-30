@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000406",
+  "run_id": "20260930T201759Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/grep/python over the provisioned record, blinded candidates, schemas, and metrics/statpack.md)",
+    "git log / git show on metrics/statpack.md to compare the interim rows at the predictors' vintage with the current pack"
+  ],
+  "helpful": [
+    "retrieval_log.json result_capture markers and per-call query slices made the leakage grading concrete for all three candidates",
+    "the staged retrieval.md disclosures for two candidates cross-checked cleanly against their logs",
+    "the statpack interim table let me verify the 31/296 anchor every candidate quoted"
+  ],
+  "gaps": [
+    "the predictor's own 2026-09-25 snapshot is not staged, so on an arrival-position cell I cannot see exactly which entries its baseline held",
+    "one candidate's log classes every shell call as `other`, which flattens its call-class profile; a `shell` class for that engine would read more legibly",
+    "a per-call `retrieved_doc_date` was null on every web fetch of a live docket, so dating those fetches relied on the candidate's own disclosure"
+  ],
+  "notes": "Interim cell; baseline and skill are the harness's, so I wrote neither. No corpus query or network call was needed: the provisioned record, the three blinded directories, and the committed statpack answered every question."
+}

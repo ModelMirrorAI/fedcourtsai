@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000382",
+  "run_id": "20260930T201759Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell reads of the provisioned record and blinded candidates",
+    "metrics/statpack.md (interim section) to describe what the stamped baseline can rest on",
+    "python for Brier arithmetic and schema validation"
+  ],
+  "helpful": [
+    "retrieval_log.json result_capture markers and retrieved_doc_date, which made the forward leakage check concrete",
+    "the 2026-09-30 snapshot carrying the disposing entry text, which pinned the denial's stated ground",
+    "the statpack interim per-Term table, which let evaluation.md say what a null stamp would and would not mean"
+  ],
+  "gaps": [
+    "a staged copy of the respondent's opposition brief (docketed 2026-09-28) would let reasoning_quality weigh how well each candidate anticipated the other side",
+    "the stamped interim segment_base_rate is not visible at grading time, so the prose can only describe what the pack supports rather than quote the number the record will carry"
+  ],
+  "notes": "Interim forward cell with no semantic set, no votes, and no band, so the grading was correct, Brier, reasoning_quality, leakage, and big_case only. Nothing to flag; no flags.json written."
+}

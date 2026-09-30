@@ -1,0 +1,19 @@
+# Evaluation: claude-baseline
+
+## Outcome and numerical scores
+
+This is an **interim**, response-requested disposition cell. The supplied outcome records `granted`, `actual_granted = 1`, resolved September 29, 2026. The prediction's `granted` label matches exactly: **correct = 1**. Its probability is 0.80, giving **Brier = (0.80 - 1)^2 = 0.04**. The realized grant does not establish which legal theory persuaded the Court.
+
+The interim baseline and Brier skill are harness-owned and are not written here; `base_rate_basis` is null. The candidate freezes application-Term 2026 and no cert salience band. In the supplied committed statpack, the eligible 2016–2025 rows contain 296 resolved substantive applications, with contributions from 2024 and 2025, so the published 50-resolution floor is met. There is no apparent missing-section or thin-pool refusal; the actual stamp has not run. These are artifact counts, not a claim about a freshly queried corpus. No corpus-wide or per-case pull vintage was established. The pack warns about uneven parsing, machine-selected resolutions, denial-first mixed dispositions, and escalation-selected predictions versus an unconditioned pool; beating that baseline alone would not demonstrate forecast skill.
+
+## Reasoning quality: 0.85
+
+The rationale identifies the relevant interim target and separates it from eventual merits review. Its strongest evidence is case-specific: the earlier stays described in the application, the government's renewed remedial and jurisdictional arguments, and the changed final-judgment posture. It recognizes that declaratory relief and vacatur present a disputed extension rather than simply assuming the prior injunction ruling resolves everything. It explicitly budgets for partial relief, identifies the absence of an opposition and independently read appellate opinion, and acknowledges the applicant-framed information set. Those features make the upward adjustment intelligible rather than merely outcome-following.
+
+The main limitations are evidentiary and calibration-related. A recency-selected comparator and applicant identity do not establish the claimed broad success rate for government applications. Some descriptions of the equities and the prior stay's legal implications adopt the applicant's framing too readily. The asserted procedural irregularity in dissolving the appellate stay is an inference, not an independently demonstrated reason for Supreme Court relief. The opposing irreparable-harm case receives less developed treatment than the government's operational concerns. These limitations warrant a deduction despite the correct result; they do not make the core forecast unsound.
+
+Only `reasoning.md` contributes to this qualitative grade. The forecast document was read for context but its predicted timing, lineup, and legal rationale are not separately scored or folded into reasoning quality. Quantitative claims remain entirely for the harness. Interim votes are unscored regardless of the prediction's vote block. No semantic set is declared at this stage.
+
+## Leakage assessment
+
+The captured log records forward mode and September 27 calls, before this event's September 29 resolution. Its case-caption searches and lower-court docket lookup were permissible forward retrieval. The latter carries a September 23 document date, and the reasoning discusses the 2025 stays as earlier proceedings rather than this event's answer. No observed query, dated retrieval metadata, or passage presupposes the September 29 disposition. The log reports full result-capture coverage, although the staged log supplies metadata and digests rather than full returned bodies. On that evidence, outcome-material retrieval is false, influence is `not_applicable`, and leakage is not suspected. The September 25 snapshot cutoff is not a forward retrieval deadline.

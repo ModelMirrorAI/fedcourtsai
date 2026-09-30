@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000382",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-motion-disposition",
+      "message": "Process note on the big_case dimension: the prompt asks the evaluator to form its own stakes read before looking at the predictor's big_case_score, but that score is a top-level field of the staged record/blinded/<alias>/prediction.json, which the evaluator must read in full for the probability, disposition, claims, and frozen context. On this cell all three predictors' scores were therefore visible before my read was formed (recorded as 0.3, with the disclosure in each evaluation.md). If independence of the panel's reads matters for the rank-agreement grade, the blinding step could mask big_case_score and big_case_rationale in the staged view the way it masks engine and model.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20260930T201759Z",
+  "schema_version": "1.0"
+}

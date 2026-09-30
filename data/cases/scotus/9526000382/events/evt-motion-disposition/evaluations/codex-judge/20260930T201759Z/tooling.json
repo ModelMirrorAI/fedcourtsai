@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000382",
+  "run_id": "20260930T201759Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["functions.exec_command", "jq", "apply_patch", "jsonschema"],
+  "helpful": [
+    "Blinded candidate artifacts preserved the probability, frozen context, rationale, and retrieval audit without exposing predictor identities.",
+    "The provisioned September 30 snapshot contains the disposing order's exhaustion explanation.",
+    "Per-call capture markers distinguish unseen results from empty results."
+  ],
+  "gaps": [
+    "Result digests do not expose the full returned text, limiting independent inspection of the disclosed false web summary."
+  ],
+  "notes": "Used local inputs and the committed interim statpack only; no external retrieval or corpus query. Baseline, skill, mechanical claims, and provenance remain harness-owned."
+}
