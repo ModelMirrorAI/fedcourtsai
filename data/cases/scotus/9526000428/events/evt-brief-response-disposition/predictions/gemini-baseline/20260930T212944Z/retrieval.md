@@ -1,0 +1,3 @@
+- Ran `uv run fedcourts query --court scotus --include-applications "vacate stay"` which failed due to extra arguments.
+- Consulted `metrics/statpack.md` to establish the baseline for the interim docket.
+- Read provisioned documents, including the Application to Vacate Stay and docket entries.

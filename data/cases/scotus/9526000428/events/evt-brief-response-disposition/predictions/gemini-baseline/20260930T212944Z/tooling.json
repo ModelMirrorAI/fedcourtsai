@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000428",
+  "run_id": "20260930T212944Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["read_file", "list_directory", "run_shell_command"],
+  "helpful": ["metrics/statpack.md provided a clear baseline for interim applications"],
+  "gaps": [],
+  "notes": "Querying for specific applications to vacate stays was tricky due to the structured nature of `fedcourts query` but the statpack was informative."
+}

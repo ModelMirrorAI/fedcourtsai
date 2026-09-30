@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9526000428",
+  "run_id": "20260930T212944Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener search", "courtlistener read_document"],
+  "helpful": [
+    "Provisioned application.txt gave the State's full argument and the procedural history.",
+    "CourtListener RECAP had the Sixth Circuit's published stay order and dissent within hours, which was the single most useful input.",
+    "Corpus rows carry application_kind, capital_case, referred_to_court, response_requested and amicus_briefs, which made a quick applicant-class cut possible."
+  ],
+  "gaps": [
+    "fedcourts query has no filter for applicant class (State vs prisoner) or ask (vacate vs stay), so isolating State vacatur applications meant pulling 200-row sweeps and filtering client-side; the withdrawn sweep cost ~200 MB of ranged reads.",
+    "The response and reply were on the SCOTUS docket at snapshot but not provisioned as documents; on a response-filed cell the response text is the moment's defining input.",
+    "The statpack interim section has no cut by applicant class or by ask, so the pooled 10.5% rate is a poor anchor for a State's application to vacate an execution stay."
+  ],
+  "notes": "Query rows print caption/date fields under case_name / date_filed / date_decided rather than caption / filed_at; a one-line key listing in docs/cli.md would save a wasted call."
+}

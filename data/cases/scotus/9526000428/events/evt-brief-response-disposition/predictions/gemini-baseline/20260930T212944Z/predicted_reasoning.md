@@ -1,0 +1,5 @@
+The Supreme Court is highly likely to grant the Warden's application to vacate the stay of execution (0.90). The application has been submitted to Justice Kavanaugh but given the nature of a capital stay vacatur, he will almost certainly refer the application to the full Court (0.95). 
+
+A response from Christa Pike has already been filed, and the Warden has filed a reply, so it is extremely unlikely the Court will formally request any additional response (0.01). Furthermore, given that the execution is scheduled for today and the proceedings are moving in a matter of hours, there is practically no time for amicus briefs to be filed and docketed, making any amicus increment highly improbable (0.01). 
+
+The Court will likely dispose of the application very quickly, likely today, vacating the stay to allow the execution to proceed, citing the last-minute nature of Pike's Rule 60(b) motion as an abusive delay tactic that functions as an unauthorized second or successive habeas petition under AEDPA.

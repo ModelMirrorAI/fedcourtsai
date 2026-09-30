@@ -1,0 +1,39 @@
+# Rationale for the probabilities
+
+## Target and evidence
+
+This is an **interim, response-filed, forward** cell for application 26A428, not a cert petition. My 0.78 probability prices an unqualified grant of the Warden's request to vacate an execution stay. A mixed grant/denial is ungranted under the interim resolver. Neither the cert grant rate nor a cert salience band applies.
+
+I read the provisioned `2026-09-30.json` snapshot, `event.yaml`, `context.json`, `documents.json`, and the complete substantive text of `application.txt`. The application was extracted from 15 pages, with neither truncation nor an empty-text flag. The snapshot contains application, response, and reply entries dated September 30; its date cutoff is October 1. Context freezes no response request, no referral, and no amici. A response can be volunteered, and a submission to Justice Kavanaugh is not a full-Court referral, so I preserve those false values rather than infer escalation from briefing.
+
+Only the application was provisioned as text. I retrieved the specific response and reply PDFs linked in the snapshot, without visiting a current docket page or seeking a disposing order. I read the response's substantive pages 1–8 and the reply's substantive pages 1–5. The response's referenced advocacy-letter appendices were not separately retrieved. All those briefs are dated September 30 and precede the forecast. The retrieval log records the exact resources and the unsuccessful attempts as well as the successful reads.
+
+## Published baseline, and why this case departs from it
+
+The committed statpack's interim table supplies the required prior-application-Term pool. For application Term 2026, the permitted window is 2016–2025. Only 2024 and 2025 contribute resolved substantive applications: respectively **14/70** and **17/226** grants. Thus the pooled anchor is **31/296 = 10.47%**, above the 50-observation floor. I checked those counts in `metrics/statpack.json` as well as the rendered table. The 2026 row is excluded.
+
+Coverage matters: the 2024 row has 972 unparsed applications, while 2025 has zero; the earlier rows in the window contribute no parsed substantive resolutions. This is the committed pack's parsed cohort, not a claim about a freshly queried live corpus. I did not pull a corpus blob or establish its newest pull/snapshot stamps; the pack excerpt has no build timestamp, so its underlying freshness is unverified. Its escalation totals include pending applications and are not conditioned on this prediction moment. Neither the 10.47% figure nor the table's signal counts estimate the success rate of state requests to lift capital stays specifically.
+
+The movement from 10.47% to 78% is consequently a substantial, explicitly judgmental case-specific adjustment, not an empirically estimated subgroup rate. A state applicant seeking to remove a lower-court execution stay faces a different practical posture from a prisoner asking this Court for relief in the first instance. That directional distinction alone does not prove a high success rate; the legal arguments below supply my principal reason for the adjustment. I make no claim of measured forecasting skill from this departure.
+
+## Arguments on both sides
+
+The application, printed pages 4–10, describes a Rule 60(b) motion filed September 29 based on an August 13 statement by state counsel acknowledging Pike's suffering. It says the Sixth Circuit entered a short stay to analyze whether the motion was successive, without the necessary likelihood-of-success finding. Those descriptions come from advocacy, not an independently retrieved copy of the panel order. The strongest substantive point is the asserted independent prejudice ground: the prior courts rejected the mitigation claim even assuming presentation of the additional evidence. The reply, pages 2–3, develops that point. If correct, accepting the abuse history now does not remove the alternative ground for the previous judgment.
+
+The opposition, pages 1–6, presents a materially different characterization. Pike says the State disavowed credibility attacks that tainted the postconviction record and, through AEDPA deference, federal habeas review. Her best argument is therefore not merely additional mitigation evidence, but a defect in the integrity of the prior proceeding. She also asks the Court to leave a temporary stay in place long enough for the Sixth Circuit to classify the motion, and emphasizes the irreversibility of execution versus the State's short delay. These points keep the forecast well below certainty. The opposition's page 8 explanation that related state litigation and clemency proceedings were still pending also weakens any automatic inference of deliberate delay, although it does not fully answer why the federal motion could not have been filed earlier.
+
+I checked the controlling distinction in **Gonzalez v. Crosby, 545 U.S. 524, 532–33 & nn.4–5 (2005)** through CourtListener's opinion text. A challenge to the federal court's merits determination is different from a defect in the integrity of federal habeas procedure; fraud on the federal habeas court can exemplify the latter. I infer that the asserted change in state-court credibility advocacy is more likely to be classified here as an effort to reconsider the merits than as a distinct federal procedural defect. That is an application of the precedent to competing brief descriptions, not an independently established fact about the underlying record.
+
+The reply's page 1 purported quotation of Gonzalez footnote 4 misstates the distinction: it treats a ruling that precluded merits review as bringing a habeas claim, whereas the actual footnote distinguishes that situation from a renewed merits claim. I disregard that quotation and use the opinion itself. This source error does not erase the State's separate independent-prejudice argument, but it is a concrete reason not to accept its legal characterizations uncritically.
+
+My residual 22% covers preservation of the short stay, a procedural/non-grant ending if the lower court acts first, and uncertainty over the record supporting the integrity allegation. I did not retrieve the original Rule 60(b) motion or complete prior habeas record. I did not infer a favorable result merely from the capital designation or the seriousness of the crime.
+
+## Procedural claims and stakes
+
+The 0.96 referral probability reflects the life-or-death, fully briefed request to overturn a circuit stay; it is not a claim that referral already occurred. The 0.04 response-request probability is low because a substantive opposition and reply are already present. The 0.08 amicus increment recognizes some public advocacy but a very short expected decision window. References to advocacy letters in the response do not change the frozen zero-entry baseline. None of these increment probabilities has a published conditioned baseline in the supplied pack.
+
+The **0.85 significance score** reflects the immediate capital stakes and the contested treatment of abuse-related mitigation and habeas integrity. It is not the grant probability and does not assume a broad precedential opinion or rely on post-disposition news.
+
+## Leakage and limitations
+
+No disposition of this application was sought or encountered, and I do not carry a known outcome for it. The application's account of September 29 denials in separate Pike proceedings was already in the provisioned pre-decision filing; I do not treat those denials as the result of this application or as decisive evidence of this application's outcome. Web-tool opening/search attempts returned no usable content; direct retrieval of the two already-linked official filings succeeded, and CourtListener supplied the historical Gonzalez text. The missing provisioned response text is flagged for maintainer visibility but did not block this forecast.
