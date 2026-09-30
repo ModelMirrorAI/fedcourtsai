@@ -5790,25 +5790,46 @@ freeze commit is recorded here.
     `writing_roles` only for an order at least seven days old, since a
     writing respecting an order can follow it; the backfill of past Terms is
     unaffected by that window.
-  - **The merits writer's admission rule.** The opinions source's records
-    reach a committed outcome only through the `opinion-votes` pass, which
-    stamps a record only when all of these hold: the lineup is complete and
-    passes the listing cross-checks the source already registered; the
-    Court's Granted & Noted list for the Term prints the same decision date,
-    lead author, and set of separate writers with what each wrote; and the
-    outcome resolved on the date the opinion is dated. The Granted & Noted
-    entry also maps a consolidated case's other dockets onto the one opinion
-    the listing prints. This narrows the population the earlier vote entry
-    describes as "the decisions a vote source read completely" to those whose
-    complete reading an independent record of the Court's agrees with; the
-    mean is read as over that population.
-  - **The conformance check, tightened.** `outcome_votes_await_a_registered_source`
-    now also holds every record, partial ones included, to the bench the seat
-    roster seats on the outcome's `resolved_at`: every Justice it names sat,
-    and `participating` is that bench less the Justices recorded not taking
-    part. Observed writing roles must name exactly the Justices who took
-    part.
-
+  - **The merits writer's admission rule, and what it does to the vote
+    mean's population.** The opinions source's records reach a committed
+    outcome only through the `opinion-votes` pass, which stamps a record only
+    when all of these hold: the lineup is complete and passes the listing
+    cross-checks the source already registered; the Court's Granted & Noted
+    list for the Term prints the same decision date, lead author, and set of
+    separate writers with what each wrote; and the outcome resolved on the
+    date the opinion is dated. Three effects on the population "the decisions
+    a vote source read completely" (the earlier vote entry) are registered
+    here:
+    - **It narrows, and not neutrally.** A decision is admitted only when an
+      independent record of the Court's agrees on its date, lead author and
+      separate writers. Joins are **not** cross-checked, so a join misread —
+      the per-Justice error the whole-bench score counts — passes. The more
+      separate writings a decision has, the more chances it has to disagree,
+      and the observed exclusions include a reargued case, so the excluded
+      decisions skew toward the fractured ones, which are the hardest to
+      call: the mean is read as over the admitted population and expected to
+      sit above one over every merits decision, the same direction the
+      earlier entry states for parse failures. On OT2020–OT2025, read
+      2026-09-30: 393 listing rows (318 of them in the reader's scope, as
+      counted 2026-09-29), 286 complete lineups, 282 of which the list
+      agrees with. How many of those an
+      outcome dated to the opinion's day will admit is unknown until merits
+      outcomes exist; the ledger holds none.
+    - **Consolidation widens it, and weights a decision by its dockets.** The
+      Granted & Noted entry maps a consolidated case's other dockets onto the
+      one opinion the listing prints, so dockets the listing never names get
+      records. One decision then enters `mean_vote_accuracy` once for each of
+      its dockets that carries a scored merits cell, with the same votes — a
+      weighting by consolidation depth on top of the panel-depth weighting the
+      earlier entry states. It is intended: each docket is its own merits
+      event, predicted and scored on its own.
+    - **The stage fallback admits stage-less events.** The conformance check
+      reads an event's stage off its `event.yaml`, and where that records none
+      — the cert baselines carry none of their own — off the stage its
+      declared moment names (`pipeline.moments.event_stage`), the table
+      `scores_votes` keys on. A stage-less event whose id declares a merits
+      moment can therefore carry an opinions record where the check refused
+      it before; it is the same population `scores_votes` already admits.
   **What does not move.** No base rate, no skill figure, no digest, and no
   figure that exists: at `origin/staging` `6553835b3`, none of the 12,738
   committed outcomes carries a vote record, and none is a merits outcome, so
@@ -5828,8 +5849,9 @@ freeze commit is recorded here.
     `['supremecourt-opinions', 'supremecourt-orders']`;
   - `uv run fedcourts process-digest --all` still prints `proc-v8` and the
     same six digests;
-  - after the first `order-votes` apply, `uv run fedcourts leaderboard
-    --all-versions --out /tmp/lb.json && jq '[.. | objects |
-    select(has("vote_cells_scored")) | .vote_cells_scored] | add // 0'
-    /tmp/lb.json` still reads `0`, and `uv run fedcourts validate data`
-    passes.
+  - after the first `order-votes` apply, `uv run fedcourts validate data`
+    passes, and `uv run fedcourts leaderboard --all-versions --out
+    /tmp/lb.json && jq '[.. | objects | select(has("vote_cells_scored")) |
+    .vote_cells_scored] | add // 0' /tmp/lb.json` still reads `0` — which
+    does not exercise the gate: with no merits outcome in the ledger it could
+    read nothing else.

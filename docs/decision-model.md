@@ -526,8 +526,9 @@ events: the Court's own opinions, whose syllabus lineup names every
 participating Justice's side ([data-sources.md](data-sources.md)). Its
 records reach a committed outcome only through the vote writer's
 `opinion-votes` pass on `run-repair`, which stamps a merits outcome after it
-is written, and only from a complete lineup the Court's Granted & Noted list
-agrees with. That is the permitted side of the second
+is written, and only from a complete lineup whose date, lead author and
+separate writers the Court's Granted & Noted list agrees with (joins are not
+cross-checked). That is the permitted side of the second
 constraint's line, and the constraint's own prohibition stands untouched: a
 *cert*-stage vote is never scored.
 

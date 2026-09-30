@@ -118,9 +118,14 @@ what and who joined it.
   (`C`, `D`, `C/J`, `C/P`, `D/P`). It is a second, independently prepared
   record of what the lineup says, so the two are compared
   (`pipeline/granted_noted.py`): the decision date, the lead author, and the
-  set of separate writers with the kind each wrote. The list is a check and
-  never a source — nothing it says is written — and `fedcourts
-  granted-noted-check` prints a Term's disagreements. It also says which
+  set of separate writers with the kind each wrote. Joins are not compared:
+  the list prints none. The list is a check and never a source — nothing it
+  says is written — and `fedcourts granted-noted-check` prints a Term's
+  disagreements. As read on 2026-09-30 over OT2020–OT2025, 282 of the 286
+  complete lineups agree with it; the four that do not are a writer the list
+  qualifies to one docket of a consolidated pair, two list errors (a
+  mistyped year, a decision dated two days early), and a reargued case whose
+  entry mixes the reargument order's dissent with the decision's writers. It also says which
   dockets one opinion decides, which the opinions listing does not: the
   listing prints only the lead docket of a consolidated case.
 - **What exists.** The lineup model, the syllabus grammar and the read-only
@@ -236,6 +241,23 @@ says `complete`, which this source's never does
   on the date of the order disposing of its petition or application (the
   outcome's `resolved_at`), and holds back a docket whose order text on that
   date mentions a rehearing.
+- **A day's writings stand or fall together.** One problem on any
+  document the Court lists for a date leaves every docket on that date
+  without writing roles, and a docket whose reading has a problem gets no
+  record at all. So coverage is per date, and the largest order lists — the
+  ones with the most separate writings — are the likeliest to lose it; a
+  figure read off `writing_roles` reports its per-date coverage beside it.
+- **Spot check, as read on 2026-09-30.** Recall only: for eight OT2024 order
+  dates, every sentence in the day's documents shaped like a notation or a
+  writing header — found with a pattern broader than either grammar's — was
+  checked to lie in a piece the channel read, recorded there or refused as
+  a problem. Seven dates recalled every one. On the eighth (2025-06-06) the
+  listing links a preliminary-print volume of orders under the date; the
+  channel refuses it as a document problem, so that day has no writing
+  roles, and the 26 sentences it held belong to other dates. Precision —
+  whether a recorded act is attributed to the right Justice and docket — was
+  checked by hand on four dockets only (23-1072, 23-1254, 23-1280, 23-1137),
+  all correct; it is not measured.
 - **What exists.** The two grammars and the read-only channel
   (`pipeline/order_lineups.py`), with `fedcourts order-notations` printing
   one reading per docket for a date or a single document ([cli.md](cli.md));
