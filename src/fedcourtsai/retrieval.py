@@ -388,7 +388,11 @@ _CODEX_CALL_TYPES = (
 # `custom_tool_call` and every MCP invocation it makes is dispatched within the
 # code-mode session, emitting no MCP-shaped item. Left unread, a code-mode
 # engine's whole manifest surface is invisible — the log records builtin calls
-# only, which is indistinguishable from a cell that never retrieved.
+# only, which is indistinguishable from a cell that never retrieved. This name,
+# the `tools.` prefix and the builtin names below are codex's, not ours (and
+# `collect.CODE_MODE_PARENT_TOOL` repeats this one): a test in
+# `tests/test_retrieval.py` holds them to the codex version they were confirmed
+# at and fails when the pin moves or these literals change without it.
 _CODEX_CODE_MODE_TOOL = "exec"
 # A manifest call inside code-mode source: `tools.mcp__<server>__<tool>(`. The
 # name is taken whole, in the same `mcp__<server>__<tool>` spelling
