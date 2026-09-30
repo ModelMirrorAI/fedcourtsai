@@ -138,8 +138,8 @@ Three workflows carry five writer jobs over one corpus — `run-pull`'s **pull**
 differing on every axis that matters, while the shared `corpus-write` lock keeps
 at most one running at a time. Five is the count of jobs that write the
 *corpus*; run-repair carries two more writer jobs that write only the
-ledger — the **regrade** and the **votes** job — which take the same lock and
-commit to `main` without touching a corpus row
+ledger — the **regrade** and the **votes** job — which take the same lock (the
+votes job only on an apply) and commit to `main` without touching a corpus row
 (*[Corpus-writer coordination](#corpus-writer-coordination)*). These jobs are the **only** place *production*
 corpus writes can happen: the write role is job-scoped and the pointer commit
 rides the data App, neither of which any interactive session holds — so a
@@ -493,7 +493,10 @@ repo-level `corpus-write` concurrency group (`cancel-in-progress: false`), so
 corpus writers never run simultaneously even across workflows. run-repair's
 two ledger-only jobs, the re-grade and the vote writer, join the group without
 touching the corpus: each commits to `main` on the same push path, so it
-serializes against the pointer commits rather than racing them. Its selector-validation job is
+serializes against the pointer commits rather than racing them. The vote
+writer joins it on an apply only: its dry run writes and pushes nothing, and
+holding the lock through a read-only fetch campaign would queue the scheduled
+windows behind it. Its selector-validation job is
 deliberately outside the group — it holds no credential and writes nothing, so a
 malformed dispatch is refused in seconds instead of queuing behind a walk to be
 told about a typo — and **reset to
@@ -1485,7 +1488,8 @@ read the corpus — one column, each case's docket number — through the
 read-only role every corpus consumer uses, fetch from supremecourt.gov, and
 write only committed `outcome.json` files, so they hold the read-only role and
 the App token and nothing that can write the corpus remote or the content
-store. All three jobs commit straight to `main` on the writers'
+store. The App token and the git credential helper live only in the job's
+commit step, which runs after the stamper and parses nothing fetched. All three jobs commit straight to `main` on the writers'
 rebase-and-backoff push path.
 
 **Ordering between passes is the maintainer's.** Three pairs matter. The
