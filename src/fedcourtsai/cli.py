@@ -262,6 +262,7 @@ from .pipeline.documents import (
     FETCH_LOSS_OFF_HOST,
     FETCH_LOSS_UNAVAILABLE,
     KIND_PETITION,
+    OTHER_LIST,
     SCRUB_PASS_VALUE,
     QpExtractRow,
     TextCoverage,
@@ -11034,8 +11035,12 @@ def _place_at_moment(
 
 
 def _sides_named(sides: tuple[str, ...]) -> str:
-    """The party sides a run-log echo names: `petitioner`, `respondent`, or both."""
-    return "/".join(side.lower() for side in sides)
+    """The lists a run-log echo names: `petitioner`, `respondent`, `amicus`, joined by `/`.
+
+    `Other` is echoed as `amicus` — what nearly every filer on it is — because
+    `other` would read as the opposing side.
+    """
+    return "/".join("amicus" if side == OTHER_LIST else side.lower() for side in sides)
 
 
 @app.command("provision-snapshot")
@@ -11131,16 +11136,17 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
     fetch rights. That staged text is passed through the **contact-detail
-    scrub** where the snapshot names nobody but the party to write to on
-    either party side, petitioner or respondent:
+    scrub** where the snapshot names nobody but the filer to write to on
+    either party side, petitioner or respondent, or on an amicus block of the
+    ``Other`` list:
     emails, telephone numbers, post-office boxes and street
     addresses replaced by ``[contact detail withheld]``, with
     ``contact_scrubbed``, ``contact_replacements`` and ``contact_scrub_passes``
     on each manifest entry recording that it ran, what it withheld, and whether
-    the value pass keyed on the self-represented side's own contact values ran
+    the value pass keyed on the self-represented filers' own contact values ran
     beside the shape pass. On the same docket the staged snapshot has each
-    self-represented block's contact keys withheld and its register number
-    replaced by a presence marker
+    self-represented block's contact keys withheld and a party's register
+    number replaced by a presence marker
     (:func:`~fedcourtsai.pipeline.documents.scrub_snapshot_contacts`). The
     stored row and the source
     PDF are untouched — the staged copy is the one a cell can quote into the
@@ -11260,8 +11266,9 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     documents = placement.documents
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
-    # The staged snapshot is the payload with a self-represented party's own
-    # contact keys withheld, on either party side (`scrub_snapshot_contacts`):
+    # The staged snapshot is the payload with a self-represented filer's own
+    # contact keys withheld, on either party side or the `Other` list of amici
+    # (`scrub_snapshot_contacts`):
     # the copy a cell can quote from, on the same docket-level reading the
     # document scrub below keys on. A separate object, so everything else
     # here — the cell context, the scrub trigger, the document scrub — reads
@@ -11306,8 +11313,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     if documents:
         # The contact-detail scrub, keyed on the docket-level reading that
         # separates a filing signed by counsel from one signed in person:
-        # whether the snapshot names anyone but the party to write to, on
-        # either party side.
+        # whether the snapshot names anyone but the filer to write to, on
+        # either party side or on an amicus block.
         # Where it does not, every document staged for this cell has its
         # contact details withheld (shapes and served values) — the whole
         # docket rather than the petition alone, since deciding per document
@@ -11319,7 +11326,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         # public ledger.
         scrubbing = bool(unrepresented)
         # The filer's own contact values, off every served block on the sides
-        # the trigger read as self-represented, key the scrub's value pass: it
+        # the trigger read as self-represented (on the `Other` list, off the
+        # qualifying blocks alone), key the scrub's value pass: it
         # finds them however a scan fragmented them, which no shape pattern can
         # promise. Read off
         # `payload` — the payload as served — and never off the staged

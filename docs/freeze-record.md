@@ -5855,3 +5855,140 @@ freeze commit is recorded here.
     .vote_cells_scored] | add // 0' /tmp/lb.json` still reads `0` — which
     does not exercise the gate: with no merits outcome in the ledger it could
     read nothing else.
+
+- **A self-represented amicus's contact details are withheld by both contact
+  scrubs, 2026-09-30.** A **conditioning** entry in the *what the pipeline
+  provisions* class. It closes the residual that the respondent-scrub entry of
+  2026-09-30 named: the docket's `Other` list, which holds amici and other
+  non-party filers, was not read, so an amicus filing in its own name was
+  staged with its contact details as served.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary. The staged snapshot and the staged
+  document text live in the gitignored `record/`, and `prediction.json` has no
+  field separating a cell that read an amicus's address from one that read a
+  placeholder there. The boundary exists only here, and a stamped cell is
+  post-change if the carrying promotion's merge commit is an ancestor of, or
+  equal to, its `process_version.pipeline_sha`. On an affected docket, cells on
+  either side of the boundary may not be pooled.
+
+  **What changes.** The block-level test is the same function, asked of a
+  third list with a per-list switch.
+  - **Arms.** On the `Other` list only the first two arms are asked: the filer
+    served as its own attorney, or no attorney named. The prisoner
+    register-number arm is **not** asked there, because `PrisonerId` on an
+    `Other` block is not a register number. On the blob below, all 7 populated
+    `Other`-list values are an address-shaped string (6) or a phrase (1), each
+    on an organisation served with separate counsel; all 274 populated
+    petitioner-side values are register numbers, and no respondent-side block
+    populates the key. Read on the `Other` list, the arm would take a
+    represented organisation for an incarcerated filer and stamp a
+    `[register number withheld]` marker on it.
+  - **Trigger.** The docket-level trigger (`unrepresented_sides`) now also
+    fires where an `Other` block qualifies, and returns `Other` after the
+    party sides. A docket whose only qualifying block is an amicus's is
+    scrubbed like any other: **every** staged document on it, including a
+    counselled petition and opposition, passes through the shape pass.
+  - **Staged snapshot.** A qualifying `Other` block has each populated
+    `Address`, `City`, `Zip`, `Phone`, `Email` and `Title` replaced by
+    `[contact detail withheld]`. A populated `PrisonerId` on one, which holds
+    free text there, is withheld with the same placeholder rather than the
+    register-number marker. A represented amicus stays as served.
+  - **Value pass.** It keys on the `Email`, `Phone` and `Address` values of the
+    **qualifying** `Other` blocks only. A represented amicus's counsel is never
+    keyed on, since amici are not co-parties. The party sides key exactly as
+    before: every block of a side read as self-represented.
+  - **Manifest and run log.** `documents.json` records the same
+    `contact_scrub_passes` names, so no schema moves. The run-log echoes name
+    the `Other` list `amicus`: `amicus-side` (or, for example,
+    `petitioner/amicus-side`) on the snapshot line, and `no attorney named for
+    the amicus` on the document line.
+  - **Party-side snapshot blocks unchanged.** The staged petitioner- and
+    respondent-side blocks are byte for byte what they were: a test pins it,
+    and over the blob below no payload's staged party-side blocks differ
+    between a run with its `Other` list and one without. Staged **document
+    text** does change: on a docket newly fired by an amicus alone every
+    staged document is scrubbed, and on a docket already fired by a party side
+    the qualifying amicus's values join the value pass.
+
+  The corpus row, the content-store payload and the source PDF are untouched.
+  The three lanes that stage through this provisioning narrow the same way
+  from the carrying promotion on: predict cells, evaluate cells and the
+  case-summary lane's `summary-stage`. Summaries that already exist are not
+  re-derived, and a summary's record digest is taken off the corpus payload,
+  so the change moves no digest and re-owes no summary.
+
+  **Removal-only, and nothing scored reads what was removed.** The
+  snapshot-scrub test that pins both halves now also runs over a payload with
+  a self-represented and a represented amicus. The corpus row reads `PartyName`,
+  `Attorney` and `IsCounselofRecord` off the `Other` list, all kept. The staged
+  payload is still a fixed point.
+
+  **The population.** An ad hoc read that runs the real
+  `unrepresented_sides`, `scrub_snapshot_contacts`, `party_contact_values` and
+  `scrub_contact_details` over each case's latest stored payload and stored
+  documents in the pulled blob. The blob is `sha256:ce9359e9…`, whose newest
+  pull stamp is `2026-09-29` and whose newest stored snapshot is `2026-07-13`.
+  The per-case content store, which alone holds most current dockets, was not
+  read, so this is a figure about the blob and not about the provisioned
+  population.
+  - Of **2,925** latest payloads, **298** carry an `Other` list, **2,762**
+    blocks in all. None leaves `Attorney` blank.
+  - **45** `Other` blocks on **32** dockets qualify, all on the self-naming
+    arm. They are individual lawyers and law professors filing in their own
+    name. **261** values are withheld: 45 each of `Address`, `City`, `Zip`,
+    `Phone` and `Email`, and 36 `Title`. The 7 blocks the register-number arm
+    would have taken stay as served.
+  - **What it misses.** A further **29** blocks on **25** dockets name as
+    attorney someone whose first and last names both appear in `PartyName`,
+    but do not qualify: the served name carries a title or joinder the
+    `Attorney` field lacks (mostly `Professor` / `Professors`, a joint `… and
+    …` filing, or `Hon. … (Ret.)`). The comparison is the party sides' own and
+    is not widened here, so these stay as served. They are mostly academics
+    and retired judges, whose served details are likely institutional.
+  - The trigger now reads **654** dockets rather than **623**. **31** of the 32
+    are newly scrubbed (fired by their `Other` list alone); the other one was
+    already fired by its petitioner.
+  - On the 32 dockets, **52** of the **82** stored documents (petitions,
+    oppositions and questions-presented rows) stage differently. On the 31
+    newly scrubbed dockets the shape pass withholds **460** spans. They are
+    mostly counsel's office addresses, telephone numbers and emails, and the
+    professional details the design already accepts losing. A sample also
+    shows the shape pass's known misreads of legal prose: a case name led by a
+    street number in a citation, and a regulation number in telephone shape.
+    Those dockets carry amici, so they skew toward the salient end of the
+    docket. This is the largest cost of the entry.
+  - The dockets: 68237529, 68305309, 68381998, 68472798, 69232353, 69262307,
+    69262312, 69366590, 69437012, 69535496, 69797216, 69830688, 69920276,
+    69926223, 69926779, 70003535, 71573389, 71644700, 71644707, 71895450,
+    71978744, 72005945, 72328872, 72350770, 72483760, 72487163, 73250786,
+    73272784, 73274805, 73274915, 73275207, 73279899.
+
+  **What a post-change cell reads.** On an affected docket, the cell reads a
+  subset of the pre-change snapshot, and a subset of the pre-change document
+  text. No skill movement is predicted. In the 2026-09-21 entry's negative
+  form, a movement in **either** direction across this boundary may not be
+  read as a model effect.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus.
+
+  **The amendment debt.** It is unchanged. The placeholder is already owed a
+  reading rule at the next re-bless, and this entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_snapshot_scrub.py tests/test_cli_provision.py
+    tests/test_documents.py -k "scrub or amicus or other_list"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+    six digests;
+  - `uv run fedcourts provision-snapshot --court scotus --docket 71978744`
+    (with the data root pointed at a scratch directory) echoes
+    `snapshot contact scrub: N value(s) withheld on M amicus-side block(s)` and
+    `(no attorney named for the amicus; passes: value+shape)`, where its latest
+    payload still serves the two self-named amicus blocks.

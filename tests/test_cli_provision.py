@@ -2464,6 +2464,64 @@ def test_both_sides_self_represented_are_named_in_both_echoes(
     )
 
 
+def test_a_self_represented_amicus_is_scrubbed_on_a_counselled_docket(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A counselled petition with two amici on the `Other` list: one filing in
+    # its own name, whose block is withheld and whose values key the value pass,
+    # and a represented organisation whose `PrisonerId` holds free text — not a
+    # register number, so it stays as served. Both echoes name the list
+    # `amicus`. (That the organisation is not keyed on is pinned at unit level.)
+    scholar = {
+        "PartyName": "Jane Scholar",
+        "Attorney": "Jane Q. Scholar",
+        "Title": "Example University School of Law",
+        "Email": "jscholar@law.example.edu",
+        "Phone": "(555) 555-0142",
+        "Address": "100 Campus Drive",
+        "City": "Springfield",
+        "State": "IL",
+        "Zip": "62701",
+    }
+    organisation = {
+        "PartyName": "Example Association for Liberty",
+        "Attorney": "Ann B. Advocate",
+        "PrisonerId": "1234 Sample Drive, Suite 000-000",
+        "Email": "advocate@firm.example.com",
+        "Phone": "(555) 555-0177",
+    }
+    payload = {**_REPRESENTED_DOCKET, "Other": [organisation, scholar]}
+    brief = (
+        "Brief of Amicus Curiae Jane Scholar.\n"
+        + "Tel. 5555550142\n"
+        + "E-mail: jscholar@law.example.\n"
+        + "edu\n"
+    )
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, brief)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    staged_payload = json.loads(paths.snapshot("2026-07-20").read_text())
+    staged_scholar = staged_payload["Other"][1]
+    for key in ("Title", "Email", "Phone", "Address", "City", "Zip"):
+        assert staged_scholar[key] == "[contact detail withheld]"
+    assert staged_scholar["PartyName"] == "Jane Scholar"
+    assert staged_payload["Other"][0] == organisation
+    assert staged_payload["Petitioner"] == payload["Petitioner"]
+    staged = paths.document("petition").read_text()
+    assert "5555550142" not in staged
+    assert "jscholar" not in staged
+    assert staged.count("\n") == brief.count("\n")
+    assert "snapshot contact scrub: 6 value(s) withheld on 1 amicus-side block(s)" in (
+        result.output
+    )
+    assert "(no attorney named for the amicus; passes: value+shape)" in result.output
+    assert "jscholar@law.example.edu" not in result.output
+
+
 def test_one_docket_level_reading_scrubs_every_staged_kind(
     fixture_corpus: FixtureCorpus,
 ) -> None:

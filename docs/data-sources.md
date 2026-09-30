@@ -572,25 +572,33 @@ material**:
 - **A filing made in person is scrubbed before a cell reads it.** Where the
   provisioned snapshot serves a counsel block on either party side — petitioner
   or respondent — naming nobody but the party to write to — no attorney, the
-  party as their own, or a prisoner register number — the
+  party as their own, or a prisoner register number — or where an amicus block
+  on the `Other` list reads the same way on the first two arms, the
   filed-document text staged under a cell's `record/documents/` has its
   contact-detail shapes — emails, telephone numbers, post-office boxes, street
-  addresses — and the contact values on every block of each such side replaced
+  addresses — and the contact values on every block of each such party side replaced
   by a fixed placeholder, and the cell's manifest records that it was, and by
   which passes ([live-sources.md](live-sources.md)). The question is asked of a
   **served** block: a payload carrying no counsel on a side is unknown rather
   than unrepresented on that side, and a respondent who has not appeared has no
   block to read, so a docket awaiting its opposition is not scrubbed on that
-  account. The `Other` list — amici and other non-party filers — is not a party
-  side and is not read.
+  account. The `Other` list — amici and other non-party filers — is read on
+  the first two arms (no attorney, or the amicus as its own); the
+  register-number arm is not asked there, because `PrisonerId` on that list
+  holds free text rather than a register number, and only a qualifying
+  amicus's own values key the value pass. A self-filing amicus whose served
+  name carries a title or joinder the attorney field lacks is not read as
+  self-represented and stays as served.
   This is the one narrowing applied on privacy grounds, and it applies to the
   **staged copies** alone: the source PDF and the corpus row are untouched. On
   the same docket the snapshot staged beside the documents has each
   self-represented block's `Address`, `City`, `Zip`, `Phone`,
-  `Email` and `Title` values replaced by the same placeholder and its prisoner register
-  number by a fixed marker that keeps the number's presence; the party name,
+  `Email` and `Title` values replaced by the same placeholder and a party's prisoner register
+  number by a fixed marker that keeps the number's presence (a populated
+  `PrisonerId` on a qualifying amicus block, which holds no register number,
+  takes the contact placeholder instead); the party name,
   the attorney field and `State` stay, and every other block — a represented
-  party's counsel, an amicus — is as served. The
+  party's counsel, a represented amicus — is as served. The
   filing
   is public, so the concern is re-publication and aggregation rather than
   disclosure — a self-represented filer's home address reaching the public
