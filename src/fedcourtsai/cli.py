@@ -266,11 +266,11 @@ from .pipeline.documents import (
     backfill_questions_presented,
     document_fetch_losses,
     document_text_coverage,
-    petitioner_contact_values,
-    petitioner_is_unrepresented,
+    party_contact_values,
     questions_presented_extract,
     scrub_contact_details,
     scrub_snapshot_contacts,
+    unrepresented_sides,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.ingest import UNSAMPLED_WEIGHT
@@ -10679,6 +10679,11 @@ def _place_at_moment(
     return _Placement(snapshot_date, payload, kept, provenance, boundary)
 
 
+def _sides_named(sides: tuple[str, ...]) -> str:
+    """The party sides a run-log echo names: `petitioner`, `respondent`, or both."""
+    return "/".join(side.lower() for side in sides)
+
+
 @app.command("provision-snapshot")
 def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     *,
@@ -10772,15 +10777,16 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest, so the cell reads identical content with no
     fetch rights. That staged text is passed through the **contact-detail
-    scrub** where the snapshot names nobody but the petitioner to write to:
+    scrub** where the snapshot names nobody but the party to write to on
+    either party side, petitioner or respondent:
     emails, telephone numbers, post-office boxes and street
     addresses replaced by ``[contact detail withheld]``, with
     ``contact_scrubbed``, ``contact_replacements`` and ``contact_scrub_passes``
     on each manifest entry recording that it ran, what it withheld, and whether
-    the value pass keyed on the petitioner block's own contact values ran beside
-    the shape pass. On the same docket the staged snapshot has the
-    self-represented petitioner-side block's contact keys withheld and its
-    register number replaced by a presence marker
+    the value pass keyed on the self-represented side's own contact values ran
+    beside the shape pass. On the same docket the staged snapshot has each
+    self-represented block's contact keys withheld and its register number
+    replaced by a presence marker
     (:func:`~fedcourtsai.pipeline.documents.scrub_snapshot_contacts`). The
     stored row and the source
     PDF are untouched — the staged copy is the one a cell can quote into the
@@ -10900,12 +10906,12 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     documents = placement.documents
     paths = CasePaths(settings.data_root, court, docket)
     dest = out or paths.snapshot(snapshot_date.isoformat())
-    # The staged snapshot is the payload with a self-represented petitioner's
-    # own contact keys withheld (`scrub_snapshot_contacts`): the copy a cell can
-    # quote from, on the same docket-level reading the document scrub below
-    # keys on. A separate object, so everything else here — the cell context,
+    # The staged snapshot is the payload with a self-represented party's own
+    # contact keys withheld, on either party side (`scrub_snapshot_contacts`):
+    # the copy a cell can quote from, on the same docket-level reading the
+    # document scrub below keys on. A separate object, so everything else here — the cell context,
     # the scrub trigger, the document scrub — reads the payload as served.
-    unrepresented = petitioner_is_unrepresented(payload)
+    unrepresented = unrepresented_sides(payload)
     staged_snapshot = scrub_snapshot_contacts(payload) if unrepresented else None
     write_raw_json(dest, payload if staged_snapshot is None else staged_snapshot.payload)
     # The cell's context: its mode, and the conditioning state it is about to run
@@ -10940,29 +10946,31 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         # Counts only, never a value: the run log is public.
         typer.echo(
             f"{case} snapshot contact scrub: {staged_snapshot.fields} value(s) withheld on "
-            f"{staged_snapshot.blocks} petitioner-side block(s)"
+            f"{staged_snapshot.blocks} {_sides_named(unrepresented)}-side block(s)"
         )
     if documents:
         # The contact-detail scrub, keyed on the docket-level reading that
         # separates a filing signed by counsel from one signed in person:
-        # whether the snapshot names anyone but the petitioner to write to.
+        # whether the snapshot names anyone but the party to write to, on
+        # either party side.
         # Where it does not, every document staged for this cell has its
         # contact details withheld (shapes and served values) — the whole
         # docket rather than the petition alone, since deciding per document
         # who signed it would be a second reading with its own failure mode,
-        # and an opposition filed by counsel loses only professional details
-        # the cell has no use for. The
+        # and a filing by the other side's counsel loses only professional
+        # details the cell has no use for. The
         # corpus row and the source PDF are untouched: the scrub is on the copy
         # staged under `record/`, which is the copy a cell can quote into the
         # public ledger.
-        scrubbing = unrepresented
-        # The filer's own contact values, off the same served blocks the
-        # trigger read, key the scrub's value pass: it finds them however a
-        # scan fragmented them, which no shape pattern can promise. Read off
+        scrubbing = bool(unrepresented)
+        # The filer's own contact values, off every served block on the sides
+        # the trigger read as self-represented, key the scrub's value pass: it
+        # finds them however a scan fragmented them, which no shape pattern can
+        # promise. Read off
         # `payload` — the payload as served — and never off the staged
         # snapshot copy, whose contact keys hold the placeholder: keyed on
         # that, the pass would look for the placeholder and miss the values.
-        contact_values = petitioner_contact_values(payload) if scrubbing else ()
+        contact_values = party_contact_values(payload, unrepresented)
         staged = [
             (doc, scrub_contact_details(doc.text, contact_values) if scrubbing else None)
             for doc in documents
@@ -11022,7 +11030,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             passes = "value+shape" if keyed else "shape only"
             typer.echo(
                 f"{case} contact scrub: {withheld} detail(s) withheld across "
-                f"{len(staged)} staged document(s) (no attorney named for the petitioner; "
+                f"{len(staged)} staged document(s) (no attorney named for the "
+                f"{_sides_named(unrepresented)}; "
                 f"passes: {passes})"
             )
 

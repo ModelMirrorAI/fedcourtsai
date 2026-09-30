@@ -5626,3 +5626,118 @@ freeze commit is recorded here.
   /tmp/lb.json` reads `0` (nothing has moved; the check does not exercise the
   gate), and `uv run fedcourts process-digest --all` still prints the same
   six digests.
+
+- **A self-represented respondent's contact details are withheld by both
+  contact scrubs, 2026-09-30.** A **conditioning** entry in the *what the
+  pipeline provisions* class. It closes the residual that the snapshot-scrub
+  entry of 2026-09-29 named and left out of scope: a self-represented
+  respondent's counsel block, staged as served.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary. The staged snapshot and the staged
+  document text live in the gitignored `record/`, and `prediction.json` has no
+  field separating a cell that read a respondent's address from one that read
+  a placeholder there. The boundary exists only here, and a stamped cell is
+  post-change if the carrying promotion's merge commit is an ancestor of, or
+  equal to, its `process_version.pipeline_sha`. On an affected docket, cells on
+  either side of the boundary may not be pooled. Every affected docket in the
+  population below also carries the 2026-09-21, fragmented-email and
+  snapshot-scrub boundaries, since its petitioner is self-represented too.
+
+  **What changes.** The block-level test is unchanged, with the same three
+  arms: the party served as its own attorney, no attorney named, or a
+  prisoner register number. It is now asked of the respondent side as well as
+  the petitioner side (`unrepresented_sides`). The `Other` list, which holds
+  amici and other non-party filers, is not a party side and is not read.
+  - **Trigger.** The docket-level trigger fires where either side reads
+    self-represented. A respondent who has not appeared has no block, so a
+    docket awaiting its opposition does not fire on that side. Across the
+    3,073 snapshots stored in the blob below, none of the 3,474 petitioner-
+    and respondent-side blocks leaves `Attorney` blank.
+  - **Staged snapshot.** Every block on either side that the test reads as
+    naming nobody but the party is withheld exactly as a petitioner-side one
+    is. Each populated `Address`, `City`, `Zip`, `Phone`, `Email` and `Title`
+    becomes `[contact detail withheld]`, and a populated `PrisonerId` becomes
+    `[register number withheld]`. A represented party's counsel block, on
+    either side, and every amicus block stay as served.
+  - **Value pass.** The pass keys on the `Email`, `Phone` and `Address` values
+    of every block on each side that reads self-represented. Before this
+    change it read the petitioner side only. A side whose blocks all name
+    counsel is never keyed on, so a docket fired by its petitioner alone keys
+    on exactly the values it keyed on before.
+  - **Manifest and run log.** `documents.json` records the same
+    `contact_scrub_passes` names (`value`, `shape`), so no schema moves. The
+    run-log echoes name the sides read as self-represented:
+    `petitioner-side`, `respondent-side` or `petitioner/respondent-side` on the
+    snapshot line, and `no attorney named for the petitioner`, `the
+    respondent` or `the petitioner/respondent` on the document line. A docket
+    fired by its petitioner alone echoes exactly the lines it echoed before.
+
+  The corpus row, the content-store payload and the source PDF are untouched.
+  The three lanes that stage through this provisioning narrow the same way
+  from the carrying promotion on: predict cells, evaluate cells and the
+  case-summary lane's `summary-stage`. Summaries that already exist are not
+  re-derived. A summary's record digest is taken off the corpus payload, so
+  the change moves no digest and re-owes no summary.
+
+  **Removal-only, and nothing scored reads what was removed.** The test the
+  snapshot-scrub entry registered still pins both halves, and it now also runs
+  over a payload with a self-represented respondent. The source half is
+  unchanged: no module outside `pipeline/documents.py` names a withheld key.
+  The staged payload is also a fixed point: scrubbing it again changes
+  nothing.
+
+  **The population.** This is an ad hoc read that runs the real
+  `unrepresented_sides`, `scrub_snapshot_contacts`, `party_contact_values` and
+  `scrub_contact_details` over each case's latest stored payload and stored
+  documents in the pulled blob. That payload is the snapshot a forward cell
+  stages. The blob is `sha256:ce9359e9…`, whose newest pull stamp is
+  `2026-09-29` and whose newest stored snapshot is `2026-07-13`. The per-case
+  content store, which alone holds most current dockets, was not read, so this
+  is a figure about the blob and not about the provisioned population.
+  - Of **2,925** latest payloads, **1,275** carry a respondent-side block,
+    **1,611** blocks in all.
+  - The trigger reads **623** dockets: **619** on the petitioner side alone and
+    **4** on both sides. None reads on the respondent side alone, so on this
+    blob the set of scrubbed dockets does not change.
+  - On those 4 dockets, **4** respondent-side blocks are newly withheld, with
+    **22** values: 4 each of `Address`, `City`, `Zip`, `Phone` and `Email`,
+    and 2 `Title`. None carries a register number. The other **11**
+    respondent-side blocks on those dockets name counsel and are staged as
+    served.
+  - The value pass on those 4 dockets now also keys on the respondent side's
+    values. Their **6** stored documents, petitions and questions-presented
+    rows, contain none of those values, so no staged document text changes on
+    this blob. The respondent's own filing is where the pass would act, and no
+    brief in opposition is stored for those dockets.
+
+  **What a post-change cell reads.** On an affected docket, the cell reads a
+  subset of the pre-change snapshot, and a subset of the pre-change document
+  text wherever a respondent-side value appears in it. No skill movement is
+  predicted. In the 2026-09-21 entry's negative form, a movement in **either**
+  direction across this boundary may not be read as a model effect.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus.
+
+  **The amendment debt.** It is unchanged. The placeholder and the marker are
+  already owed a reading rule at the next re-bless, and this entry adds no new
+  token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_snapshot_scrub.py tests/test_cli_provision.py
+    -k "scrub or respondent"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+    six digests;
+  - on the first cell provisioned from a docket with a self-represented
+    respondent, the provisioning step echoes `<case> snapshot contact scrub: N
+    value(s) withheld on M respondent-side block(s)` (or
+    `petitioner/respondent-side`). That cell's staged snapshot carries
+    `[contact detail withheld]` in the respondent block's populated contact
+    keys.

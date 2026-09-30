@@ -308,16 +308,18 @@ That staged copy is where the **contact-detail scrub** applies, and it applies
 to the copy alone: the source PDF and the stored row keep the filing as filed.
 A cell's prose lands in the public ledger, so the text it reads is a
 republication surface as well as an input — and where the provisioned snapshot
-serves a petitioner-side counsel block naming nobody but the petitioner to
-write to, the caption and signature block of what it reads are an individual's
-own. The docket JSON never says "pro se", so the reading is upstream's own, in
+serves a counsel block on either party side, petitioner or respondent, naming
+nobody but the party to write to, the caption and signature block of what that
+party filed are an individual's own. The docket JSON never says "pro se", so the reading is upstream's own, in
 three arms, all of them read off a **served** block: a self-represented party
 listed as its own attorney (compared on first and last name, since the two
 fields disagree on the middle constantly), a block naming no attorney at all,
 and a prisoner register number on the block — the incarcerated filer, whose own
-address a filing carries most reliably. Any one qualifying block is enough, so a
-docket carrying a represented co-petitioner beside a self-represented one is
-scrubbed. Every document staged
+address a filing carries most reliably. The arms are the same on either side,
+and any one qualifying block is enough, so a docket carrying a represented
+co-petitioner beside a self-represented one is scrubbed, and so is a counselled
+petition answered by a respondent filing in person. The `Other` list — amici
+and other non-party filers — is not a party side and is not read. Every document staged
 for such a docket has its emails, telephone numbers, post-office boxes and
 street addresses replaced by the fixed token `[contact detail withheld]`, which
 keeps the document's structure and tells a reader that something was withheld
@@ -325,8 +327,9 @@ rather than that a line is missing. It runs as two passes. The **shape** pass
 matches what a contact detail looks like, including an email address as a scan
 fragments it (a blank beside the `@` or a dot, a letter-spaced local part,
 `(at)`), and never takes a line break. The **value** pass looks for the
-`Email`, `Phone` and `Address` strings on every served petitioner-side block
-(the filer's own, and any co-petitioner counsel's), however the scan spaced or
+`Email`, `Phone` and `Address` strings on every served block of each side read
+as self-represented (the filer's own, and any co-party counsel's on that side
+— never a side whose blocks all name counsel), however the scan spaced or
 line-broke them, and puts back every line break it consumed; it runs only
 where the docket serves a value specific enough to key on (an email with its
 `@`, a telephone number of ten or more digits, an address with a digit and
@@ -338,12 +341,17 @@ many it withheld — so `true, 0` (scrubbed, nothing found) stays
 distinguishable from `false, 0` (a represented docket's text, untouched); and
 `contact_scrub_passes`, which passes ran (`["value", "shape"]`, `["shape"]`,
 or `[]` where the scrub did not run), so a shape-only scrub is not read as the
-complete one. An opposition filed by counsel on such a docket is
-scrubbed with the petition, since the reading is the docket's and taken once:
+complete one. A filing by the other side's counsel on such a docket is
+scrubbed with the rest, since the reading is the docket's and taken once:
 the cost is a firm's switchboard number a cell had no use for.
 
-**A payload serving no petitioner-side block is unknown, not unrepresented**,
-and is left alone. The snapshots key space holds two payload shapes, and the
+**A payload serving no block on a side is unknown on that side, not
+unrepresented**, and is left alone. A respondent who has not appeared has no
+block at all — upstream serves the respondent side only once someone enters an
+appearance for it, and none of the 3,474 petitioner- and respondent-side blocks
+across the 3,073 snapshots stored in the pulled blob (pull stamp `2026-09-29`)
+leaves `Attorney` blank — so a docket awaiting its opposition is not scrubbed
+on that account. The snapshots key space holds two payload shapes, and the
 other one — a CourtListener REST docket, which carries no counsel blocks
 anywhere — names nobody because it has nowhere to. Reading that as
 self-representation would scrub on the strength of a payload shape rather than
@@ -373,10 +381,10 @@ institution name, which has no shape at all.
 `record/snapshots/<date>.json` is the upstream payload, whose counsel blocks
 carry `Address` / `City` / `Zip` / `Phone` / `Email` / `PrisonerId` as labelled
 keys — on a self-represented docket the filer's own details in a more quotable
-form than any signature block. On such a docket, every petitioner-side block
-the trigger reads as naming nobody but the party — a block carrying a register
-number included, whatever its `Attorney` says, so a counselled incarcerated
-petitioner's block loses its counsel's professional details — has each
+form than any signature block. On such a docket, every block on either party
+side that the trigger reads as naming nobody but the party — a block carrying a
+register number included, whatever its `Attorney` says, so a counselled
+incarcerated party's block loses its counsel's professional details — has each
 populated `Address`, `City`, `Zip`, `Phone`, `Email` and `Title` (free text
 nothing reads, which upstream sometimes fills with an inmate number) replaced
 by `[contact detail withheld]`, and
@@ -384,17 +392,18 @@ a populated `PrisonerId` replaced by `[register number withheld]`: the number is
 the personal datum, its presence is upstream's marker for an incarcerated filer,
 which the trigger's third arm reads and a cell may reason from, so the marker
 keeps the presence. `PartyName`, `Attorney`, `State` and every other block —
-a represented co-petitioner's, the respondent side, amici — stay as served, and
-an empty key stays empty. The respondent side is outside this scrub by
-scope — the trigger and the scrub both ask about the petitioner — so a
-self-represented respondent's block on such a docket keeps its contact keys, a
-residual of four blocks on the pulled blob. The copy is built beside the payload rather than in
+a represented party's counsel on either side, amici — stay as served, and an
+empty key stays empty. The copy is built beside the payload rather than in
 place of it, so the cell context, the trigger and the document scrub all read
 the payload as served; nothing scored or analytic reads the withheld keys (a
 test pins both halves: no module outside the scrub names them as literals or
 imports its key list, and every row, band, context and gate derived from a
 scrubbed payload equals the one from the original). The provisioning step echoes the counts, never a value:
-`snapshot contact scrub: N value(s) withheld on M petitioner-side block(s)`.
+`snapshot contact scrub: N value(s) withheld on M petitioner-side block(s)`,
+with `respondent-side` or `petitioner/respondent-side` naming the sides read as
+self-represented; the document scrub's line names them the same way (`no
+attorney named for the petitioner`, `the respondent`, or
+`the petitioner/respondent`).
 Both files are gitignored, and no predict or evaluate cell uploads `record/`,
 so what can reach public git from a cell is what its prose quotes, which is the
 exposure [data-sources.md](data-sources.md) already names. The case-summary
