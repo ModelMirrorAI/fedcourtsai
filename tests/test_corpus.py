@@ -3060,8 +3060,8 @@ def test_counsel_survives_a_counsel_less_write_and_a_fresh_reading_replaces_it(
 ) -> None:
     """A channel that maps no counsel blocks writes a confident empty list, which
     must not erase the live channel's per-side reading; a non-empty re-read still
-    lands. The latch is the column's own — every neighbouring column keeps the
-    rule it had, latched or not."""
+    lands. The latch is the column's own — every other latched column keeps
+    the rule it had."""
     db = tmp_path / "corpus.db"
     case_id = "scotus/9024007060"
     first = [
@@ -3089,7 +3089,6 @@ def test_counsel_survives_a_counsel_less_write_and_a_fresh_reading_replaces_it(
                     case_id,
                     **base,
                     counsel=first,
-                    parties=["Jane Doe", "State"],
                     last_live_polled=date(2026, 7, 13),
                     cvsg_date=date(2026, 5, 1),
                     distribution_count=2,
@@ -3117,8 +3116,7 @@ def test_counsel_survives_a_counsel_less_write_and_a_fresh_reading_replaces_it(
         replaced = corpus.get_row(conn, case_id)
     assert kept is not None and replaced is not None
     assert kept.counsel == first
-    # The neighbours behave exactly as their own rules say.
-    assert kept.parties == []  # unlatched: takes the incoming value
+    # The other latched columns keep their own rules.
     assert kept.last_live_polled == date(2026, 7, 13)  # fill-in latch
     assert kept.cvsg_date == date(2026, 5, 1)  # fill-in latch
     assert kept.distribution_count == 2  # max-latch

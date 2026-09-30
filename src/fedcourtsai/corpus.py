@@ -1554,9 +1554,10 @@ def _update_clause(column: str) -> str:
     the capital marking, so the other's confident False must not erase it — so
     each only ever grows — and ``application_kind`` gets the same protection in
     TEXT form: a real reading is never wiped by a degraded parse's confident
-    ``unknown``, and ``counsel`` in JSON-list form: an empty list only ever
-    fills a gap, so a channel that maps no counsel keeps the live channel's
-    per-side reading); ``sample_weight`` is a
+    ``unknown``); ``counsel`` takes that TEXT latch's shape in JSON-list form,
+    with ``'[]'`` in the role of ``unknown`` — an empty list only fills a gap,
+    so a channel that maps no counsel keeps the live channel's per-side
+    reading, while a non-empty one replaces it; ``sample_weight`` is a
     min-latch (an inclusion probability is only ever learned upward, toward
     weight 1); ``predict_excluded`` is owned by the scope reconcile (not an
     ingestion fact), so an upsert keeps the stored value rather than resetting
