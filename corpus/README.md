@@ -79,7 +79,7 @@ source.
 | `panel`               | json array      | structured panel: `{name, seniority}` per judge |
 | `parties`             | json array      | party names on the docket                     |
 | `attorneys`           | json array      | attorney names of record                      |
-| `counsel`             | json array      | structured counsel: `{party, attorney, role, counsel_of_record}` per docket block; `role` is the caption side (petitioner / respondent / other). SCOTUS live+historical only |
+| `counsel`             | json array      | structured counsel: `{party, attorney, role, counsel_of_record}` per docket block; `role` is the caption side (petitioner / respondent / other). SCOTUS live+historical only; latched — an empty incoming list keeps the stored one, a non-empty reading replaces it |
 | `topic`               | text            | nature of suit / subject-matter topic         |
 | `citations`           | json array      | reporter cites (`602 U.S. 137`), from the docket's opinion cluster |
 | `citation_count`      | integer         | times the decision has been cited            |
@@ -152,9 +152,15 @@ enrichment (`fedcourts enrich-opinions`), so keeping the bulk join out of the
 column is what makes a populated body on a non-SCOTUS row impossible rather
 than merely unlikely. The
 CourtListener REST path reports no side, so `counsel` is empty there, exactly as
-`seniority` is. A historical row serialized before the column existed also stays
-empty until a re-walk re-serves it — the same legacy-row shape as
-`sample_weight` below.
+`seniority` is — and because every writer asserts the column, that empty list
+would erase a live reading if the same docket ever took a REST or bulk write.
+The upsert therefore latches it: an empty incoming list keeps the stored one,
+and a non-empty reading (the live channel's re-read) replaces it, so a
+corrected parse still lands. A row last written before the column existed
+stays empty until a live re-poll, a re-walk or `refresh-dockets` re-serves it —
+the same legacy-row shape as `sample_weight` below. A decided docket leaves the
+live rotation (a granted docket stays in it until its judgment), so on a
+decided row that re-serve does not come on its own.
 
 `last_pulled` is per-case **tracking state**, not a docket fact: `pull` stamps it
 on every refresh and the budget governor rotates the oldest-`last_pulled`-first

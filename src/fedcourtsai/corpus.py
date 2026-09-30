@@ -274,7 +274,9 @@ class CorpusRow(BaseModel):
         description="Structured counsel (party + attorney + side + counsel-of-record) from the "
         "SCOTUS docket's per-side blocks; the joined detail behind the flat `parties` and "
         "`attorneys` names, and the only place the petitioner/respondent side survives. "
-        "Empty off the SCOTUS live/historical channel.",
+        "Empty off the SCOTUS live/historical channel, and on a row last written before "
+        "the column existed. Latched on upsert: an empty incoming list keeps the stored "
+        "one, a non-empty reading replaces it.",
     )
     topic: str | None = Field(default=None, description="Nature of suit / subject-matter topic.")
     citations: list[str] = Field(default_factory=list)
@@ -1552,7 +1554,10 @@ def _update_clause(column: str) -> str:
     the capital marking, so the other's confident False must not erase it — so
     each only ever grows — and ``application_kind`` gets the same protection in
     TEXT form: a real reading is never wiped by a degraded parse's confident
-    ``unknown``); ``sample_weight`` is a
+    ``unknown``); ``counsel`` takes that TEXT latch's shape in JSON-list form,
+    with ``'[]'`` in the role of ``unknown`` — an empty list only fills a gap,
+    so a channel that maps no counsel keeps the live channel's per-side
+    reading, while a non-empty one replaces it; ``sample_weight`` is a
     min-latch (an inclusion probability is only ever learned upward, toward
     weight 1); ``predict_excluded`` is owned by the scope reconcile (not an
     ingestion fact), so an upsert keeps the stored value rather than resetting
@@ -1699,6 +1704,20 @@ def _update_clause(column: str) -> str:
         # docket restates it), the same last-entry rule the backfill applies.
         clause = (
             f"{column}=CASE WHEN excluded.merits_judgment IS NULL "
+            f"THEN cases.{column} ELSE excluded.{column} END"
+        )
+    elif column == "counsel":
+        # The JSON-list twin of the fill-in latch: every writer asserts the column
+        # (NOT NULL, default '[]'), so a channel that maps no counsel blocks — a
+        # CourtListener REST or bulk row, whose record has no per-side blocks —
+        # writes a confident '[]' rather than NULL, and a plain assignment would
+        # erase what the live channel parsed. An empty incoming list therefore
+        # keeps the stored one; a non-empty list, the live channel's fresh
+        # re-read, always replaces it, so a corrected parse still lands. The
+        # accepted cost: a docket whose upstream blocks genuinely empty out
+        # keeps its last non-empty reading.
+        clause = (
+            f"{column}=CASE WHEN excluded.{column} = '[]' "
             f"THEN cases.{column} ELSE excluded.{column} END"
         )
     else:
