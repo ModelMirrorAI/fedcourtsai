@@ -2440,6 +2440,65 @@ nine more are specific to rates.
   in his official capacity, whom the class reads as the government. The census stays on `party-v1` by default, so a census
   count and a rates cell are comparable only where both name the same rule.
 
+**The counsel dimension (`--counsel-rule sg-office-v1`).** With it, every cell
+is also keyed on `sg_counsel`: which side(s) the Solicitor General's office is
+counsel for, read from the row's petitioner and respondent counsel entries
+against a dated roster (`pipeline.counsel`, sources in
+[docs/data-sources.md](../docs/data-sources.md)). The rule version names the
+roster, so a cell quoted from it names `counsel_rule_version` beside the party
+rule. Every figure below is from the blob pulled 2026-09-29, newest stored
+snapshot 2026-07-13. Six rules travel with it.
+
+- **Paid cert and applications only.** The index carries no counsel on
+  resolved IFP rows today — an ingestion gap, not a property of IFP dockets —
+  so those rows read `unknown`, and an IFP cell keyed on `sg_counsel` holds
+  pending rows' readings and little else. No IFP rate is quoted by counsel
+  side, and no paid-versus-IFP comparison is drawn from this dimension, until
+  the gap is closed and backfilled.
+- **Counsel accrues after docketing, and the list is as of the row's last
+  write.** A response or waiver adds the respondent's counsel, and the Court
+  calls for a response before most grants, so a resolved docket with no
+  respondent counsel is enriched in denials by construction and a pending
+  docket's `none` is provisional. `--through` does not rewind the list either:
+  a cut at a past moment still reads the counsel the row holds now. So
+  `sg_counsel` says who the office answered for by the docket's end — a
+  descriptive split beside the caption, never an arrival-time covariate or a
+  predictor of the grant.
+- **Read it beside `federal_party`, not instead of it.** The two disagree on a
+  measured mass, and that is what the dimension is for: over the whole blob
+  under `filed`, 503 paid-cert rows whose caption names no federal party carry
+  the office as respondent counsel (an `In re` petition, a court or an
+  officer the caption rules read as private), and 26 whose caption names a
+  federal respondent carry counsel but no office entry.
+- **The dates are what make it precise.** The same roster read without dates
+  counts a former Solicitor General at a firm, or a future one as a state
+  solicitor general or private counsel, as the office. Scored against the
+  firm/office `Title` field — which the index does not store, so only on the
+  sample that carries it: the latest stored live snapshot of 1,567 OT2023–OT2025
+  dockets, grant-enriched and not random, with no applications — the dated rule
+  reads 45 of 46 petitioner-side and 595 of 597 respondent-side roster entries
+  as the office where Title says Solicitor General or Department of Justice,
+  against 46 of 60 and 595 of 603 for the undated roster. The three
+  disagreements carry a blank Title and a federal party; the one Title hit the
+  rule drops is a Title recorded after the docket closed, naming the office
+  the attorney joined later. The Francisco, Wall and Fletcher years are not in
+  the sample and are untested against Title. Corpus-wide, the spans set aside
+  156 roster entries (99 petitioner-side) on 154 live-slice dockets — all 57
+  respondent-side entries and a sample of 30 petitioner-side ones inspected,
+  every one a private-practice or state appearance — and the dockets read as
+  the office move 401 → 302 petitioner-side and 4,760 → 4,711
+  respondent-side.
+- **Recall is unmeasured.** The roster names the office's leadership and one
+  career deputy; an Assistant to the Solicitor General or another deputy
+  signing as counsel of record is missed without trace (a deputy off the
+  roster signs 2 blocks of the Title sample), and a name is matched on its
+  listed spellings only.
+- **A handover can flip a docket at the edge.** Some span boundaries are the
+  public record of a handover rather than a date an OSG page prints, and a
+  docket resolved within days of one may fall either side; a corrected date is
+  a new rule label, so a published cell keeps replaying under the roster that
+  produced it.
+
 **Validation against the published administration tallies.** The
 emergency-docket cell was checked against two published counts of the federal
 government's applications, each cut `--as-of filed --through <the tally's

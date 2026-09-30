@@ -249,6 +249,7 @@ from .pipeline.cert_signals import (
     DISTRIBUTION_PARSES,
 )
 from .pipeline.claims import score_claims
+from .pipeline.counsel import COUNSEL_RULES
 from .pipeline.decision_dates import converge_decision_dates
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
@@ -1487,6 +1488,15 @@ def party_rates_cmd(
         "--rule-version",
         help="Which registered party-annotation rule keys the cells (party-v2).",
     ),
+    counsel_rule_version: str | None = typer.Option(
+        None,
+        "--counsel-rule",
+        help=(
+            "Also key every cell on which side(s) the Solicitor General's office is "
+            "counsel for, under this registered counsel rule (sg-office-v1). Omit "
+            "for the caption-only cut."
+        ),
+    ),
 ) -> None:
     """Grant rates by government-party status and administration (`pipeline.party_rates`).
 
@@ -1498,10 +1508,19 @@ def party_rates_cmd(
     full strength; a cell holding sampled rows prints the raw pair beside it.
     An analytics artifact: nothing a predict or evaluate cell reads comes
     from it. Prints a `PartyRates`; the human cut and the corpus vintage go to
-    stderr. `pending` on the human line is a raw row count. Fails loud if the
-    corpus is absent (exit 1), or on an unregistered rule, an unknown `--as-of`
-    or an unreadable `--through` / `--since` (exit 2).
+    stderr. `pending` on the human line is a raw row count. With
+    `--counsel-rule`, each cell is also keyed on the Solicitor General's office
+    as counsel (`pipeline.counsel`), a dimension read beside the caption's. Fails
+    loud if the corpus is absent (exit 1), or on an unregistered rule, an
+    unknown `--as-of` or an unreadable `--through` / `--since` (exit 2).
     """
+    if counsel_rule_version is not None and counsel_rule_version not in COUNSEL_RULES:
+        typer.echo(
+            f"unregistered counsel rule {counsel_rule_version!r}; "
+            f"registered: {', '.join(sorted(COUNSEL_RULES))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     if rule_version not in PARTY_RULES:
         typer.echo(
             f"unregistered party rule {rule_version!r}; "
@@ -1540,6 +1559,7 @@ def party_rates_cmd(
             since=bounds["--since"],
             corpus_sha256=corpus_sha,
             rule_version=rule_version,
+            counsel_rule_version=counsel_rule_version,
         )
     pulled = rates.latest_pull.isoformat() if rates.latest_pull else "never pulled"
     snapshot = rates.latest_snapshot.isoformat() if rates.latest_snapshot else "none"
@@ -1555,6 +1575,12 @@ def party_rates_cmd(
         f"corpus latest pull {pulled}, latest snapshot {snapshot}",
         err=True,
     )
+    if rates.counsel_rule_version is not None:
+        typer.echo(
+            f"counsel rule {rates.counsel_rule_version}: {rates.counsel_private_practice} "
+            "rated row(s) carry a roster name the dated spans read as private practice",
+            err=True,
+        )
     for cell in rates.cells:
         rate = f"{cell.grant_rate:.1%}" if cell.grant_rate is not None else "-"
         # The printed pair is the one the rate divides — the weighted pair,
@@ -1575,7 +1601,8 @@ def party_rates_cmd(
         labels = " ".join(f"{label}={n}" for label, n in cell.dispositions.items())
         typer.echo(
             f"{cell.administration or 'unattributed'} {cell.stratum} "
-            f"federal-{cell.federal_party}: granted "
+            f"federal-{cell.federal_party}"
+            f"{f' sg-counsel-{cell.sg_counsel}' if cell.sg_counsel is not None else ''}: granted "
             f"{cell.weighted_granted}/{cell.weighted_resolved} = {rate}"
             f"{weighted}; rows={cell.rows} pending={cell.pending} "
             f"unreadable={cell.unreadable} [{labels}]{excluded}",

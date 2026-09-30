@@ -408,6 +408,25 @@ on; and `writing_roles`, where present, naming exactly the Justices who took
 part. A source that has not registered, SCDB included, stays refused; an
 SCDB import additionally settles the terms above before it writes any value.
 
+**The Solicitor General's office roster.** The counsel annotation
+`sg-office-v1` (`pipeline/counsel.py`, read by `fedcourts party-rates
+--counsel-rule`) reads a committed, dated roster of the people who signed the
+federal government's Supreme Court filings: every Solicitor General and acting
+Solicitor General from OT2015 on, the principal deputies seen signing as
+counsel of record, and one career deputy. It was retrieved on 2026-09-30 from
+the Department of Justice's Office of the Solicitor General pages — the
+historical list of Solicitors General (`justice.gov/osg/historical-bios`) and
+the biographies it links, plus the current Solicitor General's staff profile.
+Those pages give an exact day for three boundaries (Verrilli sworn in
+2011-06-09, Francisco sworn in 2017-09-19, Sauer in office from 2025-04-04) and
+a year range for the rest. A span that begins or ends at a change of
+administration takes the inauguration day; the remaining days — the 2016, 2017
+and 2020 acting handovers and the deputies' spans — come from the public
+record of those handovers, not from an OSG page. Each span's `source` field in
+the module names which kind of date it holds. The roster is part of the rule:
+a corrected or extended span is a new rule label, never an edit to
+`sg-office-v1`. It holds public-office facts only.
+
 Two layers of rights apply, and they are different:
 
 - **The underlying records are public.** Federal court opinions and docket data are
