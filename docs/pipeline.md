@@ -677,7 +677,7 @@ prerequisites each pass is gated on still apply, so a dry-run dispatch can move
 the corpus pointer by a convergence a scheduled window would have made anyway.
 [data-pipeline.md](data-pipeline.md#maintenance-passes) is the contract — what
 each pass accepts, every refusal, the `dedupe-live-rows` prerequisite each
-corpus pass is gated on, and the dispatch commands.
+pass in the corpus job is gated on, and the dispatch commands.
 
 It is a separate workflow because its failure posture is the opposite of the
 walker's. A standing sweep fails by *not converging*, and the next window
@@ -983,8 +983,8 @@ not already own through the live channel's own ingest seam, so a back-filled
 row is the row a live poll would have written and joins the live slice. A
 live-polled row is never fetched or overwritten. It runs in its own job: the
 dry run holds no credential while it fetches and takes no lock, and the apply
-takes `corpus-write`, the read-write role for its write step, and the App token
-only after that step. Each run fetches from supremecourt.gov, so an apply does
+takes `corpus-write`, the read-write role from its write step onward, and the
+App token only after that step. Each run fetches from supremecourt.gov, so an apply does
 not lead with a dry run, and a re-dispatched dry run after the apply is the
 control. **The apply is post-release**: it moves OT2024's unparsed rows into the
 population the pooled interim base rate is computed over, so it waits until

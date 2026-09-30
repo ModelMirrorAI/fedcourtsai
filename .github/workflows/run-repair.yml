@@ -229,7 +229,7 @@ jobs:
             echo "::error::repair=${REPAIR} takes no repair_bound — its blast radius is fixed in code, or it has none. Clear the field and re-dispatch."
             exit 1
           fi
-          # Same for a target: only the two passes that name a subject read it.
+          # Same for a target: only the three passes that name a subject read it.
           if [ -z "${target_kind}" ] && [ -n "${REPAIR_TARGET}" ]; then
             echo "::error::repair=${REPAIR} takes no repair_target — only the distribution re-derivation (a parse label), the re-grade (a cell list) and the application back-fill (a Term) name a subject. Clear the field and re-dispatch."
             exit 1

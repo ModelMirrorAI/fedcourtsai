@@ -1446,8 +1446,8 @@ copy of either looks exactly like a current one. No scored number moves, and
 that is a property of the population rather than a hope: every scored-segment
 cut is gated on a paid serial and these rows are IFP.
 
-**Prerequisites the bench brings along.** Every corpus pass is gated on a
-`dedupe-live-rows --apply` prerequisite that runs first and must succeed: any
+**Prerequisites the bench brings along.** Every pass in the corpus job is gated
+on a `dedupe-live-rows --apply` prerequisite that runs first and must succeed: any
 docket-number spelling that defeats the channels' identity join leaves a twin
 pair, and a pass that reads a row's columns must read the merged row rather than
 one half of a pair. It runs in `dry-run` dispatches too — the ledger a
@@ -1481,7 +1481,7 @@ the runner image rolls, and would fail the pass for a reason that has nothing to
 do with the corpus, so what a recovered text was read by is recorded by the run
 instead of promised by the workflow. An apply refuses where the binaries are
 absent, which is what keeps a failed install from reading as a converged class.
-**Least privilege per pass.** The fourteen corpus passes run in a job holding the
+**Least privilege per pass.** Fourteen of the corpus passes run in the corpus job, holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
@@ -1502,8 +1502,12 @@ fourth job, because its two modes sit in different risk classes. Its dry run
 reads the pulled index and fetches from supremecourt.gov with the read-only
 session and the OIDC request token blanked, as the vote stamper does, and takes
 no lock. Its apply takes `corpus-write` for the whole job and the read-write
-role for the step that fetches and lands the rows, since the ingest mirrors each
-snapshot to the content store as it writes. It mints the App token only after
+role from the step that fetches and lands the rows onward, since the ingest
+mirrors each snapshot to the content store as it writes. It takes no dedupe
+prerequisite: it writes exactly as frontier discovery does, which runs without
+one, and the identity join it shares picks the lowest docket id of a twin pair
+deterministically, while a twin with either half live-polled is live-owned and
+never read. It mints the App token only after
 that step has exited, for the pointer commit. All four jobs commit straight to
 `main` on the writers' rebase-and-backoff push path.
 
@@ -1568,7 +1572,7 @@ interim-docket series back to OT2017, and it runs one Term per dispatch.
   counted and never fetched, so a live-polled row always wins. The ingest stamps
   that marker, so the control dry run after an apply reads zero.
 - **Refusals.** The apply refuses above its bound, and refuses any reading that
-  did not reach the Term's end (a fetch failure, or the walk's own
+  did not reach the Term's end (a fetch failure, a `--limit`, or the walk's own
   `--max-run-seconds` deadline), before its first write. So a cut-off reading
   lands nothing rather than half a Term.
 
