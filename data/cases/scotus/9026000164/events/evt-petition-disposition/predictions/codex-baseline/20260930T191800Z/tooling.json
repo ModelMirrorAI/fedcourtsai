@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000164",
+  "gaps": [
+    "The truncated petition appendix omits the key state-court preservation passage.",
+    "Web calls returned no usable content.",
+    "No reply text was provisioned."
+  ],
+  "helpful": [
+    "Both sides' cert briefs permit a substantive vehicle assessment.",
+    "Exact reached-band fields allow reproducible pooling without rounding published percentages.",
+    "The snapshot preserves the response-request and redistribution sequence."
+  ],
+  "notes": "The default package cache was read-only; a writable temporary cache permitted CLI use. Distribution count is usable mechanically but does not distinguish a deliberative relist from rescheduling after a requested response. No current corpus freshness was independently verified.",
+  "role": "predictor",
+  "run_id": "20260930T191800Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "jq",
+    "fedcourts paths",
+    "web search and open attempts",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

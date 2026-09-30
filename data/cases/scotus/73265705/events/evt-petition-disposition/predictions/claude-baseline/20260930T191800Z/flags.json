@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73265705",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2, but the first distribution (Jun 9 for the Jun 25, 2026 conference) was superseded by a Jun 12 'Response Requested' before any conference vote; the Sep 30 distribution for Oct 16 is the petition's first fully briefed conference. The relist-increment claim is stated from the count of 2 as the harness records it, but readers should not treat this docket as once-relisted."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode retrieval surfaced three companion petitions raising the same or overlapping questions (Intel v. Squires 26-73, Tesla v. Granite Vehicle Ventures 26-136, Kahoot! v. Interstellar 26-198) with government responses due Oct 14-16, 2026. This shaped the relist and summary-route claims (hold-and-GVR path). No disposition of this petition surfaced."
+    }
+  ]
+}

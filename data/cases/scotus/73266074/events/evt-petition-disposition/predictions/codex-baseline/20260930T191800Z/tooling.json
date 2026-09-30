@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73266074",
+  "gaps": [
+    "The filed September 25 reply was not provisioned; it was not retrieved.",
+    "Generic web search and open calls returned no usable content.",
+    "The citation-only CourtListener search returned an unrelated case; adding the case name, exact quoted citation, and court located the intended precedent."
+  ],
+  "helpful": [
+    "Both respondents' opposition briefs were combined in one provisioned text with a document manifest.",
+    "Exact reached-band denominators in statpack.json allowed correct pooling of all displayed prior Terms.",
+    "Docket chronology distinguished redistribution following a response request from repeated completed conferences."
+  ],
+  "notes": "The default uv cache was read-only; redirecting it to /tmp/uv-cache restored the CLI. No live corpus queries or outcome retrieval were used. Pack commit time was available, but underlying corpus freshness was not independently established.",
+  "role": "predictor",
+  "run_id": "20260930T191800Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned filings",
+    "committed statpack",
+    "fedcourts paths",
+    "CourtListener search",
+    "CourtListener search_document",
+    "web search/open attempts"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

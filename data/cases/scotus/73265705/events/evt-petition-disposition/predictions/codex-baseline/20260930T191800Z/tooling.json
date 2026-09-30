@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73265705",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Local provisioned-file reads",
+    "fedcourts paths",
+    "jq: committed statpack pooling",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "Web search and open: no usable response",
+    "fedcourts validate data"
+  ],
+  "helpful": [
+    "Frozen salience context and full dated proceedings distinguished redistribution after requested briefing from an established substantive relist.",
+    "The opposition bundle included the federal respondent's later brief as well as the private respondent's brief.",
+    "Unrounded reached-band counts allowed exact pooling across eligible displayed Terms.",
+    "Targeted precedent search retrieved legal context without searching the target case."
+  ],
+  "gaps": [
+    "The reply was docketed but its text was not provisioned; the appendix and amicus texts were also not among the supplied documents.",
+    "The combined opposition metadata retained the earlier filing date rather than separate dates for each constituent brief.",
+    "General statutory web retrieval returned no usable content."
+  ],
+  "notes": "The default uv cache was read-only; a temporary-cache override allowed CLI use. No live-corpus query was needed. All case-specific evidence used came from the provisioned inputs; no outcome leakage was encountered."
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000005",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search (opinions, dockets)",
+    "courtlistener MCP get_endpoint_item (opinions plain_text)"
+  ],
+  "helpful": [
+    "The provisioned BIO and petition in full text: the BIO's account of Slaughter and the Harris denial, with pin cites, did most of the work before any retrieval.",
+    "The sal-v4 band table with per-Term bracketed reached rates, which made the pooled elevated anchor a one-line computation.",
+    "The opinions endpoint's plain_text field, which served the Slaughter slip opinion when read_document and search_document reported no text for the same opinion id."
+  ],
+  "gaps": [
+    "read_document / search_document returned 'No text is available' for a same-day SCOTUS slip opinion whose plain_text was populated; a fallback to plain_text inside those tools would save a 227k-character raw fetch.",
+    "CourtListener's docket search found nothing for SCOTUS docket 25-1110, so I could not check whether the Harris v. Bessent denial carried a dissent or statement, which is the single input that would most sharpen the dissent-from-denial number. A way to read supremecourt.gov order lists or SCOTUS dockets by number would fill this.",
+    "fedcourts query has no subject or keyword filter on SCOTUS rows and its --citation column is sparse (about 200 rows), so it cannot surface substantively similar cert petitions such as prior removal-power petitions and their fates.",
+    "context.distribution_count does not distinguish a redistribution after a requested response from a relist out of conference; a response_requested date on cert-stage context would let a cell read the CFR signal directly rather than from docket text."
+  ],
+  "notes": "Total retrieval: 2 corpus queries, 7 MCP calls, no web search. The case's disposition does not yet exist (conference 2026-10-16), so forward mode carried no leakage risk."
+}

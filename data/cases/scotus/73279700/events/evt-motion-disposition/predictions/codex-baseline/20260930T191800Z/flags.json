@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279700",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward-labeled arrival cell uses a 2025-11-19 snapshot during a 2026-09-30 run, with only a 2025-11-18 submission visible. Present pendency is not independently established; no disposition or subsequent history was sought or encountered. Forecast conditions on the provided arrival state, not assumed months-long inactivity. Please verify forward eligibility and source freshness."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Context's arrival-position cutoff is 2025-11-19 at index 0, but the corresponding submission entry is dated 2025-11-18; event opened_at is the 2025-11-25 docketing date. Used the sole submission entry as the information boundary and the mandated 2025-11-19.json basename without altering inputs."
+    }
+  ]
+}

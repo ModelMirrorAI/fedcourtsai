@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000428",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Same-day capital vacatur application: the execution was scheduled for 10:00 CDT on the filing date and the Court's disposition is expected within hours of the snapshot, so this forward cell's horizon is unusually short. I retrieved the Sixth Circuit order under review and its docket (no entry after the 09:17 stay order) but did not look up this application's own disposition and none surfaced."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The interim statpack anchor (pooled 31/296 = 10.5% over Terms 2024-2025) mixes every substantive applicant class; I adjusted to ~0.72 on a from-memory grant history for state applications to vacate stays of execution, which is not a committed cut. An applicant-class cut in the interim section would let this class anchor on a published figure."
+    }
+  ]
+}

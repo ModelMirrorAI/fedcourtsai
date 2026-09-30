@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000428",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Only the applicant's 15-page filing was provisioned, not the respondent's position or the full Sixth Circuit order/dissent. The 0.82 vacatur forecast relies on the applicant's account of the Rule 60(b) claim and prior prejudice rulings, with an explicit uncertainty discount; these accounts were not independently verified."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The provisioned application reports a September 29, 2026 denial in separate Pike proceedings (26A414 and 26-5696). This was treated only as pre-arrival procedural history, not as this Warden application's outcome or resolution of the new Rule 60(b) issue. No target disposition or subsequent history was sought or encountered."
+    }
+  ]
+}

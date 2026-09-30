@@ -1,0 +1,10 @@
+# Retrieval record
+
+- Read the committed metrics/statpack.md modern-cert, paid-segment relist and CVSG cuts, and sal-v4 per-Term segment table. Read metrics/statpack.json to compute the elevated reached rate over the displayed prior Terms 2017-2025: 521 / 3,085 = 0.16888168557536468. These are local aggregate context, not a lookup of this case's outcome.
+- Ran `uv run fedcourts paths --court scotus --docket 9026000114 --event evt-petition-disposition --role predictor`. The initial attempt failed because the default uv cache was read-only; rerunning with a writable temporary cache succeeded. No corpus query or open-events call was made; no ranged-corpus transfer line was produced.
+- Web search attempted two queries: `site.supremecourt.gov 2026 rules Rule 10 writ certiorari` and `site.loc.gov "Swint" "514" "35"`. The tool returned no visible results or usable content. No evidence was taken from these searches.
+- Attempted to open the official rules PDF at `https://www.supremecourt.gov/filingandrules/2026rulesofthecourt_web.pdf`; the tool returned no usable content. No rule text was relied on from this attempt.
+- CourtListener MCP `search(type="o", citation="514 U.S. 35", num_results=2, fields=["id", "caseName", "dateFiled", "citation", "opinions", "absolute_url"])` returned Swint, opinion 117906, decided March 1, 1995, and an unrelated older result. Only Swint was used. The tool warned that `id` was not an available top-level result field; the nested opinion ID was supplied.
+- CourtListener MCP `search_document(opinion_id=117906, query="inextricably", snippet_size=1200)` returned passages including 514 U.S. at 50-51 and supporting footnote material. Used the reservation of the scope question and the distinction between the appealable and nonappealable issues; did not use the older footnote survey as proof of the present circuit division.
+
+No current-case docket lookup, disposition search, subsequent-history retrieval, outcome file, other predictor output, or topic-label artifact was consulted. Local contract, schema, path, and serialization-helper inspection was operational rather than substantive retrieval.

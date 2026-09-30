@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000428",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener-mcp search",
+    "courtlistener-mcp read_document",
+    "courtlistener-mcp call_endpoint (docket-entries)"
+  ],
+  "helpful": [
+    "The provisioned application.txt carried the State's full brief with text extracted, so the merits read came from the filing rather than the docket caption.",
+    "CourtListener held the Sixth Circuit's published stay order and dissent within hours of entry; reading the order being challenged was the single most useful retrieval.",
+    "The interim statpack section clears the 50-resolved floor for Term 2026, so a committed baseline existed."
+  ],
+  "gaps": [
+    "The statpack's interim section publishes no applicant-class cut (state or federal government vs prisoner vs private civil litigant); for a state's application to vacate a stay of execution that cut would move the anchor severalfold and I had to supply it from memory.",
+    "fedcourts query has no text, ask-type, or applicant-class filter, so it cannot surface the handful of prior state vacatur-of-stay applications the corpus presumably holds; its granted-applications ranking is dominated by time-extension grants.",
+    "No provisioned copy of the lower-court order under review; for an application to vacate a stay, the stayed order is as central as the application itself."
+  ],
+  "notes": "Same-day capital application: the useful horizon between snapshot and disposition is hours, so any retrieval of this docket risks surfacing the outcome. I confined docket retrieval to the Sixth Circuit and district-court dockets."
+}

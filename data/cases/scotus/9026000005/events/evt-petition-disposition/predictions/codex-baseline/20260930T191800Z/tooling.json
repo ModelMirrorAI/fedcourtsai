@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000005",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "committed statpack Markdown and JSON", "fedcourts paths", "jq", "web search/open attempts", "fedcourts validate"],
+  "helpful": ["Complete petition and opposition texts made their different timing and competing remedial positions visible.", "The frozen band and machine-readable reached-band denominators enabled an exact prior-Term pooled anchor."],
+  "gaps": ["No provisioned Slaughter opinion or petitioner post-Slaughter submission to assess the opposition's reading independently.", "The committed statpack did not expose its corpus-wide freshness vintage in the material read.", "Web search/open attempts returned no usable content."],
+  "notes": "Default uv cache access failed in the read-only home directory; a writable temporary cache resolved it. No CourtListener or remote corpus retrieval was needed for the forecast."
+}

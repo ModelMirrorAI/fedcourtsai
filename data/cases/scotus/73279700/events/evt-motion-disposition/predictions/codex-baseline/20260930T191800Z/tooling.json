@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279700",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-input reads", "fedcourts paths", "committed interim statpack", "web search/open attempts", "CourtListener search", "CourtListener search_document"],
+  "helpful": ["Explicit arrival-position boundary and frozen escalation signals", "Per-Term substantive interim counts distinguish the correct baseline from cert and extension populations", "Targeted CourtListener passage retrieval supplied a pre-arrival general legal standard"],
+  "gaps": ["No application text or lower-court opinion provisioned", "No source pull timestamp establishing present forward eligibility", "General official-site web retrieval returned no usable content"],
+  "notes": "The default uv cache was read-only; a temporary-cache, no-sync retry worked. The committed baseline clears the sample floor but rests entirely on an incompletely parsed 2024 slice. Increment estimates are subjective, not conditioned rates supplied by the tooling."
+}

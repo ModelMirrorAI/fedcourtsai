@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000428",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "committed interim statpack", "fedcourts paths", "CourtListener search", "CourtListener search_document", "web search/open attempts", "fedcourts validate"],
+  "helpful": ["Complete extracted application identified the direction of requested relief.", "Frozen ladder state distinguished submission from full-Court referral.", "Prior-Term substantive counts supported the stage-correct baseline.", "CourtListener retrieved the general Rule 60(b) precedent without target-case retrieval."],
+  "gaps": ["No respondent filing or complete lower-court order was provisioned.", "No published capital state-vacatur conditioned rate or arrival-conditioned ladder rates.", "Inspected statpack metadata did not disclose corpus freshness.", "Web calls returned no usable source text."],
+  "notes": "Default uv cache was read-only; a temporary writable cache allowed the CLI to run. No live target-case lookup was attempted. General-precedent retrieval and the one-sided nature of the application are disclosed in reasoning.md."
+}

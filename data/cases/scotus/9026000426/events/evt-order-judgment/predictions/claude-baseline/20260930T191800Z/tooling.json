@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000426",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md merits section",
+    "CourtListener MCP search + read_document (First Circuit opinion 26-1212)",
+    "WebSearch",
+    "WebFetch (supremecourt.gov stay opposition PDF; one commentary post)",
+    "pypdf via uv run --with for PDF text extraction"
+  ],
+  "helpful": [
+    "The provisioned application.txt was clean and complete.",
+    "The statpack merits table with the excluded column made the pooled baseline a two-line computation.",
+    "CourtListener MCP had the First Circuit opinion the day it issued; chunked read_document worked well."
+  ],
+  "gaps": [
+    "WebFetch returns supremecourt.gov PDFs as raw binary; I had to extract text with pypdf myself. A provisioned text of the response to the application (it is in the snapshot) would have saved several calls.",
+    "fedcourts query has no stage/kind filter for merits priors (e.g. granted cases where the Court had earlier granted the applicant a stay); a recency-ranked query returned mostly extension applications.",
+    "No statpack cut of the merits disturbed rate by petitioner class (federal government as petitioner) or by prior emergency-docket relief, which is the conditioning that actually drove this forecast."
+  ],
+  "notes": "The corpus query surfaced this case's own row (cert granted 2026-09-29, undecided) and its linked application docket 26A406; nothing outcome-revealing exists yet."
+}

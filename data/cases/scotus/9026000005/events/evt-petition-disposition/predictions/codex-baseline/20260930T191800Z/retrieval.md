@@ -1,0 +1,7 @@
+# Retrieval log
+
+- Read the committed `metrics/statpack.md`: modern discretionary-cert population, paid-segment relist and CVSG cuts, and sal-v4 reached-band table. Read `metrics/statpack.json` to calculate the exact elevated-band pool over displayed prior Terms 2017–2025: 521 / 3,085 = 0.1688816856. No remote corpus lookup was performed and no ranged-corpus transfer line was produced.
+- Web search attempted: `site.supremecourt.gov "Rule 10" "compelling reasons"`. The tool returned no usable content; nothing from it informed the forecast.
+- Web open attempted for the official rules PDF at `https://www.supremecourt.gov/filingandrules/2023RulesoftheCourt.pdf`. The tool returned no usable content; no rule text was used.
+- No CourtListener MCP calls, case-specific web searches, `fedcourts query`, or `open-events` calls. No outcome lookup. Slaughter and Harris were encountered only in the provisioned filings.
+- Operational contract checks: read repository instructions and prediction/feedback schemas; ran `uv run fedcourts paths --court scotus --docket 9026000005 --event evt-petition-disposition --role predictor`. The initial invocation failed on its read-only default cache; retry with `UV_CACHE_DIR=/tmp/uv-cache` succeeded. Inspected command-definition references while checking whether the committed statpack exposed freshness metadata; no corpus-info command was run and no corpus state was opened.

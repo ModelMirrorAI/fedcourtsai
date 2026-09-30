@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000164",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 2, but the first distribution (Aug 12 2026, for the Sep 28 conference) was superseded by the Aug 17 'Response Requested' entry, so the petition had not yet been considered at any conference as of the snapshot; the Sep 30 distribution for Oct 16 is its first live conference. The dist-v2 count therefore reads as one relist where none has occurred. I forecast relist-increment from the two-distribution state as the contract requires, but the salience band and any relist-cut reading may be overstating this docket's trajectory. Worth a look at whether a response-request-superseded distribution should count."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Predictor carries training-data familiarity with this dispute (the Afghan-orphan adoption case involving the Masts, reported through 2025, and the Virginia Supreme Court's Feb 2026 decision). It does not know this petition's disposition, which postdates its knowledge and cannot yet exist (first live conference Oct 16 2026); no retrieval surfaced one. Disclosed so the evaluator can discount prominence-driven adjustments."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "petition.txt is truncated (documents.json truncated: true) inside the Virginia Supreme Court majority opinion at App.38a, so the appendix's federal due-process section (App.39a-49a), the dissent, the withdrawn U.S. amicus brief, and the trial-court orders were unavailable except as quoted in the briefs. Expected pipeline behaviour on a 393-page filing, noted for the record."
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "A headline executive-power immigration case: the lawfulness of third-country removals of thousands of noncitizens with final orders, the reach of 1252(f)(1) to classwide declaratory relief and APA vacatur (reserved in Aleman Gonzalez and Biden v. Texas), and the due process owed before removal to a country like South Sudan; granted on a stay application and expedited to December, with three Justices already noting they would deny the stay.",
+  "big_case_score": 0.9,
+  "case_id": "scotus/9026000426",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.87
+    }
+  ],
+  "confidence": 0.75,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-09-30",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-29",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-09-30T20:40:26Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-09-29.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.87,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "5f4ab17dd0efe1db2cec098d8b3e44c47cf9eeb9",
+    "stamped_at": "2026-09-30T20:43:31.102973Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20260930T191800Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority rests the reversal on the statutory merits of the Court's third question rather than on a jurisdictional bar: it holds that neither 8 U.S.C. 1231(b)(3) nor FARRA/CAT and their regulations impose pre-removal notice-and-hearing requirements on third-country removals beyond what their text provides, invoking 1231(h)'s bar on construing 1231 to create enforceable procedural rights and Jennings v. Rodriguez's rule that constitutional avoidance is no license to graft procedures onto statutory text, and it holds that the Guidance's procedures (reliance on credible diplomatic assurances, otherwise notice plus a 24-hour opportunity to state a fear) satisfy any due process owed to aliens already under final removal orders. It also holds, as a further ground, that 1252(f)(1)'s word 'restrain' (Aleman Gonzalez) bars the classwide declaratory judgments and universal APA vacatur, resolving the question those cases reserved."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's stated ground is categorical, not confined to the named plaintiffs or to the facts of particular removals: it announces a rule governing every third-country removal of an alien with a final removal order under the Guidance, that the Executive's chosen procedures and a receiving country's credible diplomatic assurance suffice as a matter of statute and due process, and it states the 1252(f)(1) holding as a general rule that classwide declaratory relief and universal vacatur directed at the operation of the covered removal provisions are barred in every lower court, rather than limiting either holding to the timing or wording of the district court's particular declarations."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}
