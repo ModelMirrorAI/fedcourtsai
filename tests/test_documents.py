@@ -43,12 +43,12 @@ from fedcourtsai.pipeline.documents import (
     extract_questions_presented,
     fetch_case_documents,
     merits_entry_matched,
-    petitioner_contact_values,
-    petitioner_is_unrepresented,
+    party_contact_values,
     questions_presented_extract,
     reset_document_fetch_losses,
     scrub_contact_details,
     select_documents,
+    unrepresented_sides,
 )
 from fedcourtsai.pipeline.live import LiveDiscovery
 from fedcourtsai.pipeline.pull import PullQueues
@@ -3618,8 +3618,9 @@ def test_a_withheld_span_gives_back_every_line_boundary_it_held() -> None:
 
 
 def test_a_phone_field_listing_two_numbers_keys_on_each() -> None:
-    values = petitioner_contact_values(
-        {"Petitioner": [{"PartyName": "Jane Doe", "Phone": "713-555-0147; 713-555-0148"}]}
+    values = party_contact_values(
+        {"Petitioner": [{"PartyName": "Jane Doe", "Phone": "713-555-0147; 713-555-0148"}]},
+        ("Petitioner",),
     )
 
     assert values == ("713-555-0147", "713-555-0148")
@@ -3734,7 +3735,7 @@ def test_the_contact_values_are_read_off_every_petitioner_side_block() -> None:
         "Respondent": [{"PartyName": "Texas", "Email": "counsel@oag.example.gov"}],
     }
 
-    assert petitioner_contact_values(payload) == (
+    assert party_contact_values(payload, ("Petitioner",)) == (
         "jane.doe@example.com",
         "jd@example.org",
         "713-555-0147",
@@ -3743,7 +3744,95 @@ def test_the_contact_values_are_read_off_every_petitioner_side_block() -> None:
 
 
 def test_a_payload_serving_no_petitioner_block_has_no_contact_values() -> None:
-    assert petitioner_contact_values({"docket_entries": []}) == ()
+    assert party_contact_values({"docket_entries": []}, ("Petitioner", "Respondent")) == ()
+
+
+# A counselled petition answered by a respondent filing in person.
+_PRO_SE_RESPONDENT_DOCKET: dict[str, object] = {
+    "Petitioner": [
+        {
+            "PartyName": "Cascade School District",
+            "Attorney": "Kannon K. Shanmugam",
+            "Email": "ks@firm.example.com",
+            "Phone": "202-555-0100",
+        }
+    ],
+    "Respondent": [
+        {
+            "PartyName": "Richard Roe",
+            "Attorney": "Richard Roe",
+            "Email": "rroe.respondent@example.com",
+            "Phone": "(936) 555-0199",
+            "Address": "Route 2, 4417 County Road 12",
+        }
+    ],
+}
+
+
+def test_the_contact_values_are_read_off_the_self_represented_sides_only() -> None:
+    sides = unrepresented_sides(_PRO_SE_RESPONDENT_DOCKET)
+
+    assert sides == ("Respondent",)
+    assert party_contact_values(_PRO_SE_RESPONDENT_DOCKET, sides) == (
+        "rroe.respondent@example.com",
+        "(936) 555-0199",
+        "Route 2, 4417 County Road 12",
+    )
+    # Both sides named: side order, then block order.
+    assert party_contact_values(_PRO_SE_RESPONDENT_DOCKET, ("Petitioner", "Respondent"))[:2] == (
+        "ks@firm.example.com",
+        "202-555-0100",
+    )
+
+
+def test_the_value_pass_withholds_a_self_represented_respondents_own_values() -> None:
+    # The opposition spells each of the respondent's details so only the value
+    # pass reaches it: an email broken after its dot, a digits-only number, and
+    # an address over two lines outside the street-type list. The counselled
+    # petitioner's number, in the blank-separated spelling no shape reads, is
+    # not keyed on and survives.
+    text = (
+        "Respondent opposes the petition.\n"
+        + "Richard Roe, Respondent Pro Se\n"
+        + "Route 2\n"
+        + "4417 County Road 12\n"
+        + "Tel. 9365550199\n"
+        + "E-mail: rroe.respondent@example.\n"
+        + "com\n"
+        + "Petitioner's counsel: 202 555 0100\n"
+    )
+    values = party_contact_values(
+        _PRO_SE_RESPONDENT_DOCKET, unrepresented_sides(_PRO_SE_RESPONDENT_DOCKET)
+    )
+
+    scrubbed = scrub_contact_details(text, values)
+
+    assert scrubbed.passes == (SCRUB_PASS_VALUE, SCRUB_PASS_SHAPE)
+    assert scrubbed.text == (
+        "Respondent opposes the petition.\n"
+        + "Richard Roe, Respondent Pro Se\n"
+        + CONTACT_PLACEHOLDER
+        + "\n\n"
+        + f"Tel. {CONTACT_PLACEHOLDER}\n"
+        + f"E-mail: {CONTACT_PLACEHOLDER}\n\n"
+        + "Petitioner's counsel: 202 555 0100\n"
+    )
+
+
+def test_the_document_scrub_is_idempotent() -> None:
+    # The placeholder carries no shape and no value, so a second pass over
+    # staged text finds nothing: the text is a fixed point.
+    values = party_contact_values(_PRO_SE_RESPONDENT_DOCKET, ("Petitioner", "Respondent"))
+    text = (
+        "Richard Roe\nRoute 2\n4417 County Road 12\n(936) 555-0199\nrroe.respondent@example.com\n"
+    )
+
+    once = scrub_contact_details(text, values)
+    twice = scrub_contact_details(once.text, values)
+
+    assert once.replacements > 0
+    assert twice.text == once.text
+    assert twice.replacements == 0
 
 
 def test_a_docket_naming_counsel_for_the_petitioner_reads_represented() -> None:
@@ -3754,7 +3843,7 @@ def test_a_docket_naming_counsel_for_the_petitioner_reads_represented() -> None:
         "Respondent": [{"PartyName": "United States", "Attorney": "D. John Sauer"}],
     }
 
-    assert petitioner_is_unrepresented(payload) is False
+    assert unrepresented_sides(payload) == ()
 
 
 def test_a_petitioner_served_as_their_own_attorney_reads_unrepresented() -> None:
@@ -3764,7 +3853,7 @@ def test_a_petitioner_served_as_their_own_attorney_reads_unrepresented() -> None
         "Petitioner": [{"PartyName": "John Edward Kuplen", "Attorney": "John Edward Kuplen"}]
     }
 
-    assert petitioner_is_unrepresented(payload) is True
+    assert unrepresented_sides(payload) == ("Petitioner",)
 
 
 @pytest.mark.parametrize(
@@ -3785,7 +3874,7 @@ def test_the_caption_suffixes_a_party_carries_do_not_hide_self_representation(
     # generational suffix. Neither is part of the name being compared.
     payload = {"Petitioner": [{"PartyName": party, "Attorney": attorney}]}
 
-    assert petitioner_is_unrepresented(payload) is True
+    assert unrepresented_sides(payload) == ("Petitioner",)
 
 
 @pytest.mark.parametrize(
@@ -3802,7 +3891,7 @@ def test_a_served_block_naming_no_attorney_reads_unrepresented(
     # A block that was served and names nobody says the same thing the
     # self-naming block says: there is no one on this docket to write to but the
     # party.
-    assert petitioner_is_unrepresented(payload) is True
+    assert unrepresented_sides(payload) == ("Petitioner",)
 
 
 @pytest.mark.parametrize(
@@ -3823,7 +3912,7 @@ def test_a_payload_serving_no_petitioner_block_reads_represented(
     # self-representation would scrub on the strength of a payload shape — a
     # CourtListener docket names nobody because it has nowhere to — which is a
     # far wider change to what cells read than the fact it acts on.
-    assert petitioner_is_unrepresented(payload) is False
+    assert unrepresented_sides(payload) == ()
 
 
 @pytest.mark.parametrize(
@@ -3891,7 +3980,7 @@ def test_a_courtlistener_shaped_payload_is_unknown_rather_than_unrepresented() -
         "docket_entries": [{"id": 1, "description": "Petition for writ of certiorari filed."}],
     }
 
-    assert petitioner_is_unrepresented(payload) is False
+    assert unrepresented_sides(payload) == ()
 
 
 def test_one_self_represented_co_petitioner_is_enough_to_scrub() -> None:
@@ -3904,7 +3993,7 @@ def test_one_self_represented_co_petitioner_is_enough_to_scrub() -> None:
         ]
     }
 
-    assert petitioner_is_unrepresented(payload) is True
+    assert unrepresented_sides(payload) == ("Petitioner",)
 
 
 def test_a_party_and_their_own_attorney_compare_equal_in_either_name_order() -> None:
@@ -3914,7 +4003,7 @@ def test_a_party_and_their_own_attorney_compare_equal_in_either_name_order() -> 
     # against.
     payload = {"Petitioner": [{"PartyName": "Doe, Jane", "Attorney": "Jane Doe"}]}
 
-    assert petitioner_is_unrepresented(payload) is True
+    assert unrepresented_sides(payload) == ("Petitioner",)
 
 
 @pytest.mark.parametrize(
@@ -3933,7 +4022,7 @@ def test_a_middle_name_on_one_side_does_not_hide_self_representation(
 ) -> None:
     payload = {"Petitioner": [{"PartyName": party, "Attorney": attorney}]}
 
-    assert petitioner_is_unrepresented(payload) is True
+    assert unrepresented_sides(payload) == ("Petitioner",)
 
 
 def test_a_prisoner_register_number_reads_unrepresented_on_its_own() -> None:
@@ -3950,7 +4039,7 @@ def test_a_prisoner_register_number_reads_unrepresented_on_its_own() -> None:
         ]
     }
 
-    assert petitioner_is_unrepresented(payload) is True
+    assert unrepresented_sides(payload) == ("Petitioner",)
 
 
 @pytest.mark.parametrize("empty", ["", "   ", None])
@@ -3965,7 +4054,7 @@ def test_an_empty_prisoner_field_is_not_a_register_number(empty: str | None) -> 
         ]
     }
 
-    assert petitioner_is_unrepresented(payload) is False
+    assert unrepresented_sides(payload) == ()
 
 
 def test_two_different_people_still_read_as_representation() -> None:
@@ -3973,4 +4062,44 @@ def test_two_different_people_still_read_as_representation() -> None:
     # answer True on every docket and stop being a reading at all.
     payload = {"Petitioner": [{"PartyName": "Silas Salyers", "Attorney": "Elena A. Paremsky"}]}
 
-    assert petitioner_is_unrepresented(payload) is False
+    assert unrepresented_sides(payload) == ()
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        # The same three arms, read off a respondent-side block.
+        {"PartyName": "Richard Roe", "Attorney": "Richard Roe"},
+        {"PartyName": "Roe, Richard", "Attorney": "Richard A. Roe"},
+        {"PartyName": "Richard Roe"},
+        {"PartyName": "Richard Roe", "Attorney": "Ann Counsel", "PrisonerId": "#A76-1485"},
+    ],
+)
+def test_a_self_represented_respondent_reads_on_the_respondent_side(
+    block: dict[str, object],
+) -> None:
+    payload = {
+        "Petitioner": [{"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"}],
+        "Respondent": [{"PartyName": "State of Texas", "Attorney": "Ann Counsel"}, block],
+    }
+
+    assert unrepresented_sides(payload) == ("Respondent",)
+
+
+def test_both_sides_self_represented_read_in_side_order() -> None:
+    payload = {
+        "Respondent": [{"PartyName": "Richard Roe", "Attorney": "Richard Roe"}],
+        "Petitioner": [{"PartyName": "Jane Doe", "Attorney": "Jane Doe"}],
+    }
+
+    assert unrepresented_sides(payload) == ("Petitioner", "Respondent")
+
+
+def test_an_amicus_filing_in_person_is_not_a_party_side() -> None:
+    # The `Other` list holds amici and other non-party filers, not a party side.
+    payload = {
+        "Petitioner": [{"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"}],
+        "Other": [{"PartyName": "Jane Scholar", "Attorney": "Jane Scholar"}],
+    }
+
+    assert unrepresented_sides(payload) == ()

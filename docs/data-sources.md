@@ -480,28 +480,28 @@ material**:
   store, the scannable index beside them — not public git. The only PII that can
   reach public git is whatever a piece of reasoning quotes from a public docket
   while explaining a prediction.
-- **A petition filed in person is scrubbed before a cell reads it.** Where the
-  provisioned snapshot serves a petitioner-side counsel block naming nobody but
-  the petitioner to write to — no attorney, the petitioner as their own, or a
-  prisoner register number — the
+- **A filing made in person is scrubbed before a cell reads it.** Where the
+  provisioned snapshot serves a counsel block on either party side — petitioner
+  or respondent — naming nobody but the party to write to — no attorney, the
+  party as their own, or a prisoner register number — the
   filed-document text staged under a cell's `record/documents/` has its
   contact-detail shapes — emails, telephone numbers, post-office boxes, street
-  addresses — and the contact values on every petitioner-side block replaced by a
-  fixed placeholder, and the cell's manifest records that it was, and by which
-  passes ([live-sources.md](live-sources.md)). The question is asked on the
-  **petitioner** side alone, so a self-represented respondent's opposition on a
-  counselled docket is staged as filed: widening it to the respondent side would
-  read "unrepresented" on every docket whose opposition has not been filed yet.
-  It is asked of a **served** block, too: a payload carrying no petitioner-side
-  counsel is unknown rather than unrepresented, and is left alone.
+  addresses — and the contact values on every block of each such side replaced
+  by a fixed placeholder, and the cell's manifest records that it was, and by
+  which passes ([live-sources.md](live-sources.md)). The question is asked of a
+  **served** block: a payload carrying no counsel on a side is unknown rather
+  than unrepresented on that side, and a respondent who has not appeared has no
+  block to read, so a docket awaiting its opposition is not scrubbed on that
+  account. The `Other` list — amici and other non-party filers — is not a party
+  side and is not read.
   This is the one narrowing applied on privacy grounds, and it applies to the
   **staged copies** alone: the source PDF and the corpus row are untouched. On
-  the same docket the snapshot staged beside the documents has the
-  self-represented petitioner-side block's `Address`, `City`, `Zip`, `Phone`,
+  the same docket the snapshot staged beside the documents has each
+  self-represented block's `Address`, `City`, `Zip`, `Phone`,
   `Email` and `Title` values replaced by the same placeholder and its prisoner register
   number by a fixed marker that keeps the number's presence; the party name,
-  the attorney field and `State` stay, and every other block is as served —
-  a self-represented respondent's included, a residual this leaves. The
+  the attorney field and `State` stay, and every other block — a represented
+  party's counsel, an amicus — is as served. The
   filing
   is public, so the concern is re-publication and aggregation rather than
   disclosure — a self-represented filer's home address reaching the public
