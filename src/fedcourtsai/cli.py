@@ -11053,8 +11053,10 @@ def _staged_scrub(
     None where the docket is not scrubbed. A docket read so on a party side runs
     both passes. One read so on its `Other` list alone runs the value pass only:
     the amicus's own brief is not a staged kind, so what is staged there is
-    counsel's filings, and the shape pass would cost their text its misreads of
-    legal prose for no personal detail it alone could reach. Where no amicus
+    counsel's filings — the staged filers there are represented — and the shape
+    pass would cost their text its misreads of legal prose. The premise is about
+    amici: a self-represented non-amicus `Other` filer whose own opposition is
+    staged gets the value pass alone as well. Where no amicus
     value clears its floor nothing runs, and the document is staged as filed and
     recorded as unscrubbed (None).
     """

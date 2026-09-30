@@ -338,7 +338,11 @@ qualifying block is an amicus's gets the **value pass alone** (below): the
 amicus's own brief is not a staged kind, so what is staged there is counsel's
 filings, and the shape pass would cost their text its misreads of legal prose —
 a case name led by a street number, a regulation number in telephone shape —
-for no personal detail it alone could reach. Where no amicus value clears its
+where the staged filers are represented. The premise is about amici, whose
+briefs are never staged; a self-represented non-amicus `Other` filer (an
+intervenor, say) whose own opposition is staged would get the value pass alone
+too, so a detail of theirs spelled otherwise than the docket serves it would
+stay (none on the pulled blob). Where no amicus value clears its
 floor, nothing runs and the documents are staged as filed. On a docket read as
 self-represented on a party side, every
 document staged has its emails, telephone numbers, post-office boxes and

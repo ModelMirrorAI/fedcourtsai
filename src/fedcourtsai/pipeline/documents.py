@@ -1021,7 +1021,8 @@ def party_contact_values(payload: Mapping[str, Any], sides: Sequence[str]) -> tu
     that qualify there — the ones the snapshot scrub withholds — are read, and a
     represented amicus's counsel is never keyed on. A payload serving no block
     on a named list — the CourtListener REST shape — yields nothing, and the
-    scrub is then the shape pass alone.
+    scrub is then the shape pass alone where it runs one, and nothing on a
+    docket scrubbed by the value pass alone.
     """
     values: list[str] = []
     for block in (
@@ -1104,8 +1105,7 @@ def scrub_contact_details(
     did. ``shape=False`` runs the value pass alone — the caller's choice on a
     docket whose only self-represented filer is an amicus, whose own brief is
     not a staged kind: there the staged filings are counsel's, and the shape
-    pass would cost their text the misreads named below for no personal detail
-    it alone could reach. ``passes`` is then ``("value",)``, or empty where no
+    pass would cost their text the misreads named below. ``passes`` is then ``("value",)``, or empty where no
     value cleared its floor and nothing ran.
 
     The **shape** pass matches five shapes: an email address in its contiguous

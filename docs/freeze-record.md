@@ -5894,9 +5894,11 @@ freeze commit is recorded here.
     the only qualifying block is an amicus's, every staged document on the
     docket gets the value pass keyed on that amicus's own values and **no
     shape pass**. The amicus's own brief is not a staged kind, so what is
-    staged there is counsel's filings, and the shape pass would cost their
-    text its misreads of legal prose for no personal detail it alone could
-    reach. Where no amicus value clears its floor nothing runs, and the
+    staged there is counsel's filings — on the blob below, every staged filer
+    on those dockets is represented — and the shape pass would cost their
+    text its misreads of legal prose. The premise is about amici: a
+    self-represented non-amicus `Other` filer whose own opposition is staged
+    would get the value pass alone too (none on the blob below). Where no amicus value clears its floor nothing runs, and the
     document is staged as filed and recorded as unscrubbed. A docket read as
     self-represented on a party side keeps both passes, keyed on the union of
     its party-side values and any qualifying amicus's.
@@ -5979,8 +5981,8 @@ freeze commit is recorded here.
 
   **What a post-change cell reads.** On an affected docket, the cell reads a
   subset of the pre-change snapshot, and a subset of the pre-change document
-  text wherever a qualifying amicus's own value appears in it. No skill movement is predicted. In the 2026-09-21 entry's negative
-  form, a movement in **either** direction across this boundary may not be
+  text wherever a qualifying amicus's own value appears in it. No skill
+  movement is predicted. In the 2026-09-21 entry's negative form, a movement in **either** direction across this boundary may not be
   read as a model effect.
 
   **What does not move.** No base rate re-prices, no membership rule moves and
