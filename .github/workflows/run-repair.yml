@@ -1971,15 +1971,18 @@ jobs:
       # Converge the stored moment of a declared-moment event onto the moment
       # its id declares. The id is the key and the declared-moments table the
       # authority, so a stored moment that disagrees is a stale copy — the shape
-      # an application baseline carries when the relabel moved it off the cert
-      # petition id with the cert stage's `distribution` moment still on it. A
-      # decided application has left the live rotation, so no channel re-reads
-      # it and nothing else converges the column.
+      # an application baseline carries when the application-baseline relabel
+      # (`relabel-application-events`) moved it off the cert petition id with
+      # the cert stage's `distribution` moment carried onto it. The relabel
+      # re-derives the moment, so no write path produces the shape and the
+      # population is a finite residue; a decided application has left the
+      # live rotation, so no channel re-reads it and nothing else converges it.
       #
       # Two stores, one commit. The pass re-stamps the corpus row (a direct
       # UPDATE that re-mirrors the touched cases' events into the content
       # store) AND the ledger `event.yaml` written from it, scanning each store
-      # on its own, so `data/` is staged with the pointer: a ledger file left
+      # on its own. The ledger half lands in `data/`, so it is staged with the
+      # pointer: a ledger file left
       # uncommitted would disagree with the corpus it was just converged onto,
       # and the next dry run would find it again. An event carrying committed
       # predict/evaluate output is held back in both stores and reported —
@@ -2043,8 +2046,12 @@ jobs:
             | tee -a "$GITHUB_STEP_SUMMARY"
           # Blob before pointer commit, as everywhere. An apply that pushed the
           # blob but failed before the commit publishes nothing: readers resolve
-          # the committed pointer, and the next dispatch re-detects from the
-          # still-committed ledger.
+          # the committed pointer, and the next dispatch re-detects both halves —
+          # the corpus rows from the old blob that pointer still names, the
+          # ledger files from the still-committed `data/`. The one write the
+          # pointer does not fence is the content-store events mirror the apply
+          # already refreshed; it runs ahead of the pointer until that re-run
+          # converges, as on the arrival back-fill.
           uv run fedcourts corpus-push
           # The ledger half lands in `data/` (`event.yaml`); stage it with the
           # pointer so the ledger and the corpus it must match move together
