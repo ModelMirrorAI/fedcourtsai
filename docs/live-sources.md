@@ -310,8 +310,8 @@ A cell's prose lands in the public ledger, so the text it reads is a
 republication surface as well as an input — and where the provisioned snapshot
 serves a counsel block on either party side, petitioner or respondent, naming
 nobody but the party to write to, the caption and signature block of what that
-party filed are an individual's own. The docket JSON never says "pro se", so the reading is upstream's own, in
-three arms, all of them read off a **served** block: a self-represented party
+party filed are an individual's own. The docket JSON never says "pro se", so
+the reading is upstream's own, in three arms, all of them read off a **served** block: a self-represented party
 listed as its own attorney (compared on first and last name, since the two
 fields disagree on the middle constantly), a block naming no attorney at all,
 and a prisoner register number on the block — the incarcerated filer, whose own
@@ -319,8 +319,8 @@ address a filing carries most reliably. The arms are the same on either side,
 and any one qualifying block is enough, so a docket carrying a represented
 co-petitioner beside a self-represented one is scrubbed, and so is a counselled
 petition answered by a respondent filing in person. The `Other` list — amici
-and other non-party filers — is not a party side and is not read. Every document staged
-for such a docket has its emails, telephone numbers, post-office boxes and
+and other non-party filers — is not a party side and is not read. Every
+document staged for such a docket has its emails, telephone numbers, post-office boxes and
 street addresses replaced by the fixed token `[contact detail withheld]`, which
 keeps the document's structure and tells a reader that something was withheld
 rather than that a line is missing. It runs as two passes. The **shape** pass
@@ -346,12 +346,12 @@ scrubbed with the rest, since the reading is the docket's and taken once:
 the cost is a firm's switchboard number a cell had no use for.
 
 **A payload serving no block on a side is unknown on that side, not
-unrepresented**, and is left alone. A respondent who has not appeared has no
-block at all — upstream serves the respondent side only once someone enters an
-appearance for it, and none of the 3,474 petitioner- and respondent-side blocks
-across the 3,073 snapshots stored in the pulled blob (pull stamp `2026-09-29`)
-leaves `Attorney` blank — so a docket awaiting its opposition is not scrubbed
-on that account. The snapshots key space holds two payload shapes, and the
+unrepresented**, and is left alone. Nor does a served block read as naming
+no attorney where upstream simply has not filled the field: no served block on
+either side leaves `Attorney` blank (none of the 3,474 petitioner- and
+respondent-side blocks across the 3,073 snapshots the pulled blob itself holds,
+at pull stamp `2026-09-29`, newest snapshot `2026-07-13`) — so a docket
+awaiting its opposition is not scrubbed on that account. The snapshots key space holds two payload shapes, and the
 other one — a CourtListener REST docket, which carries no counsel blocks
 anywhere — names nobody because it has nowhere to. Reading that as
 self-representation would scrub on the strength of a payload shape rather than

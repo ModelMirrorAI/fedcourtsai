@@ -5643,8 +5643,8 @@ freeze commit is recorded here.
   a placeholder there. The boundary exists only here, and a stamped cell is
   post-change if the carrying promotion's merge commit is an ancestor of, or
   equal to, its `process_version.pipeline_sha`. On an affected docket, cells on
-  either side of the boundary may not be pooled. Every affected docket in the
-  population below also carries the 2026-09-21, fragmented-email and
+  either side of the boundary may not be pooled. On this blob, every affected
+  docket in the population below also carries the 2026-09-21, fragmented-email and
   snapshot-scrub boundaries, since its petitioner is self-represented too.
 
   **What changes.** The block-level test is unchanged, with the same three
@@ -5653,8 +5653,9 @@ freeze commit is recorded here.
   the petitioner side (`unrepresented_sides`). The `Other` list, which holds
   amici and other non-party filers, is not a party side and is not read.
   - **Trigger.** The docket-level trigger fires where either side reads
-    self-represented. A respondent who has not appeared has no block, so a
-    docket awaiting its opposition does not fire on that side. Across the
+    self-represented. A side the payload serves no block for reads nothing,
+    and no served block leaves `Attorney` blank, so a docket awaiting its
+    opposition does not fire on that side. Across the
     3,073 snapshots stored in the blob below, none of the 3,474 petitioner-
     and respondent-side blocks leaves `Attorney` blank.
   - **Staged snapshot.** Every block on either side that the test reads as
@@ -5740,7 +5741,7 @@ freeze commit is recorded here.
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_snapshot_scrub.py tests/test_cli_provision.py
-    -k "scrub or respondent"` is green;
+    tests/test_documents.py -k "scrub or respondent"` is green;
   - `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
     six digests;
   - on the first cell provisioned from a docket with a self-represented

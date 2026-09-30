@@ -1204,9 +1204,10 @@ def unrepresented_sides(payload: Mapping[str, Any]) -> tuple[str, ...]:
     self-representation would scrub the majority of every cohort on the
     strength of a payload shape, which is a far wider change to what cells read
     than the fact it is trying to act on. The same holds for a respondent who
-    has not appeared: upstream serves no respondent-side block until counsel (or
-    the respondent in person) enters an appearance, so a docket whose opposition
-    has not been filed reads nothing on that side. So the scrub fires on
+    has not appeared: a respondent side the payload serves no block for reads
+    nothing, and no served block leaves ``Attorney`` blank (see the second arm
+    below), so a docket whose opposition has not been filed is not read as
+    self-represented on that side. So the scrub fires on
     evidence rather than on the absence of it, and a docket whose counsel the
     corpus does not carry is left exactly as filed.
 
@@ -1218,10 +1219,11 @@ def unrepresented_sides(payload: Mapping[str, Any]) -> tuple[str, ...]:
       over the pulled blob at the ``2026-09-20`` pull stamp 3,134 of the 16,838
       SCOTUS rows carrying a petitioner-side block are spelled that way.
     - **No attorney named.** The block is served with ``Attorney`` empty or
-      absent. No stored payload spells it this way on either side — over the
-      pulled blob at the ``2026-09-29`` pull stamp none of the 3,474
-      petitioner- and respondent-side blocks across its 3,073 stored snapshots
-      leaves the field blank; upstream repeats the party's name instead — but a
+      absent. No payload stored in the pulled blob spells it this way on
+      either side — at the ``2026-09-29`` pull stamp none of the 3,474
+      petitioner- and respondent-side blocks across the 3,073 snapshots the
+      blob itself holds (the rest live in the per-case content store) leaves
+      the field blank; upstream repeats the party's name instead — but a
       block naming nobody is the same fact as a block naming the party, so it
       is read the same.
     - **A prisoner register number.** ``PrisonerId`` on the block is upstream's
@@ -1320,8 +1322,9 @@ def scrub_snapshot_contacts(payload: Mapping[str, Any]) -> ScrubbedSnapshot:
     counts the blocks that had anything withheld and ``fields`` the values
     withheld, the register number included. A payload serving no party-side
     block is returned as an equal copy with both counts zero. The staged payload
-    is a fixed point — scrubbing it again changes nothing, since the placeholders
-    and the marker keep the block qualifying — but the counts are meant for a
+    is a fixed point — scrubbing it again changes nothing, since the kept name
+    fields and the register number's marker keep each block qualifying and the
+    placeholders are what a second pass would write — but the counts are meant for a
     payload as served: run over an already-scrubbed copy they would count the
     placeholders again.
 
