@@ -1285,6 +1285,7 @@ population and apply against another.
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
+| `moment-convergence` | `converge-event-moments` | `--max-rewrites` (corpus rows and ledger files together) | — | — |
 | `sampled-frame-weight-repair` | `repair-sampled-frame-weights` | `--max-repairs` | — | — |
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
@@ -1469,7 +1470,7 @@ the runner image rolls, and would fail the pass for a reason that has nothing to
 do with the corpus, so what a recovered text was read by is recorded by the run
 instead of promised by the workflow. An apply refuses where the binaries are
 absent, which is what keeps a failed install from reading as a converged class.
-**Least privilege per pass.** The thirteen corpus passes run in a job holding the
+**Least privilege per pass.** The fourteen corpus passes run in a job holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
@@ -1620,6 +1621,16 @@ gh workflow run run-repair.yml --ref main \
   -f repair=amicus-rederive -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
   -f repair=amicus-rederive -f repair_mode=apply -f repair_bound=<the ledger's total_changes>
+
+# The moment convergence is a two-store pass: it re-stamps the corpus row and
+# the ledger `event.yaml` apart, and its bound counts both together — read the
+# header's corpus-row and ledger-file counts off the dry run and pass their sum.
+# Re-dispatching in `dry-run` after the apply is the control: it must report
+# 0 of each.
+gh workflow run run-repair.yml --ref main \
+  -f repair=moment-convergence -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=moment-convergence -f repair_mode=apply -f repair_bound=<corpus rows + ledger files>
 ```
 
 **After a pass that removes rows**, let the run's trailing verdict step finish.

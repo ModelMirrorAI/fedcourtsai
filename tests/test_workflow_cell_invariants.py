@@ -1866,6 +1866,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Backfill the interim arrival stamps", ()),
     ("repair", "Remove ungranted merits phantoms", ()),
     ("repair", "Converge disposition labels", ()),
+    ("repair", "Converge event moments", ()),
     ("repair", "Repair the sampled-frame weights", ()),
     ("regrade", "Re-grade named cells", ()),
 )
