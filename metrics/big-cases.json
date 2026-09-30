@@ -1,10 +1,10 @@
 {
-  "cases": 212,
+  "cases": 213,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
     {
-      "cases": 187,
+      "cases": 188,
       "n": 3
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 635,
+  "current_reads": 638,
   "declared_no_view": 6,
   "frozen_process": {
     "digests": [
@@ -2254,7 +2254,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a406.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "granted",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -2300,11 +2300,11 @@
               "run_id": "20260927T182226Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-09-29",
           "title": "Department of Homeland Security, et al., v. D.V.D., et al."
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "granted",
           "event_id": "evt-order-response-requested-disposition",
           "reads": [
             {
@@ -2350,7 +2350,7 @@
               "run_id": "20260927T182226Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-09-29",
           "title": "Department of Homeland Security, et al., v. D.V.D., et al."
         }
       ],
@@ -2376,7 +2376,7 @@
       "score_min": 0.78,
       "score_range": 0.16,
       "short_caption": "Department of Homeland Security v. D.V.D.",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -2987,9 +2987,9 @@
         }
       ],
       "docket_id": 73281002,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-962",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-962.html",
       "events": [
         {
           "actual_disposition": null,
@@ -3114,6 +3114,169 @@
       "score_min": 0.75,
       "score_range": 0.15,
       "short_caption": "Republican National Committee v. Eakin",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Trump",
+      "caption": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al.",
+      "caption_event_id": "evt-order-response-requested-disposition",
+      "case_id": "scotus/9526000416",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Nationwide class of federal inmates with gender dysphoria; a stay would let BOP taper hormone therapy and withdraw accommodations class-wide while the appeal proceeds. High salience as executive-order implementation and Skrmetti aftermath, but it is an interim order, not a merits ruling.",
+          "big_case_score": 0.7,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20260929T212928Z"
+        },
+        {
+          "big_case_rationale": "Nationwide federal-prison treatment policy, interruption of existing care, and the permissible scope of classwide prison-conditions relief create substantial human and institutional stakes independent of the stay's likelihood.",
+          "big_case_score": 0.86,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20260929T212928Z"
+        },
+        {
+          "big_case_rationale": "High-profile case challenging a nationwide executive branch policy affecting federal prisons, likely to draw significant public and media attention.",
+          "big_case_score": 0.9,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20260929T212928Z"
+        }
+      ],
+      "docket_id": 9526000416,
+      "docket_number": "26A416",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a416.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A nationwide, classwide block on a signature Executive Order policy governing medical care for roughly 2,000 transgender federal inmates; the next step after Skrmetti, Orr, and B.P.J. in the Court's gender-identity line, on the shadow docket, with APA-deference and PLRA questions that would plainly draw certiorari.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/claude-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/claude-baseline/20260929T212928Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.68,
+              "run_id": "20260929T212928Z"
+            },
+            {
+              "big_case_rationale": "Nationwide federal-prison policy affecting access to gender-affirming treatment, with substantial bodily and mental-health stakes for affected inmates and broader consequences for administrative review and limits on prison injunctions.",
+              "big_case_score": 0.77,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/codex-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/codex-baseline/20260929T212928Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.68,
+              "run_id": "20260929T212928Z"
+            },
+            {
+              "big_case_rationale": "Involves a nationwide injunction of a major executive policy concerning gender dysphoria treatment in federal prisons, raising significant separation of powers and PLRA issues.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/gemini-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/gemini-baseline/20260929T212928Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.75,
+              "run_id": "20260929T212928Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-response-requested-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Nationwide class of federal inmates with gender dysphoria; a stay would let BOP taper hormone therapy and withdraw accommodations class-wide while the appeal proceeds. High salience as executive-order implementation and Skrmetti aftermath, but it is an interim order, not a merits ruling.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/claude-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/claude-baseline/20260929T212928Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.72,
+              "run_id": "20260929T212928Z"
+            },
+            {
+              "big_case_rationale": "Nationwide federal-prison treatment policy, interruption of existing care, and the permissible scope of classwide prison-conditions relief create substantial human and institutional stakes independent of the stay's likelihood.",
+              "big_case_score": 0.86,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/codex-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/codex-baseline/20260929T212928Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.68,
+              "run_id": "20260929T212928Z"
+            },
+            {
+              "big_case_rationale": "High-profile case challenging a nationwide executive branch policy affecting federal prisons, likely to draw significant public and media attention.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20260929T212928Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.75,
+              "run_id": "20260929T212928Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.82,
+      "moment": "evt-order-response-requested-disposition",
+      "moment_opened_at": "2026-09-28",
+      "n": 3,
+      "other_party": "Alishea Sophia Kingdom",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Trump gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Trump does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.9,
+      "score_min": 0.7,
+      "score_range": 0.2,
+      "short_caption": "Trump v. Alishea Sophia Kingdom",
       "status": "pending"
     },
     {
@@ -3376,9 +3539,9 @@
         }
       ],
       "docket_id": 73281386,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1103",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1103.html",
       "events": [
         {
           "actual_disposition": null,
@@ -5044,9 +5207,9 @@
         }
       ],
       "docket_id": 73351824,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1287",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1287.html",
       "events": [
         {
           "actual_disposition": null,
@@ -6424,9 +6587,9 @@
         }
       ],
       "docket_id": 73279552,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-703",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-703.html",
       "events": [
         {
           "actual_disposition": null,
@@ -7422,9 +7585,9 @@
         }
       ],
       "docket_id": 73280426,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-918",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-918.html",
       "events": [
         {
           "actual_disposition": null,
@@ -8764,9 +8927,9 @@
         }
       ],
       "docket_id": 73281006,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-965",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-965.html",
       "events": [
         {
           "actual_disposition": null,
@@ -9615,9 +9778,9 @@
         }
       ],
       "docket_id": 73274796,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-113",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-113.html",
       "events": [
         {
           "actual_disposition": null,
@@ -10376,9 +10539,9 @@
         }
       ],
       "docket_id": 73280995,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-952",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-952.html",
       "events": [
         {
           "actual_disposition": null,
@@ -10489,9 +10652,9 @@
         }
       ],
       "docket_id": 73281372,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1089",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1089.html",
       "events": [
         {
           "actual_disposition": null,
@@ -10828,9 +10991,9 @@
         }
       ],
       "docket_id": 73280412,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-901",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-901.html",
       "events": [
         {
           "actual_disposition": null,
@@ -12635,7 +12798,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a382.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -12681,11 +12844,11 @@
               "run_id": "20260927T182226Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-09-29",
           "title": "Samuel Strulovitch, et al. v. Moshe Bain, et al."
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-order-response-requested-disposition",
           "reads": [
             {
@@ -12731,7 +12894,7 @@
               "run_id": "20260927T182226Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-09-29",
           "title": "Samuel Strulovitch, et al. v. Moshe Bain, et al."
         }
       ],
@@ -12757,7 +12920,7 @@
       "score_min": 0.4,
       "score_range": 0.2,
       "short_caption": "Strulovitch v. Bain",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -16158,9 +16321,9 @@
         }
       ],
       "docket_id": 73500215,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1314",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1314.html",
       "events": [
         {
           "actual_disposition": null,
@@ -16439,9 +16602,9 @@
         }
       ],
       "docket_id": 73500239,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1337",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1337.html",
       "events": [
         {
           "actual_disposition": null,
@@ -17332,9 +17495,9 @@
         }
       ],
       "docket_id": 73500216,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1316",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1316.html",
       "events": [
         {
           "actual_disposition": null,
@@ -18688,9 +18851,9 @@
         }
       ],
       "docket_id": 73329541,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1274",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1274.html",
       "events": [
         {
           "actual_disposition": null,
@@ -19027,9 +19190,9 @@
         }
       ],
       "docket_id": 73281628,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1141",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1141.html",
       "events": [
         {
           "actual_disposition": null,
@@ -19253,9 +19416,9 @@
         }
       ],
       "docket_id": 73300246,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1254",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1254.html",
       "events": [
         {
           "actual_disposition": null,
@@ -19479,9 +19642,9 @@
         }
       ],
       "docket_id": 73500233,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1333",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1333.html",
       "events": [
         {
           "actual_disposition": null,
@@ -24253,9 +24416,9 @@
         }
       ],
       "docket_id": 73500231,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1328",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1328.html",
       "events": [
         {
           "actual_disposition": null,
@@ -25556,5 +25719,5 @@
   ],
   "rows_with_leakage_flag": 2,
   "schema_version": "1.2",
-  "scored_reads": 609
+  "scored_reads": 612
 }
