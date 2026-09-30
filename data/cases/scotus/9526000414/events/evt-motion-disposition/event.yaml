@@ -1,12 +1,12 @@
-case_id: scotus/9526000382
+case_id: scotus/9526000414
 decision_target: disposition
 description: null
 docket_entry_id: null
 event_id: evt-motion-disposition
 kind: motion
 moment: arrival
-opened_at: '2026-09-17'
+opened_at: '2026-09-25'
 resolved: true
 schema_version: '1.0'
 stage: interim
-title: Samuel Strulovitch, et al. v. Moshe Bain, et al.
+title: Christa Gail Pike v. Tennessee
