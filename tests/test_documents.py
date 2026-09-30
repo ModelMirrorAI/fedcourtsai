@@ -4198,7 +4198,7 @@ def test_the_value_pass_alone_leaves_every_shape_it_was_not_keyed_on() -> None:
         + "(citing 16 Front St., L.L.C. v. Example)\n"
         + f"Amicus: {CONTACT_PLACEHOLDER}\n\n"
     )
-    # The default is both passes, exactly as before.
+    # The default runs both passes.
     assert both.passes == (SCRUB_PASS_VALUE, SCRUB_PASS_SHAPE)
     assert "1000 Maine Avenue SW" not in both.text
 

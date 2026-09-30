@@ -364,12 +364,14 @@ original text and overlapping matches are withheld as one span, so adding a
 pass can only widen what is withheld. The manifest entry carries what happened: `contact_scrubbed`, whether
 the scrub ran over this document's staged text; `contact_replacements`, how
 many it withheld — so `true, 0` (scrubbed, nothing found) stays
-distinguishable from `false, 0` (a represented docket's text, or an
-amicus-only docket's whose amici serve no value specific enough to key on,
+distinguishable from `false, 0` (a represented docket's text, or the text of
+an amicus-only docket whose amici serve no value specific enough to key on,
 untouched — the run log says `not run` for the latter); and
 `contact_scrub_passes`, which passes ran (`["value", "shape"]`, `["shape"]`,
 `["value"]` on an amicus-only docket, or `[]` where the scrub did not run), so
-a shape-only or value-only scrub is not read as the complete one. A filing by the other side's counsel on such a docket is
+a shape-only or value-only scrub is not read as the complete one. A filing by
+the other side's counsel on a docket read as self-represented on a party side
+is
 scrubbed with the rest, since the reading is the docket's and taken once:
 the cost is a firm's switchboard number a cell had no use for.
 

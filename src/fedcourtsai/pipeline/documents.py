@@ -1103,10 +1103,12 @@ def scrub_contact_details(
     scan fragmented it, line breaks included (see the section comment above). It
     runs only where a value clears its floor, and ``passes`` says whether it
     did. ``shape=False`` runs the value pass alone — the caller's choice on a
-    docket whose only self-represented filer is an amicus, whose own brief is
-    not a staged kind: there the staged filings are counsel's, and the shape
-    pass would cost their text the misreads named below. ``passes`` is then ``("value",)``, or empty where no
-    value cleared its floor and nothing ran.
+    docket read as self-represented on its ``Other`` list alone, whose amici's
+    own briefs are not a staged kind: there the staged filings are counsel's,
+    and the shape pass would cost their text its misreads of legal prose (a case
+    name led by a street number, a regulation number in telephone shape).
+    ``passes`` is then ``("value",)``, or empty where no value cleared its floor
+    and nothing ran.
 
     The **shape** pass matches five shapes: an email address in its contiguous
     spelling, the same address as OCR fragments it (a blank beside the `@` or a

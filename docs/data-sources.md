@@ -586,10 +586,11 @@ material**:
   the first two arms (no attorney, or the amicus as its own); the
   register-number arm is not asked there, because `PrisonerId` on that list
   holds free text rather than a register number, and only a qualifying
-  amicus's own values key the value pass. Where an amicus is the only filer
-  read so, the staged text gets that value pass alone — no shape pass — since
+  amicus's own values key the value pass. Where the `Other` list is the only
+  list read so, the staged text gets that value pass alone — no shape pass — since
   what is staged there is counsel's filings; a self-represented non-amicus
-  `Other` filer whose own opposition is staged gets the value pass alone too. A self-filing amicus whose served
+  `Other` filer whose own opposition is staged gets the value pass alone too.
+  A self-filing amicus whose served
   name carries a title or joinder the attorney field lacks is not read as
   self-represented and stays as served.
   This is the one narrowing applied on privacy grounds, and it applies to the

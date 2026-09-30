@@ -5898,8 +5898,9 @@ freeze commit is recorded here.
     on those dockets is represented — and the shape pass would cost their
     text its misreads of legal prose. The premise is about amici: a
     self-represented non-amicus `Other` filer whose own opposition is staged
-    would get the value pass alone too (none on the blob below). Where no amicus value clears its floor nothing runs, and the
-    document is staged as filed and recorded as unscrubbed. A docket read as
+    would get the value pass alone too (none on the blob below). Where no
+    amicus value clears its floor nothing runs, and the document is staged
+    as filed and recorded as unscrubbed. A docket read as
     self-represented on a party side keeps both passes, keyed on the union of
     its party-side values and any qualifying amicus's.
   - **Staged snapshot.** A qualifying `Other` block has each populated
@@ -5981,9 +5982,13 @@ freeze commit is recorded here.
 
   **What a post-change cell reads.** On an affected docket, the cell reads a
   subset of the pre-change snapshot, and a subset of the pre-change document
-  text wherever a qualifying amicus's own value appears in it. No skill
-  movement is predicted. In the 2026-09-21 entry's negative form, a movement in **either** direction across this boundary may not be
-  read as a model effect.
+  text wherever a qualifying amicus's own value appears in it. Its
+  `documents.json` changes even where the text does not: on an amicus-only
+  docket each entry reads `contact_scrubbed: true` with `["value"]` where it
+  read `false` with `[]` (all 81 on the blob below). No skill movement is
+  predicted. In the 2026-09-21 entry's negative form, a movement in
+  **either** direction across this boundary may not be read as a model
+  effect.
 
   **What does not move.** No base rate re-prices, no membership rule moves and
   no scored figure moves. Nothing is written to the corpus.
