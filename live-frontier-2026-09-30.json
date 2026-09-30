@@ -90,7 +90,7 @@
     },
     {
       "conference": "2026-06-25",
-      "petitions": 10
+      "petitions": 8
     },
     {
       "conference": "2026-06-29",
@@ -98,11 +98,15 @@
     },
     {
       "conference": "2026-09-28",
-      "petitions": 546
+      "petitions": 543
     },
     {
       "conference": "2026-10-09",
       "petitions": 15
+    },
+    {
+      "conference": "2026-10-16",
+      "petitions": 5
     }
   ],
   "documents_provisioned": 223,
