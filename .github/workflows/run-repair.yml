@@ -65,6 +65,7 @@ on:
           - arrival-backfill
           - merits-phantom-removal
           - disposition-convergence
+          - moment-convergence
           - sampled-frame-weight-repair
           - amicus-rederive
           - regrade-stale
@@ -173,6 +174,8 @@ jobs:
             disposition-convergence)
               bound_flag="--max-relabels"; bound_required_on_apply=1
               accepted_options="include-scored" ;;
+            moment-convergence)
+              bound_flag="--max-rewrites"; bound_required_on_apply=1 ;;
             sampled-frame-weight-repair)
               bound_flag="--max-repairs"; bound_required_on_apply=1 ;;
             amicus-rederive)
@@ -316,7 +319,7 @@ jobs:
     # pass reaches them only by being named here. A deny-list would hand every
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
-    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) }}
+    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","moment-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) }}
     # Join the repo-wide corpus-writer lock: one writer at a time across
     # run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
@@ -328,7 +331,7 @@ jobs:
     # run's own real pass — before ever being skipped. The condition is the
     # `if:` above, repeated because no context available here can hold it once.
     concurrency:
-      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","moment-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # Headroom over the longest chain of capped steps a dispatch can run, which
@@ -1964,6 +1967,99 @@ jobs:
           git commit -m "repair: converge corpus (disposition labels)"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "disposition-label pointer"
+
+      # Converge the stored moment of a declared-moment event onto the moment
+      # its id declares. The id is the key and the declared-moments table the
+      # authority, so a stored moment that disagrees is a stale copy — the shape
+      # an application baseline carries when the relabel moved it off the cert
+      # petition id with the cert stage's `distribution` moment still on it. A
+      # decided application has left the live rotation, so no channel re-reads
+      # it and nothing else converges the column.
+      #
+      # Two stores, one commit. The pass re-stamps the corpus row (a direct
+      # UPDATE that re-mirrors the touched cases' events into the content
+      # store) AND the ledger `event.yaml` written from it, scanning each store
+      # on its own, so `data/` is staged with the pointer: a ledger file left
+      # uncommitted would disagree with the corpus it was just converged onto,
+      # and the next dry run would find it again. An event carrying committed
+      # predict/evaluate output is held back in both stores and reported —
+      # moving its moment moves scored cells between moment strata — as are
+      # entry-pinned rows and rows off the declared moment's stage; there is no
+      # option that widens onto them.
+      - name: Converge event moments
+        if: ${{ inputs.repair == 'moment-convergence' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Local, like the disposition sweep: an indexed read of the events
+        # table and a walk of committed `event.yaml` files, with the apply's
+        # writes under `data/`, plus the blob push.
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus
+          # guard: a dispatch that cannot legally apply should say so in
+          # seconds, not after a full scan. The command refuses an unbounded
+          # apply on its own too; this refusal is the one with the maintainer's
+          # procedure in it. `Validate the repair selector` duplicates it word
+          # for word so a bad dispatch dies before any credential is minted;
+          # this copy is the one of record, because the step has to be safe on
+          # whatever reaches it. The refusal names the pass through `${REPAIR}`
+          # rather than a literal so the two copies are identical as text, not
+          # merely equivalent once expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to converge.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping moment convergence"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The sweep reads committed ledger artifacts out of `data/` and
+          # rewrites beside them, so it needs the remote tip, not this
+          # checkout's — the scored-cell holdback is keyed on output that
+          # arrives by collect PR. Fast-forward only, for the merits-phantom
+          # pass's reason: an unpushed local commit over live corpus mutations
+          # must fail this closed rather than be reset away.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          # Dry-run first, into the summary: the re-stamp ledger — corpus rows
+          # and ledger files counted apart, each skip with its reason — is the
+          # reading the apply's bound comes from, and it must outlive the step
+          # log. The bound counts both stores together. (On an apply this run
+          # is a receipt, not a reading.)
+          uv run fedcourts converge-event-moments 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts converge-event-moments \
+            --apply --max-rewrites "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere. An apply that pushed the
+          # blob but failed before the commit publishes nothing: readers resolve
+          # the committed pointer, and the next dispatch re-detects from the
+          # still-committed ledger.
+          uv run fedcourts corpus-push
+          # The ledger half lands in `data/` (`event.yaml`); stage it with the
+          # pointer so the ledger and the corpus it must match move together
+          # or not at all.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "Event moments already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (event moments)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "event-moment pointer"
 
       # Restore the derived sampling weight on the legacy denial-sampling frame's
       # latched-down rows: grid denials genuinely inside sampled ranges that a

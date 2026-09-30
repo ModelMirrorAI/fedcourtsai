@@ -946,6 +946,20 @@ spans the scored and unscored confirmations together. On `apply` the step still
 runs the dry-run into the step summary first, as a receipt of what the rewrite
 acted on.
 
+`moment-convergence` re-stamps the stored `moment` of a declared-moment event
+onto the moment its id declares — the id is the key and the declared-moments
+table the authority, so a stored moment that disagrees is a stale copy. The
+population it exists for is application baselines the relabel moved off the cert
+petition id with the cert stage's `distribution` moment still on them; a decided
+application has left the live rotation, so nothing else re-reads the row. It
+writes both stores — the corpus row (re-mirrored into the content store) and the
+ledger `event.yaml` written from it, each scanned on its own — and stages
+`data/` beside the pointer in the step's one commit, so the two land together.
+An event carrying committed predict or evaluate output is held back in both
+stores and reported, since moving its moment moves scored cells between moment
+strata; unlike `disposition-convergence` there is no option that widens onto
+them. Its bound counts corpus rows and ledger files together.
+
 `sampled-frame-weight-repair` restores the derived sampling weight on the legacy
 denial-sampling frame's latched-down rows: grid denials genuinely inside sampled
 ranges that a channel writing with certainty min-latched to 1, leaving the nine
