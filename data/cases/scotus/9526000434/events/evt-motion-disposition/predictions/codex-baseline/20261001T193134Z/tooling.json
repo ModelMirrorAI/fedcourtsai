@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000434",
+  "gaps": [
+    "No extracted application text or OCR for the 55-page filing.",
+    "Web searches and direct PDF opening returned no readable output."
+  ],
+  "helpful": [
+    "Arrival-position context explicitly separates submission from later escalation.",
+    "The interim statpack supplies raw prior-Term counts and coverage caveats.",
+    "CourtListener MCP supplied general in-chambers injunction authority."
+  ],
+  "notes": "Forecast is deliberately limited to the docket skeleton and a pooled interim prior. No corpus query or live case-docket lookup was used. The default uv cache location was read-only; a temporary writable cache allowed the CLI to run.",
+  "role": "predictor",
+  "run_id": "20261001T193134Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned inputs",
+    "committed interim statpack",
+    "fedcourts paths",
+    "CourtListener MCP opinion search",
+    "CourtListener MCP read_document",
+    "web search and PDF-open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
