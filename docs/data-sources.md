@@ -166,12 +166,23 @@ held corpus-side and read by nothing a predict or evaluate cell sees.
   within a page, so there an opinion opens at a body-type line that reads as
   a header. A signed document is recorded only when the split agrees with
   its syllabus: the same number of opinions, in the same order, each header
-  naming the same author or authors and a compatible kind, and no
-  header-shaped line left inside an opinion. Anything else refuses the whole
-  document with the reason. Refusals come from a syllabus the grammar cannot
-  read whole (it does not read "concurring in part" without "the judgment",
-  or a join limited to a footnote, "except as to n. 1") and from a text
-  layer that runs words together.
+  naming the same author or authors and a compatible kind, each separate
+  writing's header naming the same joiners, and no header-shaped line left
+  inside an opinion. A lead's header prints no joiners, so the lead's rest on
+  the syllabus alone. Anything else refuses the whole document with the
+  reason. Refusals come from a syllabus the grammar cannot read whole (it
+  does not read "concurring in part" without "the judgment", or a join
+  limited to a footnote, "except as to n. 1") and from a text layer that runs
+  words together.
+- **Coverage, and what it leaves out.** As read on 2026-10-01, documents
+  recorded, refused and skipped per Term: OT2025 70 / 4 / 0 (172 opinions),
+  OT2024 63 / 4 / 0 (153), OT2023 54 / 6 / 0 (136), OT2022 50 / 8 / 0 (113),
+  OT2021 60 / 6 / 0 (139), OT2020 48 / 5 / 15 (109); OT2017–OT2019 are
+  skipped whole (volume-linked). The refusals are not random: their causes
+  (a partial concurrence, a join limited to a footnote) concentrate in
+  fractured, many-opinion decisions, so a total, an average or a "longest"
+  list taken from the table under-represents exactly those. A figure read
+  from it states its population and the Term's refusal count beside it.
 - **The word count** (rule `scotus-opinion-words`, version 1). An opinion's
   text runs from its header sentence to the next opinion's header or the end
   of the document.
@@ -195,6 +206,16 @@ held corpus-side and read by nothing a predict or evaluate cell sees.
     not a word. A reference mark the text layer separates from its word
     ("… 75. 1 Smith") is dropped where it is the next expected number after
     punctuation; one printed against its word ("realms.2") adds nothing.
+  - **Which opinion a footnote belongs to.** In the slip, the opinion on its
+    page. In the print, where one page can end one opinion and open the
+    next, numbering restarts with each opinion, so a page's notes numbered 1
+    go to its opinions by count: to the opened opinions when the previous
+    one already has notes; otherwise the ones beyond one per opened opinion
+    are the previous opinion's. One case is not told apart: a previous
+    opinion whose first note falls on its last page, beside an opened opinion
+    with no note on that page. There the note goes to the opened opinion,
+    which moves words between the two and leaves the decision's total
+    unchanged.
   - **Text layers.** Each format is read in the pypdf mode that extracts it
     cleanly: the slip in layout mode, since its plain mode splits words at
     kerning ("pr esent"), with footnotes below the em-dash rule; the
@@ -202,13 +223,30 @@ held corpus-side and read by nothing a predict or evaluate cell sees.
     with footnotes told from body text by their smaller type.
 - **Checked against.** SCOTUSblog's *Final Stat Pack for the 2025-26 Term*
   (updated 2026-07-06) was compared with a dry run over OT2025, as a check
-  only: nothing from it is stored. Over the 63 of 67 comparable documents
-  that split cleanly, the counts run 1–4% under the stat pack's rounded
-  figures, most within 2%: Barbara 59,355 words across 6 opinions against
-  ≈60,400, Thomas's dissent there 28,901 against ≈29,400, and Roberts's
-  average 7,003 against ≈7,100. The shortest opinions agree within a few
-  words. The stat pack does not publish its counting rule, so the residual
-  is unexplained.
+  only: nothing from it is stored. The dry run recorded 63 of the 66
+  decisions the stat pack covers (Pung, Postal Service v. Konan and Barrett
+  v. United States were refused; Texas v. New Mexico, which the pack does
+  not count, was refused too).
+  - Its ten longest combined totals and five longest individual opinions
+    all run under the pack's rounded figures, by 1–4% and most within 2%:
+    Barbara 59,355 words across 6 opinions against ≈60,400, Thomas's dissent
+    there 28,901 against ≈29,400. The direction is the same every time,
+    which points to a difference of rule rather than noise.
+  - The shortest opinions agree within a few words (Chatrie's 65 against
+    ≈60).
+  - Per-author averages fall between 4% over and 7% under: Roberts 7,003
+    against ≈7,100, Barrett 3,067 against ≈3,300. They are not like for
+    like, since the three refusals remove opinions unevenly by author, but
+    Barrett wrote nothing in a refused decision, so her gap is not a
+    refusal's.
+  - Opinion counts by author: Roberts's 6 match; Thomas's 26 and Jackson's
+    25 become the pack's 28 and 26 with the refused decisions' opinions
+    added back. The pack does not count an opinion concurring in part and
+    dissenting in part among dissents: Jackson's 10 dissents are exactly her
+    plain dissents here.
+
+  The stat pack does not publish its counting rule, so the residual is
+  unexplained.
 
 The second registered source is **the Court's orders**
 (`supremecourt-orders`) — the per-Justice acts it publishes at the cert and

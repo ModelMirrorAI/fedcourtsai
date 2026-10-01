@@ -32,6 +32,7 @@ from fedcourtsai.pipeline.opinion_record import (
     build_opinion_record,
     count_words,
     insert_opinions,
+    lines_from_runs,
     read_header,
     recorded_documents,
     split_print,
@@ -303,6 +304,42 @@ def test_a_print_note_continues_across_pages() -> None:
     assert sections[0].footnote_words == 8
 
 
+def test_the_reporter_s_note_ends_the_print() -> None:
+    pages = [
+        _page(
+            ("Justice Kagan delivered the opinion of the Court.", BODY),
+            ("It is so ordered.", BODY),
+        ),
+        _page(
+            ("Reporter\u2019s Note", SMALL),
+            ("The attached opinion has been revised to reflect the usual", SMALL),
+            ("publication style. The following additional edits were made:", SMALL),
+        ),
+    ]
+    sections, _ = split_print([[_FILLER], *pages], bench=BENCH)
+    assert sections[0].words == 8 + 4
+    assert sections[0].footnote_words == 0
+
+
+def test_runs_join_into_sized_lines_without_the_watermark() -> None:
+    lines = lines_from_runs(
+        [
+            ("Page Proof Pending PublicationPage Proof Pending Publication\n", 24.0),
+            ("Cite as: 608 U. S. 278 (2026) 279 \n", SMALL),
+            ("The writ is dismissed as improvi", BODY),
+            ("dently granted. \n", BODY),
+            ("1 ", MARK),
+            ("A note set in small type, long enough to outweigh its mark.\n", SMALL),
+        ]
+    )
+    assert [line.text for line in lines] == [
+        "Cite as: 608 U. S. 278 (2026) 279 ",
+        "The writ is dismissed as improvidently granted. ",
+        "1 A note set in small type, long enough to outweigh its mark.",
+    ]
+    assert [line.size for line in lines] == [SMALL, BODY, SMALL]
+
+
 # --- the cross-check --------------------------------------------------------------------
 
 
@@ -325,6 +362,11 @@ def test_the_cross_check_needs_count_authors_and_kinds_to_agree() -> None:
     assert opinion_record._cross_check([lead, other], sections)
     concurrence = Writing(WritingKind.concurrence, "Alito")
     assert opinion_record._cross_check([lead, concurrence], sections)
+    # A separate writing's joiners must agree too; the lead's header prints none.
+    unjoined = Writing(WritingKind.dissent, "Alito")
+    assert opinion_record._cross_check([lead, unjoined], sections)
+    lead_joined = Writing(WritingKind.opinion_of_the_court, "Kagan", (Join("Roberts"),))
+    assert opinion_record._cross_check([lead_joined, dissent], sections) == []
 
 
 # --- the writer ----------------------------------------------------------------------------

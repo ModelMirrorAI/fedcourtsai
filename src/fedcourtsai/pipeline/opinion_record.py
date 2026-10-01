@@ -27,10 +27,12 @@ dissenting.``) read for its author, kind and joiners.
 
 **The cross-check.** A signed document is recorded only when its headers and
 its syllabus agree: the document splits into exactly as many opinions as the
-syllabus names, in the same order, and each header names the same author or
-authors and a compatible kind. Anything else — a header not found, a header
-the syllabus does not name, a kind that disagrees — refuses the whole
-document, with the reason, rather than recording a guess.
+syllabus names, in the same order, each header names the same author or
+authors and a compatible kind, and each separate writing's header names the
+same joiners as the syllabus (a lead's header prints none, so the lead's
+joiners rest on the syllabus alone). Anything else — a header not found, a
+header the syllabus does not name, a kind or a joiner that disagrees —
+refuses the whole document, with the reason, rather than recording a guess.
 
 **The word count** (:func:`count_words`, the rule :data:`WORD_RULE` version
 :data:`WORD_RULE_VERSION`). Counted over one opinion's text from its header
@@ -106,6 +108,8 @@ from .syllabus_lineup import writing_kind
 #: The word-count rule's name, stamped on every recorded opinion.
 WORD_RULE: Final = "scotus-opinion-words"
 #: Bump whenever the same document could count differently (stored rows keep theirs).
+#: The stamp assumes the locked pypdf: an extractor upgrade that changes the text
+#: layer is a reason to bump it.
 WORD_RULE_VERSION: Final = 1
 #: The opinion-header reader's stamp, on a per curiam's writings.
 HEADER_READER: Final = "scotus-opinion-headers"
@@ -445,25 +449,34 @@ def print_pages(data: bytes) -> list[list[PrintLine]]:
         ) -> None:
             del font
             scale = abs(float(tm[3]) * float(cm[3])) or abs(float(tm[0]) * float(cm[0])) or 1.0
-            runs.append((text.replace(_WATERMARK, ""), round(float(size) * scale, 1)))
+            runs.append((text, round(float(size) * scale, 1)))
 
         page.extract_text(visitor_text=visit)
-        lines: list[PrintLine] = []
-        text = ""
-        weights: Counter[float] = Counter()
-        for run, size in runs:
-            parts = run.split("\n")
-            for i, part in enumerate(parts):
-                text += part
-                weights[size] += len(part.strip())
-                if i < len(parts) - 1:
-                    if text.strip():
-                        lines.append(PrintLine(text, weights.most_common(1)[0][0]))
-                    text, weights = "", Counter()
-        if text.strip():
-            lines.append(PrintLine(text, weights.most_common(1)[0][0]))
-        pages.append(lines)
+        pages.append(lines_from_runs(runs))
     return pages
+
+
+def lines_from_runs(runs: Iterable[tuple[str, float]]) -> list[PrintLine]:
+    """One page's text runs, as pypdf's plain mode emits them, joined into sized lines.
+
+    The watermark is removed from every run first; a line's size is that of
+    the run contributing most of its characters.
+    """
+    lines: list[PrintLine] = []
+    text = ""
+    weights: Counter[float] = Counter()
+    for raw, size in runs:
+        parts = raw.replace(_WATERMARK, "").split("\n")
+        for i, part in enumerate(parts):
+            text += part
+            weights[size] += len(part.strip())
+            if i < len(parts) - 1:
+                if text.strip():
+                    lines.append(PrintLine(text, weights.most_common(1)[0][0]))
+                text, weights = "", Counter()
+    if text.strip():
+        lines.append(PrintLine(text, weights.most_common(1)[0][0]))
+    return lines
 
 
 def body_size(pages: Sequence[Sequence[PrintLine]]) -> float:
@@ -648,7 +661,16 @@ def _cross_check(writings: Sequence[Writing], sections: Sequence[Section]) -> li
                 f"opinion {position}: the syllabus reads {writing.kind}, the header "
                 f"{header.kind or 'an unread role'}"
             )
+        elif not header.lead and _joiners(header.joins) != _joiners(writing.joins):
+            problems.append(
+                f"opinion {position}: the syllabus joins {sorted(_joiners(writing.joins))}, "
+                f"the header {sorted(_joiners(header.joins))}"
+            )
     return problems
+
+
+def _joiners(joins: Iterable[Join]) -> set[str]:
+    return {join.justice for join in joins}
 
 
 def _entries(writings: Sequence[Writing], sections: Sequence[Section]) -> list[OpinionEntry]:
