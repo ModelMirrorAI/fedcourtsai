@@ -4,7 +4,7 @@ description: null
 docket_entry_id: null
 event_id: evt-motion-disposition
 kind: motion
-moment: distribution
+moment: arrival
 opened_at: '2026-08-14'
 resolved: true
 schema_version: '1.0'
