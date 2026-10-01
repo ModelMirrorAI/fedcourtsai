@@ -3690,10 +3690,10 @@ def backfill_decision_record_cmd(
 
     Idempotent. Run where the corpus is pulled: a dev checkout or the pass
     dry-runs it, and the apply half belongs in run-repair's `decision-record`
-    pass, which on an apply holds the corpus-write credentials. ``--apply`` refuses above ``--max-fills``,
-    which counts the rows actually filled. Prints the counts, the method
-    distribution over the fills, and each filled row. Fails loud if the corpus
-    is absent.
+    pass, which on an apply holds the corpus-write credentials. ``--apply``
+    refuses above ``--max-fills``, which counts the rows actually filled. Prints
+    the counts, the method distribution over the fills, and each filled row.
+    Fails loud if the corpus is absent.
     """
     settings = get_settings()
     if apply and max_fills is None:
