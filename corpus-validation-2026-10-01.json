@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2153260,
-      "detail": "2153260 rows vs baseline 2153260",
+      "checked": 2153279,
+      "detail": "2153279 rows vs baseline 2153260",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4309732,
+      "checked": 4309772,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2153260,
+      "checked": 2153279,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -41,7 +41,7 @@
       "problems": []
     },
     {
-      "checked": 656,
+      "checked": 657,
       "detail": "granted before 2024-10-01 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
@@ -49,7 +49,7 @@
       "problems": []
     },
     {
-      "checked": 2153260,
+      "checked": 2153279,
       "detail": "0 future-dated, 22 decided-before-filed vs accepted baseline 50 (as of 2026-10-01); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
       "failures": 22,
       "name": "case_dates_ordered",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4306659,
+      "checked": 4306699,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4309732,
+      "checked": 4309772,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 14164,
+      "checked": 14198,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 120,
+      "checked": 122,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 282,
+      "checked": 300,
       "detail": "",
       "failures": 0,
       "name": "evaluation_targets_prediction",
@@ -126,7 +126,7 @@
       "problems": []
     },
     {
-      "checked": 1872,
+      "checked": 1896,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -134,7 +134,7 @@
       "problems": []
     },
     {
-      "checked": 731,
+      "checked": 743,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -142,7 +142,7 @@
       "problems": []
     },
     {
-      "checked": 93,
+      "checked": 96,
       "detail": "",
       "failures": 0,
       "name": "prediction_semantic_claims_conform",
@@ -158,7 +158,7 @@
       "problems": []
     },
     {
-      "checked": 93,
+      "checked": 96,
       "detail": "",
       "failures": 0,
       "name": "merits_predictions_carry_judgment",
@@ -166,7 +166,7 @@
       "problems": []
     },
     {
-      "checked": 282,
+      "checked": 300,
       "detail": "",
       "failures": 0,
       "name": "vote_accuracy_only_on_merits_events",
@@ -174,7 +174,7 @@
       "problems": []
     },
     {
-      "checked": 12741,
+      "checked": 12745,
       "detail": "",
       "failures": 0,
       "name": "outcome_votes_await_a_registered_source",
@@ -182,7 +182,7 @@
       "problems": []
     },
     {
-      "checked": 73,
+      "checked": 79,
       "detail": "",
       "failures": 0,
       "name": "evaluation_correct_agrees",
@@ -190,7 +190,7 @@
       "problems": []
     },
     {
-      "checked": 12741,
+      "checked": 12745,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
@@ -198,8 +198,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2153399,
-  "corpus_rows": 2153260,
+  "corpus_events": 2153420,
+  "corpus_rows": 2153279,
   "ok": true,
   "schema_version": "1.0",
   "skipped": false
