@@ -1940,7 +1940,11 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
         "opinion-record",
         "Build the opinion record",
-        ("AWS credential variables reached", "OIDC token minting is reachable"),
+        (
+            "AWS credential variables reached",
+            "OIDC token minting is reachable",
+            "backfill-opinion-record exited",
+        ),
     ),
 )
 

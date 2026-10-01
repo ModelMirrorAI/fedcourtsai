@@ -1019,8 +1019,10 @@ session, no OIDC request token and no App token in either mode, and takes no
 lock on a dry run. The apply takes `corpus-write`, assumes the read-write role
 only after that step has exited, for the blob push, and mints the App token only
 after the push. The command does fetch and insert in one process — its apply
-refuses a PDF cache — so the separation is in time, not a process boundary. The
-bound is the dry run's opinion-row count, each run fetches again so an apply
+refuses a PDF cache — so the separation is in time, not a process boundary:
+anything a compromised parse left on the runner could reach any later step,
+whose credentials (the two `prod`-trusted roles, the data App's key) are what
+limit it. The bound is the dry run's opinion-row count, each run fetches again so an apply
 does not lead with a dry run, and a re-dispatched dry run after the apply is the
 control. Nothing a cell sees moves: the table is no part of a `query` row, and
 no gate, mint, outcome or score reads it.

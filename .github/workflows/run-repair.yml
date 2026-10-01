@@ -2977,9 +2977,13 @@ jobs:
   # push step that parses nothing fetched, and the App token is minted only
   # after the push. That separates the parser from the credentials in time, not
   # by a process boundary: the steps run as one user on one runner, so a
-  # compromised parse could still leave something on the runner for the push
-  # step to run. The push's role is the append-only one, which can never wipe a
-  # remote object.
+  # compromised parse could still leave something on the runner (the uv
+  # environment, an action's checked-out code) for ANY later step to run — the
+  # read-write role's assumption, the push and the App-key mint among them. What
+  # bounds it is what those steps hold: the two roles `prod` is trusted by (the
+  # push's is the append-only one, which can never wipe a remote object) and the
+  # data App's key. The vote stamper and the decision-record and application
+  # back-fill applies carry the same residual.
   #
   # The apply holds `corpus-write` for the whole fetch campaign — every
   # unrecorded document of six Terms, at about four seconds a document — so a
@@ -3087,14 +3091,28 @@ jobs:
           if [ "${REPAIR_MODE}" = "apply" ]; then
             write_args+=(--apply --max-rows "${REPAIR_BOUND}")
           fi
-          # The per-Term counts and the would-insert line (stderr) go to the
-          # summary, which outlives the step log; the bound is the opinion rows
-          # that line names. The readings themselves — every document's
-          # opinions, and each refusal's reason — are a JSON array on stdout of
-          # several hundred KB, near the summary's 1 MiB step cap, so the swap
-          # sends them to the step log instead.
+          # The readings — every document's opinions, and each refusal's reason
+          # — are a JSON array on stdout of several hundred KB, near the
+          # summary's 1 MiB step cap, so the swap sends them to the step log;
+          # stderr is kept in a file as well. Only the command's own ledger
+          # lines (the per-Term counts, the would-insert line the bound is read
+          # off, a refusal) are copied to the summary, which outlives the log:
+          # stderr also carries pypdf's warnings, which can quote text from a
+          # fetched PDF. Workflow commands are suspended for the run for the
+          # same reason, under a token nothing fetched can know.
+          ledger="${RUNNER_TEMP}/opinion-record.stderr"
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
           uv run fedcourts backfill-opinion-record --first-term 2020 --last-term 2025 \
-            "${write_args[@]}" 3>&1 1>&2 2>&3 3>&- | tee -a "$GITHUB_STEP_SUMMARY"
+            "${write_args[@]}" 3>&1 1>&2 2>&3 3>&- | tee "$ledger" || status=$?
+          echo "::${stop_token}::"
+          grep -E '^(OT[0-9]{4}: |backfill-opinion-record)' "$ledger" \
+            >> "$GITHUB_STEP_SUMMARY" || true
+          if [ "$status" -ne 0 ]; then
+            echo "::error::backfill-opinion-record exited ${status}; the step log has its output."
+            exit "$status"
+          fi
           if [ "${REPAIR_MODE}" != "apply" ]; then
             echo "dry-run only; nothing written."
           fi

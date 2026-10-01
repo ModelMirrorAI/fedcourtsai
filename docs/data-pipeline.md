@@ -1558,7 +1558,12 @@ OIDC request token blanked, and checks both before it runs. On an apply it takes
 build step has exited, for a push step that parses nothing fetched, mints the
 App token only after the push, and blanks the AWS session and the OIDC request
 token on the commit step that holds it. That separates the parser from every
-credential in time, not by a process boundary, as with the vote stamper. The
+credential in time, not by a process boundary, as with the vote stamper: the
+steps run as one user on one runner, so a compromised parse could leave
+something behind for any later step — the role assumption, the push, the App
+token mint — and what bounds it is what those steps hold. The step also
+suspends workflow commands while the command runs and copies only its own ledger
+lines to the run summary, since stderr carries the PDF reader's warnings. The
 Term range is pinned in the step to OT2020–OT2025, not spent on a dispatch input:
 OT2017–OT2019 are skipped by design, every listing row there linking into a
 whole volume, and a pinned range means the dry run and the apply it bounds read
