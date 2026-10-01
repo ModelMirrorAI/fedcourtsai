@@ -677,7 +677,7 @@ prerequisites each pass is gated on still apply, so a dry-run dispatch can move
 the corpus pointer by a convergence a scheduled window would have made anyway.
 [data-pipeline.md](data-pipeline.md#maintenance-passes) is the contract — what
 each pass accepts, every refusal, the `dedupe-live-rows` prerequisite each
-corpus pass is gated on, and the dispatch commands.
+pass in the corpus job is gated on, and the dispatch commands.
 
 It is a separate workflow because its failure posture is the opposite of the
 walker's. A standing sweep fails by *not converging*, and the next window
@@ -974,6 +974,24 @@ dispatch does not lead with a dry run; the bound is read off the previous
 dry-run dispatch, and a re-dispatched dry run after the apply is the control.
 An outcome carrying a different record is held back unless `replace-differing`
 is set. The order-list records are banked, never scored.
+
+`application-backfill` lands one closed Term's interim applications that the
+live channel never polled (`fedcourts backfill-applications`). OT2024 below
+`24A1000` is the first slice, and earlier Terms follow one dispatch each. It
+enumerates the Term's serials upstream and writes each row the live channel does
+not already own through the live channel's own ingest seam, so a back-filled
+row is the row a live poll would have written and joins the live slice. A
+live-polled row is never fetched or overwritten. It runs in its own job: the
+dry run holds no credential while it fetches and takes no lock, and the apply
+takes `corpus-write`, the read-write role from its write step onward, and the
+App token only after that step. Each run fetches from supremecourt.gov, so an apply does
+not lead with a dry run, and a re-dispatched dry run after the apply is the
+control. **The apply is post-release**: it moves OT2024's unparsed rows into the
+population the pooled interim base rate is computed over, so it waits until
+after the long-conference release and is pre-registered in
+[freeze-record.md](freeze-record.md). That registration covers OT2024 only: an
+apply for any other Term is refused until that Term has its own freeze-record
+entry and a place in `REGISTERED_APPLY_TERMS`.
 
 `sampled-frame-weight-repair` restores the derived sampling weight on the legacy
 denial-sampling frame's latched-down rows: grid denials genuinely inside sampled

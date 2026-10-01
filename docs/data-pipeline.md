@@ -1243,10 +1243,10 @@ pass's ledger to the run summary and writes nothing, the maintainer reads the
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. Six passes skip it: the distribution re-derivation, whose
+before the write. Seven passes skip it: the distribution re-derivation, whose
 plan *is* its write set, and the two fetching passes and the store mirror,
 whose apply ledgers already state the class they found before writing; and the
-two vote-writer passes, whose every run fetches its listings and documents
+two vote-writer passes and the application back-fill, whose every run fetches
 from supremecourt.gov again, so a leading dry run would double the pass's
 traffic to the Court's site for a ledger the apply prints anyway.
 In each, the receipt would be bought with a whole extra full-population read of
@@ -1263,12 +1263,14 @@ is refused outright: the form's initial state cannot start a corpus write.
 | `repair` | choice, default `none` | which pass to run |
 | `repair_mode` | choice `dry-run`\|`apply`, default `dry-run` | write or not |
 | `repair_bound` | string | the blast-radius bound: a positive integer, the count read off the dry-run ledger |
-| `repair_target` | string | the pass's named subject — a parse label, or a cell list |
+| `repair_target` | string | the pass's named subject — a parse label, a cell list, or a Term |
 | `repair_options` | string | space- or comma-separated switches from the selected pass's closed vocabulary |
 
 `repair_bound` and `repair_target` are separate fields because they are
-different kinds of thing and no pass takes both: a bound is a count the
-validation checks as an integer, a target is a subject with its own grammar.
+different kinds of thing: a bound is a count the validation checks as an
+integer, a target is a subject with its own grammar. The application back-fill
+is the one pass that takes both, a Term and the row count read off that Term's
+ledger.
 Offering either to a pass that takes neither is **refused**, not ignored — a
 number left over from the previous dispatch is exactly how a bound meant for
 one pass silently reaches another. `repair_options` is a closed vocabulary per
@@ -1297,6 +1299,7 @@ population and apply against another.
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 | `opinion-votes` | `stamp-opinion-votes` | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `order-votes` | `stamp-order-votes` | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
+| `application-backfill` | `backfill-applications` | `--max-rows` (rows landed, onboarded and enriched together) | two-digit October Term, **required in both modes** | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -1443,8 +1446,8 @@ copy of either looks exactly like a current one. No scored number moves, and
 that is a property of the population rather than a hope: every scored-segment
 cut is gated on a paid serial and these rows are IFP.
 
-**Prerequisites the bench brings along.** Every corpus pass is gated on a
-`dedupe-live-rows --apply` prerequisite that runs first and must succeed: any
+**Prerequisites the bench brings along.** Every pass in the corpus job is gated
+on a `dedupe-live-rows --apply` prerequisite that runs first and must succeed: any
 docket-number spelling that defeats the channels' identity join leaves a twin
 pair, and a pass that reads a row's columns must read the merged row rather than
 one half of a pair. It runs in `dry-run` dispatches too — the ledger a
@@ -1478,7 +1481,7 @@ the runner image rolls, and would fail the pass for a reason that has nothing to
 do with the corpus, so what a recovered text was read by is recorded by the run
 instead of promised by the workflow. An apply refuses where the binaries are
 absent, which is what keeps a failed install from reading as a converged class.
-**Least privilege per pass.** The fourteen corpus passes run in a job holding the
+**Least privilege per pass.** Fourteen of the corpus passes run in the corpus job, holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
@@ -1494,8 +1497,19 @@ the read-only AWS session and the OIDC request token (the job's `prod` binding
 is one the read-write corpus role also trusts), since it reads only the pulled
 local index, and it checks both before it runs. That
 separates the token from the stamper in time, not by a process boundary: both
-run as the same user on the same runner. All three jobs commit straight to `main` on the writers'
-rebase-and-backoff push path.
+run as the same user on the same runner. `application-backfill` runs in a
+fourth job, because its two modes sit in different risk classes. Its dry run
+reads the pulled index and fetches from supremecourt.gov with the read-only
+session and the OIDC request token blanked, as the vote stamper does, and takes
+no lock. Its apply takes `corpus-write` for the whole job and the read-write
+role from the step that fetches and lands the rows onward, since the ingest
+mirrors each snapshot to the content store as it writes. It takes no dedupe
+prerequisite: it writes exactly as frontier discovery does, which runs without
+one, and the identity join it shares picks the lowest docket id of a twin pair
+deterministically, while a twin with either half live-polled is live-owned and
+never read. It mints the App token only after
+that step has exited, for the pointer commit. All four jobs commit straight to
+`main` on the writers' rebase-and-backoff push path.
 
 **Ordering between passes is the maintainer's.** Three pairs matter. The
 distribution re-derivation must precede an overhang clear, never follow it in
@@ -1536,6 +1550,47 @@ so it rides the same promotion batch as that reading and is not dispatched
 before it. One pass per dispatch makes each follow-through a second dispatch
 rather than a silent second step, which is the point: the backlog a rewrite
 owes is a maintainer's to schedule.
+
+**The interim-docket back-fill.** `application-backfill` fills one closed
+Term's application docket where the live channel never polled it. Application
+capture started mid-OT2024, at `24A1000`, so below that serial the corpus holds
+CourtListener stubs: a number, a filing date and a court below, with no ask, no
+capital marking, no referral, no disposition and no counsel. Earlier Terms are
+the same shape with no live row at all. The pass is the first slice of the
+interim-docket series back to OT2017, and it runs one Term per dispatch.
+
+- **Enumeration.** It walks the Term's serials from 1 at the live client's
+  pacing. The end is 10 consecutive misses past the highest serial the corpus
+  already stores for the Term. A miss below that serial is a withheld number,
+  listed in the ledger.
+- **The live seam.** Every row goes through the live channel's own code: the
+  docket-number identity join, read once per Term, and `ingest_live_payload`
+  with the application form. So the row, its snapshot, its events and its
+  `last_live_polled` stamp are exactly what a live poll would write, and the
+  row joins the live slice.
+- **Ownership.** A serial whose stored row the live channel already polled is
+  counted and never fetched, so a live-polled row always wins. The ingest stamps
+  that marker, so the control dry run after an apply reads zero.
+- **Refusals.** The apply refuses above its bound, and refuses any reading that
+  did not reach the Term's end (a fetch failure, a `--limit`, or the walk's own
+  `--max-run-seconds` deadline), before its first write. So a cut-off reading
+  lands nothing rather than half a Term.
+
+**The apply waits until after the long-conference release.** The statpack's
+interim section counts every application row and pools the parsed substantive
+ones into the interim base rate that interim cells anchor to and are scored
+against. A stub row counts as `unparsed`, so an apply moves OT2024's rows into
+the pool and moves the rate. The OT2024 move is pre-registered in
+`docs/freeze-record.md`. Only the dry run is dispatched before the release.
+
+**Each further Term is its own registration.** Every Term inside the
+base-rate lookback sits in the pool, and each earlier Term holds a thousand or
+more unparsed stubs, so each Term's apply moves the rate by its own amount. The
+command therefore refuses an apply for any Term outside
+`REGISTERED_APPLY_TERMS` (`pipeline/application_backfill.py`), which holds
+OT2024 alone. A further Term joins that set in the same change that appends its
+own freeze-record entry, with a projection read off its dry run. Its dry run
+needs no registration, since reading moves nothing.
 
 **Dispatching.** Dispatch on `main`, in a dead zone between the scheduled
 windows (`run-pull` at `:17` and `:47`, `run-seed` at `:31`). A *queued* repair
@@ -1668,6 +1723,16 @@ gh workflow run run-repair.yml --ref main \
   -f repair=order-votes -f repair_mode=apply -f repair_bound=<would stamp N>
 gh workflow run run-repair.yml --ref main \
   -f repair=opinion-votes -f repair_mode=dry-run
+
+# The application back-fill names its Term and fetches in both modes, so an
+# apply does not run a dry run first. Its bound is the dry run's "would land N".
+# The apply is post-release (see above). Re-dispatching in `dry-run` after the
+# apply is the control: it must report "would land 0".
+gh workflow run run-repair.yml --ref main \
+  -f repair=application-backfill -f repair_mode=dry-run -f repair_target=24
+gh workflow run run-repair.yml --ref main \
+  -f repair=application-backfill -f repair_mode=apply -f repair_target=24 \
+  -f repair_bound=<would land N>
 ```
 
 **After a pass that removes rows**, let the run's trailing verdict step finish.

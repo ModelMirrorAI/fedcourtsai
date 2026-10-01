@@ -224,6 +224,7 @@ from .ops import (
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import (
+    application_backfill,
     arrival_cut,
     cell_context,
     granted_noted,
@@ -9936,6 +9937,173 @@ def refresh_dockets_cmd(
     # rollback — but it must not read as a clean pass in a run summary.
     for failure in rep.walk.failed:
         typer.echo(f"::warning::refresh-dockets could not serve a named docket: {failure}")
+
+
+@app.command("backfill-applications")
+def backfill_applications_cmd(
+    term: Annotated[
+        list[int] | None,
+        typer.Option(
+            "--term",
+            help="Two-digit October Term whose applications to enumerate; repeatable. Default: 24.",
+        ),
+    ] = None,
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Land the rows; omit for a dry-run ledger."),
+    ] = False,
+    max_rows: Annotated[
+        int | None,
+        typer.Option(
+            "--max-rows",
+            help="Blast-radius bound, required with --apply: refuse to land more rows "
+            "than this (onboarded and enriched together).",
+        ),
+    ] = None,
+    end_misses: Annotated[
+        int,
+        typer.Option(
+            "--end-misses",
+            help="Consecutive misses past the highest stored serial that mark a Term's "
+            "last application.",
+        ),
+    ] = application_backfill.DEFAULT_END_MISSES,
+    limit: Annotated[
+        int | None,
+        typer.Option("--limit", help="Stop after this many docket fetches (a sampled read)."),
+    ] = None,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Dry run only: keep fetched docket JSON here and re-read it from here (a "
+            "dev cache read without host scoping, refused with --apply)."
+        ),
+    ] = None,
+    out: Annotated[
+        Path | None,
+        typer.Option("--out", help="Also write the ledger as JSON here."),
+    ] = None,
+    max_run_seconds: Annotated[
+        int | None,
+        typer.Option(
+            "--max-run-seconds",
+            help="Stop the walk after this many seconds, printing what was read; an apply "
+            "refuses a walk stopped short.",
+        ),
+    ] = None,
+) -> None:
+    """Back-fill a closed Term's interim applications the live channel never polled.
+
+    Enumerates each Term's application serials from 1 (`24A1`, `24A2`, ...) and
+    fetches every one whose stored row the live channel does not own, at the
+    live client's pacing. A serial whose row carries `last_live_polled` is
+    counted and never fetched, so a live-polled row always wins. The Term's end
+    is `--end-misses` consecutive misses past the highest serial the corpus
+    already stores for it; a miss below that is a withheld serial, listed.
+
+    Each served record is read through the live channel's own seam: identity by
+    the docket-number join (the stored stub row, else the reserved-range mint),
+    and on `--apply` `ingest_live_payload` with the application form, so the
+    row, its dated snapshot, its events and its `last_live_polled` stamp are the
+    ones a live poll would have written. The ledger counts what would land by
+    `application_kind`, capital and referred, and lists each row. A record
+    served under a different docket number, or a row whose open event carries a
+    committed prediction, is held back.
+
+    Idempotent: a landed row is live-owned, so the control dry run after an
+    apply reads zero. `--apply` requires `--max-rows`, refuses above it and
+    refuses any reading that did not reach every Term's end (a fetch failure,
+    `--limit` or `--max-run-seconds`), before its first write. It is a
+    corpus write and moves the interim base-rate population, so the apply runs
+    on run-repair's `application-backfill` pass; a dev checkout over a pulled
+    corpus produces the dry run. Terms at or after the current docket Term are
+    refused: that stream is frontier discovery's. An apply is refused for a
+    Term outside `REGISTERED_APPLY_TERMS` (OT2024 only): each Term's apply moves
+    the interim base rate by its own amount, so each needs its own
+    freeze-record entry first.
+    """
+    settings = get_settings()
+    terms = list(term or application_backfill.DEFAULT_TERMS)
+    if apply and max_rows is None:
+        typer.echo(
+            "backfill-applications: --apply requires an explicit --max-rows. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if apply and cache_dir is not None:
+        typer.echo(
+            "backfill-applications: --cache-dir is a dev cache read without host scoping; "
+            "an apply fetches upstream.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if (
+        end_misses < 1
+        or (limit is not None and limit < 1)
+        or (max_rows is not None and max_rows < 1)
+        or (max_run_seconds is not None and max_run_seconds < 1)
+    ):
+        typer.echo(
+            "backfill-applications: --end-misses, --limit, --max-rows and --max-run-seconds "
+            "must be positive.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    live_cfg = load_live_config(settings.config_root)
+    today = datetime.now(UTC).date()
+    current = current_docket_term(today)
+    floor = live_cfg.term_floor_year % 100
+    unreachable = [t for t in terms if not floor <= t < current]
+    if unreachable:
+        typer.echo(
+            f"backfill-applications: Term(s) {unreachable} out of reach — the pass reads "
+            f"closed Terms from the live floor (OT{live_cfg.term_floor_year}) to the one "
+            f"before the current docket Term ({current:02d}), whose stream is frontier "
+            "discovery's.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    unregistered = sorted(set(terms) - application_backfill.REGISTERED_APPLY_TERMS)
+    if apply and unregistered:
+        typer.echo(
+            f"backfill-applications: no pre-registered apply for Term(s) {unregistered}. Each "
+            "Term's apply moves the pooled interim base rate, so it needs its own "
+            "docs/freeze-record.md entry and a place in REGISTERED_APPLY_TERMS first; a dry run "
+            "reads it.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before back-filling applications.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cache = None if cache_dir is None else application_backfill.DocketCache(cache_dir)
+    with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
+        result = application_backfill.backfill_applications(
+            client,
+            db_path,
+            settings.data_root,
+            terms,
+            today=today,
+            apply=apply,
+            max_rows=max_rows,
+            end_misses=end_misses,
+            limit=limit,
+            cache=cache,
+            deadline=None if max_run_seconds is None else time.monotonic() + max_run_seconds,
+        )
+    if result.applied:
+        _ensure_corpus_layout(db_path)
+    if out is not None:
+        write_json(out, result)
+    typer.echo(application_backfill.render_ledger(result, max_rows=max_rows))
+    if result.refused or result.failures:
+        raise typer.Exit(code=1)
 
 
 @app.command("historical-terms")

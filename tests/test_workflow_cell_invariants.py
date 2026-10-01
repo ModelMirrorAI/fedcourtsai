@@ -1930,6 +1930,12 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         "Stamp vote records",
         ("AWS credential variables reached", "OIDC token minting is reachable"),
     ),
+    (
+        "applications",
+        "Read the application back-fill ledger",
+        ("AWS credential variables reached", "OIDC token minting is reachable"),
+    ),
+    ("applications", "Back-fill the applications", ()),
 )
 
 
@@ -4360,4 +4366,68 @@ def test_the_vote_stamper_runs_with_the_aws_session_blanked() -> None:
         "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
     ):
         assert env.get(key) == "", f"{key} is not blanked on the stamp step"
+    assert "GH_TOKEN" not in env
+
+
+def _application_steps() -> list[dict[str, Any]]:
+    steps = _load("run-repair.yml")["jobs"]["applications"]["steps"]
+    assert isinstance(steps, list)
+    return steps
+
+
+def test_the_application_backfill_holds_the_lock_and_write_credentials_on_an_apply_only() -> None:
+    """A dry run is a read: no lock, no write role, no App token.
+
+    The back-fill's dry run fetches a Term's worth of dockets, so it must not
+    hold `corpus-write` (a queued production window would be evicted behind it)
+    and must hold nothing that writes. The apply takes the lock for the whole
+    job, the read-write role for the write step, and mints the App token only
+    after that step has exited.
+    """
+    job = _load("run-repair.yml")["jobs"]["applications"]
+    group = _norm(str(job["concurrency"]["group"]))
+    assert "inputs.repair_mode == 'apply' && 'corpus-write'" in group
+    steps = _application_steps()
+    names = [str(s.get("name", s.get("uses", ""))) for s in steps]
+    write = names.index("Back-fill the applications")
+    apply_only = (
+        "Configure AWS credentials (corpus S3 remote, read-write)",
+        "Back-fill the applications",
+        "Mint app token",
+        "Configure git identity",
+        "Commit the back-filled corpus",
+    )
+    for name in apply_only:
+        step = steps[names.index(name)]
+        assert _norm(str(step.get("if", ""))) == "${{ inputs.repair_mode == 'apply' }}", (
+            f"{name!r} is not gated to an apply"
+        )
+    for name in ("Mint app token", "Configure git identity", "Commit the back-filled corpus"):
+        assert names.index(name) > write, f"{name!r} runs before the write step exits"
+    token_steps = [
+        n for n, s in zip(names, steps, strict=True) if "steps.app-token" in yaml.safe_dump(s)
+    ]
+    assert set(token_steps) == {"Configure git identity", "Commit the back-filled corpus"}
+    roles = [
+        n for n, s in zip(names, steps, strict=True) if "AWS_ROLE_TO_ASSUME }}" in yaml.safe_dump(s)
+    ]
+    assert roles == ["Configure AWS credentials (corpus S3 remote, read-write)"]
+
+
+def test_the_application_backfill_dry_run_runs_with_the_aws_session_blanked() -> None:
+    """The dry run fetches upstream with no AWS session and no way to mint one."""
+    (read,) = [
+        s for s in _application_steps() if s.get("name") == "Read the application back-fill ledger"
+    ]
+    assert _norm(str(read.get("if", ""))) == "${{ inputs.repair_mode == 'dry-run' }}"
+    env = read.get("env", {})
+    assert "OIDC token minting is reachable" in str(read["run"])
+    for key in (
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+    ):
+        assert env.get(key) == "", f"{key} is not blanked on the dry-run step"
     assert "GH_TOKEN" not in env
