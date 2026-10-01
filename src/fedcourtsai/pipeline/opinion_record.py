@@ -318,7 +318,6 @@ class _Notes:
     """
 
     dropping: bool = False
-    problems: list[str] = field(default_factory=list)
 
     def assign(self, lines: Iterable[str], current: Section | None, starts: list[Section]) -> None:
         pending = list(starts)
@@ -326,8 +325,6 @@ class _Notes:
         page = [line for line in lines if line.strip()]
         ones = sum(1 for line in page if (m := _NUMBER_MARK_RE.match(line)) and m.group(1) == "1")
         for raw in page:
-            if not raw.strip():
-                continue
             line = raw
             symbol = _SYMBOL_MARK_RE.match(line)
             number = _NUMBER_MARK_RE.match(line)
@@ -411,7 +408,7 @@ def split_slip(pages: Sequence[str], *, bench: Sequence[str]) -> tuple[list[Sect
         sections[-1].body.extend(line for line in body if line.strip())
         if rule is not None:
             notes.assign(content[rule + 1 :], sections[-1], [])
-    return sections, [*problems, *notes.problems]
+    return sections, problems
 
 
 # --- the preliminary print ------------------------------------------------------
@@ -543,7 +540,7 @@ def split_print(
             if sections:
                 sections[-1].body.append(line.text)
         notes.assign((line.text for line in small), current, opened)
-    return sections, notes.problems
+    return sections, []
 
 
 # --- reading a document ------------------------------------------------------------
