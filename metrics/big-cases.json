@@ -1,14 +1,14 @@
 {
-  "cases": 213,
+  "cases": 218,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
     {
-      "cases": 188,
+      "cases": 192,
       "n": 3
     },
     {
-      "cases": 23,
+      "cases": 24,
       "n": 2
     },
     {
@@ -16,8 +16,8 @@
       "n": 1
     }
   ],
-  "current_reads": 638,
-  "declared_no_view": 6,
+  "current_reads": 653,
+  "declared_no_view": 7,
   "frozen_process": {
     "digests": [
       "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
@@ -1483,6 +1483,124 @@
       "score_min": 0.9,
       "score_range": 0.05,
       "short_caption": "Trump v. Thakur",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Department of Homeland Security",
+      "caption": "Department of Homeland Security, et al. v. D. V. D., et al.",
+      "caption_event_id": "evt-order-judgment",
+      "case_id": "scotus/9026000426",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A headline executive-power immigration case: the lawfulness of third-country removals of thousands of noncitizens with final orders, the reach of 1252(f)(1) to classwide declaratory relief and APA vacatur (reserved in Aleman Gonzalez and Biden v. Texas), and the due process owed before removal to a country like South Sudan; granted on a stay application and expedited to December, with three Justices already noting they would deny the stay.",
+          "big_case_score": 0.9,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "National stakes for third-country removals, protection against persecution and torture, and the availability of classwide judicial remedies against immigration policies.",
+          "big_case_score": 0.92,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "Major immigration case involving nationwide vacatur of DHS guidance, expedited for argument, with a 6-3 split on the stay.",
+          "big_case_score": 0.95,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20260930T191800Z"
+        }
+      ],
+      "docket_id": 9026000426,
+      "docket_number": "26-426",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-426.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A headline executive-power immigration case: the lawfulness of third-country removals of thousands of noncitizens with final orders, the reach of 1252(f)(1) to classwide declaratory relief and APA vacatur (reserved in Aleman Gonzalez and Biden v. Texas), and the due process owed before removal to a country like South Sudan; granted on a stay application and expedited to December, with three Justices already noting they would deny the stay.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000426/events/evt-order-judgment/predictions/claude-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-order-judgment/predictions/claude-baseline/20260930T191800Z",
+              "confidence": 0.75,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.87,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "National stakes for third-country removals, protection against persecution and torture, and the availability of classwide judicial remedies against immigration policies.",
+              "big_case_score": 0.92,
+              "cell_path": "data/cases/scotus/9026000426/events/evt-order-judgment/predictions/codex-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-order-judgment/predictions/codex-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "Major immigration case involving nationwide vacatur of DHS guidance, expedited for argument, with a 6-3 split on the stay.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000426/events/evt-order-judgment/predictions/gemini-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-order-judgment/predictions/gemini-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.9,
+              "run_id": "20260930T191800Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Department of Homeland Security, et al. v. D. V. D., et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.9233,
+      "moment": "evt-order-judgment",
+      "moment_opened_at": "2026-09-29",
+      "n": 3,
+      "other_party": "D. V. D.",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "The Department of Homeland Security wins in the Court; the lower court's decision is overturned, and any remaining issues go back to it.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "D. V. D. wins in the Court; the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to it, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "score_max": 0.95,
+      "score_min": 0.9,
+      "score_range": 0.05,
+      "short_caption": "Department of Homeland Security v. D. V. D.",
       "status": "pending"
     },
     {
@@ -4113,119 +4231,6 @@
       "status": "resolved"
     },
     {
-      "asking_declined": null,
-      "asking_party": "Google",
-      "caption": "Google LLC v. VirtaMove, Corp., et al.",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/73265705",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Marquee challenge to the PTO's 'settled expectations' discretionary IPR-denial regime and to the reviewability of institution denials; a decision would reshape post-AIA patent practice and agency-discretion doctrine, with Google, the SG, and broad industry amici engaged.",
-          "big_case_score": 0.72,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "run_id": "20260717T180352Z"
-        },
-        {
-          "big_case_rationale": "A merits ruling could reshape access to inter partes review for older patents and define judicial oversight of agency discretion, with nationwide consequences for patent litigation and administrative law.",
-          "big_case_score": 0.78,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "run_id": "20260717T214313Z"
-        },
-        {
-          "big_case_rationale": "High-stakes administrative and patent law question regarding the PTO's authority to deny IPRs based on 'settled expectations,' backed by seven cert-stage amicus briefs across tech, pharma, and academia.",
-          "big_case_score": 0.9,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "run_id": "20260717T180352Z"
-        }
-      ],
-      "docket_id": 73265705,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Marquee challenge to the PTO's 'settled expectations' discretionary IPR-denial regime and to the reviewability of institution denials; a decision would reshape post-AIA patent practice and agency-discretion doctrine, with Google, the SG, and broad industry amici engaged.",
-              "big_case_score": 0.72,
-              "cell_path": "data/cases/scotus/73265705/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73265705/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "confidence": 0.6,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.3,
-              "run_id": "20260717T180352Z"
-            },
-            {
-              "big_case_rationale": "A merits ruling could reshape access to inter partes review for older patents and define judicial oversight of agency discretion, with nationwide consequences for patent litigation and administrative law.",
-              "big_case_score": 0.78,
-              "cell_path": "data/cases/scotus/73265705/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73265705/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "confidence": 0.68,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.22,
-              "run_id": "20260717T214313Z"
-            },
-            {
-              "big_case_rationale": "High-stakes administrative and patent law question regarding the PTO's authority to deny IPRs based on 'settled expectations,' backed by seven cert-stage amicus briefs across tech, pharma, and academia.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/73265705/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73265705/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260717T180352Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Google LLC v. VirtaMove, Corp., et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.8,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-04-29",
-      "n": 3,
-      "other_party": "VirtaMove",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Google's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Google's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.9,
-      "score_min": 0.72,
-      "score_range": 0.18,
-      "short_caption": "Google v. VirtaMove",
-      "status": "pending"
-    },
-    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Philip L. Rhoney, Acting Director of the Buffalo Field Office of U.S. Immigration and Customs Enforcement v. Ricardo Aparecido Barbosa da Cunha",
@@ -5501,6 +5506,119 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "A. A.",
+      "caption": "A. A., et al. v. Joshua Mast, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000164",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A decision on whether nonparent caretakers hold a procedural-due-process liberty interest before an adoption is entered would reach kinship and foster placements nationwide, and the underlying Afghan-orphan dispute has drawn sustained national and international press; the stakes are high whether the petition is granted or denied.",
+          "big_case_score": 0.7,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "The scope of procedural protection for nonparent caregivers has substantial family-law consequences. An Afghan child's contested adoption also implicates cross-border guardianship and US military and diplomatic interests; these stakes are distinct from this petition's vehicle problems.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "High-profile international adoption dispute involving an Afghan war orphan, allegations of fraud by U.S. Marines, and significant amicus interest (6 cert-stage briefs).",
+          "big_case_score": 0.85,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20260930T191800Z"
+        }
+      ],
+      "docket_id": 9026000164,
+      "docket_number": "26-164",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-164.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A decision on whether nonparent caretakers hold a procedural-due-process liberty interest before an adoption is entered would reach kinship and foster placements nationwide, and the underlying Afghan-orphan dispute has drawn sustained national and international press; the stakes are high whether the petition is granted or denied.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9026000164/events/evt-petition-disposition/predictions/claude-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000164/events/evt-petition-disposition/predictions/claude-baseline/20260930T191800Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.29,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "The scope of procedural protection for nonparent caregivers has substantial family-law consequences. An Afghan child's contested adoption also implicates cross-border guardianship and US military and diplomatic interests; these stakes are distinct from this petition's vehicle problems.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000164/events/evt-petition-disposition/predictions/codex-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000164/events/evt-petition-disposition/predictions/codex-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.16,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "High-profile international adoption dispute involving an Afghan war orphan, allegations of fraud by U.S. Marines, and significant amicus interest (6 cert-stage briefs).",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000164/events/evt-petition-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000164/events/evt-petition-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.45,
+              "run_id": "20260930T191800Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "A. A., et al. v. Joshua Mast, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7567,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-05",
+      "n": 3,
+      "other_party": "Mast",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up A. A.'s case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "A. A.'s petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.85,
+      "score_min": 0.7,
+      "score_range": 0.15,
+      "short_caption": "A. A. v. Mast",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Roybal",
       "caption": "Joseph J. Roybal, Sheriff, El Paso County, Colorado, et al. v. Darlene Griffith",
       "caption_event_id": "evt-order-cvsg-disposition",
@@ -5940,6 +6058,119 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Wilcox",
+      "caption": "Gwynne A. Wilcox v. Donald J. Trump, President of the United States, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000005",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "If decided on the merits it would settle whether the NLRB, the labor-law adjudicator for the private sector, keeps any tenure protection after Slaughter; closely watched and stayed once by the Court itself, but the doctrinal question Slaughter left is narrow (an adjudicatory-body carve-out) and the outcome is largely foreordained.",
+          "big_case_score": 0.5,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "Presidential control of the NLRB implicates the independence of national labor adjudication and the separation of powers. A decision could affect employers, workers, unions, and other adjudicatory agencies, even though an intervening precedent reduces the need for another plenary case.",
+          "big_case_score": 0.88,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": 0.85,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20260930T191800Z"
+        }
+      ],
+      "docket_id": 9026000005,
+      "docket_number": "26-5",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-5.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "If decided on the merits it would settle whether the NLRB, the labor-law adjudicator for the private sector, keeps any tenure protection after Slaughter; closely watched and stayed once by the Court itself, but the doctrinal question Slaughter left is narrow (an adjudicatory-body carve-out) and the outcome is largely foreordained.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/9026000005/events/evt-petition-disposition/predictions/claude-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000005/events/evt-petition-disposition/predictions/claude-baseline/20260930T191800Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.08,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "Presidential control of the NLRB implicates the independence of national labor adjudication and the separation of powers. A decision could affect employers, workers, unions, and other adjudicatory agencies, even though an intervening precedent reduces the need for another plenary case.",
+              "big_case_score": 0.88,
+              "cell_path": "data/cases/scotus/9026000005/events/evt-petition-disposition/predictions/codex-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000005/events/evt-petition-disposition/predictions/codex-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.12,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000005/events/evt-petition-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000005/events/evt-petition-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.02,
+              "run_id": "20260930T191800Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Gwynne A. Wilcox v. Donald J. Trump, President of the United States, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7433,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-01",
+      "n": 3,
+      "other_party": "Trump",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Wilcox's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Wilcox's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.88,
+      "score_min": 0.5,
+      "score_range": 0.38,
+      "short_caption": "Wilcox v. Trump",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Youth 71Five Ministries",
       "caption": "Youth 71Five Ministries v. Charlene Williams, Individually and as Director of Oregon Department of Education, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -6213,6 +6444,169 @@
       "score_range": 0.25,
       "short_caption": "GEO Group v. Nwauzor",
       "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Nelsen",
+      "caption": "Kenneth Nelsen, Warden v. Christa Gail Pike",
+      "caption_event_id": "evt-brief-response-disposition",
+      "case_id": "scotus/9526000428",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "High public salience (a capital case drawing national coverage, the first execution of a woman in Tennessee in two centuries, a published 2-1 circuit stay) but doctrinally routine: a shadow-docket vacatur under Hill/Gonzalez with at most a short dissent, settling no open legal question.",
+          "big_case_score": 0.45,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20260930T212944Z"
+        },
+        {
+          "big_case_rationale": "Immediate life-or-death consequences in a capital case, with disputed childhood-abuse mitigation and the integrity of federal habeas review at issue. Very high individual and public stakes, although a short interim order need not establish a broad new rule.",
+          "big_case_score": 0.85,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20260930T212944Z"
+        },
+        {
+          "big_case_rationale": "Capital case stay vacatur application; high stakes as it determines if an execution proceeds.",
+          "big_case_score": 0.85,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20260930T212944Z"
+        }
+      ],
+      "docket_id": 9526000428,
+      "docket_number": "26A428",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a428.html",
+      "events": [
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-brief-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "High public salience (a capital case drawing national coverage, the first execution of a woman in Tennessee in two centuries, a published 2-1 circuit stay) but doctrinally routine: a shadow-docket vacatur under Hill/Gonzalez with at most a short dissent, settling no open legal question.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9526000428/events/evt-brief-response-disposition/predictions/claude-baseline/20260930T212944Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000428/events/evt-brief-response-disposition/predictions/claude-baseline/20260930T212944Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.78,
+              "run_id": "20260930T212944Z"
+            },
+            {
+              "big_case_rationale": "Immediate life-or-death consequences in a capital case, with disputed childhood-abuse mitigation and the integrity of federal habeas review at issue. Very high individual and public stakes, although a short interim order need not establish a broad new rule.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9526000428/events/evt-brief-response-disposition/predictions/codex-baseline/20260930T212944Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000428/events/evt-brief-response-disposition/predictions/codex-baseline/20260930T212944Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.78,
+              "run_id": "20260930T212944Z"
+            },
+            {
+              "big_case_rationale": "Capital case stay vacatur application; high stakes as it determines if an execution proceeds.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9526000428/events/evt-brief-response-disposition/predictions/gemini-baseline/20260930T212944Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000428/events/evt-brief-response-disposition/predictions/gemini-baseline/20260930T212944Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.9,
+              "run_id": "20260930T212944Z"
+            }
+          ],
+          "resolved_at": "2026-09-30",
+          "title": "Kenneth Nelsen, Warden v. Christa Gail Pike"
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A state's same-day application to vacate a federal stay of a capital sentence; Pike is Tennessee's only woman on death row and would be the first woman executed there in roughly two centuries, so press attention is national, but the legal question (whether a Rule 60(b) motion is a disguised successive petition) is narrow and settled by Gonzalez v. Crosby.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9526000428/events/evt-motion-disposition/predictions/claude-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000428/events/evt-motion-disposition/predictions/claude-baseline/20260930T191800Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.72,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "An execution-day application determines whether an existing stay protecting a prisoner's life remains in force. Immediate stakes and public significance are high, although the apparent Rule 60(b) issue is narrow rather than a broad doctrinal vehicle.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9526000428/events/evt-motion-disposition/predictions/codex-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000428/events/evt-motion-disposition/predictions/codex-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.82,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9526000428/events/evt-motion-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000428/events/evt-motion-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.7,
+              "run_id": "20260930T191800Z"
+            }
+          ],
+          "resolved_at": "2026-09-30",
+          "title": "Kenneth Nelsen, Warden v. Christa Gail Pike"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7167,
+      "moment": "evt-brief-response-disposition",
+      "moment_opened_at": "2026-09-30",
+      "n": 3,
+      "other_party": "Christa Gail Pike",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Nelsen gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Nelsen does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.85,
+      "score_min": 0.45,
+      "score_range": 0.4,
+      "short_caption": "Nelsen v. Christa Gail Pike",
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -12202,6 +12596,119 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Google",
+      "caption": "Google LLC v. VirtaMove, Corp., et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73265705",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Whether the PTO may effectively bar inter partes review of patents over six years old, and whether any court can review that policy, reshapes the AIA review system for the whole patent bar and raises a Loper Bright-era agency-discretion question; large for patent and administrative law, modest for the general public.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "Review could materially affect access to administrative patent-validity challenges across technology and pharmaceutical markets, and the judicial supervision of agency discretion. The dispute has substantial cross-industry stakes but is a specialized patent-procedure case.",
+          "big_case_score": 0.67,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "A challenge to the PTO's non-statutory grounds for denying IPR institution, significant for tech patent litigation but limited by 314(d)'s strong bar on judicial review.",
+          "big_case_score": 0.4,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20260930T191800Z"
+        }
+      ],
+      "docket_id": 73265705,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Whether the PTO may effectively bar inter partes review of patents over six years old, and whether any court can review that policy, reshapes the AIA review system for the whole patent bar and raises a Loper Bright-era agency-discretion question; large for patent and administrative law, modest for the general public.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73265705/events/evt-petition-disposition/predictions/claude-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73265705/events/evt-petition-disposition/predictions/claude-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.3,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "Review could materially affect access to administrative patent-validity challenges across technology and pharmaceutical markets, and the judicial supervision of agency discretion. The dispute has substantial cross-industry stakes but is a specialized patent-procedure case.",
+              "big_case_score": 0.67,
+              "cell_path": "data/cases/scotus/73265705/events/evt-petition-disposition/predictions/codex-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73265705/events/evt-petition-disposition/predictions/codex-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.16,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "A challenge to the PTO's non-statutory grounds for denying IPR institution, significant for tech patent litigation but limited by 314(d)'s strong bar on judicial review.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/73265705/events/evt-petition-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73265705/events/evt-petition-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.12,
+              "run_id": "20260930T191800Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Google LLC v. VirtaMove, Corp., et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.54,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-04-29",
+      "n": 3,
+      "other_party": "VirtaMove",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Google's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Google's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.67,
+      "score_min": 0.4,
+      "score_range": 0.27,
+      "short_caption": "Google v. VirtaMove",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Nexstar Media Group",
       "caption": "Nexstar Media Group, Inc., et al. v. DirecTV, LLC",
       "caption_event_id": "evt-petition-disposition",
@@ -13760,119 +14267,6 @@
       "score_min": 0.4,
       "score_range": 0.22,
       "short_caption": null,
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Hastings College Conservation Committee",
-      "caption": "Hastings College Conservation Committee, et al. v. California, et al.",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/73266074",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Culturally salient UC Hastings renaming dispute; a merits ruling would be the first bill-of-attainder decision in four decades and reshape reserved-powers/Contract Clause limits on public-private deals, but the immediate stakes are one college's name and a board seat.",
-          "big_case_score": 0.45,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "run_id": "20260717T180352Z"
-        },
-        {
-          "big_case_rationale": "A merits decision could shape state contracting power and constitutional limits on legislatures' treatment of disputed historical wrongdoing.",
-          "big_case_score": 0.66,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "run_id": "20260717T214313Z"
-        },
-        {
-          "big_case_rationale": "High cultural resonance regarding institutional renaming, but legally idiosyncratic and narrow.",
-          "big_case_score": 0.35,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "run_id": "20260717T180352Z"
-        }
-      ],
-      "docket_id": 73266074,
-      "docket_number": "25-1231",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1231.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Culturally salient UC Hastings renaming dispute; a merits ruling would be the first bill-of-attainder decision in four decades and reshape reserved-powers/Contract Clause limits on public-private deals, but the immediate stakes are one college's name and a board seat.",
-              "big_case_score": 0.45,
-              "cell_path": "data/cases/scotus/73266074/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73266074/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "confidence": 0.6,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.07,
-              "run_id": "20260717T180352Z"
-            },
-            {
-              "big_case_rationale": "A merits decision could shape state contracting power and constitutional limits on legislatures' treatment of disputed historical wrongdoing.",
-              "big_case_score": 0.66,
-              "cell_path": "data/cases/scotus/73266074/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73266074/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "confidence": 0.72,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.14,
-              "run_id": "20260717T214313Z"
-            },
-            {
-              "big_case_rationale": "High cultural resonance regarding institutional renaming, but legally idiosyncratic and narrow.",
-              "big_case_score": 0.35,
-              "cell_path": "data/cases/scotus/73266074/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73266074/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.05,
-              "run_id": "20260717T180352Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Hastings College Conservation Committee, et al. v. California, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.4867,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-04-29",
-      "n": 3,
-      "other_party": "California",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up the Hastings College Conservation Committee's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "The Hastings College Conservation Committee's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.66,
-      "score_min": 0.35,
-      "score_range": 0.31,
-      "short_caption": "Hastings College Conservation Committee v. California",
       "status": "pending"
     },
     {
@@ -15961,6 +16355,119 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Hastings College Conservation Committee",
+      "caption": "Hastings College Conservation Committee, et al. v. California, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73266074",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A novel Bill of Attainder Clause theory and a Contract Clause reserved-powers question, but a fact-bound dispute over one law school's name and one hereditary board seat, with no amicus support; regionally newsworthy rather than nationally consequential.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "Potentially consequential limits on state repudiation of donor arrangements and legislative punishment, with cultural salience from a public law school's renaming; the unusual founding statute and preservation disputes constrain broader reach.",
+          "big_case_score": 0.46,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "High-profile cultural issue regarding the renaming of a major public law school, but localized entirely to California and unlikely to shift national precedent.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20260930T191800Z"
+        }
+      ],
+      "docket_id": 73266074,
+      "docket_number": "25-1231",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1231.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A novel Bill of Attainder Clause theory and a Contract Clause reserved-powers question, but a fact-bound dispute over one law school's name and one hereditary board seat, with no amicus support; regionally newsworthy rather than nationally consequential.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/73266074/events/evt-petition-disposition/predictions/claude-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73266074/events/evt-petition-disposition/predictions/claude-baseline/20260930T191800Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.08,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "Potentially consequential limits on state repudiation of donor arrangements and legislative punishment, with cultural salience from a public law school's renaming; the unusual founding statute and preservation disputes constrain broader reach.",
+              "big_case_score": 0.46,
+              "cell_path": "data/cases/scotus/73266074/events/evt-petition-disposition/predictions/codex-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73266074/events/evt-petition-disposition/predictions/codex-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.08,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "High-profile cultural issue regarding the renaming of a major public law school, but localized entirely to California and unlikely to shift national precedent.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73266074/events/evt-petition-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73266074/events/evt-petition-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.03,
+              "run_id": "20260930T191800Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Hastings College Conservation Committee, et al. v. California, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.37,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-04-29",
+      "n": 3,
+      "other_party": "California",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up the Hastings College Conservation Committee's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "The Hastings College Conservation Committee's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.46,
+      "score_min": 0.3,
+      "score_range": 0.16,
+      "short_caption": "Hastings College Conservation Committee v. California",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "PG Publishing",
       "caption": "PG Publishing Company, Inc., dba Pittsburgh Post-Gazette v. National Labor Relations Board, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -16905,6 +17412,119 @@
       "score_min": 0.2,
       "score_range": 0.28,
       "short_caption": "Hughes v. Locure",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Allen",
+      "caption": "Frederick L. Allen, et al. v. Joshua Stein, Governor of North Carolina, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000114",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A recurring but technical appellate-jurisdiction question (the scope of pendent appellate jurisdiction after Swint); the Blackbeard-shipwreck backstory and a second trip to the Court add newsworthiness, but the stakes for the law are procedural rather than substantive.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "The scope of pendent appellate jurisdiction affects interlocutory litigation nationwide, but this petition presents a technical procedural question in unusually tangled copyright and sovereign-immunity litigation, not a direct reconsideration of copyright immunity.",
+          "big_case_score": 0.42,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20260930T191800Z"
+        }
+      ],
+      "docket_id": 9026000114,
+      "docket_number": "26-114",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-114.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring but technical appellate-jurisdiction question (the scope of pendent appellate jurisdiction after Swint); the Blackbeard-shipwreck backstory and a second trip to the Court add newsworthiness, but the stakes for the law are procedural rather than substantive.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000114/events/evt-petition-disposition/predictions/claude-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000114/events/evt-petition-disposition/predictions/claude-baseline/20260930T191800Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.13,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "The scope of pendent appellate jurisdiction affects interlocutory litigation nationwide, but this petition presents a technical procedural question in unusually tangled copyright and sovereign-immunity litigation, not a direct reconsideration of copyright immunity.",
+              "big_case_score": 0.42,
+              "cell_path": "data/cases/scotus/9026000114/events/evt-petition-disposition/predictions/codex-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000114/events/evt-petition-disposition/predictions/codex-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.16,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000114/events/evt-petition-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000114/events/evt-petition-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.25,
+              "run_id": "20260930T191800Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Frederick L. Allen, et al. v. Joshua Stein, Governor of North Carolina, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.34,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-24",
+      "n": 3,
+      "other_party": "Stein",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Allen's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Allen's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.42,
+      "score_min": 0.3,
+      "score_range": 0.12,
+      "short_caption": "Allen v. Stein",
       "status": "pending"
     },
     {
@@ -24949,6 +25569,119 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Watkins",
+      "caption": "Allen Watkins v. United States District Court for District of Arizona",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/73279700",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A pro se stay application against a federal district court (a mandamus posture out of the Ninth Circuit) with no counsel, no amici and no identifiable public stake; whatever the disposition, it affects one litigant.",
+          "big_case_score": 0.02,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "The snapshot identifies a stay application but supplies neither its underlying dispute nor the relief's practical reach, so its stakes cannot be placed reliably.",
+          "big_case_score": null,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20260930T191800Z"
+        },
+        {
+          "big_case_rationale": "Pro se application against a district court, lacking any indicia of national importance or legal significance.",
+          "big_case_score": 0.05,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20260930T191800Z"
+        }
+      ],
+      "docket_id": 73279700,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A pro se stay application against a federal district court (a mandamus posture out of the Ninth Circuit) with no counsel, no amici and no identifiable public stake; whatever the disposition, it affects one litigant.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/73279700/events/evt-motion-disposition/predictions/claude-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279700/events/evt-motion-disposition/predictions/claude-baseline/20260930T191800Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "The snapshot identifies a stay application but supplies neither its underlying dispute nor the relief's practical reach, so its stakes cannot be placed reliably.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73279700/events/evt-motion-disposition/predictions/codex-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279700/events/evt-motion-disposition/predictions/codex-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.04,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "Pro se application against a district court, lacking any indicia of national importance or legal significance.",
+              "big_case_score": 0.05,
+              "cell_path": "data/cases/scotus/73279700/events/evt-motion-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279700/events/evt-motion-disposition/predictions/gemini-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20260930T191800Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Allen Watkins v. United States District Court for District of Arizona"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.035,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2025-11-25",
+      "n": 2,
+      "other_party": "United States District Court",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Watkins gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Watkins does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.05,
+      "score_min": 0.02,
+      "score_range": 0.03,
+      "short_caption": "Watkins v. United States District Court",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Perkins",
       "caption": "Cassandra Perkins v. United States District Court for the Northern District of Georgia, et al.",
       "caption_event_id": "evt-motion-disposition",
@@ -25274,119 +26007,6 @@
       "score_range": 0.02,
       "short_caption": null,
       "status": "resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Watkins",
-      "caption": "Allen Watkins v. United States District Court for District of Arizona",
-      "caption_event_id": "evt-motion-disposition",
-      "case_id": "scotus/73279700",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Pro se stay application seeking to halt district-court proceedings in the applicant's own civil litigation; no question of broader legal or public significance.",
-          "big_case_score": 0.02,
-          "event_id": "evt-motion-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "The application concerns severe alleged hardship to one family but presents a highly individualized child-support and licensing dispute with little broader legal significance.",
-          "big_case_score": 0.03,
-          "event_id": "evt-motion-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "Pro se stay application from a state prisoner or civil litigant, pending for nine months without a response requested.",
-          "big_case_score": 0.01,
-          "event_id": "evt-motion-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "run_id": "20260816T111104Z"
-        }
-      ],
-      "docket_id": 73279700,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-motion-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Pro se stay application seeking to halt district-court proceedings in the applicant's own civil litigation; no question of broader legal or public significance.",
-              "big_case_score": 0.02,
-              "cell_path": "data/cases/scotus/73279700/events/evt-motion-disposition/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279700/events/evt-motion-disposition/predictions/claude-baseline/20260816T111104Z",
-              "confidence": 0.8,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.01,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "The application concerns severe alleged hardship to one family but presents a highly individualized child-support and licensing dispute with little broader legal significance.",
-              "big_case_score": 0.03,
-              "cell_path": "data/cases/scotus/73279700/events/evt-motion-disposition/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279700/events/evt-motion-disposition/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.94,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.002,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "Pro se stay application from a state prisoner or civil litigant, pending for nine months without a response requested.",
-              "big_case_score": 0.01,
-              "cell_path": "data/cases/scotus/73279700/events/evt-motion-disposition/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279700/events/evt-motion-disposition/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.01,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Allen Watkins v. United States District Court for District of Arizona"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.02,
-      "moment": "evt-motion-disposition",
-      "moment_opened_at": "2025-11-25",
-      "n": 3,
-      "other_party": "United States District Court",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "Watkins gets the relief requested, for now; the case continues in the lower courts.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Watkins does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.03,
-      "score_min": 0.01,
-      "score_range": 0.02,
-      "short_caption": "Watkins v. United States District Court",
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -25719,5 +26339,5 @@
   ],
   "rows_with_leakage_flag": 2,
   "schema_version": "1.2",
-  "scored_reads": 612
+  "scored_reads": 626
 }
