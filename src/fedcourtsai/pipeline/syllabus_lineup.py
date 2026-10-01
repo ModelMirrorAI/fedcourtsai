@@ -272,7 +272,7 @@ def _joins(text: str, problems: list[str]) -> list[tuple[list[str], str | None]]
     return chunks
 
 
-def _writing_kind(desc: str) -> WritingKind | None:
+def writing_kind(desc: str) -> WritingKind | None:
     """A separate writing's kind from its printed description, or ``None``."""
     lowered = " ".join(desc.lower().replace(",", " ").split())
     words = set(lowered.split())
@@ -611,7 +611,7 @@ def _filed_shape(what: str) -> tuple[WritingKind, bool] | None:
         (_PLURAL_DESC_RE, True),
     ):
         if (found := pattern.match(what)) is not None:
-            kind = _writing_kind(found.group("desc"))
+            kind = writing_kind(found.group("desc"))
             return None if kind is None else (kind, plural)
     return None
 
