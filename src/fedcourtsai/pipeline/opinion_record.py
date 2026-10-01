@@ -76,6 +76,17 @@ versions it was read under.
 
 **Nothing a cell sees reads this.** The table is read by no ``query``
 retrieval row, provisioning step, outcome, mint or scoring gate.
+
+**Split across a credential boundary.** On run-repair the PDF parse runs in a
+job holding no credential: a read-only job writes the documents the table
+already records (:class:`OpinionRecordProjection`); the credential-free job
+fetches and reads every other listed document against it and writes the
+readings (:class:`OpinionRecordPlan`); and on an apply the writer job, holding
+the corpus lock and the read-write role, re-validates every reading
+(:func:`reading_problems`), resolves each case id from the corpus it has just
+pulled, and inserts fill-only (:func:`apply_opinion_record_plan`), fetching
+nothing. In one process — a dev checkout over a pulled corpus — the same
+functions compose as :func:`build_opinion_record`.
 """
 
 from __future__ import annotations
@@ -88,16 +99,17 @@ from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
-from typing import Any, Final, Literal, Protocol
+from typing import Annotated, Any, Final, Literal, Protocol
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from pypdf import PdfReader
 from pypdf.errors import PyPdfError
 
 from .. import corpus
+from ..handoff import HandoffRefused
 from .documents import extract_pdf_text
-from .justices import bench_on, chief_on_bench, resolve_surname
+from .justices import KNOWN_SURNAMES, bench_on, chief_on_bench, resolve_surname
 from .lineup import LEAD_KINDS, Join, Lineup, Writing, WritingKind
 from .opinion_lineups import (
     TEXT_CHAR_CAP,
@@ -106,6 +118,7 @@ from .opinion_lineups import (
 )
 from .order_grammars import normalize_order_text
 from .syllabus_lineup import writing_kind
+from .vote_sources import is_opinion_pdf
 
 #: The word-count rule's name, stamped on every recorded opinion.
 WORD_RULE: Final = "scotus-opinion-words"
@@ -604,12 +617,17 @@ class OpinionDocumentReading(BaseModel):
 _DOCKET_TOKEN_RE = re.compile(r"\b\d{2}-\d+\b|\b\d{2}A\d+\b|\b\d+,\s*Orig\.", re.I)
 
 
-def listed_dockets(entry: OpinionListing) -> list[str]:
-    """Every docket number the listing row's docket cell prints, in order."""
+def printed_dockets(cell: str) -> list[str]:
+    """Every docket number a listing's docket cell prints, in order."""
     return [
         " ".join(m.group(0).split()).upper().replace("ORIG.", "Orig.")
-        for m in _DOCKET_TOKEN_RE.finditer(entry.docket)
+        for m in _DOCKET_TOKEN_RE.finditer(cell)
     ]
+
+
+def listed_dockets(entry: OpinionListing) -> list[str]:
+    """Every docket number the listing row's docket cell prints, in order."""
+    return printed_dockets(entry.docket)
 
 
 def _base(entry: OpinionListing, **fields: Any) -> OpinionDocumentReading:
@@ -854,6 +872,68 @@ class OpinionRecordResult(BaseModel):
     failures: list[str] = Field(default_factory=list, description="Listings that could not be read")
 
 
+def read_opinion_record(
+    fetcher: OpinionSource,
+    *,
+    terms: Sequence[int],
+    recorded: set[tuple[int, str]],
+    dockets: Sequence[str] = (),
+) -> OpinionRecordResult:
+    """Fetch and read every listing row of ``terms`` not in ``recorded``, as a dry run.
+
+    The fetch-and-parse half, which touches no corpus: ``recorded`` is the
+    (Term, listing number) of each document already stored, from the corpus
+    or its projection. Case ids are left unresolved; the caller holding the
+    corpus resolves them.
+    """
+    result = OpinionRecordResult(applied=False, terms=list(terms))
+    wanted = {n for d in dockets if (n := corpus.normalize_docket_number(d)) is not None}
+    for term in terms:
+        try:
+            listing = fetcher.listing(term % 100)
+        except httpx.HTTPError as exc:
+            result.failures.append(f"OT{term}: the opinions listing could not be read: {exc}")
+            continue
+        for entry in listing:
+            printed = {corpus.normalize_docket_number(d) for d in listed_dockets(entry)}
+            if wanted and not wanted & printed:
+                continue
+            result.listed += 1
+            if _row_key(term, entry.number) in recorded:
+                result.already_recorded += 1
+                continue
+            result.readings.append(read_listing_entry(entry, fetcher))
+    result.rows = sum(len(r.opinions) for r in result.readings if r.status == "read")
+    return result
+
+
+def _land(
+    conn: corpus.ReadConnection,
+    result: OpinionRecordResult,
+    *,
+    apply: bool,
+    max_rows: int | None,
+    write: Callable[[list[tuple[OpinionDocumentReading, OpinionEntry]]], int] | None,
+) -> OpinionRecordResult:
+    """Resolve each reading's case id from ``conn``, then insert within the bound."""
+    ids = case_ids_by_docket(conn, (r.dockets[0] for r in result.readings if r.dockets))
+    for reading in result.readings:
+        if reading.dockets:
+            reading.case_id = ids.get(corpus.normalize_docket_number(reading.dockets[0]) or "")
+    pairs = [(r, o) for r in result.readings if r.status == "read" for o in r.opinions]
+    result.rows = len(pairs)
+    result.applied = apply
+    if not apply:
+        return result
+    if max_rows is not None and result.rows > max_rows:
+        result.refused = True
+        result.applied = False
+        return result
+    if write is not None and pairs:
+        result.inserted = write(pairs)
+    return result
+
+
 def build_opinion_record(
     conn: corpus.ReadConnection,
     fetcher: OpinionSource,
@@ -879,39 +959,211 @@ def build_opinion_record(
     """
     if apply and write is None:
         raise ValueError("an apply needs a writer")
-    result = OpinionRecordResult(applied=apply, terms=list(terms))
-    done = recorded_documents(conn)
-    wanted = {n for d in dockets if (n := corpus.normalize_docket_number(d)) is not None}
-    for term in terms:
-        try:
-            listing = fetcher.listing(term % 100)
-        except httpx.HTTPError as exc:
-            result.failures.append(f"OT{term}: the opinions listing could not be read: {exc}")
-            continue
-        for entry in listing:
-            printed = {corpus.normalize_docket_number(d) for d in listed_dockets(entry)}
-            if wanted and not wanted & printed:
-                continue
-            result.listed += 1
-            if _row_key(term, entry.number) in done:
-                result.already_recorded += 1
-                continue
-            result.readings.append(read_listing_entry(entry, fetcher))
-    ids = case_ids_by_docket(conn, (r.dockets[0] for r in result.readings if r.dockets))
-    for reading in result.readings:
-        if reading.dockets:
-            reading.case_id = ids.get(corpus.normalize_docket_number(reading.dockets[0]) or "")
-    pairs = [(r, o) for r in result.readings if r.status == "read" for o in r.opinions]
-    result.rows = len(pairs)
-    if not apply:
-        return result
-    if max_rows is not None and result.rows > max_rows:
-        result.refused = True
-        result.applied = False
-        return result
-    if write is not None and pairs:
-        result.inserted = write(pairs)
-    return result
+    result = read_opinion_record(
+        fetcher, terms=terms, recorded=recorded_documents(conn), dockets=dockets
+    )
+    return _land(conn, result, apply=apply, max_rows=max_rows, write=write)
+
+
+# --- the handoff --------------------------------------------------------------------
+
+#: The largest plan or projection either side accepts, in documents: a Term
+#: lists well under a hundred, and the pass reads six.
+_MAX_DOCUMENTS: Final = 5_000
+_LISTING_NUMBER_RE: Final = re.compile(r"^[0-9A-Za-z][0-9A-Za-z.\-]{0,15}$")
+_STAMP_RE: Final = re.compile(r"^[a-z0-9-]{1,64}/[0-9]{1,4}$")
+_TEXT_CAP: Final = 2_000
+
+
+class RecordedDocument(BaseModel):
+    """One document the table already records, by the Court's own listing key."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    term: int = Field(ge=2000, le=2100)
+    listing_number: str = Field(pattern=_LISTING_NUMBER_RE.pattern)
+
+
+class OpinionRecordProjection(BaseModel):
+    """The one corpus fact the parse needs: which listed documents are already recorded.
+
+    Public: a (Term, listing number) pair is the row key of the Court's own
+    opinions listing, which anyone can read at supremecourt.gov. It says the
+    project has recorded that document, and nothing the document or the
+    corpus holds about it.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    format: Literal["fedcourts/opinion-record-projection"] = "fedcourts/opinion-record-projection"
+    version: Literal[1] = 1
+    terms: list[int] = Field(max_length=100)
+    recorded: list[RecordedDocument] = Field(max_length=_MAX_DOCUMENTS)
+
+
+class OpinionRecordPlan(BaseModel):
+    """What the parse read: the file the writer job applies.
+
+    Public: every field of an :class:`OpinionDocumentReading` is read off the
+    Court's listing or the opinion PDF itself — kind, author, joiners, word
+    counts and the printed header sentence — with ``case_id`` left empty, to be
+    resolved by the writer from its own corpus. The refused rows' reasons
+    quote at most a header's opening words.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    format: Literal["fedcourts/opinion-record-plan"] = "fedcourts/opinion-record-plan"
+    version: Literal[1] = 1
+    terms: list[int] = Field(max_length=100)
+    listed: int = Field(ge=0)
+    already_recorded: int = Field(ge=0)
+    failures: list[
+        Annotated[str, StringConstraints(max_length=500, pattern=r"^[^\x00-\x1f]*$")]
+    ] = Field(max_length=100)
+    readings: list[OpinionDocumentReading] = Field(max_length=_MAX_DOCUMENTS)
+
+
+def opinion_record_projection(
+    conn: corpus.ReadConnection, *, terms: Sequence[int]
+) -> OpinionRecordProjection:
+    """The recorded-documents projection for ``terms``."""
+    wanted = set(terms)
+    return OpinionRecordProjection(
+        terms=list(terms),
+        recorded=[
+            RecordedDocument(term=term, listing_number=number)
+            for term, number in sorted(recorded_documents(conn))
+            if term in wanted
+        ],
+    )
+
+
+def projected_recorded(
+    projection: OpinionRecordProjection, *, terms: Sequence[int]
+) -> set[tuple[int, str]]:
+    """The projection's recorded keys, refused when it was read for other Terms."""
+    if list(projection.terms) != list(terms):
+        raise HandoffRefused(
+            f"the projection was read for Terms {projection.terms}, not {list(terms)}"
+        )
+    return {_row_key(doc.term, doc.listing_number) for doc in projection.recorded}
+
+
+def opinion_record_plan(result: OpinionRecordResult) -> OpinionRecordPlan:
+    """A dry run's readings as the plan a writer job applies (case ids cleared)."""
+    return OpinionRecordPlan(
+        terms=result.terms,
+        listed=result.listed,
+        already_recorded=result.already_recorded,
+        failures=[" ".join(failure.split())[:500] for failure in result.failures[:100]],
+        readings=[r.model_copy(update={"case_id": None}) for r in result.readings],
+    )
+
+
+def _names_problem(names: Iterable[str | None]) -> str | None:
+    unknown = sorted({n for n in names if n is not None and n not in KNOWN_SURNAMES})
+    return f"names no Justice on the roster: {unknown}" if unknown else None
+
+
+def _opinions_problem(reading: OpinionDocumentReading) -> str | None:  # noqa: PLR0911 - one return per check
+    """Why a read document's opinion rows are not ones the reader can produce."""
+    opinions = reading.opinions
+    if not opinions:
+        return "is read but records no opinion"
+    if [o.position for o in opinions] != list(range(1, len(opinions) + 1)):
+        return "numbers its opinions out of order"
+    if reading.source_format not in (SLIP, PRELIMINARY_PRINT):
+        return f"names no known source format: {str(reading.source_format)[:40]!r}"
+    if reading.lineup is None or not _STAMP_RE.match(reading.lineup):
+        return "carries no reader stamp"
+    for o in opinions:
+        if o.footnote_words > o.words:
+            return f"counts more footnote words than words in opinion {o.position}"
+        if (o.kind is WritingKind.per_curiam) != (o.author is None):
+            return f"pairs kind {o.kind} with author {o.author!r} in opinion {o.position}"
+        names = [o.author, *o.coauthors, *(j.justice for j in o.joins)]
+        if (why := _names_problem(names)) is not None:
+            return f"opinion {o.position} {why}"
+        texts = [o.header, o.scope or "", *(j.qualifier or "" for j in o.joins)]
+        if any(len(text) > _TEXT_CAP for text in texts):
+            return f"carries an over-long text field in opinion {o.position}"
+    return None
+
+
+def reading_problems(  # noqa: PLR0911 - one return per check
+    reading: OpinionDocumentReading, *, terms: Sequence[int]
+) -> str | None:
+    """Why a planned reading cannot have come from an honest read of the listing.
+
+    The checks the reader's own output always passes: a Term the pass read, a
+    listing key and URL of the Court's own shape, docket numbers that are the
+    ones the docket cell prints, no case id (the writer resolves it), bounded
+    text, and — for a read document — consecutive opinions naming roster
+    Justices with word counts that add up.
+    """
+    if reading.term not in terms:
+        return f"is for OT{reading.term}, which the pass did not read"
+    if not _LISTING_NUMBER_RE.match(reading.listing_number):
+        return "carries a malformed listing number"
+    if not is_opinion_pdf(reading.url):
+        return "links no opinion PDF on the Court's own host"
+    if reading.case_id is not None:
+        return "carries a case id, which only the writer resolves"
+    if any(len(t) > _TEXT_CAP for t in (reading.docket, reading.name, reading.reason or "")):
+        return "carries an over-long text field"
+    if reading.dockets != printed_dockets(reading.docket):
+        return "lists docket numbers its docket cell does not print"
+    if reading.status == "read":
+        return _opinions_problem(reading)
+    if reading.opinions:
+        return f"is {reading.status} yet records opinions"
+    return None
+
+
+def apply_opinion_record_plan(
+    conn: corpus.ReadConnection,
+    plan: OpinionRecordPlan,
+    *,
+    terms: Sequence[int],
+    apply: bool,
+    max_rows: int | None = None,
+    write: Callable[[list[tuple[OpinionDocumentReading, OpinionEntry]]], int] | None = None,
+) -> OpinionRecordResult:
+    """Re-validate a plan, then resolve and insert it into the corpus ``conn`` holds.
+
+    The plan is untrusted input — written by the job that parsed the fetched
+    PDFs — so it must be for exactly ``terms``, name each listing row once, and
+    every reading must pass :func:`reading_problems`; any departure refuses the
+    whole plan with :class:`HandoffRefused` before anything is written. A
+    document the corpus has recorded since the plan was read is counted as
+    already recorded and not inserted again. Then the one-process apply's own
+    steps: each case id is resolved from ``conn``, the bound refuses above
+    ``max_rows``, and the insert is fill-only. Fetches nothing.
+    """
+    if apply and write is None:
+        raise ValueError("an apply needs a writer")
+    if list(plan.terms) != list(terms):
+        raise HandoffRefused(f"the plan was read for Terms {plan.terms}, not {list(terms)}")
+    seen: set[tuple[int, str]] = set()
+    for reading in plan.readings:
+        key = _row_key(reading.term, reading.listing_number)
+        if key in seen:
+            raise HandoffRefused(f"the plan reads OT{key[0]} listing row {key[1]!r} twice")
+        seen.add(key)
+        if (why := reading_problems(reading, terms=terms)) is not None:
+            raise HandoffRefused(f"the plan's OT{key[0]} listing row {key[1]!r} {why}")
+    recorded = recorded_documents(conn)
+    fresh = [r for r in plan.readings if _row_key(r.term, r.listing_number) not in recorded]
+    result = OpinionRecordResult(
+        applied=False,
+        terms=list(terms),
+        listed=plan.listed,
+        already_recorded=plan.already_recorded + len(plan.readings) - len(fresh),
+        readings=[r.model_copy() for r in fresh],
+        failures=list(plan.failures),
+    )
+    return _land(conn, result, apply=apply, max_rows=max_rows, write=write)
 
 
 _INSERT_COLUMNS: Final = tuple(corpus.OPINIONS_COLUMN_DDL)

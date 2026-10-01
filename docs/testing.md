@@ -685,8 +685,18 @@ the run-surface retry with
 its inline copies, the absence
 of any step that applies a fan-out label, the 10-input `workflow_dispatch`
 cap the UI enforces silently, the fail-closed shape every input gate must have
-on a scheduled workflow, and the word-for-word pairing between each fail-fast
-validator and the step of record that re-checks it), and the predict plan job's stranded-run
+on a scheduled workflow, the word-for-word pairing between each fail-fast
+validator and the step of record that re-checks it, `run-repair`'s credential
+split — its parse job holding no `id-token`, environment or secret, its two
+handoff artifacts one-day and named per run, its writers on an apply only,
+fetching nothing and pulling the corpus fresh inside the lock — and
+`test_no_job_that_guards_against_oidc_holds_id_token`, which holds every
+workflow's OIDC tripwire true: a job that asserts the OIDC request pair is
+absent may not hold `id-token`, since the runner hands that pair to every step
+of a job holding `id-token` after the step's own `env:`, and no step may blank the pair in
+its `env:` at all — covering `summarize`'s generate job, `run-analytics`'
+labeler and `integration-test`'s labeler smoke alongside run-repair's parse
+job), and the predict plan job's stranded-run
 guard (`test_workflow_plan_census`: the census runs before the matrix step and
 feeds both it and the plan report, degrades open at each of its three grains
 rather than failing the job, holds the job's read-only permission set by exact
@@ -699,7 +709,10 @@ for the first time when the job runs: `test_workflow_repair_cli_parity` reads
 each of `run-repair`'s twenty dispatch-only maintenance passes back out of the
 workflow — argv, conditional flag arrays and all, via the shared reader
 `tests/workflow_argv.py` — and executes it against the fixture corpus, so a
-renamed flag fails here rather than as a usage error mid-dispatch (its qp
+renamed flag fails here rather than as a usage error mid-dispatch — a
+credential-split pass's projection, parse and writer argv run in workflow
+order through one handoff directory, each reading the file the one before
+wrote (its qp
 test also replays the pass's convergence re-run over a seeded corpus and
 asserts the workflow's grepped literal against the summary the CLI prints —
 the one coupling that lives in output wording rather than argv); and

@@ -135,13 +135,13 @@ timeline ([live-sources.md](live-sources.md)).
 Three workflows carry five writer jobs over one corpus — `run-pull`'s **pull**,
 **live**, and dispatch-only **enrich**, `run-seed`'s **historical** walker, and
 `run-repair`'s dispatch-only **repair** bench (its corpus job, plus the
-application back-fill, decision-record and opinion-record jobs, which write the
-corpus on an apply only) —
+decision-record job and the application back-fill and opinion-record writer
+jobs, which write the corpus on an apply only) —
 differing on every axis that matters, while the shared `corpus-write` lock keeps
 at most one running at a time. Five is the count of jobs that write the
 *corpus*; run-repair carries two more writer jobs that write only the
 ledger — the **regrade** and the **votes** job — which take the same lock (the
-votes job only on an apply) and commit to `main` without touching a corpus row
+votes job runs on an apply only) and commit to `main` without touching a corpus row
 (*[Corpus-writer coordination](#corpus-writer-coordination)*). These jobs are the **only** place *production*
 corpus writes can happen: the write role is job-scoped and the pointer commit
 rides the data App, neither of which any interactive session holds — so a
@@ -495,12 +495,16 @@ repo-level `corpus-write` concurrency group (`cancel-in-progress: false`), so
 corpus writers never run simultaneously even across workflows. run-repair's
 two ledger-only jobs, the re-grade and the vote writer, join the group without
 touching the corpus: each commits to `main` on the same push path, so it
-serializes against the pointer commits rather than racing them. The vote
-writer joins it on an apply only: its dry run writes and pushes nothing, and
-holding the lock through a read-only fetch campaign would queue the scheduled
-windows behind it. The application back-fill, decision-record and
-opinion-record jobs, which do write the corpus, join it on an apply only for
-the same reason: a dry run reads and pushes nothing. Its selector-validation job is
+serializes against the pointer commits rather than racing them. The vote,
+application back-fill and opinion-record writers run on an apply only, after
+their parse job has finished, so the lock is never held through a fetch
+campaign: the credential-free parse job that fetches and the read-only
+projection job before it take no lock, since holding it for a read would queue
+the scheduled windows behind it. Each writer pulls the corpus fresh inside the
+lock (the vote writer reads none), applies and pushes in the same job, so
+nothing pulled before the lock is ever pushed. The decision-record job joins
+the group on an apply only, for the same reason: its dry run reads and pushes
+nothing. Its selector-validation job is
 deliberately outside the group — it holds no credential and writes nothing, so a
 malformed dispatch is refused in seconds instead of queuing behind a walk to be
 told about a typo — and **reset to
@@ -1326,11 +1330,11 @@ population and apply against another.
 | `sampled-frame-weight-repair` | `repair-sampled-frame-weights` | `--max-repairs` | — | — |
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
-| `opinion-votes` | `stamp-opinion-votes` | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
-| `order-votes` | `stamp-order-votes` | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
-| `application-backfill` | `backfill-applications` | `--max-rows` (rows landed, onboarded and enriched together) | two-digit October Term, **required in both modes** | — |
+| `opinion-votes` | `stamp-opinion-votes` (split: `--emit-corpus-projection`, `--projection --plan-out`, `--from-plan`) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
+| `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
+| `application-backfill` | `backfill-applications` (split, as above) | `--max-rows` (rows landed, onboarded and enriched together; the dry run's count is an upper bound) | two-digit October Term, **required in both modes** | — |
 | `decision-record` | `backfill-decision-record` | `--max-fills` (rows filled, not the `candidates` denominator) | — | — |
-| `opinion-record` | `backfill-opinion-record` (Terms pinned in the step to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
+| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -1517,66 +1521,86 @@ read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
 corpus row, so it holds only the App token that pushes its `data/` commit.
-`opinion-votes` and `order-votes` run in a third job between the two: they
-read the corpus — one column, each case's docket number — through the
-read-only role every corpus consumer uses, fetch from supremecourt.gov, and
-write only committed `outcome.json` files, so they hold the read-only role and
-the App token and nothing that can write the corpus remote or the content
-store. The App token is minted only on an apply, after the stamper has
-exited, and rides only the commit step's env; the stamper's step also blanks
-the read-only AWS session and the OIDC request token (the job's `prod` binding
-is one the read-write corpus role also trusts), since it reads only the pulled
-local index, and it checks both before it runs. That
-separates the token from the stamper in time, not by a process boundary: both
-run as the same user on the same runner. `application-backfill` runs in a
-fourth job, because its two modes sit in different risk classes. Its dry run
-reads the pulled index and fetches from supremecourt.gov with the read-only
-session and the OIDC request token blanked, as the vote stamper does, and takes
-no lock. Its apply takes `corpus-write` for the whole job and the read-write
-role from the step that fetches and lands the rows onward, since the ingest
-mirrors each snapshot to the content store as it writes. It takes no dedupe
-prerequisite: it writes exactly as frontier discovery does, which runs without
-one, and the identity join it shares picks the lowest docket id of a twin pair
-deterministically, while a twin with either half live-polled is live-owned and
-never read. It mints the App token only after
-that step has exited, for the pointer commit. `decision-record` runs in a
-fifth job on the same split. Its dry run reads the pulled index and each
-candidate's stored snapshot from the content store, so it keeps the read-only
-session (a blanked one could not read the snapshots at all), blanks the OIDC
-request token, and takes no lock. Its apply takes `corpus-write` for the
-whole job and the read-write role from its write step onward, mints the App
-token only after that step has exited, and blanks the AWS session and the OIDC
-request token on the commit step that holds it. It takes no dedupe prerequisite: both
-columns fill-in latch on the upsert path the merge writes through, so a reading
-landed on either half of a twin pair survives the merge, and nothing that gates
-a cell reads them. `opinion-record` runs in a sixth job, on the same lock split
-with one further separation. The command fetches, parses and inserts in one
-process, and its apply refuses a PDF cache, so a dry run cannot hand the apply
-what it read; but the insert is a write to the *local* index, and the pass
-reads only the pulled index and the Court's site, never the content store. So
-its one build step runs in both modes with the read-only AWS session and the
-OIDC request token blanked, and checks both before it runs. On an apply it takes
-`corpus-write` for the whole job, assumes the read-write role only after the
-build step has exited, for a push step that parses nothing fetched, mints the
-App token only after the push, and blanks the AWS session and the OIDC request
-token on the commit step that holds it. That separates the parser from every
-credential in time, not by a process boundary, as with the vote stamper: the
-steps run as one user on one runner, so a compromised parse could leave
-something behind for any later step — the role assumption, the push, the App
-token mint — and what bounds it is what those steps hold. The step also
-suspends workflow commands while the command runs and copies only its own ledger
-lines to the run summary, since stderr carries the PDF reader's warnings. The
-Term range is pinned in the step to OT2020–OT2025, not spent on a dispatch input:
+Four of the passes that fetch and parse third-party content — `opinion-votes`,
+`order-votes`, `application-backfill` and `opinion-record` — run as a
+**credential split**, because a parser fed the Court's PDFs and docket JSON is
+the step most likely to run code nobody wrote. (`ocr-recovery` and
+`document-backfill` also parse fetched PDFs, inside the corpus job and under
+its full credential set; they are not split.) The application back-fill's
+apply is held at the parse job: its plan would carry served docket JSON with
+party contact details, which may not cross as a public artifact
+([security.md](security.md), *S3 / the private stores*), so only its dry run
+runs.
+
+- `handoff-projection` holds the read-only role, pulls the corpus and writes
+  the few public facts the parse needs (versioned models beside each pass, read and written through `src/fedcourtsai/handoff.py`): for the
+  vote passes, each population case's docket number; for the application
+  back-fill, the Term's highest stored serial and its live-owned serials; for
+  the opinion record, the (Term, listing number) of each document already
+  recorded. It fetches nothing.
+- `handoff-parse` holds **no credential**: no environment, no `id-token`, no
+  secret, and a step asserts the AWS and OIDC variables are absent before
+  anything is fetched. It fetches and parses, prints the dry-run ledger to the
+  run summary, and on an apply writes the plan — the planned vote records, the
+  served docket JSON verbatim, or the opinion rows — as a run artifact. It
+  restores the uv cache but never saves one.
+- On an apply only, a writer job downloads the plan and treats it as untrusted
+  input: every row is re-validated against the reader's own invariants and the
+  ledger or corpus it is about to write, and the whole plan is refused on any
+  departure, before anything is written. The vote writer needs no corpus and
+  holds only the App token; it re-runs the ledger's own vote check on each
+  record and stamps `outcome.json`. The application back-fill and
+  opinion-record writers take the read-write role, pull the corpus fresh inside
+  the lock, apply — the application writer re-reads ownership, resolves
+  identity and applies the prediction guard against that corpus, and the
+  opinion-record writer resolves each case id from it and inserts fill-only —
+  push the blob, and mint the App token only after the push. None fetches.
+
+Both files cross as one-day run artifacts (`repair-projection-<run_id>`,
+`repair-plan-<run_id>`), and because the repository is public they carry public
+Court data only; [security.md](security.md), *S3 / the private stores*, says
+what each holds and why it is public. A job boundary, not a step's `env:`, is
+what does the separating. In a job holding `id-token: write` the runner injects
+the OIDC request pair into every step at run time, after the step's own `env:`,
+so a step there cannot be put out of reach of minting a token for either role
+`prod` is trusted by; a job without the permission has no pair at all. Blanking
+the AWS variables in a step's `env:` does work — it overrides what the
+credentials action exported — so the commit steps that hold the App token blank
+and assert those. The parse job's residual is that its steps share one user and
+one runner, so a hostile parse could alter what its later steps run; those hold
+the job's own runtime token, which reaches this run's artifacts and the Actions
+cache. A different plan is refused unless every row is one an honest parse
+could have produced; the cache path is stated in
+[security.md](security.md), *S3 / the private stores*.
+
+`application-backfill` takes no dedupe prerequisite: it writes exactly as
+frontier discovery does, which runs without one, and the identity join it
+shares picks the lowest docket id of a twin pair deterministically, while a
+twin with either half live-polled is live-owned and never read.
+`decision-record` runs in one job, not the split: it fetches nothing, and the
+stored snapshots it parses are private, so they could not cross a public
+artifact. Its dry run reads the pulled index and each candidate's stored
+snapshot from the content store with the read-only session and takes no lock.
+Its apply takes `corpus-write` for the whole job and the read-write role from
+its write step onward, mints the App token only after that step has exited,
+and blanks the AWS session's variables on the commit step that holds it. Every
+step of that job can mint an OIDC token for either `prod`-trusted role. It
+takes no dedupe prerequisite: both columns fill-in latch on the upsert path the
+merge writes through, so a reading landed on either half of a twin pair
+survives the merge, and nothing that gates a cell reads them. The
+opinion-record steps that print readings — the parse, and the writer, which
+prints the plan's copy back — suspend workflow commands while the command runs
+and copy only its own ledger lines to the run summary, since the readings and
+the PDF reader's warnings carry text from fetched PDFs. Its Term range is
+pinned in the workflow to OT2020–OT2025, not spent on a dispatch input:
 OT2017–OT2019 are skipped by design, every listing row there linking into a
 whole volume, and a pinned range means the dry run and the apply it bounds read
-the same Terms. The apply holds the lock through the whole fetch campaign,
-about four seconds a document over some 380 documents, so a scheduled window
-arriving meanwhile queues, and a second arrival evicts the first from the queue.
-It takes no dedupe
+the same Terms. The parse fetches about four seconds a document over some 380
+documents, outside the lock. It takes no dedupe
 prerequisite: it writes only its own table, keyed by Term, listing number and
 position rather than by case row, and nothing that gates a cell reads it. All
-six jobs commit straight to `main` on the writers' rebase-and-backoff push
-path.
+the writing jobs commit straight to `main` on the writers' rebase-and-backoff
+push path.
 
 **Ordering between passes is the maintainer's.** Three pairs matter. The
 distribution re-derivation must precede an overhang clear, never follow it in
@@ -1636,14 +1660,23 @@ interim-docket series back to OT2017, and it runs one Term per dispatch.
   `last_live_polled` stamp are exactly what a live poll would write, and the
   row joins the live slice.
 - **Ownership.** A serial whose stored row the live channel already polled is
-  counted and never fetched, so a live-polled row always wins. The ingest stamps
-  that marker, so the control dry run after an apply reads zero.
+  counted and never fetched, so a live-polled row always wins. The parse reads
+  ownership from the projection; the writer re-reads it from the corpus it
+  pulled under the lock, so a row the live channel took over in between is
+  counted live-owned and left alone. The ingest stamps that marker, so the
+  control dry run after an apply reads zero.
+- **Identity and the prediction guard are the writer's.** The parse walks
+  without the corpus, so it cannot tell an onboard from an enrich or see a
+  committed prediction; its ledger lists those rows as `unresolved=N`, and the
+  dry run's "would land N" is an upper bound on what the apply lands.
 - **Refusals.** The apply refuses above its bound, and refuses any reading that
   did not reach the Term's end (a fetch failure, a `--limit`, or the walk's own
   `--max-run-seconds` deadline), before its first write. So a cut-off reading
   lands nothing rather than half a Term.
 
-**The apply waits until after the long-conference release.** The statpack's
+**The apply waits until after the long-conference release,** and is held at
+the parse job until its plan can cross without the served dockets' contact
+details ([security.md](security.md), *S3 / the private stores*). The statpack's
 interim section counts every application row and pools the parsed substantive
 ones into the interim base rate that interim cells anchor to and are scored
 against. A stub row counts as `unparsed`, so an apply moves OT2024's rows into
@@ -1664,6 +1697,12 @@ windows (`run-pull` at `:17` and `:47`, `run-seed` at `:31`). A *queued* repair
 run can be silently evicted — GitHub keeps only the latest pending run per
 concurrency group, so a scheduled window entering `corpus-write` behind the
 dispatch cancels it, and a one-shot dispatch does not pick up where it left off.
+The four split passes are the exception to the timing advice: their writer asks
+for the lock only once the projection and the parse have run, which can be over
+an hour after the dispatch, so the dispatch time does not choose when the lock
+is requested. An apply evicted there is recovered by re-running its cancelled
+writer job, which reads the same plan while the one-day artifact lasts, or by a
+fresh dispatch, which runs the whole chain again.
 
 ```bash
 # A bounded pass: dry-run, read the count off the run summary's ledger, then
@@ -1775,8 +1814,9 @@ gh workflow run run-repair.yml --ref main \
   -f repair=moment-convergence -f repair_mode=apply -f repair_bound=<corpus rows + ledger files>
 
 # The vote writer stamps committed outcomes from the Court's documents; each
-# pass's bound is the dry run's "would stamp N". It fetches from
-# supremecourt.gov in both modes, so an apply does not run a dry run first:
+# pass's bound is the dry run's "would stamp N", in the handoff-parse job's
+# summary. It fetches from supremecourt.gov in both modes (in the parse job),
+# so an apply does not run a dry run first:
 # the ledger comes from the previous dispatch, and an apply whose count
 # exceeds it, or whose listings could not all be read, is refused whole.
 # Re-dispatching in `dry-run` after the apply is the control: every stamped
@@ -1792,8 +1832,11 @@ gh workflow run run-repair.yml --ref main \
   -f repair=opinion-votes -f repair_mode=dry-run
 
 # The application back-fill names its Term and fetches in both modes, so an
-# apply does not run a dry run first. Its bound is the dry run's "would land N".
-# The apply is post-release (see above). Re-dispatching in `dry-run` after the
+# apply does not run a dry run first. Its bound is the dry run's "would land N",
+# an upper bound: the writer resolves identity and the prediction guard.
+# The apply is post-release (see above), and is held at the parse job until its
+# plan can cross without the served dockets' contact details; as written, the
+# apply below is refused there. Re-dispatching in `dry-run` after the
 # apply is the control: it must report "would land 0".
 gh workflow run run-repair.yml --ref main \
   -f repair=application-backfill -f repair_mode=dry-run -f repair_target=24
@@ -1812,11 +1855,11 @@ gh workflow run run-repair.yml --ref main \
 gh workflow run run-repair.yml --ref main \
   -f repair=decision-record -f repair_mode=apply -f repair_bound=<would fill N>
 
-# The opinion record reads OT2020–OT2025 (pinned in the step). Its apply
+# The opinion record reads OT2020–OT2025 (pinned in the workflow). Its apply
 # fetches every unrecorded document again and runs no dry run first, which
 # would double the pass's traffic to the Court's site. Its bound is the dry
 # run's "would insert N" — opinion rows, not documents. The readings, each
-# refusal's reason included, are in the step log; the summary carries the
+# refusal's reason included, are in the parse job's step log; the summary carries the
 # per-Term counts. Re-dispatching in `dry-run` after the apply is the control:
 # it must report "would insert 0" (it re-fetches only the refused documents).
 gh workflow run run-repair.yml --ref main \

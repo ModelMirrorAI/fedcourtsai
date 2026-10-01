@@ -963,15 +963,30 @@ stores and reported, since moving its moment moves scored cells between moment
 strata; unlike the disposition and phantom passes there is no option that
 widens onto them. Its bound counts corpus rows and ledger files together.
 
+Four of the passes that fetch and parse the Court's content — `opinion-votes`,
+`order-votes`, `application-backfill` and `opinion-record` — run as a
+**credential split** of three jobs (`ocr-recovery` and `document-backfill`
+also parse fetched PDFs, inside the corpus job, and are not split). `handoff-projection` holds the read-only
+role, pulls the corpus and writes the few public facts the parse needs;
+`handoff-parse` holds no credential at all (no environment, no `id-token`, no
+secret), fetches and parses, prints the dry-run ledger, and on an apply writes
+the plan; and on an apply only, a writer job takes `corpus-write`, re-validates
+the plan whole as untrusted input and applies it, fetching nothing. The two
+files cross as one-day run artifacts carrying public Court data only
+([security.md](security.md), *S3 / the private stores*). A job boundary is
+what does the separating: in a job holding `id-token: write` the runner hands
+every step the OIDC request pair after the step's own `env:`, so no step there
+can be put out of reach of minting a token.
+
 `opinion-votes` and `order-votes` are the vote writer: they stamp `votes`,
 `vote_provenance` and `writing_roles` onto committed outcomes from the Court's
 own documents — merits outcomes from their opinion's syllabus lineup, cert and
 interim outcomes from the notations and writing headers of the order that
 disposed of them ([data-sources.md](data-sources.md), *The vote writer*). They
-run in their own job, which reads the corpus through the read-only role and
-writes only `outcome.json`. Each run fetches from supremecourt.gov, so an apply
-dispatch does not lead with a dry run; the bound is read off the previous
-dry-run dispatch, and a re-dispatched dry run after the apply is the control.
+write only `outcome.json`, and their writer job holds no corpus role at all.
+Each run fetches from supremecourt.gov, so an apply dispatch does not lead with
+a dry run; the bound is read off the previous dry-run dispatch, and a
+re-dispatched dry run after the apply is the control.
 An outcome carrying a different record is held back unless `replace-differing`
 is set. The order-list records are banked, never scored.
 
@@ -981,12 +996,15 @@ live channel never polled (`fedcourts backfill-applications`). OT2024 below
 enumerates the Term's serials upstream and writes each row the live channel does
 not already own through the live channel's own ingest seam, so a back-filled
 row is the row a live poll would have written and joins the live slice. A
-live-polled row is never fetched or overwritten. It runs in its own job: the
-dry run holds no credential while it fetches and takes no lock, and the apply
-takes `corpus-write`, the read-write role from its write step onward, and the
-App token only after that step. Each run fetches from supremecourt.gov, so an apply does
-not lead with a dry run, and a re-dispatched dry run after the apply is the
-control. **The apply is post-release**: it moves OT2024's unparsed rows into the
+live-polled row is never fetched or overwritten. The parse walks without the
+corpus, so identity, the ownership re-read and the prediction guard are the
+writer's, against the corpus it pulls under the lock: the dry run's count
+(`unresolved=N` in its ledger) is an upper bound on what the apply lands. Each
+run fetches from supremecourt.gov, so an apply does not lead with a dry run,
+and a re-dispatched dry run after the apply is the control. **The apply is
+held in the workflow** until its plan can cross without publishing the served
+dockets' party contact details ([security.md](security.md), *S3 / the private
+stores*); the dry run is unaffected. **The apply is post-release**: it moves OT2024's unparsed rows into the
 population the pooled interim base rate is computed over, so it waits until
 after the long-conference release and is pre-registered in
 [freeze-record.md](freeze-record.md). That registration covers OT2024 only: an
@@ -998,32 +1016,27 @@ entry and a place in `REGISTERED_APPLY_TERMS`.
 (`fedcourts backfill-decision-record`). It re-reads each candidate's newest
 stored live snapshot through the reader the live poll uses at ingest, never
 overwrites a stored reading, and writes the two columns by a direct `UPDATE` of
-the index, so its commit is the corpus pointer alone. It runs in its own job on
-the application back-fill's split: the dry run holds the read-only role (the
-snapshots it reads live in the content store) and takes no lock, and the apply
-takes `corpus-write`, the read-write role from its write step onward, and the
-App token only after that step. The bound is the dry run's fill count, and a
+the index, so its commit is the corpus pointer alone. It runs in one job of its
+own, not the credential split: it fetches nothing, and the stored snapshots it
+parses are private, so they could not cross a public artifact. The dry run
+holds the read-only role (the snapshots live in the content store) and takes
+no lock, and the apply takes `corpus-write`, the read-write role from its write
+step onward, and the App token only after that step. The bound is the dry run's fill count, and a
 re-dispatched dry run after the apply is the control. `fedcourts
 decision-census` reads the result. Nothing a cell sees moves: both columns are
 withheld from the `query` rows, and no gate, mint or outcome reads them.
 
 `opinion-record` builds the per-opinion record — each opinion's kind, author,
 joiners and word count — into the corpus `opinions` table (`fedcourts
-backfill-opinion-record`) for OT2020–OT2025, a range pinned in the step rather
+backfill-opinion-record`) for OT2020–OT2025, a range pinned in the workflow rather
 than taken as an input (OT2017–OT2019 list only whole volumes, which the pass
 skips). It fetches each unrecorded document the Court's opinions listing links
 from supremecourt.gov at about one request a second and inserts fill-only, and
-it writes nothing under `data/`, so its commit is the corpus pointer alone. It
-runs in its own job: the step that fetches, parses and — on an apply — inserts
-into the local index holds no AWS session, no OIDC request token and no App
-token in either mode. The job takes no lock on a dry run; the apply takes
-`corpus-write`, assumes the read-write role only after that step has exited, for
-the blob push, and mints the App token only after the push. The command does
-fetch and insert in one process — its apply refuses a PDF cache — so the
-separation is in time, not a process boundary: anything a compromised parse left
-on the runner could reach any later step, whose credentials (the two
-`prod`-trusted roles, the data App's key) are what limit it. The bound is the
-dry run's opinion-row count. Each run fetches again, so an apply does not lead
+it writes nothing under `data/`, so its commit is the corpus pointer alone. The
+PDFs are fetched and parsed in the credential-free parse job; the writer pulls
+the corpus fresh under the lock, re-validates the readings, resolves each case
+id, inserts and pushes, and mints the App token only after the push. The
+bound is the dry run's opinion-row count. Each run fetches again, so an apply does not lead
 with a dry run, and a re-dispatched dry run after the apply is the control.
 Nothing a cell sees moves: the table is no part of a `query` row, and no gate,
 mint, outcome or score reads it.
