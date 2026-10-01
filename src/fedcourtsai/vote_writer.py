@@ -54,6 +54,17 @@ by no scorer. A merits record is what that gate was registered to read.
 
 Dry run by default; ``apply`` refuses above ``max_stamps``. With the population
 empty no network request is made at all.
+
+**Split across a credential boundary.** On run-repair the pass runs as three
+jobs, so the step parsing the Court's documents holds no credential: a
+read-only job writes :class:`VoteDocketNumbers` (the only corpus fact the
+writer reads, :func:`vote_docket_numbers`); a credential-free job reads the
+documents against that projection and writes a :class:`VoteStampPlan`
+(:func:`vote_plan`); and on an apply a writer job re-validates every planned
+record against the ledger it is about to write and stamps it
+(:func:`apply_vote_plan`), reading no corpus and fetching nothing. Run in one
+process — a dev checkout over a pulled corpus — the same functions compose as
+they always have.
 """
 
 from __future__ import annotations
@@ -64,12 +75,13 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Final
+from typing import Annotated, Final, Literal
 
 import httpx
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 from .corpus import ReadConnection
+from .handoff import HandoffRefused
 from .pipeline import granted_noted, moments, opinion_lineups, order_lineups
 from .pipeline.lineup import WritingKind
 from .pipeline.vote_sources import SUPREMECOURT_OPINIONS, SUPREMECOURT_ORDERS
@@ -269,6 +281,17 @@ def _targets(
     return found
 
 
+#: Where a pass reads each case's docket number from: the corpus, or the
+#: public projection of it a read-only job wrote (:class:`VoteDocketNumbers`).
+DocketNumbers = ReadConnection | Mapping[str, str]
+
+
+def _numbers_for(source: DocketNumbers, case_ids: Iterable[str]) -> Mapping[str, str]:
+    if isinstance(source, Mapping):
+        return source
+    return docket_numbers(source, case_ids)
+
+
 def docket_numbers(conn: ReadConnection, case_ids: Iterable[str]) -> dict[str, str]:
     """Each case's docket number as the Court prints it, from the corpus case row."""
     wanted = sorted(set(case_ids))
@@ -376,8 +399,17 @@ def _opinion_target(  # noqa: PLR0911 - one return per reason an outcome gets no
     return record, None, False
 
 
+def _opinion_targets(data_root: Path) -> list[OutcomeTarget]:
+    """The merits pass's population: merits outcomes resolved from the floor Term on."""
+    return _targets(
+        data_root,
+        stages=frozenset({Stage.merits.value}),
+        keep=lambda day: _term(day) >= OPINION_VOTE_TERM_FLOOR,
+    )
+
+
 def stamp_opinion_votes(
-    conn: ReadConnection,
+    conn: DocketNumbers,
     data_root: Path,
     fetcher: opinion_lineups.OpinionFetcher,
     granted_noted_text: Callable[[int], str | None],
@@ -390,15 +422,12 @@ def stamp_opinion_votes(
 
     ``granted_noted_text(term)`` returns the extracted text of the Term's
     Granted & Noted list (two-digit Term), or ``None`` when it cannot be read.
+    ``conn`` is the corpus, or the docket-number projection of it.
     """
     result = VoteWriteResult(source=SUPREMECOURT_OPINIONS, applied=apply)
-    targets = _targets(
-        data_root,
-        stages=frozenset({Stage.merits.value}),
-        keep=lambda day: _term(day) >= OPINION_VOTE_TERM_FLOOR,
-    )
+    targets = _opinion_targets(data_root)
     result.population = len(targets)
-    numbers = docket_numbers(conn, (t.case_id for t in targets))
+    numbers = _numbers_for(conn, (t.case_id for t in targets))
     by_term: dict[int, list[OutcomeTarget]] = defaultdict(list)
     for target in targets:
         by_term[_term(target.outcome.resolved_at)].append(target)
@@ -550,8 +579,18 @@ def _stamp_order_day(
             result.held_back.append((target.ref, why))
 
 
+def _order_targets(data_root: Path, terms: Sequence[int]) -> list[OutcomeTarget]:
+    """The orders pass's population: cert and interim outcomes resolved in ``terms``."""
+    wanted = frozenset(terms)
+    return _targets(
+        data_root,
+        stages=frozenset({Stage.cert.value, Stage.interim.value}),
+        keep=lambda day: _term(day) in wanted,
+    )
+
+
 def stamp_order_votes(
-    conn: ReadConnection,
+    conn: DocketNumbers,
     data_root: Path,
     fetcher: order_lineups.OrderFetcher,
     *,
@@ -561,16 +600,14 @@ def stamp_order_votes(
     max_stamps: int | None = None,
     replace_differing: bool = False,
 ) -> VoteWriteResult:
-    """Stamp cert and interim outcomes with their disposing order's notations and writings."""
+    """Stamp cert and interim outcomes with their disposing order's notations and writings.
+
+    ``conn`` is the corpus, or the docket-number projection of it.
+    """
     result = VoteWriteResult(source=SUPREMECOURT_ORDERS, applied=apply)
-    wanted = frozenset(terms)
-    targets = _targets(
-        data_root,
-        stages=frozenset({Stage.cert.value, Stage.interim.value}),
-        keep=lambda day: _term(day) in wanted,
-    )
+    targets = _order_targets(data_root, terms)
     result.population = len(targets)
-    numbers = docket_numbers(conn, (t.case_id for t in targets))
+    numbers = _numbers_for(conn, (t.case_id for t in targets))
     by_term: dict[int, dict[date, list[OutcomeTarget]]] = defaultdict(lambda: defaultdict(list))
     for target in targets:
         day = target.outcome.resolved_at
@@ -641,3 +678,223 @@ def reason_counts(entries: Iterable[tuple[str, str]]) -> Mapping[str, int]:
     for _, reason in entries:
         counts[reason.split(": ", 1)[0]] += 1
     return dict(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
+
+
+# --- The handoff: projection, plan, apply ----------------------------------------
+
+VoteSourceName = Literal["supremecourt-opinions", "supremecourt-orders"]
+
+_CaseId = Annotated[str, StringConstraints(pattern=r"^scotus/[0-9]{1,12}$")]
+_EventId = Annotated[str, StringConstraints(pattern=r"^evt-[a-z0-9-]{1,80}$")]
+#: A docket number as :func:`docket_numbers` prints it (``24-43``, ``25A443``,
+#: an original's ``22O141`` or ``141, ORIG.``): bounded, and no character a
+#: shell or a Markdown summary reads specially.
+_DOCKET_NUMBER_RE: Final = re.compile(r"^[0-9A-Z][0-9A-Z.,\- ]{0,31}$")
+_DocketNumber = Annotated[str, StringConstraints(pattern=_DOCKET_NUMBER_RE.pattern)]
+
+#: The largest population or plan either pass could plausibly carry; a file
+#: past it is refused before any row is read.
+_MAX_ROWS: Final = 50_000
+
+
+class VoteDocketNumbers(BaseModel):
+    """The one corpus fact the vote writer reads, projected for the parse job.
+
+    Each population case's docket number, keyed by its ledger case id. Both
+    halves are public: the case id is the key every committed ``data/`` path
+    already carries, and the docket number is the identifier the Court itself
+    assigned and prints on every order and opinion — the same pair the qp-topic
+    artifacts and the release dataset publish (``docs/data-sources.md``,
+    *What we redistribute*). No other corpus column crosses.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    format: Literal["fedcourts/vote-docket-numbers"] = "fedcourts/vote-docket-numbers"
+    version: Literal[1] = 1
+    source: VoteSourceName
+    numbers: dict[_CaseId, _DocketNumber] = Field(max_length=_MAX_ROWS)
+    unprojected: int = Field(
+        default=0,
+        ge=0,
+        description="Population cases whose stored number is not in the plain printed form "
+        "(an annotated spelling) and so is left out; the parse files them as having none",
+    )
+
+
+class PlannedVoteStamp(BaseModel):
+    """One record the parse job read for one outcome: what the writer would stamp.
+
+    Public by construction: the ledger keys and the three fields the writer
+    commits to public git, each read off a Court order or opinion.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    case_id: _CaseId
+    event_id: _EventId
+    resolved_at: date = Field(description="The outcome's resolved_at the record was read for")
+    replaces: bool = Field(description="The outcome carried a different record when planned")
+    votes: list[JusticeVote] = Field(max_length=20)
+    vote_provenance: VoteProvenance
+    writing_roles: list[JusticeWriting] | None = Field(default=None, max_length=20)
+
+
+class VoteStampPlan(BaseModel):
+    """What one pass's parse would stamp: the file the writer job applies.
+
+    ``failures`` carries forward every listing or list the parse could not
+    read, so an apply of a plan read from a partial fetch is refused exactly
+    as a one-process apply is.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    format: Literal["fedcourts/vote-stamp-plan"] = "fedcourts/vote-stamp-plan"
+    version: Literal[1] = 1
+    source: VoteSourceName
+    population: int = Field(ge=0, le=_MAX_ROWS)
+    failures: list[
+        Annotated[str, StringConstraints(max_length=500, pattern=r"^[^\x00-\x1f]*$")]
+    ] = Field(max_length=100)
+    stamps: list[PlannedVoteStamp] = Field(max_length=_MAX_ROWS)
+
+
+def _population(
+    source: VoteSourceName, data_root: Path, terms: Sequence[int]
+) -> list[OutcomeTarget]:
+    if source == SUPREMECOURT_OPINIONS:
+        return _opinion_targets(data_root)
+    return _order_targets(data_root, terms)
+
+
+def vote_docket_numbers(
+    conn: ReadConnection,
+    data_root: Path,
+    *,
+    source: VoteSourceName,
+    terms: Sequence[int] = ORDER_VOTE_TERMS,
+) -> VoteDocketNumbers:
+    """The docket-number projection of the corpus for one pass's population."""
+    targets = _population(source, data_root, terms)
+    numbers = docket_numbers(conn, (t.case_id for t in targets))
+    carried = {k: v for k, v in numbers.items() if _DOCKET_NUMBER_RE.match(v)}
+    return VoteDocketNumbers(
+        source=source, numbers=carried, unprojected=len(numbers) - len(carried)
+    )
+
+
+def projected_numbers(projection: VoteDocketNumbers, source: VoteSourceName) -> dict[str, str]:
+    """The projection's map, refused when it was written for the other pass."""
+    if projection.source != source:
+        raise HandoffRefused(
+            f"the docket-number projection was written for {projection.source}, not {source}"
+        )
+    return dict(projection.numbers)
+
+
+def vote_plan(result: VoteWriteResult) -> VoteStampPlan:
+    """A dry run's stamps as the plan a writer job applies."""
+    return VoteStampPlan(
+        source=SUPREMECOURT_OPINIONS
+        if result.source == SUPREMECOURT_OPINIONS
+        else SUPREMECOURT_ORDERS,
+        population=result.population,
+        failures=[" ".join(failure.split())[:500] for failure in result.failures[:100]],
+        stamps=[
+            PlannedVoteStamp(
+                case_id=stamp.target.case_id,
+                event_id=stamp.target.event_id,
+                resolved_at=stamp.target.outcome.resolved_at,
+                replaces=stamp.replaces,
+                votes=list(stamp.record.votes),
+                vote_provenance=stamp.record.provenance,
+                writing_roles=(
+                    None if stamp.record.writing_roles is None else list(stamp.record.writing_roles)
+                ),
+            )
+            for stamp in result.stamps
+        ],
+    )
+
+
+def _plan_problem(
+    planned: PlannedVoteStamp, target: OutcomeTarget | None, source: VoteSourceName, today: date
+) -> str | None:
+    """Why a planned stamp cannot have come from an honest parse of this ledger."""
+    if target is None:
+        return "names no outcome in the pass's population"
+    provenance = planned.vote_provenance
+    if provenance.source != source:
+        return f"carries a {provenance.source} record on the {source} pass"
+    if source == SUPREMECOURT_ORDERS:
+        if provenance.complete:
+            return "claims a complete bench from the orders source, whose records are partial"
+        if (today - planned.resolved_at).days < SETTLING_DAYS:
+            return f"was read inside the {SETTLING_DAYS}-day settling window"
+    elif not provenance.complete:
+        return "carries a partial record from the opinions source, whose records are whole"
+    return None
+
+
+def apply_vote_plan(
+    plan: VoteStampPlan,
+    data_root: Path,
+    *,
+    source: VoteSourceName,
+    today: date,
+    terms: Sequence[int] = ORDER_VOTE_TERMS,
+    apply: bool,
+    max_stamps: int | None = None,
+    replace_differing: bool = False,
+) -> VoteWriteResult:
+    """Re-validate a plan against the ledger it is about to write, then stamp it.
+
+    The plan is untrusted input: it was written by a job that parsed
+    third-party documents. Every planned stamp must name an outcome in this
+    pass's population as the ledger stands now, appear once, carry a record
+    of this pass's source and shape, and pass the same model and registration
+    checks a one-process run applies (:func:`_conformance`); any departure
+    refuses the whole plan with :class:`HandoffRefused` before anything is
+    written. What moved honestly since the plan was read is filed as a
+    one-process run files it: the same record already present is
+    ``unchanged``, a different one present is held back unless
+    ``replace_differing``, and an outcome whose ``resolved_at`` moved is held
+    back. The bound and the carried-forward failures then refuse an apply
+    exactly as :func:`_finish` does. Reads no corpus and makes no request.
+    """
+    if plan.source != source:
+        raise HandoffRefused(f"the plan was written for {plan.source}, not {source}")
+    population = _population(source, data_root, terms)
+    by_ref = {target.ref: target for target in population}
+    # The writer's own population, not the plan's word for it.
+    result = VoteWriteResult(source=source, applied=apply, population=len(population))
+    result.failures.extend(plan.failures)
+    seen: set[str] = set()
+    for planned in plan.stamps:
+        ref = f"{planned.case_id}/{planned.event_id}"
+        if ref in seen:
+            raise HandoffRefused(f"the plan stamps {ref} twice")
+        seen.add(ref)
+        target = by_ref.get(ref)
+        if (why := _plan_problem(planned, target, source, today)) is not None:
+            raise HandoffRefused(f"the plan's stamp for {ref} {why}")
+        assert target is not None  # _plan_problem refuses a missing target
+        if planned.resolved_at != target.outcome.resolved_at:
+            result.held_back.append(
+                (
+                    ref,
+                    "the outcome's resolved_at moved since the plan was read: "
+                    f"{planned.resolved_at} against {target.outcome.resolved_at}",
+                )
+            )
+            continue
+        record = VoteRecord(
+            tuple(planned.votes),
+            planned.vote_provenance,
+            None if planned.writing_roles is None else tuple(planned.writing_roles),
+        )
+        if not _same(target.outcome, record) and (why := _conformance(target, record)):
+            raise HandoffRefused(f"the plan's stamp for {ref} fails the ledger's check: {why}")
+        _classify(target, record, result, replace_differing=replace_differing)
+    return _finish(result, apply=apply, max_stamps=max_stamps)

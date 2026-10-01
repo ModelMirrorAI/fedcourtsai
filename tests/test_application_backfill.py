@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import date
 from pathlib import Path
@@ -14,6 +15,7 @@ from typer.testing import CliRunner
 from fedcourtsai import cli as cli_module
 from fedcourtsai import corpus
 from fedcourtsai.analytics import _InterimAcc
+from fedcourtsai.handoff import HandoffRefused, read_handoff, write_handoff
 from fedcourtsai.pipeline import application_backfill as backfill_module
 from fedcourtsai.pipeline.application_backfill import (
     ApplicationBackfillResult,
@@ -400,3 +402,203 @@ def test_an_applied_stub_moves_from_unparsed_into_the_interim_pool(tmp_path: Pat
             client, db, data_root, today=TODAY, end_misses=2, apply=True, max_rows=3
         )
     assert counts() == (0, 2, 0)
+
+
+# --- the credential split: projection, plan, apply ------------------------------------
+
+
+def _split_plan(
+    db: Path, upstream: _Upstream, tmp_path: Path
+) -> tuple[backfill_module.ApplicationBackfillResult, Path]:
+    """The two credential-split halves before the apply, through files as the jobs pass them."""
+    projection_file = tmp_path / "handoff" / "projection.json"
+    with corpus.connect_local_unmigrated(db) as ro:
+        write_handoff(projection_file, backfill_module.application_projection(ro, [24]))
+    projection = read_handoff(projection_file, backfill_module.ApplicationProjection)
+    with _client(upstream.handler) as client:
+        dry, plan = backfill_module.plan_applications(client, projection, [24], end_misses=2)
+    plan_file = tmp_path / "handoff" / "plan.json"
+    write_handoff(plan_file, plan)
+    return dry, plan_file
+
+
+def test_the_split_lands_what_the_one_process_apply_lands(tmp_path: Path) -> None:
+    """Projection -> corpus-free walk -> apply: the same rows, the same live-owned skip."""
+    db, data_root, upstream = _seeded(tmp_path / "split")
+    dry, plan_file = _split_plan(db, upstream, tmp_path / "split")
+    # The walk read without the corpus: same serials, identity unresolved.
+    assert [row.docket_number for row in dry.candidates] == ["24A1", "24A2", "24A5"]
+    assert {row.action for row in dry.candidates} == {"unresolved"}
+    assert "24A3" not in upstream.requested
+    assert "would land 3 row(s)" in render_ledger(dry)
+    assert "unresolved=3" in render_ledger(dry)
+
+    plan = read_handoff(plan_file, backfill_module.ApplicationPlan)
+    checked = backfill_module.apply_application_plan(
+        plan, db, data_root, [24], today=TODAY, apply=False
+    )
+    assert [row.action for row in checked.candidates] == ["onboard", "enrich", "enrich"]
+    landed = backfill_module.apply_application_plan(
+        plan, db, data_root, [24], today=TODAY, apply=True, max_rows=3
+    )
+
+    one_db, one_root, one_upstream = _seeded(tmp_path / "one")
+    with _client(one_upstream.handler) as client:
+        one = backfill_applications(
+            client, one_db, one_root, today=TODAY, end_misses=2, apply=True, max_rows=3
+        )
+    assert landed.applied and landed.written == one.written
+    with corpus.connect(db) as a, corpus.connect(one_db) as b:
+        for case_id in landed.written:
+            assert corpus.get_row(a, case_id) == corpus.get_row(b, case_id)
+            assert corpus.latest_snapshot(a, case_id) == corpus.latest_snapshot(b, case_id)
+        owned = corpus.get_row(a, f"scotus/{live_application_id(24, 3)}")
+    assert owned is not None and owned.last_live_polled == date(2026, 8, 6)
+
+
+def test_the_split_apply_never_overwrites_a_row_the_live_channel_took_since(
+    tmp_path: Path,
+) -> None:
+    db, data_root, upstream = _seeded(tmp_path)
+    _, plan_file = _split_plan(db, upstream, tmp_path)
+    # Between the plan and the apply, the live rotation polls 24A2's stub.
+    ingest_live_payload(
+        db, data_root, _application("24A2"), 72416101, today=date(2026, 9, 1), form="application"
+    )
+    plan = read_handoff(plan_file, backfill_module.ApplicationPlan)
+    result = backfill_module.apply_application_plan(
+        plan, db, data_root, [24], today=TODAY, apply=True, max_rows=3
+    )
+    assert "scotus/72416101" not in result.written
+    assert result.terms[0].live_owned == 2
+    with corpus.connect(db) as conn:
+        stub = corpus.get_row(conn, "scotus/72416101")
+    assert stub is not None and stub.last_live_polled == date(2026, 9, 1)
+
+
+def test_the_split_apply_keeps_the_bound_and_the_short_walk_refusal(tmp_path: Path) -> None:
+    db, data_root, upstream = _seeded(tmp_path)
+    _, plan_file = _split_plan(db, upstream, tmp_path)
+    plan = read_handoff(plan_file, backfill_module.ApplicationPlan)
+    over = backfill_module.apply_application_plan(
+        plan, db, data_root, [24], today=TODAY, apply=True, max_rows=2
+    )
+    assert over.refused and "above the bound of 2" in over.refused and not over.written
+    short = plan.model_copy(
+        update={"terms": [plan.terms[0].model_copy(update={"stopped": "deadline"})]}
+    )
+    cut = backfill_module.apply_application_plan(
+        short, db, data_root, [24], today=TODAY, apply=True, max_rows=10
+    )
+    assert cut.refused and "deadline" in cut.refused and not cut.written
+
+
+def _tamper(plan: dict[str, Any], change: str) -> None:  # noqa: PLR0912 - one branch per tamper
+    served = plan["served"]
+    if change == "renumbered":
+        served[0]["payload"]["CaseNumber"] = "24A9"
+    elif change == "duplicated":
+        served.append(dict(served[0]))
+    elif change == "unlisted":
+        served.append({"term": 24, "serial": 9, "payload": _application("24A9")})
+    elif change == "dropped":
+        served.pop()
+    elif change == "resolved":
+        plan["terms"][0]["candidates"][0]["case_id"] = "scotus/1"
+    elif change == "other-term":
+        plan["terms"][0]["term"] = 23
+    elif change == "extra-field":
+        plan["note"] = "x"
+    elif change == "version":
+        plan["version"] = 2
+    elif change == "not-an-object":
+        served[0]["payload"] = ["24A1"]
+    elif change == "nested-extra":
+        plan["terms"][0]["bogus"] = "x"
+    elif change == "malformed-note":
+        plan["terms"][0]["held"] = [{"nodocket": "y"}]
+    elif change == "forged-ledger-line":
+        plan["terms"][0]["held"] = [{"docket": "24A1", "reason": "x\nwould land 0 row(s)"}]
+    elif change == "unresolved-action":
+        plan["terms"][0]["candidates"][0]["action"] = "enrich"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "renumbered",
+        "duplicated",
+        "unlisted",
+        "dropped",
+        "resolved",
+        "other-term",
+        "extra-field",
+        "version",
+        "not-an-object",
+        "nested-extra",
+        "malformed-note",
+        "forged-ledger-line",
+        "unresolved-action",
+    ],
+)
+def test_a_tampered_or_malformed_plan_is_refused_whole(tmp_path: Path, change: str) -> None:
+    db, data_root, upstream = _seeded(tmp_path)
+    _, plan_file = _split_plan(db, upstream, tmp_path)
+    raw = json.loads(plan_file.read_text())
+    _tamper(raw, change)
+    plan_file.write_text(json.dumps(raw))
+    with corpus.connect(db) as conn:
+        before = corpus.get_row(conn, "scotus/72416101")
+    with pytest.raises(HandoffRefused):
+        plan = read_handoff(plan_file, backfill_module.ApplicationPlan)
+        backfill_module.apply_application_plan(
+            plan, db, data_root, [24], today=TODAY, apply=True, max_rows=10
+        )
+    with corpus.connect(db) as conn:
+        assert corpus.get_row(conn, "scotus/72416101") == before
+        assert corpus.get_row(conn, f"scotus/{live_application_id(24, 1)}") is None
+
+
+def test_a_projection_for_other_terms_is_refused(tmp_path: Path) -> None:
+    projection = backfill_module.ApplicationProjection(
+        terms=[backfill_module.TermSerials(term=23, stored_max_serial=None, owned=[])]
+    )
+    with _client(_Upstream({}).handler) as client, pytest.raises(HandoffRefused):
+        backfill_module.plan_applications(client, projection, [24])
+
+
+def test_the_commands_split_modes_run_end_to_end(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db, _, upstream = _seeded(tmp_path)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(db.parent))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    monkeypatch.setattr(cli_module, "SupremeCourtClient", lambda **_: _client(upstream.handler))
+    runner = CliRunner()
+    projection, plan = tmp_path / "p.json", tmp_path / "plan.json"
+    emitted = runner.invoke(
+        cli_module.app, ["backfill-applications", "--emit-corpus-projection", str(projection)]
+    )
+    assert emitted.exit_code == 0, emitted.output
+    planned = runner.invoke(
+        cli_module.app,
+        [
+            "backfill-applications",
+            *("--end-misses", "2"),
+            *("--projection", str(projection)),
+            *("--plan-out", str(plan)),
+        ],
+    )
+    assert planned.exit_code == 0, planned.output
+    assert "would land 3 row(s)" in planned.output
+    applied = runner.invoke(
+        cli_module.app,
+        ["backfill-applications", "--from-plan", str(plan), "--apply", "--max-rows", "3"],
+    )
+    assert applied.exit_code == 0, applied.output
+    assert "landed 3 row(s)" in applied.output
+    misuse = runner.invoke(
+        cli_module.app,
+        ["backfill-applications", "--projection", str(projection), "--apply", "--max-rows", "3"],
+    )
+    assert misuse.exit_code == 2

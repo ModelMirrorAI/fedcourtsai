@@ -36,6 +36,13 @@ name: run-repair
 # cancels it — and a one-shot dispatch, unlike a rotation, does not pick up
 # where it left off. Dispatch in a dead zone between the scheduled windows
 # (run-pull at `:17` and `:47`, run-seed at `:31`) to avoid ever queuing.
+# The four passes split across a credential boundary (opinion-votes,
+# order-votes, application-backfill, opinion-record) are the exception: their
+# writer asks for the lock only once the projection and the parse have run, up
+# to well over an hour after the dispatch, so the dispatch time does not choose
+# when the lock is requested. An apply evicted there is re-run by re-running
+# its cancelled writer job, which reads the same plan while the one-day artifact
+# lasts, or by a fresh dispatch, which runs the whole chain again.
 #
 # No guard job, unlike run-seed: that one exists because a scheduled walk fails
 # unwatched and commits to main with no PR gate, so a cancellation has to raise
@@ -2330,39 +2337,45 @@ jobs:
           # so every other pass falls through to the opening token.
           token: ${{ steps.app-token-ocr.outputs.token || steps.app-token.outputs.token }}
 
-  # The vote writer passes, in their own job because their risk class is
-  # neither of the other two: they READ the corpus (one column, each case's
-  # docket number, which is how a ledger case is found in the Court's
-  # documents), FETCH from supremecourt.gov, and WRITE only committed
-  # `outcome.json` files. So the corpus comes through the read-only role, like
-  # every corpus consumer's, and no step here holds a credential that can
-  # write the corpus remote or the content store; the App token pushes the
-  # `data/` commit, as on the re-grade.
+  # The credential split. Four of the passes fetch and parse third-party
+  # content — the Court's opinion and order PDFs, a Term's docket JSON — and a
+  # parser fed attacker-shaped bytes is the step most likely to run code
+  # nobody wrote. (Two more do too and are not split: `ocr-recovery` and
+  # `document-backfill` fetch and parse filed PDFs inside the corpus job above,
+  # under its full credential set.) So for these four the parse runs in a job
+  # of its own that holds NO credential,
+  # and the jobs on either side talk to it only through two small JSON files
+  # with versioned, validated schemas:
   #
-  # `opinion-votes` stamps merits outcomes from their opinion's syllabus
-  # lineup (`fedcourts stamp-opinion-votes`); `order-votes` stamps cert and
-  # interim outcomes from the notations and writing headers of the order that
-  # disposed of them (`fedcourts stamp-order-votes`). Two selector values, not
-  # one pass with a mode, because a dispatch reads one ledger and applies one
-  # bound: the two sources' populations, fetches and record shapes share
-  # nothing but the stamping.
-  votes:
+  #   handoff-projection  read-only role; pulls the corpus and writes the few
+  #                       PUBLIC facts the parse needs (fedcourtsai/handoff.py)
+  #   handoff-parse       no environment, no `id-token`, no secret; fetches
+  #                       and parses, prints the dry-run ledger, writes the
+  #                       plan, and on an apply uploads it
+  #   votes / applications / opinion-record
+  #                       on an apply only: the writer, which takes the lock,
+  #                       re-validates the plan whole as untrusted input and
+  #                       applies it, fetching nothing
+  #
+  # Why a job boundary and not a blanked step env: in a job holding
+  # `id-token: write` the runner hands every step the OIDC request pair at
+  # run time, after the step's own `env:`, so a step cannot be put out of
+  # reach of minting a token for any role its environment is trusted by.
+  # A job without the permission has no pair at all, and its guard is true.
+  #
+  # The repository is public, so a run artifact is downloadable by any
+  # signed-in user while it exists. Both files therefore carry public Court
+  # data only — case ids, docket numbers, listing keys, docket JSON as the
+  # Court serves it, facts read off the Court's own documents — never a corpus
+  # row, a snapshot or a stored document; each model's docstring says why its
+  # fields are public. One day of retention, and named per run.
+  handoff-projection:
     needs: [validate]
-    if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' }}
-    # An apply commits to `main` on the same push path as the corpus writers,
-    # so it joins their lock rather than racing their pointer commits. A dry
-    # run writes nothing and pushes nothing, so it takes a throwaway group
-    # instead: holding the shared lock for a read-only fetch campaign would
-    # queue the scheduled windows behind it, and GitHub keeps only one pending
-    # run per group, so a second arrival would evict a production window. A
-    # skipped job takes the throwaway group too, for the corpus job's reason.
-    concurrency:
-      group: ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes') && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
-      cancel-in-progress: false
+    if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' }}
     runs-on: ubuntu-latest
-    # The pass's own 45-minute cap plus setup, the read-only corpus pull and
-    # the push.
-    timeout-minutes: 60
+    # Setup and the read-only corpus pull (about a gigabyte); each projection
+    # is one local query.
+    timeout-minutes: 20
     environment: prod
     permissions:
       contents: read
@@ -2374,10 +2387,9 @@ jobs:
           fetch-depth: 0
 
       - name: Sync the working tree to the current tip of the default branch
-        # Same stale-base hazard as the corpus job: a run that queued behind a
-        # writer on the shared lock checked out a frozen sha, and the outcomes
-        # being stamped arrive by the writers' own commits. The repo is
-        # public, so this read-only fetch needs no credentials.
+        # The vote projection is keyed on the committed outcomes, which arrive
+        # by the writers' own commits. The repo is public, so this read-only
+        # fetch needs no credentials.
         run: |
           set -euo pipefail
           git fetch origin "${GITHUB_REF_NAME}"
@@ -2385,67 +2397,379 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
-      # The committed pointer's blob, read-only: the writer reads each case's
-      # docket number from it and writes nothing back.
       - uses: ./.github/actions/corpus-readonly
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
 
-      # Read each outcome's record off the Court's documents and stamp
-      # `votes`, `vote_provenance` and `writing_roles` onto it. An outcome
-      # carrying the same record is left alone, which makes a re-run the
-      # control; one carrying a different record is held back and reported
-      # unless `replace-differing` is set.
-      #
-      # One invocation per dispatch, not a dry run and then the apply: each
-      # run fetches every listing and document it reads, so a leading dry run
-      # would double the pass's traffic to the Court's site for a ledger the
-      # apply prints anyway. The ledger the bound is read from is the previous
-      # dispatch's dry run, as everywhere; an apply whose count exceeds it is
-      # refused whole, and so is one whose listings could not all be read.
-      #
-      # No credential reaches this step. The stamper parses pages fetched from
-      # the Court's site for up to 45 minutes, so the App token is not minted
-      # until it has exited, and only on an apply: it rides only the commit
-      # step's env. That separates the token from the stamper in time, not by
-      # a process boundary — the two run as the same user on the same runner.
-      # The read-only AWS session the corpus pull assumed is blanked here too,
-      # and so is the OIDC request pair: the job holds `id-token: write` under
-      # `prod`, whose trust the read-write corpus role also names, so a step
-      # that could request a token could assume more than the session it was
-      # given. The stamper opens the pulled local index and makes no S3 call,
-      # and the step asserts both properties before it runs anything.
-      - name: Stamp vote records
+      # Each population case's docket number, keyed by its ledger case id.
+      - name: Write the vote projection
+        if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' }}
+        env:
+          REPAIR: ${{ inputs.repair }}
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+        run: |
+          set -euo pipefail
+          if [ "${REPAIR}" = "opinion-votes" ]; then
+            uv run fedcourts stamp-opinion-votes --emit-corpus-projection "${HANDOFF_PROJECTION}"
+          else
+            uv run fedcourts stamp-order-votes --emit-corpus-projection "${HANDOFF_PROJECTION}"
+          fi
+
+      # The Term's highest stored serial and its live-owned serials.
+      - name: Write the application back-fill projection
+        if: ${{ inputs.repair == 'application-backfill' }}
+        env:
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_TARGET: ${{ inputs.repair_target }}
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+        run: |
+          set -euo pipefail
+          # A step of record for the Term refusal; `Validate the repair
+          # selector` duplicates it word for word.
+          if ! [[ "${REPAIR_TARGET}" =~ ^[0-9]{2}$ ]]; then
+            echo "::error::repair=${REPAIR} needs repair_target set to a two-digit October Term, e.g. 24 — the back-fill reads one named Term per dispatch, so its ledger and the bound an apply carries answer for the same Term. Re-dispatch with the Term."
+            exit 1
+          fi
+          uv run fedcourts backfill-applications --term "${REPAIR_TARGET}" \
+            --emit-corpus-projection "${HANDOFF_PROJECTION}"
+
+      # The (Term, listing number) of each document the table already records,
+      # so the parse fetches only the rest. The Term range is the pass's, pinned
+      # here and in the two jobs after this one.
+      - name: Write the opinion-record projection
+        if: ${{ inputs.repair == 'opinion-record' }}
+        env:
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+        run: |
+          set -euo pipefail
+          uv run fedcourts backfill-opinion-record --first-term 2020 --last-term 2025 \
+            --emit-corpus-projection "${HANDOFF_PROJECTION}"
+
+      - name: Upload the projection
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: repair-projection-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff/projection.json
+          if-no-files-found: error
+          overwrite: true
+          # Public Court identifiers only (see the job comment above); one day,
+          # because it exists to hand one file to the next job.
+          retention-days: 1
+
+  # The parse: every fetch from the Court's site and every parse of what it
+  # served happens here and nowhere else. No `environment:`, so no environment
+  # secret or variable is in reach; no `id-token`, so no OIDC request pair; no
+  # App token. The guard below asserts the two properties a job could still
+  # be handed by mistake, and is true here because the permission is absent.
+  #
+  # What it does NOT remove: the steps run as one user on one runner, so a
+  # parse that ran hostile code could alter what this job's later steps
+  # execute (the upload action among them), which hold the job's own runtime
+  # token for this run's artifacts and the Actions cache. A different plan file
+  # is refused by the writer unless every row is one an honest parse could have
+  # produced; the uv cache is never saved from here, and the remaining cache
+  # path is stated in docs/security.md, *S3 / the private stores*.
+  handoff-parse:
+    needs: [validate, handoff-projection]
+    if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' }}
+    runs-on: ubuntu-latest
+    # The longest pass step's 60-minute cap plus setup.
+    timeout-minutes: 80
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # The vote passes read the committed outcomes they plan stamps for.
+        # The repo is public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      # Restores the uv cache but never saves one: a cache written after a
+      # parse ran would be built on a runner that parse could have altered.
+      - uses: ./.github/actions/setup-python-env
+        with:
+          save-cache: "false"
+
+      # The credential split's tripwire, as on summarize's generate job: no
+      # AWS variable beyond the region and no OIDC request pair may exist here.
+      # True by construction — the job has no `id-token` permission and no
+      # environment — and a test pins that a job carrying this guard never
+      # holds `id-token`, so the guard cannot be made false by a later
+      # edit to the permissions.
+      - name: Assert no credential reaches the parse
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables reached the parse job"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the parse job"
+            exit 1
+          fi
+          echo "no cloud credential in the parse job"
+
+      - name: Download the projection
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: repair-projection-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff
+
+      # Read each outcome's record off the Court's documents. An outcome
+      # carrying the same record is planned as unchanged, which makes a re-run
+      # the control; one carrying a different record is held back and reported
+      # unless `replace-differing` is set. The ledger here is the one an
+      # apply's bound is read from, as everywhere.
+      - name: Read the vote records
+        if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' }}
         timeout-minutes: 45
         env:
-          AWS_ACCESS_KEY_ID: ""
-          AWS_SECRET_ACCESS_KEY: ""
-          AWS_SESSION_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_OPTIONS: ${{ inputs.repair_options }}
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
+        run: |
+          set -euo pipefail
+          # A step of record for the option vocabulary; `Validate the repair
+          # selector` duplicates it word for word.
+          accepted_options="replace-differing"
+          replace_differing=0
+          option_malformed=0
+          while IFS= read -r option; do
+            [ -n "$option" ] || continue
+            case " ${accepted_options} " in
+              *" ${option} "*) ;;
+              *)
+                echo "::error::repair=${REPAIR} does not accept the option '${option}' — it accepts: ${accepted_options:-none}."
+                option_malformed=1
+                continue ;;
+            esac
+            case "$option" in
+              replace-differing) replace_differing=1 ;;
+            esac
+          done < <(printf '%s\n' "${REPAIR_OPTIONS}" | tr -s ', \t\r' '\n')
+          if [ "$option_malformed" -ne 0 ]; then
+            echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
+            exit 1
+          fi
+          parse_args=()
+          if [ "$replace_differing" -eq 1 ]; then
+            parse_args+=(--replace-differing)
+          fi
+          if [ "${REPAIR}" = "opinion-votes" ]; then
+            uv run fedcourts stamp-opinion-votes --projection "${HANDOFF_PROJECTION}" \
+              --plan-out "${HANDOFF_PLAN}" "${parse_args[@]}" 2>&1 \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            uv run fedcourts stamp-order-votes --projection "${HANDOFF_PROJECTION}" \
+              --plan-out "${HANDOFF_PLAN}" "${parse_args[@]}" 2>&1 \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # The walk: one Term's application serials from 1, against the stored
+      # serials the projection carries, so a live-owned serial is never
+      # fetched. Identity, the ownership re-read and the prediction guard need
+      # the corpus, so they are the writer's; this ledger's count is an upper
+      # bound on what an apply lands.
+      - name: Walk the application back-fill
+        if: ${{ inputs.repair == 'application-backfill' }}
+        # The walk stops itself at 30 minutes (`--max-run-seconds`) and prints
+        # what it read, well inside this cap, so a slow upstream still leaves a
+        # ledger; the apply refuses a walk that stopped short of the Term's end.
+        # A Term runs about 1,000 to 1,500 paced fetches.
+        timeout-minutes: 45
+        env:
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_TARGET: ${{ inputs.repair_target }}
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
+        run: |
+          set -euo pipefail
+          # A step of record for the Term refusal; `Validate the repair
+          # selector` duplicates it word for word.
+          if ! [[ "${REPAIR_TARGET}" =~ ^[0-9]{2}$ ]]; then
+            echo "::error::repair=${REPAIR} needs repair_target set to a two-digit October Term, e.g. 24 — the back-fill reads one named Term per dispatch, so its ledger and the bound an apply carries answer for the same Term. Re-dispatch with the Term."
+            exit 1
+          fi
+          uv run fedcourts backfill-applications --term "${REPAIR_TARGET}" \
+            --projection "${HANDOFF_PROJECTION}" --plan-out "${HANDOFF_PLAN}" \
+            --max-run-seconds 1800 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Fetch and read every listed document the projection does not record.
+      #
+      # The Term range is pinned rather than spent on a dispatch input: the
+      # record's first phase is OT2020–OT2025, and OT2017–OT2019 are left out
+      # by design, since every listing row there links into a whole
+      # preliminary-print or bound volume and the pass would skip each one
+      # unfetched. A dry run and the apply it bounds therefore always read the
+      # same Terms, so the bound read off one answers for the other.
+      - name: Read the opinion record
+        if: ${{ inputs.repair == 'opinion-record' }}
+        # About four seconds a document — the 1 req/s pacing plus the PDF
+        # parse — over the roughly 380 documents the six Terms list
+        # unfetched-and-unskipped: about 25 minutes, so the cap is better than
+        # twice that for a slower runner or a slow site.
+        timeout-minutes: 60
+        env:
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
+        run: |
+          set -euo pipefail
+          # The readings — every document's opinions, and each refusal's reason
+          # — are a JSON array on stdout of several hundred KB, near the
+          # summary's 1 MiB step cap, so the swap sends them to the step log;
+          # stderr is kept in a file as well. Only the command's own ledger
+          # lines (the per-Term counts, the would-insert line the bound is read
+          # off, a refusal) are copied to the summary, which outlives the log:
+          # stderr also carries pypdf's warnings, which can quote text from a
+          # fetched PDF. Workflow commands are suspended for the run for the
+          # same reason, under a token nothing fetched can know.
+          ledger="${RUNNER_TEMP}/opinion-record.stderr"
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
+          uv run fedcourts backfill-opinion-record --first-term 2020 --last-term 2025 \
+            --projection "${HANDOFF_PROJECTION}" --plan-out "${HANDOFF_PLAN}" \
+            3>&1 1>&2 2>&3 3>&- | tee "$ledger" || status=$?
+          echo "::${stop_token}::"
+          grep -E '^(OT[0-9]{4}: |backfill-opinion-record)' "$ledger" \
+            >> "$GITHUB_STEP_SUMMARY" || true
+          if [ "$status" -ne 0 ]; then
+            echo "::error::backfill-opinion-record exited ${status}; the step log has its output."
+            exit "$status"
+          fi
+
+      - name: Note the dry run
+        if: ${{ inputs.repair_mode != 'apply' }}
+        run: echo "dry-run only; nothing written." | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The application back-fill's plan is held back: it carries each served
+      # docket JSON verbatim, party contact blocks included (a self-represented
+      # applicant's address, telephone and prisoner number among them), and a
+      # run artifact on this public repository is downloadable by any signed-in
+      # user. Gathering a Term of those into one public file is a republication
+      # docs/data-sources.md (*PII stance*) does not accept, so the apply is
+      # refused here, before anything crosses, until the plan is made opaque to
+      # readers of the artifact or the carve-out is recorded there.
+      - name: Hold the application plan
+        if: ${{ inputs.repair_mode == 'apply' && inputs.repair == 'application-backfill' }}
+        run: |
+          echo "::error::the application back-fill plan carries served docket JSON with party contact details, which may not cross as a public run artifact; the apply is held until that is decided (docs/security.md, S3 / the private stores)."
+          exit 1
+
+      # The plan crosses to the writer only on an apply; a dry run's ledger is
+      # its whole product.
+      - name: Upload the plan
+        if: ${{ inputs.repair_mode == 'apply' && (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'opinion-record') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: repair-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff/plan.json
+          if-no-files-found: error
+          overwrite: true
+          # Public Court data only (see the credential-split comment above the
+          # projection job); one day, because it exists to hand one file to the
+          # writer job.
+          retention-days: 1
+
+  # The vote writer, on an apply only. It holds no AWS role and no
+  # `id-token` — the stamps land in committed `outcome.json` files, and the
+  # one corpus fact the parse needed crossed in the projection — so the only
+  # credential in the job is the App token that pushes the `data/` commit, as
+  # on the re-grade.
+  #
+  # `opinion-votes` stamps merits outcomes from their opinion's syllabus
+  # lineup (`fedcourts stamp-opinion-votes`); `order-votes` stamps cert and
+  # interim outcomes from the notations and writing headers of the order that
+  # disposed of them (`fedcourts stamp-order-votes`). Two selector values, not
+  # one pass with a mode, because a dispatch reads one ledger and applies one
+  # bound: the two sources' populations, fetches and record shapes share
+  # nothing but the stamping.
+  votes:
+    needs: [validate, handoff-parse]
+    if: ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes') && inputs.repair_mode == 'apply' }}
+    # It commits to `main` on the same push path as the corpus writers, so it
+    # joins their lock rather than racing their pointer commits. The lock is
+    # taken only once the parse has finished, so the fetch campaign never
+    # holds it. A skipped job takes a throwaway group, for the corpus job's
+    # reason.
+    concurrency:
+      group: ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes') && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # Setup, a local re-validation and write per planned stamp, and the push.
+    timeout-minutes: 20
+    environment: prod
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # Under the lock: the outcomes being stamped arrive by the writers' own
+        # commits. The repo is public, so this read-only fetch needs no
+        # credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+
+      - name: Download the plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: repair-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff
+
+      # The artifact was uploaded by a job that ran a parse, so what it unpacked
+      # is checked before anything reads it: exactly one regular file, the plan,
+      # and no tracked or untracked file in the checkout changed (gitignored
+      # paths are not seen here; the download action itself refuses a path that
+      # escapes its target).
+      - name: Check the downloaded plan
+        run: |
+          set -euo pipefail
+          found="$(find "${RUNNER_TEMP}/handoff" -mindepth 1 -printf '%y %P\n')"
+          if [ "${found}" != "f plan.json" ]; then
+            echo "::error::the plan artifact holds something other than one plan.json file"
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::the plan artifact changed the checkout"
+            exit 1
+          fi
+
+      # Re-validate every planned record against the ledger as it stands and
+      # stamp it. The plan is untrusted input: a row naming no outcome in the
+      # pass's population, a record of the wrong source or shape, or one the
+      # ledger's own vote check refuses refuses the whole plan before anything
+      # is written; a plan read from a partial fetch, or over the bound, is
+      # refused as a one-process apply is. No credential exists yet.
+      - name: Stamp the planned vote records
+        env:
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
           REPAIR_OPTIONS: ${{ inputs.repair_options }}
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
         run: |
           set -euo pipefail
-          # The credential tripwire, as on the summarize generate job: no AWS
-          # credential and no way to mint one may reach the stamper.
-          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
-            echo "::error::AWS credential variables reached the vote stamper"
-            exit 1
-          fi
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "::error::OIDC token minting is reachable from the vote stamper"
-            exit 1
-          fi
-          # Validate the bound and the option vocabulary before anything else:
-          # a dispatch that cannot legally apply should say so in seconds, not
-          # after a fetch campaign. `Validate the repair selector` duplicates
-          # both refusals word for word so a bad dispatch dies before any
-          # credential is minted; these copies are the ones of record.
+          # The steps of record for the bound and the option vocabulary;
+          # `Validate the repair selector` duplicates both word for word.
           if [ "${REPAIR_MODE}" = "apply" ] \
             && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
@@ -2471,35 +2795,29 @@ jobs:
             echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
             exit 1
           fi
-          # Stamp on top of the remote tip, not this checkout's: the outcomes
-          # being stamped arrive by the writers' own commits. The repo is
-          # public, so this read-only fetch needs no credentials. Fast-forward
-          # only, so an unpushed local commit fails this closed.
-          git fetch origin "$GITHUB_REF_NAME"
-          git merge --ff-only FETCH_HEAD
-          write_args=()
-          if [ "${REPAIR_MODE}" = "apply" ]; then
-            write_args+=(--apply --max-stamps "${REPAIR_BOUND}")
-          fi
+          write_args=(--apply --max-stamps "${REPAIR_BOUND}")
           if [ "$replace_differing" -eq 1 ]; then
             write_args+=(--replace-differing)
           fi
+          # The ledger echoes text the plan carries, so workflow commands are
+          # suspended for the run under a token nothing in the plan can know.
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
           if [ "${REPAIR}" = "opinion-votes" ]; then
-            uv run fedcourts stamp-opinion-votes "${write_args[@]}" 2>&1 \
-              | tee -a "$GITHUB_STEP_SUMMARY"
+            uv run fedcourts stamp-opinion-votes --from-plan "${HANDOFF_PLAN}" \
+              "${write_args[@]}" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
           else
-            uv run fedcourts stamp-order-votes "${write_args[@]}" 2>&1 \
-              | tee -a "$GITHUB_STEP_SUMMARY"
+            uv run fedcourts stamp-order-votes --from-plan "${HANDOFF_PLAN}" \
+              "${write_args[@]}" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
           fi
-          if [ "${REPAIR_MODE}" != "apply" ]; then
-            echo "dry-run only; nothing written."
-          fi
+          echo "::${stop_token}::"
+          exit "$status"
 
-      # The write credential exists only on an apply, and only from here on,
-      # after the stamper has exited: minted, handed to the git identity, and
-      # held by the commit step, none of which parses anything fetched.
+      # The write credential exists only from here on, after the plan has been
+      # re-validated and applied: minted, handed to the git identity, and held
+      # by the commit step, none of which parses anything.
       - name: Mint app token
-        if: ${{ inputs.repair_mode == 'apply' }}
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -2508,16 +2826,14 @@ jobs:
           permission-contents: write
 
       - name: Configure git identity
-        if: ${{ inputs.repair_mode == 'apply' }}
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
       # The only step holding a credential that can write: it stages what the
-      # stamp step wrote, commits it and pushes. It parses nothing fetched.
+      # stamp step wrote, commits it and pushes.
       - name: Commit the stamped outcomes
-        if: ${{ inputs.repair_mode == 'apply' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPAIR: ${{ inputs.repair }}
@@ -2537,19 +2853,22 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "vote-record ledger"
 
-  # The interim-docket back-fill (`fedcourts backfill-applications`): one
-  # closed Term's application serials, enumerated upstream and landed through
-  # the live channel's own ingest seam wherever the live channel does not
-  # already own the row. A job of its own because its two modes carry different
-  # risk classes. The dry run READS the corpus and FETCHES about a Term's worth
-  # of docket JSON from supremecourt.gov, so it takes the read-only role, holds
-  # no credential while it fetches, and takes no lock: holding `corpus-write`
-  # for a read-only fetch campaign would queue the scheduled windows behind it,
-  # and GitHub keeps one pending run per group, so a second arrival would evict
-  # a production window. The apply WRITES the corpus index, the content-store
-  # snapshots and any ledger outcome the ingest records, so it takes the lock
-  # for the whole job, the read-write role for the write step, and the App
-  # token only after that step has exited.
+  # The interim-docket back-fill's writer (`fedcourts backfill-applications
+  # --from-plan`), on an apply only: one closed Term's served application
+  # dockets, landed through the live channel's own ingest seam wherever the
+  # live channel does not own the row. It takes the lock for the whole job and
+  # pulls the corpus FRESH under it with the read-write role, so the ownership
+  # re-read, the identity join and the prediction guard all answer for the
+  # blob this job pushes — nothing pulled before the lock is ever written
+  # back. It fetches nothing: the served records are the plan's, re-checked
+  # whole first. The App token is minted only after the push.
+  #
+  # Every step here can still request an OIDC token for either role `prod` is
+  # trusted by — the job needs `id-token: write` for its own read-write
+  # session, and the runner hands the request pair to every step. What stands
+  # between the plan and that is the plan's validation: the job parses no
+  # fetched PDF and runs the same JSON mapping the live channel's own writers
+  # run.
   #
   # No dedupe prerequisite, unlike the corpus job: this pass writes exactly as
   # the live channel's frontier discovery does, which runs without one, and the
@@ -2562,18 +2881,18 @@ jobs:
   # docs/freeze-record.md and waits until after the long-conference release;
   # see docs/data-pipeline.md.
   applications:
-    needs: [validate]
-    if: ${{ inputs.repair == 'application-backfill' }}
+    needs: [validate, handoff-parse]
+    if: ${{ inputs.repair == 'application-backfill' && inputs.repair_mode == 'apply' }}
     concurrency:
       group: ${{ inputs.repair == 'application-backfill' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    # The pass step's 45-minute cap plus setup, the corpus pull and the commit.
-    timeout-minutes: 70
+    # Setup, the corpus pull, the land step's 30 minutes and the commit.
+    timeout-minutes: 50
     environment: prod
     permissions:
       contents: read
-      id-token: write # the read-only role for the pull; on an apply, the read-write role for the write
+      id-token: write # the read-write role for the fresh pull, the ingest and the push
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -2581,10 +2900,9 @@ jobs:
           fetch-depth: 0
 
       - name: Sync the working tree to the current tip of the default branch
-        # Same stale-base hazard as the corpus job: an apply that queued behind
-        # a writer on the shared lock checked out a frozen sha, and the corpus
-        # pointer it builds on moves with every writer's commit. The repo is
-        # public, so this read-only fetch needs no credentials.
+        # Under the lock: the corpus pointer this job builds on moves with every
+        # writer's commit. The repo is public, so this read-only fetch needs no
+        # credentials.
         run: |
           set -euo pipefail
           git fetch origin "${GITHUB_REF_NAME}"
@@ -2592,63 +2910,34 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
-      # The committed pointer's blob. On an apply the lock is already held, so
-      # this is the blob the write builds on; the read-write role assumed
-      # below writes it back.
-      - uses: ./.github/actions/corpus-readonly
+      - name: Download the plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
-          aws-region: ${{ vars.AWS_REGION }}
-          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          name: repair-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff
 
-      # The dry run: the ledger the apply's bound is read from. No credential
-      # reaches it, as on the vote stamper: the read-only session and the OIDC
-      # request pair are blanked, and the step asserts both before it runs. It
-      # reads the pulled local index and makes no S3 call. An apply does not
-      # run it: the apply prints the same ledger from its own reading, and a
-      # leading dry run would double the pass's traffic to the Court's site.
-      - name: Read the application back-fill ledger
-        if: ${{ inputs.repair_mode == 'dry-run' }}
-        # The walk stops itself at 30 minutes (`--max-run-seconds`) and prints
-        # what it read, well inside this cap, so a slow upstream still leaves a
-        # ledger. The deadline is the apply's own, so a dry run that reaches the
-        # Term's end predicts an apply whose walk fits too. A Term runs about
-        # 1,000 to 1,500 paced fetches.
-        timeout-minutes: 45
-        env:
-          AWS_ACCESS_KEY_ID: ""
-          AWS_SECRET_ACCESS_KEY: ""
-          AWS_SESSION_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
-          REPAIR: ${{ inputs.repair }}
-          REPAIR_TARGET: ${{ inputs.repair_target }}
+      # The artifact was uploaded by a job that ran a parse, so what it unpacked
+      # is checked before anything reads it: exactly one regular file, the plan,
+      # and no tracked or untracked file in the checkout changed (gitignored
+      # paths are not seen here; the download action itself refuses a path that
+      # escapes its target).
+      - name: Check the downloaded plan
         run: |
           set -euo pipefail
-          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
-            echo "::error::AWS credential variables reached the back-fill dry run"
+          found="$(find "${RUNNER_TEMP}/handoff" -mindepth 1 -printf '%y %P\n')"
+          if [ "${found}" != "f plan.json" ]; then
+            echo "::error::the plan artifact holds something other than one plan.json file"
             exit 1
           fi
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "::error::OIDC token minting is reachable from the back-fill dry run"
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::the plan artifact changed the checkout"
             exit 1
           fi
-          # The step of record for the Term refusal; `Validate the repair
-          # selector` duplicates it word for word.
-          if ! [[ "${REPAIR_TARGET}" =~ ^[0-9]{2}$ ]]; then
-            echo "::error::repair=${REPAIR} needs repair_target set to a two-digit October Term, e.g. 24 — the back-fill reads one named Term per dispatch, so its ledger and the bound an apply carries answer for the same Term. Re-dispatch with the Term."
-            exit 1
-          fi
-          uv run fedcourts backfill-applications --term "${REPAIR_TARGET}" \
-            --max-run-seconds 1800 2>&1 \
-            | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "dry-run only; nothing written."
 
       # Same read-write (append-only) role as the corpus job's: the ingest adds
       # and rewrites rows and mirrors each snapshot to the content store, and
       # can never wipe a remote object.
       - name: Configure AWS credentials (corpus S3 remote, read-write)
-        if: ${{ inputs.repair_mode == 'apply' }}
         uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
@@ -2658,30 +2947,29 @@ jobs:
           # docs/pipeline.md).
           action-timeout-s: 120
 
-      # The apply: fetch, land and push the blob, in one step holding the
-      # read-write session — the posture of every live-channel writer, whose
-      # ingest mirrors each snapshot as it lands. No GitHub write credential
-      # exists yet.
-      - name: Back-fill the applications
-        if: ${{ inputs.repair_mode == 'apply' }}
-        # The walk stops itself at 30 minutes, and the apply refuses a walk that
-        # stopped short of the Term's end, so a cut-off reading lands nothing.
-        # The remaining 15 minutes cover the ingest (about 30 seconds for
-        # OT2024's 974 rows on a local blob, plus one content-store PUT per
-        # snapshot here) and the blob push.
-        timeout-minutes: 45
+      # The blob the write builds on, pulled inside the lock.
+      - name: Pull the current corpus from the remote
+        env:
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts corpus-pull
+
+      # Re-check the plan, classify each served record against this corpus,
+      # land the rows and push the blob. No GitHub write credential exists yet.
+      - name: Land the planned applications
+        # About 30 seconds for OT2024's 974 rows on a local blob, plus one
+        # content-store PUT per snapshot and the blob push.
+        timeout-minutes: 30
         env:
           # The corpus estate's base URL: the ingest mirrors each snapshot to
           # the content store beneath it, and the push writes the index there.
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
-          # The session is already assumed; nothing here needs to mint another,
-          # so nothing running during the upstream parse can.
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
           REPAIR_TARGET: ${{ inputs.repair_target }}
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
         run: |
           set -euo pipefail
           # The steps of record for the bound and the Term; `Validate the repair
@@ -2697,25 +2985,30 @@ jobs:
           fi
           # The held-back guard reads committed predictions out of `data/`, so
           # it needs the remote tip. Fast-forward only: an unpushed local commit
-          # fails this closed. The repo is public, so this read-only fetch
-          # needs no credentials.
+          # fails this closed.
           git fetch origin "$GITHUB_REF_NAME"
           git merge --ff-only FETCH_HEAD
+          # The ledger echoes upstream text the plan carries, so workflow
+          # commands are suspended for the run under a token nothing in the
+          # plan can know.
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
           uv run fedcourts backfill-applications --term "${REPAIR_TARGET}" \
-            --apply --max-rows "${REPAIR_BOUND}" --max-run-seconds 1800 2>&1 \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+            --from-plan "${HANDOFF_PLAN}" --apply --max-rows "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+          echo "::${stop_token}::"
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
           # Blob before pointer commit, as everywhere: an apply that pushed the
           # blob but failed before the commit publishes nothing, because readers
-          # resolve the committed pointer, and the control dry run re-reads the
-          # old blob that pointer still names. The snapshots mirrored ahead of
-          # the pointer are content-store objects keyed by case and date, which
-          # a re-apply rewrites identically.
+          # resolve the committed pointer. The snapshots mirrored ahead of the
+          # pointer are content-store objects keyed by case and date, which a
+          # re-apply rewrites identically.
           uv run fedcourts corpus-push
 
-      # The GitHub write credential exists only on an apply, and only from here
-      # on, after the step that parsed fetched JSON has exited.
       - name: Mint app token
-        if: ${{ inputs.repair_mode == 'apply' }}
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -2724,7 +3017,6 @@ jobs:
           permission-contents: write
 
       - name: Configure git identity
-        if: ${{ inputs.repair_mode == 'apply' }}
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -2733,12 +3025,21 @@ jobs:
       # Stages the pointer the push moved and any outcome the ingest recorded
       # under `data/` (an event still open on a stub row resolves through the
       # shared seam), so the corpus and the ledger it must match land together.
+      # The step holding the App token needs no AWS session, so the read-write
+      # session's variables are blanked: a step's `env:` does override what the
+      # credentials action exported, which is not true of the OIDC request pair.
       - name: Commit the back-filled corpus
-        if: ${{ inputs.repair_mode == 'apply' }}
         env:
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
+          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables reached the application back-fill commit"
+            exit 1
+          fi
           gh auth setup-git # persist-credentials is false on checkout
           git add corpus/corpus.db.ref
           if [ -d data ]; then
@@ -2770,11 +3071,15 @@ jobs:
   # content-store object and nothing under `data/`, so its commit is the
   # pointer alone.
   #
-  # Unlike the vote stamper and the application back-fill's dry run, neither
-  # step can run with the AWS session blanked: the snapshots it reads live in
-  # the content store, so a blanked session could not read them at all. What
-  # is blanked is the OIDC request pair, so no step here can mint a session it
-  # was not handed.
+  # One job, not the credential split the fetching passes use: it fetches
+  # nothing and parses only snapshots already in the access-gated store, and
+  # those snapshots may not leave the private estate as a public run artifact,
+  # so no parse could be handed to a credential-free job anyway. Its posture,
+  # plainly: the job holds `id-token: write` under `prod`, and the runner hands
+  # every step the OIDC request pair, so every step here can mint a token for
+  # either corpus role `prod` is trusted by. What the job blanks — and its
+  # commit step asserts — is the AWS session's variables on the step holding
+  # the App token, which a step's `env:` does override.
   #
   # No dedupe prerequisite, unlike the corpus job: both columns fill-in latch
   # on the upsert path the merge writes through, so a reading landed on either
@@ -2821,9 +3126,7 @@ jobs:
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
 
       # The dry run: the ledger the apply's bound is read from. It holds the
-      # read-only session the pull assumed, which the snapshot reads need, and
-      # nothing that writes; the OIDC request pair is blanked and the step
-      # asserts it before it runs.
+      # read-only session the pull assumed, which the snapshot reads need.
       - name: Read the decision-record ledger
         if: ${{ inputs.repair_mode == 'dry-run' }}
         # One content-store read per candidate, pooled by the shared prefetch,
@@ -2835,14 +3138,8 @@ jobs:
           # The corpus estate's base URL: the snapshots live in the content
           # store beneath it.
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
         run: |
           set -euo pipefail
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "::error::OIDC token minting is reachable from the decision-record dry run"
-            exit 1
-          fi
           # The fill ledger — the counts, the method distribution over the
           # fills and each filled row — goes to the summary, which outlives the
           # step log. The bound is the rows it would FILL, not the `candidates`
@@ -2874,18 +3171,11 @@ jobs:
         timeout-minutes: 25
         env:
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
-          # The session is already assumed; nothing here needs to mint another.
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
         run: |
           set -euo pipefail
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "::error::OIDC token minting is reachable from the decision-record apply"
-            exit 1
-          fi
           # The step of record for the bound; `Validate the repair selector`
           # duplicates it word for word.
           if [ "${REPAIR_MODE}" = "apply" ] \
@@ -2922,26 +3212,19 @@ jobs:
 
       # Stages the pointer alone: the pass writes nothing under `data/`, so
       # anything changed there is not this pass's to publish. The step that
-      # holds the App token needs no AWS session and no OIDC token, so the
-      # read-write session and the request pair are blanked here and the step
-      # asserts both before it runs.
+      # holds the App token needs no AWS session, so the read-write session's
+      # variables are blanked here and the step asserts it before it runs.
       - name: Commit the decision-record corpus pointer
         if: ${{ inputs.repair_mode == 'apply' }}
         env:
           AWS_ACCESS_KEY_ID: ""
           AWS_SECRET_ACCESS_KEY: ""
           AWS_SESSION_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
           if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
             echo "::error::AWS credential variables reached the decision-record commit"
-            exit 1
-          fi
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "::error::OIDC token minting is reachable from the decision-record commit"
             exit 1
           fi
           gh auth setup-git # persist-credentials is false on checkout
@@ -2954,60 +3237,41 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "decision-record pointer"
 
-  # The per-opinion record (`fedcourts backfill-opinion-record`): one row per
-  # opinion in each document the Court's per-Term opinions listing links — its
-  # kind, author, joiners and word count — inserted into the corpus `opinions`
-  # table, fill-only and idempotent. A job of its own for the application
-  # back-fill's reason: its two modes carry different risk classes. The dry run
-  # READS the index and FETCHES and parses a few hundred opinion PDFs from
-  # supremecourt.gov, writing nothing, so it takes the read-only role for the
-  # pull, takes no lock and mints no write credential: holding `corpus-write`
-  # for a read-only fetch campaign would queue the scheduled windows behind it,
-  # and GitHub keeps one pending run per group, so a second arrival would evict
-  # a production window. The apply WRITES the index's `opinions` table and
-  # pushes the blob, so it takes the lock for the whole job.
+  # The per-opinion record's writer (`fedcourts backfill-opinion-record
+  # --from-plan`), on an apply only: one row per opinion in each document the
+  # Court's per-Term opinions listing links — its kind, author, joiners and
+  # word count — inserted into the corpus `opinions` table, fill-only and
+  # idempotent. It takes the lock for the whole job and pulls the corpus FRESH
+  # under it with the read-write role, so a document another apply recorded
+  # meanwhile is counted as recorded and the push carries only what this job
+  # inserted onto the newest blob. It fetches and parses no PDF: the readings
+  # are the plan's, re-validated whole first. The App token is minted only
+  # after the push.
   #
-  # The command fetches, parses and inserts in one process: its apply refuses a
-  # PDF cache, so a dry run cannot hand the apply what it read, and the parse
-  # cannot be moved into a step of its own. What it can be separated from is
-  # every credential, because the insert is a LOCAL write — the pass reads the
-  # pulled index and the network and makes no S3 call, so the step running it
-  # holds no AWS session, no way to mint one and no GitHub write token, in BOTH
-  # modes. The read-write role is assumed only after that step has exited, by a
-  # push step that parses nothing fetched, and the App token is minted only
-  # after the push. That separates the parser from the credentials in time, not
-  # by a process boundary: the steps run as one user on one runner, so a
-  # compromised parse could still leave something on the runner (the uv
-  # environment, an action's checked-out code) for ANY later step to run — the
-  # read-write role's assumption, the push and the App-key mint among them. What
-  # bounds it is what those steps hold: the two roles `prod` is trusted by (the
-  # push's is the append-only one, which can never wipe a remote object) and the
-  # data App's key. The vote stamper and the decision-record and application
-  # back-fill applies carry the same residual.
-  #
-  # The apply holds `corpus-write` for the whole fetch campaign — every
-  # unrecorded document of six Terms, at about four seconds a document — so a
-  # scheduled window arriving meanwhile waits behind it, and a second arrival
-  # evicts the first (a rotation picks up where it left off next window).
+  # Every step here can still request an OIDC token for either role `prod` is
+  # trusted by — the job needs `id-token: write` for its own read-write
+  # session, and the runner hands the request pair to every step. What stands
+  # between the parse and that is the job boundary: the plan is the only thing
+  # that crosses, and it is checked against the reader's own invariants before
+  # a row is inserted.
   #
   # No dedupe prerequisite, unlike the corpus job: the pass writes only its own
   # table, keyed by (Term, listing number, position) rather than by case row,
   # and nothing a gate, a mint or a retrieval row reads joins on it.
   opinion-record:
-    needs: [validate]
-    if: ${{ inputs.repair == 'opinion-record' }}
+    needs: [validate, handoff-parse]
+    if: ${{ inputs.repair == 'opinion-record' && inputs.repair_mode == 'apply' }}
     concurrency:
       group: ${{ inputs.repair == 'opinion-record' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
-    # The build step's 60-minute cap, the push step's 15 and the setup, the
-    # corpus pull (about a gigabyte) and the commit, so a build that runs to its
-    # cap still fails in its own step rather than the job's.
-    timeout-minutes: 100
+    # Setup, the corpus pull (about a gigabyte), the insert step's 25 minutes
+    # (a local insert plus the blob push) and the commit.
+    timeout-minutes: 50
     environment: prod
     permissions:
       contents: read
-      id-token: write # the read-only role for the pull; on an apply, the read-write role for the push
+      id-token: write # the read-write role for the fresh pull and the push
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -3015,10 +3279,9 @@ jobs:
           fetch-depth: 0
 
       - name: Sync the working tree to the current tip of the default branch
-        # Same stale-base hazard as the corpus job: an apply that queued behind
-        # a writer on the shared lock checked out a frozen sha, and the corpus
-        # pointer it builds on moves with every writer's commit. The repo is
-        # public, so this read-only fetch needs no credentials.
+        # Under the lock: the corpus pointer this job builds on moves with every
+        # writer's commit. The repo is public, so this read-only fetch needs no
+        # credentials.
         run: |
           set -euo pipefail
           git fetch origin "${GITHUB_REF_NAME}"
@@ -3026,101 +3289,32 @@ jobs:
 
       - uses: ./.github/actions/setup-python-env
 
-      # The committed pointer's blob. On an apply the lock is already held, so
-      # this is the blob the insert builds on and the push writes back. The
-      # read-only session is used for this pull alone.
-      - uses: ./.github/actions/corpus-readonly
+      - name: Download the plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
-          aws-region: ${{ vars.AWS_REGION }}
-          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+          name: repair-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff
 
-      # Fetch, parse and — on an apply — insert, into the LOCAL index only. One
-      # step for both modes, like the vote stamper: the two differ only in the
-      # `--apply --max-rows` pair, and both hold the same nothing.
-      #
-      # The Term range is pinned here rather than spent on a dispatch input:
-      # the record's first phase is OT2020–OT2025, and OT2017–OT2019 are left
-      # out by design, since every listing row there links into a whole
-      # preliminary-print or bound volume and the pass would skip each one
-      # unfetched. A dry run and the apply it bounds therefore always read the
-      # same Terms, so the bound read off one answers for the other.
-      #
-      # No credential reaches this step. The read-only AWS session the pull
-      # assumed is blanked, because the pass reads only the pulled index and
-      # the network; the OIDC request pair is blanked, because the job holds
-      # `id-token: write` under `prod`, whose trust the read-write role also
-      # names; and no App token exists yet. The step asserts both before it
-      # runs anything.
-      - name: Build the opinion record
-        # About four seconds a document on a dev checkout — the 1 req/s pacing
-        # plus the PDF parse — over the roughly 380 documents the six Terms
-        # list unfetched-and-unskipped: about 25 minutes, so the cap is
-        # better than twice that for a slower runner or a slow site. A control
-        # dry run after the apply fetches only the refused documents again.
-        timeout-minutes: 60
-        env:
-          AWS_ACCESS_KEY_ID: ""
-          AWS_SECRET_ACCESS_KEY: ""
-          AWS_SESSION_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
-          REPAIR: ${{ inputs.repair }}
-          REPAIR_MODE: ${{ inputs.repair_mode }}
-          REPAIR_BOUND: ${{ inputs.repair_bound }}
+      # The artifact was uploaded by a job that ran a parse, so what it unpacked
+      # is checked before anything reads it: exactly one regular file, the plan,
+      # and no tracked or untracked file in the checkout changed (gitignored
+      # paths are not seen here; the download action itself refuses a path that
+      # escapes its target).
+      - name: Check the downloaded plan
         run: |
           set -euo pipefail
-          # The credential tripwire, as on the vote stamper: no AWS credential
-          # and no way to mint one may reach the parse.
-          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
-            echo "::error::AWS credential variables reached the opinion-record build"
+          found="$(find "${RUNNER_TEMP}/handoff" -mindepth 1 -printf '%y %P\n')"
+          if [ "${found}" != "f plan.json" ]; then
+            echo "::error::the plan artifact holds something other than one plan.json file"
             exit 1
           fi
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "::error::OIDC token minting is reachable from the opinion-record build"
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::the plan artifact changed the checkout"
             exit 1
-          fi
-          # The step of record for the bound; `Validate the repair selector`
-          # duplicates it word for word.
-          if [ "${REPAIR_MODE}" = "apply" ] \
-            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
-            exit 1
-          fi
-          write_args=()
-          if [ "${REPAIR_MODE}" = "apply" ]; then
-            write_args+=(--apply --max-rows "${REPAIR_BOUND}")
-          fi
-          # The readings — every document's opinions, and each refusal's reason
-          # — are a JSON array on stdout of several hundred KB, near the
-          # summary's 1 MiB step cap, so the swap sends them to the step log;
-          # stderr is kept in a file as well. Only the command's own ledger
-          # lines (the per-Term counts, the would-insert line the bound is read
-          # off, a refusal) are copied to the summary, which outlives the log:
-          # stderr also carries pypdf's warnings, which can quote text from a
-          # fetched PDF. Workflow commands are suspended for the run for the
-          # same reason, under a token nothing fetched can know.
-          ledger="${RUNNER_TEMP}/opinion-record.stderr"
-          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-          echo "::stop-commands::${stop_token}"
-          status=0
-          uv run fedcourts backfill-opinion-record --first-term 2020 --last-term 2025 \
-            "${write_args[@]}" 3>&1 1>&2 2>&3 3>&- | tee "$ledger" || status=$?
-          echo "::${stop_token}::"
-          grep -E '^(OT[0-9]{4}: |backfill-opinion-record)' "$ledger" \
-            >> "$GITHUB_STEP_SUMMARY" || true
-          if [ "$status" -ne 0 ]; then
-            echo "::error::backfill-opinion-record exited ${status}; the step log has its output."
-            exit "$status"
-          fi
-          if [ "${REPAIR_MODE}" != "apply" ]; then
-            echo "dry-run only; nothing written."
           fi
 
-      # Same read-write (append-only) role as the corpus job's, assumed only
-      # now that the step parsing fetched documents has exited.
+      # Same read-write (append-only) role as the corpus job's.
       - name: Configure AWS credentials (corpus S3 remote, read-write)
-        if: ${{ inputs.repair_mode == 'apply' }}
         uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
@@ -3130,36 +3324,60 @@ jobs:
           # docs/pipeline.md).
           action-timeout-s: 120
 
-      # The push alone holds the read-write session: it digests the local
-      # blob, uploads it to its content-addressed key and rewrites the pointer,
-      # and parses nothing fetched. The session is already assumed, so the
-      # OIDC request pair is blanked and asserted. No GitHub write credential
-      # exists yet.
-      - name: Push the opinion-record corpus
-        if: ${{ inputs.repair_mode == 'apply' }}
-        # One blob upload of about a gigabyte.
-        timeout-minutes: 15
+      # The blob the insert builds on, pulled inside the lock.
+      - name: Pull the current corpus from the remote
+        env:
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts corpus-pull
+
+      # Re-validate the plan, resolve each case id from this corpus, insert
+      # fill-only within the bound, and push the blob. No GitHub write
+      # credential exists yet.
+      - name: Insert the planned opinion record
+        timeout-minutes: 25
         env:
           # The corpus estate's base URL: the push writes the index beneath it.
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
         run: |
           set -euo pipefail
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "::error::OIDC token minting is reachable from the opinion-record push"
+          # The step of record for the bound; `Validate the repair selector`
+          # duplicates it word for word.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
             exit 1
+          fi
+          # The command prints the plan's readings — text read off fetched
+          # PDFs — so the parse step's handling holds here too: the readings go
+          # to the step log, only the ledger lines reach the summary, and
+          # workflow commands are suspended for the run under a token nothing
+          # in the plan can know.
+          ledger="${RUNNER_TEMP}/opinion-record.stderr"
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
+          uv run fedcourts backfill-opinion-record --first-term 2020 --last-term 2025 \
+            --from-plan "${HANDOFF_PLAN}" --apply --max-rows "${REPAIR_BOUND}" \
+            3>&1 1>&2 2>&3 3>&- | tee "$ledger" || status=$?
+          echo "::${stop_token}::"
+          grep -E '^(OT[0-9]{4}: |backfill-opinion-record)' "$ledger" \
+            >> "$GITHUB_STEP_SUMMARY" || true
+          if [ "$status" -ne 0 ]; then
+            echo "::error::backfill-opinion-record exited ${status}; the step log has its output."
+            exit "$status"
           fi
           # Blob before pointer commit, as everywhere: an apply that pushed the
           # blob but failed before the commit publishes nothing, because readers
-          # resolve the committed pointer, and the control dry run re-reads the
-          # old blob that pointer still names.
+          # resolve the committed pointer.
           uv run fedcourts corpus-push
 
-      # The GitHub write credential exists only on an apply, and only from here
-      # on, after the push step has exited.
       - name: Mint app token
-        if: ${{ inputs.repair_mode == 'apply' }}
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
         with:
@@ -3168,34 +3386,25 @@ jobs:
           permission-contents: write
 
       - name: Configure git identity
-        if: ${{ inputs.repair_mode == 'apply' }}
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
       # Stages the pointer alone: the pass writes nothing under `data/`, so
-      # anything changed there is not this pass's to publish. The step that
-      # holds the App token needs no AWS session and no OIDC token, so the
-      # read-write session and the request pair are blanked here and the step
-      # asserts both before it runs.
+      # anything changed there is not this pass's to publish. The step holding
+      # the App token needs no AWS session, so the read-write session's
+      # variables are blanked here and the step asserts it before it runs.
       - name: Commit the opinion-record corpus pointer
-        if: ${{ inputs.repair_mode == 'apply' }}
         env:
           AWS_ACCESS_KEY_ID: ""
           AWS_SECRET_ACCESS_KEY: ""
           AWS_SESSION_TOKEN: ""
-          ACTIONS_ID_TOKEN_REQUEST_URL: ""
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
           if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
             echo "::error::AWS credential variables reached the opinion-record commit"
-            exit 1
-          fi
-          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
-            echo "::error::OIDC token minting is reachable from the opinion-record commit"
             exit 1
           fi
           gh auth setup-git # persist-credentials is false on checkout

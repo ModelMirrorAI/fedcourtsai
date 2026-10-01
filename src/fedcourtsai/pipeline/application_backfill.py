@@ -51,6 +51,23 @@ Read-only by default: fetch, map, and report what an apply would write. The
 apply refuses above ``max_rows`` before its first write. It is a corpus write,
 so it runs on run-repair's ``application-backfill`` pass, which holds the
 writer credentials; a dev checkout over a pulled corpus produces the dry run.
+
+**Split across a credential boundary.** On run-repair the walk — about a
+thousand fetches of upstream JSON — runs in a job holding no credential. A
+read-only job writes each Term's stored serials (:class:`ApplicationProjection`);
+the credential-free job walks against it, checks each served record's own
+docket number, and writes every served record it would land, verbatim, with a
+mapped preview (:class:`ApplicationPlan`) — a file that carries party contact
+details, so run-repair holds the apply rather than upload it as a public
+artifact; and the writer job,
+holding the corpus lock and the read-write role over a freshly pulled corpus,
+re-checks the plan whole and lands it through the shared seam
+(:func:`apply_application_plan`) — re-reading ownership, resolving identity and
+applying the prediction guard against the corpus it writes, so a row the live
+channel took over in the meantime is never overwritten. Without a corpus the
+plan cannot tell an onboard from an enrich or see a committed prediction, so
+its ledger says ``unresolved`` and an apply can land fewer rows than it lists,
+never more.
 """
 
 from __future__ import annotations
@@ -63,12 +80,13 @@ from dataclasses import dataclass
 from dataclasses import field as dataclasses_field
 from datetime import date
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Final, Literal
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from .. import corpus, ids
+from ..handoff import HandoffRefused
 from ..matrix import event_has_predictions
 from ..supremecourt import (
     SupremeCourtClient,
@@ -97,15 +115,25 @@ REGISTERED_APPLY_TERMS: frozenset[int] = frozenset({24})
 DEFAULT_END_MISSES = 10
 
 
+#: One ledger note's text: bounded, one line, no control character, so a note
+#: carried through a plan can neither forge a ledger line nor run long.
+_NoteText = Annotated[str, StringConstraints(max_length=300, pattern=r"^[^\x00-\x1f]*$")]
+
+
 class PlannedRow(BaseModel):
     """One application an apply would land, read through the live mapping."""
 
+    model_config = ConfigDict(extra="forbid")
+
     docket_number: str
     serial: int
-    case_id: str
-    action: Literal["onboard", "enrich"] = Field(
+    case_id: str | None = Field(
+        description="The row the record lands on; None where identity is not yet resolved"
+    )
+    action: Literal["onboard", "enrich", "unresolved"] = Field(
         description="`onboard` mints a row the corpus does not hold; `enrich` lands the "
-        "live reading on the stored stub row."
+        "live reading on the stored stub row; `unresolved` is a plan read without the "
+        "corpus, whose writer resolves it."
     )
     application_kind: str | None
     capital_case: bool
@@ -118,6 +146,8 @@ class PlannedRow(BaseModel):
 
 class TermLedger(BaseModel):
     """One Term's enumeration: what was read, what is owned, what would land."""
+
+    model_config = ConfigDict(extra="forbid")
 
     term: int
     end_misses: int
@@ -136,8 +166,8 @@ class TermLedger(BaseModel):
         default_factory=list, description="Serials upstream did not serve below the end."
     )
     candidates: list[PlannedRow] = Field(default_factory=list)
-    held: list[dict[str, str]] = Field(default_factory=list)
-    failures: list[dict[str, str]] = Field(default_factory=list)
+    held: list[dict[Literal["docket", "reason"], _NoteText]] = Field(default_factory=list)
+    failures: list[dict[Literal["docket", "reason"], _NoteText]] = Field(default_factory=list)
 
 
 class ApplicationBackfillResult(BaseModel):
@@ -153,7 +183,7 @@ class ApplicationBackfillResult(BaseModel):
         return [row for ledger in self.terms for row in ledger.candidates]
 
     @property
-    def failures(self) -> list[dict[str, str]]:
+    def failures(self) -> list[dict[Literal["docket", "reason"], str]]:
         return [failure for ledger in self.terms for failure in ledger.failures]
 
 
@@ -227,18 +257,8 @@ def _plan(
 ) -> tuple[PlannedRow, int] | None:
     """Classify one served record: a planned row and its docket id, or held back."""
     number = scotus_docket_slug(term, serial, form="application")
-    served = str(payload.get("CaseNumber"))
-    served_as = parse_scotus_application_number(
-        corpus.strip_docket_annotation(str(payload.get("CaseNumber") or "").strip())
-    )
-    if served_as != (term, serial):
-        ledger.held.append(
-            {
-                "docket": number,
-                # Upstream text in a run summary: truncated, and repr-escaped.
-                "reason": f"served docket number {served[:32]!r} is not {number}",
-            }
-        )
+    if (why := _served_as_problem(payload, term, serial)) is not None:
+        ledger.held.append({"docket": number, "reason": why})
         return None
     docket_id = _resolve_identity(conn, payload, term, serial, form="application", matches=matches)
     case_id = ids.case_id("scotus", docket_id)
@@ -276,7 +296,6 @@ class _Walk:
     """One invocation's enumeration state: the shared handles and fetch budget."""
 
     client: SupremeCourtClient
-    data_root: Path
     end_misses: int
     limit: int | None
     cache: DocketCache | None
@@ -295,16 +314,24 @@ class _Walk:
         self.fetched += 1
         return payload
 
-    def walk_term(self, conn: sqlite3.Connection, term: int) -> TermLedger:
-        """Enumerate one Term from serial 1 to its end, a fetch limit, the deadline, or an error."""
-        stored, owned = _stored_serials(conn, term)
-        # The identity join, read once for the Term rather than once per serial:
-        # the per-number join walks every SCOTUS row.
-        matches = corpus.scotus_case_ids_by_docket_number_prefix(conn, f"{term:02d}A")
+    def walk_term(
+        self,
+        term: int,
+        stored_max_serial: int | None,
+        owned: set[int],
+        classify: Callable[[dict[str, Any], int, TermLedger], tuple[PlannedRow, int] | None],
+    ) -> TermLedger:
+        """Enumerate one Term from serial 1 to its end, a fetch limit, the deadline, or an error.
+
+        ``stored_max_serial`` and ``owned`` are the corpus's reading of the Term
+        (:func:`_stored_serials`, directly or through the projection);
+        ``classify`` files one served record as a planned row and its docket id,
+        or records why not on the ledger.
+        """
         ledger = TermLedger(
             term=term,
             end_misses=self.end_misses,
-            stored_max_serial=max(stored) if stored else None,
+            stored_max_serial=stored_max_serial,
         )
         arm_after = ledger.stored_max_serial or 0
         serial, misses = 1, 0
@@ -327,7 +354,7 @@ class _Walk:
                 ledger.failures.append(
                     {
                         "docket": scotus_docket_slug(term, serial, form="application"),
-                        "reason": f"{type(exc).__name__}: {exc}",
+                        "reason": " ".join(f"{type(exc).__name__}: {exc}".split())[:300],
                     }
                 )
                 ledger.stopped = "upstream-error"
@@ -348,12 +375,78 @@ class _Walk:
             misses = 0
             ledger.served += 1
             ledger.last_served = serial
-            planned = _plan(conn, self.data_root, payload, term, serial, ledger, matches)
+            planned = classify(payload, serial, ledger)
             if planned is not None:
                 row, docket_id = planned
                 ledger.candidates.append(row)
-                self.payloads[row.case_id] = (payload, docket_id)
+                self.payloads[_payload_key(term, serial)] = (payload, docket_id)
             serial += 1
+
+
+def _payload_key(term: int, serial: int) -> str:
+    return scotus_docket_slug(term, serial, form="application")
+
+
+def _corpus_classifier(
+    conn: sqlite3.Connection, data_root: Path, term: int
+) -> Callable[[dict[str, Any], int, TermLedger], tuple[PlannedRow, int] | None]:
+    """The one-process classifier: identity, ownership and the prediction guard."""
+    # The identity join, read once for the Term rather than once per serial:
+    # the per-number join walks every SCOTUS row.
+    matches = corpus.scotus_case_ids_by_docket_number_prefix(conn, f"{term:02d}A")
+
+    def classify(
+        payload: dict[str, Any], serial: int, ledger: TermLedger
+    ) -> tuple[PlannedRow, int] | None:
+        return _plan(conn, data_root, payload, term, serial, ledger, matches)
+
+    return classify
+
+
+def _served_as_problem(payload: dict[str, Any], term: int, serial: int) -> str | None:
+    """Why a served record is not the serial it was fetched as, or ``None``."""
+    number = scotus_docket_slug(term, serial, form="application")
+    served = str(payload.get("CaseNumber"))
+    served_as = parse_scotus_application_number(
+        corpus.strip_docket_annotation(str(payload.get("CaseNumber") or "").strip())
+    )
+    if served_as != (term, serial):
+        # Upstream text in a run summary: truncated, and repr-escaped.
+        return f"served docket number {served[:32]!r} is not {number}"
+    return None
+
+
+def _preview(
+    payload: dict[str, Any], serial: int, ledger: TermLedger
+) -> tuple[PlannedRow, int] | None:
+    """The corpus-free classifier: the served-number check and a mapped preview.
+
+    The record is mapped through the shared live mapping with no docket id yet
+    (identity is the writer's, against the corpus it writes), so the ledger
+    can count kinds and dispositions; the case id and the onboard/enrich split
+    stay unresolved.
+    """
+    number = scotus_docket_slug(ledger.term, serial, form="application")
+    if (why := _served_as_problem(payload, ledger.term, serial)) is not None:
+        ledger.held.append({"docket": number, "reason": why})
+        return None
+    row = from_live_record(map_live_docket(payload, 0, form="application"))
+    return (
+        PlannedRow(
+            docket_number=number,
+            serial=serial,
+            case_id=None,
+            action="unresolved",
+            application_kind=None if row.application_kind is None else str(row.application_kind),
+            capital_case=bool(row.capital_case),
+            referred_to_court=row.referred_to_court,
+            disposition=None if row.disposition is None else str(row.disposition),
+            date_filed=row.date_filed,
+            date_decided=row.date_decided,
+            counsel=len(row.counsel),
+        ),
+        0,
+    )
 
 
 def backfill_applications(  # noqa: PLR0913 - the pass's knobs, each a documented CLI flag
@@ -386,12 +479,34 @@ def backfill_applications(  # noqa: PLR0913 - the pass's knobs, each a documente
     if apply and cache is not None:
         raise ValueError("a cached record is not a host-scoped fetch; an apply reads upstream")
     result = ApplicationBackfillResult()
-    walk = _Walk(client, data_root, end_misses, limit, cache, deadline, time_fn)
+    walk = _Walk(client, end_misses, limit, cache, deadline, time_fn)
     with corpus.connect(corpus_db_path) as conn:
         for term in dict.fromkeys(terms):
-            result.terms.append(walk.walk_term(conn, term))
+            stored, owned = _stored_serials(conn, term)
+            result.terms.append(
+                walk.walk_term(
+                    term,
+                    max(stored) if stored else None,
+                    owned,
+                    _corpus_classifier(conn, data_root, term),
+                )
+            )
     if not apply:
         return result
+    assert max_rows is not None  # checked on entry
+    return _land(result, walk.payloads, corpus_db_path, data_root, today=today, max_rows=max_rows)
+
+
+def _land(
+    result: ApplicationBackfillResult,
+    payloads: Mapping[str, tuple[dict[str, Any], int]],
+    corpus_db_path: Path,
+    data_root: Path,
+    *,
+    today: date,
+    max_rows: int,
+) -> ApplicationBackfillResult:
+    """The apply's refusals, then each candidate through the live channel's ingest."""
     short = {f"OT20{t.term:02d}": t.stopped for t in result.terms if t.stopped != "end"}
     if short:
         result.refused = (
@@ -399,7 +514,6 @@ def backfill_applications(  # noqa: PLR0913 - the pass's knobs, each a documente
             "landed; re-dispatch once upstream serves"
         )
         return result
-    assert max_rows is not None  # checked on entry
     if len(result.candidates) > max_rows:
         result.refused = (
             f"{len(result.candidates)} row(s) to land, above the bound of {max_rows}; "
@@ -407,7 +521,8 @@ def backfill_applications(  # noqa: PLR0913 - the pass's knobs, each a documente
         )
         return result
     for row in result.candidates:
-        payload, docket_id = walk.payloads[row.case_id]
+        assert row.case_id is not None  # a landed candidate is always resolved
+        payload, docket_id = payloads[row.docket_number]
         ingest_live_payload(
             corpus_db_path, data_root, payload, docket_id, today=today, form="application"
         )
@@ -416,12 +531,204 @@ def backfill_applications(  # noqa: PLR0913 - the pass's knobs, each a documente
     return result
 
 
+# --- the handoff --------------------------------------------------------------------
+
+#: The highest serial a plan or projection may name: no Term has reached a
+#: tenth of it.
+_MAX_SERIAL: Final = 20_000
+
+
+class TermSerials(BaseModel):
+    """One Term's stored application serials, as the walk reads them."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    term: int = Field(ge=0, le=99)
+    stored_max_serial: int | None = Field(ge=1, le=_MAX_SERIAL)
+    owned: list[int] = Field(max_length=_MAX_SERIAL)
+
+
+class ApplicationProjection(BaseModel):
+    """The corpus facts the walk needs: each Term's highest stored serial and the live-owned ones.
+
+    Public: an application serial is the Court's own docket number (``24A123``
+    is Term 24, serial 123), and the two facts say only how far the corpus's
+    rows for the Term reach and which of them the live channel polls — no row
+    content, snapshot or CourtListener field.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    format: Literal["fedcourts/application-projection"] = "fedcourts/application-projection"
+    version: Literal[1] = 1
+    terms: list[TermSerials] = Field(max_length=100)
+
+
+class ServedDocket(BaseModel):
+    """One served record the walk would land, verbatim as upstream served it."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    term: int = Field(ge=0, le=99)
+    serial: int = Field(ge=1, le=_MAX_SERIAL)
+    payload: dict[str, Any]
+
+
+class ApplicationPlan(BaseModel):
+    """What the credential-free walk read: the file the writer job lands.
+
+    Not a public artifact: each served record is the supremecourt.gov docket
+    JSON verbatim, party contact blocks included, so run-repair holds an apply
+    at the parse job rather than upload it (docs/security.md, *S3 / the
+    private stores*). The model and its apply are complete for when the file
+    can cross opaquely; locally the split runs end to end.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    format: Literal["fedcourts/application-plan"] = "fedcourts/application-plan"
+    version: Literal[1] = 1
+    terms: list[TermLedger] = Field(max_length=100)
+    served: list[ServedDocket] = Field(max_length=_MAX_SERIAL)
+
+
+def application_projection(conn: sqlite3.Connection, terms: Sequence[int]) -> ApplicationProjection:
+    """Each Term's stored-serial reading, for the walk that cannot open the corpus."""
+    out: list[TermSerials] = []
+    for term in dict.fromkeys(terms):
+        stored, owned = _stored_serials(conn, term)
+        out.append(
+            TermSerials(
+                term=term,
+                stored_max_serial=max(stored) if stored else None,
+                owned=sorted(owned),
+            )
+        )
+    return ApplicationProjection(terms=out)
+
+
+def plan_applications(
+    client: SupremeCourtClient,
+    projection: ApplicationProjection,
+    terms: Sequence[int],
+    *,
+    end_misses: int = DEFAULT_END_MISSES,
+    limit: int | None = None,
+    cache: DocketCache | None = None,
+    deadline: float | None = None,
+    time_fn: Callable[[], float] = time.monotonic,
+) -> tuple[ApplicationBackfillResult, ApplicationPlan]:
+    """Walk each Term against the projection, with no corpus: the dry-run ledger and its plan."""
+    by_term = {t.term: t for t in projection.terms}
+    wanted = list(dict.fromkeys(terms))
+    if sorted(by_term) != sorted(wanted):
+        raise HandoffRefused(
+            f"the projection was read for Terms {sorted(by_term)}, not {sorted(wanted)}"
+        )
+    result = ApplicationBackfillResult()
+    walk = _Walk(client, end_misses, limit, cache, deadline, time_fn)
+    for term in wanted:
+        state = by_term[term]
+        result.terms.append(
+            walk.walk_term(term, state.stored_max_serial, set(state.owned), _preview)
+        )
+    served = [
+        ServedDocket(
+            term=ledger.term, serial=row.serial, payload=walk.payloads[row.docket_number][0]
+        )
+        for ledger in result.terms
+        for row in ledger.candidates
+    ]
+    return result, ApplicationPlan(terms=result.terms, served=served)
+
+
+def _plan_shape_problem(plan: ApplicationPlan, terms: Sequence[int]) -> str | None:  # noqa: PLR0911 - one return per check
+    """Why a plan cannot have come from an honest walk of ``terms``."""
+    read = [ledger.term for ledger in plan.terms]
+    if read != list(dict.fromkeys(terms)):
+        return f"was read for Terms {read}, not {list(dict.fromkeys(terms))}"
+    previews = {(ledger.term, row.serial) for ledger in plan.terms for row in ledger.candidates}
+    rows = [row for ledger in plan.terms for row in ledger.candidates]
+    if any(row.case_id is not None or row.action != "unresolved" for row in rows):
+        return "resolves a case id or an action, which only the writer does"
+    notes = [note for ledger in plan.terms for note in (*ledger.held, *ledger.failures)]
+    if any(set(note) != {"docket", "reason"} for note in notes):
+        return "carries a ledger note without its docket and reason"
+    seen: set[tuple[int, int]] = set()
+    for docket in plan.served:
+        key = (docket.term, docket.serial)
+        if key in seen:
+            return f"serves {_payload_key(*key)} twice"
+        seen.add(key)
+        if key not in previews:
+            return f"serves {_payload_key(*key)}, which its ledger does not list"
+        if (why := _served_as_problem(docket.payload, docket.term, docket.serial)) is not None:
+            return f"serves a record under the wrong number: {why}"
+    if seen != previews:
+        return "lists a record its served set does not carry"
+    return None
+
+
+def apply_application_plan(
+    plan: ApplicationPlan,
+    corpus_db_path: Path,
+    data_root: Path,
+    terms: Sequence[int],
+    *,
+    today: date,
+    apply: bool,
+    max_rows: int | None = None,
+) -> ApplicationBackfillResult:
+    """Re-check a plan whole, then classify and land it against the corpus at ``corpus_db_path``.
+
+    The plan is untrusted input — written by the job that fetched upstream —
+    so it must be for exactly ``terms``, carry each served record once, list
+    each in its ledger, and serve each under the number it was fetched as; any
+    departure refuses the whole plan with :class:`HandoffRefused` before
+    anything is written. Each record is then classified as a one-process run
+    classifies it, against the corpus about to be written: a serial the live
+    channel owns now is counted live-owned and never touched, identity is the
+    shared join, and an open event carrying a committed prediction holds the
+    row back. The apply's own refusals follow — a walk that stopped short of a
+    Term's end, a count above ``max_rows`` — and then the shared ingest.
+    Fetches nothing.
+    """
+    if apply and max_rows is None:
+        raise ValueError("an apply needs max_rows, the count read off a dry run")
+    if (why := _plan_shape_problem(plan, terms)) is not None:
+        raise HandoffRefused(f"the plan {why}")
+    served: dict[int, list[ServedDocket]] = {}
+    for docket in plan.served:
+        served.setdefault(docket.term, []).append(docket)
+    result = ApplicationBackfillResult()
+    payloads: dict[str, tuple[dict[str, Any], int]] = {}
+    with corpus.connect(corpus_db_path) as conn:
+        for read in plan.terms:
+            _, owned = _stored_serials(conn, read.term)
+            ledger = read.model_copy(update={"candidates": [], "held": list(read.held)}, deep=True)
+            classify = _corpus_classifier(conn, data_root, read.term)
+            for docket in served.get(read.term, []):
+                if docket.serial in owned:
+                    ledger.live_owned += 1
+                    continue
+                planned = classify(docket.payload, docket.serial, ledger)
+                if planned is not None:
+                    row, docket_id = planned
+                    ledger.candidates.append(row)
+                    payloads[row.docket_number] = (docket.payload, docket_id)
+            result.terms.append(ledger)
+    if not apply:
+        return result
+    assert max_rows is not None  # checked on entry
+    return _land(result, payloads, corpus_db_path, data_root, today=today, max_rows=max_rows)
+
+
 def render_ledger(result: ApplicationBackfillResult, *, max_rows: int | None = None) -> str:
     """The ledger a maintainer reads the apply's bound off, as Markdown-safe text."""
     verb = "landed" if result.applied else "would land"
     lines: list[str] = []
     for ledger in result.terms:
-        by_action = {"onboard": 0, "enrich": 0}
+        by_action = {"onboard": 0, "enrich": 0, "unresolved": 0}
         by_kind: dict[str, int] = {}
         capital = referred = pending = 0
         for row in ledger.candidates:
@@ -447,6 +754,12 @@ def render_ledger(result: ApplicationBackfillResult, *, max_rows: int | None = N
             f"failures={len(ledger.failures)}; stored max {ledger.stored_max_serial}; "
             f"last served {ledger.last_served}; {end}"
         )
+        if by_action["unresolved"]:
+            lines.append(
+                f"  unresolved={by_action['unresolved']}: read without the corpus, so the "
+                "writer resolves identity, re-reads ownership and applies the prediction "
+                "guard; an apply lands at most this many"
+            )
         kinds = " ".join(f"{kind}={count}" for kind, count in sorted(by_kind.items()))
         lines.append(
             f"  by kind: {kinds or 'none'}; capital={capital} referred={referred} pending={pending}"

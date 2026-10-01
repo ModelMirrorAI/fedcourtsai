@@ -20,6 +20,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
+from fedcourtsai.handoff import HandoffRefused, read_handoff, write_handoff
 from fedcourtsai.pipeline import opinion_record
 from fedcourtsai.pipeline.lineup import Join, Writing, WritingKind
 from fedcourtsai.pipeline.opinion_lineups import OpinionFetcher, OpinionListing
@@ -626,3 +627,190 @@ def test_the_dry_run_leaves_the_blob_byte_identical(
     readings = json.loads(result.stdout)
     assert readings[0]["case_id"] == "scotus/1"
     assert "would insert 2 opinion row(s)" in result.output
+
+
+# --- the credential split: projection, plan, apply ------------------------------------
+
+
+def _split_plan(db: Path, fetcher: _Fetcher, tmp_path: Path) -> Path:
+    """The read-only projection and the corpus-free read, through files as the jobs pass them."""
+    projection_file = tmp_path / "handoff" / "projection.json"
+    with corpus.connect_local_unmigrated(db) as ro:
+        write_handoff(projection_file, opinion_record.opinion_record_projection(ro, terms=[2025]))
+    projection = read_handoff(projection_file, opinion_record.OpinionRecordProjection)
+    recorded = opinion_record.projected_recorded(projection, terms=[2025])
+    dry = opinion_record.read_opinion_record(fetcher, terms=[2025], recorded=recorded)
+    plan_file = tmp_path / "handoff" / "plan.json"
+    write_handoff(plan_file, opinion_record.opinion_record_plan(dry))
+    return plan_file
+
+
+def _apply(db: Path, plan_file: Path, *, max_rows: int) -> opinion_record.OpinionRecordResult:
+    plan = read_handoff(plan_file, opinion_record.OpinionRecordPlan)
+    with corpus.connect(db) as conn:
+        return opinion_record.apply_opinion_record_plan(
+            conn,
+            plan,
+            terms=[2025],
+            apply=True,
+            max_rows=max_rows,
+            write=lambda pairs: insert_opinions(conn, pairs),
+        )
+
+
+def _rows(db: Path) -> list[dict[str, Any]]:
+    with corpus.connect(db) as conn:
+        return [
+            {k: v for k, v in dict(row).items() if k != "read_at"}
+            for row in conn.execute("SELECT * FROM opinions ORDER BY listing_number, position")
+        ]
+
+
+def test_the_split_inserts_what_the_one_process_apply_inserts(
+    _corpus: Path, tmp_path: Path
+) -> None:
+    listing = [_listing("1", "25-1"), _listing("2", "25-2")]
+    plan_file = _split_plan(_corpus, _Fetcher(listing), tmp_path)
+    plan = read_handoff(plan_file, opinion_record.OpinionRecordPlan)
+    assert [r.case_id for r in plan.readings] == [None, None]
+
+    refused = _apply(_corpus, plan_file, max_rows=3)
+    assert refused.refused and _rows(_corpus) == []
+    done = _apply(_corpus, plan_file, max_rows=4)
+    assert done.applied and done.inserted == 4
+    # The writer resolved the case id from its own corpus.
+    assert {r["case_id"] for r in _rows(_corpus)} == {"scotus/1", None}
+
+    one = corpus.corpus_db_path(tmp_path / "one" / "corpus")
+    with corpus.connect(one) as conn:
+        conn.execute(
+            "INSERT INTO cases (case_id, court, docket_number) "
+            + "VALUES ('scotus/1', 'scotus', '25-1')"
+        )
+        conn.commit()
+        build_opinion_record(
+            conn,
+            _Fetcher(listing),
+            terms=[2025],
+            apply=True,
+            max_rows=4,
+            write=lambda pairs: insert_opinions(conn, pairs),
+        )
+    assert _rows(_corpus) == _rows(one)
+
+    # Re-applying the same plan is fill-only: every document is now recorded.
+    again = _apply(_corpus, plan_file, max_rows=0)
+    assert again.rows == 0 and again.already_recorded == 2 and not again.refused
+
+
+def test_the_projection_spares_the_parse_every_recorded_document(
+    _corpus: Path, tmp_path: Path
+) -> None:
+    listing = [_listing("1", "25-1"), _listing("2", "25-2")]
+    _apply(_corpus, _split_plan(_corpus, _Fetcher(listing[:1]), tmp_path / "a"), max_rows=2)
+    fetcher = _Fetcher(listing)
+    plan_file = _split_plan(_corpus, fetcher, tmp_path / "b")
+    assert fetcher.fetched == [listing[1].url]
+    plan = read_handoff(plan_file, opinion_record.OpinionRecordPlan)
+    assert plan.already_recorded == 1 and [r.listing_number for r in plan.readings] == ["2"]
+
+
+def _mutate(plan: dict[str, Any], change: str) -> None:  # noqa: PLR0912 - one branch per tamper
+    reading = plan["readings"][0]
+    opinion = reading["opinions"][0]
+    if change == "case-id":
+        reading["case_id"] = "scotus/999"
+    elif change == "off-host":
+        reading["url"] = "https://example.com/opinions/25pdf/25-1_x.pdf"
+    elif change == "dockets":
+        reading["dockets"] = ["25-999"]
+    elif change == "unknown-justice":
+        opinion["author"] = "Mallory"
+    elif change == "positions":
+        opinion["position"] = 3
+    elif change == "footnotes":
+        opinion["footnote_words"] = opinion["words"] + 1
+    elif change == "duplicate":
+        plan["readings"].append(dict(reading))
+    elif change == "term":
+        reading["term"] = 2019
+    elif change == "plan-terms":
+        plan["terms"] = [2024]
+    elif change == "refused-with-rows":
+        reading["status"] = "refused"
+    elif change == "listing-number":
+        reading["listing_number"] = "1; DROP TABLE"
+    elif change == "per-curiam-author":
+        opinion["kind"] = "per_curiam"
+    elif change == "extra-field":
+        opinion["note"] = "x"
+    elif change == "format":
+        plan["format"] = "fedcourts/vote-stamp-plan"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "case-id",
+        "off-host",
+        "dockets",
+        "unknown-justice",
+        "positions",
+        "footnotes",
+        "duplicate",
+        "term",
+        "plan-terms",
+        "refused-with-rows",
+        "listing-number",
+        "per-curiam-author",
+        "extra-field",
+        "format",
+    ],
+)
+def test_a_tampered_or_malformed_plan_is_refused_whole(
+    _corpus: Path, tmp_path: Path, change: str
+) -> None:
+    plan_file = _split_plan(_corpus, _Fetcher([_listing("1", "25-1")]), tmp_path)
+    raw = json.loads(plan_file.read_text())
+    _mutate(raw, change)
+    plan_file.write_text(json.dumps(raw))
+    with pytest.raises(HandoffRefused):
+        _apply(_corpus, plan_file, max_rows=10)
+    assert _rows(_corpus) == []
+
+
+def test_an_oversized_or_missing_handoff_is_refused(tmp_path: Path) -> None:
+    big = tmp_path / "big.json"
+    big.write_text("{}")
+    with pytest.raises(HandoffRefused, match="cap"):
+        read_handoff(big, opinion_record.OpinionRecordPlan, max_bytes=1)
+    with pytest.raises(HandoffRefused, match="cannot be read"):
+        read_handoff(tmp_path / "absent.json", opinion_record.OpinionRecordPlan)
+
+
+def test_the_command_runs_the_split_end_to_end(
+    _corpus: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(OpinionFetcher, "listing", lambda self, term: [_listing("1", "25-1")])
+    monkeypatch.setattr(OpinionFetcher, "opinion", lambda self, url: b"%PDF")
+    projection, plan = tmp_path / "p.json", tmp_path / "plan.json"
+    emitted = _cli(tmp_path, monkeypatch, "--emit-corpus-projection", str(projection))
+    assert emitted.exit_code == 0, emitted.output
+    # The parse job has no corpus at all.
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "nowhere"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    planned = runner.invoke(
+        app,
+        ["backfill-opinion-record", "--projection", str(projection), "--plan-out", str(plan)],
+    )
+    assert planned.exit_code == 0, planned.output
+    assert "would insert 2 opinion row(s)" in planned.output
+    applied = _cli(tmp_path, monkeypatch, "--from-plan", str(plan), "--apply", "--max-rows", "2")
+    assert applied.exit_code == 0, applied.output
+    assert "inserted 2 of 2" in applied.output
+    for args in (
+        ("--projection", str(projection), "--apply", "--max-rows", "2"),
+        ("--from-plan", str(plan), "--projection", str(projection)),
+        ("--emit-corpus-projection", str(projection), "--apply", "--max-rows", "2"),
+    ):
+        assert _cli(tmp_path, monkeypatch, *args).exit_code == 2, args

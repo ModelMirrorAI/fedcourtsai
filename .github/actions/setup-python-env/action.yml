@@ -1,6 +1,16 @@
 name: Setup Python env
 description: Install uv (with cache) and sync the project's dependencies into .venv.
 
+inputs:
+  save-cache:
+    description: >-
+      Whether the uv cache is saved at the end of the job. "false" for a job
+      that runs a parse of third-party content (run-repair's handoff-parse):
+      a cache saved after code nobody wrote may have run could be restored by
+      any job that restores the uv cache. Restoring is unaffected.
+    required: false
+    default: "true"
+
 runs:
   using: composite
   steps:
@@ -18,12 +28,14 @@ runs:
       with:
         version: "0.11.26"
         enable-cache: true
+        save-cache: ${{ inputs.save-cache }}
     - name: Install uv (retry after a transient fetch failure)
       if: steps.install-uv.outcome == 'failure'
       uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
       with:
         version: "0.11.26"
         enable-cache: true
+        save-cache: ${{ inputs.save-cache }}
     # `--locked` is what makes uv.lock a control rather than a hint: it refuses
     # to install when the lock is stale against pyproject.toml, where a bare
     # `uv sync` re-resolves and installs whatever it finds. The lockfile is the
