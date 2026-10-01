@@ -24,8 +24,9 @@ post-grant bound to its caller, which is the stronger half of the reading.
 
 The cert-stage analogue is :mod:`fedcourtsai.pipeline.cert_signals`, the interim
 one :mod:`fedcourtsai.pipeline.interim_signals`; this is the merits sibling. It
-is a leaf module — it reads entry text and returns dates — so no consumer can
-form an import cycle around it.
+also dates the argument (:func:`argued_date`), which the merits decision record
+carries. It is a leaf module — it reads entry text and returns dates — so no
+consumer can form an import cycle around it.
 """
 
 from __future__ import annotations
@@ -238,3 +239,44 @@ def respondent_brief_date(payload: Mapping[str, Any], *, granted_on: date | None
         if filed is not None and filed > granted_on:
             return filed
     return None
+
+
+# The Clerk's record of an oral argument: "Argued. For petitioner: ... For
+# respondent: ...", and "Reargued. ..." where the Court set the case for a
+# second argument. Start-anchored on the verb, because the anchor is what keeps
+# out every entry that merely talks about argument: the scheduling notice ("SET
+# FOR ARGUMENT on Monday, October 6, 2025."), the invitation to an appointed
+# amicus ("... is invited to brief and argue this case ..."), a motion for
+# divided argument, and the argument calendar's own "CIRCULATED". A doubled verb
+# ("Argued. Argued. For ...") is a Clerk's slip and still opens on the verb.
+_ARGUED_RE = re.compile(r"^\s*(?:re)?argued\b", re.I)
+
+
+def is_argument_entry(text: str) -> bool:
+    """Whether an entry records the case being argued (or reargued)."""
+    return bool(_ARGUED_RE.search(text))
+
+
+def argued_date(payload: Mapping[str, Any], *, granted_on: date | None) -> date | None:
+    """When the granted case was last argued, or ``None``.
+
+    The **last** argument entry wins, unlike the first-brief rule above: a case
+    the Court set for reargument is decided on the reargument, so the date the
+    decision record and the post-argument moment both want is the later one.
+    ``granted_on`` bounds the scan to entries on or after the grant, and
+    without one there is no merits proceeding to argue, so the answer is
+    ``None`` — the same post-grant contract as :func:`respondent_brief_date`.
+    "On or after" rather than strictly after, because nothing at the cert stage
+    shares the shape and an expedited grant can be argued days later. An undated
+    entry is skipped rather than guessed at.
+    """
+    if granted_on is None:
+        return None
+    found: date | None = None
+    for text, raw in proceedings_entries(payload):
+        if not is_argument_entry(text):
+            continue
+        argued = entry_date(raw)
+        if argued is not None and argued >= granted_on:
+            found = argued
+    return found

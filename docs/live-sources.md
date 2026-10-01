@@ -179,6 +179,32 @@ rather than a failure, because rows written before the write site stripped the
 marking carry one until something reaches them, and the verdict must not be red
 for the whole interval.
 
+On a granted docket the same parse also lands the **merits decision record**
+(`pipeline/decision_record.py`), over every grant — the GVR and the summary
+reversal included, where the merits pair (`merits_judgment` / `merits_decided`)
+reads only the grants that open a merits proceeding. `merits_argued` is the
+date of the docket's last entry opening on its own verb — "Argued. For
+petitioner: …" or "Reargued. …" — on or after the grant, so a reargued case
+carries the reargument; the scheduling notice ("SET FOR ARGUMENT on …"), an
+appointed amicus's invitation "to brief and argue", and a motion for divided
+argument all name argument mid-sentence and stay unmatched.
+`merits_decision_method` says how the case was decided, read from the same
+last judgment-shaped entry the merits pair is parsed from, with its markup
+dropped (the docket links the opinion: "Gorsuch, J., delivered the `<a …>`opinion`</a>`
+of the Court"): a named Justice delivering the opinion — "of the Court", "for a
+unanimous Court", or announcing the judgment of a fractured Court — is
+`argued-signed` after argument; "Opinion per curiam." or an affirmance by an
+equally divided Court is `argued-per-curiam`; a judgment riding the order that
+grants (a cert-order label, or a judgment dated on the grant) is
+`summary-opinion` where the entry carries an opinion and `summary-order` where
+it does not, the ordinary GVR — whose "(per curiam)" is a citation of another
+case's opinion, not one of its own; and a DIG is `dig`, argued or not. Both
+columns fill-in latch, so a degraded payload keeps the stored reading while a
+reargument or a fresh decision takes over. Rows polled before the columns
+existed are filled by `backfill-decision-record` from their newest stored live
+snapshot, and neither column reaches a cell: both are withheld from the `query`
+retrieval rows ([corpus/README.md](../corpus/README.md)).
+
 ## Documents: from metadata to content
 
 The document PDFs linked from each docket are the step-change in input quality
