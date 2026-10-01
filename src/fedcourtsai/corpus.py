@@ -3247,8 +3247,8 @@ class PriorQuery(BaseModel):
         "it carries no date to test and records the very fact — the proceeding "
         "ended — that the clock exists to hide. The undated party and counsel "
         "lists (`counsel`, `parties`, `attorneys`) are emptied on every admitted "
-        "row for the same reason: they hold the docket's current state, amici "
-        "filed after the clock included. This is "
+        "row, since they hold the docket's current state, amici filed after the "
+        "clock included; the row's other columns come back as stored. This is "
         "the back-test replay clock; live (forward) retrieval omits it because "
         "every resolved prior genuinely precedes an open case.",
     )
@@ -3413,8 +3413,13 @@ def _mask_post_clock_merits(
     return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
 
 
-#: Columns the replay clock empties on every prior it admits, because each holds
-#: the row's *current* state with no date to test against the clock. The SCOTUS
+#: The party and counsel lists the replay clock empties on every prior it
+#: admits: each holds the row's *current* state with no date to test against
+#: the clock, and each carries the amicus grant oracle. This is not every
+#: last-pull column a prior carries — ``citations``, ``citation_count``,
+#: ``summary``, ``precedential_status``, ``has_opinion`` (and the opinion body
+#: under ``full``) and ``merits_brief_filed`` still reach a replay cell as
+#: stored — only the ones whose accrual is the amicus oracle. The SCOTUS
 #: party and counsel blocks accrue over a docket's life — every third-party
 #: filing appends its counsel of record, and amici (``role=other``) pile onto a
 #: petition overwhelmingly after a grant — so a prior that resolved before the

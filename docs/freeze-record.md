@@ -6167,7 +6167,11 @@ freeze commit is recorded here.
   `DECIDED_BEFORE` or a `REPLAY_CUTOFF`, so no forward predict or evaluate
   cell's information set moved, and no counted `proc-v8` cell is affected.
   Forward `query` output is byte-identical: the same query without a clock
-  printed the same bytes before and after the change.
+  printed the same bytes before and after the change. **Nor did the rest of a
+  prior's last-pull state.** Its `citations`, `citation_count`, `summary`,
+  `precedential_status`, `has_opinion` and `--full` opinion body, and
+  `merits_brief_filed` still reach a replay cell as stored, on both sides of
+  this change; the clock is not a full as-at-clock view of a prior.
 
   **The reading rule.** Two cert back-test reports whose cells ran on either
   side of `<FILL: merge commit>` ran under different replay masks, even where

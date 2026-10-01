@@ -1470,14 +1470,21 @@ the rendered table) and
 
   **The clock also screens what a retrieved prior carries, not only which
   priors return.** A prior's columns are its state at the last pull, not at
-  the clock, so on every prior a replay cell's `fedcourts query` admits, the
-  undated post-clock fields are withheld: the merits pair unless
+  the clock, and on every prior a replay cell's `fedcourts query` admits,
+  some of them are withheld: the merits pair unless
   `merits_decided` clears every bar the clock sets, `merits_terminated`
   always, and the party and counsel lists (`counsel`, `parties`, `attorneys`)
   always, emptied to `[]`. The lists go whole because no entry in them is
   dated and they accrue after a grant (amici, overwhelmingly), the same
   reason `redact_snapshot` strips the replayed petition's own party and counsel
-  blocks. Read two consequences. A replay cell cannot see who appeared on a
+  blocks. **The mask is not complete.** A prior's other last-pull columns —
+  its own `citations`, `citation_count`, `summary`, `precedential_status`,
+  `has_opinion` and the opinion body under `--full`, `merits_brief_filed` —
+  still reach a replay cell as stored, so a prior granted before the clock
+  can still show, through them, that its merits stage later produced a
+  reported opinion. That is post-clock information about the prior, not the
+  petition, and it stands in every replay report. Read two consequences of
+  what is masked. A replay cell cannot see who appeared on a
   prior, which a forward cell can, so a replay figure understates the same
   predictor's forward information set here as it does on the snapshot. And a
   report whose cells ran before the list mask reached `main` retrieved priors
