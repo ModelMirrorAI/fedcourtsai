@@ -257,6 +257,42 @@ class MeritsTermination(StrEnum):
     judgment_issued = "judgment-issued"
 
 
+class MeritsDecisionMethod(StrEnum):
+    """**How** the Court decided a granted case — the decision record's form axis.
+
+    Orthogonal to :class:`Judgment`, which says *what* happened to the judgment
+    below: the same reversal can arrive as a signed opinion after argument, a
+    per curiam after argument, or a summary per curiam in the order that grants
+    the petition. The two together carry the stat-pack labels without a second
+    disposition vocabulary — a GVR is ``summary-order`` (or ``summary-opinion``)
+    beside ``vacated``, a GRR or summary reversal is ``summary-opinion`` beside
+    ``reversed``.
+
+    - ``argued-signed``: argued, and decided by an opinion of the Court a named
+      Justice delivered.
+    - ``argued-per-curiam``: argued, and decided per curiam — including an
+      affirmance by an equally divided Court, which the Court issues per curiam.
+    - ``summary-opinion``: decided without argument, with an opinion (in
+      practice per curiam): a summary reversal, a GRR, a GVR the Court explains.
+    - ``summary-order``: decided without argument and without an opinion — the
+      ordinary GVR, whose vacatur rides in the order granting the petition.
+    - ``dig``: the writ dismissed as improvidently granted, whether before or
+      after argument; the argued date beside it says which.
+
+    Read deterministically from the stored docket by
+    ``pipeline/decision_record.py``, and stored in the corpus row's
+    ``merits_decision_method`` column. None there means unclassified (pending,
+    terminated without a disposition, or a decision entry this reader cannot
+    place), never an observed absence.
+    """
+
+    argued_signed = "argued-signed"
+    argued_per_curiam = "argued-per-curiam"
+    summary_opinion = "summary-opinion"
+    summary_order = "summary-order"
+    dig = "dig"
+
+
 class EventKind(StrEnum):
     """The filing that *opened* an event — not what the event decides.
 

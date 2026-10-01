@@ -252,6 +252,7 @@ from .pipeline.cert_signals import (
 from .pipeline.claims import score_claims
 from .pipeline.counsel import COUNSEL_RULES
 from .pipeline.decision_dates import converge_decision_dates
+from .pipeline.decision_record import backfill_decision_record, decision_census
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
 from .pipeline.document_backfill import backfill_documents
@@ -3650,6 +3651,148 @@ def backfill_response_fields_cmd(
             if value is not None
         )
         typer.echo(f"  {verb} {fill.case_id}: {gained}")
+
+
+@app.command("backfill-decision-record")
+def backfill_decision_record_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Fill the decision record; omit for a dry-run report."),
+    ] = False,
+    max_fills: Annotated[
+        int | None,
+        typer.Option(
+            "--max-fills",
+            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
+        ),
+    ] = None,
+) -> None:
+    """Read each unclassified granted row's newest live snapshot for its decision record.
+
+    The merits decision record is two columns beside the merits pair, over every
+    granted SCOTUS cert docket in the live slice — GVRs and summary reversals
+    included: ``merits_argued``, the date of the docket's last argument entry
+    on or after the grant, and ``merits_decision_method``, how the case was decided
+    (argued and signed, argued per curiam, summary with an opinion, summary
+    order, or DIG), read from the last judgment-shaped entry
+    (`pipeline/decision_record.py`). The live poll writes both at ingest; this
+    pass fills a stored row whose columns are null, re-reading the newest stored
+    live-shaped snapshot with the same functions rather than re-fetching.
+
+    The candidates are the granted rows whose method is unclassified and that
+    are not known to have terminated, so the pending docket stays a candidate
+    until its decision lands and a classified row never returns. Fill-in only —
+    a stored reading is never overwritten — so the pass converges. Nothing a
+    predict or evaluate cell sees reads the columns: they are withheld from the
+    retrieval surface, and no outcome, mint, or provisioning gate reads them.
+    The write is a direct ``UPDATE`` of the index and never the casestore mirror.
+
+    Idempotent. Run where the corpus is pulled: a dev checkout dry-runs it, and
+    the apply half belongs to a writer lane, which holds the corpus-write
+    credentials. ``--apply`` refuses above ``--max-fills``, which counts the rows
+    actually filled. Prints the counts, the method distribution over the fills,
+    and each filled row. Fails loud if the corpus is absent.
+    """
+    settings = get_settings()
+    if apply and max_fills is None:
+        typer.echo(
+            "backfill-decision-record: --apply requires an explicit --max-fills. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect(db_path) as conn:
+        result = backfill_decision_record(conn, apply=apply, max_fills=max_fills)
+    if result.refused:
+        typer.echo(
+            f"backfill-decision-record: refusing to apply {len(result.filled)} fills "
+            f"(--max-fills {max_fills}). Triage the dry run before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "filled" if apply else "would fill"
+    methods = ", ".join(f"{k}: {v}" for k, v in result.methods.items()) or "none"
+    typer.echo(
+        f"backfill-decision-record ({'applied' if apply else 'dry-run'}): "
+        f"{verb} {len(result.filled)} of {result.candidates} candidate(s); "
+        f"{result.unchanged} read with nothing to fill; "
+        f"{result.no_snapshot} with no stored snapshot; "
+        f"{result.no_proceedings} whose snapshot discloses no proceedings"
+    )
+    typer.echo(f"  methods: {methods}")
+    for fill in result.filled:
+        gained = ", ".join(
+            part
+            for part in (
+                f"argued {fill.argued.isoformat()}" if fill.argued else "",
+                f"method {fill.method.value}" if fill.method else "",
+            )
+            if part
+        )
+        typer.echo(f"  {verb} {fill.case_id}: {gained}")
+
+
+@app.command("decision-census")
+def decision_census_cmd(
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First October Term to report.")
+    ] = 2017,
+    last_term: Annotated[
+        int, typer.Option("--last-term", help="Last October Term to report.")
+    ] = 2025,
+) -> None:
+    """Count the merits decision record per October Term, read-only, from the index.
+
+    Over every granted SCOTUS cert docket, assigned to the Term it was argued in,
+    else the Term it was decided in (`decision_term` — not the docket-number
+    prefix, which splits one Term's decisions across two years): how many are
+    assigned, carry an argued date, carry a decided date, and rode the cert order
+    (GVR or summary disposition); the method distribution; and the disposition of
+    the judgment below over the rows that did **not** ride the order — the
+    plenary docket a reversal rate is taken over. The disposition is the one
+    `Judgment` vocabulary: the latched merits judgment, else a cert-order label's
+    own meaning (a GVR vacates, a summary reversal reverses). Pending rows and
+    rows carrying `merits_terminated` (by reason) are counted apart. Reads no
+    snapshot, so a NULL is a gap in the record rather than a fact about a case.
+    The default range opens at OT2017, where the live slice starts; that Term is
+    partial, since the cases it decided on OT2016 grants are not granted rows
+    here. Prints one line per Term to stderr and the census JSON to
+    stdout. Fails loud if the corpus is absent.
+    """
+    if first_term > last_term:
+        typer.echo("decision-census: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the decision census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        census = decision_census(conn, first_term=first_term, last_term=last_term)
+    for term in census.terms:
+        methods = ", ".join(f"{k} {v}" for k, v in term.methods.items()) or "-"
+        plenary = ", ".join(f"{k} {v}" for k, v in term.plenary_dispositions.items()) or "-"
+        typer.echo(
+            f"OT{term.term}: assigned {term.assigned}, argued {term.argued}, "
+            f"decided {term.decided}, order-riding {term.order_riding}; "
+            f"methods: {methods}; plenary dispositions: {plenary}",
+            err=True,
+        )
+    terminations = ", ".join(f"{k} {v}" for k, v in census.terminations.items()) or "none"
+    typer.echo(f"pending {census.pending}; terminated: {terminations}", err=True)
+    typer.echo(census.model_dump_json())
 
 
 @app.command("backfill-arrival-stamps")

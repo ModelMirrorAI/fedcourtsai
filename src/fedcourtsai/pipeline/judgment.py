@@ -8,8 +8,10 @@ no other seam normalizes (the corpus row's ``disposition`` carries the
 :mod:`fedcourtsai.pipeline.outcome` only detects that such an entry exists).
 This module is the deterministic parser from that entry text onto the
 :class:`fedcourtsai.schemas.Judgment` vocabulary, plus the ``disturbed``
-projection the merits base rate scores against, and a best-effort authorship
-reader.
+projection the merits base rate scores against, a best-effort authorship
+reader, and the two opinion-form predicates (:func:`signed_opinion`,
+:func:`per_curiam_opinion`) the merits decision record
+(:mod:`fedcourtsai.pipeline.decision_record`) reads.
 
 Every shape here is **anchored on a sentence opening with the disposition's own
 noun** ("Judgment ...", "Adjudged to be ...", "Writ of certiorari ... dismissed
@@ -56,6 +58,7 @@ same termination shapes) holds the line.
 
 from __future__ import annotations
 
+import html
 import re
 import sqlite3
 from collections import Counter
@@ -361,6 +364,18 @@ _AUTHOR_RE = re.compile(
 
 _PER_CURIAM_RE = re.compile(r"\bper\s+curiam\b", re.IGNORECASE)
 
+# The live docket wraps the opinion in a link — "Gorsuch, J., delivered the <a
+# href = '...'>opinion</a> of the Court", "<a href = '...'>Opinion</a> per
+# curiam." — so the authorship shapes read the entry's text with its markup
+# dropped, the way the Court's own page renders it.
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def entry_plain_text(text: str) -> str:
+    """An entry's text with its HTML markup and entities dropped, whitespace collapsed."""
+    return " ".join(html.unescape(_TAG_RE.sub(" ", text)).split())
+
+
 # The judgments that disturb the decision below. A DIG and an equally divided
 # affirmance are non-merits exits that leave the lower judgment standing — a
 # DIG dissolves the writ, not the judgment, and an equally divided Court
@@ -461,6 +476,39 @@ def judgment_rode_the_grant_order(merits_decided: date, date_cert_granted: date)
     return merits_decided <= date_cert_granted
 
 
+# Whether *any* named Justice wrote for the Court — the stored half of the
+# authorship question, which the decision record reads to tell a signed opinion
+# from a per curiam. Wider than `_AUTHOR_RE` on purpose, because it needs no name:
+# the docket also writes "Kagan, J., delivered the opinion for a unanimous
+# Court." and, for a fractured Court, "Roberts, C. J., announced the judgment of
+# the Court and delivered the opinion of the Court with respect to Parts ..."
+# (or "... and delivered an opinion, in which ..." for a plurality). The recital
+# anchors on the Justice's own title, so a concurrence or dissent ("Thomas, J.,
+# filed a concurring opinion") never reads as the Court's opinion.
+_SIGNED_RE = re.compile(
+    r"(?:C\.\s*J\.|J\.),\s+(?:announced\s+the\s+judgment\s+of\s+the\s+court\b"
+    r"|delivered\s+(?:the|an)\s+opinion\b)",
+    re.IGNORECASE,
+)
+
+# "Opinion per curiam." — the Court's own notation that the opinion is
+# unsigned. "opinion" is required, because a bare "(per curiam)" is how an order
+# *cites* some other case's per curiam ("... in light of Clark v. Sweeney, 607
+# U. S. 7 (2025) (per curiam)."), which says nothing about how this one was
+# decided.
+_OPINION_PER_CURIAM_RE = re.compile(r"\bopinion\s+per\s+curiam\b", re.IGNORECASE)
+
+
+def signed_opinion(text: str) -> bool:
+    """Whether the entry recites a named Justice delivering the Court's opinion or judgment."""
+    return bool(_SIGNED_RE.search(entry_plain_text(text)))
+
+
+def per_curiam_opinion(text: str) -> bool:
+    """Whether the entry notes its own opinion as per curiam ("Opinion per curiam.")."""
+    return bool(_OPINION_PER_CURIAM_RE.search(entry_plain_text(text)))
+
+
 def opinion_author(text: str) -> str | None:
     """Best-effort: who delivered the opinion of the Court, from the entry text.
 
@@ -477,7 +525,11 @@ def opinion_author(text: str) -> str | None:
     normalization target every vote surface shares (the SCDB entry in
     ``docs/data-sources.md``). Advisory only: nothing stored or scored reads
     it.
+
+    Reads the entry's plain text (:func:`entry_plain_text`), so the live
+    docket's linked spelling parses the same as the bare one.
     """
+    text = entry_plain_text(text)
     if match := _AUTHOR_RE.search(text):
         tokens = match.group(1).split()
         for start in range(len(tokens)):
@@ -487,6 +539,29 @@ def opinion_author(text: str) -> str | None:
     if _PER_CURIAM_RE.search(text):
         return PER_CURIAM
     return None
+
+
+class JudgmentEntry(NamedTuple):
+    """The last judgment-shaped entry of a docket: what it says, when, and its text."""
+
+    judgment: Judgment
+    decided: date | None
+    text: str
+
+
+def last_judgment_entry_text(payload: Mapping[str, Any]) -> JudgmentEntry | None:
+    """:func:`last_judgment_entry`, keeping the entry's own text beside the parse.
+
+    The decision record reads *how* the case was decided (a signed opinion, a
+    per curiam) off the same entry the judgment was parsed from, so it takes the
+    text from here rather than re-scanning for it.
+    """
+    found: JudgmentEntry | None = None
+    for text, raw in proceedings_entries(payload):
+        judgment = match_judgment(text)
+        if judgment is not None:
+            found = JudgmentEntry(judgment, entry_date(raw), text)
+    return found
 
 
 def last_judgment_entry(payload: Mapping[str, Any]) -> tuple[Judgment, date | None] | None:
@@ -500,12 +575,8 @@ def last_judgment_entry(payload: Mapping[str, Any]) -> tuple[Judgment, date | No
     :func:`~fedcourtsai.pipeline.cert_signals.entry_date` parse — ``None`` for
     an undated or partially dated entry, never a guess.
     """
-    found: tuple[Judgment, date | None] | None = None
-    for text, raw in proceedings_entries(payload):
-        judgment = match_judgment(text)
-        if judgment is not None:
-            found = (judgment, entry_date(raw))
-    return found
+    found = last_judgment_entry_text(payload)
+    return None if found is None else (found.judgment, found.decided)
 
 
 def last_merits_termination(

@@ -1169,6 +1169,21 @@ or network.
      resolves an event on a row carrying no judgment — but there is no longer a
      judgment to forecast, so the event stops earning cells and simply sits.
 
+     Beside the merits pair the same ingest writes the **merits decision
+     record** on every grant, the GVR and the summary reversal included:
+     `merits_argued` (the docket's last argument on or after the grant) and
+     `merits_decision_method` (argued and signed, argued per curiam, summary
+     with an opinion, summary order, or DIG — `pipeline/decision_record.py`;
+     [live-sources.md](live-sources.md) has the entry shapes). Nothing above
+     reads them: detection, the mint, the forecastable gate and provisioning
+     key on the merits pair and `merits_terminated` alone, and both columns are
+     withheld from the `query` rows a cell retrieves. They are where the
+     historical merits decision record lives — corpus-side, on the case row,
+     with no outcome written to the git ledger for a case the pipeline never
+     forecast, so the ledger holds only what was forecast — and `fedcourts decision-census` counts them per
+     October Term; `backfill-decision-record` fills a stored row whose columns
+     are null.
+
      An event pinned to one docket entry is never a claimant of its stage's
      disposition: it resolves on its own filing's terms, so an application
      whose submission line also names a motion ("Application for a stay and

@@ -554,6 +554,33 @@ class CorpusRow(BaseModel):
         "the row stays outside the statpack's parsed slice and the disturbed "
         "rate pooled from it. None = not known to have terminated.",
     )
+    merits_argued: date | None = Field(
+        default=None,
+        description="When the granted case was argued: the date of the "
+        "docket's last `Argued.` / `Reargued.` entry on or after the grant "
+        "(`pipeline.merits_signals.argued_date`), so a reargued case carries "
+        "its reargument. Written by the live poll at ingest on any granted "
+        "docket and by `backfill-decision-record` over stored snapshots; "
+        "fill-in latched. None = not argued, or not yet parsed — a summary "
+        "disposition and a pending case both read None, so read it beside "
+        "`merits_decision_method`. Part of the decision record, which is "
+        "withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`).",
+    )
+    merits_decision_method: str | None = Field(
+        default=None,
+        description="How the Court decided this granted case — a "
+        "`MeritsDecisionMethod` value stored as text (blob-tolerant like "
+        "`merits_judgment`): argued and signed, argued per curiam, summary "
+        "with an opinion, summary order, or DIG. Covers every granted row, "
+        "GVRs and summary reversals included, unlike the merits pair, whose "
+        "population is the merits proceeding alone. Read by "
+        "`pipeline/decision_record.py` from the docket's last judgment-shaped "
+        "entry, the grant date and `merits_argued`; written by the live poll "
+        "at ingest and by `backfill-decision-record`; fill-in latched. None = "
+        "unclassified (pending, terminated without a disposition, or an entry "
+        "the reader cannot place). Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`).",
+    )
     response_requested_at: date | None = Field(
         default=None,
         description="When the Court or a Circuit Justice asked for a response to "
@@ -817,7 +844,15 @@ CREATE TABLE IF NOT EXISTS cases (
     -- while the stamp is no older than `last_live_polled`, so a floor costs one
     -- paced docket GET per poll of that docket rather than one per dispatch.
     -- NULL = never floored.
-    document_floor_probed_at TEXT
+    document_floor_probed_at TEXT,
+    -- The decision record beside the merits pair (see CorpusRow and
+    -- pipeline/decision_record.py): the date of the docket's last argument
+    -- on or after the grant, and how the case was decided (a `MeritsDecisionMethod`
+    -- value), over every granted row. Written by the live poll at ingest and
+    -- by `backfill-decision-record`; fill-in latched. Withheld from the
+    -- retrieval surface. NULL = not argued / unclassified, or not yet parsed.
+    merits_argued       TEXT,
+    merits_decision_method TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -988,6 +1023,8 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "capital_case": "INTEGER NOT NULL DEFAULT 0",
     "opinion_enrich_attempted_at": "TEXT",
     "document_floor_probed_at": "TEXT",
+    "merits_argued": "TEXT",
+    "merits_decision_method": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1422,6 +1459,8 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         ),
         "response_filed_at": (row.response_filed_at.isoformat() if row.response_filed_at else None),
         "merits_terminated": row.merits_terminated,
+        "merits_argued": row.merits_argued.isoformat() if row.merits_argued else None,
+        "merits_decision_method": row.merits_decision_method,
         "capital_case": int(row.capital_case),
     }
 
@@ -1532,6 +1571,8 @@ def _from_record(record: RecordRow) -> CorpusRow:
         response_requested_at=_optional_date(record, "response_requested_at"),
         response_filed_at=_optional_date(record, "response_filed_at"),
         merits_terminated=_optional_str(record, "merits_terminated"),
+        merits_argued=_optional_date(record, "merits_argued"),
+        merits_decision_method=_optional_str(record, "merits_decision_method"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -1543,8 +1584,8 @@ def _update_clause(column: str) -> str:
     special: channel-supplied facts (``last_pulled``, the opinion-enrichment
     walk's ``opinion_enrich_attempted_at`` cursor, the document back-fill's
     ``document_floor_probed_at`` floor probe, and the fill-in slice of
-    the live-parsed signals — the conference and CVSG dates, and the dated
-    interim/merits signals beside them)
+    the live-parsed signals — the conference and CVSG dates, the dated
+    interim/merits signals beside them, and the merits decision record)
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count``, the interim escalation
     signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
@@ -1582,6 +1623,8 @@ def _update_clause(column: str) -> str:
         "response_requested_at",
         "response_filed_at",
         "merits_brief_filed",
+        "merits_argued",
+        "merits_decision_method",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -1592,7 +1635,15 @@ def _update_clause(column: str) -> str:
         # earliest qualifying entry, so a payload served with its head entries
         # missing can move a stored date later — accepted because a fresh parse
         # must still be able to correct a wrong date, and the open-first-moment
-        # guards bound what a moved date can re-open.
+        # guards bound what a moved date can re-open. The decision record
+        # (`merits_argued`, `merits_decision_method`) joins them on the same
+        # terms: a payload that yields no reading keeps the stored one, while a
+        # fresh reading — a reargument after the first argument, a decision
+        # after a pending poll — takes over. It shares the exposure too: a
+        # payload served without its argument entry can move `merits_argued`
+        # back to an earlier argument, or read an argued per curiam as a
+        # summary one — accepted for the same reason, since a fresh read must
+        # be able to correct a wrong reading and nothing scored reads them.
         # `opinion_enrich_attempted_at` takes the same rule from the other side:
         # only the enrichment walk ever carries it, so every other writer's NULL
         # must preserve the cursor, while the walk's own stamp — never NULL —
@@ -3261,6 +3312,20 @@ def opinion_body(row: CorpusRow) -> str | None:
     return None if source is None else source.opinion_text(row.case_id)
 
 
+#: Columns a ``query`` prior never carries, though the row stores them. The
+#: merits decision record is an analytics surface — what a stat-pack or a
+#: per-Justice vote reader would read — and no registered process has admitted
+#: it to what a predict or
+#: evaluate cell retrieves. A column added to the rows a cell retrieves changes a
+#: frozen process's inputs without moving its digest, which is the one kind of
+#: process change the digest cannot see. Withholding them here means a ``query``
+#: row carries no decision-record column at all, and keeps the replay
+#: clock (:func:`_mask_post_clock_merits`) from having to learn to hide a new
+#: post-clock fact. A process change that wants the argued date in front of a
+#: cell admits it by removing it from this set, under its own re-bless.
+RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset({"merits_argued", "merits_decision_method"})
+
+
 def prior_payload(row: CorpusRow, *, full: bool = False) -> dict[str, object]:
     """Shape one retrieved prior into the ``query`` output row.
 
@@ -3277,8 +3342,10 @@ def prior_payload(row: CorpusRow, *, full: bool = False) -> dict[str, object]:
     provisioning's opinion slot alike, so the two cannot disagree about where the
     text is — and it is reached only when ``full`` is asked for, keeping the
     default path exactly as it was.
+
+    The :data:`RETRIEVAL_WITHHELD_COLUMNS` never leave here, ``full`` or not.
     """
-    payload = row.model_dump(mode="json")
+    payload = row.model_dump(mode="json", exclude=set(RETRIEVAL_WITHHELD_COLUMNS))
     payload["era"] = case_era(row)
     if not full:
         payload.pop("opinion_text", None)
