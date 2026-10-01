@@ -677,7 +677,7 @@ prerequisites each pass is gated on still apply, so a dry-run dispatch can move
 the corpus pointer by a convergence a scheduled window would have made anyway.
 [data-pipeline.md](data-pipeline.md#maintenance-passes) is the contract — what
 each pass accepts, every refusal, the `dedupe-live-rows` prerequisite each
-corpus pass is gated on, and the dispatch commands.
+pass in the corpus job is gated on, and the dispatch commands.
 
 It is a separate workflow because its failure posture is the opposite of the
 walker's. A standing sweep fails by *not converging*, and the next window
@@ -905,7 +905,7 @@ stale mirror would hand a cell the very stamp the pass replaced.
 grant — the shape a live re-poll leaves when it stops reading a grant out of the
 proceedings and overwrites the stored date with NULL. Nothing re-mints one and
 nothing ever closes it, so it parks permanently on the listed-unforecastable
-triage surface. It is the one pass with a ledger half: the corpus row and the
+triage surface. It has a ledger half: the corpus row and the
 committed event directory under `data/` are staged in the step's one pointer
 commit, the attribution repairs' shape, because an uncommitted ledger half
 strands a directory under an id the corpus no longer carries. It needs no
@@ -945,6 +945,88 @@ an `apply` is checked against is the widened dry-run's own relabel count, which
 spans the scored and unscored confirmations together. On `apply` the step still
 runs the dry-run into the step summary first, as a receipt of what the rewrite
 acted on.
+
+`moment-convergence` re-stamps the stored `moment` of a declared-moment event
+onto the moment its id declares — the id is the key and the declared-moments
+table the authority, so a stored moment that disagrees is a stale copy. The
+population it exists for is application baselines the application-baseline
+relabel (`relabel-application-events`) moved off the cert petition id with the
+cert stage's `distribution` moment carried onto them — a finite residue, since
+the relabel re-derives the moment and no write path produces the shape. A
+decided application has left the live rotation, so nothing else re-reads the
+row. It
+writes both stores — the corpus row (re-mirrored into the content store) and the
+ledger `event.yaml` written from it, each scanned on its own — and stages
+`data/` beside the pointer in the step's one commit, so the two land together.
+An event carrying committed predict or evaluate output is held back in both
+stores and reported, since moving its moment moves scored cells between moment
+strata; unlike the disposition and phantom passes there is no option that
+widens onto them. Its bound counts corpus rows and ledger files together.
+
+`opinion-votes` and `order-votes` are the vote writer: they stamp `votes`,
+`vote_provenance` and `writing_roles` onto committed outcomes from the Court's
+own documents — merits outcomes from their opinion's syllabus lineup, cert and
+interim outcomes from the notations and writing headers of the order that
+disposed of them ([data-sources.md](data-sources.md), *The vote writer*). They
+run in their own job, which reads the corpus through the read-only role and
+writes only `outcome.json`. Each run fetches from supremecourt.gov, so an apply
+dispatch does not lead with a dry run; the bound is read off the previous
+dry-run dispatch, and a re-dispatched dry run after the apply is the control.
+An outcome carrying a different record is held back unless `replace-differing`
+is set. The order-list records are banked, never scored.
+
+`application-backfill` lands one closed Term's interim applications that the
+live channel never polled (`fedcourts backfill-applications`). OT2024 below
+`24A1000` is the first slice, and earlier Terms follow one dispatch each. It
+enumerates the Term's serials upstream and writes each row the live channel does
+not already own through the live channel's own ingest seam, so a back-filled
+row is the row a live poll would have written and joins the live slice. A
+live-polled row is never fetched or overwritten. It runs in its own job: the
+dry run holds no credential while it fetches and takes no lock, and the apply
+takes `corpus-write`, the read-write role from its write step onward, and the
+App token only after that step. Each run fetches from supremecourt.gov, so an apply does
+not lead with a dry run, and a re-dispatched dry run after the apply is the
+control. **The apply is post-release**: it moves OT2024's unparsed rows into the
+population the pooled interim base rate is computed over, so it waits until
+after the long-conference release and is pre-registered in
+[freeze-record.md](freeze-record.md). That registration covers OT2024 only: an
+apply for any other Term is refused until that Term has its own freeze-record
+entry and a place in `REGISTERED_APPLY_TERMS`.
+
+`decision-record` fills the merits decision record — `merits_argued` and
+`merits_decision_method` — on stored granted rows whose method is still null
+(`fedcourts backfill-decision-record`). It re-reads each candidate's newest
+stored live snapshot through the reader the live poll uses at ingest, never
+overwrites a stored reading, and writes the two columns by a direct `UPDATE` of
+the index, so its commit is the corpus pointer alone. It runs in its own job on
+the application back-fill's split: the dry run holds the read-only role (the
+snapshots it reads live in the content store) and takes no lock, and the apply
+takes `corpus-write`, the read-write role from its write step onward, and the
+App token only after that step. The bound is the dry run's fill count, and a
+re-dispatched dry run after the apply is the control. `fedcourts
+decision-census` reads the result. Nothing a cell sees moves: both columns are
+withheld from the `query` rows, and no gate, mint or outcome reads them.
+
+`opinion-record` builds the per-opinion record — each opinion's kind, author,
+joiners and word count — into the corpus `opinions` table (`fedcourts
+backfill-opinion-record`) for OT2020–OT2025, a range pinned in the step rather
+than taken as an input (OT2017–OT2019 list only whole volumes, which the pass
+skips). It fetches each unrecorded document the Court's opinions listing links
+from supremecourt.gov at about one request a second and inserts fill-only, and
+it writes nothing under `data/`, so its commit is the corpus pointer alone. It
+runs in its own job: the step that fetches, parses and — on an apply — inserts
+into the local index holds no AWS session, no OIDC request token and no App
+token in either mode. The job takes no lock on a dry run; the apply takes
+`corpus-write`, assumes the read-write role only after that step has exited, for
+the blob push, and mints the App token only after the push. The command does
+fetch and insert in one process — its apply refuses a PDF cache — so the
+separation is in time, not a process boundary: anything a compromised parse left
+on the runner could reach any later step, whose credentials (the two
+`prod`-trusted roles, the data App's key) are what limit it. The bound is the
+dry run's opinion-row count. Each run fetches again, so an apply does not lead
+with a dry run, and a re-dispatched dry run after the apply is the control.
+Nothing a cell sees moves: the table is no part of a `query` row, and no gate,
+mint, outcome or score reads it.
 
 `sampled-frame-weight-repair` restores the derived sampling weight on the legacy
 denial-sampling frame's latched-down rows: grid denials genuinely inside sampled
@@ -1910,6 +1992,28 @@ from the corpus, and every cell is provisioned under `--work-dir`. The
 misplaced-write probe is unaffected — an engine following the prompt template's
 `data/cases/...` path recreates the directory the probe looks for.
 
+The fence reaches the priors a cell retrieves as well. Every `fedcourts query`
+on a dated or truncated cell runs under its replay clock, as does every query a
+blind cell makes with `--decided-before`; the clock drops the priors that do not
+provably precede it and, on the ones it admits, withholds the merits pair
+unless it is dated before the clock, `merits_terminated`, and the `counsel`,
+`parties` and `attorneys` lists, which accrue amici after a grant and carry no
+date to test. It is not a full as-at-clock view of a prior: its other
+retrievable columns, citations and opinion presence among them, come back as stored at the
+last pull. The full rule is the `query` row in [cli.md](cli.md).
+
+The big-case board, `metrics/big-cases.json` and `metrics/big-cases.md`,
+leaves the tree with the ledger on the same terms. Its decided cases are among
+the petitions the replay can draw, and it names them beside their outcomes:
+each resolved event in the JSON carries `actual_disposition`, and in both
+files a case's moment names its newest predicted event, where a merits moment
+discloses the grant the way a merits event in the ledger does. Nothing the
+replay runs reads either file. The review PR step stages all of `metrics/`, so
+the board comes back from the commit, asserted pristine, before the
+salience-gate arm and that step run, and its removal never reaches what the PR
+commits. The standing `metrics/cert-backtest.json` is withheld by
+`cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)).
+
 Two residuals ride that fence, and both are the reason it is described as
 structural rather than as a wall. The checkout is full-depth, so the ledger
 stays one `git show HEAD:data/cases/...` away, and a tidy agent running `git
@@ -1918,7 +2022,8 @@ stops is the *incidental* read, a cell opening what sits in front of it. And
 nothing at run time would catch a deliberate one: this job writes no retrieval
 log and uploads no transcript, so an agent's own stdout in the expiring run log
 is the only record a tool call leaves. The same two hold for the `data/qp-topics`
-oracle the job deletes beside it.
+oracle the job deletes beside it and for the big-case board, which carries a
+third: it is published, and a cell's web tools can reach the public repository.
 
 A predict cell refuses to run for three reasons, all landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP

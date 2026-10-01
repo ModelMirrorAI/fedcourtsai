@@ -2345,6 +2345,250 @@ def test_a_represented_dockets_staged_snapshot_is_the_payload_as_served(
     assert "snapshot contact scrub" not in result.output
 
 
+def test_a_self_represented_respondent_is_scrubbed_on_a_counselled_petition(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The respondent side gets both scrubs on the same reading the petitioner
+    # side does. Here the petitioner is counselled and the respondent files in
+    # person: the respondent's block is withheld in the staged snapshot, the
+    # petitioner's counsel block stays as served, and the value pass keys on the
+    # respondent's own values — each spelled in the opposition so only that
+    # pass reaches it — and not on the counselled side's, whose blank-separated
+    # number (a shape the shape pass never reads) survives in the petition.
+    payload = {
+        **_REPRESENTED_DOCKET,
+        "Petitioner": [
+            {
+                **_REPRESENTED_DOCKET["Petitioner"][0],
+                "Address": "1000 Maine Avenue SW",
+                "Phone": "202-555-0100",
+                "Email": "ks@firm.example.com",
+            }
+        ],
+        "Respondent": [
+            {
+                "PartyName": "Richard Roe",
+                "Attorney": "Richard Roe",
+                "Email": "rroe.respondent@example.com",
+                "Phone": "(936) 555-0199",
+                "Address": "Route 2, 4417 County Road 12",
+                "City": "Tennessee Colony",
+                "State": "TX",
+                "Zip": "75884",
+            }
+        ],
+    }
+    opposition = (
+        "Respondent opposes the petition.\n"
+        + "Richard Roe, Respondent Pro Se\n"
+        + "Route 2\n"
+        + "4417 County Road 12\n"
+        + "Tel. 9365550199\n"
+        + "E-mail: rroe.respondent@example.\n"
+        + "com\n"
+    )
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="petition",
+                    url="https://example/petition.pdf",
+                    entry_date="2026-07-01",
+                    fetched_at=date(2026, 7, 2),
+                    text="Counsel of Record\nTel. 202 555 0100\n",
+                ),
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="brief-in-opposition",
+                    url="https://example/bio.pdf",
+                    entry_date="2026-07-10",
+                    fetched_at=date(2026, 7, 11),
+                    text=opposition,
+                ),
+            ],
+        )
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    staged_payload = json.loads(paths.snapshot("2026-07-20").read_text())
+    respondent = staged_payload["Respondent"][0]
+    for key in ("Address", "City", "Zip", "Phone", "Email"):
+        assert respondent[key] == "[contact detail withheld]"
+    assert respondent["PartyName"] == "Richard Roe"
+    assert respondent["State"] == "TX"
+    assert staged_payload["Petitioner"] == payload["Petitioner"]
+    staged = paths.document("brief-in-opposition").read_text()
+    assert "rroe.respondent" not in staged
+    assert "9365550199" not in staged
+    assert "4417 County Road 12" not in staged
+    assert "Respondent opposes the petition." in staged
+    assert staged.count("\n") == opposition.count("\n")
+    assert "202 555 0100" in paths.document("petition").read_text()
+    manifest = _documents_manifest(fixture_corpus)
+    assert manifest["brief-in-opposition"]["contact_scrub_passes"] == ["value", "shape"]
+    assert manifest["petition"]["contact_scrubbed"] is True
+    assert "snapshot contact scrub: 5 value(s) withheld on 1 respondent-side block(s)" in (
+        result.output
+    )
+    assert "(no attorney named for the respondent; passes: value+shape)" in result.output
+    assert "rroe.respondent@example.com" not in result.output
+
+
+def test_both_sides_self_represented_are_named_in_both_echoes(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    payload = {
+        **_PRO_SE_DOCKET,
+        "Petitioner": [{**_PRO_SE_DOCKET["Petitioner"][0], "Email": "jane.doe@example.com"}],
+        "Respondent": [
+            {"PartyName": "Richard Roe", "Attorney": "Richard Roe", "Phone": "(936) 555-0199"}
+        ],
+    }
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "snapshot contact scrub: 2 value(s) withheld on 2 petitioner/respondent-side block(s)"
+        in result.output
+    )
+    assert "(no attorney named for the petitioner/respondent; passes: value+shape)" in (
+        result.output
+    )
+
+
+def test_a_self_represented_amicus_is_scrubbed_on_a_counselled_docket(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A counselled petition with two amici on the `Other` list: one filing in
+    # its own name, whose block is withheld and whose values key the value pass,
+    # and a represented organisation whose `PrisonerId` holds free text — not a
+    # register number, so it stays as served. Both echoes name the list
+    # `amicus`. (That the organisation is not keyed on is pinned at unit level.)
+    scholar = {
+        "PartyName": "Jane Scholar",
+        "Attorney": "Jane Q. Scholar",
+        "Title": "Example University School of Law",
+        "Email": "jscholar@law.example.edu",
+        "Phone": "(555) 555-0142",
+        "Address": "100 Campus Drive",
+        "City": "Springfield",
+        "State": "IL",
+        "Zip": "62701",
+    }
+    organisation = {
+        "PartyName": "Example Association for Liberty",
+        "Attorney": "Ann B. Advocate",
+        "PrisonerId": "1234 Sample Drive, Suite 000-000",
+        "Email": "advocate@firm.example.com",
+        "Phone": "(555) 555-0177",
+    }
+    payload = {**_REPRESENTED_DOCKET, "Other": [organisation, scholar]}
+    # The counselled petition, with the amicus's own details planted in it: the
+    # value pass alone runs, so the amicus's values go and the firm's address
+    # and telephone number, which only the shape pass would take, survive.
+    petition = (
+        "Counsel of Record\n"
+        + "1000 Maine Avenue SW\n"
+        + "(202) 555-0100\n"
+        + "See also amicus Jane Scholar, jscholar@law.example.\n"
+        + "edu, Tel. 5555550142\n"
+    )
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, petition)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    staged_payload = json.loads(paths.snapshot("2026-07-20").read_text())
+    staged_scholar = staged_payload["Other"][1]
+    for key in ("Title", "Email", "Phone", "Address", "City", "Zip"):
+        assert staged_scholar[key] == "[contact detail withheld]"
+    assert staged_scholar["PartyName"] == "Jane Scholar"
+    assert staged_payload["Other"][0] == organisation
+    assert staged_payload["Petitioner"] == payload["Petitioner"]
+    staged = paths.document("petition").read_text()
+    assert "jscholar" not in staged
+    assert "5555550142" not in staged
+    assert "1000 Maine Avenue SW" in staged
+    assert "(202) 555-0100" in staged
+    assert staged.count("\n") == petition.count("\n")
+    manifest = _documents_manifest(fixture_corpus)
+    assert manifest["petition"]["contact_scrubbed"] is True
+    assert manifest["petition"]["contact_scrub_passes"] == ["value"]
+    assert manifest["petition"]["contact_replacements"] == 2
+    assert "snapshot contact scrub: 6 value(s) withheld on 1 amicus-side block(s)" in (
+        result.output
+    )
+    assert "(no attorney named for the amicus; passes: value)" in result.output
+    assert "jscholar@law.example.edu" not in result.output
+
+
+def test_an_amicus_with_no_keyable_value_leaves_the_documents_as_filed(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # Value only, and no amicus value clears its floor: nothing runs, so the
+    # documents are staged as filed and recorded as unscrubbed, while the
+    # snapshot still withholds the amicus block's keys.
+    scholar = {"PartyName": "Jane Scholar", "Attorney": "Jane Scholar", "City": "Springfield"}
+    payload = {**_REPRESENTED_DOCKET, "Other": [scholar]}
+    petition = "Counsel of Record\n1000 Maine Avenue SW\n(202) 555-0100\n"
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, petition)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert paths.document("petition").read_text() == petition
+    manifest = _documents_manifest(fixture_corpus)
+    assert manifest["petition"]["contact_scrubbed"] is False
+    assert manifest["petition"]["contact_scrub_passes"] == []
+    assert "snapshot contact scrub: 1 value(s) withheld on 1 amicus-side block(s)" in (
+        result.output
+    )
+    assert "detail(s) withheld across" not in result.output
+    assert (
+        "contact scrub: not run across 1 staged document(s) (no attorney named for the "
+        + "amicus; no value specific enough to key on)"
+    ) in result.output
+
+
+def test_a_pro_se_petitioner_beside_an_amicus_runs_both_passes(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A party side read as self-represented keeps both passes, and the value
+    # pass keys on the union: the petitioner's values and the amicus's.
+    scholar = {
+        "PartyName": "Jane Scholar",
+        "Attorney": "Jane Scholar",
+        "Email": "jscholar@law.example.edu",
+    }
+    payload = {**_PRO_SE_DOCKET, "Other": [scholar]}
+    petition = _SIGNED_IN_PERSON + "Amicus: jscholar@law.example.\nedu\n"
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, petition)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    staged = CasePaths(fixture_corpus.data_root, "scotus", 305).document("petition").read_text()
+    assert "1234 Maple Street" not in staged
+    assert "(713) 555-0147" not in staged
+    assert "jscholar" not in staged
+    manifest = _documents_manifest(fixture_corpus)
+    assert manifest["petition"]["contact_scrub_passes"] == ["value", "shape"]
+    assert "(no attorney named for the petitioner/amicus; passes: value+shape)" in result.output
+
+
 def test_one_docket_level_reading_scrubs_every_staged_kind(
     fixture_corpus: FixtureCorpus,
 ) -> None:
@@ -2398,6 +2642,8 @@ def test_the_run_log_reports_what_the_scrub_withheld(fixture_corpus: FixtureCorp
 
     assert result.exit_code == 0, result.output
     assert "contact scrub: 3 detail(s) withheld across 1 staged document(s)" in result.output
+    # A docket fired by its petitioner alone names that side and no other.
+    assert "(no attorney named for the petitioner; passes: " in result.output
 
 
 def test_a_represented_docket_says_nothing_about_a_scrub_in_the_run_log(

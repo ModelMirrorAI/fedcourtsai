@@ -274,7 +274,9 @@ class CorpusRow(BaseModel):
         description="Structured counsel (party + attorney + side + counsel-of-record) from the "
         "SCOTUS docket's per-side blocks; the joined detail behind the flat `parties` and "
         "`attorneys` names, and the only place the petitioner/respondent side survives. "
-        "Empty off the SCOTUS live/historical channel.",
+        "Empty off the SCOTUS live/historical channel, and on a row last written before "
+        "the column existed. Latched on upsert: an empty incoming list keeps the stored "
+        "one, a non-empty reading replaces it.",
     )
     topic: str | None = Field(default=None, description="Nature of suit / subject-matter topic.")
     citations: list[str] = Field(default_factory=list)
@@ -552,6 +554,33 @@ class CorpusRow(BaseModel):
         "the row stays outside the statpack's parsed slice and the disturbed "
         "rate pooled from it. None = not known to have terminated.",
     )
+    merits_argued: date | None = Field(
+        default=None,
+        description="When the granted case was argued: the date of the "
+        "docket's last `Argued.` / `Reargued.` entry on or after the grant "
+        "(`pipeline.merits_signals.argued_date`), so a reargued case carries "
+        "its reargument. Written by the live poll at ingest on any granted "
+        "docket and by `backfill-decision-record` over stored snapshots; "
+        "fill-in latched. None = not argued, or not yet parsed — a summary "
+        "disposition and a pending case both read None, so read it beside "
+        "`merits_decision_method`. Part of the decision record, which is "
+        "withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`).",
+    )
+    merits_decision_method: str | None = Field(
+        default=None,
+        description="How the Court decided this granted case — a "
+        "`MeritsDecisionMethod` value stored as text (blob-tolerant like "
+        "`merits_judgment`): argued and signed, argued per curiam, summary "
+        "with an opinion, summary order, or DIG. Covers every granted row, "
+        "GVRs and summary reversals included, unlike the merits pair, whose "
+        "population is the merits proceeding alone. Read by "
+        "`pipeline/decision_record.py` from the docket's last judgment-shaped "
+        "entry, the grant date and `merits_argued`; written by the live poll "
+        "at ingest and by `backfill-decision-record`; fill-in latched. None = "
+        "unclassified (pending, terminated without a disposition, or an entry "
+        "the reader cannot place). Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`).",
+    )
     response_requested_at: date | None = Field(
         default=None,
         description="When the Court or a Circuit Justice asked for a response to "
@@ -815,7 +844,15 @@ CREATE TABLE IF NOT EXISTS cases (
     -- while the stamp is no older than `last_live_polled`, so a floor costs one
     -- paced docket GET per poll of that docket rather than one per dispatch.
     -- NULL = never floored.
-    document_floor_probed_at TEXT
+    document_floor_probed_at TEXT,
+    -- The decision record beside the merits pair (see CorpusRow and
+    -- pipeline/decision_record.py): the date of the docket's last argument
+    -- on or after the grant, and how the case was decided (a `MeritsDecisionMethod`
+    -- value), over every granted row. Written by the live poll at ingest and
+    -- by `backfill-decision-record`; fill-in latched. Withheld from the
+    -- retrieval surface. NULL = not argued / unclassified, or not yet parsed.
+    merits_argued       TEXT,
+    merits_decision_method TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -986,6 +1023,8 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "capital_case": "INTEGER NOT NULL DEFAULT 0",
     "opinion_enrich_attempted_at": "TEXT",
     "document_floor_probed_at": "TEXT",
+    "merits_argued": "TEXT",
+    "merits_decision_method": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1133,6 +1172,60 @@ def _migrate_documents(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE documents ADD COLUMN {column} {ddl}")
 
 
+# Per-column DDL for `opinions`, the per-opinion record
+# (`pipeline.opinion_record`): one row per opinion in a document the Court's
+# opinions listing links, keyed by the listing row (Term, listing number) and
+# the opinion's order in the document. A historical decision record, like the
+# case row's decision columns, written only by the `backfill-opinion-record`
+# pass and read by no retrieval, provisioning, outcome or scoring path. The
+# table is created from this map and migrated by it, the same one-object
+# construction the other tables use.
+OPINIONS_COLUMN_DDL: dict[str, str] = {
+    "term": "INTEGER NOT NULL",
+    "listing_number": "TEXT NOT NULL",
+    "position": "INTEGER NOT NULL",
+    "docket": "TEXT NOT NULL",
+    "dockets": "TEXT NOT NULL DEFAULT '[]'",
+    "case_id": "TEXT",
+    "case_name": "TEXT NOT NULL DEFAULT ''",
+    "decided": "TEXT NOT NULL",
+    "argued": "TEXT",
+    "kind": "TEXT NOT NULL",
+    "author": "TEXT",
+    "coauthors": "TEXT NOT NULL DEFAULT '[]'",
+    "joins": "TEXT NOT NULL DEFAULT '[]'",
+    "scope": "TEXT",
+    "words": "INTEGER NOT NULL",
+    "footnote_words": "INTEGER NOT NULL DEFAULT 0",
+    "word_rule": "TEXT NOT NULL",
+    "lineup": "TEXT NOT NULL DEFAULT ''",
+    "source_format": "TEXT NOT NULL DEFAULT ''",
+    "document_url": "TEXT NOT NULL",
+    "header": "TEXT NOT NULL DEFAULT ''",
+    "read_at": "TEXT NOT NULL",
+}
+
+
+def _migrate_opinions(conn: sqlite3.Connection) -> None:
+    """Create `opinions` from its DDL map, and add any column added since.
+
+    Idempotent; a corpus written before the table existed gains it, empty, on
+    its first writable connect. Only a writer's connection gets here: the
+    pass's own dry run opens the blob read-only and reads a missing table as
+    an empty record.
+    """
+    columns = ", ".join(f"{name} {ddl}" for name, ddl in OPINIONS_COLUMN_DDL.items())
+    conn.execute(
+        f"CREATE TABLE IF NOT EXISTS opinions ({columns}, "
+        "PRIMARY KEY (term, listing_number, position))"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_opinions_case ON opinions(case_id)")
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(opinions)")}
+    for column, ddl in OPINIONS_COLUMN_DDL.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE opinions ADD COLUMN {column} {ddl}")
+
+
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
 # A display annotation the Court appends to some docket numbers, most often
@@ -1254,6 +1347,7 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         _migrate_live_cursors(conn)
         _migrate_events(conn)
         _migrate_documents(conn)
+        _migrate_opinions(conn)
         yield conn
     finally:
         conn.close()
@@ -1302,7 +1396,11 @@ class RecordRow(Protocol):
 
 @contextmanager
 def connect_readonly(
-    db_path: Path, *, backend: CorpusBackend | None = None, remote_url: str | None = None
+    db_path: Path,
+    *,
+    backend: CorpusBackend | None = None,
+    remote_url: str | None = None,
+    migrate: bool = True,
 ) -> Iterator[ReadConnection]:
     """Open the corpus for reading via the selected backend.
 
@@ -1311,6 +1409,12 @@ def connect_readonly(
     corpus remote (see :mod:`fedcourtsai.corpus_ranged`), resolving the
     committed ``.ref`` pointer next to ``db_path`` against the out-of-band
     remote URL. ``backend`` overrides the ``FEDCOURTS_CORPUS_BACKEND`` setting.
+    ``migrate=False`` opens the local file strictly read-only (SQLite
+    ``mode=ro``) and runs no schema migration, so the pulled blob's bytes stay
+    the ones its pointer names. It is for a caller that reads only columns every
+    blob carries, such as the ``corpus-info`` vintage report; a caller that reads
+    a column newer than the pulled blob keeps the default, which migrates the
+    local file in place.
     ``remote_url`` pins which remote the ranged read resolves against, for a
     caller whose source must not follow the ambient setting (the staging
     seeder); unset, the environment's value serves as ever.
@@ -1347,9 +1451,30 @@ def connect_readonly(
         pointer = resolve_read_pointer(db_path)
         with connect_ranged(pointer, effective_remote) as ranged:
             yield ranged
+    elif not migrate:
+        with connect_local_unmigrated(db_path) as conn:
+            yield conn
     else:
         with connect(db_path) as conn:
             yield conn
+
+
+@contextmanager
+def connect_local_unmigrated(db_path: Path) -> Iterator[sqlite3.Connection]:
+    """The pulled file opened read-only, with no schema created or migrated.
+
+    The one non-migrating local open: SQLite ``mode=ro`` refuses every write, so
+    the file's bytes stay the ones its pointer names. A reader on this
+    connection sees the blob as packed and must tolerate a column the blob
+    predates, as the ranged backend's readers already do.
+    """
+    conn = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    conn.create_function("norm_dn", 1, normalize_docket_number, deterministic=True)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def _to_record(row: CorpusRow) -> dict[str, object]:
@@ -1420,6 +1545,8 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         ),
         "response_filed_at": (row.response_filed_at.isoformat() if row.response_filed_at else None),
         "merits_terminated": row.merits_terminated,
+        "merits_argued": row.merits_argued.isoformat() if row.merits_argued else None,
+        "merits_decision_method": row.merits_decision_method,
         "capital_case": int(row.capital_case),
     }
 
@@ -1427,9 +1554,10 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
 def _optional_date(record: RecordRow, column: str) -> date | None:
     """Read a date column that a remote blob packed under an older schema lacks.
 
-    Local reads always see every column (``connect`` migrates on open), but the
-    ranged backend serves the remote blob as-is, and its ``Row`` raises for a
-    column the blob predates — treat that as unset rather than failing the row.
+    A default local read sees every column (``connect`` migrates on open), but
+    the ranged backend and a ``migrate=False`` local read serve the blob as-is,
+    and their ``Row`` raises for a column the blob predates — treat that as
+    unset rather than failing the row.
     """
     try:
         raw = record[column]
@@ -1530,6 +1658,8 @@ def _from_record(record: RecordRow) -> CorpusRow:
         response_requested_at=_optional_date(record, "response_requested_at"),
         response_filed_at=_optional_date(record, "response_filed_at"),
         merits_terminated=_optional_str(record, "merits_terminated"),
+        merits_argued=_optional_date(record, "merits_argued"),
+        merits_decision_method=_optional_str(record, "merits_decision_method"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -1541,8 +1671,8 @@ def _update_clause(column: str) -> str:
     special: channel-supplied facts (``last_pulled``, the opinion-enrichment
     walk's ``opinion_enrich_attempted_at`` cursor, the document back-fill's
     ``document_floor_probed_at`` floor probe, and the fill-in slice of
-    the live-parsed signals — the conference and CVSG dates, and the dated
-    interim/merits signals beside them)
+    the live-parsed signals — the conference and CVSG dates, the dated
+    interim/merits signals beside them, and the merits decision record)
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count``, the interim escalation
     signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
@@ -1552,7 +1682,10 @@ def _update_clause(column: str) -> str:
     the capital marking, so the other's confident False must not erase it — so
     each only ever grows — and ``application_kind`` gets the same protection in
     TEXT form: a real reading is never wiped by a degraded parse's confident
-    ``unknown``); ``sample_weight`` is a
+    ``unknown``); ``counsel`` takes that TEXT latch's shape in JSON-list form,
+    with ``'[]'`` in the role of ``unknown`` — an empty list only fills a gap,
+    so a channel that maps no counsel keeps the live channel's per-side
+    reading, while a non-empty one replaces it; ``sample_weight`` is a
     min-latch (an inclusion probability is only ever learned upward, toward
     weight 1); ``predict_excluded`` is owned by the scope reconcile (not an
     ingestion fact), so an upsert keeps the stored value rather than resetting
@@ -1577,6 +1710,8 @@ def _update_clause(column: str) -> str:
         "response_requested_at",
         "response_filed_at",
         "merits_brief_filed",
+        "merits_argued",
+        "merits_decision_method",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -1587,7 +1722,15 @@ def _update_clause(column: str) -> str:
         # earliest qualifying entry, so a payload served with its head entries
         # missing can move a stored date later — accepted because a fresh parse
         # must still be able to correct a wrong date, and the open-first-moment
-        # guards bound what a moved date can re-open.
+        # guards bound what a moved date can re-open. The decision record
+        # (`merits_argued`, `merits_decision_method`) joins them on the same
+        # terms: a payload that yields no reading keeps the stored one, while a
+        # fresh reading — a reargument after the first argument, a decision
+        # after a pending poll — takes over. It shares the exposure too: a
+        # payload served without its argument entry can move `merits_argued`
+        # back to an earlier argument, or read an argued per curiam as a
+        # summary one — accepted for the same reason, since a fresh read must
+        # be able to correct a wrong reading and nothing scored reads them.
         # `opinion_enrich_attempted_at` takes the same rule from the other side:
         # only the enrichment walk ever carries it, so every other writer's NULL
         # must preserve the cursor, while the walk's own stamp — never NULL —
@@ -1699,6 +1842,20 @@ def _update_clause(column: str) -> str:
         # docket restates it), the same last-entry rule the backfill applies.
         clause = (
             f"{column}=CASE WHEN excluded.merits_judgment IS NULL "
+            f"THEN cases.{column} ELSE excluded.{column} END"
+        )
+    elif column == "counsel":
+        # The JSON-list twin of the fill-in latch: every writer asserts the column
+        # (NOT NULL, default '[]'), so a channel that maps no counsel blocks — a
+        # CourtListener REST or bulk row, whose record has no per-side blocks —
+        # writes a confident '[]' rather than NULL, and a plain assignment would
+        # erase what the live channel parsed. An empty incoming list therefore
+        # keeps the stored one; a non-empty list, the live channel's fresh
+        # re-read, always replaces it, so a corrected parse still lands. The
+        # accepted cost: a docket whose upstream blocks genuinely empty out
+        # keeps its last non-empty reading.
+        clause = (
+            f"{column}=CASE WHEN excluded.{column} = '[]' "
             f"THEN cases.{column} ELSE excluded.{column} END"
         )
     else:
@@ -1973,14 +2130,58 @@ def scotus_case_id_by_docket_number(conn: sqlite3.Connection, raw: str | None) -
     norm = normalize_docket_number(raw)
     if norm is None:
         return None
+    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) = ?", (norm,)).get(norm)
+
+
+def scotus_case_ids_by_docket_numbers(
+    conn: ReadConnection, raws: Iterable[str | None]
+) -> dict[str, str]:
+    """:func:`scotus_case_id_by_docket_number` for many numbers, in one walk of the SCOTUS rows.
+
+    Keyed by the normalized number (:func:`normalize_docket_number`), with the
+    same lowest-docket-id rule. ``conn`` must carry the ``norm_dn`` function,
+    which :func:`connect` registers and a caller's own read-only connection
+    registers itself.
+    """
+    wanted = sorted({n for raw in raws if (n := normalize_docket_number(raw)) is not None})
+    if not wanted:
+        return {}
+    marks = ",".join("?" for _ in wanted)
+    return _scotus_docket_number_matches(conn, f"norm_dn(docket_number) IN ({marks})", wanted)
+
+
+def scotus_case_ids_by_docket_number_prefix(
+    conn: sqlite3.Connection, prefix: str
+) -> dict[str, str]:
+    """:func:`scotus_case_id_by_docket_number` for every number under ``prefix``, in one read.
+
+    Keyed by the normalized number, with the same lowest-docket-id rule. The
+    single join cannot use an index — ``norm_dn`` is a Python function — so each
+    call walks every SCOTUS row; a caller resolving a whole Term's serials reads
+    them once here instead of once per serial. ``prefix`` is a normalized prefix
+    free of GLOB metacharacters (``"24A"``).
+    """
+    if any(char in prefix for char in "*?[]"):
+        raise ValueError(f"not a plain docket-number prefix: {prefix!r}")
+    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) GLOB ?", (f"{prefix}*",))
+
+
+def _scotus_docket_number_matches(
+    conn: ReadConnection, predicate: str, parameters: Sequence[object]
+) -> dict[str, str]:
+    """Normalized docket number -> the lowest-docket-id SCOTUS row matching ``predicate``."""
     cur = conn.execute(
-        "SELECT case_id FROM cases WHERE court = 'scotus' AND norm_dn(docket_number) = ?",
-        (norm,),
+        "SELECT norm_dn(docket_number) AS norm, case_id FROM cases "
+        f"WHERE court = 'scotus' AND {predicate}",
+        tuple(parameters),
     )
-    case_ids: list[str] = [str(record["case_id"]) for record in cur]
-    if not case_ids:
-        return None
-    return min(case_ids, key=lambda cid: int(cid.rsplit("/", 1)[-1]))
+    best: dict[str, str] = {}
+    for record in cur:
+        norm, case_id = str(record["norm"]), str(record["case_id"])
+        held = best.get(norm)
+        if held is None or int(case_id.rsplit("/", 1)[-1]) < int(held.rsplit("/", 1)[-1]):
+            best[norm] = case_id
+    return best
 
 
 # The Judiciary Act of 1925 (the "Judges' Bill") made the Supreme Court's
@@ -3148,7 +3349,10 @@ class PriorQuery(BaseModel):
         "so the pair is stripped unless `merits_decided` also provably precedes "
         "the cutoff, and `merits_terminated` is stripped unconditionally, since "
         "it carries no date to test and records the very fact — the proceeding "
-        "ended — that the clock exists to hide. This is "
+        "ended — that the clock exists to hide. The undated party and counsel "
+        "lists (`counsel`, `parties`, `attorneys`) are emptied on every admitted "
+        "row, since they hold the docket's current state, amici filed after the "
+        "clock included; the row's other columns come back as stored. This is "
         "the back-test replay clock; live (forward) retrieval omits it because "
         "every resolved prior genuinely precedes an open case.",
     )
@@ -3215,6 +3419,20 @@ def opinion_body(row: CorpusRow) -> str | None:
     return None if source is None else source.opinion_text(row.case_id)
 
 
+#: Columns a ``query`` prior never carries, though the row stores them. The
+#: merits decision record is an analytics surface — what a stat-pack or a
+#: per-Justice vote reader would read — and no registered process has admitted
+#: it to what a predict or
+#: evaluate cell retrieves. A column added to the rows a cell retrieves changes a
+#: frozen process's inputs without moving its digest, which is the one kind of
+#: process change the digest cannot see. Withholding them here means a ``query``
+#: row carries no decision-record column at all, and keeps the replay
+#: clock (:func:`_mask_post_clock_merits`) from having to learn to hide a new
+#: post-clock fact. A process change that wants the argued date in front of a
+#: cell admits it by removing it from this set, under its own re-bless.
+RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset({"merits_argued", "merits_decision_method"})
+
+
 def prior_payload(row: CorpusRow, *, full: bool = False) -> dict[str, object]:
     """Shape one retrieved prior into the ``query`` output row.
 
@@ -3231,8 +3449,10 @@ def prior_payload(row: CorpusRow, *, full: bool = False) -> dict[str, object]:
     provisioning's opinion slot alike, so the two cannot disagree about where the
     text is — and it is reached only when ``full`` is asked for, keeping the
     default path exactly as it was.
+
+    The :data:`RETRIEVAL_WITHHELD_COLUMNS` never leave here, ``full`` or not.
     """
-    payload = row.model_dump(mode="json")
+    payload = row.model_dump(mode="json", exclude=set(RETRIEVAL_WITHHELD_COLUMNS))
     payload["era"] = case_era(row)
     if not full:
         payload.pop("opinion_text", None)
@@ -3297,6 +3517,44 @@ def _mask_post_clock_merits(
     return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
 
 
+#: The party and counsel lists the replay clock empties on every prior it
+#: admits: each holds the row's *current* state with no date to test against
+#: the clock, and each carries the amicus grant oracle. The set is scoped to
+#: that oracle, not to every last-pull column: among those that still reach a
+#: replay cell as stored are ``citations``, ``citation_count``, ``summary``,
+#: ``precedential_status``, ``has_opinion`` (and the opinion body under
+#: ``full``), ``merits_brief_filed`` and ``date_decided`` (on a granted SCOTUS
+#: prior, the termination at the merits judgment). The SCOTUS
+#: party and counsel blocks accrue over a docket's life — every third-party
+#: filing appends its counsel of record, and amici (``role=other``) pile onto a
+#: petition overwhelmingly after a grant — so a prior that resolved before the
+#: clock still carries, in these lists, filings made after it. ``parties`` and
+#: ``attorneys`` are the flat names read off the same blocks and carry the same
+#: amici, so masking ``counsel`` alone would leave the oracle in plain sight.
+#: Whole lists rather than the ``role=other`` entries: no entry is dated, a
+#: post-clock filing for a named side is as possible as an amicus brief, and
+#: this is the stance the replayed case's own snapshot already takes
+#: (:func:`fedcourtsai.cert_backtest.redact_snapshot` strips every party and
+#: counsel block). Emptied to ``[]``, the value the corpus already uses for "no
+#: reading" (an empty list never overwrites a stored one), and applied to every
+#: admitted row alike so the list's presence carries no signal either. The cost
+#: is the stated one: a replay cell cannot see who appeared on a prior, which a
+#: forward cell can.
+REPLAY_MASKED_UNDATED_COLUMNS: frozenset[str] = frozenset({"counsel", "parties", "attorneys"})
+
+
+def _mask_undated_accruals(row: CorpusRow) -> CorpusRow:
+    """Empty a masked prior's undated accruing lists (:data:`REPLAY_MASKED_UNDATED_COLUMNS`).
+
+    Removal only, and unconditional under the clock, for the same reason
+    ``merits_terminated`` is stripped unconditionally: nothing in the value can
+    prove it came first. Under the clock ``[]`` therefore means *masked*, not
+    "no counsel of record", and a reader of a clocked row cannot tell the two
+    apart.
+    """
+    return row.model_copy(update={column: [] for column in REPLAY_MASKED_UNDATED_COLUMNS})
+
+
 def _precedes_replay_clock(row: CorpusRow, query: PriorQuery) -> bool:
     """Whether one row provably precedes the query's replay clock.
 
@@ -3338,12 +3596,16 @@ def _screen_derived(row: CorpusRow, query: PriorQuery) -> CorpusRow | None:
     than read from a column, so they screen retrieved rows instead of riding
     the SQL. ``None`` means screened out; otherwise the row comes back possibly
     rewritten, since the clock also strips a surviving row's post-clock merits
-    columns. Both retrieval paths screen through here, so the ranked fast path
-    and the scored path admit exactly the same rows.
+    columns and empties its undated party and counsel lists. Both retrieval
+    paths screen through here, so the ranked fast path and the scored path
+    admit exactly the same rows.
 
     Both halves of the replay clock apply to the merits pair exactly as they
     apply to the row (:func:`_precedes_replay_clock`), so both are passed on to
     :func:`_mask_post_clock_merits` rather than one standing in for the other.
+    The undated party and counsel lists (:data:`REPLAY_MASKED_UNDATED_COLUMNS`)
+    are emptied on every row the clock admits; forward retrieval, with no
+    clock, returns the row untouched.
     """
     if query.exclude_non_cert and is_non_cert_scotus_form(row):
         return None
@@ -3352,7 +3614,8 @@ def _screen_derived(row: CorpusRow, query: PriorQuery) -> CorpusRow | None:
     if query.decided_before_day is not None or query.decided_before is not None:
         if not _precedes_replay_clock(row, query):
             return None
-        return _mask_post_clock_merits(row, query.decided_before, query.decided_before_day)
+        row = _mask_post_clock_merits(row, query.decided_before, query.decided_before_day)
+        return _mask_undated_accruals(row)
     return row
 
 
@@ -4832,10 +5095,11 @@ def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]
     if (source := _payload_read_source()) is not None:
         return source.documents_for_case(case_id)
     try:
-        # `SELECT *`, not the bound column list: local reads see every column
-        # (`connect` migrates on open), but the ranged backend serves the remote
-        # blob as-is, and naming a column the blob predates fails the whole read
-        # rather than the one field (see :func:`_optional_date`).
+        # `SELECT *`, not the bound column list: a default local read sees every
+        # column (`connect` migrates on open), but the ranged backend and a
+        # `migrate=False` local read serve the blob as-is, and naming a column
+        # the blob predates fails the whole read rather than the one field (see
+        # :func:`_optional_date`).
         cur = conn.execute(
             "SELECT * FROM documents WHERE case_id = ? ORDER BY kind",
             (case_id,),

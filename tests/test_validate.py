@@ -1900,13 +1900,14 @@ def _write_voting_outcome(
     stage: Stage | None = Stage.merits,
     provenance: dict[str, object] | None,
     votes: list[dict[str, object]] | None = None,
+    event_id: str = "evt-order-judgment",
 ) -> Path:
     """A merits outcome carrying the full bench's votes and ``provenance``, raw."""
-    ep = CasePaths(data_root, court, 22451).event("evt-order-judgment")
+    ep = CasePaths(data_root, court, 22451).event(event_id)
     write_yaml(
         ep.event_file,
         PredictableEvent(
-            event_id="evt-order-judgment",
+            event_id=event_id,
             case_id=f"{court}/22451",
             kind=EventKind.order,
             stage=stage,
@@ -1916,7 +1917,7 @@ def _write_voting_outcome(
     )
     payload = Outcome(
         case_id=f"{court}/22451",
-        event_id="evt-order-judgment",
+        event_id=event_id,
         resolved_at=date(2026, 6, 30),
         actual_disposition=Disposition.other,
         actual_granted=1,
@@ -1936,9 +1937,8 @@ def _write_voting_outcome(
 def _opinions_provenance(**overrides: object) -> dict[str, object]:
     return {
         "source": "supremecourt-opinions",
-        "document": _OPINION_URL,
-        "grammar": "scotus-syllabus",
-        "grammar_version": 2,
+        "documents": [_OPINION_URL],
+        "grammars": [{"grammar": "scotus-syllabus", "version": 2}],
         "participating": 9,
         "complete": True,
     } | overrides
@@ -1996,7 +1996,8 @@ def test_a_complete_record_must_name_the_bench_that_sat(tmp_path: Path) -> None:
     Seven of the nine Justices with `participating: 7` coheres with itself and
     passes the schema, but the roster seats nine on the decision date, so the
     record is not complete whatever it says. A partial record is not held to
-    the bench.
+    naming the whole bench, but its `participating` is still the bench that
+    sat less the Justices it records not taking part.
     """
     data_root = tmp_path / "data"
     seven: list[dict[str, object]] = [{"justice": n, "vote": "majority"} for n in _BENCH[:7]]
@@ -2006,6 +2007,12 @@ def test_a_complete_record_must_name_the_bench_that_sat(tmp_path: Path) -> None:
     assert any("but the bench on 2026-06-30 is" in p for p in check.problems)
     _write_voting_outcome(
         data_root, provenance=_opinions_provenance(participating=7, complete=False), votes=seven
+    )
+    check = _votes_hold_check(data_root)
+    assert not check.passed
+    assert any("`participating` is 7, but the bench" in p for p in check.problems)
+    _write_voting_outcome(
+        data_root, provenance=_opinions_provenance(participating=9, complete=False), votes=seven
     )
     assert _votes_hold_check(data_root).passed
 
@@ -2019,23 +2026,30 @@ def test_a_complete_record_must_name_the_bench_that_sat(tmp_path: Path) -> None:
         (
             "scotus",
             Stage.merits,
-            {"grammar": "order-list", "grammar_version": 1},
+            {"grammars": [{"grammar": "order-list", "version": 1}]},
             None,
             "read by grammar 'order-list'",
         ),
-        ("scotus", Stage.merits, {"grammar": None, "grammar_version": None}, None, "grammar None"),
         (
             "scotus",
             Stage.merits,
-            {"document": "https://example.org/24-43.pdf"},
+            {"grammars": [{"grammar": "scotus-order-notations", "version": 1}]},
+            None,
+            "read by grammar 'scotus-order-notations'",
+        ),
+        ("scotus", Stage.merits, {"grammars": []}, None, "stamped with no grammar"),
+        (
+            "scotus",
+            Stage.merits,
+            {"documents": ["https://example.org/24-43.pdf"]},
             None,
             "read from 'https://example.org/24-43.pdf'",
         ),
-        ("scotus", Stage.merits, {"document": None}, None, "read from None"),
+        ("scotus", Stage.merits, {"documents": []}, None, "read from no document"),
         (
             "scotus",
             Stage.merits,
-            {"document": "https://www.supremecourt.gov/rss/cases/JSON/24-43.json"},
+            {"documents": [_OPINION_URL, "https://www.supremecourt.gov/rss/cases/JSON/24-43.json"]},
             None,
             "read from 'https://www.supremecourt.gov/rss/cases/JSON/24-43.json'",
         ),
@@ -2070,10 +2084,21 @@ def test_a_registered_source_is_held_to_its_registered_shape(
         stage=stage,
         provenance=_opinions_provenance(**overrides),
         votes=votes,
+        # A stage-less event under an id the moments table does not declare,
+        # so no declared moment supplies a stage either.
+        event_id="evt-order-judgment" if stage is not None else "evt-order-entry-99",
     )
     check = _votes_hold_check(data_root)
     assert not check.passed
     assert any(expected in p for p in check.problems), check.problems
+
+
+def test_a_stage_less_event_takes_the_stage_its_id_declares(tmp_path: Path) -> None:
+    """A cert baseline's `event.yaml` carries no stage; its declared moment names one."""
+    data_root = tmp_path / "data"
+    _write_voting_outcome(data_root, stage=None, provenance=_opinions_provenance())
+    check = _votes_hold_check(data_root)
+    assert check.passed, check.problems
 
 
 def test_a_voteless_outcome_passes_the_source_hold(tmp_path: Path) -> None:
@@ -2081,6 +2106,156 @@ def test_a_voteless_outcome_passes_the_source_hold(tmp_path: Path) -> None:
     _write_outcome(data_root, "scotus", 22451, "evt-order-judgment")
     check = _votes_hold_check(data_root)
     assert check.passed and check.checked == 1
+
+
+# --- the orders vote source ----------------------------------------------------
+
+_ORDER_LIST_URL = "https://www.supremecourt.gov/orders/courtorders/062226zor_g314.pdf"
+
+
+def _orders_provenance(**overrides: object) -> dict[str, object]:
+    return {
+        "source": "supremecourt-orders",
+        "documents": [_ORDER_LIST_URL],
+        "grammars": [
+            {"grammar": "scotus-order-notations", "version": 1},
+            {"grammar": "scotus-writing-headers", "version": 1},
+        ],
+        "participating": 9,
+        "complete": False,
+    } | overrides
+
+
+def _write_order_outcome(
+    data_root: Path,
+    *,
+    stage: Stage = Stage.cert,
+    provenance: dict[str, object],
+    votes: list[dict[str, object]],
+    writing_roles: list[dict[str, object]] | None = None,
+) -> Path:
+    """A denied petition's outcome carrying an order-list record, raw."""
+    ep = CasePaths(data_root, "scotus", 22451).event("evt-petition-disposition")
+    write_yaml(
+        ep.event_file,
+        PredictableEvent(
+            event_id="evt-petition-disposition",
+            case_id="scotus/22451",
+            kind=EventKind.petition,
+            stage=stage,
+            title="Doe v. Roe",
+        ),
+    )
+    payload = Outcome(
+        case_id="scotus/22451",
+        event_id="evt-petition-disposition",
+        resolved_at=date(2026, 6, 22),
+        actual_disposition=Disposition.denied,
+        actual_granted=0,
+    ).model_dump(mode="json")
+    payload["votes"] = votes
+    payload["vote_provenance"] = provenance
+    payload["writing_roles"] = writing_roles
+    ep.outcome.parent.mkdir(parents=True, exist_ok=True)
+    ep.outcome.write_text(json.dumps(payload))
+    return ep.outcome
+
+
+def test_a_conforming_orders_record_passes(tmp_path: Path) -> None:
+    """A partial list of noted votes, with every sitting Justice's writing role."""
+    data_root = tmp_path / "data"
+    roles: list[dict[str, object]] = [{"justice": n, "writing": "none"} for n in _BENCH]
+    roles[2] = {"justice": _BENCH[2], "writing": "dissent"}
+    _write_order_outcome(
+        data_root,
+        provenance=_orders_provenance(),
+        votes=[{"justice": _BENCH[2], "vote": "grant", "writing": "dissent"}],
+        writing_roles=roles,
+    )
+    check = _votes_hold_check(data_root)
+    assert check.passed, check.problems
+
+
+def test_an_orders_record_of_roles_alone_passes(tmp_path: Path) -> None:
+    """An order read in full where nobody noted a vote: roles, no votes."""
+    data_root = tmp_path / "data"
+    _write_order_outcome(
+        data_root,
+        provenance=_orders_provenance(),
+        votes=[],
+        writing_roles=[{"justice": n, "writing": "none"} for n in _BENCH],
+    )
+    assert _votes_hold_check(data_root).passed
+
+
+@pytest.mark.parametrize(
+    ("stage", "overrides", "votes", "roles", "expected"),
+    [
+        (Stage.merits, {}, None, None, "votes on a merits-stage event"),
+        (
+            Stage.cert,
+            {"complete": True},
+            [{"justice": name, "vote": "grant"} for name in _BENCH],
+            None,
+            "records no whole bench",
+        ),
+        (
+            Stage.cert,
+            {"grammars": [{"grammar": "scotus-syllabus", "version": 2}]},
+            None,
+            None,
+            "read by grammar 'scotus-syllabus'",
+        ),
+        (
+            Stage.cert,
+            {"documents": ["https://www.supremecourt.gov/docket/docketfiles/x.pdf"]},
+            None,
+            None,
+            "read from 'https://www.supremecourt.gov/docket/docketfiles/x.pdf'",
+        ),
+        (
+            Stage.interim,
+            {},
+            [{"justice": "Breyer", "vote": "grant"}],
+            None,
+            "who did not sit on 2026-06-22",
+        ),
+        (
+            Stage.cert,
+            {"participating": 8},
+            None,
+            None,
+            "`participating` is 8, but the bench",
+        ),
+        (
+            Stage.cert,
+            {"participating": 8},
+            [{"justice": "Roberts", "vote": "did-not-participate"}],
+            [{"justice": n, "writing": "none"} for n in ("Breyer", *_BENCH[2:])],
+            "writing roles name",
+        ),
+    ],
+)
+def test_an_orders_record_is_held_to_its_registered_shape(
+    tmp_path: Path,
+    stage: Stage,
+    overrides: dict[str, object],
+    votes: list[dict[str, object]] | None,
+    roles: list[dict[str, object]] | None,
+    expected: str,
+) -> None:
+    """The orders source reads cert and interim acts, never a whole bench."""
+    data_root = tmp_path / "data"
+    _write_order_outcome(
+        data_root,
+        stage=stage,
+        provenance=_orders_provenance(**overrides),
+        votes=votes if votes is not None else [{"justice": "Alito", "vote": "grant"}],
+        writing_roles=roles,
+    )
+    check = _votes_hold_check(data_root)
+    assert not check.passed
+    assert any(expected in p for p in check.problems), check.problems
 
 
 def test_a_cert_stage_evaluation_scoring_votes_fails(tmp_path: Path) -> None:

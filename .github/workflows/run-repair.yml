@@ -65,9 +65,15 @@ on:
           - arrival-backfill
           - merits-phantom-removal
           - disposition-convergence
+          - moment-convergence
           - sampled-frame-weight-repair
           - amicus-rederive
           - regrade-stale
+          - opinion-votes
+          - order-votes
+          - application-backfill
+          - decision-record
+          - opinion-record
       repair_mode:
         description: "dry-run prints the pass's ledger and writes nothing for the pass itself; apply writes and pushes; prerequisites apply either way — see docs/data-pipeline.md, Maintenance passes."
         required: false
@@ -82,7 +88,7 @@ on:
         default: ""
         type: string
       repair_target:
-        description: "The pass's named subject — a distribution parse label, or the cell list to re-grade — see docs/data-pipeline.md, Maintenance passes."
+        description: "The pass's named subject — a distribution parse label, the cell list to re-grade, or the Term to back-fill — see docs/data-pipeline.md, Maintenance passes."
         required: false
         default: ""
         type: string
@@ -173,12 +179,24 @@ jobs:
             disposition-convergence)
               bound_flag="--max-relabels"; bound_required_on_apply=1
               accepted_options="include-scored" ;;
+            moment-convergence)
+              bound_flag="--max-rewrites"; bound_required_on_apply=1 ;;
             sampled-frame-weight-repair)
               bound_flag="--max-repairs"; bound_required_on_apply=1 ;;
             amicus-rederive)
               bound_flag="--max-changes"; bound_required_on_apply=1 ;;
             regrade-stale)
               target_kind="cells" ;;
+            opinion-votes|order-votes)
+              bound_flag="--max-stamps"; bound_required_on_apply=1
+              accepted_options="replace-differing" ;;
+            application-backfill)
+              bound_flag="--max-rows"; bound_required_on_apply=1
+              target_kind="term" ;;
+            decision-record)
+              bound_flag="--max-fills"; bound_required_on_apply=1 ;;
+            opinion-record)
+              bound_flag="--max-rows"; bound_required_on_apply=1 ;;
             *)
               echo "::error::unknown repair pass '${REPAIR}' — the selector and this validation have drifted apart; correct the workflow."
               exit 1 ;;
@@ -217,9 +235,9 @@ jobs:
             echo "::error::repair=${REPAIR} takes no repair_bound — its blast radius is fixed in code, or it has none. Clear the field and re-dispatch."
             exit 1
           fi
-          # Same for a target: only the two passes that name a subject read it.
+          # Same for a target: only the three passes that name a subject read it.
           if [ -z "${target_kind}" ] && [ -n "${REPAIR_TARGET}" ]; then
-            echo "::error::repair=${REPAIR} takes no repair_target — only the distribution re-derivation (a parse label) and the re-grade (a cell list) name a subject. Clear the field and re-dispatch."
+            echo "::error::repair=${REPAIR} takes no repair_target — only the distribution re-derivation (a parse label), the re-grade (a cell list) and the application back-fill (a Term) name a subject. Clear the field and re-dispatch."
             exit 1
           fi
           if [ "$bound_required_on_apply" -eq 1 ] && [ "${REPAIR_MODE}" = "apply" ] \
@@ -271,6 +289,14 @@ jobs:
             echo "::error::repair=rederive-distribution-parse needs repair_target set to a distribution parse label — lowercase, e.g. dist-v2. A re-derivation names its reading rather than inheriting the ingest default, so there is no default to fall back on. Re-dispatch with the label."
             exit 1
           fi
+          # The back-fill's Term, required in both modes for the parse label's
+          # reason: the ledger is a reading of one named Term, and the bound an
+          # apply carries was read off that Term's ledger.
+          if [ "${target_kind}" = "term" ] \
+            && ! [[ "${REPAIR_TARGET}" =~ ^[0-9]{2}$ ]]; then
+            echo "::error::repair=${REPAIR} needs repair_target set to a two-digit October Term, e.g. 24 — the back-fill reads one named Term per dispatch, so its ledger and the bound an apply carries answer for the same Term. Re-dispatch with the Term."
+            exit 1
+          fi
           if [ "${target_kind}" = "cells" ]; then
             # The grammar excludes `.` deliberately — with no dots no field can
             # be a `..` path segment, whatever the command does with it.
@@ -301,7 +327,8 @@ jobs:
           fi
           # No separate "target is required" refusal: each target grammar above
           # already rejects the empty string — the parse label against its
-          # regex, the cell list against the emptiness guard — so a missing
+          # regex, the Term against its two-digit grammar, the cell list
+          # against the emptiness guard — so a missing
           # target is refused in the words of the pass that wanted it rather
           # than a generic second message that could never be reached.
           echo "repair=${REPAIR} mode=${REPAIR_MODE} accepted; the step of record re-checks every refusal above."
@@ -316,7 +343,7 @@ jobs:
     # pass reaches them only by being named here. A deny-list would hand every
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
-    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) }}
+    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","moment-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) }}
     # Join the repo-wide corpus-writer lock: one writer at a time across
     # run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
@@ -328,7 +355,7 @@ jobs:
     # run's own real pass — before ever being skipped. The condition is the
     # `if:` above, repeated because no context available here can hold it once.
     concurrency:
-      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","moment-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # Headroom over the longest chain of capped steps a dispatch can run, which
@@ -1965,6 +1992,106 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "disposition-label pointer"
 
+      # Converge the stored moment of a declared-moment event onto the moment
+      # its id declares. The id is the key and the declared-moments table the
+      # authority, so a stored moment that disagrees is a stale copy — the shape
+      # an application baseline carries when the application-baseline relabel
+      # (`relabel-application-events`) moved it off the cert petition id with
+      # the cert stage's `distribution` moment carried onto it. The relabel
+      # re-derives the moment, so no write path produces the shape and the
+      # population is a finite residue; a decided application has left the
+      # live rotation, so no channel re-reads it and nothing else converges it.
+      #
+      # Two stores, one commit. The pass re-stamps the corpus row (a direct
+      # UPDATE that re-mirrors the touched cases' events into the content
+      # store) AND the ledger `event.yaml` written from it, scanning each store
+      # on its own. The ledger half lands in `data/`, so it is staged with the
+      # pointer: a ledger file left
+      # uncommitted would disagree with the corpus it was just converged onto,
+      # and the next dry run would find it again. An event carrying committed
+      # predict/evaluate output is held back in both stores and reported —
+      # moving its moment moves scored cells between moment strata — as are
+      # entry-pinned rows and rows off the declared moment's stage; there is no
+      # option that widens onto them.
+      - name: Converge event moments
+        if: ${{ inputs.repair == 'moment-convergence' && steps.dedupe-live-rows.outcome == 'success' }}
+        # Local, like the disposition sweep: an indexed read of the events
+        # table and a walk of committed `event.yaml` files, with the apply's
+        # writes under `data/`, plus the blob push.
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # Validate the bound before anything else, including the corpus
+          # guard: a dispatch that cannot legally apply should say so in
+          # seconds, not after a full scan. The command refuses an unbounded
+          # apply on its own too; this refusal is the one with the maintainer's
+          # procedure in it. `Validate the repair selector` duplicates it word
+          # for word so a bad dispatch dies before any credential is minted;
+          # this copy is the one of record, because the step has to be safe on
+          # whatever reaches it. The refusal names the pass through `${REPAIR}`
+          # rather than a literal so the two copies are identical as text, not
+          # merely equivalent once expanded.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to converge.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping moment convergence"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The sweep reads committed ledger artifacts out of `data/` and
+          # rewrites beside them, so it needs the remote tip, not this
+          # checkout's — the scored-cell holdback is keyed on output that
+          # arrives by collect PR. Fast-forward only, for the merits-phantom
+          # pass's reason: an unpushed local commit over live corpus mutations
+          # must fail this closed rather than be reset away.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          # Dry-run first, into the summary: the re-stamp ledger — corpus rows
+          # and ledger files counted apart, each skip with its reason — is the
+          # reading the apply's bound comes from, and it must outlive the step
+          # log. The bound counts both stores together. (On an apply this run
+          # is a receipt, not a reading.)
+          uv run fedcourts converge-event-moments 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts converge-event-moments \
+            --apply --max-rewrites "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere. An apply that pushed the
+          # blob but failed before the commit publishes nothing: readers resolve
+          # the committed pointer, and the next dispatch re-detects both halves —
+          # the corpus rows from the old blob that pointer still names, the
+          # ledger files from the still-committed `data/`. The one write the
+          # pointer does not fence is the content-store events mirror the apply
+          # already refreshed; it runs ahead of the pointer until that re-run
+          # converges, as on the arrival back-fill.
+          uv run fedcourts corpus-push
+          # The ledger half lands in `data/` (`event.yaml`); stage it with the
+          # pointer so the ledger and the corpus it must match move together
+          # or not at all.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "Event moments already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (event moments)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "event-moment pointer"
+
       # Restore the derived sampling weight on the legacy denial-sampling frame's
       # latched-down rows: grid denials genuinely inside sampled ranges that a
       # channel writing with certainty min-latched to 1, so the nine petitions
@@ -2202,6 +2329,884 @@ jobs:
           # mint where it exists; a skipped step's output is the empty string,
           # so every other pass falls through to the opening token.
           token: ${{ steps.app-token-ocr.outputs.token || steps.app-token.outputs.token }}
+
+  # The vote writer passes, in their own job because their risk class is
+  # neither of the other two: they READ the corpus (one column, each case's
+  # docket number, which is how a ledger case is found in the Court's
+  # documents), FETCH from supremecourt.gov, and WRITE only committed
+  # `outcome.json` files. So the corpus comes through the read-only role, like
+  # every corpus consumer's, and no step here holds a credential that can
+  # write the corpus remote or the content store; the App token pushes the
+  # `data/` commit, as on the re-grade.
+  #
+  # `opinion-votes` stamps merits outcomes from their opinion's syllabus
+  # lineup (`fedcourts stamp-opinion-votes`); `order-votes` stamps cert and
+  # interim outcomes from the notations and writing headers of the order that
+  # disposed of them (`fedcourts stamp-order-votes`). Two selector values, not
+  # one pass with a mode, because a dispatch reads one ledger and applies one
+  # bound: the two sources' populations, fetches and record shapes share
+  # nothing but the stamping.
+  votes:
+    needs: [validate]
+    if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' }}
+    # An apply commits to `main` on the same push path as the corpus writers,
+    # so it joins their lock rather than racing their pointer commits. A dry
+    # run writes nothing and pushes nothing, so it takes a throwaway group
+    # instead: holding the shared lock for a read-only fetch campaign would
+    # queue the scheduled windows behind it, and GitHub keeps only one pending
+    # run per group, so a second arrival would evict a production window. A
+    # skipped job takes the throwaway group too, for the corpus job's reason.
+    concurrency:
+      group: ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes') && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # The pass's own 45-minute cap plus setup, the read-only corpus pull and
+    # the push.
+    timeout-minutes: 60
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # Same stale-base hazard as the corpus job: a run that queued behind a
+        # writer on the shared lock checked out a frozen sha, and the outcomes
+        # being stamped arrive by the writers' own commits. The repo is
+        # public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The committed pointer's blob, read-only: the writer reads each case's
+      # docket number from it and writes nothing back.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+
+      # Read each outcome's record off the Court's documents and stamp
+      # `votes`, `vote_provenance` and `writing_roles` onto it. An outcome
+      # carrying the same record is left alone, which makes a re-run the
+      # control; one carrying a different record is held back and reported
+      # unless `replace-differing` is set.
+      #
+      # One invocation per dispatch, not a dry run and then the apply: each
+      # run fetches every listing and document it reads, so a leading dry run
+      # would double the pass's traffic to the Court's site for a ledger the
+      # apply prints anyway. The ledger the bound is read from is the previous
+      # dispatch's dry run, as everywhere; an apply whose count exceeds it is
+      # refused whole, and so is one whose listings could not all be read.
+      #
+      # No credential reaches this step. The stamper parses pages fetched from
+      # the Court's site for up to 45 minutes, so the App token is not minted
+      # until it has exited, and only on an apply: it rides only the commit
+      # step's env. That separates the token from the stamper in time, not by
+      # a process boundary — the two run as the same user on the same runner.
+      # The read-only AWS session the corpus pull assumed is blanked here too,
+      # and so is the OIDC request pair: the job holds `id-token: write` under
+      # `prod`, whose trust the read-write corpus role also names, so a step
+      # that could request a token could assume more than the session it was
+      # given. The stamper opens the pulled local index and makes no S3 call,
+      # and the step asserts both properties before it runs anything.
+      - name: Stamp vote records
+        timeout-minutes: 45
+        env:
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+          REPAIR_OPTIONS: ${{ inputs.repair_options }}
+        run: |
+          set -euo pipefail
+          # The credential tripwire, as on the summarize generate job: no AWS
+          # credential and no way to mint one may reach the stamper.
+          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables reached the vote stamper"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the vote stamper"
+            exit 1
+          fi
+          # Validate the bound and the option vocabulary before anything else:
+          # a dispatch that cannot legally apply should say so in seconds, not
+          # after a fetch campaign. `Validate the repair selector` duplicates
+          # both refusals word for word so a bad dispatch dies before any
+          # credential is minted; these copies are the ones of record.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          accepted_options="replace-differing"
+          replace_differing=0
+          option_malformed=0
+          while IFS= read -r option; do
+            [ -n "$option" ] || continue
+            case " ${accepted_options} " in
+              *" ${option} "*) ;;
+              *)
+                echo "::error::repair=${REPAIR} does not accept the option '${option}' — it accepts: ${accepted_options:-none}."
+                option_malformed=1
+                continue ;;
+            esac
+            case "$option" in
+              replace-differing) replace_differing=1 ;;
+            esac
+          done < <(printf '%s\n' "${REPAIR_OPTIONS}" | tr -s ', \t\r' '\n')
+          if [ "$option_malformed" -ne 0 ]; then
+            echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
+            exit 1
+          fi
+          # Stamp on top of the remote tip, not this checkout's: the outcomes
+          # being stamped arrive by the writers' own commits. The repo is
+          # public, so this read-only fetch needs no credentials. Fast-forward
+          # only, so an unpushed local commit fails this closed.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          write_args=()
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            write_args+=(--apply --max-stamps "${REPAIR_BOUND}")
+          fi
+          if [ "$replace_differing" -eq 1 ]; then
+            write_args+=(--replace-differing)
+          fi
+          if [ "${REPAIR}" = "opinion-votes" ]; then
+            uv run fedcourts stamp-opinion-votes "${write_args[@]}" 2>&1 \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            uv run fedcourts stamp-order-votes "${write_args[@]}" 2>&1 \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+          fi
+
+      # The write credential exists only on an apply, and only from here on,
+      # after the stamper has exited: minted, handed to the git identity, and
+      # held by the commit step, none of which parses anything fetched.
+      - name: Mint app token
+        if: ${{ inputs.repair_mode == 'apply' }}
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Configure git identity
+        if: ${{ inputs.repair_mode == 'apply' }}
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # The only step holding a credential that can write: it stages what the
+      # stamp step wrote, commits it and pushes. It parses nothing fetched.
+      - name: Commit the stamped outcomes
+        if: ${{ inputs.repair_mode == 'apply' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR: ${{ inputs.repair }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git # persist-credentials is false on checkout
+          # Stage the stamped outcomes only, never a blanket `git add data/`:
+          # this commit carries no corpus pointer, and the pass writes nothing
+          # but `outcome.json`, so anything else changed under `data/` is not
+          # this pass's to publish.
+          git add -- ':(glob)data/cases/*/*/events/*/outcome.json'
+          if git diff --cached --quiet; then
+            echo "Every outcome already carries its record; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: stamp vote records (${REPAIR})"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "vote-record ledger"
+
+  # The interim-docket back-fill (`fedcourts backfill-applications`): one
+  # closed Term's application serials, enumerated upstream and landed through
+  # the live channel's own ingest seam wherever the live channel does not
+  # already own the row. A job of its own because its two modes carry different
+  # risk classes. The dry run READS the corpus and FETCHES about a Term's worth
+  # of docket JSON from supremecourt.gov, so it takes the read-only role, holds
+  # no credential while it fetches, and takes no lock: holding `corpus-write`
+  # for a read-only fetch campaign would queue the scheduled windows behind it,
+  # and GitHub keeps one pending run per group, so a second arrival would evict
+  # a production window. The apply WRITES the corpus index, the content-store
+  # snapshots and any ledger outcome the ingest records, so it takes the lock
+  # for the whole job, the read-write role for the write step, and the App
+  # token only after that step has exited.
+  #
+  # No dedupe prerequisite, unlike the corpus job: this pass writes exactly as
+  # the live channel's frontier discovery does, which runs without one, and the
+  # identity join it shares picks the lowest docket id of any twin pair
+  # deterministically. A twin with either half live-polled is live-owned and
+  # never read.
+  #
+  # The apply moves the interim base-rate population (the landed rows join the
+  # interim section's parsed counts), so it is pre-registered in
+  # docs/freeze-record.md and waits until after the long-conference release;
+  # see docs/data-pipeline.md.
+  applications:
+    needs: [validate]
+    if: ${{ inputs.repair == 'application-backfill' }}
+    concurrency:
+      group: ${{ inputs.repair == 'application-backfill' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # The pass step's 45-minute cap plus setup, the corpus pull and the commit.
+    timeout-minutes: 70
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # the read-only role for the pull; on an apply, the read-write role for the write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # Same stale-base hazard as the corpus job: an apply that queued behind
+        # a writer on the shared lock checked out a frozen sha, and the corpus
+        # pointer it builds on moves with every writer's commit. The repo is
+        # public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The committed pointer's blob. On an apply the lock is already held, so
+      # this is the blob the write builds on; the read-write role assumed
+      # below writes it back.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+
+      # The dry run: the ledger the apply's bound is read from. No credential
+      # reaches it, as on the vote stamper: the read-only session and the OIDC
+      # request pair are blanked, and the step asserts both before it runs. It
+      # reads the pulled local index and makes no S3 call. An apply does not
+      # run it: the apply prints the same ledger from its own reading, and a
+      # leading dry run would double the pass's traffic to the Court's site.
+      - name: Read the application back-fill ledger
+        if: ${{ inputs.repair_mode == 'dry-run' }}
+        # The walk stops itself at 30 minutes (`--max-run-seconds`) and prints
+        # what it read, well inside this cap, so a slow upstream still leaves a
+        # ledger. The deadline is the apply's own, so a dry run that reaches the
+        # Term's end predicts an apply whose walk fits too. A Term runs about
+        # 1,000 to 1,500 paced fetches.
+        timeout-minutes: 45
+        env:
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_TARGET: ${{ inputs.repair_target }}
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables reached the back-fill dry run"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the back-fill dry run"
+            exit 1
+          fi
+          # The step of record for the Term refusal; `Validate the repair
+          # selector` duplicates it word for word.
+          if ! [[ "${REPAIR_TARGET}" =~ ^[0-9]{2}$ ]]; then
+            echo "::error::repair=${REPAIR} needs repair_target set to a two-digit October Term, e.g. 24 — the back-fill reads one named Term per dispatch, so its ledger and the bound an apply carries answer for the same Term. Re-dispatch with the Term."
+            exit 1
+          fi
+          uv run fedcourts backfill-applications --term "${REPAIR_TARGET}" \
+            --max-run-seconds 1800 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "dry-run only; nothing written."
+
+      # Same read-write (append-only) role as the corpus job's: the ingest adds
+      # and rewrites rows and mirrors each snapshot to the content store, and
+      # can never wipe a remote object.
+      - name: Configure AWS credentials (corpus S3 remote, read-write)
+        if: ${{ inputs.repair_mode == 'apply' }}
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 3600 # 1h
+          # Bounded for the corpus job's reason (the workflow-traps list in
+          # docs/pipeline.md).
+          action-timeout-s: 120
+
+      # The apply: fetch, land and push the blob, in one step holding the
+      # read-write session — the posture of every live-channel writer, whose
+      # ingest mirrors each snapshot as it lands. No GitHub write credential
+      # exists yet.
+      - name: Back-fill the applications
+        if: ${{ inputs.repair_mode == 'apply' }}
+        # The walk stops itself at 30 minutes, and the apply refuses a walk that
+        # stopped short of the Term's end, so a cut-off reading lands nothing.
+        # The remaining 15 minutes cover the ingest (about 30 seconds for
+        # OT2024's 974 rows on a local blob, plus one content-store PUT per
+        # snapshot here) and the blob push.
+        timeout-minutes: 45
+        env:
+          # The corpus estate's base URL: the ingest mirrors each snapshot to
+          # the content store beneath it, and the push writes the index there.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          # The session is already assumed; nothing here needs to mint another,
+          # so nothing running during the upstream parse can.
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+          REPAIR_TARGET: ${{ inputs.repair_target }}
+        run: |
+          set -euo pipefail
+          # The steps of record for the bound and the Term; `Validate the repair
+          # selector` duplicates both word for word.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          if ! [[ "${REPAIR_TARGET}" =~ ^[0-9]{2}$ ]]; then
+            echo "::error::repair=${REPAIR} needs repair_target set to a two-digit October Term, e.g. 24 — the back-fill reads one named Term per dispatch, so its ledger and the bound an apply carries answer for the same Term. Re-dispatch with the Term."
+            exit 1
+          fi
+          # The held-back guard reads committed predictions out of `data/`, so
+          # it needs the remote tip. Fast-forward only: an unpushed local commit
+          # fails this closed. The repo is public, so this read-only fetch
+          # needs no credentials.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          uv run fedcourts backfill-applications --term "${REPAIR_TARGET}" \
+            --apply --max-rows "${REPAIR_BOUND}" --max-run-seconds 1800 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere: an apply that pushed the
+          # blob but failed before the commit publishes nothing, because readers
+          # resolve the committed pointer, and the control dry run re-reads the
+          # old blob that pointer still names. The snapshots mirrored ahead of
+          # the pointer are content-store objects keyed by case and date, which
+          # a re-apply rewrites identically.
+          uv run fedcourts corpus-push
+
+      # The GitHub write credential exists only on an apply, and only from here
+      # on, after the step that parsed fetched JSON has exited.
+      - name: Mint app token
+        if: ${{ inputs.repair_mode == 'apply' }}
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Configure git identity
+        if: ${{ inputs.repair_mode == 'apply' }}
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # Stages the pointer the push moved and any outcome the ingest recorded
+      # under `data/` (an event still open on a stub row resolves through the
+      # shared seam), so the corpus and the ledger it must match land together.
+      - name: Commit the back-filled corpus
+        if: ${{ inputs.repair_mode == 'apply' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git # persist-credentials is false on checkout
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "Every application already live-owned; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: back-fill interim applications (corpus + ledger)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "application back-fill pointer"
+
+  # The merits decision record back-fill (`fedcourts backfill-decision-record`):
+  # `merits_argued` and `merits_decision_method` on each stored granted row
+  # whose method is still null, re-read from the row's newest stored live
+  # snapshot. A job of its own for the application back-fill's reason: its two
+  # modes carry different risk classes. That is also why it is not a pass beside
+  # the response-signal back-fill in the corpus job, which would hold
+  # `corpus-write` and the App token through the dry run. The dry run READS the
+  # index and the content-store snapshots and writes nothing, so it takes the
+  # read-only role, mints no write credential and takes no lock: holding
+  # `corpus-write` for a read would queue the scheduled windows behind it, and
+  # GitHub keeps one pending run per group, so a second arrival would evict a
+  # production window.
+  # The apply WRITES two index columns by a direct `UPDATE` and pushes the blob,
+  # so it takes the lock for the whole job, the read-write role for the write
+  # step, and the App token only after that step has exited. It writes no
+  # content-store object and nothing under `data/`, so its commit is the
+  # pointer alone.
+  #
+  # Unlike the vote stamper and the application back-fill's dry run, neither
+  # step can run with the AWS session blanked: the snapshots it reads live in
+  # the content store, so a blanked session could not read them at all. What
+  # is blanked is the OIDC request pair, so no step here can mint a session it
+  # was not handed.
+  #
+  # No dedupe prerequisite, unlike the corpus job: both columns fill-in latch
+  # on the upsert path the merge writes through, so a reading landed on either
+  # half of a twin pair survives the merge, and no gate, mint or retrieval row
+  # reads them, so a half-read pair misleads nothing in the meantime.
+  decision-record:
+    needs: [validate]
+    if: ${{ inputs.repair == 'decision-record' }}
+    concurrency:
+      group: ${{ inputs.repair == 'decision-record' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # The pass step's 25-minute cap plus setup, the corpus pull and the commit.
+    timeout-minutes: 45
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # the read-only role for the pull and the read; on an apply, the read-write role for the write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # Same stale-base hazard as the corpus job: an apply that queued behind
+        # a writer on the shared lock checked out a frozen sha, and the corpus
+        # pointer it builds on moves with every writer's commit. The repo is
+        # public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The committed pointer's blob. On an apply the lock is already held, so
+      # this is the blob the write builds on; the read-write role assumed
+      # below writes it back.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+
+      # The dry run: the ledger the apply's bound is read from. It holds the
+      # read-only session the pull assumed, which the snapshot reads need, and
+      # nothing that writes; the OIDC request pair is blanked and the step
+      # asserts it before it runs.
+      - name: Read the decision-record ledger
+        if: ${{ inputs.repair_mode == 'dry-run' }}
+        # One content-store read per candidate, pooled by the shared prefetch,
+        # over the granted rows still unclassified. A dev-checkout dry run read
+        # about 1,200 candidates in under a minute, so the cap is headroom for
+        # a slow store rather than a sizing.
+        timeout-minutes: 20
+        env:
+          # The corpus estate's base URL: the snapshots live in the content
+          # store beneath it.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+        run: |
+          set -euo pipefail
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the decision-record dry run"
+            exit 1
+          fi
+          # The fill ledger — the counts, the method distribution over the
+          # fills and each filled row — goes to the summary, which outlives the
+          # step log. The bound is the rows it would FILL, not the `candidates`
+          # denominator: the pending docket stays a candidate until its
+          # decision lands, so that count rises with the ordinary docket.
+          uv run fedcourts backfill-decision-record 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "dry-run only; nothing written."
+
+      # Same read-write (append-only) role as the corpus job's: the write moves
+      # index columns and pushes the blob, and can never wipe a remote object.
+      - name: Configure AWS credentials (corpus S3 remote, read-write)
+        if: ${{ inputs.repair_mode == 'apply' }}
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 3600 # 1h
+          # Bounded for the corpus job's reason (the workflow-traps list in
+          # docs/pipeline.md).
+          action-timeout-s: 120
+
+      # The apply: fill and push the blob, in one step holding the read-write
+      # session. It prints the same ledger from its own reading, so no dry run
+      # leads it. No GitHub write credential exists yet.
+      - name: Fill the decision record
+        if: ${{ inputs.repair_mode == 'apply' }}
+        # The dry run's reads plus the index writes and the blob push.
+        timeout-minutes: 25
+        env:
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          # The session is already assumed; nothing here needs to mint another.
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the decision-record apply"
+            exit 1
+          fi
+          # The step of record for the bound; `Validate the repair selector`
+          # duplicates it word for word.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          uv run fedcourts backfill-decision-record --apply \
+            --max-fills "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere: an apply that pushed the
+          # blob but failed before the commit publishes nothing, because readers
+          # resolve the committed pointer, and the control dry run re-reads the
+          # old blob that pointer still names.
+          uv run fedcourts corpus-push
+
+      # The GitHub write credential exists only on an apply, and only from here
+      # on, after the write step has exited.
+      - name: Mint app token
+        if: ${{ inputs.repair_mode == 'apply' }}
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Configure git identity
+        if: ${{ inputs.repair_mode == 'apply' }}
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # Stages the pointer alone: the pass writes nothing under `data/`, so
+      # anything changed there is not this pass's to publish. The step that
+      # holds the App token needs no AWS session and no OIDC token, so the
+      # read-write session and the request pair are blanked here and the step
+      # asserts both before it runs.
+      - name: Commit the decision-record corpus pointer
+        if: ${{ inputs.repair_mode == 'apply' }}
+        env:
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables reached the decision-record commit"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the decision-record commit"
+            exit 1
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Every candidate already classified or unreadable; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (merits decision record)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "decision-record pointer"
+
+  # The per-opinion record (`fedcourts backfill-opinion-record`): one row per
+  # opinion in each document the Court's per-Term opinions listing links — its
+  # kind, author, joiners and word count — inserted into the corpus `opinions`
+  # table, fill-only and idempotent. A job of its own for the application
+  # back-fill's reason: its two modes carry different risk classes. The dry run
+  # READS the index and FETCHES and parses a few hundred opinion PDFs from
+  # supremecourt.gov, writing nothing, so it takes the read-only role for the
+  # pull, takes no lock and mints no write credential: holding `corpus-write`
+  # for a read-only fetch campaign would queue the scheduled windows behind it,
+  # and GitHub keeps one pending run per group, so a second arrival would evict
+  # a production window. The apply WRITES the index's `opinions` table and
+  # pushes the blob, so it takes the lock for the whole job.
+  #
+  # The command fetches, parses and inserts in one process: its apply refuses a
+  # PDF cache, so a dry run cannot hand the apply what it read, and the parse
+  # cannot be moved into a step of its own. What it can be separated from is
+  # every credential, because the insert is a LOCAL write — the pass reads the
+  # pulled index and the network and makes no S3 call, so the step running it
+  # holds no AWS session, no way to mint one and no GitHub write token, in BOTH
+  # modes. The read-write role is assumed only after that step has exited, by a
+  # push step that parses nothing fetched, and the App token is minted only
+  # after the push. That separates the parser from the credentials in time, not
+  # by a process boundary: the steps run as one user on one runner, so a
+  # compromised parse could still leave something on the runner (the uv
+  # environment, an action's checked-out code) for ANY later step to run — the
+  # read-write role's assumption, the push and the App-key mint among them. What
+  # bounds it is what those steps hold: the two roles `prod` is trusted by (the
+  # push's is the append-only one, which can never wipe a remote object) and the
+  # data App's key. The vote stamper and the decision-record and application
+  # back-fill applies carry the same residual.
+  #
+  # The apply holds `corpus-write` for the whole fetch campaign — every
+  # unrecorded document of six Terms, at about four seconds a document — so a
+  # scheduled window arriving meanwhile waits behind it, and a second arrival
+  # evicts the first (a rotation picks up where it left off next window).
+  #
+  # No dedupe prerequisite, unlike the corpus job: the pass writes only its own
+  # table, keyed by (Term, listing number, position) rather than by case row,
+  # and nothing a gate, a mint or a retrieval row reads joins on it.
+  opinion-record:
+    needs: [validate]
+    if: ${{ inputs.repair == 'opinion-record' }}
+    concurrency:
+      group: ${{ inputs.repair == 'opinion-record' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # The build step's 60-minute cap, the push step's 15 and the setup, the
+    # corpus pull (about a gigabyte) and the commit, so a build that runs to its
+    # cap still fails in its own step rather than the job's.
+    timeout-minutes: 100
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # the read-only role for the pull; on an apply, the read-write role for the push
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # Same stale-base hazard as the corpus job: an apply that queued behind
+        # a writer on the shared lock checked out a frozen sha, and the corpus
+        # pointer it builds on moves with every writer's commit. The repo is
+        # public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+
+      # The committed pointer's blob. On an apply the lock is already held, so
+      # this is the blob the insert builds on and the push writes back. The
+      # read-only session is used for this pull alone.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+
+      # Fetch, parse and — on an apply — insert, into the LOCAL index only. One
+      # step for both modes, like the vote stamper: the two differ only in the
+      # `--apply --max-rows` pair, and both hold the same nothing.
+      #
+      # The Term range is pinned here rather than spent on a dispatch input:
+      # the record's first phase is OT2020–OT2025, and OT2017–OT2019 are left
+      # out by design, since every listing row there links into a whole
+      # preliminary-print or bound volume and the pass would skip each one
+      # unfetched. A dry run and the apply it bounds therefore always read the
+      # same Terms, so the bound read off one answers for the other.
+      #
+      # No credential reaches this step. The read-only AWS session the pull
+      # assumed is blanked, because the pass reads only the pulled index and
+      # the network; the OIDC request pair is blanked, because the job holds
+      # `id-token: write` under `prod`, whose trust the read-write role also
+      # names; and no App token exists yet. The step asserts both before it
+      # runs anything.
+      - name: Build the opinion record
+        # About four seconds a document on a dev checkout — the 1 req/s pacing
+        # plus the PDF parse — over the roughly 380 documents the six Terms
+        # list unfetched-and-unskipped: about 25 minutes, so the cap is
+        # better than twice that for a slower runner or a slow site. A control
+        # dry run after the apply fetches only the refused documents again.
+        timeout-minutes: 60
+        env:
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # The credential tripwire, as on the vote stamper: no AWS credential
+          # and no way to mint one may reach the parse.
+          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables reached the opinion-record build"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the opinion-record build"
+            exit 1
+          fi
+          # The step of record for the bound; `Validate the repair selector`
+          # duplicates it word for word.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          write_args=()
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            write_args+=(--apply --max-rows "${REPAIR_BOUND}")
+          fi
+          # The readings — every document's opinions, and each refusal's reason
+          # — are a JSON array on stdout of several hundred KB, near the
+          # summary's 1 MiB step cap, so the swap sends them to the step log;
+          # stderr is kept in a file as well. Only the command's own ledger
+          # lines (the per-Term counts, the would-insert line the bound is read
+          # off, a refusal) are copied to the summary, which outlives the log:
+          # stderr also carries pypdf's warnings, which can quote text from a
+          # fetched PDF. Workflow commands are suspended for the run for the
+          # same reason, under a token nothing fetched can know.
+          ledger="${RUNNER_TEMP}/opinion-record.stderr"
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
+          uv run fedcourts backfill-opinion-record --first-term 2020 --last-term 2025 \
+            "${write_args[@]}" 3>&1 1>&2 2>&3 3>&- | tee "$ledger" || status=$?
+          echo "::${stop_token}::"
+          grep -E '^(OT[0-9]{4}: |backfill-opinion-record)' "$ledger" \
+            >> "$GITHUB_STEP_SUMMARY" || true
+          if [ "$status" -ne 0 ]; then
+            echo "::error::backfill-opinion-record exited ${status}; the step log has its output."
+            exit "$status"
+          fi
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+          fi
+
+      # Same read-write (append-only) role as the corpus job's, assumed only
+      # now that the step parsing fetched documents has exited.
+      - name: Configure AWS credentials (corpus S3 remote, read-write)
+        if: ${{ inputs.repair_mode == 'apply' }}
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 3600 # 1h
+          # Bounded for the corpus job's reason (the workflow-traps list in
+          # docs/pipeline.md).
+          action-timeout-s: 120
+
+      # The push alone holds the read-write session: it digests the local
+      # blob, uploads it to its content-addressed key and rewrites the pointer,
+      # and parses nothing fetched. The session is already assumed, so the
+      # OIDC request pair is blanked and asserted. No GitHub write credential
+      # exists yet.
+      - name: Push the opinion-record corpus
+        if: ${{ inputs.repair_mode == 'apply' }}
+        # One blob upload of about a gigabyte.
+        timeout-minutes: 15
+        env:
+          # The corpus estate's base URL: the push writes the index beneath it.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+        run: |
+          set -euo pipefail
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the opinion-record push"
+            exit 1
+          fi
+          # Blob before pointer commit, as everywhere: an apply that pushed the
+          # blob but failed before the commit publishes nothing, because readers
+          # resolve the committed pointer, and the control dry run re-reads the
+          # old blob that pointer still names.
+          uv run fedcourts corpus-push
+
+      # The GitHub write credential exists only on an apply, and only from here
+      # on, after the push step has exited.
+      - name: Mint app token
+        if: ${{ inputs.repair_mode == 'apply' }}
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Configure git identity
+        if: ${{ inputs.repair_mode == 'apply' }}
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # Stages the pointer alone: the pass writes nothing under `data/`, so
+      # anything changed there is not this pass's to publish. The step that
+      # holds the App token needs no AWS session and no OIDC token, so the
+      # read-write session and the request pair are blanked here and the step
+      # asserts both before it runs.
+      - name: Commit the opinion-record corpus pointer
+        if: ${{ inputs.repair_mode == 'apply' }}
+        env:
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables reached the opinion-record commit"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the opinion-record commit"
+            exit 1
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Every listed document already recorded, refused or skipped; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: converge corpus (per-opinion record)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "opinion-record pointer"
 
   # The ledger-only pass, in its own job because its credentials are a strict
   # subset: it recomputes graded fields out of committed artifacts and writes

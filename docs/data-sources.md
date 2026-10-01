@@ -39,10 +39,11 @@ CourtListener roles once funding allows — see *The planned end-state* in
 [data-pipeline.md](data-pipeline.md). Adopting it requires reviewing that
 agreement's terms alongside the licenses below.
 
-One vote source is **registered**: **the Court's own opinions**
-(`supremecourt-opinions`), the source of per-Justice merits votes and
-authorship — the channel [decision-model.md](decision-model.md) needs to
-populate `Outcome.votes` with the provenance block no docket text supports.
+Two vote sources are **registered**, both the Court's own documents. The
+first is **the Court's own opinions** (`supremecourt-opinions`), the source of
+per-Justice merits votes and authorship — the channel
+[decision-model.md](decision-model.md) needs to populate `Outcome.votes` with
+the provenance block no docket text supports.
 Every signed opinion's syllabus closes with a lineup paragraph ("ALITO, J.,
 delivered the opinion of the Court, in which … joined. SOTOMAYOR, J., filed a
 dissenting opinion, in which … joined."), and that paragraph names who wrote
@@ -59,15 +60,16 @@ what and who joined it.
   the opinion's body, and a Term whose listing links into a whole
   preliminary-print or bound volume is skipped until volume pages are read.
   As read on 2026-09-29 (a `fedcourts opinion-lineups` pass over the
-  listings), that leaves OT16–OT19 and 15 of OT20's 68 rows unread. Cert-stage votes from order lists are not part of this source.
+  listings), that leaves OT16–OT19 and 15 of OT20's 68 rows unread.
+  Cert- and interim-stage acts are the orders source's, below.
 - **Terms.** The opinions are works of the federal government in the public
   domain, with no third-party license, and a lineup is a fact about the
   published decision. A vote list read from one therefore redistributes
   nobody's coded values when it lands in public git, which is what separates
   this source from SCDB below. Its registration is the provenance statement
-  itself: every record's `vote_provenance` names the source, the document
-  (the opinion PDF's supremecourt.gov URL) and the grammar and grammar version
-  that read it.
+  itself: every record's `vote_provenance` names the source, the documents
+  (the opinion PDF's supremecourt.gov URL) and a stamp of each grammar that
+  read it, with that grammar's version.
 - **Access.** The same public, token-free, budget-free channel as the live
   docket JSON ([live-sources.md](live-sources.md)), through the same client:
   a browser user agent, about one request a second, one retry after a pause,
@@ -106,21 +108,154 @@ what and who joined it.
   faithfully; a writing concurring or dissenting only in part, or two writings
   of different roles, has no single role and records null ("not stated")
   rather than the nearer of two wrong values. A Justice observed to write
-  nothing records `none`.
-- **What exists today.** The lineup model, the syllabus grammar and the
-  read-only fetcher (`pipeline/lineup.py`, `pipeline/syllabus_lineup.py`,
+  nothing records `none`. Where the syllabus shows every participating
+  Justice's writing, the same roles are also stamped in `Outcome.writing_roles`
+  (below), so the field means one thing whichever source wrote it.
+- **The Granted & Noted cross-check.** Each Term the Court also publishes a
+  *Granted & Noted* list (`/orders/<YY>grantednotedlist.pdf`): per argued
+  case, the dockets decided together, the decision date, the author of the
+  Court's opinion, and every other Justice who wrote, with a code for what
+  (`C`, `D`, `C/J`, `C/P`, `D/P`). It is a second, independently prepared
+  record of what the lineup says, so the two are compared
+  (`pipeline/granted_noted.py`): the decision date, the lead author, and the
+  set of separate writers with the kind each wrote. Joins are not compared:
+  the list prints none. The list is a check and never a source — nothing it
+  says is written — and `fedcourts granted-noted-check` prints a Term's
+  disagreements. As read on 2026-09-30 over OT2020–OT2025, 282 of the 286
+  complete lineups agree with it; the four that do not are a writer the list
+  qualifies to one docket of a consolidated pair, two list errors (a
+  mistyped year, a decision dated two days early), and a reargued case whose
+  entry mixes the reargument order's dissent with the decision's writers. It also says which
+  dockets one opinion decides, which the opinions listing does not: the
+  listing prints only the lead docket of a consolidated case.
+- **What exists.** The lineup model, the syllabus grammar and the read-only
+  fetcher (`pipeline/lineup.py`, `pipeline/syllabus_lineup.py`,
   `pipeline/opinion_lineups.py`), with `fedcourts opinion-lineups` printing
-  what the channel would write for a Term ([cli.md](cli.md)); and the
+  what the channel would write for a Term ([cli.md](cli.md)); the
   registration in code (`pipeline/vote_sources.py`) that `validate` holds
-  every committed vote list to. No writer populates `Outcome.votes` yet, and
-  the cross-check of each parsed author and separate writer against the
-  Court's Granted & Noted list, with disagreements reported, is not built.
+  every committed vote list to; the Granted & Noted cross-check; and the
+  writer, *The vote writer* below.
 
-A second vote channel is **being built and is not registered**: **the Court's
-orders** — the per-Justice acts it publishes at the cert and interim stages.
-Nothing it reads may be committed. `vote_sources.py` does not carry it, so
-`validate` refuses any vote list that names it. Its records would be banked,
-never scored: `scores_votes` admits only merits moments
+The same documents feed **the per-opinion record**, the corpus `opinions`
+table ([corpus/README.md](../corpus/README.md)) that `fedcourts
+backfill-opinion-record` builds (`pipeline/opinion_record.py`): one row per
+opinion in a decided case — its order in the document, kind, author, joiners
+and length — for the opinion-authorship and opinion-length figures a Term's
+statistics count per opinion rather than per case. It is a historical record,
+held corpus-side and read by nothing a predict or evaluate cell sees. Its
+apply runs as run-repair's `opinion-record` pass over OT2020–OT2025, fetching
+in a step that holds no credential ([data-pipeline.md](data-pipeline.md#maintenance-passes)).
+
+- **Source and scope.** Every row of a Term's opinions listing, read through
+  the same client: the signed merits opinions, the per curiams (summary
+  reversals and argued per curiams alike), and the applications and original
+  actions the listing also carries. A row the listing links into a whole
+  preliminary-print or bound volume is skipped unfetched, which on the
+  Court's listings as read on 2026-10-01 is every row before OT2020 and some
+  of OT2020's.
+- **Who wrote what.** For a signed decision the syllabus lineup is the record
+  of each writing's kind, author, coauthors and joiners: the grammar above,
+  unchanged. A partial join is stored with its printed limit as the
+  qualifier ("as to Part II-B", "except as to Part III-B"); a join in full
+  has none. The record keeps the phrase, not a parsed set of parts. A per
+  curiam prints no lineup, so its record comes from the opinion headers
+  ("JUSTICE X, with whom JUSTICE Y joins as to Part I, dissenting."), read for
+  author, kind and joiners; a per curiam's own joiners are not printed and
+  are not recorded.
+- **Splitting, and the cross-check.** Each document is split at each
+  opinion's header. The slip opinion opens every opinion on a new page under
+  the Court's caption and bracketed date; the preliminary print runs them on
+  within a page, so there an opinion opens at a body-type line that reads as
+  a header. A signed document is recorded only when the split agrees with
+  its syllabus: the same number of opinions, in the same order, each header
+  naming the same author or authors and a compatible kind, each separate
+  writing's header naming the same joiners, and no separate writing's header
+  left inside an opinion. A lead's header prints no joiners, so the lead's rest on
+  the syllabus alone. Anything else refuses the whole document with the
+  reason. Refusals come from a syllabus the grammar cannot read whole (it
+  does not read "concurring in part" without "the judgment", or a join
+  limited to a footnote, "except as to n. 1") and from a text layer that runs
+  words together.
+- **Coverage, and what it leaves out.** As read on 2026-10-01, documents
+  recorded, refused and skipped per Term: OT2025 70 / 4 / 0 (172 opinions),
+  OT2024 63 / 4 / 0 (153), OT2023 54 / 6 / 0 (136), OT2022 50 / 8 / 0 (113),
+  OT2021 60 / 6 / 0 (139), OT2020 48 / 5 / 15 (109); OT2017–OT2019 are
+  skipped whole (volume-linked). The refusals are not random: their causes
+  (a partial concurrence, a join limited to a footnote) concentrate in
+  fractured, many-opinion decisions, so a total, an average or a "longest"
+  list taken from the table under-represents exactly those. A figure read
+  from it states its population and the Term's refusal count beside it.
+- **The word count** (rule `scotus-opinion-words`, version 1). An opinion's
+  text runs from its header sentence to the next opinion's header or the end
+  of the document.
+  - **Footnotes are in.** Each opinion's footnotes count toward it, and the
+    record also stores their share, about 11% of OT2025's words. Against
+    the published OT2025 combined totals below, body text alone runs 10–21%
+    short; with footnotes, 1–4% short.
+  - **Excluded:** the syllabus and headnote; the caption (court, docket
+    number, parties, the writ, the bracketed date); the preliminary print's
+    counsel listing, its amicus-brief and "Together with" notes, and its
+    closing Reporter's Note; running heads and page numbers; and the print's
+    "Page Proof Pending Publication" watermark.
+  - **Tokens.** A hyphen ending a line is closed up, so a word broken across
+    lines counts once. The text then splits on whitespace and on the em
+    dash, and a token counts when it holds at least one letter or digit. So
+    a hyphenated compound ("well-settled") and a number range ("404–405") are
+    one word each. A citation counts token by token: "19 How. 393" is three
+    words, and "§1983" and "§ 1983" are one each, since a bare "§" holds no
+    letter or digit. Ellipsis dots and stray punctuation are not words.
+  - **Reference marks.** A footnote's own number at the head of the note is
+    not a word. A reference mark the text layer separates from its word
+    ("… 75. 1 Smith") is dropped where it is the next expected number after
+    punctuation; one printed against its word ("realms.2") adds nothing.
+  - **Which opinion a footnote belongs to.** In the slip, the opinion on its
+    page. In the print, where one page can end one opinion and open the
+    next, numbering restarts with each opinion, so a page's notes numbered 1
+    go to its opinions by count: to the opened opinions when the previous
+    one already has notes; otherwise the ones beyond one per opened opinion
+    are the previous opinion's. One case is not told apart: a previous
+    opinion whose first note falls on its last page, beside an opened opinion
+    with no note on that page. There the note goes to the opened opinion,
+    which moves words between the two and leaves the decision's total
+    unchanged.
+  - **Text layers.** Each format is read in the pypdf mode that extracts it
+    cleanly: the slip in layout mode, since its plain mode splits words at
+    kerning ("pr esent"), with footnotes below the em-dash rule; the
+    preliminary print in plain mode, since its layout mode letter-spaces,
+    with footnotes told from body text by their smaller type.
+- **Checked against.** SCOTUSblog's *Final Stat Pack for the 2025-26 Term*
+  (updated 2026-07-06; its figures are quoted here, with attribution, for
+  comparison only) was compared with a dry run over OT2025, as a check
+  only: nothing from it is stored. The dry run recorded 63 of the 66
+  decisions the stat pack covers (Pung, Postal Service v. Konan and Barrett
+  v. United States were refused; Texas v. New Mexico, which the pack does
+  not count, was refused too).
+  - Its ten longest combined totals and five longest individual opinions
+    all run under the pack's rounded figures, by 1–4% and most within 2%:
+    Barbara 59,355 words across 6 opinions against ≈60,400, Thomas's dissent
+    there 28,901 against ≈29,400. The direction is the same every time,
+    which points to a difference of rule rather than noise.
+  - The shortest opinions agree within a few words (Chatrie's 65 against
+    ≈60).
+  - Per-author averages fall between 4% over and 7% under: Roberts 7,003
+    against ≈7,100, Barrett 3,067 against ≈3,300. They are not like for
+    like, since the three refusals remove opinions unevenly by author, but
+    Barrett wrote nothing in a refused decision, so her gap is not a
+    refusal's.
+  - Opinion counts by author: Roberts's 6 match; Thomas's 26 and Jackson's
+    25 become the pack's 28 and 26 with the refused decisions' opinions
+    added back. The pack does not count an opinion concurring in part and
+    dissenting in part among dissents: Jackson's 10 dissents are exactly her
+    plain dissents here.
+
+  The stat pack does not publish its counting rule, so the residual is
+  unexplained.
+
+The second registered source is **the Court's orders**
+(`supremecourt-orders`) — the per-Justice acts it publishes at the cert and
+interim stages. Its records are banked, never scored: `scores_votes` admits
+only merits moments, and vote scoring reads only a record whose provenance
+says `complete`, which this source's never does
 ([decision-model.md](decision-model.md)).
 
 - **Source and scope.** Fetched pipeline-side from supremecourt.gov, from two
@@ -189,10 +324,11 @@ never scored: `scores_votes` admits only merits moments
   - A Justice who took no part must not sign a writing.
   - A document's text must not be cut at the extraction cap.
 - **Completeness.** The vote list is always `complete: false`, because a
-  Justice who noted nothing is unobserved, not a vote to deny. Writings
-  differ, as [decision-model.md](decision-model.md) says: once an order is
-  final, whether each participating Justice wrote is observed. The channel
-  sets `writings_complete` for a docket only when all of these hold:
+  Justice who noted nothing is unobserved, not a vote to deny; `validate`
+  refuses a record from this source claiming otherwise. Writings differ, as
+  [decision-model.md](decision-model.md) says: once an order is final,
+  whether each participating Justice wrote is observed. The channel sets
+  `writings_complete` for a docket only when all of these hold:
   - it read every document the Court lists for the order's date, each fetched
     and extracted whole;
   - no document read for that date has a problem;
@@ -200,16 +336,79 @@ never scored: `scores_votes` admits only merits moments
 
   Then every participating Justice who wrote nothing records `none`.
   Otherwise only the authors carry a role. One document read alone never
-  sets it.
-- **What exists today.** The two grammars and the read-only channel
+  sets it. A writing respecting an order is ordinarily published with it but
+  can follow it, so the writer reads an order date only once it is seven
+  days old: a same-week reading could record as having written nothing a
+  Justice who has not written yet.
+- **What a record holds.** `votes` carries only the Justices the order names
+  — a noted vote, an unwritten dissent, a writing whose header names the act,
+  or non-participation — each with its writing role where one is observed.
+  `writing_roles` carries every participating Justice's role, `none`
+  included, and is present only where writings are complete; it is a
+  separate field because a Justice who noted nothing has no vote to hang a
+  role on. `vote_provenance` names the source, every document of the date
+  that names the docket, one stamp per grammar with its own version, and
+  `participating`: the bench the roster seats on the order's date less every
+  Justice the order records not taking part.
+- **Rehearing and motions.** A noted vote on a petition for rehearing or a
+  motion is refused by the grammar. Non-participation is recorded only when
+  it attaches to the cert or application act: the writer reads a docket only
+  on the date of the order disposing of its petition or application (the
+  outcome's `resolved_at`), and holds back a docket whose order text on that
+  date mentions a rehearing. It also holds back a docket that shares its
+  order or a writing with a docket of the other stage — a cert petition
+  grouped in one order-list entry with an application — since a notation on
+  the stay would otherwise be read onto the petition.
+- **A day's writings stand or fall together.** One problem on any
+  document the Court lists for a date leaves every docket on that date
+  without writing roles, and a docket whose reading has a problem gets no
+  record at all. So coverage is per date, and the largest order lists — the
+  ones with the most separate writings — are the likeliest to lose it; a
+  figure read off `writing_roles` reports its per-date coverage beside it.
+- **Spot check, as read on 2026-09-30.** Recall only: for eight OT2024 order
+  dates, every sentence in the day's documents shaped like a notation or a
+  writing header — found with a pattern broader than either grammar's — was
+  checked to lie in a piece the channel read, recorded there or refused as
+  a problem. Seven dates recalled every one. On the eighth (2025-06-06) the
+  listing links a preliminary-print volume of orders under the date; the
+  channel refuses it as a document problem, so that day has no writing
+  roles, and the 26 sentences it held belong to other dates. Precision —
+  whether a recorded act is attributed to the right Justice and docket — was
+  checked by hand on four dockets only (23-1072, 23-1254, 23-1280, 23-1137),
+  all correct; it is not measured.
+- **What exists.** The two grammars and the read-only channel
   (`pipeline/order_lineups.py`), with `fedcourts order-notations` printing
-  one reading per docket for a date or a single document ([cli.md](cli.md)).
-  Not built yet:
-  - the source registration;
-  - how a record carries two grammar stamps;
-  - a writer, and the backfill it would run;
-  - the live order-list ingest;
-  - a recorded spot check against the Court's documents.
+  one reading per docket for a date or a single document ([cli.md](cli.md));
+  the registration; and the writer, below. The live ingest of new order
+  lists — stamping each as it settles rather than by a dispatched backfill —
+  is not built.
+
+**The vote writer** (`vote_writer.py`) is how either source reaches
+`outcome.json`. It reads the corpus for one column — each case's docket
+number, which is how a ledger case is found in the Court's documents — and
+writes nothing but committed `outcome.json` files: `votes`,
+`vote_provenance` and `writing_roles`. It runs only as two `run-repair`
+passes, dry run first ([data-pipeline.md](data-pipeline.md), *Maintenance
+passes*):
+
+- `opinion-votes` (`fedcourts stamp-opinion-votes`) stamps merits-stage
+  outcomes resolved in OT2020 or later — the Terms whose listing links a PDF
+  per opinion. It maps the outcome's docket through the Term's Granted &
+  Noted list to every docket decided with it, reads the one opinion the
+  listing prints for them, and stamps only a complete record that the Granted
+  & Noted list agrees with, onto an outcome resolved on the date the opinion
+  is dated.
+- `order-votes` (`fedcourts stamp-order-votes`) stamps cert- and
+  interim-stage outcomes resolved in OT2024 or OT2025, the two most recent
+  complete Terms: both sat the same bench, both grammars were checked against
+  real orders of the later one, and every interim outcome in the ledger (as
+  of 2026-09-30) is among them. A docket with no noted vote and writings not complete has
+  nothing to stamp.
+
+An outcome already carrying the same record is left alone, so a re-run is a
+no-op; one carrying a different record is held back unless the dispatch
+names `replace-differing`. An apply refuses above its bound, and refuses
+outright when a listing or a Granted & Noted list could not be read.
 
 One more channel is planned and not yet adopted, **for historical depth
 only**: the **Supreme Court Database** (SCDB) — the standing academic coding
@@ -310,14 +509,43 @@ registered here, and the hold is mechanical as well as stated: `validate`'s
 `outcome_votes_await_a_registered_source` check refuses any committed outcome
 carrying votes without a `vote_provenance` block, or a block naming a source
 that is not registered. A registered source's records are held to the shape
-its registration states (`pipeline/vote_sources.py`): for the opinions
-source, a Supreme Court case, a merits-stage event, the `scotus-syllabus`
-grammar with its version, an opinion PDF on the Court's own host, every Justice
-spelled as the roster spells them, and — for a record claiming `complete` —
-exactly the bench the seat roster seats on the outcome's decision date, since
-that bit is what vote scoring is gated on. A source that has not registered,
-SCDB included, stays refused; an SCDB import additionally settles the terms
-above before it writes any value.
+its registration states (`pipeline/vote_sources.py`). For the opinions
+source: a Supreme Court case, a merits-stage event, a `scotus-syllabus`
+grammar stamp with its version, an opinion PDF on the Court's own host. For
+the orders source: a Supreme Court case, a cert- or interim-stage event,
+stamps only of its two grammars, only order and opinion PDFs on the Court's
+own host, and never `complete`. For both: every Justice — in `votes` and in
+`writing_roles` — spelled as the roster spells them and seated on the
+outcome's decision date by the seat roster; `participating` equal to that
+bench less the Justices recorded not taking part; for a record claiming
+`complete`, exactly that bench, since that bit is what vote scoring is gated
+on; and `writing_roles`, where present, naming exactly the Justices who took
+part. A source that has not registered, SCDB included, stays refused; an
+SCDB import additionally settles the terms above before it writes any value.
+
+**The Solicitor General's office roster** is reference data for an analytics
+annotation, not case data and not a vote source. The counsel annotation
+`sg-office-v1` (`pipeline/counsel.py`, read by `fedcourts party-rates
+--counsel-rule`) reads a committed, dated roster of the people who signed the
+federal government's Supreme Court filings: every Solicitor General and acting
+Solicitor General from OT2015 on, the principal deputies seen signing as
+counsel of record, and one career deputy. It was retrieved on 2026-09-30 from
+the Department of Justice's Office of the Solicitor General pages — the
+historical list of Solicitors General (`justice.gov/osg/historical-bios`) and
+the biographies it links, plus the current Solicitor General's staff profile.
+Those pages give an exact day for three boundaries (Verrilli sworn in
+2011-06-09, Francisco sworn in 2017-09-19, Sauer in office from 2025-04-04) and
+a year range for the rest. A span that begins or ends at a change of
+administration takes the inauguration day; the remaining days — the 2016, 2017
+and 2020 acting handovers and the principal deputies' other bounds — come from
+the public record of those handovers, and the career deputy's start is the
+roster's OT2015 coverage floor, not an appointment; none of these is on an OSG
+page. Each span's `source` field in
+the module names which kind of date it holds. The roster is part of the rule:
+a corrected or extended span is a new rule label, never an edit to
+`sg-office-v1`. The pages are works of the United States government, which
+carry no copyright, and the committed roster republishes only names and the
+dates of public office.
 
 Two layers of rights apply, and they are different:
 
@@ -480,28 +708,40 @@ material**:
   store, the scannable index beside them — not public git. The only PII that can
   reach public git is whatever a piece of reasoning quotes from a public docket
   while explaining a prediction.
-- **A petition filed in person is scrubbed before a cell reads it.** Where the
-  provisioned snapshot serves a petitioner-side counsel block naming nobody but
-  the petitioner to write to — no attorney, the petitioner as their own, or a
-  prisoner register number — the
+- **A filing made in person is scrubbed before a cell reads it.** Where the
+  provisioned snapshot serves a counsel block on either party side — petitioner
+  or respondent — naming nobody but the party to write to — no attorney, the
+  party as their own, or a prisoner register number — or where an amicus block
+  on the `Other` list reads the same way on the first two arms, the
   filed-document text staged under a cell's `record/documents/` has its
   contact-detail shapes — emails, telephone numbers, post-office boxes, street
-  addresses — and the contact values on every petitioner-side block replaced by a
-  fixed placeholder, and the cell's manifest records that it was, and by which
-  passes ([live-sources.md](live-sources.md)). The question is asked on the
-  **petitioner** side alone, so a self-represented respondent's opposition on a
-  counselled docket is staged as filed: widening it to the respondent side would
-  read "unrepresented" on every docket whose opposition has not been filed yet.
-  It is asked of a **served** block, too: a payload carrying no petitioner-side
-  counsel is unknown rather than unrepresented, and is left alone.
+  addresses — and the contact values on every block of each such party side replaced
+  by a fixed placeholder, and the cell's manifest records that it was, and by
+  which passes ([live-sources.md](live-sources.md)). The question is asked of a
+  **served** block: a payload carrying no counsel on a side is unknown rather
+  than unrepresented on that side, and a respondent who has not appeared has no
+  block to read, so a docket awaiting its opposition is not scrubbed on that
+  account. The `Other` list — amici and other non-party filers — is read on
+  the first two arms (no attorney, or the amicus as its own); the
+  register-number arm is not asked there, because `PrisonerId` on that list
+  holds free text rather than a register number, and only a qualifying
+  amicus's own values key the value pass. Where the `Other` list is the only
+  list read so, the staged text gets that value pass alone — no shape pass — since
+  what is staged there is counsel's filings; a self-represented non-amicus
+  `Other` filer whose own opposition is staged gets the value pass alone too.
+  A self-filing amicus whose served
+  name carries a title or joinder the attorney field lacks is not read as
+  self-represented and stays as served.
   This is the one narrowing applied on privacy grounds, and it applies to the
   **staged copies** alone: the source PDF and the corpus row are untouched. On
-  the same docket the snapshot staged beside the documents has the
-  self-represented petitioner-side block's `Address`, `City`, `Zip`, `Phone`,
-  `Email` and `Title` values replaced by the same placeholder and its prisoner register
-  number by a fixed marker that keeps the number's presence; the party name,
-  the attorney field and `State` stay, and every other block is as served —
-  a self-represented respondent's included, a residual this leaves. The
+  the same docket the snapshot staged beside the documents has each
+  self-represented block's `Address`, `City`, `Zip`, `Phone`,
+  `Email` and `Title` values replaced by the same placeholder and a party's prisoner register
+  number by a fixed marker that keeps the number's presence (a populated
+  `PrisonerId` on a qualifying amicus block, which holds no register number,
+  takes the contact placeholder instead); the party name,
+  the attorney field and `State` stay, and every other block — a represented
+  party's counsel, a represented amicus — is as served. The
   filing
   is public, so the concern is re-publication and aggregation rather than
   disclosure — a self-represented filer's home address reaching the public

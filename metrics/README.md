@@ -183,8 +183,12 @@ stays outside the gate:
   complete vote record, each scored over that record's whole sitting bench
   (recomputed at build, not read off the evaluator), with `vote_cells_scored`
   beside it as its denominator; it covers the decisions a vote source read
-  completely — signed opinions whose lineup parsed, which is expected to
-  under-represent fractured lineups — not every merits decision. The
+  completely and its writer admitted — signed opinions whose lineup parsed and
+  whose date, lead author and separate writers the Court's Granted & Noted list
+  agrees with, on an outcome resolved the day the opinion is dated — which is
+  expected to under-represent fractured lineups, not every merits decision. A
+  consolidated case enters once for each of its dockets that carries a scored
+  cell. The
   **accuracy** column is the mean of each cell's `correct`,
   which the harness stamps on **every** stage — cert included, unlike the skill
   record beside it — from the scored prediction's committed label and the
@@ -603,7 +607,7 @@ stays outside the gate:
   axis note below); every other population — a later cert moment included —
   reports in its own unranked `stages` block. Each entry
   also carries a `big_case` block — the predictor's `big_case_score`
-  rank-agreement (Kendall's tau-b) with the evaluator panel's independent reads —
+  rank-agreement (Kendall's tau-b) with the evaluator panel's own reads —
   a second, orthogonal skill dimension that never affects the ranking.
   The board also carries an `evaluator_agreement` map — per evaluator, how far its
   big-case reads track the rest of the panel's, computed **leave-one-out** so a
@@ -636,7 +640,31 @@ stays outside the gate:
   read of the disposition, so a predictor that saw its own outcome may have read
   the stakes off it too, and over a handful of cases two contaminated points can
   carry the coefficient.
-  `fedcourts leaderboard` produces it — a deterministic, offline roll-up of the
+
+  The panel's reads are **not blind to the scores they are compared against**.
+  The prompt asks a judge to form its read before looking at the predictor's
+  `big_case_score`, but the score is a field of the `prediction.json` the judge
+  must read to grade, and the blinded view does not mask it
+  (`fedcourtsai.blinding.mask_prediction`), so nothing enforces the request. A
+  judge records one stakes read per candidate, beside that candidate's own score
+  and rationale, and a predictor's panel is built only from the reads recorded
+  beside its predictions. Anchoring therefore pulls each predictor's panel toward
+  that predictor's own number. It inflates every predictor's tau, but not by the
+  same amount — most for whichever predictor's score and rationale judges defer
+  to — so the comparison *between* predictors is affected as well as the level.
+  Read a `big_case` tau as an **upper bound** on how far a predictor's stakes read
+  tracks an independent panel, never as evidence that it does.
+
+  How strongly judges anchor depends on the evaluate prompt, so a tau is
+  comparable only within one evaluator digest. The board does not split on it:
+  its scope is `graded_post_freeze`, which records the evaluator digest but does
+  not count by it, so a tau whose reads straddle a change to the evaluate prompt
+  mixes two anchoring regimes and compares to neither. `evaluator_agreement` is
+  exposed the same way: judges anchored on the same candidate's score agree with
+  each other partly for that reason, so a high figure there is an upper bound
+  too.
+
+  `fedcourts leaderboard` produces the board — a deterministic, offline roll-up of the
   ledger and the committed `statpack.json` — empty (`{}` plus the zero counts)
   until the first evaluation lands.
 - `claim-scores.json` — the mechanical claim-score surface: every
@@ -1439,6 +1467,40 @@ the rendered table) and
   through version history, through the unmerged, force-pushed
   `metrics/cert-backtest` review branch among the full-depth checkout's refs,
   and through the public repository, which a cell's web tools can reach.
+
+  **The clock also screens what a retrieved prior carries, not only which
+  priors return.** A prior's columns are its state at the last pull, not at
+  the clock, and on every prior a clocked `fedcourts query` admits — every
+  query on the dated and truncated arms, which carry `REPLAY_CUTOFF`, and on
+  the blind arm the queries that pass `--decided-before` as the prompt asks —
+  some of them are withheld: the merits pair unless `merits_decided` clears
+  every bar the clock sets, `merits_terminated` always, and the party and
+  counsel lists (`counsel`, `parties`, `attorneys`) always, emptied to `[]`.
+  The lists go whole because no entry in them is dated and they accrue after
+  a grant (amici, overwhelmingly), the same reason `redact_snapshot` strips
+  the replayed petition's own party and counsel blocks. Under the clock `[]`
+  means masked, not "no counsel of record"; a cell cannot tell the two apart,
+  so nothing may be read from an empty list there. **The mask is not
+  complete.** A prior's other last-pull columns still reach a replay cell as
+  stored — among them its own `citations`, `citation_count`, `summary`,
+  `precedential_status`, `has_opinion` and the opinion body under `--full`,
+  `merits_brief_filed`, and `date_decided`, which on a granted SCOTUS prior
+  is the termination at the merits judgment — so a prior granted before the
+  clock can still show, through them, that its merits stage went on past it.
+  That is post-clock information about the prior, not the petition, and it
+  stands in every replay report. Read two consequences of what is masked. A
+  replay cell's `query` returns no counsel on any prior, which a forward
+  cell's does, so on that surface a replay figure understates the same
+  predictor's forward information set, as it does on the snapshot; the cell's
+  open-web and CourtListener tools still reach a prior's current docket either
+  way. And a report whose cells ran before the list mask reached `main` could
+  retrieve priors carrying their full current lists, amicus entries filed
+  after the clock included — post-clock facts about the priors, never about
+  the petition itself — so no **engine row's** series spans that boundary,
+  which `docs/freeze-record.md` dates. Provenance agreement cannot see it. The
+  always-deny floor (a property of the labels) and the offline `prior-vote`
+  row (which votes on dispositions, not counsel) are unaffected and compare
+  across it as before.
 
   Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A
@@ -2436,6 +2498,82 @@ nine more are specific to rates.
   in his official capacity, whom the class reads as the government. The census stays on `party-v1` by default, so a census
   count and a rates cell are comparable only where both name the same rule.
 
+**The counsel dimension (`--counsel-rule sg-office-v1`).** With it, every cell
+is also keyed on `sg_counsel`: which side(s) the Solicitor General's office is
+counsel for, read from the row's petitioner and respondent counsel entries
+against a dated roster (`pipeline.counsel`, sources in
+[docs/data-sources.md](../docs/data-sources.md)). The rule version names the
+roster, so a cell quoted from it names `counsel_rule_version` beside the party
+rule. Every figure below is from the blob pulled 2026-09-29, newest stored
+snapshot 2026-07-13. Six rules travel with it.
+
+- **Paid cert and applications only.** The index carries no counsel on all
+  but about a dozen resolved IFP rows today — an ingestion gap, not a property
+  of IFP dockets — so those rows read `unknown`, and an IFP cell keyed on
+  `sg_counsel` holds pending rows' readings and little else; the few resolved
+  IFP rows that do carry counsel are grant-enriched, one more reason no IFP
+  rate is quoted by counsel side. No paid-versus-IFP comparison is drawn from
+  this dimension until the gap is closed and backfilled. The application half
+  inherits the application stratum's own coverage rule above: a
+  counsel-keyed application cell is cut with `--since 2025-04-18` or later.
+- **Counsel accrues after docketing, and the list is as of the row's last
+  write.** A response or waiver adds the respondent's counsel, and the Court
+  calls for a response before most grants, so a resolved docket with no
+  respondent counsel is enriched in denials by construction and a pending
+  docket's `none` is provisional. `--through` rewinds the docket's life, not
+  its counsel list: a cut at a past moment still reads the counsel the row
+  holds now, and a successor the list gained after the cut reads as the office
+  on a federal party, as any late write does. A granted docket's life also
+  runs a year past its grant where a denied one ends at the denial, so the
+  life depends on the outcome in one direction: setting that year to zero
+  moves 7 rows, all granted, out of the office cells on this blob. So
+  `sg_counsel` says who the office answered for by the docket's end — a
+  descriptive split beside the caption, never an arrival-time covariate or a
+  predictor of the grant.
+- **Read it beside `federal_party`, not instead of it.** The two disagree on a
+  measured mass, and that is what the dimension is for: over the whole blob
+  under `filed`, 503 paid-cert rows (475 resolved) whose caption names no
+  federal party carry the office as respondent counsel (an `In re` petition, a
+  court or an officer the caption rules read as private), 14 carry it as
+  petitioner counsel, and 26 (21 resolved) whose caption names a federal
+  respondent carry counsel but no office entry. The pending rows among them
+  are provisional readings, per the rule above.
+- **The dates are what make it precise.** The same roster read without dates
+  counts a former Solicitor General at a firm, or a future one as a state
+  solicitor general or private counsel, as the office. Scored against the
+  firm/office `Title` field — which the index does not store, so only on the
+  sample that carries it: the latest stored live snapshot of 1,567 OT2023–OT2025
+  dockets, grant-enriched and not random, with no applications — of the 46
+  petitioner-side and 597 respondent-side entries the dated rule reads as the
+  office, 45 and 595 carry a Title naming it (the rest have a blank Title and
+  a federal party); the undated roster reads 60 and 603, of which 46 and 595.
+  That is precision. The dated rule drops 1 of the 46 petitioner-side and none
+  of the 595 respondent-side entries whose Title names the office, and the one
+  it drops is a Title recorded after the docket closed, naming the office the
+  attorney joined later. The Title predicate (it contains "solicitor general"
+  or "department of justice") is a loose proxy: it also matches state
+  offices — 46 non-roster entries in the sample, New York's solicitor general
+  and several state justice departments among them — which is harmless only
+  because no roster entry in this window carries a state Title. The sample
+  covers filings from 2023-06-30 on: the Francisco and Wall years and
+  Prelogar's first two are untested against Title, and 459 of the 643 office
+  readings it scores are Sauer's. Corpus-wide, the spans set aside
+  156 roster entries (99 petitioner-side) on 154 live-slice dockets — all 57
+  respondent-side entries and a sample of 30 petitioner-side ones inspected,
+  every one a private-practice or state appearance — and the dockets read as
+  the office move 401 → 302 petitioner-side and 4,760 → 4,711
+  respondent-side.
+- **Recall is unmeasured.** The roster names the office's leadership and one
+  career deputy; an Assistant to the Solicitor General or another deputy
+  signing as counsel of record is missed without trace (a deputy off the
+  roster signs 2 blocks of the Title sample), and a name is matched on its
+  listed spellings only.
+- **A handover can flip a docket at the edge.** Some span boundaries are the
+  public record of a handover rather than a date an OSG page prints, and a
+  docket resolved within days of one may fall either side; a corrected date is
+  a new rule label, so a published cell keeps replaying under the roster that
+  produced it.
+
 **Validation against the published administration tallies.** The
 emergency-docket cell was checked against two published counts of the federal
 government's applications, each cut `--as-of filed --through <the tally's
@@ -2654,8 +2792,10 @@ forward predictions. Timing is the integrity mechanism: the prediction's
 harness clock (`fedcourtsai.integrity.cell_clock` — the process stamp, else
 the unstamped cell's `created_at`) against the outcome's `resolved_at`, both
 committed artifacts, decides the stratum — not any restriction on what a cell
-could retrieve. Replay cells run with the same tools as forward cells; the
-cross-evaluator's leakage grading (the `leakage` block on each
+could retrieve. Replay cells run with the same tools as forward cells (the
+replay clock narrows only what the corpus `query` returns, and what a returned
+prior carries — the `cert-backtest.json` entry above lists the withheld
+fields); the cross-evaluator's leakage grading (the `leakage` block on each
 `evaluation.json`, read off the harness-captured `retrieval_log.json`) makes
 contamination of the *iteration signal* visible, and its coarse bit is what
 takes a contaminated cell out of every scored figure (*The leakage exclusion*

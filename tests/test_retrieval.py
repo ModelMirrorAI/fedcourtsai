@@ -13,6 +13,7 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
+from fedcourtsai import collect, retrieval
 from fedcourtsai.blinding import _NEUTRAL_TOOL_CLASSES, mask_retrieval_log, neutral_tool_class
 from fedcourtsai.cli import app
 from fedcourtsai.mcp import _HTTP_BYPASS_RELEASE
@@ -841,6 +842,159 @@ def test_a_program_that_retrieves_only_through_its_shell_is_not_full_coverage(
     # The capture the rate is honest about: the one item the transcript held.
     captured = [call for call in log.calls if call.result_capture == "captured"]
     assert [call.call_source for call in captured] == ["transcript_item"]
+
+
+# The code-mode lift keys on literals the codex CLI owns rather than this repo:
+# the freeform tool's name (`exec`, codex's public code-mode tool name), the
+# `tools.` object a program reaches every tool through, and the builtin names
+# that object exposes. A codex release that renames any of them fails nothing:
+# the parser stops recognizing the item or the call, and a code-mode cell's
+# manifest and shell work collapses into no rows at all, which reads in the
+# ledger and the tool-usage report as an engine that never retrieved. So the
+# literals are recorded against the codex version they were confirmed at, and
+# the canary below fails the moment the repository's codex pin moves off it.
+CODE_MODE_LITERALS_CONFIRMED_AT = "0.144.1"
+# Every spelling of the codex pin the repository carries: the `codex-version`
+# input of each codex-action step, and the npm pin of the bare CLI. Both the
+# workflows and the composite actions are scanned, so a pin that moves into an
+# action is still seen. The value is taken as any token, not only a numeric
+# one, so a pin moved into a variable or onto a floating tag (`latest`) is seen
+# as a version other than the confirmed one rather than skipped.
+_CODEX_PIN_RES = (
+    re.compile(r"""\bcodex-version:\s*["']?([^\s"'#]+)"""),
+    re.compile(r"""@openai/codex@([^\s"'#]+)"""),
+)
+_CODEX_ACTION_USE_RE = re.compile(r"\buses:\s*openai/codex-action@")
+_CODEX_VERSION_INPUT_RE = re.compile(r"\bcodex-version:\s*\S")
+_GITHUB_DIR = Path(__file__).resolve().parents[1] / ".github"
+
+
+def _codex_pins() -> dict[str, list[str]]:
+    """Each codex version the repository pins, with the files that pin it."""
+    pins: dict[str, list[str]] = {}
+    for path in sorted(_GITHUB_DIR.rglob("*.y*ml")):
+        text = path.read_text()
+        # A codex-action step without `codex-version` runs the action's own
+        # default codex, which no pin below would show.
+        uses = len(_CODEX_ACTION_USE_RE.findall(text))
+        inputs = len(_CODEX_VERSION_INPUT_RE.findall(text))
+        assert uses <= inputs, (
+            f"{path.name}: {uses} codex-action step(s) but {inputs} `codex-version` input(s) "
+            f"— a codex-action step without codex-version runs an unpinned codex"
+        )
+        for pattern in _CODEX_PIN_RES:
+            for match in pattern.finditer(text):
+                where = str(path.relative_to(_GITHUB_DIR.parent))
+                pins.setdefault(match.group(1), []).append(where)
+    return {version: sorted(set(files)) for version, files in pins.items()}
+
+
+def test_the_code_mode_literals_are_confirmed_for_the_pinned_codex_version() -> None:
+    pins = _codex_pins()
+    assert pins, "no codex version pin found under .github/ — the canary has nothing to watch"
+    assert set(pins) == {CODE_MODE_LITERALS_CONFIRMED_AT}, (
+        f"the codex pin moved to {sorted(set(pins) - {CODE_MODE_LITERALS_CONFIRMED_AT})} "
+        f"(pinned in {pins}), but the code-mode literals in fedcourtsai/retrieval.py were "
+        f"confirmed against codex {CODE_MODE_LITERALS_CONFIRMED_AT}. Before moving "
+        f"CODE_MODE_LITERALS_CONFIRMED_AT, re-check at the new codex tag: (1) the code-mode "
+        f"freeform tool is still named `exec` and still arrives as a `custom_tool_call` "
+        f"(_CODEX_CODE_MODE_TOOL in retrieval.py, CODE_MODE_PARENT_TOOL in collect.py); "
+        f"(2) a program still reaches tools as `tools.<name>(` with manifest tools spelled "
+        f"`mcp__<server>__<tool>` (_CODE_MODE_CALL_RE); (3) the builtins that object "
+        f"exposes are still the ones _CODE_MODE_BUILTIN_RE enumerates. Then dispatch the "
+        f"integration `engine-smoke` scenario and read its codex item-shapes artifact "
+        f"(`fedcourts codex-item-shapes`), which is what shows a real rollout still "
+        f"parses. A rename left unchecked reads as a codex that made no manifest calls."
+    )
+    # The literals themselves, so a change on the parser's side is the same
+    # deliberate act as a change of pin rather than a quiet edit.
+    assert retrieval._CODEX_CODE_MODE_TOOL == "exec"
+    assert collect.CODE_MODE_PARENT_TOOL == retrieval._CODEX_CODE_MODE_TOOL
+    assert retrieval._CODE_MODE_CALL_RE.pattern.startswith(r"\btools\.(mcp__")
+    assert retrieval._CODE_MODE_BUILTIN_RE.pattern == (
+        r"\btools\.(exec_command|write_stdin|apply_patch|view_image|update_plan)\s*\("
+    )
+
+
+# Real codex rollout inputs, reconstructed from committed retrieval logs and
+# checked against them: each `params_digest` below is the one the committed
+# row carries, so the fixture is the input the engine actually emitted rather
+# than a paraphrase of it. The code-mode programs are from
+# `data/cases/scotus/73274796/events/evt-order-cvsg-disposition/predictions/
+# codex-baseline/20260820T181919Z/` (codex in code mode: every call an `exec`);
+# the direct call is from `data/cases/scotus/9526000416/events/
+# evt-order-response-requested-disposition/predictions/codex-baseline/
+# 20260929T212928Z/` (codex calling `exec_command` as an item of its own, the
+# shape its recent cells take). The lifted `exec_command` row the code-mode
+# test expects is not in that 2026-08-20 log, whose capture predates the
+# builtin lift, so its digest is not asserted.
+_REAL_CODE_MODE_SHELL_PROGRAM = (
+    'const r = await tools.exec_command({"cmd":"sed -n \'1,260p\' AGENTS.md && '
+    + "sed -n '1,320p' .github/prompts/predict.md\","
+    + '"workdir":"/home/runner/work/fedcourtsai/fedcourtsai",'
+    + '"yield_time_ms":10000,"max_output_tokens":40000});\ntext(r.output);\n'
+)
+_REAL_CODE_MODE_MANIFEST_PROGRAM = (
+    'const result = await tools.mcp__courtlistener__search({type:"o", '
+    + 'case_name:"Renteria v. Kane", court:["ca10"], '
+    + 'fields:["id","caseName","dateFiled","citation","absolute_url","snippet"], '
+    + "num_results:5});\n"
+    + "for (const c of (result.content||[])) {\n"
+    + '  if (c.type === "text") text(c.text);\n'
+    + '  else if (c.type === "image") image(c);\n'
+    + "}\n"
+)
+_REAL_EXEC_COMMAND_ARGUMENTS = (
+    '{"cmd":"cat AGENTS.md; cat .github/prompts/predict.md","max_output_tokens":22000}'
+)
+
+
+def test_the_code_mode_canary_parses_a_real_code_mode_rollout(tmp_path: Path) -> None:
+    sessions = _codex_rollout(
+        tmp_path,
+        *_code_mode_call(_REAL_CODE_MODE_SHELL_PROGRAM, "ok", call_id="c1"),
+        *_code_mode_call(_REAL_CODE_MODE_MANIFEST_PROGRAM, '{"count": 1}', call_id="c2"),
+    )
+    calls = parse_codex_retrieval(sessions)
+
+    assert [(call.tool, call.call_source) for call in calls] == [
+        ("exec", "transcript_item"),
+        ("exec_command", "code_mode_source"),
+        ("exec", "transcript_item"),
+        ("mcp__courtlistener__search", "code_mode_source"),
+    ]
+    # The committed rows' own digests: the parents' params, and the lifted
+    # manifest call's arguments.
+    assert [calls[0].params_digest, calls[2].params_digest, calls[3].params_digest] == [
+        "c60f3aac81ed101b",
+        "d4f7c5e630bade37",
+        "f5d41733b5bbfbe4",
+    ]
+    assert normalize_call(calls[3].tool) == "courtlistener.search"
+
+
+def test_the_code_mode_canary_parses_a_real_direct_exec_command_rollout(
+    tmp_path: Path,
+) -> None:
+    # Outside code mode the shell is an item of its own, and nothing is lifted.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "function_call",
+            "name": "exec_command",
+            "call_id": "d1",
+            "arguments": _REAL_EXEC_COMMAND_ARGUMENTS,
+        },
+        {"type": "function_call_output", "call_id": "d1", "output": "# AGENTS.md"},
+    )
+    (call,) = parse_codex_retrieval(sessions)
+
+    assert (call.tool, call.call_source, call.result_capture) == (
+        "exec_command",
+        "transcript_item",
+        "captured",
+    )
+    assert call.params_digest == "c4ecad8c960155fa"
 
 
 def test_codex_local_shell_call_records_its_command(tmp_path: Path) -> None:

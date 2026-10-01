@@ -75,7 +75,7 @@ from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel, ConfigDict
 
-from ..schemas import JusticeVote, VoteProvenance
+from ..schemas import GrammarStamp, JusticeVote, VoteProvenance
 from ..supremecourt import SupremeCourtClient, october_term_year, parse_scotus_docket_number
 from .documents import extract_pdf_text
 from .justices import bench_on, resolve_surname, seated_after
@@ -384,9 +384,8 @@ def vote_record(lineup: Lineup, *, document: str) -> tuple[list[JusticeVote], Vo
         raise ValueError("only a complete lineup yields a vote record")
     provenance = VoteProvenance(
         source=SUPREMECOURT_OPINIONS,
-        document=document,
-        grammar=lineup.grammar,
-        grammar_version=lineup.grammar_version,
+        documents=[document],
+        grammars=[GrammarStamp(grammar=lineup.grammar, version=lineup.grammar_version)],
         participating=participating,
         complete=True,
     )
@@ -409,7 +408,8 @@ def _cross_check(entry: OpinionListing, lineup: Lineup, decided: date | None) ->
     return problems
 
 
-def _skip_reason(entry: OpinionListing) -> str | None:
+def skip_reason(entry: OpinionListing) -> str | None:
+    """Why a listing row is outside the channel's scope, or ``None`` to read it."""
     if entry.docket_number is None:
         return "not a Term-form merits docket (an application or an original action)"
     if entry.author_code == _PER_CURIAM_CODE:
@@ -428,7 +428,7 @@ class OpinionFetcher:
     goes on. The cache is a dev convenience on the local disk, not the content
     store, and it is trusted as it lies: a cached file is read without the
     host scoping a fetch gets, so a lane that publishes what it reads — a
-    writer stamping ``vote_provenance.document`` — must not pass ``cache_dir``.
+    writer stamping ``vote_provenance.documents`` — must not pass ``cache_dir``.
     Each file is written whole or not at all, so an interrupted run leaves no
     partial PDF behind to be re-read.
     """
@@ -476,19 +476,34 @@ def _reading(entry: OpinionListing, **fields: object) -> OpinionLineupReading:
 
 def read_text(entry: OpinionListing, text: str, *, truncated: bool) -> OpinionLineupReading:
     """Read one opinion's extracted text: locate, seat the bench, parse, check."""
+    return read_lineup(entry, text, truncated=truncated)[0]
+
+
+def read_lineup(
+    entry: OpinionListing, text: str, *, truncated: bool
+) -> tuple[OpinionLineupReading, Lineup | None]:
+    """:func:`read_text`, also returning the parsed :class:`Lineup` where one was read.
+
+    The lineup is ``None`` wherever the reading failed before the grammar ran;
+    otherwise it is the grammar's own result, writings and problems included,
+    for a reader that needs the writings themselves rather than their printed
+    summary on the reading.
+    """
     located = locate_lineup(text, truncated=truncated)
     if located.paragraph is None or located.decided is None:
-        return _reading(
+        reading = _reading(
             entry,
             status="failed",
             reason="; ".join(located.problems),
             argued=located.argued,
             decided=located.decided,
         )
+        return reading, None
     try:
         bench = bench_on(located.decided)
     except ValueError as exc:
-        return _reading(entry, status="failed", reason=str(exc), decided=located.decided)
+        reading = _reading(entry, status="failed", reason=str(exc), decided=located.decided)
+        return reading, None
     # With no printed argument date, anyone sworn in since the July before the
     # decision's Term could have missed the argument, so the convention credits
     # none of them: only the paragraph may place them.
@@ -498,7 +513,7 @@ def read_text(entry: OpinionListing, text: str, *, truncated: bool) -> OpinionLi
     problems = [*lineup.problems, *_cross_check(entry, lineup, located.decided)]
     usable = lineup.complete and not problems
     votes, provenance = vote_record(lineup, document=entry.url) if usable else (None, None)
-    return _reading(
+    reading = _reading(
         entry,
         status="read",
         argued=located.argued,
@@ -526,11 +541,12 @@ def read_text(entry: OpinionListing, text: str, *, truncated: bool) -> OpinionLi
         votes=votes,
         vote_provenance=provenance,
     )
+    return reading, lineup
 
 
 def read_entry(entry: OpinionListing, fetcher: OpinionFetcher) -> OpinionLineupReading:
     """Fetch and read one listing row, or say why it was skipped or failed."""
-    if (reason := _skip_reason(entry)) is not None:
+    if (reason := skip_reason(entry)) is not None:
         return _reading(entry, status="skipped", reason=reason)
     try:
         data = fetcher.opinion(entry.url)
@@ -559,7 +575,7 @@ def select(
     for entry in listing:
         if wanted and entry.docket_number not in wanted:
             continue
-        if limit is not None and _skip_reason(entry) is None:
+        if limit is not None and skip_reason(entry) is None:
             if in_scope >= limit:
                 break
             in_scope += 1

@@ -239,7 +239,12 @@ exactly like a cell that called nothing, and a real transcript is the only
 thing that separates the two. That distinction is why the distillation is
 worth uploading at all — under code mode a manifest call is not an item but a
 call written inside a freeform call's own source, so what the parser must key
-on is a shape no item census would have revealed. Read the artifact against the environment the
+on is a shape no item census would have revealed. Those code-mode literals —
+the freeform `exec` tool, the `tools.` prefix, the lifted builtin names — are
+codex's rather than this repository's, so a canary in `tests/test_retrieval.py`
+records the codex version they were confirmed at, fails when any pin under
+`.github/` names another version or a codex-action step runs unpinned, and
+names what to re-check before moving it — this artifact included. Read the artifact against the environment the
 dispatch bound: where that environment carries no CourtListener token the
 sidecar runs token-free, the handshake and tool listing still succeed, and
 tool *calls* error — the shapes are then an errored call's, which still
@@ -663,7 +668,8 @@ job waits on the `review` hold), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants
-(`test_workflow_cell_invariants`: the qp-topics oracle fence, the corpus base
+(`test_workflow_cell_invariants`: the qp-topics oracle fence, the back-test's
+ledger and big-case-board fences, the corpus base
 URL, the forward leakage guard, the arm/disarm bracket, sentinel and deadline of the
 engine hang watchdog — whose bracket must wrap *every* engine step with no other
 step between them, whose arm-step env is pinned as an exact set, so a
@@ -690,7 +696,7 @@ a drained backlog) — so deleting a load-bearing line fails a
 named test instead of passing every linter. Two of the family go further and
 *run* what the YAML embeds, because a workflow string is matched against the CLI
 for the first time when the job runs: `test_workflow_repair_cli_parity` reads
-each of `run-repair`'s fourteen dispatch-only maintenance passes back out of the
+each of `run-repair`'s twenty dispatch-only maintenance passes back out of the
 workflow — argv, conditional flag arrays and all, via the shared reader
 `tests/workflow_argv.py` — and executes it against the fixture corpus, so a
 renamed flag fails here rather than as a usage error mid-dispatch (its qp

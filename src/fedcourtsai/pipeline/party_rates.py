@@ -59,6 +59,20 @@ CVSG'd ones, that window's rate over what has resolved is not yet its rate.
 Under ``resolved`` a pending row has no date and lands in the unattributed
 cells.
 
+**The counsel dimension is optional and off by default.** With
+``counsel_rule_version`` (``sg-office-v1``, :mod:`.counsel`) every cell is also
+keyed on which side(s) the Solicitor General's office is counsel for —
+``both`` / ``petitioner`` / ``respondent`` / ``none`` / ``unknown`` — read from
+the row's petitioner and respondent counsel entries against a dated roster,
+with ``through`` as the moment the roster is read at. Without it the cells are
+exactly the caption-only cut. The counsel side is read beside the caption side,
+never instead of it: the two disagree on a measurable mass of dockets (a
+federal officer or court the caption rules read as private, with the office
+answering for it), and that disagreement is what the dimension exists to show.
+Its coverage limits — no counsel on resolved IFP rows in the index, counsel
+that accrues after docketing, and a counsel list read as of the row's last
+write even under ``through`` — are the reading rule's in ``metrics/README.md``.
+
 ``since`` bounds the other end, and exists for the same reason the census keys
 every cell on a stratum: coverage. The live channel's capture of the
 application docket is complete only for filings from 2025-04-18 (save a
@@ -81,6 +95,7 @@ from typing import Final
 
 from .. import corpus
 from ..schemas import GRANTED_DISPOSITIONS, Disposition, PartyRateCell, PartyRates
+from .counsel import COUNSEL_SIDES, CounselSide, counsel_rule
 from .interim_signals import ApplicationKind
 from .outcome import granted_flag, is_machine_readable
 from .party import (
@@ -126,7 +141,11 @@ class _Acc:
     excluded_unparsed: int = 0
 
     def cell(
-        self, administration: str | None, stratum: DocketStratum, side: PartySide
+        self,
+        administration: str | None,
+        stratum: DocketStratum,
+        side: PartySide,
+        sg_counsel: CounselSide | None,
     ) -> PartyRateCell:
         if stratum == "other":  # never keyed; RATE_STRATA leaves it out
             raise ValueError("the other stratum carries no rate cell")
@@ -134,6 +153,7 @@ class _Acc:
             administration=administration,
             stratum=stratum,
             federal_party=side,
+            sg_counsel=sg_counsel,
             rows=self.rows,
             sampled_rows=self.sampled_rows,
             pending=self.pending,
@@ -203,15 +223,18 @@ def party_rates(
     since: date | None = None,
     corpus_sha256: str = "",
     rule_version: str = DEFAULT_RATES_RULE,
+    counsel_rule_version: str | None = None,
 ) -> PartyRates:
     """The party rates cut over the live slice (module docstring for every rule).
 
     Deterministic and read-only: two runs over one corpus pointer with the same
     arguments agree byte for byte. Raises :class:`KeyError` for an unregistered
-    rule and :class:`ValueError` for an unknown date convention, before any row
-    is read.
+    party or counsel rule and :class:`ValueError` for an unknown date
+    convention, before any row is read.
     """
     party_rule(rule_version)  # an unregistered label fails before any row is read
+    if counsel_rule_version is not None:
+        counsel_rule(counsel_rule_version)
     if as_of_field not in PARTY_AS_OF_FIELDS:
         raise ValueError(
             f"unknown as-of field {as_of_field!r}; known: {', '.join(PARTY_AS_OF_FIELDS)}"
@@ -223,12 +246,13 @@ def party_rates(
         since=since,
         corpus_sha256=corpus_sha256,
         rule_version=rule_version,
+        counsel_rule_version=counsel_rule_version,
         latest_pull=corpus.latest_pull_date(conn),
         latest_snapshot=corpus.latest_snapshot_date(conn),
     )
 
 
-def _rates(
+def _rates(  # noqa: PLR0913 - one keyword per stamp the cut carries
     rows: Iterable[corpus.CorpusRow],
     *,
     as_of_field: str,
@@ -238,13 +262,15 @@ def _rates(
     rule_version: str,
     latest_pull: date | None,
     latest_snapshot: date | None,
+    counsel_rule_version: str | None = None,
 ) -> PartyRates:
     """Fold the rows into the cut — the pure half of :func:`party_rates`."""
     annotator = party_rule(rule_version)
-    accs: dict[tuple[str | None, DocketStratum, PartySide], _Acc] = {}
+    counsel_annotator = counsel_rule(counsel_rule_version) if counsel_rule_version else None
+    accs: dict[tuple[str | None, DocketStratum, PartySide, CounselSide | None], _Acc] = {}
     seen: set[str] = set()
     counted = duplicates = other_stratum = after_through = before_since = 0
-    undated = resolution_undated = 0
+    undated = resolution_undated = private_practice = 0
     for row in rows:
         key = _docket_key(row)
         if key is not None:
@@ -275,26 +301,37 @@ def _rates(
             as_of = None
         annotation = annotator(row, as_of)
         administration = administration_for(as_of)
-        acc = accs.setdefault((administration, stratum, annotation.federal_party), _Acc())
+        counsel = counsel_annotator(row, through) if counsel_annotator else None
+        cell_key = (
+            administration,
+            stratum,
+            annotation.federal_party,
+            counsel.side if counsel else None,
+        )
+        acc = accs.setdefault(cell_key, _Acc())
         if stratum == "application" and row.application_kind != ApplicationKind.substantive.value:
             acc.exclude_application(row.application_kind)
             continue
         counted += 1
+        private_practice += bool(counsel and counsel.private_practice)
         undated += as_of is None
         weight = max(1, row.sample_weight if row.sample_weight is not None else 1)
         if acc.add(disposition, weight) and resolution is None:
             resolution_undated += 1
     windows: list[str | None] = [*(admin.label for admin in ADMINISTRATIONS), None]
+    counsel_sides: tuple[CounselSide | None, ...] = COUNSEL_SIDES if counsel_annotator else (None,)
     cells = [
-        accs[(window, stratum, side)].cell(window, stratum, side)
+        accs[(window, stratum, side, sg)].cell(window, stratum, side, sg)
         for window in windows
         for stratum in RATE_STRATA
         for side in PARTY_SIDES
-        if (window, stratum, side) in accs and accs[(window, stratum, side)].populated()
+        for sg in counsel_sides
+        if (window, stratum, side, sg) in accs and accs[(window, stratum, side, sg)].populated()
     ]
     return PartyRates(
         rule_version=rule_version,
         caption_rule_version=PARTY_CAPTION_RULE_VERSION,
+        counsel_rule_version=counsel_rule_version,
         as_of_field=as_of_field,
         through=through,
         since=since,
@@ -309,5 +346,6 @@ def _rates(
         filed_before_since=before_since,
         undated=undated,
         resolution_undated=resolution_undated,
+        counsel_private_practice=private_practice,
         cells=cells,
     )

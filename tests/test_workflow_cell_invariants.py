@@ -13,6 +13,9 @@ of them while every gate stays green:
   outcome its cells are forecasting; `run-backtest` removes it before the cells
   and restores it from the commit before anything downstream reads the
   checkout, and every clause of that is step order and one restore source;
+  the big-case board (`metrics/big-cases.{json,md}`), which names decided
+  cases beside their outcomes and moments, leaves and comes back from the
+  commit on the same terms, before the review PR step stages `metrics/`;
 * the **qp labels push guard** — the labeler's PR step refuses a push whose
   batch ledger does not strictly extend `main`'s or whose labeler-sourced rows
   do not contain `main`'s byte for byte, reading both operands from files
@@ -450,6 +453,59 @@ def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> Non
     assert "if" not in steps[remove]
     # The restore, by contrast, must run behind a failed or timed-out replay
     # too — the steps after it read this checkout either way.
+    assert steps[restore].get("if") == "${{ !cancelled() }}"
+    assert "continue-on-error" not in steps[restore]
+
+
+def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal() -> None:
+    """The big-case board names decided petitions beside their outcomes, and
+    its decided cases are among the petitions the replay can draw: each resolved
+    event in the JSON carries `actual_disposition`, and in both files a case's
+    moment names its newest predicted event, where a merits moment discloses
+    the grant. So both halves leave the tree with the ledger. The review PR
+    step stages all of `metrics/`, which makes the restore load-bearing twice
+    over: a restore that lands after that step commits the board's deletion,
+    and one that restores from the index rather than the commit reinstates
+    bytes a cell could have staged. Nothing the replay runs reads the board —
+    it is a render target of `fedcourts big-cases` and the metrics refresh,
+    neither of which runs here.
+    """
+    # The fenced paths are the board's own, every half of it, so a rename or a
+    # new companion file breaks here rather than on the runner.
+    paths = " ".join(f"metrics/{name}" for name in BOARD_ARTIFACTS)
+    for name in BOARD_ARTIFACTS:
+        assert (REPO_ROOT / "metrics" / name).is_file()
+    steps = _load("run-backtest.yml")["jobs"]["backtest"]["steps"]
+    runs = [str(step.get("run") or "") for step in steps]
+
+    def index(needle: str) -> int:
+        found = [i for i, run in enumerate(runs) if needle in run]
+        assert len(found) == 1, f"expected exactly one step running {needle!r}, found {found}"
+        return found[0]
+
+    # The fence step runs the removal and nothing else.
+    fences = [i for i, run in enumerate(runs) if run.strip() == f"rm -f {paths}"]
+    assert len(fences) == 1, f"expected exactly one bare removal of {paths}, found {fences}"
+    remove = fences[0]
+    cells = index('--work-dir "$work_dir"')
+    restore = index(f"git checkout HEAD -- {paths}")
+    salience = index('fedcourts salience-replay --terms "$BT_TERMS"')
+    pr = index("gh pr create")
+    stage = index("git add -A metrics/")
+
+    assert remove < cells, "the board leaves the tree before the replay cells run"
+    assert cells < restore < salience, (
+        "the restore follows the cells and precedes the salience-gate arm"
+    )
+    assert restore < stage and stage == pr, (
+        "the board is back before the review PR step stages metrics/"
+    )
+    assert f"git status --porcelain -- {paths}" in runs[restore], (
+        "the pristine assertion must refuse a board differing from the commit"
+    )
+    # Unconditional, like the ledger fence: a condition that evaluates false
+    # re-admits the board with every check still green.
+    assert "if" not in steps[remove]
     assert steps[restore].get("if") == "${{ !cancelled() }}"
     assert "continue-on-error" not in steps[restore]
 
@@ -1866,8 +1922,30 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Backfill the interim arrival stamps", ()),
     ("repair", "Remove ungranted merits phantoms", ()),
     ("repair", "Converge disposition labels", ()),
+    ("repair", "Converge event moments", ()),
     ("repair", "Repair the sampled-frame weights", ()),
     ("regrade", "Re-grade named cells", ()),
+    (
+        "votes",
+        "Stamp vote records",
+        ("AWS credential variables reached", "OIDC token minting is reachable"),
+    ),
+    (
+        "applications",
+        "Read the application back-fill ledger",
+        ("AWS credential variables reached", "OIDC token minting is reachable"),
+    ),
+    ("applications", "Back-fill the applications", ()),
+    ("decision-record", "Fill the decision record", ("OIDC token minting is reachable",)),
+    (
+        "opinion-record",
+        "Build the opinion record",
+        (
+            "AWS credential variables reached",
+            "OIDC token minting is reachable",
+            "backfill-opinion-record exited",
+        ),
+    ),
 )
 
 
@@ -4249,3 +4327,336 @@ def test_the_freeze_probe_unprivuser_turn_is_the_base_turn_with_two_fields_varie
     assert surface["env"]["CODEX_USER"] == codex_user, (
         "the rollout-surfacing step reads a different user's home than the turn wrote"
     )
+
+
+def _votes_steps() -> list[dict[str, Any]]:
+    steps = _load("run-repair.yml")["jobs"]["votes"]["steps"]
+    assert isinstance(steps, list)
+    return steps
+
+
+def test_the_vote_writer_mints_its_write_token_only_after_the_stamper_on_an_apply() -> None:
+    """No write credential exists while the stamper parses fetched pages.
+
+    The App token, the git identity it configures and the commit that uses it
+    all come after the stamp step and all run on an apply only, so a dry run
+    mints nothing that can write and an apply mints it once the stamper has
+    exited. That is a separation in time, not a process boundary.
+    """
+    steps = _votes_steps()
+    names = [str(s.get("name", s.get("uses", ""))) for s in steps]
+    stamp = names.index("Stamp vote records")
+    for name in ("Mint app token", "Configure git identity", "Commit the stamped outcomes"):
+        index = names.index(name)
+        assert index > stamp, f"{name!r} runs before the stamper"
+        assert _norm(str(steps[index].get("if", ""))) == "${{ inputs.repair_mode == 'apply' }}", (
+            f"{name!r} is not gated to an apply"
+        )
+    token_steps = [
+        n for n, s in zip(names, steps, strict=True) if "steps.app-token" in yaml.safe_dump(s)
+    ]
+    assert set(token_steps) == {"Configure git identity", "Commit the stamped outcomes"}
+
+
+def test_the_vote_stamper_runs_with_the_aws_session_blanked() -> None:
+    """The stamper holds no AWS session and cannot request an OIDC token for one.
+
+    The job binds `prod` with `id-token: write`, and the read-write corpus
+    role trusts that environment too, so the OIDC request pair is blanked with
+    the session the pull assumed, and the step checks both before it runs.
+    """
+    (stamp,) = [s for s in _votes_steps() if s.get("name") == "Stamp vote records"]
+    env = stamp.get("env", {})
+    assert "OIDC token minting is reachable" in str(stamp["run"])
+    for key in (
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+    ):
+        assert env.get(key) == "", f"{key} is not blanked on the stamp step"
+    assert "GH_TOKEN" not in env
+
+
+def _application_steps() -> list[dict[str, Any]]:
+    steps = _load("run-repair.yml")["jobs"]["applications"]["steps"]
+    assert isinstance(steps, list)
+    return steps
+
+
+def test_the_application_backfill_holds_the_lock_and_write_credentials_on_an_apply_only() -> None:
+    """A dry run is a read: no lock, no write role, no App token.
+
+    The back-fill's dry run fetches a Term's worth of dockets, so it must not
+    hold `corpus-write` (a queued production window would be evicted behind it)
+    and must hold nothing that writes. The apply takes the lock for the whole
+    job, the read-write role for the write step, and mints the App token only
+    after that step has exited.
+    """
+    job = _load("run-repair.yml")["jobs"]["applications"]
+    group = _norm(str(job["concurrency"]["group"]))
+    assert "inputs.repair_mode == 'apply' && 'corpus-write'" in group
+    steps = _application_steps()
+    names = [str(s.get("name", s.get("uses", ""))) for s in steps]
+    write = names.index("Back-fill the applications")
+    apply_only = (
+        "Configure AWS credentials (corpus S3 remote, read-write)",
+        "Back-fill the applications",
+        "Mint app token",
+        "Configure git identity",
+        "Commit the back-filled corpus",
+    )
+    for name in apply_only:
+        step = steps[names.index(name)]
+        assert _norm(str(step.get("if", ""))) == "${{ inputs.repair_mode == 'apply' }}", (
+            f"{name!r} is not gated to an apply"
+        )
+    for name in ("Mint app token", "Configure git identity", "Commit the back-filled corpus"):
+        assert names.index(name) > write, f"{name!r} runs before the write step exits"
+    token_steps = [
+        n for n, s in zip(names, steps, strict=True) if "steps.app-token" in yaml.safe_dump(s)
+    ]
+    assert set(token_steps) == {"Configure git identity", "Commit the back-filled corpus"}
+    roles = [
+        n for n, s in zip(names, steps, strict=True) if "AWS_ROLE_TO_ASSUME }}" in yaml.safe_dump(s)
+    ]
+    assert roles == ["Configure AWS credentials (corpus S3 remote, read-write)"]
+
+
+def test_the_application_backfill_dry_run_runs_with_the_aws_session_blanked() -> None:
+    """The dry run fetches upstream with no AWS session and no way to mint one."""
+    (read,) = [
+        s for s in _application_steps() if s.get("name") == "Read the application back-fill ledger"
+    ]
+    assert _norm(str(read.get("if", ""))) == "${{ inputs.repair_mode == 'dry-run' }}"
+    env = read.get("env", {})
+    assert "OIDC token minting is reachable" in str(read["run"])
+    for key in (
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+    ):
+        assert env.get(key) == "", f"{key} is not blanked on the dry-run step"
+    assert "GH_TOKEN" not in env
+
+
+def _decision_record_steps() -> list[dict[str, Any]]:
+    steps = _load("run-repair.yml")["jobs"]["decision-record"]["steps"]
+    assert isinstance(steps, list)
+    return steps
+
+
+def test_the_decision_record_holds_the_lock_and_write_credentials_on_an_apply_only() -> None:
+    """A dry run is a read: no lock, no write role, no App token.
+
+    The decision-record back-fill's dry run reads the index and the stored
+    snapshots, so it must not hold `corpus-write` (a queued production window
+    would be evicted behind it) and must hold nothing that writes. The apply
+    takes the lock for the whole job, the read-write role for the write step,
+    and mints the App token only after that step has exited.
+    """
+    job = _load("run-repair.yml")["jobs"]["decision-record"]
+    group = _norm(str(job["concurrency"]["group"]))
+    assert "inputs.repair_mode == 'apply' && 'corpus-write'" in group
+    steps = _decision_record_steps()
+    names = [str(s.get("name", s.get("uses", ""))) for s in steps]
+    write = names.index("Fill the decision record")
+    apply_only = (
+        "Configure AWS credentials (corpus S3 remote, read-write)",
+        "Fill the decision record",
+        "Mint app token",
+        "Configure git identity",
+        "Commit the decision-record corpus pointer",
+    )
+    for name in apply_only:
+        step = steps[names.index(name)]
+        assert _norm(str(step.get("if", ""))) == "${{ inputs.repair_mode == 'apply' }}", (
+            f"{name!r} is not gated to an apply"
+        )
+    for name in (
+        "Mint app token",
+        "Configure git identity",
+        "Commit the decision-record corpus pointer",
+    ):
+        assert names.index(name) > write, f"{name!r} runs before the write step exits"
+    token_steps = [
+        n for n, s in zip(names, steps, strict=True) if "steps.app-token" in yaml.safe_dump(s)
+    ]
+    assert set(token_steps) == {
+        "Configure git identity",
+        "Commit the decision-record corpus pointer",
+    }
+    roles = [
+        n for n, s in zip(names, steps, strict=True) if "AWS_ROLE_TO_ASSUME }}" in yaml.safe_dump(s)
+    ]
+    assert roles == ["Configure AWS credentials (corpus S3 remote, read-write)"]
+    # The write step reaches the read-write session only by following its
+    # assume step; the dry run never runs on an apply, so it holds the
+    # read-only session alone.
+    assert names.index("Configure AWS credentials (corpus S3 remote, read-write)") < write
+
+
+def test_the_decision_record_steps_cannot_mint_a_session_and_the_commit_holds_none() -> None:
+    """No pass step can mint an OIDC token, and the commit step holds no AWS session.
+
+    The read and write steps keep the AWS session they were handed — the
+    snapshots they read live in the content store — but blank the OIDC request
+    pair, since the job's `prod` binding is one the read-write role trusts, and
+    each asserts it before running. The commit step, which holds the App token,
+    needs no AWS at all, so the read-write session is blanked there too and the
+    step asserts both before it runs.
+    """
+    by_name = {str(s.get("name", s.get("uses", ""))): s for s in _decision_record_steps()}
+    read = by_name["Read the decision-record ledger"]
+    assert _norm(str(read.get("if", ""))) == "${{ inputs.repair_mode == 'dry-run' }}"
+    for name in ("Read the decision-record ledger", "Fill the decision record"):
+        step = by_name[name]
+        env = step.get("env", {})
+        assert "OIDC token minting is reachable" in str(step["run"]), name
+        for key in ("ACTIONS_ID_TOKEN_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_TOKEN"):
+            assert env.get(key) == "", f"{key} is not blanked on {name!r}"
+        assert "GH_TOKEN" not in env, f"{name!r} holds a GitHub token"
+    commit = by_name["Commit the decision-record corpus pointer"]
+    env = commit.get("env", {})
+    for key in (
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+    ):
+        assert env.get(key) == "", f"{key} is not blanked on the commit step"
+    run = str(commit["run"])
+    assert "AWS credential variables reached" in run
+    assert "OIDC token minting is reachable" in run
+    assert "git add corpus/corpus.db.ref" in run
+    assert "git add data" not in run, "the pass writes nothing under data/"
+
+
+def _opinion_record_steps() -> list[dict[str, Any]]:
+    steps = _load("run-repair.yml")["jobs"]["opinion-record"]["steps"]
+    assert isinstance(steps, list)
+    return steps
+
+
+def test_the_opinion_record_holds_the_lock_and_write_credentials_on_an_apply_only() -> None:
+    """A dry run is a read: no lock, no write role, no App token.
+
+    The opinion-record pass fetches and parses supremecourt.gov PDFs in both
+    modes, so its dry run must not hold `corpus-write` (a queued production
+    window would be evicted behind it) and must hold nothing that writes. The
+    apply takes the lock for the whole job; the read-write role is assumed only
+    after the build step has exited, and the App token only after the push.
+    """
+    job = _load("run-repair.yml")["jobs"]["opinion-record"]
+    group = _norm(str(job["concurrency"]["group"]))
+    assert "inputs.repair_mode == 'apply' && 'corpus-write'" in group
+    assert "|| format('corpus-write-skip-{0}', github.run_id)" in group
+    assert job["permissions"] == {"contents": "read", "id-token": "write"}
+    assert job["environment"] == "prod"
+    steps = _opinion_record_steps()
+    names = [str(s.get("name", s.get("uses", ""))) for s in steps]
+    build = names.index("Build the opinion record")
+    assert "if" not in steps[build], "the build runs in both modes, under one posture"
+    apply_only = (
+        "Configure AWS credentials (corpus S3 remote, read-write)",
+        "Push the opinion-record corpus",
+        "Mint app token",
+        "Configure git identity",
+        "Commit the opinion-record corpus pointer",
+    )
+    for name in apply_only:
+        step = steps[names.index(name)]
+        assert _norm(str(step.get("if", ""))) == "${{ inputs.repair_mode == 'apply' }}", (
+            f"{name!r} is not gated to an apply"
+        )
+    push = names.index("Push the opinion-record corpus")
+    role = names.index("Configure AWS credentials (corpus S3 remote, read-write)")
+    assert build < role < push, "the read-write role must be assumed after the build exits"
+    for name in (
+        "Mint app token",
+        "Configure git identity",
+        "Commit the opinion-record corpus pointer",
+    ):
+        assert names.index(name) > push, f"{name!r} runs before the push step exits"
+    token_steps = [
+        n for n, s in zip(names, steps, strict=True) if "steps.app-token" in yaml.safe_dump(s)
+    ]
+    assert set(token_steps) == {
+        "Configure git identity",
+        "Commit the opinion-record corpus pointer",
+    }
+    roles = [
+        n for n, s in zip(names, steps, strict=True) if "AWS_ROLE_TO_ASSUME }}" in yaml.safe_dump(s)
+    ]
+    assert roles == ["Configure AWS credentials (corpus S3 remote, read-write)"]
+    # The only CLI writes: the build (local index) and the push (the remote).
+    runs = {n: str(s.get("run", "")) for n, s in zip(names, steps, strict=True)}
+    assert "backfill-opinion-record" in runs["Build the opinion record"]
+    assert "corpus-push" not in runs["Build the opinion record"]
+    assert "backfill-opinion-record" not in runs["Push the opinion-record corpus"]
+    assert "uv run fedcourts corpus-push" in runs["Push the opinion-record corpus"]
+
+
+def test_the_opinion_record_build_holds_no_credential_and_pins_its_terms() -> None:
+    """The step that parses fetched PDFs holds no AWS session, no OIDC pair, no token.
+
+    The pass reads only the pulled index and the network, and its insert is a
+    local write, so its step blanks the read-only session the pull assumed and
+    the OIDC request pair — the job's `prod` binding is one the read-write role
+    trusts — and asserts both before it runs. The Term range is pinned in the
+    step so a dry run and the apply it bounds read the same Terms. The push
+    keeps the session it was handed but cannot mint another; the commit holds
+    the App token and neither.
+    """
+    by_name = {str(s.get("name", s.get("uses", ""))): s for s in _opinion_record_steps()}
+    build = by_name["Build the opinion record"]
+    env = build.get("env", {})
+    for key in (
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+    ):
+        assert env.get(key) == "", f"{key} is not blanked on the build step"
+    assert "GH_TOKEN" not in env
+    assert "FEDCOURTS_CORPUS_BASE_URL" not in env, "the build is handed no corpus remote"
+    run = str(build["run"])
+    assert "AWS credential variables reached" in run
+    assert "OIDC token minting is reachable" in run
+    # The parse's stderr carries pypdf warnings that can quote a fetched PDF,
+    # so workflow commands are suspended around the run and only the
+    # command's own ledger lines reach the summary.
+    invocation = run.index("uv run fedcourts backfill-opinion-record")
+    assert run.index('echo "::stop-commands::${stop_token}"') < invocation
+    assert run.index('echo "::${stop_token}::"') > invocation
+    summary_writes = [ln.strip() for ln in run.splitlines() if "GITHUB_STEP_SUMMARY" in ln]
+    assert summary_writes == ['>> "$GITHUB_STEP_SUMMARY" || true'], summary_writes
+    assert "grep -E '^(OT[0-9]{4}: |backfill-opinion-record)' \"$ledger\"" in run
+    assert "--first-term 2020 --last-term 2025" in _norm(run)
+    assert "--cache-dir" not in run, "an apply refuses the cache, and the dry run bounds it"
+    push = by_name["Push the opinion-record corpus"]
+    env = push.get("env", {})
+    for key in ("ACTIONS_ID_TOKEN_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_TOKEN"):
+        assert env.get(key) == "", f"{key} is not blanked on the push step"
+    assert "GH_TOKEN" not in env
+    assert "OIDC token minting is reachable" in str(push["run"])
+    commit = by_name["Commit the opinion-record corpus pointer"]
+    env = commit.get("env", {})
+    for key in (
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "ACTIONS_ID_TOKEN_REQUEST_URL",
+        "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
+    ):
+        assert env.get(key) == "", f"{key} is not blanked on the commit step"
+    run = str(commit["run"])
+    assert "AWS credential variables reached" in run
+    assert "OIDC token minting is reachable" in run
+    assert "git add corpus/corpus.db.ref" in run
+    assert "git add data" not in run, "the pass writes nothing under data/"

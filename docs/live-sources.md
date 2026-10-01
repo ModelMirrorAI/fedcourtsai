@@ -179,6 +179,39 @@ rather than a failure, because rows written before the write site stripped the
 marking carry one until something reaches them, and the verdict must not be red
 for the whole interval.
 
+On a granted docket the same parse also lands the **merits decision record**
+(`pipeline/decision_record.py`), over every grant — the GVR and the summary
+reversal included, where the merits pair (`merits_judgment` / `merits_decided`)
+reads only the grants that open a merits proceeding. `merits_argued` is the
+date of the docket's last entry opening on its own verb — "Argued. For
+petitioner: …" or "Reargued. …" — on or after the grant, so a reargued case
+carries the reargument; the scheduling notice ("SET FOR ARGUMENT on …"), an
+appointed amicus's invitation "to brief and argue", and a motion for divided
+argument all name argument mid-sentence and stay unmatched.
+`merits_decision_method` says how the case was decided, read from the same
+last judgment-shaped entry the merits pair is parsed from, with its markup
+dropped (the docket links the opinion: "Gorsuch, J., delivered the `<a …>`opinion`</a>`
+of the Court"): a named Justice delivering the opinion — "of the Court", "for a
+unanimous Court", or announcing the judgment of a fractured Court — is
+`argued-signed` after argument; "Opinion per curiam." or an affirmance by an
+equally divided Court is `argued-per-curiam`; a judgment riding the order that
+grants (a cert-order label, or a judgment dated on or before the grant) is
+`summary-opinion` where the entry carries an opinion and `summary-order` where
+it does not, the ordinary GVR — whose "(per curiam)" is a citation of another
+case's opinion, not one of its own; and a DIG is `dig`, argued or not. With no
+argument on the record, a per curiam decided after the grant is
+`summary-opinion`, while a *signed* opinion is left null on purpose — it almost
+always means the argument entry was missed, not skipped — as is an argued
+entry that recites neither form. Both columns fill-in latch: a payload that
+yields no reading keeps the stored one, while a fresh reading (a reargument, a
+decision) takes over — and so does a wrong one, since a payload served without
+its argument entry can move the argued date back or read an argued per curiam
+as a summary one, the exposure the dated live signals already accept. A stored row whose columns are null
+is read from its newest stored live snapshot by `backfill-decision-record`,
+which never overwrites; its dry run runs from a dev checkout or as run-repair's
+`decision-record` pass, which also runs its apply. Neither column reaches a cell: both are withheld from the
+`query` retrieval rows ([corpus/README.md](../corpus/README.md)).
+
 ## Documents: from metadata to content
 
 The document PDFs linked from each docket are the step-change in input quality
@@ -308,25 +341,54 @@ That staged copy is where the **contact-detail scrub** applies, and it applies
 to the copy alone: the source PDF and the stored row keep the filing as filed.
 A cell's prose lands in the public ledger, so the text it reads is a
 republication surface as well as an input — and where the provisioned snapshot
-serves a petitioner-side counsel block naming nobody but the petitioner to
-write to, the caption and signature block of what it reads are an individual's
-own. The docket JSON never says "pro se", so the reading is upstream's own, in
-three arms, all of them read off a **served** block: a self-represented party
+serves a counsel block on either party side, petitioner or respondent, naming
+nobody but the party to write to, the caption and signature block of what that
+party filed are an individual's own. The docket JSON never says "pro se", so
+the reading is upstream's own, in three arms, all of them read off a **served** block: a self-represented party
 listed as its own attorney (compared on first and last name, since the two
 fields disagree on the middle constantly), a block naming no attorney at all,
 and a prisoner register number on the block — the incarcerated filer, whose own
-address a filing carries most reliably. Any one qualifying block is enough, so a
-docket carrying a represented co-petitioner beside a self-represented one is
-scrubbed. Every document staged
-for such a docket has its emails, telephone numbers, post-office boxes and
+address a filing carries most reliably. The arms are the same on either side,
+and any one qualifying block is enough, so a docket carrying a represented
+co-petitioner beside a self-represented one is scrubbed, and so is a counselled
+petition answered by a respondent filing in person. The `Other` list — amici
+and other non-party filers — is read too, on the first two arms only: an
+amicus served as its own attorney (in practice individual lawyers and law
+professors whose served name carries no title) or with no attorney named. The
+comparison is the party sides' own, so a self-filing amicus whose `PartyName`
+carries a title or a joinder the `Attorney` field lacks ("Professor …",
+"Hon. … (Ret.)", "… and …") is not read as self-represented and stays as
+served; on the pulled blob no organisation's block qualifies, since every one
+names a person as `Attorney`. The register-number
+arm is not asked there, because `PrisonerId` on an `Other` block is not a
+register number: on the pulled blob at pull stamp `2026-09-29` every populated
+value on that list is an address-shaped string or a phrase on an organisation
+served with separate counsel, which the arm would read as an incarcerated
+filer. The residual is a represented amicus block that did carry a real
+register number (none on that blob): it would stay as served, where a
+party-side one is withheld whatever its `Attorney` says. A docket whose only
+qualifying block is an amicus's gets the **value pass alone** (below): the
+amicus's own brief is not a staged kind, so what is staged there is counsel's
+filings, and the shape pass would cost their text its misreads of legal prose —
+a case name led by a street number, a regulation number in telephone shape —
+where the staged filers are represented. The premise is about amici, whose
+briefs are never staged; a self-represented non-amicus `Other` filer (an
+intervenor, say) whose own opposition is staged would get the value pass alone
+too, so a detail of theirs spelled otherwise than the docket serves it would
+stay (none on the pulled blob). Where no amicus value clears its
+floor, nothing runs and the documents are staged as filed. On a docket read as
+self-represented on a party side, every
+document staged has its emails, telephone numbers, post-office boxes and
 street addresses replaced by the fixed token `[contact detail withheld]`, which
 keeps the document's structure and tells a reader that something was withheld
 rather than that a line is missing. It runs as two passes. The **shape** pass
 matches what a contact detail looks like, including an email address as a scan
 fragments it (a blank beside the `@` or a dot, a letter-spaced local part,
 `(at)`), and never takes a line break. The **value** pass looks for the
-`Email`, `Phone` and `Address` strings on every served petitioner-side block
-(the filer's own, and any co-petitioner counsel's), however the scan spaced or
+`Email`, `Phone` and `Address` strings on every served block of each side read
+as self-represented (the filer's own, and any co-party counsel's on that side
+— never a side whose blocks all name counsel; on the `Other` list, the
+qualifying blocks' alone, since amici are not co-parties), however the scan spaced or
 line-broke them, and puts back every line break it consumed; it runs only
 where the docket serves a value specific enough to key on (an email with its
 `@`, a telephone number of ten or more digits, an address with a digit and
@@ -335,20 +397,29 @@ original text and overlapping matches are withheld as one span, so adding a
 pass can only widen what is withheld. The manifest entry carries what happened: `contact_scrubbed`, whether
 the scrub ran over this document's staged text; `contact_replacements`, how
 many it withheld — so `true, 0` (scrubbed, nothing found) stays
-distinguishable from `false, 0` (a represented docket's text, untouched); and
+distinguishable from `false, 0` (a represented docket's text, or the text of
+an amicus-only docket whose amici serve no value specific enough to key on,
+untouched — the run log says `not run` for the latter); and
 `contact_scrub_passes`, which passes ran (`["value", "shape"]`, `["shape"]`,
-or `[]` where the scrub did not run), so a shape-only scrub is not read as the
-complete one. An opposition filed by counsel on such a docket is
-scrubbed with the petition, since the reading is the docket's and taken once:
+`["value"]` on an amicus-only docket, or `[]` where the scrub did not run), so
+a shape-only or value-only scrub is not read as the complete one. A filing by
+the other side's counsel on a docket read as self-represented on a party side
+is
+scrubbed with the rest, since the reading is the docket's and taken once:
 the cost is a firm's switchboard number a cell had no use for.
 
-**A payload serving no petitioner-side block is unknown, not unrepresented**,
-and is left alone. The snapshots key space holds two payload shapes, and the
+**A payload serving no block on a side is unknown on that side, not
+unrepresented**, and is left alone. Nor does a served block read as naming
+no attorney where upstream simply has not filled the field: no served block on
+either side leaves `Attorney` blank (none of the 3,474 petitioner- and
+respondent-side blocks across the 3,073 snapshots the pulled blob itself holds,
+at pull stamp `2026-09-29`, newest snapshot `2026-07-13`) — so a docket
+awaiting its opposition is not scrubbed on that account. The snapshots key space holds two payload shapes, and the
 other one — a CourtListener REST docket, which carries no counsel blocks
 anywhere — names nobody because it has nowhere to. Reading that as
 self-representation would scrub on the strength of a payload shape rather than
 of a fact about the docket, and over the stored payloads in the corpus it would
-take 1,984 of 2,925 cases rather than 623. So the scrub fires on evidence rather
+take 2,012 of 2,925 cases rather than 654 (pull stamp `2026-09-29`). So the scrub fires on evidence rather
 than on the absence of it, and a docket whose counsel the corpus does not carry
 stages its text as filed. What the scrub
 reads is **representation**, which is a different fact from the **fee** class
@@ -373,28 +444,33 @@ institution name, which has no shape at all.
 `record/snapshots/<date>.json` is the upstream payload, whose counsel blocks
 carry `Address` / `City` / `Zip` / `Phone` / `Email` / `PrisonerId` as labelled
 keys — on a self-represented docket the filer's own details in a more quotable
-form than any signature block. On such a docket, every petitioner-side block
-the trigger reads as naming nobody but the party — a block carrying a register
-number included, whatever its `Attorney` says, so a counselled incarcerated
-petitioner's block loses its counsel's professional details — has each
+form than any signature block. On such a docket, every block on either party
+side or the `Other` list that the trigger reads as naming nobody but its filer
+— on a party side a block carrying a register number included, whatever its
+`Attorney` says, so a counselled incarcerated party's block loses its
+counsel's professional details — has each
 populated `Address`, `City`, `Zip`, `Phone`, `Email` and `Title` (free text
 nothing reads, which upstream sometimes fills with an inmate number) replaced
 by `[contact detail withheld]`, and
 a populated `PrisonerId` replaced by `[register number withheld]`: the number is
 the personal datum, its presence is upstream's marker for an incarcerated filer,
 which the trigger's third arm reads and a cell may reason from, so the marker
-keeps the presence. `PartyName`, `Attorney`, `State` and every other block —
-a represented co-petitioner's, the respondent side, amici — stay as served, and
-an empty key stays empty. The respondent side is outside this scrub by
-scope — the trigger and the scrub both ask about the petitioner — so a
-self-represented respondent's block on such a docket keeps its contact keys, a
-residual of four blocks on the pulled blob. The copy is built beside the payload rather than in
+keeps the presence. On a qualifying `Other` block, where the key holds no
+register number, a populated `PrisonerId` is withheld with
+`[contact detail withheld]` instead. `PartyName`, `Attorney`, `State` and
+every other block — a represented party's counsel on either side, a
+represented amicus — stay as served, and an empty key stays empty. The copy is built beside the payload rather than in
 place of it, so the cell context, the trigger and the document scrub all read
 the payload as served; nothing scored or analytic reads the withheld keys (a
 test pins both halves: no module outside the scrub names them as literals or
 imports its key list, and every row, band, context and gate derived from a
 scrubbed payload equals the one from the original). The provisioning step echoes the counts, never a value:
-`snapshot contact scrub: N value(s) withheld on M petitioner-side block(s)`.
+`snapshot contact scrub: N value(s) withheld on M petitioner-side block(s)`,
+with `respondent-side`, `amicus-side` or a `/`-joined list such as
+`petitioner/respondent-side` naming the lists read as self-represented (the
+`Other` list is named `amicus`); the document scrub's line names them the same
+way (`no attorney named for the petitioner`, `the respondent`, `the amicus`, or
+`the petitioner/respondent`), with `passes: value` on an amicus-only docket.
 Both files are gitignored, and no predict or evaluate cell uploads `record/`,
 so what can reach public git from a cell is what its prose quotes, which is the
 exposure [data-sources.md](data-sources.md) already names. The case-summary

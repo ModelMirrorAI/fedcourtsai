@@ -46,7 +46,7 @@ Two scores fall out, and they are deliberately distinct:
   already in the corpus, published as a ranking before the conference sits.
 - The **big-case score** is *model-produced and pre-registered* — each predictor's
   opinion of a case's stakes, committed with the grant/deny forecast and judged
-  later by an independent evaluator rather than against a ground truth. It is a
+  later by the evaluator panel's agreement rather than against a ground truth. It is a
   direct answer to the "bigness is only ever assigned in hindsight" critique: the
   git timestamp proves the stakes call preceded the term.
 
@@ -1276,15 +1276,20 @@ imputes nothing; it takes that `(predictor, case)` point out of the predictor's
 own rank-agreement, so what the census is really reporting is *whose* scored set
 is shrinking.
 
-It is **judged by an independent evaluator, not against a ground truth**. At
-evaluation the evaluator forms its **own** read of how big the case is, and the
-grade is the *agreement* between the predictor's pre-registered score and the
-evaluator's independent read:
+It is **judged by an evaluator, not against a ground truth**. At evaluation the
+evaluator forms its **own** read of how big the case is, and the grade is the
+*agreement* between the predictor's pre-registered score and the evaluator's
+read:
 
-- The evaluator's read must be formed **before** it is shown the predictor's
-  number, or it anchors and the agreement is circular.
-- Under cross-evaluation this yields a **panel** of independent reads per case;
-  aggregate against the panel to damp single-judge noise.
+- The prompt asks the evaluator to form its read before looking at the
+  predictor's number, but the evaluator grades the prediction as written and the
+  blinded view does not mask the score (`fedcourtsai.blinding.mask_prediction`),
+  so the number is in front of it and nothing enforces the request. Any
+  anchoring makes the agreement partly circular, so a stakes agreement is read
+  as an upper bound (the `big_case` reading rule in
+  [metrics/README.md](../metrics/README.md)).
+- Under cross-evaluation this yields a **panel** of reads per case; aggregate
+  against the panel to damp single-judge noise.
 - The evaluator is a **judge, not a forecaster**: it may use post-decision context
   available at evaluation time (the outcome, the immediate reaction). This is the
   mirror of the leakage rule — press coverage is the classic post-hoc salience

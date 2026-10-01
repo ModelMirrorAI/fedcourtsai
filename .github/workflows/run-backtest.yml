@@ -523,6 +523,26 @@ jobs:
       - name: Remove the committed ledger from the replay's tree
         run: rm -rf data/cases
 
+      # The big-case board names decided petitions beside their outcomes
+      # outside data/, and its decided cases are among the petitions the
+      # replay can draw: each resolved event in the JSON carries
+      # `actual_disposition`, and in both files a case's moment column names
+      # its newest predicted event, where a merits moment discloses the grant
+      # the way a merits event in the ledger does. (The standing cert
+      # back-test report, the other such file under `metrics/`, is held out by
+      # `cert-backtest` itself.) So both halves of the board leave the tree
+      # with the ledger, on the same terms and with the same residuals — a
+      # fence against an incidental read, the committed copy one `git show`
+      # away — plus one more: the board is published, and a cell's web tools
+      # can reach the public repository. Nothing the replay runs reads either
+      # file: the board is a render target of `fedcourts big-cases` and the
+      # metrics refresh, neither of which runs in this job. The review PR step
+      # stages all of `metrics/`, so the files must be back before that step
+      # or the PR would carry their deletion; the restore below puts them back
+      # from the commit.
+      - name: Remove the big-case board from the replay's tree
+        run: rm -f metrics/big-cases.json metrics/big-cases.md
+
       # The replay provisions redacted snapshots from the corpus, so it must be
       # on disk; without a pointer there is nothing to back-test.
       - uses: ./.github/actions/corpus-readonly
@@ -692,6 +712,27 @@ jobs:
             exit 1
           fi
           echo "committed ledger restored pristine"
+
+      # Put the big-case board back from the commit before the review PR step
+      # stages `metrics/`, so the removal above never reaches what gets
+      # committed. `HEAD` rather than the index: a cell that staged its own
+      # bytes for the paths would otherwise have them restored, and the
+      # porcelain check refuses anything left differing from the commit. Before
+      # the salience-gate arm too, which writes under `metrics/` in this
+      # checkout.
+      - name: Restore the big-case board and assert it is pristine
+        # `!cancelled()` for the same reason as the ledger restore above: the
+        # steps after it read this checkout whether or not the replay failed.
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          git checkout HEAD -- metrics/big-cases.json metrics/big-cases.md
+          if [ -n "$(git status --porcelain -- metrics/big-cases.json metrics/big-cases.md)" ]; then
+            echo "::error::the big-case board is not pristine after the restore"
+            git status --porcelain -- metrics/big-cases.json metrics/big-cases.md
+            exit 1
+          fi
+          echo "big-case board restored pristine"
 
       # The salience-gate mode replays the deterministic gate, not the
       # predictors: `fedcourts salience-replay` runs offline over the pulled

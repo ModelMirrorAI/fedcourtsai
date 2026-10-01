@@ -76,6 +76,38 @@ def test_both_replay_clock_halves_survive_the_wire(fixture_corpus: FixtureCorpus
     ]
 
 
+def test_a_clocked_query_through_the_service_empties_prior_counsel(tmp_path: Path) -> None:
+    """The sidecar is the transport a replay cell queries through, so the
+    replay clock's party and counsel mask is pinned at the handler too."""
+    db = tmp_path / "corpus.db"
+    row = corpus.CorpusRow(
+        case_id="scotus/1",
+        court="scotus",
+        docket_number="93-7515",
+        case_name="Doe v. Roe",
+        date_filed=date(1993, 11, 1),
+        date_decided=date(1994, 1, 10),
+        disposition="granted",
+        parties=["Doe", "Amicus Society"],
+        attorneys=["A. Counsel", "C. Amicus"],
+        counsel=[
+            corpus.CounselEntry(party="Doe", attorney="A. Counsel", role="petitioner"),
+            corpus.CounselEntry(party="Amicus Society", attorney="C. Amicus", role="other"),
+        ],
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+    clocked = corpus.PriorQuery(court="scotus", decided_before=1998)
+    with _running_server(db) as url:
+        (masked,) = corpus_service.client_query(url, clocked, limit=5, full=False).rows
+        (forward,) = corpus_service.client_query(
+            url, corpus.PriorQuery(court="scotus"), limit=5, full=False
+        ).rows
+    assert (masked["counsel"], masked["parties"], masked["attorneys"]) == ([], [], [])
+    assert forward["counsel"] != []
+    assert forward["parties"] == ["Doe", "Amicus Society"]
+
+
 def test_query_full_toggles_opinion_text(fixture_corpus: FixtureCorpus) -> None:
     q = corpus.PriorQuery(court="ca1")
     with _running_server(fixture_corpus.db_path) as url:

@@ -1212,6 +1212,117 @@ def test_retrieve_priors_decided_before_always_strips_a_termination(tmp_path: Pa
     assert unmasked["scotus/2"].merits_terminated == MeritsTermination.judgment_issued.value
 
 
+def _counselled_prior() -> corpus.CorpusRow:
+    # A granted Term-1993 petition whose party and counsel blocks have since
+    # accrued an amicus — the shape the replay clock must not hand a cell.
+    return _row(
+        case_id="scotus/1",
+        court="scotus",
+        docket_number="93-7515",
+        date_filed=date(1993, 11, 1),
+        date_decided=date(1994, 1, 10),
+        date_cert_granted=date(1994, 1, 10),
+        merits_judgment="reversed",
+        merits_decided=date(1999, 6, 1),
+        merits_brief_filed=date(1998, 9, 1),
+        citations=["527 U.S. 1"],
+        citation_count=400,
+        precedential_status="Published",
+        summary="Reversed",
+        opinion_text="the merits opinion",
+        parties=["Doe", "Roe", "Amicus Society"],
+        attorneys=["A. Counsel", "B. Counsel", "C. Amicus"],
+        counsel=[
+            corpus.CounselEntry(party="Doe", attorney="A. Counsel", role="petitioner"),
+            corpus.CounselEntry(party="Roe", attorney="B. Counsel", role="respondent"),
+            corpus.CounselEntry(party="Amicus Society", attorney="C. Amicus", role="other"),
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("decided_before", "decided_before_day"),
+    [(1998, None), (None, date(1998, 1, 1)), (1998, date(1998, 1, 1))],
+    ids=["term", "day", "term-and-day"],
+)
+def test_retrieve_priors_replay_clock_empties_undated_counsel(
+    tmp_path: Path, decided_before: int | None, decided_before_day: date | None
+) -> None:
+    # The party and counsel lists are the docket's current state with no date
+    # on any entry, and amici accrue after a grant: under either half of the
+    # clock they are emptied whole, the amicus entry and the named sides alike.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_counselled_prior()])
+        (masked,) = corpus.retrieve_priors(
+            conn,
+            corpus.PriorQuery(
+                court="scotus",
+                decided_before=decided_before,
+                decided_before_day=decided_before_day,
+            ),
+            limit=10,
+        )
+    assert masked.counsel == []
+    assert masked.parties == []
+    assert masked.attorneys == []
+    assert masked.case_name == "Doe v. Roe"  # the arrival-time caption survives
+
+
+def test_retrieve_priors_forward_keeps_counsel_whole(tmp_path: Path) -> None:
+    # No clock, no mask: forward retrieval emits the stored lists exactly.
+    db = tmp_path / "corpus.db"
+    prior = _counselled_prior()
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [prior])
+        (forward,) = corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=10)
+    assert forward.counsel == prior.counsel
+    assert forward.parties == prior.parties
+    assert forward.attorneys == prior.attorneys
+    assert corpus.prior_payload(forward) == corpus.prior_payload(prior)
+
+
+def test_replay_clock_masked_key_set_is_pinned(tmp_path: Path) -> None:
+    # The whole set of `query` fields the replay clock rewrites, pinned: a
+    # column joining or leaving it changes a replay cell's information set, so
+    # it is a deliberate edit here (and a freeze-record entry), never a drift.
+    # The fixture fills the outcome-bearing last-pull columns the docs name as
+    # unmasked, so a mask joining or leaving any of them moves `changed`.
+    assert frozenset({"counsel", "parties", "attorneys"}) == corpus.REPLAY_MASKED_UNDATED_COLUMNS
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_counselled_prior()])
+        corpus.set_merits_termination(conn, "scotus/1", MeritsTermination.judgment_issued)
+        (masked,) = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before=1998), limit=10
+        )
+        (forward,) = corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=10)
+    masked_payload = corpus.prior_payload(masked, full=True)
+    forward_payload = corpus.prior_payload(forward, full=True)
+    # The last-pull columns the clock leaves alone are filled, so they are
+    # genuinely in the comparison rather than equal by being empty.
+    for key in (
+        "citations",
+        "citation_count",
+        "summary",
+        "precedential_status",
+        "has_opinion",
+        "opinion_text",
+        "merits_brief_filed",
+    ):
+        assert forward_payload[key], key
+    assert set(masked_payload) == set(forward_payload)
+    changed = {key for key in forward_payload if masked_payload[key] != forward_payload[key]}
+    assert changed == {
+        "merits_judgment",
+        "merits_decided",
+        "merits_terminated",
+        "counsel",
+        "parties",
+        "attorneys",
+    }
+
+
 def _application_slice() -> list[corpus.CorpusRow]:
     """The pollution in miniature: two non-cert applications above two cert-surface rows.
 
@@ -3053,6 +3164,76 @@ def test_counsel_round_trips_with_its_side(tmp_path: Path) -> None:
     assert stored.counsel == entries
     assert stored.counsel[0].counsel_of_record is True
     assert stored.counsel[1].counsel_of_record is False
+
+
+def test_counsel_survives_a_counsel_less_write_and_a_fresh_reading_replaces_it(
+    tmp_path: Path,
+) -> None:
+    """A channel that maps no counsel blocks writes a confident empty list, which
+    must not erase the live channel's per-side reading; a non-empty re-read still
+    lands. The latch is the column's own — every other latched column keeps
+    the rule it had."""
+    db = tmp_path / "corpus.db"
+    case_id = "scotus/9024007060"
+    first = [
+        corpus.CounselEntry(
+            party="Jane Doe", attorney="A. Lawyer", role=corpus.CounselRole.petitioner
+        ),
+        corpus.CounselEntry(
+            party="State", attorney="B. Solicitor", role=corpus.CounselRole.respondent
+        ),
+    ]
+    fresh = [
+        corpus.CounselEntry(
+            party="Jane Doe",
+            attorney="C. Appointed",
+            role=corpus.CounselRole.petitioner,
+            counsel_of_record=True,
+        )
+    ]
+    base = {"court": "scotus", "docket_number": "24-7060"}
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id,
+                    **base,
+                    counsel=first,
+                    last_live_polled=date(2026, 7, 13),
+                    cvsg_date=date(2026, 5, 1),
+                    distribution_count=2,
+                    application_kind="substantive",
+                    sample_weight=10,
+                )
+            ],
+        )
+        # A counsel-less write (a REST- or bulk-shaped row) with its own
+        # readings of the neighbouring columns.
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    case_id,
+                    **base,
+                    distribution_count=1,
+                    application_kind="extension",
+                    sample_weight=1,
+                )
+            ],
+        )
+        kept = corpus.get_row(conn, case_id)
+        corpus.upsert_rows(conn, [_row(case_id, **base, counsel=fresh)])
+        replaced = corpus.get_row(conn, case_id)
+    assert kept is not None and replaced is not None
+    assert kept.counsel == first
+    # The other latched columns keep their own rules.
+    assert kept.last_live_polled == date(2026, 7, 13)  # fill-in latch
+    assert kept.cvsg_date == date(2026, 5, 1)  # fill-in latch
+    assert kept.distribution_count == 2  # max-latch
+    assert kept.application_kind == "extension"  # a real reading replaces
+    assert kept.sample_weight == 1  # min-latch
+    assert replaced.counsel == fresh
 
 
 def test_event_stage_round_trips_and_null_stays_null(tmp_path: Path) -> None:

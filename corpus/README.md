@@ -79,7 +79,7 @@ source.
 | `panel`               | json array      | structured panel: `{name, seniority}` per judge |
 | `parties`             | json array      | party names on the docket                     |
 | `attorneys`           | json array      | attorney names of record                      |
-| `counsel`             | json array      | structured counsel: `{party, attorney, role, counsel_of_record}` per docket block; `role` is the caption side (petitioner / respondent / other). SCOTUS live+historical only |
+| `counsel`             | json array      | structured counsel: `{party, attorney, role, counsel_of_record}` per docket block; `role` is the caption side (petitioner / respondent / other). SCOTUS live+historical only; latched — an empty incoming list keeps the stored one, a non-empty reading replaces it |
 | `topic`               | text            | nature of suit / subject-matter topic         |
 | `citations`           | json array      | reporter cites (`602 U.S. 137`), from the docket's opinion cluster |
 | `citation_count`      | integer         | times the decision has been cited            |
@@ -115,6 +115,8 @@ source.
 | `response_requested_at` | date          | when the Court or a Circuit Justice asked for a response to an interim application (live channel only, fill-in latched) — the interim stage's second forecast moment, and the dated sibling of `response_requested`; the two disagree only on an undated request |
 | `response_filed_at`   | date            | when a response to the application was filed (live channel only, fill-in latched) — the interim stage's third forecast moment; a different event from the Court asking, since a respondent may answer uninvited and a requested response may never arrive |
 | `merits_terminated`   | text            | why a granted case's merits proceeding ended **without** a disposition (the `MeritsTermination` vocabulary — a post-grant Rule 46 dismissal, a dismissal as moot, an abatement on the petitioner's death, a grant the Court vacated, a bare mandate notation), written by the backfill sweep alone; null = not known to have terminated |
+| `merits_argued`       | date            | when the granted case was last argued — the docket's last `Argued.` / `Reargued.` entry on or after the grant (`pipeline.merits_signals.argued_date`), so a reargued case carries its reargument; written by the live poll at ingest and by `backfill-decision-record`, fill-in latched; withheld from the `query` retrieval rows; null = not argued, or not yet parsed — read it beside `merits_decision_method` |
+| `merits_decision_method` | text        | how the Court decided a granted case (the `MeritsDecisionMethod` vocabulary: `argued-signed`, `argued-per-curiam`, `summary-opinion`, `summary-order`, `dig`), read by `pipeline/decision_record.py` from the last judgment-shaped entry, the grant date and `merits_argued` — over **every** granted row, GVRs and summary reversals included, unlike the merits pair; written by the live poll at ingest and by `backfill-decision-record`, fill-in latched; withheld from the `query` retrieval rows; null = unclassified (pending, terminated without a disposition, or an entry the reader cannot place) |
 | `capital_case`        | integer (0/1)   | the Court's `*** CAPITAL CASE ***` marking, read from the annotation upstream appends to the case number and latched here as ingest strips the number to its canonical spelling; max-latched, since only one channel serves the annotation — 0 = not marked by any channel that wrote the row, which on a CourtListener-only row is silence rather than a denial |
 | `opinion_enrich_attempted_at` | date    | tracking state: when the opinion-enrichment walk (`enrich-opinions`) last reached a verdict about this case (a body, no cluster, a refusal, a 4xx) — the walk's rotation key, read never-attempted-first then stalest-stamp-first, so the grants that can never converge (a GVR or DIG that publishes no opinion; a decided grant neither of the walk's two routes resolves) cannot hold the head of every run; null = never attempted. The rotation orders *within* the walk's priority groups: a case the git ledger holds a committed merits event for, whose `merits_judgment` has latched, comes first — grading a merits forecast is what the body is an input to, and the latch is what says the body exists (a pending case stays in the rotation, since promoting it would spend the run's cap on opinions that have not published) |
 | `document_floor_probed_at` | date    | tracking state: when the document back-fill (`backfill-documents`) last read this case at one of its fetch floors — it fetched the docket and the selector found nothing fetchable behind any kind the case is missing; null = never floored. It is that pass's exclusion key, not a rotation key: a floored candidate is held out of the gap class while the stamp is no older than `last_live_polled`, so a floor costs one paced docket GET per poll of that docket rather than one per dispatch. The next poll releases it; a docket that has left the live rotation (decided, or below its Term floor) is never re-polled, which is the terminal reading for a closed docket the Court served no PDF on. Written on an apply only, never for a floor the pass's own modern-docket alarm fired on, and through a direct `UPDATE` rather than the row upsert — under the corpus split a row read off the payload-free index carries no opinion body, and re-mirroring it would delete the body from the store's `case.json` |
@@ -152,9 +154,15 @@ enrichment (`fedcourts enrich-opinions`), so keeping the bulk join out of the
 column is what makes a populated body on a non-SCOTUS row impossible rather
 than merely unlikely. The
 CourtListener REST path reports no side, so `counsel` is empty there, exactly as
-`seniority` is. A historical row serialized before the column existed also stays
-empty until a re-walk re-serves it — the same legacy-row shape as
-`sample_weight` below.
+`seniority` is — and because every writer asserts the column, that empty list
+would erase a live reading if the same docket ever took a REST or bulk write.
+The upsert therefore latches it: an empty incoming list keeps the stored one,
+and a non-empty reading (the live channel's re-read) replaces it, so a
+corrected parse still lands. A row last written before the column existed
+stays empty until a live re-poll, a re-walk or `refresh-dockets` re-serves it —
+the same legacy-row shape as `sample_weight` below. A decided docket leaves the
+live rotation (a granted docket stays in it until its judgment), so on a
+decided row that re-serve does not come on its own.
 
 `last_pulled` is per-case **tracking state**, not a docket fact: `pull` stamps it
 on every refresh and the budget governor rotates the oldest-`last_pulled`-first
@@ -188,9 +196,10 @@ application's life, so a degraded parse's confident 0 never regresses a stored
 value — and `application_kind` gets the TEXT twin of that latch: a real reading
 (`extension` / `substantive`) is never wiped by a degraded parse's confident
 `unknown`, which only ever fills a genuine gap. The dated signals beside these
-families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`)
+families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`),
+and the merits decision record (`merits_argued`, `merits_decision_method`),
 fill-in latch for `cvsg_date`'s reason instead: a missing parse leaves each null
-rather than a confident sentinel, so no other writer may blank a date the live
+rather than a confident sentinel, so no other writer may blank a reading the live
 channel stamped — which on `response_requested_at` would leave the max-latched
 `response_requested` flag standing beside a null date, the shape reserved for a
 genuinely undated request. `sample_weight` is
@@ -300,6 +309,49 @@ this table stays empty; with the split mode off they live inline:
 | `case_id`       | text (PK) | `<court_id>/<docket_id>`                        |
 | `snapshot_date` | text (PK) | pull date; one snapshot per case per day        |
 | `payload`       | text      | full-docket JSON (sorted keys for stable bytes) |
+
+## Per-opinion record (`opinions`)
+
+One row per opinion in a decided case: the Court's opinion and every separate
+writing, read from the documents the Court's per-Term opinions listing links
+(`pipeline/opinion_record.py`). Like the case row's decision columns, this is
+a historical record held corpus-side; no outcome is written to the git ledger
+for a case the pipeline never forecast. Written only by
+`fedcourts backfill-opinion-record`, which is fill-only: a document is recorded
+whole or not at all, and a recorded row is never changed. So a new version of
+the counting rule or of a reader reaches stored rows only through a pass built
+to replace them, which does not exist yet; `word_rule` and `lineup` say which
+version each row was read under. The table is read by no `query`
+retrieval row, provisioning step, outcome, mint or scoring gate, so nothing a
+predict or evaluate cell sees includes it; a test pins which modules may name
+it. It is metadata, not payload, so it stays in the index blob under the
+corpus-split mode and has no content-store mirror. The source, the cross-check
+and the word-counting rule are in [docs/data-sources.md](../docs/data-sources.md).
+
+| Column           | Type          | Notes |
+|------------------|---------------|-------|
+| `term`           | integer (PK)  | October Term, four-digit |
+| `listing_number` | text (PK)     | the listing row's number (`66`, `D1`): one document |
+| `position`       | integer (PK)  | the opinion's order in the document, from 1 |
+| `docket`         | text          | the listing's docket cell as printed |
+| `dockets`        | text (JSON)   | every docket number in that cell; the listing prints only a consolidated case's lead docket |
+| `case_id`        | text          | the corpus case row of the first docket, by the corpus's docket-number reconciliation (`norm_dn`; the lowest docket id where two rows match), as of the read; null where no row carries it. A convenience link: the dedupe pass (`dedupe-live-rows`) does not re-point it, and the listing key is the row's identity |
+| `case_name`      | text          | as the listing prints it |
+| `decided`        | date          | the listing's decision date |
+| `argued`         | date          | the syllabus's printed argument date (the latest); null for a per curiam or where none is printed |
+| `kind`           | text          | the `WritingKind` vocabulary: `opinion-of-the-court`, `plurality`, `per-curiam`, `concurrence`, `concurrence-in-part`, `concurrence-in-judgment`, `concurrence-in-part-dissent-in-part`, `dissent`, `statement` |
+| `author`         | text          | roster surname; null only for a per curiam |
+| `coauthors`      | text (JSON)   | the other signers of a jointly written opinion |
+| `joins`          | text (JSON)   | `[{justice, qualifier}]`; `qualifier` is a partial join's printed limit ("as to Part II-B", "except as to Part III-B"), null for a join in full. A lead opinion's joiners come from the syllabus, which a per curiam does not print, so a per curiam's are empty |
+| `scope`          | text          | a lead opinion's own limit ("except as to Part II"); null otherwise |
+| `words`          | integer       | the word count under `word_rule`, footnotes included |
+| `footnote_words` | integer       | the footnotes' share of `words` |
+| `word_rule`      | text          | `<rule>/<version>` of the counting rule (`scotus-opinion-words/1`) |
+| `lineup`         | text          | `<reader>/<version>` the writings were read by: the syllabus grammar, or the header reader for a per curiam |
+| `source_format`  | text          | `slip` or `preliminary-print` |
+| `document_url`   | text          | the supremecourt.gov PDF read |
+| `header`         | text          | the opinion's header sentence as printed, normalized (spacing and split words closed up) |
+| `read_at`        | timestamp     | when the row was written |
 
 ## Working with it locally
 

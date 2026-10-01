@@ -24,15 +24,14 @@ from typing import Any
 
 import pytest
 
-import fedcourtsai
 from fedcourtsai import cert_backtest
 from fedcourtsai.pipeline import cell_context, ingest, liveprobe, outcome, salience
 from fedcourtsai.pipeline.documents import (
     CONTACT_PLACEHOLDER,
     REGISTER_NUMBER_WITHHELD,
     SNAPSHOT_CONTACT_FIELDS,
-    petitioner_is_unrepresented,
     scrub_snapshot_contacts,
+    unrepresented_sides,
 )
 
 WITHHELD_KEYS = (*SNAPSHOT_CONTACT_FIELDS, "PrisonerId")
@@ -111,8 +110,9 @@ def test_the_scrub_withholds_every_contact_value_and_keeps_what_is_read() -> Non
     assert block["State"] == "TX"
     assert scrubbed.blocks == 1
     assert scrubbed.fields == 6
-    # The represented side is the payload's own object, untouched.
-    assert scrubbed.payload["Respondent"] is payload["Respondent"]
+    # The represented side's block is the payload's own object, untouched.
+    assert scrubbed.payload["Respondent"] == payload["Respondent"]
+    assert scrubbed.payload["Respondent"][0] is payload["Respondent"][0]
     # The caller's payload is never mutated.
     assert payload == _payload()
 
@@ -181,6 +181,208 @@ def test_a_free_text_title_is_withheld_with_the_contact_keys() -> None:
     assert scrubbed.fields == 7
 
 
+def _pro_se_respondent() -> dict[str, Any]:
+    """A self-represented respondent's block, as the Court serves one."""
+    return {
+        "Attorney": "Richard Roe",
+        "IsCounselofRecord": True,
+        "Title": None,
+        "PrisonerId": None,
+        "Phone": "(936) 555-0199",
+        "Address": "Route 2, 4417 County Road 12",
+        "City": "Tennessee Colony",
+        "State": "TX",
+        "Zip": "75884",
+        "Email": "rroe.respondent@example.com",
+        "PartyName": "Richard Roe",
+    }
+
+
+def test_a_self_represented_respondent_block_is_scrubbed_like_a_petitioners() -> None:
+    payload = _payload()
+    payload["Petitioner"][0]["Attorney"] = "Kannon K. Shanmugam"
+    payload["Petitioner"][0]["PrisonerId"] = None
+    payload["Respondent"].append(_pro_se_respondent())
+
+    scrubbed = scrub_snapshot_contacts(payload)
+
+    block = scrubbed.payload["Respondent"][1]
+    for key in ("Address", "City", "Zip", "Phone", "Email"):
+        assert block[key] == CONTACT_PLACEHOLDER
+    assert block["Title"] is None
+    assert block["PrisonerId"] is None
+    assert block["PartyName"] == block["Attorney"] == "Richard Roe"
+    assert block["State"] == "TX"
+    assert scrubbed.blocks == 1
+    assert scrubbed.fields == 5
+    # The respondent's represented co-party and the counselled petitioner are
+    # the payload's own objects, untouched.
+    assert scrubbed.payload["Respondent"][0] is payload["Respondent"][0]
+    assert scrubbed.payload["Petitioner"][0] is payload["Petitioner"][0]
+    assert payload["Respondent"][1] == _pro_se_respondent()
+
+
+def test_a_represented_respondent_block_is_left_as_served() -> None:
+    payload = _payload()
+
+    scrubbed = scrub_snapshot_contacts(payload)
+
+    assert scrubbed.payload["Respondent"] == payload["Respondent"]
+    assert scrubbed.payload["Respondent"][0] is payload["Respondent"][0]
+    assert scrubbed.payload["Respondent"][0]["Email"] == "counsel@example.gov"
+
+
+def test_both_sides_self_represented_are_both_scrubbed() -> None:
+    payload = _payload()
+    payload["Respondent"] = [_pro_se_respondent()]
+
+    scrubbed = scrub_snapshot_contacts(payload)
+
+    assert scrubbed.blocks == 2
+    assert scrubbed.fields == 6 + 5
+    for side, index in (("Petitioner", 0), ("Respondent", 0)):
+        block = scrubbed.payload[side][index]
+        for key in SNAPSHOT_CONTACT_FIELDS:
+            assert block[key] in (None, CONTACT_PLACEHOLDER)
+
+
+def test_the_staged_snapshot_is_a_fixed_point() -> None:
+    # Scrubbing the staged copy again changes nothing: the placeholders and the
+    # register number's marker keep each block qualifying and are themselves
+    # what a second pass would write.
+    payload = _payload()
+    payload["Respondent"].append(_pro_se_respondent())
+
+    once = scrub_snapshot_contacts(payload).payload
+    twice = scrub_snapshot_contacts(once).payload
+
+    assert twice == once
+    assert unrepresented_sides(once) == ("Petitioner", "Respondent")
+
+
+def _pro_se_amicus() -> dict[str, Any]:
+    """An amicus filing in its own name on the `Other` list, as the Court serves one."""
+    return {
+        "Attorney": "Jane Q. Scholar",
+        "IsCounselofRecord": True,
+        "Title": "Example University School of Law",
+        "PrisonerId": None,
+        "Phone": "(555) 555-0142",
+        "Address": "100 Campus Drive",
+        "City": "Springfield",
+        "State": "IL",
+        "Zip": "62701",
+        "Email": "jscholar@law.example.edu",
+        "PartyName": "Jane Scholar",
+    }
+
+
+def _represented_org_amicus() -> dict[str, Any]:
+    """An organisation's amicus block with separate counsel and free text in `PrisonerId`.
+
+    The shape the `Other` list serves: `PrisonerId` there holds an address-shaped
+    string or a phrase, never a register number.
+    """
+    return {
+        "Attorney": "Ann B. Advocate",
+        "IsCounselofRecord": True,
+        "Title": "Advocate Law Firm",
+        "PrisonerId": "1234 Sample Drive, Suite 000-000",
+        "Phone": "(555) 555-0177",
+        "Address": "1234 Sample Drive",
+        "City": "Springfield",
+        "State": "IL",
+        "Zip": "62702",
+        "Email": "advocate@firm.example.com",
+        "PartyName": "Example Association for Liberty",
+    }
+
+
+def _represented_amicus() -> dict[str, Any]:
+    """A represented amicus with no `PrisonerId` at all."""
+    return {
+        **_represented_org_amicus(),
+        "PrisonerId": None,
+        "PartyName": "Example Chamber of Commerce",
+    }
+
+
+def test_a_self_represented_amicus_block_is_scrubbed() -> None:
+    payload = _payload()
+    payload["Other"] = [_represented_amicus(), _pro_se_amicus()]
+
+    scrubbed = scrub_snapshot_contacts(payload)
+
+    block = scrubbed.payload["Other"][1]
+    for key in SNAPSHOT_CONTACT_FIELDS:
+        assert block[key] == CONTACT_PLACEHOLDER
+    assert block["PrisonerId"] is None
+    assert block["PartyName"] == "Jane Scholar"
+    assert block["Attorney"] == "Jane Q. Scholar"
+    assert block["State"] == "IL"
+    # The petitioner's block (6 values) and the amicus's (6, `Title` included).
+    assert scrubbed.blocks == 2
+    assert scrubbed.fields == 6 + 6
+    # The represented amicus beside it is the payload's own object, untouched.
+    assert scrubbed.payload["Other"][0] is payload["Other"][0]
+    assert payload["Other"][1] == _pro_se_amicus()
+
+
+@pytest.mark.parametrize("block", [_represented_amicus(), _represented_org_amicus()])
+def test_a_represented_amicus_is_left_as_served(block: dict[str, Any]) -> None:
+    # The organisation's `PrisonerId` holds free text, not a register number,
+    # and the register-number arm is not asked on the `Other` list, so it does
+    # not make the block read as self-represented.
+    payload = _payload()
+    payload["Other"] = [block]
+
+    scrubbed = scrub_snapshot_contacts(payload)
+
+    assert scrubbed.payload["Other"] == [block]
+    assert scrubbed.payload["Other"][0] is payload["Other"][0]
+    assert scrubbed.blocks == 1  # the petitioner's alone
+    assert unrepresented_sides(payload) == ("Petitioner",)
+
+
+def test_a_populated_prisoner_field_on_a_qualifying_amicus_is_withheld_as_contact() -> None:
+    # Not a register number on this list, so it is withheld with the contact
+    # placeholder rather than marked as one.
+    amicus = {**_pro_se_amicus(), "PrisonerId": "100 Campus Drive, Room 12"}
+    payload = _payload()
+    payload["Other"] = [amicus]
+
+    block = scrub_snapshot_contacts(payload).payload["Other"][0]
+
+    assert block["PrisonerId"] == CONTACT_PLACEHOLDER
+
+
+def test_the_party_sides_are_unchanged_by_an_amicus_list() -> None:
+    # The petitioner and respondent blocks stage byte for byte as they do on a
+    # payload with no `Other` list at all.
+    payload = _payload()
+    payload["Respondent"].append(_pro_se_respondent())
+    with_amici = copy.deepcopy(payload)
+    with_amici["Other"] = [_pro_se_amicus(), _represented_org_amicus()]
+
+    without = scrub_snapshot_contacts(payload).payload
+    staged = scrub_snapshot_contacts(with_amici).payload
+
+    for side in ("Petitioner", "Respondent"):
+        assert repr(staged[side]) == repr(without[side])
+
+
+def test_the_staged_amicus_list_is_a_fixed_point() -> None:
+    payload = _payload()
+    payload["Other"] = [_pro_se_amicus(), _represented_org_amicus()]
+    payload["Other"][0]["PrisonerId"] = "Room 12"
+
+    once = scrub_snapshot_contacts(payload).payload
+    twice = scrub_snapshot_contacts(once).payload
+
+    assert twice == once
+    assert unrepresented_sides(once) == ("Petitioner", "Other")
+
+
 def test_a_payload_serving_no_petitioner_block_is_an_equal_copy() -> None:
     payload = {"docket_entries": [{"description": "Petition filed."}]}
 
@@ -193,10 +395,26 @@ def test_a_payload_serving_no_petitioner_block_is_an_equal_copy() -> None:
 # --- nothing scored or analytic reads what was withheld ---------------------
 
 
-def test_every_scored_and_analytic_reading_of_the_payload_is_unchanged() -> None:
+@pytest.mark.parametrize(
+    ("respondent_pro_se", "amici", "sides"),
+    [
+        (False, False, ("Petitioner",)),
+        (True, False, ("Petitioner", "Respondent")),
+        (False, True, ("Petitioner", "Other")),
+    ],
+)
+def test_every_scored_and_analytic_reading_of_the_payload_is_unchanged(
+    respondent_pro_se: bool, amici: bool, sides: tuple[str, ...]
+) -> None:
     payload = _payload()
+    if respondent_pro_se:
+        payload["Respondent"].append(_pro_se_respondent())
+    if amici:
+        payload["Other"] = [_pro_se_amicus(), _represented_org_amicus()]
     staged = scrub_snapshot_contacts(copy.deepcopy(payload)).payload
     assert staged != payload  # the scrub did withhold something
+    if amici:
+        assert staged["Other"] != payload["Other"]
 
     # The corpus row every analytic reads: the statpack, salience and its bands,
     # the party census and the metrics all sit on it, not on the payload.
@@ -225,7 +443,7 @@ def test_every_scored_and_analytic_reading_of_the_payload_is_unchanged() -> None
     )
     # And the scrub trigger reads the same docket either way: the register
     # number's marker keeps the block reading as self-represented.
-    assert petitioner_is_unrepresented(staged) is petitioner_is_unrepresented(payload) is True
+    assert unrepresented_sides(staged) == unrepresented_sides(payload) == sides
 
 
 def _key_literals(tree: ast.AST) -> set[str]:
@@ -269,7 +487,7 @@ def test_no_code_outside_the_scrub_names_a_withheld_key() -> None:
     keys = set(WITHHELD_KEYS)
     exports = {"SNAPSHOT_CONTACT_FIELDS", "REGISTER_NUMBER_WITHHELD", "scrub_snapshot_contacts"}
     allowed = {"short_caption.py": {"City"}}
-    package = Path(fedcourtsai.__file__).parent
+    package = Path(cert_backtest.__file__).parent
     offenders: dict[str, set[str]] = {}
     for path in sorted(package.rglob("*.py")):
         rel = path.relative_to(package).as_posix()

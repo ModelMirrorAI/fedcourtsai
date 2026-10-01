@@ -50,6 +50,7 @@ from .cert_signals import (
     match_disposition_signal,
     proceedings_entries,
 )
+from .decision_record import DecisionRecord, read_decision_record
 from .interim_signals import (
     application_arrival_date,
     application_kind,
@@ -235,6 +236,20 @@ class CorpusRow(BaseModel):
         description="The docket date of the entry `merits_judgment` was parsed "
         "from — the merits event's resolution date; None for an undated entry, "
         "and meaningful only beside a non-None `merits_judgment`.",
+    )
+    merits_argued: date | None = Field(
+        default=None,
+        description="When the granted case was last argued "
+        "(`pipeline.merits_signals.argued_date`). Live cert branch only, on any "
+        "granted docket; None elsewhere — the storage fill-in latch keeps a "
+        "stored date when a writer carries none.",
+    )
+    merits_decision_method: str | None = Field(
+        default=None,
+        description="How the granted case was decided — a "
+        "`MeritsDecisionMethod` value (`pipeline.decision_record`). Live cert "
+        "branch only, on any granted docket; None elsewhere or while "
+        "unclassified — the storage fill-in latch keeps a stored reading.",
     )
     capital_case: bool = Field(
         default=False,
@@ -557,6 +572,8 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         merits_judgment=_clean(record.get("merits_judgment")),
         merits_decided=_date(record.get("merits_decided")),
         merits_brief_filed=_date(record.get("merits_brief_filed")),
+        merits_argued=_date(record.get("merits_argued")),
+        merits_decision_method=_clean(record.get("merits_decision_method")),
         response_requested_at=_date(record.get("response_requested_at")),
         response_filed_at=_date(record.get("response_filed_at")),
         nature_of_suit=_clean(record.get("nature_of_suit")),
@@ -894,6 +911,7 @@ def map_live_docket(
     amici: int | None = None
     merits: tuple[Judgment, date | None] | None = None
     merits_brief: date | None = None
+    decision = DecisionRecord()
     response_requested_on: date | None = None
     response_filed_on: date | None = None
     application_filed_on: date | None = None
@@ -964,6 +982,12 @@ def map_live_docket(
             # poll and from the same payload — the docket says when both sides'
             # arguments reached the record, and nothing else does.
             merits_brief = respondent_brief_date(payload, granted_on=cert_granted)
+        # The decision record — when the case was argued, and how it was
+        # decided — over every granted docket, the GVR and the summary reversal
+        # included: a Term index counts the cases decided without argument
+        # beside the argued ones. Read through the same functions the offline
+        # back-fill calls, off the same raw payload a stored snapshot keeps.
+        decision = read_decision_record(payload, disposition=disposition, granted_on=cert_granted)
     petitioner = _live_title(payload.get("PetitionerTitle"))
     respondent = _live_title(payload.get("RespondentTitle"))
     case_name = f"{petitioner} v. {respondent}" if petitioner and respondent else petitioner
@@ -1000,6 +1024,8 @@ def map_live_docket(
         "merits_judgment": merits[0].value if merits else None,
         "merits_decided": merits[1].isoformat() if merits and merits[1] else None,
         "merits_brief_filed": merits_brief.isoformat() if merits_brief else None,
+        "merits_argued": decision.argued.isoformat() if decision.argued else None,
+        "merits_decision_method": decision.method.value if decision.method else None,
         "response_requested_at": (
             response_requested_on.isoformat() if response_requested_on else None
         ),
@@ -1256,6 +1282,8 @@ def to_corpus_row(
         merits_judgment=row.merits_judgment,
         merits_decided=row.merits_decided,
         merits_brief_filed=row.merits_brief_filed,
+        merits_argued=row.merits_argued,
+        merits_decision_method=row.merits_decision_method,
         capital_case=row.capital_case,
         sample_weight=sample_weight,
     )
