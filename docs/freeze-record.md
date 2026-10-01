@@ -5736,8 +5736,8 @@ freeze commit is recorded here.
   already owed a reading rule at the next re-bless, and this entry adds no new
   token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-10-01` (merge commit
+  `b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b`, merged `2026-10-01T16:15:45Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_snapshot_scrub.py tests/test_cli_provision.py
@@ -5836,12 +5836,12 @@ freeze commit is recorded here.
   every `mean_vote_accuracy` is null before and after. Nothing is written by
   this change; the writer runs only as dispatched `run-repair` passes.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`). It must precede
+  Carried to `main` by `promotion/2026-10-01` (merge commit
+  `b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b`, merged `2026-10-01T16:15:45Z`). It must precede
   the first `order-votes` or `opinion-votes` apply for this entry to register
   ahead of any record it governs. At that promotion, the census above re-run
-  on `main` reads `<FILL: outcomes carrying a vote record>` outcomes carrying
-  a vote record (of `<FILL: committed outcomes>` committed).
+  on `main` reads `0` outcomes carrying
+  a vote record (of `12,741` committed).
 
   The runnable effect check once it is live:
   - `uv run python -c "from fedcourtsai.pipeline.vote_sources import
@@ -5996,8 +5996,8 @@ freeze commit is recorded here.
   **The amendment debt.** It is unchanged. The placeholder is already owed a
   reading rule at the next re-bless, and this entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-10-01` (merge commit
+  `b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b`, merged `2026-10-01T16:15:45Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_snapshot_scrub.py tests/test_cli_provision.py
@@ -6101,8 +6101,8 @@ freeze commit is recorded here.
   rows only. Nothing is written by this change itself; the pass runs only as a
   dispatched `run-repair` apply.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`). Applied by run
+  Carried to `main` by `promotion/2026-10-01` (merge commit
+  `b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b`, merged `2026-10-01T16:15:45Z`). Applied by run
   `<FILL: apply run id>` on `<FILL: apply date>`, landing
   `<FILL: rows landed>` rows. The first statpack refreshed after it, at commit
   `<FILL: statpack refresh commit>`, reads the OT2026 pool as
@@ -6152,9 +6152,9 @@ freeze commit is recorded here.
   carried up to 22 counsel entries each, 20 of them `role=other` on one prior
   granted 2026-06-29. After it, all three lists are empty on all five.
 
-  **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
-  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
-  (merge commit `<FILL: merge commit>`, merged `<FILL: merge timestamp>`). At
+  **Where it landed.** Merged to `staging` as `0fb1ddb7f`
+  and carried to `main` by the promotion tagged `promotion/2026-10-01`
+  (merge commit `b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b`, merged `2026-10-01T16:15:45Z`). At
   that promotion's first parent, `src/fedcourtsai/corpus.py` has no
   `REPLAY_MASKED_UNDATED_COLUMNS`; at its merge commit it does.
 
@@ -6177,7 +6177,7 @@ freeze commit is recorded here.
   is not a full as-at-clock view of a prior.
 
   **The reading rule.** Two cert back-test reports whose cells ran on either
-  side of `<FILL: merge commit>` ran under different replay masks, even where
+  side of `b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b` ran under different replay masks, even where
   their provenance blocks and `provenance.clocks` agree. Neither field can see
   this change, so no engine row's series spans the boundary. The always-deny
   floor, a property of the labels, and the offline `prior-vote` row, which
