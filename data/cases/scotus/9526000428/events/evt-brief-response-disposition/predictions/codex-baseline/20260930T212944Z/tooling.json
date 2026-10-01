@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000428",
+  "run_id": "20260930T212944Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "committed statpack", "web.run (no usable results)", "official PDF retrieval with urllib and pypdf", "CourtListener MCP search", "CourtListener MCP search_document", "fedcourts validate"],
+  "helpful": ["Frozen interim escalation signals", "Specific filing URLs in the baseline snapshot", "Parsed application text", "Per-Term interim counts", "CourtListener opinion text exposed a misleading quotation in advocacy"],
+  "gaps": ["Response-filed cell provisioned only the application, not opposition or reply text", "Web tool returned no usable content", "Default uv cache was read-only; pdftotext was not installed"],
+  "notes": "Retrieved only official pre-decision filings already linked in the snapshot; pypdf worked in memory. Used a writable temporary uv cache. No case-outcome search or live docket refresh. Prior-Term baseline is unconditioned on state capital-stay-vacatur applications, so the large probability adjustment is judgmental."
+}

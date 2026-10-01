@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279700",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward-mode arrival cell for stay application 25A622, submitted to Justice Kagan on 2025-11-18, running on 2026-09-30 with the event still marked unresolved. A stay application is almost always disposed of within weeks, so the docket has very likely resolved and the corpus has not parsed the disposition (an unmatched resolution text, or a stale poll of this application). I did not retrieve the docket's later state or outcome; the forecast rests on the provisioned snapshot and priors only. Worth a repair/re-poll check on this application row."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "No record/documents/ directory was provisioned (no application text). The underlying Ninth Circuit matter, No. 25-2374, is not in CourtListener's RECAP index, so the mandamus-posture reading rests on the caption (respondent is the District of Arizona) rather than on any filing."
+    }
+  ]
+}

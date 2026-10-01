@@ -1,0 +1,25 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000382",
+  "gaps": [
+    "A way to read the staged prediction.json with big_case_score elided, so the evaluator's stakes read can be formed before seeing the predictor's",
+    "A per-alias summary of retrieval_log.json (call classes, unobserved share, any retrieved_doc_date) to speed the leakage pass"
+  ],
+  "helpful": [
+    "Blinded staging under record/blinded/<alias>/ with the retrieval_log.json alongside",
+    "The decided snapshot in record/snapshots/, which shows the disposition text and the in-chambers path",
+    "The statpack interim table for checking the candidates' baseline arithmetic",
+    "retrieval_log.json result_capture markers, which made the coverage-0.0 log gradeable on queries alone"
+  ],
+  "notes": "Interim cell: no rate, skill, votes, or semantic block to write, so the evaluator's work was correct/brier, reasoning quality, leakage over three logs, and big_case. The three candidates' retrieval.md files were candid and matched their logs, which made the leakage pass fast.",
+  "role": "evaluator",
+  "run_id": "20260930T201759Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "file reads of the provisioned inputs and blinded staging",
+    "metrics/statpack.md (committed)",
+    "python/jq-style inspection of retrieval_log.json"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

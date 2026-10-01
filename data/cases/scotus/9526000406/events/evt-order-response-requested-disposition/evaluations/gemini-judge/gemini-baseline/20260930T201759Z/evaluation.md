@@ -1,0 +1,1 @@
+Candidate C correctly predicted the disposition. The reasoning is good (0.75) but slightly less comprehensive than the others, primarily resting on the prior stay and the SG's involvement. The Brier score is 0.01. This is an interim cell, so the baseline and skill score are the harness's responsibility.

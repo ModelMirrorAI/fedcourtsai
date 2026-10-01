@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000406",
+  "run_id": "20260930T201759Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [],
+  "helpful": [],
+  "gaps": [],
+  "notes": "Evaluated three candidates cleanly."
+}

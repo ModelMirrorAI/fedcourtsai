@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000406",
+  "run_id": "20260930T201759Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/python3 over the cell and schemas)",
+    "committed metrics/statpack.md (interim docket section)"
+  ],
+  "helpful": [
+    "The decided snapshot's proceedings list made the outcome, referral, amicus count, and noted dissents checkable in one read.",
+    "retrieval_log.json's result_capture markers and retrieved_doc_date made the forward-mode leakage check mechanical.",
+    "The statpack's interim table let me state the pool the harness stamp should produce."
+  ],
+  "gaps": [
+    "prediction.json carries big_case_score in the same document as the fields I must read first, so the 'form your read before seeing theirs' instruction cannot actually be honoured; a staged view with that field masked would fix it.",
+    "A per-cell pointer to the expected stamp (interim pool Terms and counts) would let the evaluator's prose and the stamped number be checked against each other without re-deriving the pool by hand."
+  ],
+  "notes": "Interim cell, three candidates, all forward, all correct. No corpus or MCP lookups were needed; the record and the committed statpack sufficed."
+}

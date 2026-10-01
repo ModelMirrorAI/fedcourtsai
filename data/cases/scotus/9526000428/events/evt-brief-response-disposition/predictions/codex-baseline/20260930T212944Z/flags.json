@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000428",
+  "run_id": "20260930T212944Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "This response-filed interim cell's baseline lists an opposition and reply, but documents.json provisions only application text. I successfully retrieved both exact official PDFs linked in the snapshot and used their pre-decision arguments; the forecast is not blocked. Provisioning response text for this moment would avoid an initially one-sided evidence base and extra live retrieval."
+    }
+  ]
+}

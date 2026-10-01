@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000406",
+  "gaps": [
+    "Unobserved results limit direct verification of gemini-baseline's retrieved content and two codex-baseline web calls."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts preserved independent scoring.",
+    "Capture markers distinguished missing telemetry from empty results.",
+    "The provisioned application allowed a specific factual assertion to be checked.",
+    "The committed statpack explained interim baseline eligibility without new retrieval."
+  ],
+  "notes": "Evaluated all three staged aliases using local provisioned inputs and the committed statpack only. No corpus query, CourtListener lookup, or web retrieval was performed. Interim rates and skill remain harness-owned. Used the system Python JSON Schema validator because jsonschema is absent from the project virtual environment.",
+  "role": "evaluator",
+  "run_id": "20260930T201759Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "Python jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

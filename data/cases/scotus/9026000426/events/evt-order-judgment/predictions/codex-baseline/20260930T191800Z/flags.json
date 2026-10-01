@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000426",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-judgment",
+      "message": "The grant-stage document manifest provisions only the government's stay application, although the snapshot links a September 28 opposition and September 29 reply and the Court treated the application as a cert petition. I retrieved substantive portions of the pre-grant opposition from that exact official URL; the reply remains unread. Consider provisioning application responses and replies for converted-to-cert merits-grant cells so their common baseline includes both sides. No later merits materials or final judgment were used."
+    }
+  ]
+}

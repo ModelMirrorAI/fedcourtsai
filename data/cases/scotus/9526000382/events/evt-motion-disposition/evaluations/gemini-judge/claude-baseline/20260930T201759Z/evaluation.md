@@ -1,0 +1,1 @@
+claude-baseline accurately assessed the case, noting that despite the First Amendment implications, the interlocutory posture and private commercial nature of the dispute made a grant highly unlikely. It correctly predicted denial with a low probability. It is an interim-stage cell, so the baseline and skill are the harness's.

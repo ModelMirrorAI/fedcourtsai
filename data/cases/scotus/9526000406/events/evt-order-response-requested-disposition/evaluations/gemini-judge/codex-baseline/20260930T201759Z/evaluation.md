@@ -1,0 +1,1 @@
+Candidate B correctly predicted the disposition. The reasoning is solid (0.85), checking relevant precedent (Aleman Gonzalez) and carefully explaining the baseline rate while reading the provided application directly. The Brier score is 0.0256. This is an interim cell, so the baseline and skill score are the harness's responsibility.

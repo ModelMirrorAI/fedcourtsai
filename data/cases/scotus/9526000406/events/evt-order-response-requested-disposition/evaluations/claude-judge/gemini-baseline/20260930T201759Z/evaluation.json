@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.85,
+    "notes": "Third emergency round in DHS v. D.V.D. over nationwide third-country removals; the Court stayed a classwide final judgment, treated the application as a cert petition, granted it, and set December 2026 argument on jurisdiction, 1252(f)(1) remedies, and the Guidance's lawfulness, with three Justices noting they would deny. Cert-before-judgment on an expedited calendar puts this near the top of the interim docket. Caveat: this read was formed after prediction.json (which carries big_case_score) had been read, so it is not strictly pre-exposure."
+  },
+  "brier_score": 0.009999999999999995,
+  "brier_skill_score": 0.987523531505874,
+  "case_id": "scotus/9526000406",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": 0.7915088568298028
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7915088568298028,
+    "total": 0.7915088568298028
+  },
+  "correct": 1,
+  "created_at": "2026-09-30T20:35:55Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-27, disposition entered 2026-09-29. Log (21 calls, capture 0.0, the engine's standing shape) is graded on queries alone: one web search named this docket ('Supreme Court 26A406 stay D.V.D') on 2026-09-27, two days before any disposition existed, so it could not return outcome material; the rest read provisioned inputs and the statpack. Reasoning shows no knowledge of the outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6d8016edd63e6294895a439d13806f7b62a7e30d",
+    "stamped_at": "2026-09-30T20:37:50.309254Z"
+  },
+  "reasoning_quality": 0.5,
+  "run_id": "20260930T201759Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

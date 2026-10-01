@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000164",
+  "run_id": "20260930T191800Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "provisioned petition, BIO, and QP text",
+    "subagents to summarize the two long briefs"
+  ],
+  "helpful": [
+    "The sal-v4 band table with bracketed reached rates gave a clean anchor",
+    "Provisioned BIO text (complete) was the single most useful input for the vehicle analysis",
+    "The snapshot's full proceedings list made the response-request-superseded distribution visible"
+  ],
+  "gaps": [
+    "petition.txt truncation cut the appendix before the state court's due-process section and the dissent; a per-document budget that prioritizes the lower-court opinion over the petition body would help",
+    "No way to check a pending SCOTUS docket (e.g., the cited Genalo v. Black, No. 25-886) via the MCP server; docket search returned nothing for it",
+    "fedcourts query has no text or topic filter for SCOTUS rows, so it cannot find doctrinally similar priors",
+    "A conditioned cut for response-requested petitions (grant rate given a requested response after waiver) would sharpen the anchor"
+  ],
+  "notes": "Eight retrieval calls in total, well inside the advisory budget. MCP server was available throughout."
+}
