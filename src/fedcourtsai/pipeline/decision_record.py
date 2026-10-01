@@ -24,8 +24,16 @@ reversal a summary method beside ``reversed``.
 Two writers fill the columns through the functions here, so the reading is
 single-sourced: the live poll at ingest (:func:`fedcourtsai.pipeline.ingest.map_live_docket`)
 and :func:`backfill_decision_record`, which re-reads each unclassified granted
-row's newest stored live-shaped snapshot. Both are fill-in latched: a stored
-reading is replaced only by a fresh non-null one.
+row's newest stored live-shaped snapshot. Neither writer ever clears a reading:
+the live upsert lets a fresh non-null reading replace the stored one (a
+reargument, a decision landing on a pending case), while the back-fill only
+fills a NULL and never overwrites.
+
+**This is where the historical merits decision record lives**: corpus-side, on
+the case row. No merits event or outcome is minted in the ledger for a case the
+pipeline never forecast, so the prediction ledger holds only what was actually
+forecast, and a reader of the record (the stat pack, a per-Justice vote
+writer) targets these rows.
 
 **Nothing a cell sees reads these columns.** They are withheld from the
 retrieval surface (:data:`fedcourtsai.corpus.RETRIEVAL_WITHHELD_COLUMNS`), no
@@ -100,12 +108,19 @@ def decision_method(  # noqa: PLR0911 - one return per rule in the docstring
        summary reversal recorded as plain ``granted``) — is ``summary-opinion``
        where the entry carries an opinion, signed or per curiam, and
        ``summary-order`` where it does not (the ordinary GVR).
-    4. An argued case is ``argued-signed`` where a named Justice delivered the
-       opinion of the Court, and ``argued-per-curiam`` where the opinion is per
-       curiam or the judgment is an affirmance by an equally divided Court. An
-       argued case whose entry recites neither is ``None``.
+    4. An argued case is ``argued-per-curiam`` where the entry notes its own
+       opinion as per curiam or the judgment is an affirmance by an equally
+       divided Court — checked first, because "Opinion per curiam." is the
+       Court stating its own form while a separate writing can also be
+       recited as a Justice delivering an opinion — and ``argued-signed``
+       where a named Justice delivered the opinion of the Court. An argued
+       case whose entry recites neither is ``None``.
     5. A case decided after its grant without argument is ``summary-opinion``
-       where the entry carries an opinion, else ``None``.
+       where the opinion is per curiam, else ``None``. A *signed* opinion with
+       no argument entry is ``None`` rather than a summary: it almost always
+       means the argument entry was missed (a payload gap, or a spelling the
+       argument reader does not anchor on), and the dry run's unplaced residue
+       is where that belongs, not a confident wrong method.
 
     Conservative in the same direction as the judgment parser: an entry this
     reader cannot place stays unclassified rather than guessed.
@@ -124,12 +139,12 @@ def decision_method(  # noqa: PLR0911 - one return per rule in the docstring
             return MeritsDecisionMethod.summary_opinion
         return MeritsDecisionMethod.summary_order
     if argued is not None and (entry.decided is None or argued <= entry.decided):
-        if signed:
-            return MeritsDecisionMethod.argued_signed
         if per_curiam or entry.judgment is Judgment.equally_divided:
             return MeritsDecisionMethod.argued_per_curiam
+        if signed:
+            return MeritsDecisionMethod.argued_signed
         return None
-    if signed or per_curiam:
+    if per_curiam and not signed:
         return MeritsDecisionMethod.summary_opinion
     return None
 
@@ -148,8 +163,12 @@ class DecisionRecord(BaseModel):
 def read_decision_record(
     payload: Mapping[str, Any], *, disposition: str | None, granted_on: date | None
 ) -> DecisionRecord:
-    """Both readings off one docket payload — the single entry point both writers call."""
-    if granted_on is None:
+    """Both readings off one docket payload — the single entry point both writers call.
+
+    Empty unless the docket carries a grant date **and** a granted label, the
+    population every reader of the columns (the back-fill, the census) keys on.
+    """
+    if granted_on is None or disposition not in _GRANTED_VALUES:
         return DecisionRecord()
     argued = argued_date(payload, granted_on=granted_on)
     method = decision_method(

@@ -1177,9 +1177,12 @@ or network.
      [live-sources.md](live-sources.md) has the entry shapes). Nothing above
      reads them: detection, the mint, the forecastable gate and provisioning
      key on the merits pair and `merits_terminated` alone, and both columns are
-     withheld from the `query` rows a cell retrieves. They are the stat-pack
-     record — `fedcourts decision-census` counts them per October Term — and
-     `backfill-decision-record` fills the rows polled before they existed.
+     withheld from the `query` rows a cell retrieves. They are where the
+     historical merits decision record lives — corpus-side, on the case row,
+     with no merits event or outcome minted in the ledger for a case the
+     pipeline never forecast — and `fedcourts decision-census` counts them per
+     October Term; `backfill-decision-record` fills a stored row whose columns
+     are null.
 
      An event pinned to one docket entry is never a claimant of its stage's
      disposition: it resolves on its own filing's terms, so an application

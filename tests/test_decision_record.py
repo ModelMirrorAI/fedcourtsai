@@ -82,7 +82,13 @@ _EQUALLY_DIVIDED = (
     "Adjudged to be AFFIRMED by an equally divided Court. Justice Barrett took no part "
     + "in the consideration or decision of these cases. "
     + _PC_LINK
-    + " per curiam. VIDED."
+    + " per curiam."
+)
+# A separate writing recited as a Justice delivering an opinion, beside the
+# Court's own per curiam notation: the notation decides.
+_PER_CURIAM_WITH_A_WRITING = (
+    "Judgment REVERSED. Sotomayor, J., delivered an opinion dissenting from the "
+    + "judgment. Opinion per curiam."
 )
 _ARGUED_PER_CURIAM = (
     "Judgment REVERSED. The mandate shall issue forthwith. "
@@ -198,7 +204,7 @@ def _entry(judgment: Judgment, decided: date | None, text: str) -> JudgmentEntry
             _entry(
                 Judgment.equally_divided,
                 _DECIDED,
-                "Adjudged to be AFFIRMED by an equally divided Court.",
+                _EQUALLY_DIVIDED,
             ),
             MeritsDecisionMethod.argued_per_curiam,
         ),
@@ -237,6 +243,21 @@ def _entry(judgment: Judgment, decided: date | None, text: str) -> JudgmentEntry
             "summary-reversal",
             None,
             _entry(Judgment.reversed, _GRANT, _SUMMARY_REVERSAL),
+            MeritsDecisionMethod.summary_opinion,
+        ),
+        (
+            "granted",
+            _ARGUED,
+            _entry(Judgment.reversed, _DECIDED, _PER_CURIAM_WITH_A_WRITING),
+            MeritsDecisionMethod.argued_per_curiam,
+        ),
+        # A signed opinion with no argument entry: the argument was missed, not skipped.
+        ("granted", None, _entry(Judgment.reversed, _DECIDED, _SIGNED), None),
+        # Unargued after the grant, per curiam: a summary decision with an opinion.
+        (
+            "granted",
+            None,
+            _entry(Judgment.reversed, _DECIDED, _ARGUED_PER_CURIAM),
             MeritsDecisionMethod.summary_opinion,
         ),
         # Argued, but the entry recites no opinion form: left unclassified.
@@ -305,6 +326,11 @@ def test_the_live_channel_classifies_a_gvr_the_merits_pair_never_reaches() -> No
     assert record["merits_decision_method"] == "summary-order"
 
 
+def test_a_grant_date_without_a_granted_label_reads_nothing() -> None:
+    payload = _live(("Apr 07 2025", "Petition GRANTED."), ("Oct 14 2025", "Argued."))
+    assert read_decision_record(payload, disposition="denied", granted_on=_GRANT).argued is None
+
+
 def test_an_ungranted_docket_carries_no_decision_record() -> None:
     record = map_live_docket(_live(("Dec 10 2024", "Petition for a writ of certiorari filed.")), 1)
     assert record["merits_argued"] is None
@@ -364,7 +390,7 @@ def test_the_upsert_fills_in_and_never_clears(tmp_path: Path) -> None:
 
 
 def test_the_decision_record_never_reaches_the_retrieval_surface() -> None:
-    """The query rows a cell retrieves are exactly what they were before the columns."""
+    """A query row a cell retrieves carries no decision-record column."""
     row = _row(merits_argued=_ARGUED, merits_decision_method="argued-signed")
     withheld = {"merits_argued", "merits_decision_method"}
     assert withheld == corpus.RETRIEVAL_WITHHELD_COLUMNS

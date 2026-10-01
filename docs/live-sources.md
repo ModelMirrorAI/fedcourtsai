@@ -200,10 +200,11 @@ grants (a cert-order label, or a judgment dated on the grant) is
 it does not, the ordinary GVR — whose "(per curiam)" is a citation of another
 case's opinion, not one of its own; and a DIG is `dig`, argued or not. Both
 columns fill-in latch, so a degraded payload keeps the stored reading while a
-reargument or a fresh decision takes over. Rows polled before the columns
-existed are filled by `backfill-decision-record` from their newest stored live
-snapshot, and neither column reaches a cell: both are withheld from the `query`
-retrieval rows ([corpus/README.md](../corpus/README.md)).
+reargument or a fresh decision takes over. A stored row whose columns are null
+is read from its newest stored live snapshot by `backfill-decision-record`,
+which never overwrites; its dry run runs from a dev checkout, and no writer
+lane runs its apply. Neither column reaches a cell: both are withheld from the
+`query` retrieval rows ([corpus/README.md](../corpus/README.md)).
 
 ## Documents: from metadata to content
 

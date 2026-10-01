@@ -3675,8 +3675,8 @@ def backfill_decision_record_cmd(
     (argued and signed, argued per curiam, summary with an opinion, summary
     order, or DIG), read from the last judgment-shaped entry
     (`pipeline/decision_record.py`). The live poll writes both at ingest; this
-    pass fills the rows polled before the columns existed, re-reading the newest
-    stored live-shaped snapshot with the same functions rather than re-fetching.
+    pass fills a stored row whose columns are null, re-reading the newest stored
+    live-shaped snapshot with the same functions rather than re-fetching.
 
     The candidates are the granted rows whose method is unclassified and that
     are not known to have terminated, so the pending docket stays a candidate

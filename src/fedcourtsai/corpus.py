@@ -3286,8 +3286,8 @@ def opinion_body(row: CorpusRow) -> str | None:
 #: reads it — and no registered process has admitted it to what a predict or
 #: evaluate cell retrieves. A column added to the rows a cell retrieves changes a
 #: frozen process's inputs without moving its digest, which is the one kind of
-#: process change the digest cannot see. Withholding them here keeps every cell's view of a
-#: prior exactly what it was before the columns existed, and keeps the replay
+#: process change the digest cannot see. Withholding them here means a ``query``
+#: row carries no decision-record column at all, and keeps the replay
 #: clock (:func:`_mask_post_clock_merits`) from having to learn to hide a new
 #: post-clock fact. A process change that wants the argued date in front of a
 #: cell admits it by removing it from this set, under its own re-bless.
