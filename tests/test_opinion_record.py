@@ -12,14 +12,17 @@ import json
 import sqlite3
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
+from typer.testing import CliRunner
 
 from fedcourtsai import corpus
+from fedcourtsai.cli import app
 from fedcourtsai.pipeline import opinion_record
 from fedcourtsai.pipeline.lineup import Join, Writing, WritingKind
-from fedcourtsai.pipeline.opinion_lineups import OpinionListing
+from fedcourtsai.pipeline.opinion_lineups import OpinionFetcher, OpinionListing
 from fedcourtsai.pipeline.opinion_record import (
     OpinionDocumentReading,
     OpinionEntry,
@@ -258,6 +261,30 @@ def test_the_print_splits_mid_page_and_drops_the_amicus_note() -> None:
     assert dissent.words == 9 + 3 + 4
 
 
+def test_footnote_1_on_an_opening_page_is_assigned_by_count() -> None:
+    """Numbering restarts per opinion, so a page's 1s go to the opinions by count."""
+    pages = [
+        _page(
+            ("Justice Kagan delivered the opinion of the Court.", BODY),
+            ("It is so ordered.", BODY),
+            ("Justice Alito, concurring.", BODY),
+            ("I agree. 1 Mostly.", BODY),
+            ("1 The concurrence's note.", MARK),
+        ),
+    ]
+    # A footnote-free lead and a concurrence opening with footnote 1: the concurrence's.
+    sections, problems = split_print([[_FILLER], *pages], bench=BENCH)
+    assert problems == []
+    lead, concurrence = sections
+    assert lead.footnote_words == 0
+    assert concurrence.footnote_words == 3
+
+    # Two 1s and one opening: the first is the lead's own first note.
+    pages[0].append(PrintLine("1 The second note here.", MARK))
+    sections, _ = split_print([[_FILLER], *pages], bench=BENCH)
+    assert sections[0].footnote_words == 3 and sections[1].footnote_words == 4
+
+
 def test_a_print_note_continues_across_pages() -> None:
     pages = [
         _page(
@@ -368,7 +395,7 @@ def _corpus(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return path
 
 
-def test_the_dry_run_writes_nothing_and_reads_a_missing_table_as_empty(tmp_path: Path) -> None:
+def test_a_blob_without_the_table_reads_as_an_empty_record(tmp_path: Path) -> None:
     path = tmp_path / "legacy.db"
     raw = sqlite3.connect(path)
     raw.execute("CREATE TABLE cases (case_id TEXT, court TEXT, docket_number TEXT)")
@@ -487,3 +514,73 @@ def test_only_the_record_s_own_modules_touch_the_table() -> None:
                 if any(f"{verb} opinions" in text for verb in ("from", "into", "table", "update")):
                     touching.add(str(path.relative_to(root)))
     assert touching <= allowed, touching - allowed
+
+
+def test_an_apply_without_a_writer_is_a_caller_error(_corpus: Path) -> None:
+    with corpus.connect(_corpus) as conn, pytest.raises(ValueError, match="writer"):
+        build_opinion_record(conn, _Fetcher([]), terms=[2025], apply=True, max_rows=1)
+
+
+def test_the_docket_filter_reads_an_original_action(_corpus: Path) -> None:
+    fetcher = _Fetcher([_listing("D1", "141, Orig."), _listing("1", "25-1")])
+    with corpus.connect(_corpus) as conn:
+        result = build_opinion_record(conn, fetcher, terms=[2025], dockets=["141, Orig."])
+    assert [r.listing_number for r in result.readings] == ["D1"]
+
+
+# --- the command ---------------------------------------------------------------------
+
+runner = CliRunner()
+
+
+def _cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *args: str) -> Any:
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    return runner.invoke(app, ["backfill-opinion-record", *args])
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (("--apply",), "requires an explicit --max-rows"),
+        (("--apply", "--max-rows", "5", "--cache-dir", "x"), "dev cache"),
+        (("--first-term", "2025", "--last-term", "2024"), "must not exceed"),
+    ],
+)
+def test_the_command_refuses_misuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, args: tuple[str, ...], message: str
+) -> None:
+    result = _cli(tmp_path, monkeypatch, *args)
+    assert result.exit_code == 2
+    assert message in " ".join(result.output.split())
+
+
+def test_the_command_fails_loud_when_the_corpus_is_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _cli(tmp_path, monkeypatch)
+    assert result.exit_code == 1
+    assert "corpus database is missing" in " ".join(result.output.split())
+
+
+def test_the_dry_run_leaves_the_blob_byte_identical(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A blob written before the table existed is read, not migrated."""
+    path = corpus.corpus_db_path(tmp_path / "corpus")
+    path.parent.mkdir(parents=True)
+    raw = sqlite3.connect(path)
+    raw.execute("CREATE TABLE cases (case_id TEXT, court TEXT, docket_number TEXT)")
+    raw.execute("INSERT INTO cases VALUES ('scotus/1', 'scotus', '25-1')")
+    raw.commit()
+    raw.close()
+    before = path.read_bytes()
+    monkeypatch.setattr(OpinionFetcher, "listing", lambda self, term: [_listing("1", "25-1")])
+    monkeypatch.setattr(OpinionFetcher, "opinion", lambda self, url: b"%PDF")
+    monkeypatch.setattr(opinion_record, "read_document", _reading)
+    result = _cli(tmp_path, monkeypatch)
+    assert result.exit_code == 0, result.output
+    assert path.read_bytes() == before
+    readings = json.loads(result.stdout)
+    assert readings[0]["case_id"] == "scotus/1"
+    assert "would insert 2 opinion row(s)" in result.output

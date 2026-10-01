@@ -2098,7 +2098,24 @@ def scotus_case_id_by_docket_number(conn: sqlite3.Connection, raw: str | None) -
     norm = normalize_docket_number(raw)
     if norm is None:
         return None
-    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) = ?", norm).get(norm)
+    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) = ?", (norm,)).get(norm)
+
+
+def scotus_case_ids_by_docket_numbers(
+    conn: ReadConnection, raws: Iterable[str | None]
+) -> dict[str, str]:
+    """:func:`scotus_case_id_by_docket_number` for many numbers, in one walk of the SCOTUS rows.
+
+    Keyed by the normalized number (:func:`normalize_docket_number`), with the
+    same lowest-docket-id rule. ``conn`` must carry the ``norm_dn`` function,
+    which :func:`connect` registers and a caller's own read-only connection
+    registers itself.
+    """
+    wanted = sorted({n for raw in raws if (n := normalize_docket_number(raw)) is not None})
+    if not wanted:
+        return {}
+    marks = ",".join("?" for _ in wanted)
+    return _scotus_docket_number_matches(conn, f"norm_dn(docket_number) IN ({marks})", wanted)
 
 
 def scotus_case_ids_by_docket_number_prefix(
@@ -2114,17 +2131,17 @@ def scotus_case_ids_by_docket_number_prefix(
     """
     if any(char in prefix for char in "*?[]"):
         raise ValueError(f"not a plain docket-number prefix: {prefix!r}")
-    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) GLOB ?", f"{prefix}*")
+    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) GLOB ?", (f"{prefix}*",))
 
 
 def _scotus_docket_number_matches(
-    conn: sqlite3.Connection, predicate: str, parameter: str
+    conn: ReadConnection, predicate: str, parameters: Sequence[object]
 ) -> dict[str, str]:
     """Normalized docket number -> the lowest-docket-id SCOTUS row matching ``predicate``."""
     cur = conn.execute(
         "SELECT norm_dn(docket_number) AS norm, case_id FROM cases "
         f"WHERE court = 'scotus' AND {predicate}",
-        (parameter,),
+        tuple(parameters),
     )
     best: dict[str, str] = {}
     for record in cur:

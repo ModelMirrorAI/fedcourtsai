@@ -318,7 +318,10 @@ writing, read from the documents the Court's per-Term opinions listing links
 a historical record held corpus-side; no outcome is written to the git ledger
 for a case the pipeline never forecast. Written only by
 `fedcourts backfill-opinion-record`, which is fill-only: a document is recorded
-whole or not at all, and a recorded row is never changed. The table is read by no `query`
+whole or not at all, and a recorded row is never changed. So a new version of
+the counting rule or of a reader reaches stored rows only through a pass built
+to replace them, which does not exist yet; `word_rule` and `lineup` say which
+version each row was read under. The table is read by no `query`
 retrieval row, provisioning step, outcome, mint or scoring gate, so nothing a
 predict or evaluate cell sees includes it; a test pins which modules may name
 it. It is metadata, not payload, so it stays in the index blob under the
@@ -332,7 +335,7 @@ and the word-counting rule are in [docs/data-sources.md](../docs/data-sources.md
 | `position`       | integer (PK)  | the opinion's order in the document, from 1 |
 | `docket`         | text          | the listing's docket cell as printed |
 | `dockets`        | text (JSON)   | every docket number in that cell; the listing prints only a consolidated case's lead docket |
-| `case_id`        | text          | the corpus case row of the first docket, where exactly one row carries that number; null otherwise |
+| `case_id`        | text          | the corpus case row of the first docket, by the corpus's docket-number reconciliation (`norm_dn`; the lowest docket id where two rows match), as of the read; null where no row carries it. A convenience link: the dedupe pass does not re-point it, and the listing key is the row's identity |
 | `case_name`      | text          | as the listing prints it |
 | `decided`        | date          | the listing's decision date |
 | `argued`         | date          | the syllabus's printed argument date (the latest); null for a per curiam or where none is printed |

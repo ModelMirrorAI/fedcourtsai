@@ -65,6 +65,11 @@ page and footnotes are told from body text by their smaller type.
 bound volume (the Terms before OT2020 on the Court's listings) is refused, as
 is any document whose text does not extract.
 
+**Fill-only.** A recorded document is never read again, so a new
+:data:`WORD_RULE_VERSION` or reader version reaches stored rows only through a
+pass built to replace them, which does not exist yet; each row says which
+versions it was read under.
+
 **Nothing a cell sees reads this.** The table is read by no ``query``
 retrieval row, provisioning step, outcome, mint or scoring gate.
 """
@@ -100,7 +105,7 @@ from .syllabus_lineup import writing_kind
 
 #: The word-count rule's name, stamped on every recorded opinion.
 WORD_RULE: Final = "scotus-opinion-words"
-#: Bump whenever the same document could count differently.
+#: Bump whenever the same document could count differently (stored rows keep theirs).
 WORD_RULE_VERSION: Final = 1
 #: The opinion-header reader's stamp, on a per curiam's writings.
 HEADER_READER: Final = "scotus-opinion-headers"
@@ -283,7 +288,7 @@ class Section:
         return count_words("\n".join(self.notes))
 
 
-_FRONT_NOTE_RE = re.compile(r"\bamic(?:us|i)\b|\bbriefs?\b|\btogether\s+with\b", re.I)
+_FRONT_NOTE_RE = re.compile(r"\bamic(?:us|i)\b|\btogether\s+with\b", re.I)
 _SYMBOL_MARK_RE = re.compile(r"^\s*([*†‡]+)\s*(?=\S)")
 _NUMBER_MARK_RE = re.compile(r"^\s*(\d{1,3})\s+(?=\S)")
 
@@ -293,19 +298,28 @@ class _Notes:
     """Assigns one page's footnote lines to sections, dropping front-matter notes.
 
     A note opens at a line beginning with a symbol mark (``*``, ``†``) or with
-    the next expected number of the section it belongs to; a ``1`` opens the
-    first note of the next opinion begun on the page. Lines before the page's
-    first mark continue the previous page's last note. A symbol-marked note
-    about amicus briefs or consolidated cases is the caption's, not an
-    opinion's, and is dropped with its continuations.
+    the next expected number of the section it belongs to. Numbering restarts
+    with each opinion, so the notes numbered 1 on a page where opinions open
+    are assigned by count: when the previous opinion already has notes, each
+    opens the next opened opinion's; when it has none, those beyond one per
+    opened opinion are the previous opinion's, taken first. The residue this
+    cannot tell apart — a previous opinion whose first note falls on its last
+    page, beside an opened opinion with no note on that page — is stated in
+    the rule rather than detected. Lines before the page's first mark continue
+    the previous page's last note. A symbol-marked note about amicus briefs or
+    consolidated cases is the caption's, not an opinion's, and is dropped with
+    its continuations.
     """
 
     dropping: bool = False
+    problems: list[str] = field(default_factory=list)
 
     def assign(self, lines: Iterable[str], current: Section | None, starts: list[Section]) -> None:
         pending = list(starts)
         target = current if current is not None else (pending.pop(0) if pending else None)
-        for raw in lines:
+        page = [line for line in lines if line.strip()]
+        ones = sum(1 for line in page if (m := _NUMBER_MARK_RE.match(line)) and m.group(1) == "1")
+        for raw in page:
             if not raw.strip():
                 continue
             line = raw
@@ -318,8 +332,10 @@ class _Notes:
                 line = line[symbol.end() :]
             elif number is not None and target is not None:
                 value = int(number.group(1))
-                if value == 1 and pending and target.next_note > 1:
-                    target = pending.pop(0)
+                if value == 1:
+                    if pending and (target.next_note > 1 or ones <= len(pending)):
+                        target = pending.pop(0)
+                    ones -= 1
                 if value == target.next_note:
                     target.next_note += 1
                     self.dropping = False
@@ -372,7 +388,6 @@ def split_slip(pages: Sequence[str], *, bench: Sequence[str]) -> tuple[list[Sect
     for index, page in enumerate(pages):
         lines = page.splitlines()
         start = _caption_end(lines)
-        opened: list[Section] = []
         if start is not None:
             content = lines[start:]
             first = "\n".join(line for line in content[:_HEADER_LINES] if line.strip())
@@ -380,9 +395,7 @@ def split_slip(pages: Sequence[str], *, bench: Sequence[str]) -> tuple[list[Sect
             if header is None:
                 problems.append(f"page {index + 1}: an opinion opens with an unread header")
                 header = Header(" ".join(first.split())[:120], None, ())
-            section = Section(header)
-            sections.append(section)
-            opened.append(section)
+            sections.append(Section(header))
         elif not sections:
             continue
         else:
@@ -392,7 +405,7 @@ def split_slip(pages: Sequence[str], *, bench: Sequence[str]) -> tuple[list[Sect
         sections[-1].body.extend(line for line in body if line.strip())
         if rule is not None:
             notes.assign(content[rule + 1 :], sections[-1], [])
-    return sections, problems
+    return sections, [*problems, *notes.problems]
 
 
 # --- the preliminary print ------------------------------------------------------
@@ -515,7 +528,7 @@ def split_print(
             if sections:
                 sections[-1].body.append(line.text)
         notes.assign((line.text for line in small), current, opened)
-    return sections, []
+    return sections, notes.problems
 
 
 # --- reading a document ------------------------------------------------------------
@@ -779,25 +792,22 @@ def recorded_documents(conn: corpus.ReadConnection) -> set[tuple[int, str]]:
     """
     try:
         rows = conn.execute("SELECT DISTINCT term, listing_number FROM opinions").fetchall()
-    except sqlite3.OperationalError:
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc):
+            raise
         return set()
     return {_row_key(int(row[0]), str(row[1])) for row in rows}
 
 
 def case_ids_by_docket(conn: corpus.ReadConnection, dockets: Iterable[str]) -> dict[str, str]:
-    """The SCOTUS case id of each docket number, where exactly one row carries it."""
-    wanted = sorted(set(dockets))
-    found: dict[str, list[str]] = {}
-    for start in range(0, len(wanted), 500):
-        chunk = wanted[start : start + 500]
-        marks = ",".join("?" for _ in chunk)
-        for row in conn.execute(
-            f"SELECT case_id, docket_number FROM cases WHERE court = 'scotus' "
-            f"AND docket_number IN ({marks})",
-            chunk,
-        ):
-            found.setdefault(str(row[1]), []).append(str(row[0]))
-    return {docket: ids[0] for docket, ids in found.items() if len(ids) == 1}
+    """The SCOTUS case id of each docket number, keyed by its normalized form.
+
+    The corpus's own reconciliation rule
+    (:func:`~fedcourtsai.corpus.scotus_case_ids_by_docket_numbers`): numbers
+    compare after ``norm_dn`` normalization, and where two rows carry one
+    number the lowest docket id wins.
+    """
+    return corpus.scotus_case_ids_by_docket_numbers(conn, dockets)
 
 
 class OpinionRecordResult(BaseModel):
@@ -813,14 +823,14 @@ class OpinionRecordResult(BaseModel):
     )
     readings: list[OpinionDocumentReading] = Field(default_factory=list)
     rows: int = Field(default=0, ge=0, description="Opinion rows the read documents yield")
+    inserted: int = Field(
+        default=0, ge=0, description="Rows the apply actually inserted (0 on a dry run)"
+    )
     refused: bool = Field(
         default=False,
         description="Apply was asked for but the rows exceed the bound; nothing written",
     )
     failures: list[str] = Field(default_factory=list, description="Listings that could not be read")
-
-    def counts(self) -> dict[str, int]:
-        return dict(Counter(r.status for r in self.readings))
 
 
 def build_opinion_record(
@@ -831,7 +841,7 @@ def build_opinion_record(
     dockets: Sequence[str] = (),
     apply: bool = False,
     max_rows: int | None = None,
-    write: Callable[[list[tuple[OpinionDocumentReading, OpinionEntry]]], object] | None = None,
+    write: Callable[[list[tuple[OpinionDocumentReading, OpinionEntry]]], int] | None = None,
 ) -> OpinionRecordResult:
     """Read every unrecorded listing row of ``terms`` into the per-opinion record.
 
@@ -839,11 +849,18 @@ def build_opinion_record(
     fetched again, and nothing stored is ever changed. ``max_rows`` bounds an
     apply by the opinion rows it would insert; over it nothing is written and
     ``refused`` is set. ``write`` performs the insert (the caller's writable
-    connection); a dry run never calls it.
+    connection) and returns the rows it wrote; a dry run never calls it, and an
+    apply without it is a caller error.
+
+    A recorded document is never read again, whatever the counting rule or
+    reader version it was recorded under: a version bump reaches stored rows
+    only through a pass built to replace them, which does not exist yet.
     """
+    if apply and write is None:
+        raise ValueError("an apply needs a writer")
     result = OpinionRecordResult(applied=apply, terms=list(terms))
     done = recorded_documents(conn)
-    wanted = {d.strip().upper() for d in dockets if d.strip()}
+    wanted = {n for d in dockets if (n := corpus.normalize_docket_number(d)) is not None}
     for term in terms:
         try:
             listing = fetcher.listing(term % 100)
@@ -851,7 +868,8 @@ def build_opinion_record(
             result.failures.append(f"OT{term}: the opinions listing could not be read: {exc}")
             continue
         for entry in listing:
-            if wanted and not wanted & set(listed_dockets(entry)):
+            printed = {corpus.normalize_docket_number(d) for d in listed_dockets(entry)}
+            if wanted and not wanted & printed:
                 continue
             result.listed += 1
             if _row_key(term, entry.number) in done:
@@ -861,7 +879,7 @@ def build_opinion_record(
     ids = case_ids_by_docket(conn, (r.dockets[0] for r in result.readings if r.dockets))
     for reading in result.readings:
         if reading.dockets:
-            reading.case_id = ids.get(reading.dockets[0])
+            reading.case_id = ids.get(corpus.normalize_docket_number(reading.dockets[0]) or "")
     pairs = [(r, o) for r in result.readings if r.status == "read" for o in r.opinions]
     result.rows = len(pairs)
     if not apply:
@@ -871,7 +889,7 @@ def build_opinion_record(
         result.applied = False
         return result
     if write is not None and pairs:
-        write(pairs)
+        result.inserted = write(pairs)
     return result
 
 

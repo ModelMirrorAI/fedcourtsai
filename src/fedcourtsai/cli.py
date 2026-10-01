@@ -3906,6 +3906,7 @@ def backfill_opinion_record_cmd(  # noqa: PLR0912 - one refusal per documented m
         else:
             ro = sqlite3.connect(f"file:{quote(str(db_path.resolve()))}?mode=ro", uri=True)
             ro.row_factory = sqlite3.Row
+            ro.create_function("norm_dn", 1, corpus.normalize_docket_number, deterministic=True)
             try:
                 result = opinion_record.build_opinion_record(
                     ro, fetcher, terms=terms, dockets=dockets
@@ -3924,11 +3925,14 @@ def backfill_opinion_record_cmd(  # noqa: PLR0912 - one refusal per documented m
             f"({opinions} opinions), {counts['refused']} refused, {counts['skipped']} skipped",
             err=True,
         )
-    verb = "inserted" if result.applied else "would insert"
+    done = (
+        f"inserted {result.inserted} of {result.rows}"
+        if result.applied
+        else f"would insert {result.rows}"
+    )
     typer.echo(
         f"backfill-opinion-record ({'applied' if result.applied else 'dry-run'}): "
-        f"{verb} {result.rows} opinion row(s); {result.already_recorded} listing row(s) "
-        "already recorded",
+        f"{done} opinion row(s); {result.already_recorded} listing row(s) already recorded",
         err=True,
     )
     if result.refused:
