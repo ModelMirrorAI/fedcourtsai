@@ -1182,7 +1182,11 @@ or network.
      with no outcome written to the git ledger for a case the pipeline never
      forecast, so the ledger holds only what was forecast — and `fedcourts decision-census` counts them per
      October Term; `backfill-decision-record` fills a stored row whose columns
-     are null.
+     are null. The per-opinion half of that record — each opinion's kind,
+     author, joiners and word count — is the corpus `opinions` table
+     ([corpus/README.md](../corpus/README.md)), built by
+     `backfill-opinion-record` from the Court's opinions and held corpus-side
+     on the same terms.
 
      An event pinned to one docket entry is never a claimant of its stage's
      disposition: it resolves on its own filing's terms, so an application

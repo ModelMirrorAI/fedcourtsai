@@ -42,8 +42,9 @@ sentence to the next opinion's header or the end of the document:
   ``footnote_words`` reports their share;
 - **excluded**: the syllabus or headnote, the caption (court, docket number,
   parties, the writ, the bracketed date), the preliminary print's counsel
-  listing and its amicus-brief and "Together with" notes, running heads and
-  page numbers, and the print's "Page Proof Pending Publication" watermark;
+  listing, its amicus-brief and "Together with" notes and its closing
+  Reporter's Note, running heads and page numbers, and the print's "Page
+  Proof Pending Publication" watermark;
 - **tokens**: a hyphen ending a line is closed up, so a word broken across
   lines counts once; the text then splits on whitespace and on the em dash,
   and a token counts when it holds at least one letter or digit. So a
@@ -64,8 +65,9 @@ in plain mode (its layout mode letter-spaces), where opinions run on within a
 page and footnotes are told from body text by their smaller type.
 
 **Not read.** A listing row linked into a whole preliminary-print or
-bound volume (the Terms before OT2020 on the Court's listings) is refused, as
-is any document whose text does not extract.
+bound volume (every row before OT2020 on the Court's listings, and some of
+OT2020's) is skipped unfetched; a document whose text does not extract is
+refused.
 
 **Fill-only.** A recorded document is never read again, so a new
 :data:`WORD_RULE_VERSION` or reader version reaches stored rows only through a

@@ -167,8 +167,8 @@ held corpus-side and read by nothing a predict or evaluate cell sees.
   a header. A signed document is recorded only when the split agrees with
   its syllabus: the same number of opinions, in the same order, each header
   naming the same author or authors and a compatible kind, each separate
-  writing's header naming the same joiners, and no header-shaped line left
-  inside an opinion. A lead's header prints no joiners, so the lead's rest on
+  writing's header naming the same joiners, and no separate writing's header
+  left inside an opinion. A lead's header prints no joiners, so the lead's rest on
   the syllabus alone. Anything else refuses the whole document with the
   reason. Refusals come from a syllabus the grammar cannot read whole (it
   does not read "concurring in part" without "the judgment", or a join
@@ -222,7 +222,8 @@ held corpus-side and read by nothing a predict or evaluate cell sees.
     preliminary print in plain mode, since its layout mode letter-spaces,
     with footnotes told from body text by their smaller type.
 - **Checked against.** SCOTUSblog's *Final Stat Pack for the 2025-26 Term*
-  (updated 2026-07-06) was compared with a dry run over OT2025, as a check
+  (updated 2026-07-06; its figures are quoted here, with attribution, for
+  comparison only) was compared with a dry run over OT2025, as a check
   only: nothing from it is stored. The dry run recorded 63 of the 66
   decisions the stat pack covers (Pung, Postal Service v. Konan and Barrett
   v. United States were refused; Texas v. New Mexico, which the pack does

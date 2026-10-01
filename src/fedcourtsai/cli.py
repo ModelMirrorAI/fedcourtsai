@@ -3850,8 +3850,8 @@ def backfill_opinion_record_cmd(  # noqa: PLR0912 - one refusal per documented m
     ``--apply`` refuses above ``--max-rows``, which counts the opinion rows it
     would insert; the apply half belongs to a writer lane, which holds the
     corpus-write credentials. Nothing a predict or evaluate cell sees reads the
-    table. Prints one JSON reading per listing row on stdout and a per-Term
-    count on stderr. Fails loud if the corpus is absent.
+    table. Prints the readings of the unrecorded listing rows as one JSON array
+    on stdout and a per-Term count on stderr. Fails loud if the corpus is absent.
     """
     if first_term > last_term:
         typer.echo("backfill-opinion-record: --first-term must not exceed --last-term.", err=True)
