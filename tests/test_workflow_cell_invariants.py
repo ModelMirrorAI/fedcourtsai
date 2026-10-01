@@ -4554,6 +4554,9 @@ def test_the_opinion_record_holds_the_lock_and_write_credentials_on_an_apply_onl
     job = _load("run-repair.yml")["jobs"]["opinion-record"]
     group = _norm(str(job["concurrency"]["group"]))
     assert "inputs.repair_mode == 'apply' && 'corpus-write'" in group
+    assert "|| format('corpus-write-skip-{0}', github.run_id)" in group
+    assert job["permissions"] == {"contents": "read", "id-token": "write"}
+    assert job["environment"] == "prod"
     steps = _opinion_record_steps()
     names = [str(s.get("name", s.get("uses", ""))) for s in steps]
     build = names.index("Build the opinion record")
@@ -4621,10 +4624,19 @@ def test_the_opinion_record_build_holds_no_credential_and_pins_its_terms() -> No
     ):
         assert env.get(key) == "", f"{key} is not blanked on the build step"
     assert "GH_TOKEN" not in env
-    assert "FEDCOURTS_CORPUS_BASE_URL" not in env, "the build reaches no corpus remote"
+    assert "FEDCOURTS_CORPUS_BASE_URL" not in env, "the build is handed no corpus remote"
     run = str(build["run"])
     assert "AWS credential variables reached" in run
     assert "OIDC token minting is reachable" in run
+    # The parse's stderr carries pypdf warnings that can quote a fetched PDF,
+    # so workflow commands are suspended around the run and only the
+    # command's own ledger lines reach the summary.
+    invocation = run.index("uv run fedcourts backfill-opinion-record")
+    assert run.index('echo "::stop-commands::${stop_token}"') < invocation
+    assert run.index('echo "::${stop_token}::"') > invocation
+    summary_writes = [ln.strip() for ln in run.splitlines() if "GITHUB_STEP_SUMMARY" in ln]
+    assert summary_writes == ['>> "$GITHUB_STEP_SUMMARY" || true'], summary_writes
+    assert "grep -E '^(OT[0-9]{4}: |backfill-opinion-record)' \"$ledger\"" in run
     assert "--first-term 2020 --last-term 2025" in _norm(run)
     assert "--cache-dir" not in run, "an apply refuses the cache, and the dry run bounds it"
     push = by_name["Push the opinion-record corpus"]
