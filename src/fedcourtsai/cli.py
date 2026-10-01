@@ -3849,10 +3849,11 @@ def backfill_opinion_record_cmd(  # noqa: PLR0912 - one refusal per documented m
     nothing anywhere but the optional PDF cache. Fill-only and idempotent — a
     recorded document is never fetched again and no stored row is changed.
     ``--apply`` refuses above ``--max-rows``, which counts the opinion rows it
-    would insert; the apply half belongs to a writer lane, which holds the
-    corpus-write credentials. Nothing a predict or evaluate cell sees reads the
-    table. Prints the readings of the unrecorded listing rows as one JSON array
-    on stdout and a per-Term count on stderr. Fails loud if the corpus is absent.
+    would insert; the apply half belongs in run-repair's `opinion-record` pass,
+    which on an apply holds the corpus-write credentials. Nothing a predict or
+    evaluate cell sees reads the table. Prints the readings of the unrecorded
+    listing rows as one JSON array on stdout and a per-Term count on stderr.
+    Fails loud if the corpus is absent.
     """
     if first_term > last_term:
         typer.echo("backfill-opinion-record: --first-term must not exceed --last-term.", err=True)

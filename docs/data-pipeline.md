@@ -135,8 +135,8 @@ timeline ([live-sources.md](live-sources.md)).
 Three workflows carry five writer jobs over one corpus — `run-pull`'s **pull**,
 **live**, and dispatch-only **enrich**, `run-seed`'s **historical** walker, and
 `run-repair`'s dispatch-only **repair** bench (its corpus job, plus the
-application back-fill and decision-record jobs, which write the corpus on an
-apply only) —
+application back-fill, decision-record and opinion-record jobs, which write the
+corpus on an apply only) —
 differing on every axis that matters, while the shared `corpus-write` lock keeps
 at most one running at a time. Five is the count of jobs that write the
 *corpus*; run-repair carries two more writer jobs that write only the
@@ -498,9 +498,9 @@ touching the corpus: each commits to `main` on the same push path, so it
 serializes against the pointer commits rather than racing them. The vote
 writer joins it on an apply only: its dry run writes and pushes nothing, and
 holding the lock through a read-only fetch campaign would queue the scheduled
-windows behind it. The application back-fill and decision-record jobs, which
-do write the corpus, join it on an apply only for the same reason: a dry run
-reads and pushes nothing. Its selector-validation job is
+windows behind it. The application back-fill, decision-record and
+opinion-record jobs, which do write the corpus, join it on an apply only for
+the same reason: a dry run reads and pushes nothing. Its selector-validation job is
 deliberately outside the group — it holds no credential and writes nothing, so a
 malformed dispatch is refused in seconds instead of queuing behind a walk to be
 told about a typo — and **reset to
@@ -1189,8 +1189,8 @@ or network.
      are null, applied on run-repair's `decision-record` pass. The per-opinion
      half of that record — each opinion's kind, author, joiners and word count —
      is the corpus `opinions` table ([corpus/README.md](../corpus/README.md)),
-     built by `backfill-opinion-record` from the Court's opinions and held
-     corpus-side on the same terms.
+     built by `backfill-opinion-record` from the Court's opinions, applied on
+     run-repair's `opinion-record` pass, and held corpus-side on the same terms.
 
      An event pinned to one docket entry is never a claimant of its stage's
      disposition: it resolves on its own filing's terms, so an application
@@ -1266,11 +1266,11 @@ pass's ledger to the run summary and writes nothing, the maintainer reads the
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. Eight passes skip it: the distribution re-derivation, whose
+before the write. Nine passes skip it: the distribution re-derivation, whose
 plan *is* its write set, and the two fetching passes and the store mirror,
 whose apply ledgers already state the class they found before writing; the
-two vote-writer passes and the application back-fill, whose every run fetches
-from supremecourt.gov again, so a leading dry run would double the pass's
+two vote-writer passes, the application back-fill and the opinion record, whose
+every run fetches from supremecourt.gov again, so a leading dry run would double the pass's
 traffic to the Court's site for a ledger the apply prints anyway; and the
 decision-record back-fill, which runs in a job of its own where a receipt would
 be one more full read of the content store under the read-write session. (The
@@ -1328,6 +1328,7 @@ population and apply against another.
 | `order-votes` | `stamp-order-votes` | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `application-backfill` | `backfill-applications` | `--max-rows` (rows landed, onboarded and enriched together) | two-digit October Term, **required in both modes** | — |
 | `decision-record` | `backfill-decision-record` | `--max-fills` (rows filled, not the `candidates` denominator) | — | — |
+| `opinion-record` | `backfill-opinion-record` (Terms pinned in the step to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -1546,8 +1547,34 @@ token only after that step has exited, and blanks the AWS session and the OIDC
 request token on the commit step that holds it. It takes no dedupe prerequisite: both
 columns fill-in latch on the upsert path the merge writes through, so a reading
 landed on either half of a twin pair survives the merge, and nothing that gates
-a cell reads them. All five jobs commit straight to `main` on the writers'
-rebase-and-backoff push path.
+a cell reads them. `opinion-record` runs in a sixth job, on the same lock split
+with one further separation. The command fetches, parses and inserts in one
+process, and its apply refuses a PDF cache, so a dry run cannot hand the apply
+what it read; but the insert is a write to the *local* index, and the pass
+reads only the pulled index and the Court's site, never the content store. So
+its one build step runs in both modes with the read-only AWS session and the
+OIDC request token blanked, and checks both before it runs. On an apply it takes
+`corpus-write` for the whole job, assumes the read-write role only after the
+build step has exited, for a push step that parses nothing fetched, mints the
+App token only after the push, and blanks the AWS session and the OIDC request
+token on the commit step that holds it. That separates the parser from every
+credential in time, not by a process boundary, as with the vote stamper: the
+steps run as one user on one runner, so a compromised parse could leave
+something behind for any later step — the role assumption, the push, the App
+token mint — and what bounds it is what those steps hold. The step also
+suspends workflow commands while the command runs and copies only its own ledger
+lines to the run summary, since stderr carries the PDF reader's warnings. The
+Term range is pinned in the step to OT2020–OT2025, not spent on a dispatch input:
+OT2017–OT2019 are skipped by design, every listing row there linking into a
+whole volume, and a pinned range means the dry run and the apply it bounds read
+the same Terms. The apply holds the lock through the whole fetch campaign,
+about four seconds a document over some 380 documents, so a scheduled window
+arriving meanwhile queues, and a second arrival evicts the first from the queue.
+It takes no dedupe
+prerequisite: it writes only its own table, keyed by Term, listing number and
+position rather than by case row, and nothing that gates a cell reads it. All
+six jobs commit straight to `main` on the writers' rebase-and-backoff push
+path.
 
 **Ordering between passes is the maintainer's.** Three pairs matter. The
 distribution re-derivation must precede an overhang clear, never follow it in
@@ -1782,6 +1809,18 @@ gh workflow run run-repair.yml --ref main \
   -f repair=decision-record -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
   -f repair=decision-record -f repair_mode=apply -f repair_bound=<would fill N>
+
+# The opinion record reads OT2020–OT2025 (pinned in the step). Its apply
+# fetches every unrecorded document again and runs no dry run first, which
+# would double the pass's traffic to the Court's site. Its bound is the dry
+# run's "would insert N" — opinion rows, not documents. The readings, each
+# refusal's reason included, are in the step log; the summary carries the
+# per-Term counts. Re-dispatching in `dry-run` after the apply is the control:
+# it must report "would insert 0" (it re-fetches only the refused documents).
+gh workflow run run-repair.yml --ref main \
+  -f repair=opinion-record -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=opinion-record -f repair_mode=apply -f repair_bound=<would insert N>
 ```
 
 **After a pass that removes rows**, let the run's trailing verdict step finish.
