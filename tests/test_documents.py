@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import logging
 import threading
@@ -3023,6 +3024,27 @@ def _seed_text_coverage_corpus(corpus_root: Path) -> Path:
             ],
         )
     return db
+
+
+def test_document_text_coverage_reads_an_unmigrated_blob_without_changing_it(
+    tmp_path: Path,
+) -> None:
+    # `corpus-info --text-coverage` reads through a non-migrating connection, so
+    # a pulled blob that predates the code must still be read, column gaps and
+    # all, and must come out byte-identical.
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        conn.execute("ALTER TABLE cases DROP COLUMN capital_case")
+        conn.execute("ALTER TABLE documents DROP COLUMN ocr_derived")
+        conn.execute("DROP TABLE opinions")
+        conn.commit()
+    before = hashlib.sha256(db.read_bytes()).hexdigest()
+    with corpus.connect_readonly(db, backend="local", migrate=False) as conn:
+        coverage = document_text_coverage(conn, tmp_path / "data")
+    assert coverage.offloaded is False
+    assert coverage.kind_totals(KIND_PETITION) == (4, 2)
+    assert coverage.kind_totals(KIND_BRIEF_IN_OPPOSITION) == (2, 1)
+    assert hashlib.sha256(db.read_bytes()).hexdigest() == before
 
 
 def test_document_text_coverage_counts_empty_text_by_kind_and_segment(tmp_path: Path) -> None:

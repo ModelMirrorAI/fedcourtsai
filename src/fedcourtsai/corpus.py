@@ -1396,7 +1396,11 @@ class RecordRow(Protocol):
 
 @contextmanager
 def connect_readonly(
-    db_path: Path, *, backend: CorpusBackend | None = None, remote_url: str | None = None
+    db_path: Path,
+    *,
+    backend: CorpusBackend | None = None,
+    remote_url: str | None = None,
+    migrate: bool = True,
 ) -> Iterator[ReadConnection]:
     """Open the corpus for reading via the selected backend.
 
@@ -1405,6 +1409,12 @@ def connect_readonly(
     corpus remote (see :mod:`fedcourtsai.corpus_ranged`), resolving the
     committed ``.ref`` pointer next to ``db_path`` against the out-of-band
     remote URL. ``backend`` overrides the ``FEDCOURTS_CORPUS_BACKEND`` setting.
+    ``migrate=False`` opens the local file strictly read-only (SQLite
+    ``mode=ro``) and runs no schema migration, so the pulled blob's bytes stay
+    the ones its pointer names. It is for a caller that reads only columns every
+    blob carries, such as the ``corpus-info`` vintage report; a caller that reads
+    a column newer than the pulled blob keeps the default, which migrates the
+    local file in place.
     ``remote_url`` pins which remote the ranged read resolves against, for a
     caller whose source must not follow the ambient setting (the staging
     seeder); unset, the environment's value serves as ever.
@@ -1441,9 +1451,30 @@ def connect_readonly(
         pointer = resolve_read_pointer(db_path)
         with connect_ranged(pointer, effective_remote) as ranged:
             yield ranged
+    elif not migrate:
+        with connect_local_unmigrated(db_path) as conn:
+            yield conn
     else:
         with connect(db_path) as conn:
             yield conn
+
+
+@contextmanager
+def connect_local_unmigrated(db_path: Path) -> Iterator[sqlite3.Connection]:
+    """The pulled file opened read-only, with no schema created or migrated.
+
+    The one non-migrating local open: SQLite ``mode=ro`` refuses every write, so
+    the file's bytes stay the ones its pointer names. A reader on this
+    connection sees the blob as packed and must tolerate a column the blob
+    predates, as the ranged backend's readers already do.
+    """
+    conn = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    conn.create_function("norm_dn", 1, normalize_docket_number, deterministic=True)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def _to_record(row: CorpusRow) -> dict[str, object]:
@@ -1523,9 +1554,10 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
 def _optional_date(record: RecordRow, column: str) -> date | None:
     """Read a date column that a remote blob packed under an older schema lacks.
 
-    Local reads always see every column (``connect`` migrates on open), but the
-    ranged backend serves the remote blob as-is, and its ``Row`` raises for a
-    column the blob predates — treat that as unset rather than failing the row.
+    A default local read sees every column (``connect`` migrates on open), but
+    the ranged backend and a ``migrate=False`` local read serve the blob as-is,
+    and their ``Row`` raises for a column the blob predates — treat that as
+    unset rather than failing the row.
     """
     try:
         raw = record[column]
@@ -5063,10 +5095,11 @@ def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]
     if (source := _payload_read_source()) is not None:
         return source.documents_for_case(case_id)
     try:
-        # `SELECT *`, not the bound column list: local reads see every column
-        # (`connect` migrates on open), but the ranged backend serves the remote
-        # blob as-is, and naming a column the blob predates fails the whole read
-        # rather than the one field (see :func:`_optional_date`).
+        # `SELECT *`, not the bound column list: a default local read sees every
+        # column (`connect` migrates on open), but the ranged backend and a
+        # `migrate=False` local read serve the blob as-is, and naming a column
+        # the blob predates fails the whole read rather than the one field (see
+        # :func:`_optional_date`).
         cur = conn.execute(
             "SELECT * FROM documents WHERE case_id = ? ORDER BY kind",
             (case_id,),
