@@ -6168,22 +6168,30 @@ freeze commit is recorded here.
   cell's information set moved, and no counted `proc-v8` cell is affected.
   Forward `query` output is byte-identical: the same query without a clock
   printed the same bytes before and after the change. **Nor did the rest of a
-  prior's last-pull state.** Its `citations`, `citation_count`, `summary`,
-  `precedential_status`, `has_opinion` and `--full` opinion body, and
-  `merits_brief_filed` still reach a replay cell as stored, on both sides of
-  this change; the clock is not a full as-at-clock view of a prior.
+  prior's last-pull state.** Its other columns still reach a replay cell as
+  stored, on both sides of this change — among them `citations`,
+  `citation_count`, `summary`, `precedential_status`, `has_opinion` and the
+  `--full` opinion body, `merits_brief_filed`, and `date_decided`, which on a
+  granted SCOTUS prior is the termination at the merits judgment. The clock
+  is not a full as-at-clock view of a prior.
 
   **The reading rule.** Two cert back-test reports whose cells ran on either
   side of `<FILL: merge commit>` ran under different replay masks, even where
   their provenance blocks and `provenance.clocks` agree. Neither field can see
-  this change, so no series comparison spans the boundary. Every report
-  before it retrieved priors carrying their full current party and counsel
-  lists. That is post-clock information about the priors, mainly merits-stage
-  amicus interest, and never about the replayed petition itself. Its
-  direction on a score is not signed. After it, a replay cell sees no counsel
-  on any prior, which a forward cell does, so a replay figure understates the
-  same predictor's forward information set on this surface as it already does
-  on the snapshot.
+  this change, so no engine row's series spans the boundary. The always-deny
+  floor, a property of the labels, and the offline `prior-vote` row, which
+  votes on dispositions rather than counsel, are unaffected. Every report
+  before it could retrieve priors carrying their full current party and
+  counsel lists, wherever a cell ran a clocked `query` and the prior came from
+  the SCOTUS channel that fills them. That is post-clock information about
+  the priors, mainly merits-stage amicus interest, and never about the
+  replayed petition itself. Its direction on a score is not signed. After it,
+  a replay cell's `query` returns no counsel on any prior, which a forward
+  cell's does, so on that surface a replay figure understates the same
+  predictor's forward information set, as it already does on the snapshot.
+  Under the clock `[]` means masked, not "no counsel of record". The cell's
+  open-web and CourtListener tools reach a prior's current docket on both
+  sides of the change.
 
   The runnable effect check once it is live, from a dev checkout over a pulled
   corpus:

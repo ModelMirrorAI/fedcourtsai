@@ -3416,10 +3416,12 @@ def _mask_post_clock_merits(
 #: The party and counsel lists the replay clock empties on every prior it
 #: admits: each holds the row's *current* state with no date to test against
 #: the clock, and each carries the amicus grant oracle. This is not every
-#: last-pull column a prior carries — ``citations``, ``citation_count``,
-#: ``summary``, ``precedential_status``, ``has_opinion`` (and the opinion body
-#: under ``full``) and ``merits_brief_filed`` still reach a replay cell as
-#: stored — only the ones whose accrual is the amicus oracle. The SCOTUS
+#: last-pull column a prior carries — among those that still reach a replay
+#: cell as stored are ``citations``, ``citation_count``, ``summary``,
+#: ``precedential_status``, ``has_opinion`` (and the opinion body under
+#: ``full``), ``merits_brief_filed`` and ``date_decided`` (on a granted SCOTUS
+#: prior, the termination at the merits judgment) — only the ones whose
+#: accrual is the amicus oracle. The SCOTUS
 #: party and counsel blocks accrue over a docket's life — every third-party
 #: filing appends its counsel of record, and amici (``role=other``) pile onto a
 #: petition overwhelmingly after a grant — so a prior that resolved before the
@@ -3443,7 +3445,9 @@ def _mask_undated_accruals(row: CorpusRow) -> CorpusRow:
 
     Removal only, and unconditional under the clock, for the same reason
     ``merits_terminated`` is stripped unconditionally: nothing in the value can
-    prove it came first.
+    prove it came first. Under the clock ``[]`` therefore means *masked*, not
+    "no counsel of record", and a reader of a clocked row cannot tell the two
+    apart.
     """
     return row.model_copy(update={column: [] for column in REPLAY_MASKED_UNDATED_COLUMNS})
 

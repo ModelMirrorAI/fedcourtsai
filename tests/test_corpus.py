@@ -1286,9 +1286,8 @@ def test_replay_clock_masked_key_set_is_pinned(tmp_path: Path) -> None:
     # The whole set of `query` fields the replay clock rewrites, pinned: a
     # column joining or leaving it changes a replay cell's information set, so
     # it is a deliberate edit here (and a freeze-record entry), never a drift.
-    # The fixture fills every column that differs from its default — the
-    # last-pull outcome-bearing ones the clock does NOT mask included — so a
-    # change to either side of the line moves `changed`.
+    # The fixture fills the outcome-bearing last-pull columns the docs name as
+    # unmasked, so a mask joining or leaving any of them moves `changed`.
     assert frozenset({"counsel", "parties", "attorneys"}) == corpus.REPLAY_MASKED_UNDATED_COLUMNS
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:

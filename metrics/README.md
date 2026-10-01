@@ -1470,29 +1470,37 @@ the rendered table) and
 
   **The clock also screens what a retrieved prior carries, not only which
   priors return.** A prior's columns are its state at the last pull, not at
-  the clock, and on every prior a replay cell's `fedcourts query` admits,
-  some of them are withheld: the merits pair unless
-  `merits_decided` clears every bar the clock sets, `merits_terminated`
-  always, and the party and counsel lists (`counsel`, `parties`, `attorneys`)
-  always, emptied to `[]`. The lists go whole because no entry in them is
-  dated and they accrue after a grant (amici, overwhelmingly), the same
-  reason `redact_snapshot` strips the replayed petition's own party and counsel
-  blocks. **The mask is not complete.** A prior's other last-pull columns —
-  its own `citations`, `citation_count`, `summary`, `precedential_status`,
-  `has_opinion` and the opinion body under `--full`, `merits_brief_filed` —
-  still reach a replay cell as stored, so a prior granted before the clock
-  can still show, through them, that its merits stage later produced a
-  reported opinion. That is post-clock information about the prior, not the
-  petition, and it stands in every replay report. Read two consequences of
-  what is masked. A replay cell cannot see who appeared on a
-  prior, which a forward cell can, so a replay figure understates the same
-  predictor's forward information set here as it does on the snapshot. And a
-  report whose cells ran before the list mask reached `main` retrieved priors
-  carrying their full current lists, amicus entries filed after the clock
-  included — post-clock facts about the priors, never about the petition
-  itself — so the two sides ran on different information sets and no series
-  comparison spans that boundary, which `docs/freeze-record.md` dates.
-  Provenance agreement cannot see it.
+  the clock, and on every prior a clocked `fedcourts query` admits — every
+  query on the dated and truncated arms, which carry `REPLAY_CUTOFF`, and on
+  the blind arm the queries that pass `--decided-before` as the prompt asks —
+  some of them are withheld: the merits pair unless `merits_decided` clears
+  every bar the clock sets, `merits_terminated` always, and the party and
+  counsel lists (`counsel`, `parties`, `attorneys`) always, emptied to `[]`.
+  The lists go whole because no entry in them is dated and they accrue after
+  a grant (amici, overwhelmingly), the same reason `redact_snapshot` strips
+  the replayed petition's own party and counsel blocks. Under the clock `[]`
+  means masked, not "no counsel of record"; a cell cannot tell the two apart,
+  so nothing may be read from an empty list there. **The mask is not
+  complete.** A prior's other last-pull columns still reach a replay cell as
+  stored — among them its own `citations`, `citation_count`, `summary`,
+  `precedential_status`, `has_opinion` and the opinion body under `--full`,
+  `merits_brief_filed`, and `date_decided`, which on a granted SCOTUS prior
+  is the termination at the merits judgment — so a prior granted before the
+  clock can still show, through them, that its merits stage went on past it.
+  That is post-clock information about the prior, not the petition, and it
+  stands in every replay report. Read two consequences of what is masked. A
+  replay cell's `query` returns no counsel on any prior, which a forward
+  cell's does, so on that surface a replay figure understates the same
+  predictor's forward information set, as it does on the snapshot; the cell's
+  open-web and CourtListener tools still reach a prior's current docket either
+  way. And a report whose cells ran before the list mask reached `main` could
+  retrieve priors carrying their full current lists, amicus entries filed
+  after the clock included — post-clock facts about the priors, never about
+  the petition itself — so no **engine row's** series spans that boundary,
+  which `docs/freeze-record.md` dates. Provenance agreement cannot see it. The
+  always-deny floor (a property of the labels) and the offline `prior-vote`
+  row (which votes on dispositions, not counsel) are unaffected and compare
+  across it as before.
 
   Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A
