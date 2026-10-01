@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000434",
+  "run_id": "20261001T193134Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener search",
+    "courtlistener call_endpoint docket-entries",
+    "courtlistener get_endpoint_item clusters"
+  ],
+  "helpful": [
+    "The corpus's application rows carrying response_requested / referred_to_court / amicus_briefs, which let me read the escalation ladder across this Term's applications.",
+    "CourtListener RECAP docket entries for the originating district case, which disclosed the 12(b)(1) dismissal."
+  ],
+  "gaps": [
+    "fedcourts query has no case-name, docket-number or pro-se filter; locating this applicant's other dockets and the linked petition 26-153 meant scanning hundreds of rows (about 9 MB of ranged reads for the last scan alone).",
+    "The application PDF had no text layer (empty_text), and the pipeline offers no OCR fallback, so the applicant's own argument was unavailable.",
+    "A fee-class or pro se cut on the statpack's interim section would make the base rate far more informative for applications of this shape."
+  ],
+  "notes": "About 14 MCP calls and 8 corpus queries, within the advisory budget."
+}
