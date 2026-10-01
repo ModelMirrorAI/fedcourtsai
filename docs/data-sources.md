@@ -136,6 +136,119 @@ what and who joined it.
   every committed vote list to; the Granted & Noted cross-check; and the
   writer, *The vote writer* below.
 
+The same documents feed **the per-opinion record**, the corpus `opinions`
+table ([corpus/README.md](../corpus/README.md)) that `fedcourts
+backfill-opinion-record` builds (`pipeline/opinion_record.py`): one row per
+opinion in a decided case — its order in the document, kind, author, joiners
+and length — for the opinion-authorship and opinion-length figures a Term's
+statistics count per opinion rather than per case. It is a historical record,
+held corpus-side and read by nothing a predict or evaluate cell sees.
+
+- **Source and scope.** Every row of a Term's opinions listing, read through
+  the same client: the signed merits opinions, the per curiams (summary
+  reversals and argued per curiams alike), and the applications and original
+  actions the listing also carries. A row the listing links into a whole
+  preliminary-print or bound volume is skipped unfetched, which on the
+  Court's listings as read on 2026-10-01 is every row before OT2020 and some
+  of OT2020's.
+- **Who wrote what.** For a signed decision the syllabus lineup is the record
+  of each writing's kind, author, coauthors and joiners: the grammar above,
+  unchanged. A partial join is stored with its printed limit as the
+  qualifier ("as to Part II-B", "except as to Part III-B"); a join in full
+  has none. The record keeps the phrase, not a parsed set of parts. A per
+  curiam prints no lineup, so its record comes from the opinion headers
+  ("JUSTICE X, with whom JUSTICE Y joins as to Part I, dissenting."), read for
+  author, kind and joiners; a per curiam's own joiners are not printed and
+  are not recorded.
+- **Splitting, and the cross-check.** Each document is split at each
+  opinion's header. The slip opinion opens every opinion on a new page under
+  the Court's caption and bracketed date; the preliminary print runs them on
+  within a page, so there an opinion opens at a body-type line that reads as
+  a header. A signed document is recorded only when the split agrees with
+  its syllabus: the same number of opinions, in the same order, each header
+  naming the same author or authors and a compatible kind, each separate
+  writing's header naming the same joiners, and no separate writing's header
+  left inside an opinion. A lead's header prints no joiners, so the lead's rest on
+  the syllabus alone. Anything else refuses the whole document with the
+  reason. Refusals come from a syllabus the grammar cannot read whole (it
+  does not read "concurring in part" without "the judgment", or a join
+  limited to a footnote, "except as to n. 1") and from a text layer that runs
+  words together.
+- **Coverage, and what it leaves out.** As read on 2026-10-01, documents
+  recorded, refused and skipped per Term: OT2025 70 / 4 / 0 (172 opinions),
+  OT2024 63 / 4 / 0 (153), OT2023 54 / 6 / 0 (136), OT2022 50 / 8 / 0 (113),
+  OT2021 60 / 6 / 0 (139), OT2020 48 / 5 / 15 (109); OT2017–OT2019 are
+  skipped whole (volume-linked). The refusals are not random: their causes
+  (a partial concurrence, a join limited to a footnote) concentrate in
+  fractured, many-opinion decisions, so a total, an average or a "longest"
+  list taken from the table under-represents exactly those. A figure read
+  from it states its population and the Term's refusal count beside it.
+- **The word count** (rule `scotus-opinion-words`, version 1). An opinion's
+  text runs from its header sentence to the next opinion's header or the end
+  of the document.
+  - **Footnotes are in.** Each opinion's footnotes count toward it, and the
+    record also stores their share, about 11% of OT2025's words. Against
+    the published OT2025 combined totals below, body text alone runs 10–21%
+    short; with footnotes, 1–4% short.
+  - **Excluded:** the syllabus and headnote; the caption (court, docket
+    number, parties, the writ, the bracketed date); the preliminary print's
+    counsel listing, its amicus-brief and "Together with" notes, and its
+    closing Reporter's Note; running heads and page numbers; and the print's
+    "Page Proof Pending Publication" watermark.
+  - **Tokens.** A hyphen ending a line is closed up, so a word broken across
+    lines counts once. The text then splits on whitespace and on the em
+    dash, and a token counts when it holds at least one letter or digit. So
+    a hyphenated compound ("well-settled") and a number range ("404–405") are
+    one word each. A citation counts token by token: "19 How. 393" is three
+    words, and "§1983" and "§ 1983" are one each, since a bare "§" holds no
+    letter or digit. Ellipsis dots and stray punctuation are not words.
+  - **Reference marks.** A footnote's own number at the head of the note is
+    not a word. A reference mark the text layer separates from its word
+    ("… 75. 1 Smith") is dropped where it is the next expected number after
+    punctuation; one printed against its word ("realms.2") adds nothing.
+  - **Which opinion a footnote belongs to.** In the slip, the opinion on its
+    page. In the print, where one page can end one opinion and open the
+    next, numbering restarts with each opinion, so a page's notes numbered 1
+    go to its opinions by count: to the opened opinions when the previous
+    one already has notes; otherwise the ones beyond one per opened opinion
+    are the previous opinion's. One case is not told apart: a previous
+    opinion whose first note falls on its last page, beside an opened opinion
+    with no note on that page. There the note goes to the opened opinion,
+    which moves words between the two and leaves the decision's total
+    unchanged.
+  - **Text layers.** Each format is read in the pypdf mode that extracts it
+    cleanly: the slip in layout mode, since its plain mode splits words at
+    kerning ("pr esent"), with footnotes below the em-dash rule; the
+    preliminary print in plain mode, since its layout mode letter-spaces,
+    with footnotes told from body text by their smaller type.
+- **Checked against.** SCOTUSblog's *Final Stat Pack for the 2025-26 Term*
+  (updated 2026-07-06; its figures are quoted here, with attribution, for
+  comparison only) was compared with a dry run over OT2025, as a check
+  only: nothing from it is stored. The dry run recorded 63 of the 66
+  decisions the stat pack covers (Pung, Postal Service v. Konan and Barrett
+  v. United States were refused; Texas v. New Mexico, which the pack does
+  not count, was refused too).
+  - Its ten longest combined totals and five longest individual opinions
+    all run under the pack's rounded figures, by 1–4% and most within 2%:
+    Barbara 59,355 words across 6 opinions against ≈60,400, Thomas's dissent
+    there 28,901 against ≈29,400. The direction is the same every time,
+    which points to a difference of rule rather than noise.
+  - The shortest opinions agree within a few words (Chatrie's 65 against
+    ≈60).
+  - Per-author averages fall between 4% over and 7% under: Roberts 7,003
+    against ≈7,100, Barrett 3,067 against ≈3,300. They are not like for
+    like, since the three refusals remove opinions unevenly by author, but
+    Barrett wrote nothing in a refused decision, so her gap is not a
+    refusal's.
+  - Opinion counts by author: Roberts's 6 match; Thomas's 26 and Jackson's
+    25 become the pack's 28 and 26 with the refused decisions' opinions
+    added back. The pack does not count an opinion concurring in part and
+    dissenting in part among dissents: Jackson's 10 dissents are exactly her
+    plain dissents here.
+
+  The stat pack does not publish its counting rule, so the residual is
+  unexplained.
+
 The second registered source is **the Court's orders**
 (`supremecourt-orders`) — the per-Justice acts it publishes at the cert and
 interim stages. Its records are banked, never scored: `scores_votes` admits

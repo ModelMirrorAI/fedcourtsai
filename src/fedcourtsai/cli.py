@@ -232,6 +232,7 @@ from .pipeline import (
     liveprobe,
     moments,
     opinion_lineups,
+    opinion_record,
     order_lineups,
     qp_topics,
     semantic,
@@ -3793,6 +3794,154 @@ def decision_census_cmd(
     terminations = ", ".join(f"{k} {v}" for k, v in census.terminations.items()) or "none"
     typer.echo(f"pending {census.pending}; terminated: {terminations}", err=True)
     typer.echo(census.model_dump_json())
+
+
+@app.command("backfill-opinion-record")
+def backfill_opinion_record_cmd(  # noqa: PLR0912 - one refusal per documented misuse
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First October Term to read (four-digit).")
+    ] = 2025,
+    last_term: Annotated[
+        int, typer.Option("--last-term", help="Last October Term to read (four-digit).")
+    ] = 2025,
+    docket: Annotated[
+        str,
+        typer.Option(help="Comma-separated docket numbers to read (e.g. 24-43); all if empty."),
+    ] = "",
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the record; omit for a dry-run report."),
+    ] = False,
+    max_rows: Annotated[
+        int | None,
+        typer.Option(
+            "--max-rows",
+            help="Blast-radius bound, required with --apply: refuse to insert more opinion rows.",
+        ),
+    ] = None,
+    throttle: Annotated[
+        float,
+        typer.Option(help="Seconds to sleep between requests (polite-client pacing)."),
+    ] = 1.0,
+    cache_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Keep fetched PDFs here and re-read them from here (a dev cache: "
+            "read without host scoping, so refused with --apply)."
+        ),
+    ] = None,
+) -> None:
+    """Build the per-opinion record — type, author, joiners, word count — from the Court's opinions.
+
+    Reads each October Term's opinions listing on supremecourt.gov, fetches every
+    listed document the ``opinions`` table does not already record, splits it at
+    each opinion's header and records one row per opinion: its order, kind,
+    author and coauthors, joiners with each partial join's printed limit, and its
+    word count under the stated rule (`pipeline/opinion_record.py`; the rule is
+    in docs/data-sources.md). A signed decision's writings come from its syllabus
+    lineup and must agree with the headers the document splits at; a per curiam's
+    come from its headers. A document that does not split cleanly is refused
+    whole, with the reason, and a listing row linked into a whole volume is
+    skipped.
+
+    Dry run by default, and the dry run opens the corpus read-only: it writes
+    nothing anywhere but the optional PDF cache. Fill-only and idempotent — a
+    recorded document is never fetched again and no stored row is changed.
+    ``--apply`` refuses above ``--max-rows``, which counts the opinion rows it
+    would insert; the apply half belongs to a writer lane, which holds the
+    corpus-write credentials. Nothing a predict or evaluate cell sees reads the
+    table. Prints the readings of the unrecorded listing rows as one JSON array
+    on stdout and a per-Term count on stderr. Fails loud if the corpus is absent.
+    """
+    if first_term > last_term:
+        typer.echo("backfill-opinion-record: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    if throttle <= 0:
+        typer.echo("--throttle must be positive", err=True)
+        raise typer.Exit(code=2)
+    if apply and max_rows is None:
+        typer.echo(
+            "backfill-opinion-record: --apply requires an explicit --max-rows. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if apply and cache_dir is not None:
+        typer.echo(
+            "backfill-opinion-record: --cache-dir is a dev cache read without host scoping; "
+            "an apply records what it fetches itself.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    terms = list(range(first_term, last_term + 1))
+    for term in terms:
+        try:
+            opinion_lineups.listing_url(term - 2000)
+        except ValueError as exc:
+            typer.echo(f"backfill-opinion-record: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before building the opinion record.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    dockets = [d.strip() for d in docket.split(",") if d.strip()]
+    with SupremeCourtClient(throttle_seconds=throttle) as client:
+        fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
+        if apply:
+            with corpus.connect(db_path) as conn:
+                result = opinion_record.build_opinion_record(
+                    conn,
+                    fetcher,
+                    terms=terms,
+                    dockets=dockets,
+                    apply=True,
+                    max_rows=max_rows,
+                    write=lambda pairs: opinion_record.insert_opinions(conn, pairs),
+                )
+        else:
+            ro = sqlite3.connect(f"file:{quote(str(db_path.resolve()))}?mode=ro", uri=True)
+            ro.row_factory = sqlite3.Row
+            ro.create_function("norm_dn", 1, corpus.normalize_docket_number, deterministic=True)
+            try:
+                result = opinion_record.build_opinion_record(
+                    ro, fetcher, terms=terms, dockets=dockets
+                )
+            finally:
+                ro.close()
+    typer.echo(json.dumps([r.model_dump(mode="json") for r in result.readings], indent=2))
+    for failure in result.failures:
+        typer.echo(failure, err=True)
+    for term in terms:
+        rows = [r for r in result.readings if r.term == term]
+        counts = {k: sum(1 for r in rows if r.status == k) for k in ("read", "refused", "skipped")}
+        opinions = sum(len(r.opinions) for r in rows)
+        typer.echo(
+            f"OT{term}: {len(rows)} unrecorded listing rows — {counts['read']} read "
+            f"({opinions} opinions), {counts['refused']} refused, {counts['skipped']} skipped",
+            err=True,
+        )
+    done = (
+        f"inserted {result.inserted} of {result.rows}"
+        if result.applied
+        else f"would insert {result.rows}"
+    )
+    typer.echo(
+        f"backfill-opinion-record ({'applied' if result.applied else 'dry-run'}): "
+        f"{done} opinion row(s); {result.already_recorded} listing row(s) already recorded",
+        err=True,
+    )
+    if result.refused:
+        typer.echo(
+            f"backfill-opinion-record: refusing to insert {result.rows} rows "
+            f"(--max-rows {max_rows}). Triage the dry run before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command("backfill-arrival-stamps")

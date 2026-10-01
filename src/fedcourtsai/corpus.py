@@ -1172,6 +1172,60 @@ def _migrate_documents(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE documents ADD COLUMN {column} {ddl}")
 
 
+# Per-column DDL for `opinions`, the per-opinion record
+# (`pipeline.opinion_record`): one row per opinion in a document the Court's
+# opinions listing links, keyed by the listing row (Term, listing number) and
+# the opinion's order in the document. A historical decision record, like the
+# case row's decision columns, written only by the `backfill-opinion-record`
+# pass and read by no retrieval, provisioning, outcome or scoring path. The
+# table is created from this map and migrated by it, the same one-object
+# construction the other tables use.
+OPINIONS_COLUMN_DDL: dict[str, str] = {
+    "term": "INTEGER NOT NULL",
+    "listing_number": "TEXT NOT NULL",
+    "position": "INTEGER NOT NULL",
+    "docket": "TEXT NOT NULL",
+    "dockets": "TEXT NOT NULL DEFAULT '[]'",
+    "case_id": "TEXT",
+    "case_name": "TEXT NOT NULL DEFAULT ''",
+    "decided": "TEXT NOT NULL",
+    "argued": "TEXT",
+    "kind": "TEXT NOT NULL",
+    "author": "TEXT",
+    "coauthors": "TEXT NOT NULL DEFAULT '[]'",
+    "joins": "TEXT NOT NULL DEFAULT '[]'",
+    "scope": "TEXT",
+    "words": "INTEGER NOT NULL",
+    "footnote_words": "INTEGER NOT NULL DEFAULT 0",
+    "word_rule": "TEXT NOT NULL",
+    "lineup": "TEXT NOT NULL DEFAULT ''",
+    "source_format": "TEXT NOT NULL DEFAULT ''",
+    "document_url": "TEXT NOT NULL",
+    "header": "TEXT NOT NULL DEFAULT ''",
+    "read_at": "TEXT NOT NULL",
+}
+
+
+def _migrate_opinions(conn: sqlite3.Connection) -> None:
+    """Create `opinions` from its DDL map, and add any column added since.
+
+    Idempotent; a corpus written before the table existed gains it, empty, on
+    its first writable connect. Only a writer's connection gets here: the
+    pass's own dry run opens the blob read-only and reads a missing table as
+    an empty record.
+    """
+    columns = ", ".join(f"{name} {ddl}" for name, ddl in OPINIONS_COLUMN_DDL.items())
+    conn.execute(
+        f"CREATE TABLE IF NOT EXISTS opinions ({columns}, "
+        "PRIMARY KEY (term, listing_number, position))"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_opinions_case ON opinions(case_id)")
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(opinions)")}
+    for column, ddl in OPINIONS_COLUMN_DDL.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE opinions ADD COLUMN {column} {ddl}")
+
+
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
 # A display annotation the Court appends to some docket numbers, most often
@@ -1293,6 +1347,7 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         _migrate_live_cursors(conn)
         _migrate_events(conn)
         _migrate_documents(conn)
+        _migrate_opinions(conn)
         yield conn
     finally:
         conn.close()
@@ -2043,7 +2098,24 @@ def scotus_case_id_by_docket_number(conn: sqlite3.Connection, raw: str | None) -
     norm = normalize_docket_number(raw)
     if norm is None:
         return None
-    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) = ?", norm).get(norm)
+    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) = ?", (norm,)).get(norm)
+
+
+def scotus_case_ids_by_docket_numbers(
+    conn: ReadConnection, raws: Iterable[str | None]
+) -> dict[str, str]:
+    """:func:`scotus_case_id_by_docket_number` for many numbers, in one walk of the SCOTUS rows.
+
+    Keyed by the normalized number (:func:`normalize_docket_number`), with the
+    same lowest-docket-id rule. ``conn`` must carry the ``norm_dn`` function,
+    which :func:`connect` registers and a caller's own read-only connection
+    registers itself.
+    """
+    wanted = sorted({n for raw in raws if (n := normalize_docket_number(raw)) is not None})
+    if not wanted:
+        return {}
+    marks = ",".join("?" for _ in wanted)
+    return _scotus_docket_number_matches(conn, f"norm_dn(docket_number) IN ({marks})", wanted)
 
 
 def scotus_case_ids_by_docket_number_prefix(
@@ -2059,17 +2131,17 @@ def scotus_case_ids_by_docket_number_prefix(
     """
     if any(char in prefix for char in "*?[]"):
         raise ValueError(f"not a plain docket-number prefix: {prefix!r}")
-    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) GLOB ?", f"{prefix}*")
+    return _scotus_docket_number_matches(conn, "norm_dn(docket_number) GLOB ?", (f"{prefix}*",))
 
 
 def _scotus_docket_number_matches(
-    conn: sqlite3.Connection, predicate: str, parameter: str
+    conn: ReadConnection, predicate: str, parameters: Sequence[object]
 ) -> dict[str, str]:
     """Normalized docket number -> the lowest-docket-id SCOTUS row matching ``predicate``."""
     cur = conn.execute(
         "SELECT norm_dn(docket_number) AS norm, case_id FROM cases "
         f"WHERE court = 'scotus' AND {predicate}",
-        (parameter,),
+        tuple(parameters),
     )
     best: dict[str, str] = {}
     for record in cur:

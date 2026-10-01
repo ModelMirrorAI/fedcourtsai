@@ -310,6 +310,49 @@ this table stays empty; with the split mode off they live inline:
 | `snapshot_date` | text (PK) | pull date; one snapshot per case per day        |
 | `payload`       | text      | full-docket JSON (sorted keys for stable bytes) |
 
+## Per-opinion record (`opinions`)
+
+One row per opinion in a decided case: the Court's opinion and every separate
+writing, read from the documents the Court's per-Term opinions listing links
+(`pipeline/opinion_record.py`). Like the case row's decision columns, this is
+a historical record held corpus-side; no outcome is written to the git ledger
+for a case the pipeline never forecast. Written only by
+`fedcourts backfill-opinion-record`, which is fill-only: a document is recorded
+whole or not at all, and a recorded row is never changed. So a new version of
+the counting rule or of a reader reaches stored rows only through a pass built
+to replace them, which does not exist yet; `word_rule` and `lineup` say which
+version each row was read under. The table is read by no `query`
+retrieval row, provisioning step, outcome, mint or scoring gate, so nothing a
+predict or evaluate cell sees includes it; a test pins which modules may name
+it. It is metadata, not payload, so it stays in the index blob under the
+corpus-split mode and has no content-store mirror. The source, the cross-check
+and the word-counting rule are in [docs/data-sources.md](../docs/data-sources.md).
+
+| Column           | Type          | Notes |
+|------------------|---------------|-------|
+| `term`           | integer (PK)  | October Term, four-digit |
+| `listing_number` | text (PK)     | the listing row's number (`66`, `D1`): one document |
+| `position`       | integer (PK)  | the opinion's order in the document, from 1 |
+| `docket`         | text          | the listing's docket cell as printed |
+| `dockets`        | text (JSON)   | every docket number in that cell; the listing prints only a consolidated case's lead docket |
+| `case_id`        | text          | the corpus case row of the first docket, by the corpus's docket-number reconciliation (`norm_dn`; the lowest docket id where two rows match), as of the read; null where no row carries it. A convenience link: the dedupe pass (`dedupe-live-rows`) does not re-point it, and the listing key is the row's identity |
+| `case_name`      | text          | as the listing prints it |
+| `decided`        | date          | the listing's decision date |
+| `argued`         | date          | the syllabus's printed argument date (the latest); null for a per curiam or where none is printed |
+| `kind`           | text          | the `WritingKind` vocabulary: `opinion-of-the-court`, `plurality`, `per-curiam`, `concurrence`, `concurrence-in-part`, `concurrence-in-judgment`, `concurrence-in-part-dissent-in-part`, `dissent`, `statement` |
+| `author`         | text          | roster surname; null only for a per curiam |
+| `coauthors`      | text (JSON)   | the other signers of a jointly written opinion |
+| `joins`          | text (JSON)   | `[{justice, qualifier}]`; `qualifier` is a partial join's printed limit ("as to Part II-B", "except as to Part III-B"), null for a join in full. A lead opinion's joiners come from the syllabus, which a per curiam does not print, so a per curiam's are empty |
+| `scope`          | text          | a lead opinion's own limit ("except as to Part II"); null otherwise |
+| `words`          | integer       | the word count under `word_rule`, footnotes included |
+| `footnote_words` | integer       | the footnotes' share of `words` |
+| `word_rule`      | text          | `<rule>/<version>` of the counting rule (`scotus-opinion-words/1`) |
+| `lineup`         | text          | `<reader>/<version>` the writings were read by: the syllabus grammar, or the header reader for a per curiam |
+| `source_format`  | text          | `slip` or `preliminary-print` |
+| `document_url`   | text          | the supremecourt.gov PDF read |
+| `header`         | text          | the opinion's header sentence as printed, normalized (spacing and split words closed up) |
+| `read_at`        | timestamp     | when the row was written |
+
 ## Working with it locally
 
 ```bash

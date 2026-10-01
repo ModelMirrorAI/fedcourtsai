@@ -476,19 +476,34 @@ def _reading(entry: OpinionListing, **fields: object) -> OpinionLineupReading:
 
 def read_text(entry: OpinionListing, text: str, *, truncated: bool) -> OpinionLineupReading:
     """Read one opinion's extracted text: locate, seat the bench, parse, check."""
+    return read_lineup(entry, text, truncated=truncated)[0]
+
+
+def read_lineup(
+    entry: OpinionListing, text: str, *, truncated: bool
+) -> tuple[OpinionLineupReading, Lineup | None]:
+    """:func:`read_text`, also returning the parsed :class:`Lineup` where one was read.
+
+    The lineup is ``None`` wherever the reading failed before the grammar ran;
+    otherwise it is the grammar's own result, writings and problems included,
+    for a reader that needs the writings themselves rather than their printed
+    summary on the reading.
+    """
     located = locate_lineup(text, truncated=truncated)
     if located.paragraph is None or located.decided is None:
-        return _reading(
+        reading = _reading(
             entry,
             status="failed",
             reason="; ".join(located.problems),
             argued=located.argued,
             decided=located.decided,
         )
+        return reading, None
     try:
         bench = bench_on(located.decided)
     except ValueError as exc:
-        return _reading(entry, status="failed", reason=str(exc), decided=located.decided)
+        reading = _reading(entry, status="failed", reason=str(exc), decided=located.decided)
+        return reading, None
     # With no printed argument date, anyone sworn in since the July before the
     # decision's Term could have missed the argument, so the convention credits
     # none of them: only the paragraph may place them.
@@ -498,7 +513,7 @@ def read_text(entry: OpinionListing, text: str, *, truncated: bool) -> OpinionLi
     problems = [*lineup.problems, *_cross_check(entry, lineup, located.decided)]
     usable = lineup.complete and not problems
     votes, provenance = vote_record(lineup, document=entry.url) if usable else (None, None)
-    return _reading(
+    reading = _reading(
         entry,
         status="read",
         argued=located.argued,
@@ -526,6 +541,7 @@ def read_text(entry: OpinionListing, text: str, *, truncated: bool) -> OpinionLi
         votes=votes,
         vote_provenance=provenance,
     )
+    return reading, lineup
 
 
 def read_entry(entry: OpinionListing, fetcher: OpinionFetcher) -> OpinionLineupReading:
