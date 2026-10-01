@@ -531,12 +531,14 @@ def test_the_census_counts_per_term(tmp_path: Path) -> None:
     with _seeded(tmp_path, rows) as conn:
         census = decision_census(conn, first_term=2024, last_term=2025)
     assert [t.term for t in census.terms] == [2024, 2025]
-    assert census.terms[0].granted == 0
+    assert census.terms[0].assigned == 0
     ot25 = census.terms[1]
-    assert (ot25.granted, ot25.argued, ot25.decided) == (2, 1, 2)
+    assert (ot25.assigned, ot25.argued, ot25.decided, ot25.order_riding) == (2, 1, 2, 1)
     assert ot25.methods == {"argued-signed": 1, "summary-order": 1}
     assert ot25.dispositions == {"reversed": 1, "vacated": 1}
-    assert (census.pending, census.terminated) == (1, 1)
+    assert ot25.plenary_dispositions == {"reversed": 1}  # the GVR rode the order
+    assert census.pending == 1
+    assert census.terminations == {"abated": 1}
 
 
 def test_the_census_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -545,7 +547,7 @@ def test_the_census_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
     result = runner.invoke(app, ["decision-census", "--first-term", "2025", "--last-term", "2025"])
     assert result.exit_code == 0, result.output
-    assert "OT2025: granted 0" in result.output
+    assert "OT2025: assigned 0" in result.output
     backwards = runner.invoke(
         app, ["decision-census", "--first-term", "2025", "--last-term", "2024"]
     )

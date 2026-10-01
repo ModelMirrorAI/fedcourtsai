@@ -120,7 +120,10 @@ def decision_method(  # noqa: PLR0911 - one return per rule in the docstring
        no argument entry is ``None`` rather than a summary: it almost always
        means the argument entry was missed (a payload gap, or a spelling the
        argument reader does not anchor on), and the dry run's unplaced residue
-       is where that belongs, not a confident wrong method.
+       is where that belongs, not a confident wrong method. An entry both
+       signed and per curiam is refused here too, where rule 4 lets the per
+       curiam notation win: with no argument on the record there is no
+       anchor to say which recital is the Court's.
 
     Conservative in the same direction as the judgment parser: an entry this
     reader cannot place stays unclassified rather than guessed.
@@ -363,19 +366,37 @@ class DecisionTermCensus(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     term: int = Field(description="The October Term (`decision_term`)")
-    granted: int = Field(
+    assigned: int = Field(
         ge=0,
-        description="Granted modern cert dockets assigned to the Term — argued in "
-        "it, or decided in it without argument. One row per docket: a "
-        "consolidated set counts once per docket",
+        description="Granted modern cert dockets **assigned** to the Term — argued "
+        "in it, or decided in it without an argued date on the row. Not the "
+        "grants made in the Term: a pending or terminated grant is in no Term. "
+        "Where `merits_argued` is unfilled the Term comes from the decided date, "
+        "so `decided` equals `assigned` there by construction and is no evidence "
+        "of completeness. One row per docket: a consolidated set counts once per "
+        "docket",
     )
     argued: int = Field(ge=0, description="Rows carrying `merits_argued`")
     decided: int = Field(ge=0, description="Rows with a decided date (`decision_date`)")
+    order_riding: int = Field(
+        ge=0,
+        description="Rows whose disposition rode the cert order: a cert-order "
+        "label (GVR, summary reversal), or a judgment dated on or before the "
+        "grant (`judgment_rode_the_grant_order`). Needs no method column, so the "
+        "split holds on Terms whose method is unclassified",
+    )
     methods: dict[str, int] = Field(
         description="`merits_decision_method` distribution; `unclassified` = NULL"
     )
     dispositions: dict[str, int] = Field(
-        description="`decision_judgment` distribution; `none` = no disposition read"
+        description="`decision_judgment` distribution over every assigned row, "
+        "GVRs included; `none` = no disposition read. Not a reversal rate: "
+        "read `plenary_dispositions` for that"
+    )
+    plenary_dispositions: dict[str, int] = Field(
+        description="`decision_judgment` distribution over the rows that did "
+        "**not** ride the cert order — the argued and plenary docket a stat "
+        "pack's affirm/reverse figures are taken over"
     )
 
 
@@ -387,14 +408,35 @@ class DecisionCensus(BaseModel):
     terms: list[DecisionTermCensus]
     pending: int = Field(
         ge=0,
-        description="Granted rows not yet argued or decided (no Term to assign), "
-        "not known to have terminated",
+        description="Granted rows neither argued nor decided on the record (no "
+        "Term to assign) and not marked terminated. Mostly the pending docket, "
+        "but a stale grant whose decision the record never read lands here too",
     )
-    terminated: int = Field(
-        ge=0,
-        description="Granted rows whose merits proceeding ended without a "
-        "disposition (`merits_terminated`) — outside every Term row",
+    terminations: dict[str, int] = Field(
+        default_factory=dict,
+        description="Granted rows carrying `merits_terminated`, by "
+        "`MeritsTermination` value — outside every Term row. Not all are docket "
+        "facts: `judgment-issued` means the disposition parser missed an entry "
+        "that exists, so those are decided cases missing from their Term",
     )
+
+
+def _rode_the_order(row: corpus.CorpusRow) -> bool:
+    """Whether the row's disposition rode the order that granted the petition."""
+    if row.disposition in _CERT_ORDER_VALUES:
+        return True
+    return (
+        row.merits_decided is not None
+        and row.date_cert_granted is not None
+        and judgment_rode_the_grant_order(row.merits_decided, row.date_cert_granted)
+    )
+
+
+def _judgment_counts(rows: list[corpus.CorpusRow]) -> dict[str, int]:
+    counts = Counter(
+        (judgment.value if (judgment := decision_judgment(row)) else "none") for row in rows
+    )
+    return dict(sorted(counts.items()))
 
 
 def decision_census(
@@ -405,11 +447,12 @@ def decision_census(
     Read-only, and it reads no snapshot: what it counts is what the columns
     hold, so a NULL is a gap in the record, not a fact about the case. The
     population is every SCOTUS modern cert docket with a cert-grant date and a
-    granted label, assigned to its :func:`decision_term`; a row whose merits
-    proceeding terminated without a disposition is counted apart, in no Term.
+    granted label, assigned to its :func:`decision_term`; a row carrying
+    `merits_terminated` is counted apart by reason, in no Term.
     """
     by_term: dict[int, list[corpus.CorpusRow]] = {t: [] for t in range(first_term, last_term + 1)}
-    pending = terminated = 0
+    pending = 0
+    terminations: Counter[str] = Counter()
     rows = (
         row
         for disposition in sorted(GRANTED_DISPOSITIONS)
@@ -419,7 +462,7 @@ def decision_census(
         if row.date_cert_granted is None or not corpus.is_modern_cert(row):
             continue
         if row.merits_terminated is not None:
-            terminated += 1
+            terminations[row.merits_terminated] += 1
             continue
         term = decision_term(row)
         if term is None:
@@ -429,17 +472,19 @@ def decision_census(
     terms = []
     for term, members in by_term.items():
         methods = Counter(row.merits_decision_method or "unclassified" for row in members)
-        dispositions = Counter(
-            (judgment.value if (judgment := decision_judgment(row)) else "none") for row in members
-        )
+        plenary = [row for row in members if not _rode_the_order(row)]
         terms.append(
             DecisionTermCensus(
                 term=term,
-                granted=len(members),
+                assigned=len(members),
                 argued=sum(row.merits_argued is not None for row in members),
                 decided=sum(decision_date(row) is not None for row in members),
+                order_riding=len(members) - len(plenary),
                 methods=dict(sorted(methods.items())),
-                dispositions=dict(sorted(dispositions.items())),
+                dispositions=_judgment_counts(members),
+                plenary_dispositions=_judgment_counts(plenary),
             )
         )
-    return DecisionCensus(terms=terms, pending=pending, terminated=terminated)
+    return DecisionCensus(
+        terms=terms, pending=pending, terminations=dict(sorted(terminations.items()))
+    )

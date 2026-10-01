@@ -3753,13 +3753,17 @@ def decision_census_cmd(
     Over every granted SCOTUS cert docket, assigned to the Term it was argued in,
     else the Term it was decided in (`decision_term` — not the docket-number
     prefix, which splits one Term's decisions across two years): how many are
-    granted, carry an argued date, carry a decided date, and how the method and
-    the disposition of the judgment below distribute. The disposition is the one
-    `Judgment` vocabulary: the latched merits judgment, else a cert-order
-    label's own meaning (a GVR vacates, a summary reversal reverses). Rows
-    pending (no Term yet) and rows terminated without a disposition are counted
-    apart. Reads no snapshot, so a NULL is a gap in the record rather than a
-    fact about a case. Prints one line per Term to stderr and the census JSON to
+    assigned, carry an argued date, carry a decided date, and rode the cert order
+    (GVR or summary disposition); the method distribution; and the disposition of
+    the judgment below over the rows that did **not** ride the order — the
+    plenary docket a reversal rate is taken over. The disposition is the one
+    `Judgment` vocabulary: the latched merits judgment, else a cert-order label's
+    own meaning (a GVR vacates, a summary reversal reverses). Pending rows and
+    rows carrying `merits_terminated` (by reason) are counted apart. Reads no
+    snapshot, so a NULL is a gap in the record rather than a fact about a case.
+    The default range opens at OT2017, where the live slice starts; that Term is
+    partial, since the cases it decided on OT2016 grants are not granted rows
+    here. Prints one line per Term to stderr and the census JSON to
     stdout. Fails loud if the corpus is absent.
     """
     if first_term > last_term:
@@ -3778,13 +3782,15 @@ def decision_census_cmd(
         census = decision_census(conn, first_term=first_term, last_term=last_term)
     for term in census.terms:
         methods = ", ".join(f"{k} {v}" for k, v in term.methods.items()) or "-"
-        dispositions = ", ".join(f"{k} {v}" for k, v in term.dispositions.items()) or "-"
+        plenary = ", ".join(f"{k} {v}" for k, v in term.plenary_dispositions.items()) or "-"
         typer.echo(
-            f"OT{term.term}: granted {term.granted}, argued {term.argued}, "
-            f"decided {term.decided}; methods: {methods}; dispositions: {dispositions}",
+            f"OT{term.term}: assigned {term.assigned}, argued {term.argued}, "
+            f"decided {term.decided}, order-riding {term.order_riding}; "
+            f"methods: {methods}; plenary dispositions: {plenary}",
             err=True,
         )
-    typer.echo(f"pending {census.pending}, terminated {census.terminated}", err=True)
+    terminations = ", ".join(f"{k} {v}" for k, v in census.terminations.items()) or "none"
+    typer.echo(f"pending {census.pending}; terminated: {terminations}", err=True)
     typer.echo(census.model_dump_json())
 
 
