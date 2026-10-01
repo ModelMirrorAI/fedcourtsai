@@ -7,7 +7,7 @@ over **every** granted row — the GVRs and summary reversals included, since a
 Term index counts the cases decided without argument as well as the argued ones:
 
 - **when the case was argued** (``merits_argued``), the date of the docket's last
-  argument entry after the grant (:func:`~.merits_signals.argued_date`);
+  argument entry on or after the grant (:func:`~.merits_signals.argued_date`);
 - **how it was decided** (``merits_decision_method``, a
   :class:`~fedcourtsai.schemas.MeritsDecisionMethod`), read from the same last
   judgment-shaped entry the merits pair is parsed from, the grant date, and the
@@ -30,10 +30,10 @@ reargument, a decision landing on a pending case), while the back-fill only
 fills a NULL and never overwrites.
 
 **This is where the historical merits decision record lives**: corpus-side, on
-the case row. No merits event or outcome is minted in the ledger for a case the
-pipeline never forecast, so the prediction ledger holds only what was actually
-forecast, and a reader of the record (the stat pack, a per-Justice vote
-writer) targets these rows.
+the case row. No outcome is written to the git ledger for a case the pipeline
+never forecast, so the prediction ledger holds only what was actually
+forecast, and a reader of the historical record — a stat-pack figure, a
+per-Justice vote writer — would target these rows.
 
 **Nothing a cell sees reads these columns.** They are withheld from the
 retrieval surface (:data:`fedcourtsai.corpus.RETRIEVAL_WITHHELD_COLUMNS`), no
@@ -214,9 +214,10 @@ def decision_term(row: corpus.CorpusRow) -> int | None:
 
     The Term it was argued in where it was argued, else the Term it was decided
     in — the axis a Term's merits statistics are cut on, which is not the
-    docket-number prefix: a case granted in January of one docket year is argued
-    and decided in the Term after it, so a docket-prefix cut splits one Term's
-    decisions across two rows.
+    docket-number prefix: a 24- docket granted after the January cutoff is
+    argued and decided in the Term its 25- neighbours are, so a docket-prefix
+    cut splits one Term's decisions across two rows. Nor is it the statpack
+    merits section's axis, which is the **grant** Term.
     """
     anchor = row.merits_argued or decision_date(row)
     return october_term_year(anchor) if anchor is not None else None

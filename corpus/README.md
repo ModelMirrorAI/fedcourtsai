@@ -199,7 +199,7 @@ value — and `application_kind` gets the TEXT twin of that latch: a real readin
 families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`),
 and the merits decision record (`merits_argued`, `merits_decision_method`),
 fill-in latch for `cvsg_date`'s reason instead: a missing parse leaves each null
-rather than a confident sentinel, so no other writer may blank a date the live
+rather than a confident sentinel, so no other writer may blank a reading the live
 channel stamped — which on `response_requested_at` would leave the max-latched
 `response_requested` flag standing beside a null date, the shape reserved for a
 genuinely undated request. `sample_weight` is

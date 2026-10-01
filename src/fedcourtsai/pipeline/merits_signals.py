@@ -262,7 +262,8 @@ def argued_date(payload: Mapping[str, Any], *, granted_on: date | None) -> date 
 
     The **last** argument entry wins, unlike the first-brief rule above: a case
     the Court set for reargument is decided on the reargument, so the date the
-    decision record and the post-argument moment both want is the later one.
+    decision record wants — and a post-argument forecast moment would — is the
+    later one.
     ``granted_on`` bounds the scan to entries on or after the grant, and
     without one there is no merits proceeding to argue, so the answer is
     ``None`` — the same post-grant contract as :func:`respondent_brief_date`.

@@ -3671,7 +3671,7 @@ def backfill_decision_record_cmd(
     The merits decision record is two columns beside the merits pair, over every
     granted SCOTUS cert docket in the live slice — GVRs and summary reversals
     included: ``merits_argued``, the date of the docket's last argument entry
-    after the grant, and ``merits_decision_method``, how the case was decided
+    on or after the grant, and ``merits_decision_method``, how the case was decided
     (argued and signed, argued per curiam, summary with an opinion, summary
     order, or DIG), read from the last judgment-shaped entry
     (`pipeline/decision_record.py`). The live poll writes both at ingest; this

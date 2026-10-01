@@ -557,7 +557,7 @@ class CorpusRow(BaseModel):
     merits_argued: date | None = Field(
         default=None,
         description="When the granted case was argued: the date of the "
-        "docket's last `Argued.` / `Reargued.` entry after the grant "
+        "docket's last `Argued.` / `Reargued.` entry on or after the grant "
         "(`pipeline.merits_signals.argued_date`), so a reargued case carries "
         "its reargument. Written by the live poll at ingest on any granted "
         "docket and by `backfill-decision-record` over stored snapshots; "
@@ -847,7 +847,7 @@ CREATE TABLE IF NOT EXISTS cases (
     document_floor_probed_at TEXT,
     -- The decision record beside the merits pair (see CorpusRow and
     -- pipeline/decision_record.py): the date of the docket's last argument
-    -- after the grant, and how the case was decided (a `MeritsDecisionMethod`
+    -- on or after the grant, and how the case was decided (a `MeritsDecisionMethod`
     -- value), over every granted row. Written by the live poll at ingest and
     -- by `backfill-decision-record`; fill-in latched. Withheld from the
     -- retrieval surface. NULL = not argued / unclassified, or not yet parsed.
@@ -1636,10 +1636,14 @@ def _update_clause(column: str) -> str:
         # missing can move a stored date later — accepted because a fresh parse
         # must still be able to correct a wrong date, and the open-first-moment
         # guards bound what a moved date can re-open. The decision record
-        # (`merits_argued`, `merits_decision_method`) joins them for the same
-        # reason: a degraded payload parses as NULL, which keeps the stored
-        # reading, while a fresh reading — a reargument after the first
-        # argument, a decision after a pending poll — takes over.
+        # (`merits_argued`, `merits_decision_method`) joins them on the same
+        # terms: a payload that yields no reading keeps the stored one, while a
+        # fresh reading — a reargument after the first argument, a decision
+        # after a pending poll — takes over. It shares the exposure too: a
+        # payload served without its argument entry can move `merits_argued`
+        # back to an earlier argument, or read an argued per curiam as a
+        # summary one — accepted for the same reason, since a fresh read must
+        # be able to correct a wrong reading and nothing scored reads them.
         # `opinion_enrich_attempted_at` takes the same rule from the other side:
         # only the enrichment walk ever carries it, so every other writer's NULL
         # must preserve the cursor, while the walk's own stamp — never NULL —
@@ -3282,8 +3286,9 @@ def opinion_body(row: CorpusRow) -> str | None:
 
 
 #: Columns a ``query`` prior never carries, though the row stores them. The
-#: merits decision record is an analytics surface — the stat-pack replication
-#: reads it — and no registered process has admitted it to what a predict or
+#: merits decision record is an analytics surface — what a stat-pack or a
+#: per-Justice vote reader would read — and no registered process has admitted
+#: it to what a predict or
 #: evaluate cell retrieves. A column added to the rows a cell retrieves changes a
 #: frozen process's inputs without moving its digest, which is the one kind of
 #: process change the digest cannot see. Withholding them here means a ``query``

@@ -195,12 +195,18 @@ of the Court"): a named Justice delivering the opinion — "of the Court", "for 
 unanimous Court", or announcing the judgment of a fractured Court — is
 `argued-signed` after argument; "Opinion per curiam." or an affirmance by an
 equally divided Court is `argued-per-curiam`; a judgment riding the order that
-grants (a cert-order label, or a judgment dated on the grant) is
+grants (a cert-order label, or a judgment dated on or before the grant) is
 `summary-opinion` where the entry carries an opinion and `summary-order` where
 it does not, the ordinary GVR — whose "(per curiam)" is a citation of another
-case's opinion, not one of its own; and a DIG is `dig`, argued or not. Both
-columns fill-in latch, so a degraded payload keeps the stored reading while a
-reargument or a fresh decision takes over. A stored row whose columns are null
+case's opinion, not one of its own; and a DIG is `dig`, argued or not. With no
+argument on the record, a per curiam decided after the grant is
+`summary-opinion`, while a *signed* opinion is left null on purpose — it almost
+always means the argument entry was missed, not skipped — as is an argued
+entry that recites neither form. Both columns fill-in latch: a payload that
+yields no reading keeps the stored one, while a fresh reading (a reargument, a
+decision) takes over — and so does a wrong one, since a payload served without
+its argument entry can move the argued date back or read an argued per curiam
+as a summary one, the exposure the dated live signals already accept. A stored row whose columns are null
 is read from its newest stored live snapshot by `backfill-decision-record`,
 which never overwrites; its dry run runs from a dev checkout, and no writer
 lane runs its apply. Neither column reaches a cell: both are withheld from the
