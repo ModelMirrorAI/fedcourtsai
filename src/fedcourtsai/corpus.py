@@ -3415,13 +3415,12 @@ def _mask_post_clock_merits(
 
 #: The party and counsel lists the replay clock empties on every prior it
 #: admits: each holds the row's *current* state with no date to test against
-#: the clock, and each carries the amicus grant oracle. This is not every
-#: last-pull column a prior carries — among those that still reach a replay
-#: cell as stored are ``citations``, ``citation_count``, ``summary``,
+#: the clock, and each carries the amicus grant oracle. The set is scoped to
+#: that oracle, not to every last-pull column: among those that still reach a
+#: replay cell as stored are ``citations``, ``citation_count``, ``summary``,
 #: ``precedential_status``, ``has_opinion`` (and the opinion body under
 #: ``full``), ``merits_brief_filed`` and ``date_decided`` (on a granted SCOTUS
-#: prior, the termination at the merits judgment) — only the ones whose
-#: accrual is the amicus oracle. The SCOTUS
+#: prior, the termination at the merits judgment). The SCOTUS
 #: party and counsel blocks accrue over a docket's life — every third-party
 #: filing appends its counsel of record, and amici (``role=other``) pile onto a
 #: petition overwhelmingly after a grant — so a prior that resolved before the

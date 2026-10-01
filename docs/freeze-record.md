@@ -6134,8 +6134,9 @@ freeze commit is recorded here.
   **What moved.** Under a replay clock, every prior `fedcourts query` admits
   comes back with its `counsel`, `parties` and `attorneys` lists emptied to
   `[]`, beside the merits pair and `merits_terminated` the clock already
-  withheld. Both halves of the clock trigger it, the Term (`DECIDED_BEFORE`)
-  and the cutoff day (`REPLAY_CUTOFF`), and it applies to every admitted row,
+  withheld. Both halves of the clock trigger it, the Term (`--decided-before`,
+  which the prompt fills from `DECIDED_BEFORE`) and the cutoff day
+  (`REPLAY_CUTOFF`), and it applies to every admitted row,
   whichever court or channel it came from. The lists are a row's state at its
   last pull and no entry in them is dated, so nothing in them can prove it
   preceded the clock. Amicus (`role=other`) entries accrue on a docket
@@ -6168,7 +6169,7 @@ freeze commit is recorded here.
   cell's information set moved, and no counted `proc-v8` cell is affected.
   Forward `query` output is byte-identical: the same query without a clock
   printed the same bytes before and after the change. **Nor did the rest of a
-  prior's last-pull state.** Its other columns still reach a replay cell as
+  prior's last-pull state.** Its other retrievable columns still reach a replay cell as
   stored, on both sides of this change — among them `citations`,
   `citation_count`, `summary`, `precedential_status`, `has_opinion` and the
   `--full` opinion body, `merits_brief_filed`, and `date_decided`, which on a
@@ -6182,10 +6183,11 @@ freeze commit is recorded here.
   floor, a property of the labels, and the offline `prior-vote` row, which
   votes on dispositions rather than counsel, are unaffected. Every report
   before it could retrieve priors carrying their full current party and
-  counsel lists, wherever a cell ran a clocked `query` and the prior came from
-  the SCOTUS channel that fills them. That is post-clock information about
+  counsel lists, wherever a cell ran a clocked `query` and the prior carried them
+  (the counsel block on SCOTUS rows, the flat lists from any channel that
+  fills them). That is post-clock information about
   the priors, mainly merits-stage amicus interest, and never about the
-  replayed petition itself. Its direction on a score is not signed. After it,
+  replayed petition itself. Its effect on a score has no known sign. After it,
   a replay cell's `query` returns no counsel on any prior, which a forward
   cell's does, so on that surface a replay figure understates the same
   predictor's forward information set, as it already does on the snapshot.
