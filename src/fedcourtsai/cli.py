@@ -3798,7 +3798,7 @@ def decision_census_cmd(
 
 
 @app.command("backfill-opinion-record")
-def backfill_opinion_record_cmd(  # noqa: PLR0912 - one refusal per documented misuse
+def backfill_opinion_record_cmd(
     first_term: Annotated[
         int, typer.Option("--first-term", help="First October Term to read (four-digit).")
     ] = 2025,
@@ -3906,15 +3906,10 @@ def backfill_opinion_record_cmd(  # noqa: PLR0912 - one refusal per documented m
                     write=lambda pairs: opinion_record.insert_opinions(conn, pairs),
                 )
         else:
-            ro = sqlite3.connect(f"file:{quote(str(db_path.resolve()))}?mode=ro", uri=True)
-            ro.row_factory = sqlite3.Row
-            ro.create_function("norm_dn", 1, corpus.normalize_docket_number, deterministic=True)
-            try:
+            with corpus.connect_local_unmigrated(db_path) as ro:
                 result = opinion_record.build_opinion_record(
                     ro, fetcher, terms=terms, dockets=dockets
                 )
-            finally:
-                ro.close()
     typer.echo(json.dumps([r.model_dump(mode="json") for r in result.readings], indent=2))
     for failure in result.failures:
         typer.echo(failure, err=True)
@@ -10561,6 +10556,10 @@ def corpus_info(
     store). Hence `in this blob` on both snapshot readings — under the corpus
     split, `no snapshots` would otherwise read as a claim about the system.
 
+    Under ``local`` the blob is opened strictly read-only with no schema
+    migration, so the report never rewrites the file it dates and a pulled
+    blob keeps matching its pointer, even when it predates the code reading it.
+
     Both are maxima over the whole blob: its vintage, not any one case's. The
     pull governor rotates stalest-first, so a maximum says when *anything* was
     last refreshed — a claim about a specific case reads that case's own
@@ -10587,7 +10586,9 @@ def corpus_info(
     if backend == "local" and not db_path.exists():
         typer.echo(f"No corpus at {db_path} — `fedcourts corpus-pull` to fetch it from the remote.")
         return
-    with corpus.connect_readonly(db_path, backend=backend) as conn:
+    # Read-only in the strict sense: a vintage report must not migrate the blob
+    # it reports on, or the local file stops matching the pointer it names.
+    with corpus.connect_readonly(db_path, backend=backend, migrate=False) as conn:
         typer.echo(
             f"corpus {db_path} [{backend}]: {corpus.count(conn)} row(s), "
             f"{corpus.snapshot_count(conn)} snapshot(s) in this blob"

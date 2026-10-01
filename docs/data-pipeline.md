@@ -542,7 +542,9 @@ QUERY PLAN` tests), keeping a ranged point lookup at KB scale.
 
 Read-only consumers go through `corpus.connect_readonly`, which picks the
 backend from the corpus-backend setting (or an explicit override): `local`
-opens the pulled file, `ranged` resolves the pointer the read paths honor —
+opens the pulled file (migrating it in place to the reading code's schema,
+unless the caller passes `migrate=False`, as `corpus-info` does, which opens
+it strictly read-only and leaves its bytes matching the pointer), `ranged` resolves the pointer the read paths honor —
 the out-of-band override when set, else the committed one — against
 the out-of-band remote URL; writers never use this seam. Each ranged connection
 reports its `GET`s and bytes fetched to stderr — the per-query egress evidence

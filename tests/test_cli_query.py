@@ -1,5 +1,7 @@
+import hashlib
 import json
 import re
+import sqlite3
 import threading
 from datetime import date
 from pathlib import Path
@@ -363,6 +365,35 @@ def test_corpus_info_freshness_falls_back_on_an_empty_corpus(
     # "in this blob", not "no snapshots": under the corpus split the content
     # store holds them, and AGENTS.md points agents at this line as evidence.
     assert "freshness: never pulled, no snapshots in this blob" in result.stdout
+
+
+def test_corpus_info_leaves_an_unmigrated_blob_byte_identical(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A pulled blob can predate the code reading it. The vintage report must not
+    # migrate it in place, or the local file stops matching its pointer: here a
+    # blob without the newest table stays without it, byte for byte.
+    corpus_root = tmp_path / "corpus"
+    db_path = corpus.corpus_db_path(corpus_root)
+    with corpus.connect(db_path) as conn:
+        conn.execute("DROP TABLE opinions")
+        conn.commit()
+    before = hashlib.sha256(db_path.read_bytes()).hexdigest()
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    result = runner.invoke(app, ["corpus-info"])
+    assert result.exit_code == 0, result.output
+    assert "freshness: never pulled, no snapshots in this blob" in result.stdout
+    assert hashlib.sha256(db_path.read_bytes()).hexdigest() == before
+
+
+def test_connect_readonly_unmigrated_refuses_writes(tmp_path: Path) -> None:
+    db_path = tmp_path / "corpus.db"
+    with corpus.connect(db_path):
+        pass
+    with corpus.connect_readonly(db_path, backend="local", migrate=False) as conn:
+        assert corpus.count(conn) == 0
+        with pytest.raises(sqlite3.OperationalError):
+            conn.execute("CREATE TABLE probe (x INTEGER)")
 
 
 def test_corpus_info_rejects_service_backend(fixture_corpus: FixtureCorpus) -> None:
