@@ -2997,8 +2997,9 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # The build step's 60-minute cap, the push step's 15 and the setup, the
-    # corpus pull and the commit.
-    timeout-minutes: 90
+    # corpus pull (about a gigabyte) and the commit, so a build that runs to its
+    # cap still fails in its own step rather than the job's.
+    timeout-minutes: 100
     environment: prod
     permissions:
       contents: read
@@ -3093,7 +3094,7 @@ jobs:
           # several hundred KB, near the summary's 1 MiB step cap, so the swap
           # sends them to the step log instead.
           uv run fedcourts backfill-opinion-record --first-term 2020 --last-term 2025 \
-            "${write_args[@]}" 3>&1 1>&2 2>&3 | tee -a "$GITHUB_STEP_SUMMARY"
+            "${write_args[@]}" 3>&1 1>&2 2>&3 3>&- | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "${REPAIR_MODE}" != "apply" ]; then
             echo "dry-run only; nothing written."
           fi
