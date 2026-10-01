@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281619",
+  "gaps": [
+    "Web search/open attempts returned no usable visible content.",
+    "The statpack lacks an explicit build timestamp and corpus freshness stamps.",
+    "The first CourtListener reporter-citation search returned an unrelated case; a bounded case-name query succeeded."
+  ],
+  "helpful": [
+    "The limited grant and event stage clearly distinguish merits from cert prediction.",
+    "Both petition and opposition contain usable text and document manifests.",
+    "The merits statpack publishes exclusion and parsed-coverage counts.",
+    "CourtListener's within-opinion search verified a specific prior-law passage."
+  ],
+  "notes": "The default uv cache was read-only; a writable temporary cache allowed CLI commands to run. No merits briefs were expected at the grant moment. The grant-Term axis uses the repository's October calendar-month pivot rather than the docket-number Term in context. No corpus service queries or target-case outcome searches were needed.",
+  "role": "predictor",
+  "run_id": "20261001T215439Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and document text",
+    "committed merits statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

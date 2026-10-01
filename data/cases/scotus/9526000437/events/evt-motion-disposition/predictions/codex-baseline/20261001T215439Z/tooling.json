@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000437",
+  "run_id": "20261001T215439Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Local provisioned-input and schema reads",
+    "fedcourts paths",
+    "Committed interim statpack and local pool calculation",
+    "Web search and open attempts"
+  ],
+  "helpful": [
+    "Arrival-position context freezes the escalation-ladder starting state.",
+    "Document metadata distinguishes an unreadable fetched application from a missing filing.",
+    "Per-Term interim counts permit an eligible-window baseline calculation."
+  ],
+  "gaps": [
+    "OCR or other readable text for the scanned application.",
+    "Prediction-time conditioned interim escalation priors.",
+    "Web requests returned no usable source content."
+  ],
+  "notes": "The default uv cache was read-only; using a temporary writable cache allowed the paths helper to run. No CourtListener or live-corpus retrieval was attempted. The absent application substance limits both merits assessment and significance assessment."
+}

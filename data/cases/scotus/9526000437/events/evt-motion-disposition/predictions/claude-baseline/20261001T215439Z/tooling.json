@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000437",
+  "run_id": "20261001T215439Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query (corpus service)", "metrics/statpack.md interim-docket section", "CourtListener MCP search (recap, opinions, dockets)"],
+  "helpful": [
+    "context.json's frozen interim signals (response_requested / referred_to_court / amicus_briefs) stated the ladder state directly",
+    "fedcourts query rows carry application_kind, response_requested, referred_to_court and amicus_briefs, so the granted-vs-denied shape by applicant class was readable in two calls",
+    "statpack interim section's per-Term resolved/granted counts made the strictly-prior pool a one-line computation"
+  ],
+  "gaps": [
+    "OCR for scanned applications: the provisioned application.txt was empty_text, so nothing of the ask was readable",
+    "a query filter on application_kind (substantive vs extension) and on ask (stay / injunction / vacatur) would avoid client-side filtering of 40-row pulls dominated by extensions",
+    "a pro-se / counsel-of-record flag on query rows, or a statpack cut by applicant class, since that is the dimension that moved this forecast most",
+    "SCOTUS application dockets (YYAnnn) are not on CourtListener, so MCP could not confirm the docket's current state"
+  ],
+  "notes": "Forward cell; ~7 corpus/MCP calls total, well under budget. The pooled 10.5% interim baseline is a coarse yardstick for a pro se state-trial-court application; the applicant class, not the pool, drove the number."
+}
