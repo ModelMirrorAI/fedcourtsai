@@ -993,6 +993,20 @@ after the long-conference release and is pre-registered in
 apply for any other Term is refused until that Term has its own freeze-record
 entry and a place in `REGISTERED_APPLY_TERMS`.
 
+`decision-record` fills the merits decision record — `merits_argued` and
+`merits_decision_method` — on stored granted rows whose method is still null
+(`fedcourts backfill-decision-record`). It re-reads each candidate's newest
+stored live snapshot through the reader the live poll uses at ingest, never
+overwrites a stored reading, and writes the two columns by a direct `UPDATE` of
+the index, so its commit is the corpus pointer alone. It runs in its own job on
+the application back-fill's split: the dry run holds the read-only role (the
+snapshots it reads live in the content store) and takes no lock, and the apply
+takes `corpus-write`, the read-write role from its write step onward, and the
+App token only after that step. The bound is the dry run's fill count, and a
+re-dispatched dry run after the apply is the control. `fedcourts
+decision-census` reads the result. Nothing a cell sees moves: both columns are
+withheld from the `query` rows, and no gate, mint or outcome reads them.
+
 `sampled-frame-weight-repair` restores the derived sampling weight on the legacy
 denial-sampling frame's latched-down rows: grid denials genuinely inside sampled
 ranges that a channel writing with certainty min-latched to 1, leaving the nine

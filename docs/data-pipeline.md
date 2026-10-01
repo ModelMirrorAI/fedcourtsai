@@ -134,7 +134,9 @@ timeline ([live-sources.md](live-sources.md)).
 
 Three workflows carry five writer jobs over one corpus — `run-pull`'s **pull**,
 **live**, and dispatch-only **enrich**, `run-seed`'s **historical** walker, and
-`run-repair`'s dispatch-only **repair** bench —
+`run-repair`'s dispatch-only **repair** bench (its corpus job, plus the
+application back-fill and decision-record jobs, which write the corpus on an
+apply only) —
 differing on every axis that matters, while the shared `corpus-write` lock keeps
 at most one running at a time. Five is the count of jobs that write the
 *corpus*; run-repair carries two more writer jobs that write only the
@@ -496,7 +498,9 @@ touching the corpus: each commits to `main` on the same push path, so it
 serializes against the pointer commits rather than racing them. The vote
 writer joins it on an apply only: its dry run writes and pushes nothing, and
 holding the lock through a read-only fetch campaign would queue the scheduled
-windows behind it. Its selector-validation job is
+windows behind it. The application back-fill and decision-record jobs, which
+do write the corpus, join it on an apply only for the same reason: a dry run
+reads and pushes nothing. Its selector-validation job is
 deliberately outside the group — it holds no credential and writes nothing, so a
 malformed dispatch is refused in seconds instead of queuing behind a walk to be
 told about a typo — and **reset to
@@ -1182,11 +1186,11 @@ or network.
      with no outcome written to the git ledger for a case the pipeline never
      forecast, so the ledger holds only what was forecast — and `fedcourts decision-census` counts them per
      October Term; `backfill-decision-record` fills a stored row whose columns
-     are null. The per-opinion half of that record — each opinion's kind,
-     author, joiners and word count — is the corpus `opinions` table
-     ([corpus/README.md](../corpus/README.md)), built by
-     `backfill-opinion-record` from the Court's opinions and held corpus-side
-     on the same terms.
+     are null, applied on run-repair's `decision-record` pass. The per-opinion
+     half of that record — each opinion's kind, author, joiners and word count —
+     is the corpus `opinions` table ([corpus/README.md](../corpus/README.md)),
+     built by `backfill-opinion-record` from the Court's opinions and held
+     corpus-side on the same terms.
 
      An event pinned to one docket entry is never a claimant of its stage's
      disposition: it resolves on its own filing's terms, so an application
@@ -1262,12 +1266,16 @@ pass's ledger to the run summary and writes nothing, the maintainer reads the
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. Seven passes skip it: the distribution re-derivation, whose
+before the write. Eight passes skip it: the distribution re-derivation, whose
 plan *is* its write set, and the two fetching passes and the store mirror,
-whose apply ledgers already state the class they found before writing; and the
+whose apply ledgers already state the class they found before writing; the
 two vote-writer passes and the application back-fill, whose every run fetches
 from supremecourt.gov again, so a leading dry run would double the pass's
-traffic to the Court's site for a ledger the apply prints anyway.
+traffic to the Court's site for a ledger the apply prints anyway; and the
+decision-record back-fill, which runs in a job of its own where a receipt would
+be one more full read of the content store under the read-write session. (The
+response-signal back-fill, the same shape of pass, keeps its receipt because it
+sits in the corpus job, where every pass leads with one.)
 In each, the receipt would be bought with a whole extra full-population read of
 the content store — the third, on those applies, which already re-read the
 class as their own write witness — and on the document back-fill it would also
@@ -1319,6 +1327,7 @@ population and apply against another.
 | `opinion-votes` | `stamp-opinion-votes` | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `order-votes` | `stamp-order-votes` | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `application-backfill` | `backfill-applications` | `--max-rows` (rows landed, onboarded and enriched together) | two-digit October Term, **required in both modes** | — |
+| `decision-record` | `backfill-decision-record` | `--max-fills` (rows filled, not the `candidates` denominator) | — | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -1527,8 +1536,18 @@ prerequisite: it writes exactly as frontier discovery does, which runs without
 one, and the identity join it shares picks the lowest docket id of a twin pair
 deterministically, while a twin with either half live-polled is live-owned and
 never read. It mints the App token only after
-that step has exited, for the pointer commit. All four jobs commit straight to
-`main` on the writers' rebase-and-backoff push path.
+that step has exited, for the pointer commit. `decision-record` runs in a
+fifth job on the same split. Its dry run reads the pulled index and each
+candidate's stored snapshot from the content store, so it keeps the read-only
+session (a blanked one could not read the snapshots at all), blanks the OIDC
+request token, and takes no lock. Its apply takes `corpus-write` for the
+whole job and the read-write role from its write step onward, mints the App
+token only after that step has exited, and blanks the AWS session and the OIDC
+request token on the commit step that holds it. It takes no dedupe prerequisite: both
+columns fill-in latch on the upsert path the merge writes through, so a reading
+landed on either half of a twin pair survives the merge, and nothing that gates
+a cell reads them. All five jobs commit straight to `main` on the writers'
+rebase-and-backoff push path.
 
 **Ordering between passes is the maintainer's.** Three pairs matter. The
 distribution re-derivation must precede an overhang clear, never follow it in
@@ -1752,6 +1771,17 @@ gh workflow run run-repair.yml --ref main \
 gh workflow run run-repair.yml --ref main \
   -f repair=application-backfill -f repair_mode=apply -f repair_target=24 \
   -f repair_bound=<would land N>
+
+# The decision-record back-fill's apply prints its own fill ledger and runs no
+# dry run first, since a receipt would be one more full read of the content
+# store under the write session. Its bound is the dry run's "would
+# fill N" — the rows filled, not the candidates beside it, which include the
+# pending docket. Re-dispatching in `dry-run` after the apply is the control:
+# it must report "would fill 0". `fedcourts decision-census` reads the result.
+gh workflow run run-repair.yml --ref main \
+  -f repair=decision-record -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=decision-record -f repair_mode=apply -f repair_bound=<would fill N>
 ```
 
 **After a pass that removes rows**, let the run's trailing verdict step finish.

@@ -208,8 +208,8 @@ decision) takes over — and so does a wrong one, since a payload served without
 its argument entry can move the argued date back or read an argued per curiam
 as a summary one, the exposure the dated live signals already accept. A stored row whose columns are null
 is read from its newest stored live snapshot by `backfill-decision-record`,
-which never overwrites; its dry run runs from a dev checkout, and no writer
-lane runs its apply. Neither column reaches a cell: both are withheld from the
+which never overwrites; its dry run runs from a dev checkout or as run-repair's
+`decision-record` pass, which also runs its apply. Neither column reaches a cell: both are withheld from the
 `query` retrieval rows ([corpus/README.md](../corpus/README.md)).
 
 ## Documents: from metadata to content
