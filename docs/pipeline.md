@@ -1957,6 +1957,15 @@ from the corpus, and every cell is provisioned under `--work-dir`. The
 misplaced-write probe is unaffected — an engine following the prompt template's
 `data/cases/...` path recreates the directory the probe looks for.
 
+The fence reaches the priors a cell retrieves as well. A cell's `fedcourts
+query` runs under its replay clock, which drops the priors that do not
+provably precede it and, on the ones it admits, withholds every field that
+holds the row's state at the last pull rather than at the clock: the merits
+pair unless it is dated before the clock, `merits_terminated`, and the
+`counsel`, `parties` and `attorneys` lists, which accrue amici after a grant
+and carry no date to test. The full rule is the `query` row in
+[cli.md](cli.md).
+
 The big-case board, `metrics/big-cases.json` and `metrics/big-cases.md`,
 leaves the tree with the ledger on the same terms. Its decided cases are among
 the petitions the replay can draw, and it names them beside their outcomes:

@@ -1468,6 +1468,25 @@ the rendered table) and
   `metrics/cert-backtest` review branch among the full-depth checkout's refs,
   and through the public repository, which a cell's web tools can reach.
 
+  **The clock also screens what a retrieved prior carries, not only which
+  priors return.** A prior's columns are its state at the last pull, not at
+  the clock, so on every prior a replay cell's `fedcourts query` admits, the
+  undated post-clock fields are withheld: the merits pair unless
+  `merits_decided` clears every bar the clock sets, `merits_terminated`
+  always, and the party and counsel lists (`counsel`, `parties`, `attorneys`)
+  always, emptied to `[]`. The lists go whole because no entry in them is
+  dated and they accrue after a grant (amici, overwhelmingly), the same
+  reason `redact_snapshot` strips the replayed petition's own party and counsel
+  blocks. Read two consequences. A replay cell cannot see who appeared on a
+  prior, which a forward cell can, so a replay figure understates the same
+  predictor's forward information set here as it does on the snapshot. And a
+  report whose cells ran before the list mask reached `main` retrieved priors
+  carrying their full current lists, amicus entries filed after the clock
+  included — post-clock facts about the priors, never about the petition
+  itself — so the two sides ran on different information sets and no series
+  comparison spans that boundary, which `docs/freeze-record.md` dates.
+  Provenance agreement cannot see it.
+
   Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A
   real-engine replay spends tokens, so **the schedule asks and the hold
@@ -2758,8 +2777,10 @@ forward predictions. Timing is the integrity mechanism: the prediction's
 harness clock (`fedcourtsai.integrity.cell_clock` — the process stamp, else
 the unstamped cell's `created_at`) against the outcome's `resolved_at`, both
 committed artifacts, decides the stratum — not any restriction on what a cell
-could retrieve. Replay cells run with the same tools as forward cells; the
-cross-evaluator's leakage grading (the `leakage` block on each
+could retrieve. Replay cells run with the same tools as forward cells (the
+replay clock narrows only what the corpus `query` returns, and what a returned
+prior carries — the `cert-backtest.json` entry above lists the withheld
+fields); the cross-evaluator's leakage grading (the `leakage` block on each
 `evaluation.json`, read off the harness-captured `retrieval_log.json`) makes
 contamination of the *iteration signal* visible, and its coarse bit is what
 takes a contaminated cell out of every scored figure (*The leakage exclusion*
