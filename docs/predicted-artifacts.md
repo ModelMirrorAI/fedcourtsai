@@ -93,7 +93,8 @@ fields that mean the same thing at every stage:
 - **`confidence`** — optional, 0–1.
 - **`big_case_score` / `big_case_rationale`** — a pre-registered read of the
   case's stakes *if decided*, explicitly not grant likelihood. Graded
-  later by rank-agreement with the evaluators' own independent reads, never
+  later by rank-agreement with the evaluators' own reads (formed with this
+  score in view, so the agreement reads as an upper bound), never
   against a ground truth ([salience.md](salience.md)). The prompt contracts an
   answer: the number, or an explicit `null` carrying a one-line
   `big_case_rationale` for why the cell could not place the stakes. The schema

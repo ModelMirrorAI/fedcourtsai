@@ -607,7 +607,7 @@ stays outside the gate:
   axis note below); every other population — a later cert moment included —
   reports in its own unranked `stages` block. Each entry
   also carries a `big_case` block — the predictor's `big_case_score`
-  rank-agreement (Kendall's tau-b) with the evaluator panel's independent reads —
+  rank-agreement (Kendall's tau-b) with the evaluator panel's own reads —
   a second, orthogonal skill dimension that never affects the ranking.
   The board also carries an `evaluator_agreement` map — per evaluator, how far its
   big-case reads track the rest of the panel's, computed **leave-one-out** so a
@@ -640,7 +640,31 @@ stays outside the gate:
   read of the disposition, so a predictor that saw its own outcome may have read
   the stakes off it too, and over a handful of cases two contaminated points can
   carry the coefficient.
-  `fedcourts leaderboard` produces it — a deterministic, offline roll-up of the
+
+  The panel's reads are **not blind to the scores they are compared against**.
+  The prompt asks a judge to form its read before looking at the predictor's
+  `big_case_score`, but the score is a field of the `prediction.json` the judge
+  must read to grade, and the blinded view does not mask it
+  (`fedcourtsai.blinding.mask_prediction`), so nothing enforces the request. A
+  judge records one stakes read per candidate, beside that candidate's own score
+  and rationale, and a predictor's panel is built only from the reads recorded
+  beside its predictions. Anchoring therefore pulls each predictor's panel toward
+  that predictor's own number. It inflates every predictor's tau, but not by the
+  same amount — most for whichever predictor's score and rationale judges defer
+  to — so the comparison *between* predictors is affected as well as the level.
+  Read a `big_case` tau as an **upper bound** on how far a predictor's stakes read
+  tracks an independent panel, never as evidence that it does.
+
+  How strongly judges anchor depends on the evaluate prompt, so a tau is
+  comparable only within one evaluator digest. The board does not split on it:
+  its scope is `graded_post_freeze`, which records the evaluator digest but does
+  not count by it, so a tau whose reads straddle a change to the evaluate prompt
+  mixes two anchoring regimes and compares to neither. `evaluator_agreement` is
+  exposed the same way: judges anchored on the same candidate's score agree with
+  each other partly for that reason, so a high figure there is an upper bound
+  too.
+
+  `fedcourts leaderboard` produces the board — a deterministic, offline roll-up of the
   ledger and the committed `statpack.json` — empty (`{}` plus the zero counts)
   until the first evaluation lands.
 - `claim-scores.json` — the mechanical claim-score surface: every

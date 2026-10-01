@@ -205,7 +205,7 @@ flowchart TD
   F -->|facts change| F
   E --> G[Conference]
   G --> H[Order list: grant / deny]
-  H --> I[Evaluate — skill vs the segment base rate<br/>+ independent big-case read]
+  H --> I[Evaluate — skill vs the segment base rate<br/>+ big-case read]
   H -->|if granted| J[Merits forecasts on the docket<br/>at grant + when fully briefed,<br/>resolved by the decision]
 ```
 
