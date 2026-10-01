@@ -1,6 +1,6 @@
 """`run-repair`'s embedded CLI strings, executed against the fixture corpus.
 
-`run-repair.yml` is dispatch-only, so its nineteen maintenance passes are argv that
+`run-repair.yml` is dispatch-only, so its twenty maintenance passes are argv that
 nothing runs until a maintainer runs one — in front of the maintainer, at the
 moment they most want it to work. A flag renamed in `cli.py` leaves the workflow
 string behind, and the whole cost of that drift lands on the dispatch as a usage
@@ -33,7 +33,8 @@ The passes' own semantics are pinned at their unit seams
 `tests/test_document_backfill.py`,
 `tests/test_document_mirror.py`,
 `tests/test_arrival_backfill.py`,
-`tests/test_application_backfill.py` and
+`tests/test_application_backfill.py`,
+`tests/test_opinion_record.py` and
 `tests/test_cli_stamp.py`), which is why a
 near-empty fixture corpus is enough here — a pass with nothing to do still
 parses every flag it was given.
@@ -88,9 +89,10 @@ REPAIR_TERM = "24"
 
 #: Commands that fetch from supremecourt.gov as their dry run. The offline gate
 #: must not reach the Court's site, so for these the client's transport answers
-#: every docket as unserved: the walk then ends on its miss threshold having
-#: parsed every flag and landed nothing.
-OFFLINE_FETCHERS = frozenset({"backfill-applications"})
+#: every request as unserved: the application walk then ends on its miss
+#: threshold, and the opinion record reads every Term's listing as empty —
+#: each having parsed every flag and landed nothing.
+OFFLINE_FETCHERS = frozenset({"backfill-applications", "backfill-opinion-record"})
 
 #: One re-grade subject, in the `court/docket/event/run_id/actor` grammar the
 #: workflow greps a dispatch's cell list against. Asserted against that pattern

@@ -142,7 +142,9 @@ backfill-opinion-record` builds (`pipeline/opinion_record.py`): one row per
 opinion in a decided case — its order in the document, kind, author, joiners
 and length — for the opinion-authorship and opinion-length figures a Term's
 statistics count per opinion rather than per case. It is a historical record,
-held corpus-side and read by nothing a predict or evaluate cell sees.
+held corpus-side and read by nothing a predict or evaluate cell sees. Its
+apply runs as run-repair's `opinion-record` pass over OT2020–OT2025, fetching
+in a step that holds no credential ([data-pipeline.md](data-pipeline.md#maintenance-passes)).
 
 - **Source and scope.** Every row of a Term's opinions listing, read through
   the same client: the signed merits opinions, the per curiams (summary
