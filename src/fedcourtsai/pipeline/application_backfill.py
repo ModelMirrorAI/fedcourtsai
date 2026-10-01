@@ -227,6 +227,7 @@ def _plan(
 ) -> tuple[PlannedRow, int] | None:
     """Classify one served record: a planned row and its docket id, or held back."""
     number = scotus_docket_slug(term, serial, form="application")
+    served = str(payload.get("CaseNumber"))
     served_as = parse_scotus_application_number(
         corpus.strip_docket_annotation(str(payload.get("CaseNumber") or "").strip())
     )
@@ -234,7 +235,8 @@ def _plan(
         ledger.held.append(
             {
                 "docket": number,
-                "reason": f"served docket number {payload.get('CaseNumber')!r} is not {number}",
+                # Upstream text in a run summary: truncated, and repr-escaped.
+                "reason": f"served docket number {served[:32]!r} is not {number}",
             }
         )
         return None

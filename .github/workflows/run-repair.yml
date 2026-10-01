@@ -2668,6 +2668,10 @@ jobs:
           # The corpus estate's base URL: the ingest mirrors each snapshot to
           # the content store beneath it, and the push writes the index there.
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          # The session is already assumed; nothing here needs to mint another,
+          # so nothing running during the upstream parse can.
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ""
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
