@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000437",
+  "run_id": "20261001T215439Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The only provisioned document, application.txt, is recorded with empty_text: true (a 73-page scanned PDF with no text layer; the source filename is marked 'scan'). The application's substance — what is appealed, what the injunction would restrain, any federal question — was unavailable to this cell, so the forecast rests on the docket shell (pro se applicant, Virginia county circuit court below, injunction pending appeal submitted to the Chief Justice) plus corpus priors. An OCR pass on scanned applications would have changed what this cell could read, though probably not its number."
+    }
+  ]
+}
