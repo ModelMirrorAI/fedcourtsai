@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.55,
+    "notes": "Execution-day shadow-docket vacatur of a circuit stay in a capital case with national coverage and a written three-Justice dissent: the human stakes are absolute and public attention was high, but the order is a routine application of Hill and Gonzalez, carries no majority writing, and settles no open legal question. High visibility, low doctrinal consequence."
+  },
+  "brier_score": 0.04839999999999999,
+  "brier_skill_score": 0.9396138924884301,
+  "case_id": "scotus/9526000428",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.78,
+        "score": 0.7531088568298028
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.7531088568298028,
+    "total": 0.7531088568298028
+  },
+  "correct": 1,
+  "created_at": "2026-10-01T20:35:12Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward log, 30 calls, capture coverage 0.93. Case-specific retrieval was limited to the respondent's opposition and the applicant's reply PDFs, both docketed 2026-09-30 and listed in the provisioned 2026-09-30 snapshot (pre-decision filings, inside the cell's baseline). Two web-search rows are unobserved and were graded on their queries: one is the opposition-brief URL, one a Gonzalez v. Crosby search; neither names this application's disposition. CourtListener calls fetched Gonzalez v. Crosby (2005) only. No query for the 26A428 docket, no retrieved_doc_date at or after resolution, and the reasoning does not presuppose the order.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260930T212944Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "fc12dd3a39dfd5879cb279446812521f8dcaa8d9",
+    "stamped_at": "2026-10-01T20:37:22.858302Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261001T203005Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
