@@ -14,13 +14,16 @@ import sqlite3
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus, fixture, vote_writer
 from fedcourtsai.cli import app
+from fedcourtsai.handoff import HandoffRefused, read_handoff, write_handoff
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import opinion_lineups, order_lineups, vote_sources
 from fedcourtsai.pipeline.documents import ExtractedText
@@ -660,3 +663,276 @@ def test_an_opinion_url_with_a_dot_segment_is_not_the_sources_document() -> None
     assert not vote_sources.is_order_document_url(
         "https://www.supremecourt.gov/orders/%2E%2E/x.pdf"
     )
+
+
+# --- the credential split: projection, plan, apply ------------------------------------
+
+
+def _orders_plan(
+    data_root: Path, conn: sqlite3.Connection, tmp_path: Path, *, today: date = LATER
+) -> Path:
+    """The projection and the corpus-free read, through files as the jobs pass them."""
+    projection_file = tmp_path / "handoff" / "projection.json"
+    write_handoff(
+        projection_file,
+        vote_writer.vote_docket_numbers(
+            conn, data_root, source="supremecourt-orders", terms=(2025,)
+        ),
+    )
+    projection = read_handoff(projection_file, vote_writer.VoteDocketNumbers)
+    numbers = vote_writer.projected_numbers(projection, "supremecourt-orders")
+    with _client(_orders_handler([])) as client:
+        dry = stamp_order_votes(
+            numbers, data_root, OrderFetcher(client), today=today, terms=(2025,), apply=False
+        )
+    plan_file = tmp_path / "handoff" / "plan.json"
+    write_handoff(plan_file, vote_writer.vote_plan(dry))
+    return plan_file
+
+
+def _apply_plan(
+    data_root: Path,
+    plan_file: Path,
+    *,
+    max_stamps: int | None = 10,
+    replace_differing: bool = False,
+    apply: bool = True,
+) -> VoteWriteResult:
+    return vote_writer.apply_vote_plan(
+        read_handoff(plan_file, vote_writer.VoteStampPlan),
+        data_root,
+        source="supremecourt-orders",
+        today=LATER,
+        terms=(2025,),
+        apply=apply,
+        max_stamps=max_stamps,
+        replace_differing=replace_differing,
+    )
+
+
+def _outcomes(data_root: Path) -> dict[str, str]:
+    return {str(p.relative_to(data_root)): p.read_text() for p in data_root.rglob("outcome.json")}
+
+
+def test_the_split_stamps_what_the_one_process_apply_stamps(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _stub_extraction(monkeypatch, order_lineups)
+    data_root, conn = _cert_ledger(tmp_path / "split")
+    plan_file = _orders_plan(data_root, conn, tmp_path / "split")
+    projection = json.loads((tmp_path / "split" / "handoff" / "projection.json").read_text())
+    # The projection carries the population's case ids and docket numbers, nothing else.
+    assert projection["numbers"] == {f"scotus/{k}": v for k, v in CERT.items()}
+    assert set(projection) == {"format", "version", "source", "numbers", "unprojected"}
+
+    over = _apply_plan(data_root, plan_file, max_stamps=2)
+    assert over.refused and not over.applied
+    split = _apply_plan(data_root, plan_file, max_stamps=3)
+    assert split.applied and len(split.stamps) == 3
+    assert _votes_hold(data_root) == []
+
+    one_root, one_conn = _cert_ledger(tmp_path / "one")
+    _stamp_orders(one_root, one_conn, [], apply=True, max_stamps=3)
+    assert _outcomes(data_root) == _outcomes(one_root)
+
+    # The same plan again is a no-op: every record is already in place.
+    again = _apply_plan(data_root, plan_file, max_stamps=1)
+    assert again.stamps == [] and len(again.unchanged) == 3
+
+
+def test_the_split_apply_holds_back_what_moved_since_the_plan(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _stub_extraction(monkeypatch, order_lineups)
+    data_root, conn = _cert_ledger(tmp_path)
+    plan_file = _orders_plan(data_root, conn, tmp_path)
+    path = CasePaths(data_root, "scotus", 1).event("evt-petition-disposition").outcome
+    write_json(
+        path,
+        read_model(path, Outcome).model_copy(
+            update={
+                "votes": [JusticeVote(justice="Thomas", vote=VoteValue.grant)],
+                "vote_provenance": VoteProvenance(
+                    source="supremecourt-orders",
+                    documents=["https://www.supremecourt.gov/orders/courtorders/x.pdf"],
+                    grammars=[GrammarStamp(grammar="scotus-order-notations", version=1)],
+                    participating=9,
+                    complete=False,
+                ),
+            }
+        ),
+    )
+    result = _apply_plan(data_root, plan_file, max_stamps=3)
+    assert "scotus/1/evt-petition-disposition" in dict(result.held_back)
+    assert len(result.stamps) == 2
+    replaced = _apply_plan(data_root, plan_file, max_stamps=3, replace_differing=True)
+    assert [s.replaces for s in replaced.stamps] == [True]
+
+
+def _tamper_votes(plan: dict[str, Any], change: str) -> None:
+    stamp = plan["stamps"][0]
+    if change == "unknown-outcome":
+        stamp["case_id"] = "scotus/999"
+    elif change == "path-traversal":
+        stamp["event_id"] = "../../../../etc"
+    elif change == "duplicate":
+        plan["stamps"].append(dict(stamp))
+    elif change == "other-source":
+        stamp["vote_provenance"]["source"] = "supremecourt-opinions"
+    elif change == "complete-bench":
+        stamp["vote_provenance"]["complete"] = True
+    elif change == "foreign-document":
+        stamp["vote_provenance"]["documents"] = ["https://example.com/orders/x.pdf"]
+    elif change == "unregistered-grammar":
+        stamp["vote_provenance"]["grammars"][0]["grammar"] = "made-up"
+    elif change == "unsettled":
+        stamp["resolved_at"] = LATER.isoformat()
+    elif change == "plan-source":
+        plan["source"] = "supremecourt-opinions"
+    elif change == "extra-field":
+        stamp["note"] = "x"
+    elif change == "version":
+        plan["version"] = 2
+    elif change == "bad-vote":
+        stamp["votes"] = [{"justice": "Thomas", "vote": "maybe"}]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "unknown-outcome",
+        "path-traversal",
+        "duplicate",
+        "other-source",
+        "complete-bench",
+        "foreign-document",
+        "unregistered-grammar",
+        "unsettled",
+        "plan-source",
+        "extra-field",
+        "version",
+        "bad-vote",
+    ],
+)
+def test_a_tampered_or_malformed_plan_is_refused_whole(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, change: str
+) -> None:
+    _stub_extraction(monkeypatch, order_lineups)
+    data_root, conn = _cert_ledger(tmp_path)
+    plan_file = _orders_plan(data_root, conn, tmp_path)
+    raw = json.loads(plan_file.read_text())
+    # Tamper with the record a one-process run would stamp onto scotus/1.
+    raw["stamps"].sort(key=lambda s: s["case_id"])
+    _tamper_votes(raw, change)
+    plan_file.write_text(json.dumps(raw))
+    before = _outcomes(data_root)
+    with pytest.raises(HandoffRefused):
+        _apply_plan(data_root, plan_file)
+    assert _outcomes(data_root) == before
+
+
+def test_a_plan_read_from_a_partial_fetch_refuses_the_apply(tmp_path: Path) -> None:
+    data_root, _ = _cert_ledger(tmp_path)
+    plan = vote_writer.VoteStampPlan(
+        source="supremecourt-orders",
+        population=4,
+        failures=["OT25 orders listings: 503"],
+        stamps=[],
+    )
+    plan_file = tmp_path / "plan.json"
+    write_handoff(plan_file, plan)
+    result = _apply_plan(data_root, plan_file)
+    assert result.refused and not result.applied
+
+
+def test_a_projection_for_the_other_pass_is_refused(tmp_path: Path) -> None:
+    projection = vote_writer.VoteDocketNumbers(source="supremecourt-opinions", numbers={})
+    with pytest.raises(HandoffRefused):
+        vote_writer.projected_numbers(projection, "supremecourt-orders")
+    with pytest.raises(ValidationError):
+        vote_writer.VoteDocketNumbers.model_validate(
+            {"source": "supremecourt-orders", "numbers": {"scotus/1": "25-1; rm -rf"}}
+        )
+
+
+@pytest.mark.parametrize("command", ["stamp-order-votes", "stamp-opinion-votes"])
+def test_the_commands_split_modes(command: str, tmp_path: Path) -> None:
+    """The projection needs the corpus; the plan's apply needs neither corpus nor network."""
+    data_root, _ = _cert_ledger(tmp_path)
+    corpus_root = tmp_path / "corpus"
+    with corpus.connect(corpus.corpus_db_path(corpus_root)) as real:
+        real.executemany(
+            "INSERT INTO cases (case_id, court, docket_number) VALUES (?, 'scotus', ?)",
+            [(f"scotus/{docket}", number) for docket, number in CERT.items()],
+        )
+        real.commit()
+    env = {"FEDCOURTS_CORPUS_ROOT": str(corpus_root), "FEDCOURTS_DATA_ROOT": str(data_root)}
+    runner = CliRunner()
+    projection = tmp_path / "p.json"
+    emitted = runner.invoke(app, [command, "--emit-corpus-projection", str(projection)], env=env)
+    assert emitted.exit_code == 0, emitted.output
+    source = "supremecourt-orders" if command == "stamp-order-votes" else "supremecourt-opinions"
+    assert read_handoff(projection, vote_writer.VoteDocketNumbers).source == source
+    plan = tmp_path / "plan.json"
+    write_handoff(
+        plan, vote_writer.VoteStampPlan(source=source, population=0, failures=[], stamps=[])
+    )
+    no_corpus = {**env, "FEDCOURTS_CORPUS_ROOT": str(tmp_path / "nowhere")}
+    applied = runner.invoke(
+        app, [command, "--from-plan", str(plan), "--apply", "--max-stamps", "1"], env=no_corpus
+    )
+    assert applied.exit_code == 0, applied.output
+    plan.write_text("{}")
+    refused = runner.invoke(
+        app, [command, "--from-plan", str(plan), "--apply", "--max-stamps", "1"], env=no_corpus
+    )
+    assert refused.exit_code == 1 and "refusing the handoff file" in refused.output
+    for args in (
+        ["--projection", str(projection), "--apply", "--max-stamps", "1"],
+        ["--plan-out", str(plan), "--apply", "--max-stamps", "1"],
+        ["--emit-corpus-projection", str(projection), "--from-plan", str(plan)],
+        ["--from-plan", str(plan), "--projection", str(projection)],
+    ):
+        assert runner.invoke(app, [command, *args], env=env).exit_code == 2, args
+
+
+def test_an_opinions_plan_round_trips_to_the_one_process_apply(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The opinions source's honest plan — complete records — passes the writer's checks."""
+    _stub_extraction(monkeypatch, opinion_lineups)
+    data_root, conn = _merits_ledger(tmp_path / "split")
+    numbers = vote_writer.projected_numbers(
+        vote_writer.vote_docket_numbers(conn, data_root, source="supremecourt-opinions"),
+        "supremecourt-opinions",
+    )
+    with _client(_opinions_handler([])) as client:
+        dry = stamp_opinion_votes(
+            numbers, data_root, OpinionFetcher(client), lambda _t: GRANTED_NOTED, apply=False
+        )
+    plan_file = tmp_path / "plan.json"
+    write_handoff(plan_file, vote_writer.vote_plan(dry))
+    split = vote_writer.apply_vote_plan(
+        read_handoff(plan_file, vote_writer.VoteStampPlan),
+        data_root,
+        source="supremecourt-opinions",
+        today=LATER,
+        apply=True,
+        max_stamps=2,
+    )
+    assert split.applied and len(split.stamps) == 2
+    one_root, one_conn = _merits_ledger(tmp_path / "one")
+    _stamp_opinions(one_root, one_conn, GRANTED_NOTED, apply=True, max_stamps=2)
+    assert _outcomes(data_root) == _outcomes(one_root)
+    assert _votes_hold(data_root) == []
+
+
+def test_an_annotated_stored_number_is_left_out_of_the_projection(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _outcome(data_root, 1)
+    _outcome(data_root, 2)
+    conn = _corpus(tmp_path, {1: "25-885", 2: "11-6029 (11A229)"})
+    projection = vote_writer.vote_docket_numbers(
+        conn, data_root, source="supremecourt-orders", terms=(2025,)
+    )
+    assert projection.numbers == {"scotus/1": "25-885"} and projection.unprojected == 1

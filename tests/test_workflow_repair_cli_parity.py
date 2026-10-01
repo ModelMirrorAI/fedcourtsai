@@ -160,16 +160,21 @@ def _steps_for(pass_name: str) -> list[dict[str, Any]]:
     Keyed on the `inputs.repair == '<pass>'` equality the workflow gates on,
     rather than on a table of step names kept here: a pass that loses its step,
     or grows a second one, then changes what this test covers instead of
-    silently falling out of it. The gate is read at both levels because the
-    workflow uses both — the corpus passes share one job and gate per step,
-    while the re-grade has a job of its own and gates there.
+    silently falling out of it. A step's own selector gate decides where it
+    has one — the credential-split jobs serve four passes and gate each step
+    to its pass — and the job's gate decides otherwise: the corpus passes
+    share one job and gate per step, while the re-grade and the writers have
+    jobs of their own and gate there. Returned in workflow order, which is the
+    order the split's three jobs hand their files along.
     """
     gate = f"inputs.repair == '{pass_name}'"
-    return [
-        step
-        for _, job, step in _cli_steps()
-        if gate in str(step.get("if", "")) + str(job.get("if", ""))
-    ]
+    selected = []
+    for _, job, step in _cli_steps():
+        own = str(step.get("if", ""))
+        governing = own if "inputs.repair " in own else str(job.get("if", ""))
+        if gate in governing:
+            selected.append(step)
+    return selected
 
 
 def _cli_steps() -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
@@ -210,9 +215,16 @@ def _regrade_fields() -> dict[str, str]:
     return {"court": court, "docket": docket, "event": event, "run": run, "actor": actor}
 
 
-def _values(pass_name: str | None = None) -> dict[str, str]:
-    """What each shell variable the pass argv reads stands for in this test."""
+def _values(pass_name: str | None = None, handoff: Path | None = None) -> dict[str, str]:
+    """What each shell variable the pass argv reads stands for in this test.
+
+    ``handoff`` is the directory the credential split's two files pass through
+    for this pass, shared by its projection, parse and writer invocations.
+    """
+    handoff = handoff or Path("handoff")
     return {
+        "HANDOFF_PROJECTION": str(handoff / "projection.json"),
+        "HANDOFF_PLAN": str(handoff / "plan.json"),
         "REPAIR_BOUND": REPAIR_BOUND,
         # The re-derivation and the back-fill splice `REPAIR_TARGET` into argv
         # directly; the re-grade reads its own target through the five fields
@@ -222,7 +234,7 @@ def _values(pass_name: str | None = None) -> dict[str, str]:
     }
 
 
-def _pass_invocations(pass_name: str) -> list[list[str]]:
+def _pass_invocations(pass_name: str, handoff: Path | None = None) -> list[list[str]]:
     """Every concrete argv a dispatch of ``pass_name`` can hand the CLI.
 
     Both states of each conditional flag array are covered — the branch taken
@@ -236,7 +248,16 @@ def _pass_invocations(pass_name: str) -> list[list[str]]:
         body = str(step["run"])
         for arrays in ({}, shell_arrays(body)):
             for argv in command_argv(body, FEDCOURTS):
-                concrete = _runnable(expand(argv, arrays=arrays, values=_values(pass_name)))
+                concrete = _runnable(
+                    expand(argv, arrays=arrays, values=_values(pass_name, handoff))
+                )
+                if concrete and handoff is not None:
+                    # A step that picks its command by the selector (the two
+                    # vote passes share each split step) yields both commands'
+                    # argv here; each command's chain gets its own directory,
+                    # so one command's projection never feeds the other's parse.
+                    own = str(handoff / concrete[0])
+                    concrete = [arg.replace(str(handoff), own, 1) for arg in concrete]
                 if concrete and tuple(concrete) not in seen:
                     seen.add(tuple(concrete))
                     invocations.append(concrete)
@@ -330,7 +351,9 @@ def _seed_stamped_cell(data_root: Path) -> None:
 @pytest.mark.parametrize("pass_name", _passes())
 def test_every_run_repair_pass_still_parses_against_the_cli(pass_name: str, tmp_path: Path) -> None:
     """Each pass's own argv, executed. The drift detector for every one of them."""
-    invocations = _pass_invocations(pass_name)
+    # One handoff directory per pass: its projection, parse and writer argv
+    # run in workflow order, each reading the file the one before wrote.
+    invocations = _pass_invocations(pass_name, tmp_path / "handoff")
     assert invocations, (
         f"no `uv run fedcourts` invocation found for repair={pass_name} — either the "
         "pass stopped calling the CLI, or its step is no longer gated on its own "

@@ -160,6 +160,7 @@ from .finalize import (
 )
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
+from .handoff import HandoffRefused, read_handoff, write_handoff
 from .integrity import (
     cell_clock,
     evaluation_clock,
@@ -440,10 +441,17 @@ from .validate import (
     validate_ledger,
 )
 from .vote_writer import (
+    VoteDocketNumbers,
+    VoteSourceName,
+    VoteStampPlan,
     VoteWriteResult,
+    apply_vote_plan,
+    projected_numbers,
     reason_counts,
     stamp_opinion_votes,
     stamp_order_votes,
+    vote_docket_numbers,
+    vote_plan,
 )
 from .watchdog_telemetry import arm_checkin, disarm_checkin
 
@@ -3798,7 +3806,7 @@ def decision_census_cmd(
 
 
 @app.command("backfill-opinion-record")
-def backfill_opinion_record_cmd(
+def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a CLI entrypoint; options map 1:1 to inputs
     first_term: Annotated[
         int, typer.Option("--first-term", help="First October Term to read (four-digit).")
     ] = 2025,
@@ -3831,6 +3839,12 @@ def backfill_opinion_record_cmd(
             "read without host scoping, so refused with --apply)."
         ),
     ] = None,
+    emit_corpus_projection: Annotated[
+        Path | None, typer.Option("--emit-corpus-projection", help=_EMIT_PROJECTION_HELP)
+    ] = None,
+    projection: Annotated[Path | None, typer.Option("--projection", help=_PROJECTION_HELP)] = None,
+    plan_out: Annotated[Path | None, typer.Option("--plan-out", help=_PLAN_OUT_HELP)] = None,
+    from_plan: Annotated[Path | None, typer.Option("--from-plan", help=_FROM_PLAN_HELP)] = None,
 ) -> None:
     """Build the per-opinion record — type, author, joiners, word count — from the Court's opinions.
 
@@ -3882,9 +3896,25 @@ def backfill_opinion_record_cmd(
         except ValueError as exc:
             typer.echo(f"backfill-opinion-record: {exc}", err=True)
             raise typer.Exit(code=2) from exc
+    if from_plan is not None and docket:
+        typer.echo(
+            "backfill-opinion-record: --docket narrows the parse; a plan already carries what "
+            "its parse read, so --from-plan takes no --docket.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    _handoff_preflight(
+        "backfill-opinion-record",
+        apply=apply,
+        emit_projection=emit_corpus_projection,
+        projection=projection,
+        plan_out=plan_out,
+        from_plan=from_plan,
+        cache_dir=cache_dir,
+    )
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    if not db_path.exists():
+    if projection is None and not db_path.exists():
         typer.echo(
             f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
             "before building the opinion record.",
@@ -3892,24 +3922,71 @@ def backfill_opinion_record_cmd(
         )
         raise typer.Exit(code=1)
     dockets = [d.strip() for d in docket.split(",") if d.strip()]
-    with SupremeCourtClient(throttle_seconds=throttle) as client:
-        fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
-        if apply:
-            with corpus.connect(db_path) as conn:
-                result = opinion_record.build_opinion_record(
-                    conn,
-                    fetcher,
-                    terms=terms,
-                    dockets=dockets,
-                    apply=True,
-                    max_rows=max_rows,
-                    write=lambda pairs: opinion_record.insert_opinions(conn, pairs),
+    if emit_corpus_projection is not None:
+        with corpus.connect_local_unmigrated(db_path) as ro:
+            handed = opinion_record.opinion_record_projection(ro, terms=terms)
+        write_handoff(emit_corpus_projection, handed)
+        typer.echo(
+            f"backfill-opinion-record: wrote the recorded-documents projection "
+            f"({len(handed.recorded)} document(s) over OT{terms[0]}-OT{terms[-1]}) to "
+            f"{emit_corpus_projection}; nothing fetched.",
+            err=True,
+        )
+        return
+    try:
+        if from_plan is not None:
+            plan = _read_handoff_or_exit(
+                "backfill-opinion-record", from_plan, opinion_record.OpinionRecordPlan
+            )
+            if apply:
+                with corpus.connect(db_path) as conn:
+                    result = opinion_record.apply_opinion_record_plan(
+                        conn,
+                        plan,
+                        terms=terms,
+                        apply=True,
+                        max_rows=max_rows,
+                        write=lambda pairs: opinion_record.insert_opinions(conn, pairs),
+                    )
+            else:
+                with corpus.connect_local_unmigrated(db_path) as ro:
+                    result = opinion_record.apply_opinion_record_plan(
+                        ro, plan, terms=terms, apply=False
+                    )
+        elif projection is not None:
+            handed = _read_handoff_or_exit(
+                "backfill-opinion-record", projection, opinion_record.OpinionRecordProjection
+            )
+            recorded = opinion_record.projected_recorded(handed, terms=terms)
+            with SupremeCourtClient(throttle_seconds=throttle) as client:
+                fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
+                result = opinion_record.read_opinion_record(
+                    fetcher, terms=terms, recorded=recorded, dockets=dockets
                 )
         else:
-            with corpus.connect_local_unmigrated(db_path) as ro:
-                result = opinion_record.build_opinion_record(
-                    ro, fetcher, terms=terms, dockets=dockets
-                )
+            with SupremeCourtClient(throttle_seconds=throttle) as client:
+                fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
+                if apply:
+                    with corpus.connect(db_path) as conn:
+                        result = opinion_record.build_opinion_record(
+                            conn,
+                            fetcher,
+                            terms=terms,
+                            dockets=dockets,
+                            apply=True,
+                            max_rows=max_rows,
+                            write=lambda pairs: opinion_record.insert_opinions(conn, pairs),
+                        )
+                else:
+                    with corpus.connect_local_unmigrated(db_path) as ro:
+                        result = opinion_record.build_opinion_record(
+                            ro, fetcher, terms=terms, dockets=dockets
+                        )
+    except HandoffRefused as exc:
+        typer.echo(f"backfill-opinion-record: refusing the handoff whole — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    if plan_out is not None:
+        write_handoff(plan_out, opinion_record.opinion_record_plan(result))
     typer.echo(json.dumps([r.model_dump(mode="json") for r in result.readings], indent=2))
     for failure in result.failures:
         typer.echo(failure, err=True)
@@ -9674,8 +9751,67 @@ def _granted_noted_text(fetcher: opinion_lineups.OpinionFetcher, term: int) -> s
     return extracted.text
 
 
+def _handoff_preflight(
+    command: str,
+    *,
+    apply: bool,
+    emit_projection: Path | None,
+    projection: Path | None,
+    plan_out: Path | None,
+    from_plan: Path | None,
+    cache_dir: Path | None,
+) -> None:
+    """Refuse a combination of the credential-split modes that means nothing.
+
+    The four modes are one pass cut at its credential boundary: the projection
+    is read where the corpus is and fetches nothing; the plan is read against
+    the projection and writes nothing but the plan; the apply reads the plan
+    and fetches nothing. A flag from one side handed to another is refused
+    rather than ignored.
+    """
+    if emit_projection is not None and (
+        apply or projection is not None or plan_out is not None or from_plan is not None
+    ):
+        typer.echo(
+            f"{command}: --emit-corpus-projection reads the corpus and writes the projection "
+            "only — it takes none of --apply, --projection, --plan-out or --from-plan.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if from_plan is not None and (
+        projection is not None or plan_out is not None or cache_dir is not None
+    ):
+        typer.echo(
+            f"{command}: --from-plan applies a plan already read; it fetches nothing, so it "
+            "takes none of --projection, --plan-out or --cache-dir.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if apply and (projection is not None or plan_out is not None):
+        typer.echo(
+            f"{command}: --projection and --plan-out write a dry run's plan; apply that plan "
+            "with --from-plan where the write credentials are.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+
+def _read_handoff_or_exit[M: BaseModel](command: str, path: Path, model: type[M]) -> M:
+    try:
+        return read_handoff(path, model)
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the handoff file — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
 def _vote_write_preflight(
-    command: str, *, apply: bool, max_stamps: int | None, cache_dir: Path | None, throttle: float
+    command: str,
+    *,
+    apply: bool,
+    max_stamps: int | None,
+    cache_dir: Path | None,
+    throttle: float,
+    needs_corpus: bool,
 ) -> Path:
     """Refuse a malformed invocation, and return the corpus path to read."""
     if apply and max_stamps is None:
@@ -9696,7 +9832,7 @@ def _vote_write_preflight(
         typer.echo("--throttle must be positive", err=True)
         raise typer.Exit(code=2)
     db_path = corpus.corpus_db_path(get_settings().corpus_root)
-    if not db_path.exists():
+    if needs_corpus and not db_path.exists():
         typer.echo(
             f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
             "first — the writer reads each case's docket number from it.",
@@ -9704,6 +9840,107 @@ def _vote_write_preflight(
         )
         raise typer.Exit(code=1)
     return db_path
+
+
+def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identical flags
+    command: str,
+    source: VoteSourceName,
+    run: Callable[[Any, SupremeCourtClient], VoteWriteResult],
+    *,
+    apply: bool,
+    max_stamps: int | None,
+    replace_differing: bool,
+    throttle: float,
+    cache_dir: Path | None,
+    emit_projection: Path | None,
+    projection: Path | None,
+    plan_out: Path | None,
+    from_plan: Path | None,
+) -> None:
+    """One vote pass in whichever of its modes the flags select.
+
+    ``run(numbers, client)`` performs the fetch-and-read against ``numbers`` —
+    the open corpus or the projection's map.
+    """
+    _handoff_preflight(
+        command,
+        apply=apply,
+        emit_projection=emit_projection,
+        projection=projection,
+        plan_out=plan_out,
+        from_plan=from_plan,
+        cache_dir=cache_dir,
+    )
+    db_path = _vote_write_preflight(
+        command,
+        apply=apply,
+        max_stamps=max_stamps,
+        cache_dir=cache_dir,
+        throttle=throttle,
+        needs_corpus=projection is None and from_plan is None,
+    )
+    settings = get_settings()
+    if emit_projection is not None:
+        # Strictly read-only: the projection reads two columns every blob
+        # carries, so the pulled file is never migrated in place.
+        with corpus.connect_readonly(db_path, migrate=False) as conn:
+            numbers = vote_docket_numbers(conn, settings.data_root, source=source)
+        write_handoff(emit_projection, numbers)
+        typer.echo(
+            f"{command}: wrote the docket-number projection ({len(numbers.numbers)} case(s), "
+            f"{numbers.unprojected} left out for an annotated stored number; source {source}) "
+            f"to {emit_projection}; nothing fetched."
+        )
+        return
+    if from_plan is not None:
+        plan = _read_handoff_or_exit(command, from_plan, VoteStampPlan)
+        try:
+            result = apply_vote_plan(
+                plan,
+                settings.data_root,
+                source=source,
+                today=datetime.now(UTC).date(),
+                apply=apply,
+                max_stamps=max_stamps,
+                replace_differing=replace_differing,
+            )
+        except HandoffRefused as exc:
+            typer.echo(f"{command}: refusing the plan whole — {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    else:
+        with SupremeCourtClient(throttle_seconds=throttle) as client:
+            if projection is not None:
+                handed = _read_handoff_or_exit(command, projection, VoteDocketNumbers)
+                try:
+                    numbers_map = projected_numbers(handed, source)
+                except HandoffRefused as exc:
+                    typer.echo(f"{command}: refusing the projection — {exc}", err=True)
+                    raise typer.Exit(code=1) from exc
+                result = run(numbers_map, client)
+            else:
+                with corpus.connect_readonly(db_path) as conn:
+                    result = run(conn, client)
+        if plan_out is not None:
+            write_handoff(plan_out, vote_plan(result))
+    _report_vote_write(command, result, max_stamps)
+    if result.refused or result.failures:
+        raise typer.Exit(code=1)
+
+
+_EMIT_PROJECTION_HELP = (
+    "Read the corpus, write the public projection the parse needs to this path, and "
+    "stop: no request is made. The read-only job of the run-repair split."
+)
+_PROJECTION_HELP = (
+    "Read the corpus facts from this projection instead of the corpus (dry run only): "
+    "the credential-free parse job of the run-repair split."
+)
+_PLAN_OUT_HELP = "Dry run only: also write what the parse read, as the plan an apply takes."
+_FROM_PLAN_HELP = (
+    "Apply (or, without --apply, re-check) this plan instead of fetching: every row is "
+    "re-validated and the whole plan refused on any malformed one. The writer job of the "
+    "run-repair split."
+)
 
 
 def _report_vote_write(command: str, result: VoteWriteResult, max_stamps: int | None) -> None:
@@ -9765,7 +10002,7 @@ def _report_vote_write(command: str, result: VoteWriteResult, max_stamps: int | 
 
 
 @app.command("stamp-opinion-votes")
-def stamp_opinion_votes_cmd(
+def stamp_opinion_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     apply: Annotated[
         bool,
         typer.Option("--apply", help="Write the vote records; omit for a dry-run report."),
@@ -9796,6 +10033,12 @@ def stamp_opinion_votes_cmd(
             "cache read without host scoping, refused with --apply)."
         ),
     ] = None,
+    emit_corpus_projection: Annotated[
+        Path | None, typer.Option("--emit-corpus-projection", help=_EMIT_PROJECTION_HELP)
+    ] = None,
+    projection: Annotated[Path | None, typer.Option("--projection", help=_PROJECTION_HELP)] = None,
+    plan_out: Annotated[Path | None, typer.Option("--plan-out", help=_PLAN_OUT_HELP)] = None,
+    from_plan: Annotated[Path | None, typer.Option("--from-plan", help=_FROM_PLAN_HELP)] = None,
 ) -> None:
     """Stamp merits outcomes with the vote lineup of the opinion deciding them.
 
@@ -9817,36 +10060,82 @@ def stamp_opinion_votes_cmd(
     `--max-stamps`, and refuses outright if a listing or list could not be
     read. With nothing in the population no request is made. The apply half
     belongs on the `opinion-votes` run-repair pass.
+
+    Run-repair runs the pass split at its credential boundary, in three
+    modes: `--emit-corpus-projection PATH` reads the corpus and writes the
+    docket-number projection, fetching nothing; `--projection PATH --plan-out
+    PLAN` fetches and reads the Court's documents against that projection,
+    opening no corpus, and writes the plan; `--from-plan PLAN` re-validates
+    every planned record against the ledger as it stands and, with `--apply
+    --max-stamps N`, stamps it — opening no corpus and making no request. A
+    plan with a malformed or unknown row is refused whole.
     """
-    db_path = _vote_write_preflight(
+    _vote_pass(
         "stamp-opinion-votes",
-        apply=apply,
-        max_stamps=max_stamps,
-        cache_dir=cache_dir,
-        throttle=throttle,
-    )
-    settings = get_settings()
-    with (
-        corpus.connect_readonly(db_path) as conn,
-        SupremeCourtClient(throttle_seconds=throttle) as client,
-    ):
-        fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
-        result = stamp_opinion_votes(
-            conn,
-            settings.data_root,
-            fetcher,
-            lambda term: _granted_noted_text(fetcher, term),
+        "supremecourt-opinions",
+        lambda numbers, client: _run_opinion_votes(
+            numbers,
+            client,
+            cache_dir,
             apply=apply,
             max_stamps=max_stamps,
             replace_differing=replace_differing,
-        )
-    _report_vote_write("stamp-opinion-votes", result, max_stamps)
-    if result.refused or result.failures:
-        raise typer.Exit(code=1)
+        ),
+        apply=apply,
+        max_stamps=max_stamps,
+        replace_differing=replace_differing,
+        throttle=throttle,
+        cache_dir=cache_dir,
+        emit_projection=emit_corpus_projection,
+        projection=projection,
+        plan_out=plan_out,
+        from_plan=from_plan,
+    )
+
+
+def _run_opinion_votes(
+    numbers: Any,
+    client: SupremeCourtClient,
+    cache_dir: Path | None,
+    *,
+    apply: bool,
+    max_stamps: int | None,
+    replace_differing: bool,
+) -> VoteWriteResult:
+    fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
+    return stamp_opinion_votes(
+        numbers,
+        get_settings().data_root,
+        fetcher,
+        lambda term: _granted_noted_text(fetcher, term),
+        apply=apply,
+        max_stamps=max_stamps,
+        replace_differing=replace_differing,
+    )
+
+
+def _run_order_votes(
+    numbers: Any,
+    client: SupremeCourtClient,
+    cache_dir: Path | None,
+    *,
+    apply: bool,
+    max_stamps: int | None,
+    replace_differing: bool,
+) -> VoteWriteResult:
+    return stamp_order_votes(
+        numbers,
+        get_settings().data_root,
+        order_lineups.OrderFetcher(client, cache_dir=cache_dir),
+        today=datetime.now(UTC).date(),
+        apply=apply,
+        max_stamps=max_stamps,
+        replace_differing=replace_differing,
+    )
 
 
 @app.command("stamp-order-votes")
-def stamp_order_votes_cmd(
+def stamp_order_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     apply: Annotated[
         bool,
         typer.Option("--apply", help="Write the vote records; omit for a dry-run report."),
@@ -9877,6 +10166,12 @@ def stamp_order_votes_cmd(
             "cache read without host scoping, refused with --apply)."
         ),
     ] = None,
+    emit_corpus_projection: Annotated[
+        Path | None, typer.Option("--emit-corpus-projection", help=_EMIT_PROJECTION_HELP)
+    ] = None,
+    projection: Annotated[Path | None, typer.Option("--projection", help=_PROJECTION_HELP)] = None,
+    plan_out: Annotated[Path | None, typer.Option("--plan-out", help=_PLAN_OUT_HELP)] = None,
+    from_plan: Annotated[Path | None, typer.Option("--from-plan", help=_FROM_PLAN_HELP)] = None,
 ) -> None:
     """Stamp cert and interim outcomes with their disposing order's per-Justice notations.
 
@@ -9900,32 +10195,37 @@ def stamp_order_votes_cmd(
     read. These records are banked, never scored: vote scoring is gated on a
     merits moment and a complete record. The apply half belongs on the
     `order-votes` run-repair pass.
+
+    Run-repair runs the pass split at its credential boundary, in three
+    modes: `--emit-corpus-projection PATH` reads the corpus and writes the
+    docket-number projection, fetching nothing; `--projection PATH --plan-out
+    PLAN` fetches and reads the Court's documents against that projection,
+    opening no corpus, and writes the plan; `--from-plan PLAN` re-validates
+    every planned record against the ledger as it stands and, with `--apply
+    --max-stamps N`, stamps it — opening no corpus and making no request. A
+    plan with a malformed or unknown row is refused whole.
     """
-    db_path = _vote_write_preflight(
+    _vote_pass(
         "stamp-order-votes",
-        apply=apply,
-        max_stamps=max_stamps,
-        cache_dir=cache_dir,
-        throttle=throttle,
-    )
-    settings = get_settings()
-    with (
-        corpus.connect_readonly(db_path) as conn,
-        SupremeCourtClient(throttle_seconds=throttle) as client,
-    ):
-        fetcher = order_lineups.OrderFetcher(client, cache_dir=cache_dir)
-        result = stamp_order_votes(
-            conn,
-            settings.data_root,
-            fetcher,
-            today=datetime.now(UTC).date(),
+        "supremecourt-orders",
+        lambda numbers, client: _run_order_votes(
+            numbers,
+            client,
+            cache_dir,
             apply=apply,
             max_stamps=max_stamps,
             replace_differing=replace_differing,
-        )
-    _report_vote_write("stamp-order-votes", result, max_stamps)
-    if result.refused or result.failures:
-        raise typer.Exit(code=1)
+        ),
+        apply=apply,
+        max_stamps=max_stamps,
+        replace_differing=replace_differing,
+        throttle=throttle,
+        cache_dir=cache_dir,
+        emit_projection=emit_corpus_projection,
+        projection=projection,
+        plan_out=plan_out,
+        from_plan=from_plan,
+    )
 
 
 @app.command("granted-noted-check")
@@ -10229,7 +10529,7 @@ def refresh_dockets_cmd(
 
 
 @app.command("backfill-applications")
-def backfill_applications_cmd(
+def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a CLI entrypoint; options map 1:1 to inputs
     term: Annotated[
         list[int] | None,
         typer.Option(
@@ -10280,6 +10580,12 @@ def backfill_applications_cmd(
             "refuses a walk stopped short.",
         ),
     ] = None,
+    emit_corpus_projection: Annotated[
+        Path | None, typer.Option("--emit-corpus-projection", help=_EMIT_PROJECTION_HELP)
+    ] = None,
+    projection: Annotated[Path | None, typer.Option("--projection", help=_PROJECTION_HELP)] = None,
+    plan_out: Annotated[Path | None, typer.Option("--plan-out", help=_PLAN_OUT_HELP)] = None,
+    from_plan: Annotated[Path | None, typer.Option("--from-plan", help=_FROM_PLAN_HELP)] = None,
 ) -> None:
     """Back-fill a closed Term's interim applications the live channel never polled.
 
@@ -10310,6 +10616,16 @@ def backfill_applications_cmd(
     Term outside `REGISTERED_APPLY_TERMS` (OT2024 only): each Term's apply moves
     the interim base rate by its own amount, so each needs its own
     freeze-record entry first.
+
+    Run-repair runs the pass split at its credential boundary, in three
+    modes: `--emit-corpus-projection PATH` writes each Term's highest stored
+    serial and live-owned serials, fetching nothing; `--projection PATH
+    --plan-out PLAN` walks against that projection, opening no corpus, and
+    writes each served record verbatim with its ledger (identity unresolved,
+    so the count is an upper bound); `--from-plan PLAN` re-checks the plan
+    whole, re-reads ownership, resolves identity and applies the prediction
+    guard against the corpus, and with `--apply --max-rows N` lands the rows —
+    fetching nothing.
     """
     settings = get_settings()
     terms = list(term or application_backfill.DEFAULT_TERMS)
@@ -10363,29 +10679,90 @@ def backfill_applications_cmd(
             err=True,
         )
         raise typer.Exit(code=2)
+    _handoff_preflight(
+        "backfill-applications",
+        apply=apply,
+        emit_projection=emit_corpus_projection,
+        projection=projection,
+        plan_out=plan_out,
+        from_plan=from_plan,
+        cache_dir=cache_dir,
+    )
+    if plan_out is not None and projection is None:
+        typer.echo(
+            "backfill-applications: --plan-out is written by the projection walk; pass "
+            "--projection with it.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    if not db_path.exists():
+    if projection is None and not db_path.exists():
         typer.echo(
             f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
             "before back-filling applications.",
             err=True,
         )
         raise typer.Exit(code=1)
-    cache = None if cache_dir is None else application_backfill.DocketCache(cache_dir)
-    with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
-        result = application_backfill.backfill_applications(
-            client,
-            db_path,
-            settings.data_root,
-            terms,
-            today=today,
-            apply=apply,
-            max_rows=max_rows,
-            end_misses=end_misses,
-            limit=limit,
-            cache=cache,
-            deadline=None if max_run_seconds is None else time.monotonic() + max_run_seconds,
+    if emit_corpus_projection is not None:
+        with corpus.connect_local_unmigrated(db_path) as ro:
+            handed = application_backfill.application_projection(ro, terms)
+        write_handoff(emit_corpus_projection, handed)
+        owned = sum(len(t.owned) for t in handed.terms)
+        typer.echo(
+            f"backfill-applications: wrote the stored-serial projection ({len(handed.terms)} "
+            f"Term(s), {owned} live-owned serial(s)) to {emit_corpus_projection}; nothing fetched."
         )
+        return
+    cache = None if cache_dir is None else application_backfill.DocketCache(cache_dir)
+    deadline = None if max_run_seconds is None else time.monotonic() + max_run_seconds
+    try:
+        if from_plan is not None:
+            plan = _read_handoff_or_exit(
+                "backfill-applications", from_plan, application_backfill.ApplicationPlan
+            )
+            result = application_backfill.apply_application_plan(
+                plan,
+                db_path,
+                settings.data_root,
+                terms,
+                today=today,
+                apply=apply,
+                max_rows=max_rows,
+            )
+        elif projection is not None:
+            handed = _read_handoff_or_exit(
+                "backfill-applications", projection, application_backfill.ApplicationProjection
+            )
+            with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
+                result, plan = application_backfill.plan_applications(
+                    client,
+                    handed,
+                    terms,
+                    end_misses=end_misses,
+                    limit=limit,
+                    cache=cache,
+                    deadline=deadline,
+                )
+            if plan_out is not None:
+                write_handoff(plan_out, plan)
+        else:
+            with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
+                result = application_backfill.backfill_applications(
+                    client,
+                    db_path,
+                    settings.data_root,
+                    terms,
+                    today=today,
+                    apply=apply,
+                    max_rows=max_rows,
+                    end_misses=end_misses,
+                    limit=limit,
+                    cache=cache,
+                    deadline=deadline,
+                )
+    except HandoffRefused as exc:
+        typer.echo(f"backfill-applications: refusing the handoff whole — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
     if result.applied:
         _ensure_corpus_layout(db_path)
     if out is not None:
