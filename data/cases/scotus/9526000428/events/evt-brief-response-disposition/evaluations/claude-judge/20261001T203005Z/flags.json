@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000428",
+  "run_id": "20261001T203005Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "Same-day forward cell: the three predictions were written between about 21:30 and 22:00 UTC on 2026-09-30 from the 2026-09-30 snapshot (application, response, reply; no referral), and the Court's order granting the application is dated 2026-09-30. The record carries no clock time for the order, so whether it already existed when the cells ran cannot be determined from committed artifacts. No candidate's retrieval log or prose reached the order or the 26A428 docket, so all three are graded forward / not_applicable with leakage_suspected false; this note is for forward-stratum provenance only, not a leakage finding."
+    }
+  ]
+}

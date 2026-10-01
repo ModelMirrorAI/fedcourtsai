@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000428",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "gemini-baseline records created_at 2026-09-30T19:20:00Z, but its captured session starts at 20:55:10Z and logs the prediction-write call at 20:56:08Z. The declared creation time is not supported by the visible session chronology. The outcome carries only a date, so this discrepancy does not establish post-resolution forecasting or leakage; scores are unchanged. See gemini-baseline evaluation.md.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "claude-baseline's captured log includes a cross-case prediction-tree search/read at 2026-09-30T20:35:18Z, including associated prose, that its retrieval.md does not disclose. The staged log exposes the query and a result digest but not the matched path or contents. No attempt was made to locate the artifact or identify its author. This is an audit/disclosure limitation, not evidence of target-outcome retrieval, and does not by itself trigger leakage exclusion. See claude-baseline evaluation.md.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261001T203005Z",
+  "schema_version": "1.0"
+}
