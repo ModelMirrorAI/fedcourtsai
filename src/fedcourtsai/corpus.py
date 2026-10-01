@@ -3245,7 +3245,10 @@ class PriorQuery(BaseModel):
         "so the pair is stripped unless `merits_decided` also provably precedes "
         "the cutoff, and `merits_terminated` is stripped unconditionally, since "
         "it carries no date to test and records the very fact — the proceeding "
-        "ended — that the clock exists to hide. This is "
+        "ended — that the clock exists to hide. The undated party and counsel "
+        "lists (`counsel`, `parties`, `attorneys`) are emptied on every admitted "
+        "row, since they hold the docket's current state, amici filed after the "
+        "clock included; the row's other columns come back as stored. This is "
         "the back-test replay clock; live (forward) retrieval omits it because "
         "every resolved prior genuinely precedes an open case.",
     )
@@ -3410,6 +3413,44 @@ def _mask_post_clock_merits(
     return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
 
 
+#: The party and counsel lists the replay clock empties on every prior it
+#: admits: each holds the row's *current* state with no date to test against
+#: the clock, and each carries the amicus grant oracle. The set is scoped to
+#: that oracle, not to every last-pull column: among those that still reach a
+#: replay cell as stored are ``citations``, ``citation_count``, ``summary``,
+#: ``precedential_status``, ``has_opinion`` (and the opinion body under
+#: ``full``), ``merits_brief_filed`` and ``date_decided`` (on a granted SCOTUS
+#: prior, the termination at the merits judgment). The SCOTUS
+#: party and counsel blocks accrue over a docket's life — every third-party
+#: filing appends its counsel of record, and amici (``role=other``) pile onto a
+#: petition overwhelmingly after a grant — so a prior that resolved before the
+#: clock still carries, in these lists, filings made after it. ``parties`` and
+#: ``attorneys`` are the flat names read off the same blocks and carry the same
+#: amici, so masking ``counsel`` alone would leave the oracle in plain sight.
+#: Whole lists rather than the ``role=other`` entries: no entry is dated, a
+#: post-clock filing for a named side is as possible as an amicus brief, and
+#: this is the stance the replayed case's own snapshot already takes
+#: (:func:`fedcourtsai.cert_backtest.redact_snapshot` strips every party and
+#: counsel block). Emptied to ``[]``, the value the corpus already uses for "no
+#: reading" (an empty list never overwrites a stored one), and applied to every
+#: admitted row alike so the list's presence carries no signal either. The cost
+#: is the stated one: a replay cell cannot see who appeared on a prior, which a
+#: forward cell can.
+REPLAY_MASKED_UNDATED_COLUMNS: frozenset[str] = frozenset({"counsel", "parties", "attorneys"})
+
+
+def _mask_undated_accruals(row: CorpusRow) -> CorpusRow:
+    """Empty a masked prior's undated accruing lists (:data:`REPLAY_MASKED_UNDATED_COLUMNS`).
+
+    Removal only, and unconditional under the clock, for the same reason
+    ``merits_terminated`` is stripped unconditionally: nothing in the value can
+    prove it came first. Under the clock ``[]`` therefore means *masked*, not
+    "no counsel of record", and a reader of a clocked row cannot tell the two
+    apart.
+    """
+    return row.model_copy(update={column: [] for column in REPLAY_MASKED_UNDATED_COLUMNS})
+
+
 def _precedes_replay_clock(row: CorpusRow, query: PriorQuery) -> bool:
     """Whether one row provably precedes the query's replay clock.
 
@@ -3451,12 +3492,16 @@ def _screen_derived(row: CorpusRow, query: PriorQuery) -> CorpusRow | None:
     than read from a column, so they screen retrieved rows instead of riding
     the SQL. ``None`` means screened out; otherwise the row comes back possibly
     rewritten, since the clock also strips a surviving row's post-clock merits
-    columns. Both retrieval paths screen through here, so the ranked fast path
-    and the scored path admit exactly the same rows.
+    columns and empties its undated party and counsel lists. Both retrieval
+    paths screen through here, so the ranked fast path and the scored path
+    admit exactly the same rows.
 
     Both halves of the replay clock apply to the merits pair exactly as they
     apply to the row (:func:`_precedes_replay_clock`), so both are passed on to
     :func:`_mask_post_clock_merits` rather than one standing in for the other.
+    The undated party and counsel lists (:data:`REPLAY_MASKED_UNDATED_COLUMNS`)
+    are emptied on every row the clock admits; forward retrieval, with no
+    clock, returns the row untouched.
     """
     if query.exclude_non_cert and is_non_cert_scotus_form(row):
         return None
@@ -3465,7 +3510,8 @@ def _screen_derived(row: CorpusRow, query: PriorQuery) -> CorpusRow | None:
     if query.decided_before_day is not None or query.decided_before is not None:
         if not _precedes_replay_clock(row, query):
             return None
-        return _mask_post_clock_merits(row, query.decided_before, query.decided_before_day)
+        row = _mask_post_clock_merits(row, query.decided_before, query.decided_before_day)
+        return _mask_undated_accruals(row)
     return row
 
 

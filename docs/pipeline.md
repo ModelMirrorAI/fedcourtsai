@@ -1957,6 +1957,16 @@ from the corpus, and every cell is provisioned under `--work-dir`. The
 misplaced-write probe is unaffected — an engine following the prompt template's
 `data/cases/...` path recreates the directory the probe looks for.
 
+The fence reaches the priors a cell retrieves as well. Every `fedcourts query`
+on a dated or truncated cell runs under its replay clock, as does every query a
+blind cell makes with `--decided-before`; the clock drops the priors that do not
+provably precede it and, on the ones it admits, withholds the merits pair
+unless it is dated before the clock, `merits_terminated`, and the `counsel`,
+`parties` and `attorneys` lists, which accrue amici after a grant and carry no
+date to test. It is not a full as-at-clock view of a prior: its other
+retrievable columns, citations and opinion presence among them, come back as stored at the
+last pull. The full rule is the `query` row in [cli.md](cli.md).
+
 The big-case board, `metrics/big-cases.json` and `metrics/big-cases.md`,
 leaves the tree with the ledger on the same terms. Its decided cases are among
 the petitions the replay can draw, and it names them beside their outcomes:

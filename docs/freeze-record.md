@@ -6121,3 +6121,86 @@ freeze commit is recorded here.
     rows plus the 2 onboarded); any residue is named here rather than
     rounded away. `uv run fedcourts process-digest --all` still prints
     `proc-v8` and the same six digests.
+
+- **The cert back-test's replay retrieval mask empties a retrieved prior's
+  party and counsel lists under an unchanged process digest; recorded
+  2026-10-01.** A **masking-surface** entry, recorded ahead of the promotion
+  that carries the change and of the first scheduled report it governs. It
+  moves what a replay cell can retrieve, and nothing a digest witnesses, so
+  without this entry the move is legible only from promotion history. It is
+  the same class as the 2026-09-29 cutoff-day entry and narrows the same
+  surface further.
+
+  **What moved.** Under a replay clock, every prior `fedcourts query` admits
+  comes back with its `counsel`, `parties` and `attorneys` lists emptied to
+  `[]`, beside the merits pair and `merits_terminated` the clock already
+  withheld. Both halves of the clock trigger it, the Term (`--decided-before`,
+  which the prompt fills from `DECIDED_BEFORE`) and the cutoff day
+  (`REPLAY_CUTOFF`), and it applies to every admitted row,
+  whichever court or channel it came from. The lists are a row's state at its
+  last pull and no entry in them is dated, so nothing in them can prove it
+  preceded the clock. Amicus (`role=other`) entries accrue on a docket
+  overwhelmingly after a grant, and the flat `parties` and `attorneys` names
+  are read off the same blocks and carry the same amici. That is why all
+  three lists go and why they go whole, matching
+  `cert_backtest.redact_snapshot`, which strips the replayed petition's own
+  party and counsel blocks. Which priors are returned, and in what order, does
+  not move: no retrieval filter or ranking reads these lists. On the blob
+  whose newest pull is 2026-09-29 (index sha256 `ce9359e9…`), a granted-prior
+  query under the clock `--decided-before 2026` with `REPLAY_CUTOFF=2026-06-30`
+  returned the same five priors before and after the change. Before it, they
+  carried up to 22 counsel entries each, 20 of them `role=other` on one prior
+  granted 2026-06-29. After it, all three lists are empty on all five.
+
+  **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
+  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge commit>`, merged `<FILL: merge timestamp>`). At
+  that promotion's first parent, `src/fedcourtsai/corpus.py` has no
+  `REPLAY_MASKED_UNDATED_COLUMNS`; at its merge commit it does.
+
+  **What did not move.** No digest input. The change touches no prompt
+  template, neither `config/predictors.yaml` nor `config/evaluators.yaml`, and
+  not `src/fedcourtsai/process_version.py`. `uv run fedcourts process-digest
+  --all` prints the same output on either side of the change: `proc-v8` and
+  the same six blessed digests. Replay cells carry no process digest in any
+  case, which is why this record exists. **Forward cells never set the
+  clock.** Only `cert_backtest.replay_predictors` gives a cell a
+  `DECIDED_BEFORE` or a `REPLAY_CUTOFF`, so no forward predict or evaluate
+  cell's information set moved, and no counted `proc-v8` cell is affected.
+  Forward `query` output is byte-identical: the same query without a clock
+  printed the same bytes before and after the change. **Nor did the rest of a
+  prior's last-pull state.** Its other retrievable columns still reach a replay cell as
+  stored, on both sides of this change — among them `citations`,
+  `citation_count`, `summary`, `precedential_status`, `has_opinion` and the
+  `--full` opinion body, `merits_brief_filed`, and `date_decided`, which on a
+  granted SCOTUS prior is the termination at the merits judgment. The clock
+  is not a full as-at-clock view of a prior.
+
+  **The reading rule.** Two cert back-test reports whose cells ran on either
+  side of `<FILL: merge commit>` ran under different replay masks, even where
+  their provenance blocks and `provenance.clocks` agree. Neither field can see
+  this change, so no engine row's series spans the boundary. The always-deny
+  floor, a property of the labels, and the offline `prior-vote` row, which
+  votes on dispositions rather than counsel, are unaffected. Every report
+  before it could retrieve priors carrying their full current party and
+  counsel lists, wherever a cell ran a clocked `query` and the prior carried them
+  (the counsel block on SCOTUS rows, the flat lists from any channel that
+  fills them). That is post-clock information about
+  the priors, mainly merits-stage amicus interest, and never about the
+  replayed petition itself. Its effect on a score has no known sign. After it,
+  a replay cell's `query` returns no counsel on any prior, which a forward
+  cell's does, so on that surface a replay figure understates the same
+  predictor's forward information set, as it already does on the snapshot.
+  Under the clock `[]` means masked, not "no counsel of record". The cell's
+  open-web and CourtListener tools reach a prior's current docket on both
+  sides of the change.
+
+  The runnable effect check once it is live, from a dev checkout over a pulled
+  corpus:
+  `REPLAY_CUTOFF=2026-06-30 uv run fedcourts query --court scotus
+  --disposition granted --decided-before 2026 --limit 5 | jq -c
+  '[.counsel, .parties, .attorneys]'` prints `[[],[],[]]` on every line, and
+  the same query without `REPLAY_CUTOFF` and `--decided-before` prints
+  the lists as stored, non-empty on the priors that carry them. `uv run
+  fedcourts process-digest --all` still prints
+  `proc-v8` and the same six digests.
