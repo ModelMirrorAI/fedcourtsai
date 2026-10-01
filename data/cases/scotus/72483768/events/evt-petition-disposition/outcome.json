@@ -3,15 +3,91 @@
   "actual_granted": 0,
   "case_id": "scotus/72483768",
   "disposition_basis": "standard",
+  "disposition_route": null,
   "event_id": "evt-petition-disposition",
+  "interim_signals": null,
   "judgment": null,
+  "noted_dissent_from_denial": null,
   "resolved_at": "2026-03-23",
   "schema_version": "1.0",
   "signals": {
     "cvsg_date": null,
-    "distribution_count": 15
+    "distribution_count": 15,
+    "distribution_parse": null
   },
   "source": null,
-  "vote_provenance": null,
-  "votes": []
+  "vote_provenance": {
+    "complete": false,
+    "documents": [
+      "https://www.supremecourt.gov/opinions/25pdf/24-1268_10n2.pdf",
+      "https://www.supremecourt.gov/orders/courtorders/032326zor_7mio.pdf"
+    ],
+    "grammars": [
+      {
+        "grammar": "scotus-order-notations",
+        "version": 1
+      },
+      {
+        "grammar": "scotus-writing-headers",
+        "version": 1
+      }
+    ],
+    "participating": 9,
+    "source": "supremecourt-orders"
+  },
+  "votes": [
+    {
+      "justice": "Sotomayor",
+      "vote": "grant",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "grant",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "vote": "grant",
+      "writing": "none"
+    }
+  ],
+  "writing_roles": [
+    {
+      "justice": "Thomas",
+      "writing": "none"
+    },
+    {
+      "justice": "Roberts",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "writing": "none"
+    },
+    {
+      "justice": "Kavanaugh",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "writing": "none"
+    }
+  ]
 }

@@ -3,9 +3,82 @@
   "actual_granted": 0,
   "case_id": "scotus/73280349",
   "disposition_basis": "standard",
+  "disposition_route": null,
   "event_id": "evt-petition-disposition",
+  "interim_signals": null,
+  "judgment": null,
+  "noted_dissent_from_denial": null,
   "resolved_at": "2026-06-15",
   "schema_version": "1.0",
+  "signals": null,
   "source": null,
-  "votes": []
+  "vote_provenance": {
+    "complete": false,
+    "documents": [
+      "https://www.supremecourt.gov/opinions/25pdf/25-848_3146.pdf",
+      "https://www.supremecourt.gov/orders/courtorders/061526zor_5if6.pdf"
+    ],
+    "grammars": [
+      {
+        "grammar": "scotus-order-notations",
+        "version": 1
+      },
+      {
+        "grammar": "scotus-writing-headers",
+        "version": 1
+      }
+    ],
+    "participating": 9,
+    "source": "supremecourt-orders"
+  },
+  "votes": [
+    {
+      "justice": "Thomas",
+      "vote": "grant",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "vote": "grant",
+      "writing": "dissent"
+    }
+  ],
+  "writing_roles": [
+    {
+      "justice": "Thomas",
+      "writing": "none"
+    },
+    {
+      "justice": "Roberts",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Sotomayor",
+      "writing": "none"
+    },
+    {
+      "justice": "Kagan",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "writing": "none"
+    },
+    {
+      "justice": "Kavanaugh",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "writing": "none"
+    }
+  ]
 }
