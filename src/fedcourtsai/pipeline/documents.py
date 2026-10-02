@@ -1183,6 +1183,15 @@ _PARTY_SUFFIX_RE = re.compile(r",\s*(?:et\s+al|et\s+ux|et\s+vir|aka|a/k/a)\b.*\Z
 # Pierson" the party, "Raymond H. Pierson II" the attorney), so they are noise
 # in the comparison rather than part of the name.
 _NAME_TAIL_RE = re.compile(r"[,\s]+(?:jr|sr|i{1,3}|iv|v|vi)\.?\Z", re.IGNORECASE)
+# A filer appearing in person on an application or an extraordinary writ is
+# often captioned rather than named ("In re Jane Doe", "In the Matter of Jane
+# Doe", "Ex parte Jane Doe") while the attorney field carries the bare name, so
+# the caption words would otherwise stand in for the first name. Only whole
+# leading words are cut, and only ahead of a name, so a name that merely begins
+# with the same letters ("Inez") is untouched.
+_CAPTION_PREFIX_RE = re.compile(
+    r"\A\s*(?:in\s+re|in\s+the\s+matter\s+of|ex\s+parte)\b[\s:.,]*(?=\w)", re.IGNORECASE
+)
 
 
 def _comparable_name(raw: Any) -> frozenset[str]:
@@ -1200,12 +1209,15 @@ def _comparable_name(raw: Any) -> frozenset[str]:
     token missing altogether ("Jess Richard Smith" against "Jess R. Smith"), and
     by nothing else. **The order is dropped** because a caption-order spelling
     ("Doe, Jane") against a natural-order one costs the same error for the same
-    reason. What the pair still separates is two different people, which is what
-    it is for.
+    reason. A leading caption ("In re", "In the Matter of", "Ex parte") is cut
+    before either reduction, since the caption words would otherwise take the
+    first name's place. What the pair still separates is two different people,
+    which is what it is for.
     """
     if not isinstance(raw, str):
         return frozenset()
-    name = _PARTY_SUFFIX_RE.sub("", raw)
+    name = _CAPTION_PREFIX_RE.sub("", raw)
+    name = _PARTY_SUFFIX_RE.sub("", name)
     name = _NAME_TAIL_RE.sub("", name)
     tokens = re.sub(r"[\s.,]+", " ", name).casefold().split()
     return frozenset(tokens[:1] + tokens[-1:])

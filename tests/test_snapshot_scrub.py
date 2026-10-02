@@ -222,6 +222,23 @@ def test_a_self_represented_respondent_block_is_scrubbed_like_a_petitioners() ->
     assert payload["Respondent"][1] == _pro_se_respondent()
 
 
+@pytest.mark.parametrize("caption", ["In re", "In the Matter of", "Ex parte"])
+def test_a_captioned_self_represented_block_is_scrubbed(caption: str) -> None:
+    payload = _payload()
+    payload["Petitioner"][0]["Attorney"] = "Kannon K. Shanmugam"
+    payload["Petitioner"][0]["PrisonerId"] = None
+    payload["Respondent"].append({**_pro_se_respondent(), "PartyName": f"{caption} Richard Roe"})
+
+    scrubbed = scrub_snapshot_contacts(payload)
+
+    block = scrubbed.payload["Respondent"][1]
+    for key in ("Address", "City", "Zip", "Phone", "Email"):
+        assert block[key] == CONTACT_PLACEHOLDER
+    assert block["PartyName"] == f"{caption} Richard Roe"
+    assert scrubbed.blocks == 1
+    assert scrubbed.payload["Petitioner"][0] is payload["Petitioner"][0]
+
+
 def test_a_represented_respondent_block_is_left_as_served() -> None:
     payload = _payload()
 

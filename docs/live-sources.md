@@ -345,8 +345,9 @@ serves a counsel block on either party side, petitioner or respondent, naming
 nobody but the party to write to, the caption and signature block of what that
 party filed are an individual's own. The docket JSON never says "pro se", so
 the reading is upstream's own, in three arms, all of them read off a **served** block: a self-represented party
-listed as its own attorney (compared on first and last name, since the two
-fields disagree on the middle constantly), a block naming no attorney at all,
+listed as its own attorney (compared on first and last name after a leading
+"In re", "In the Matter of" or "Ex parte" caption is cut, since the two fields
+disagree on the middle constantly), a block naming no attorney at all,
 and a prisoner register number on the block — the incarcerated filer, whose own
 address a filing carries most reliably. The arms are the same on either side,
 and any one qualifying block is enough, so a docket carrying a represented

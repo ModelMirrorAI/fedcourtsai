@@ -4047,6 +4047,111 @@ def test_a_middle_name_on_one_side_does_not_hide_self_representation(
     assert unrepresented_sides(payload) == ("Petitioner",)
 
 
+_CAPTIONED_PARTIES = (
+    "In re Jane Doe",
+    "In re: Jane Doe",
+    "IN RE  Jane Q. Doe",
+    "In the Matter of Jane Doe",
+    "in the matter of: Jane Doe",
+    "Ex parte Jane Doe",
+    "Ex Parte, Jane Doe",
+)
+
+
+@pytest.mark.parametrize("party", _CAPTIONED_PARTIES)
+def test_a_captioned_petitioner_served_as_their_own_attorney_reads_unrepresented(
+    party: str,
+) -> None:
+    # A filer appearing in person on an application or a writ is captioned
+    # rather than named, and the attorney field carries the bare name: the
+    # caption words are not the first name.
+    payload = {
+        "Petitioner": [{"PartyName": party, "Attorney": "Jane Doe"}],
+        "Respondent": [{"PartyName": "United States", "Attorney": "D. John Sauer"}],
+    }
+
+    assert unrepresented_sides(payload) == ("Petitioner",)
+
+
+@pytest.mark.parametrize("party", ["In re Richard Roe", "In the Matter of Richard Roe"])
+def test_a_captioned_respondent_served_as_their_own_attorney_reads_unrepresented(
+    party: str,
+) -> None:
+    payload = {
+        "Petitioner": [{"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"}],
+        "Respondent": [{"PartyName": party, "Attorney": "Richard A. Roe"}],
+    }
+
+    assert unrepresented_sides(payload) == ("Respondent",)
+
+
+def test_a_captioned_amicus_in_its_own_name_keys_the_value_pass() -> None:
+    payload = {
+        "Petitioner": [{"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"}],
+        "Other": [
+            {
+                "PartyName": "Ex parte Jane Scholar",
+                "Attorney": "Jane Scholar",
+                "Email": "jscholar@law.example.edu",
+                "Phone": "(555) 555-0142",
+            }
+        ],
+    }
+    sides = unrepresented_sides(payload)
+
+    assert sides == ("Other",)
+    assert party_contact_values(payload, sides) == (
+        "jscholar@law.example.edu",
+        "(555) 555-0142",
+    )
+
+
+@pytest.mark.parametrize(
+    ("party", "attorney"),
+    [
+        # The caption is cut and the names still differ: counsel for the filer.
+        ("In re Jane Doe", "Ann Counsel"),
+        ("In the Matter of Jane Doe", "Jane Counsel"),
+        ("Ex parte Jane Doe", "Mary Doe"),
+        # A name that begins with the caption's letters is a name, not a caption.
+        ("Inez Doe", "Jane Doe"),
+    ],
+)
+def test_a_caption_does_not_make_a_different_person_read_unrepresented(
+    party: str, attorney: str
+) -> None:
+    payload = {"Petitioner": [{"PartyName": party, "Attorney": attorney}]}
+
+    assert unrepresented_sides(payload) == ()
+
+
+def test_a_name_beginning_with_the_caption_letters_still_compares_as_itself() -> None:
+    payload = {"Petitioner": [{"PartyName": "Inez Doe", "Attorney": "Inez M. Doe"}]}
+
+    assert unrepresented_sides(payload) == ("Petitioner",)
+
+
+@pytest.mark.parametrize(
+    ("raw", "tokens"),
+    [
+        ("In re Jane Doe", {"jane", "doe"}),
+        ("In re. Doe", {"doe"}),
+        ("Ex Parte Young", {"young"}),
+        # Whole words only: these begin with the caption's letters and keep them.
+        ("Inre Doe", {"inre", "doe"}),
+        ("In Rex Doe", {"in", "doe"}),
+        ("Inez Doe", {"inez", "doe"}),
+        # A caption with no name after it is not cut down to nothing.
+        ("In re", {"in", "re"}),
+        ("Ex parte", {"ex", "parte"}),
+    ],
+)
+def test_the_caption_cut_takes_whole_leading_words_ahead_of_a_name(
+    raw: str, tokens: set[str]
+) -> None:
+    assert documents_module._comparable_name(raw) == frozenset(tokens)
+
+
 def test_a_prisoner_register_number_reads_unrepresented_on_its_own() -> None:
     # Upstream's own positive marker for a party writing from an institution,
     # taken whatever the attorney field says: the population whose filings carry

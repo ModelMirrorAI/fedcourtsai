@@ -6204,3 +6204,90 @@ freeze commit is recorded here.
   the lists as stored, non-empty on the priors that carry them. `uv run
   fedcourts process-digest --all` still prints
   `proc-v8` and the same six digests.
+
+- **A self-represented filer captioned "In re <name>" is read as its own
+  attorney by both contact scrubs, 2026-10-02.** A **conditioning** entry in
+  the *what the pipeline provisions* class. The self-naming arm compares the
+  first and last tokens of `PartyName` and `Attorney`, and a party served as
+  "In re Jane Doe" against an attorney served as "Jane Doe" compared `{in,
+  doe}` with `{jane, doe}`, so a filer appearing in person on an application
+  or an extraordinary writ was staged with their contact details as served.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary. The staged snapshot and the staged
+  document text live in the gitignored `record/`, and `prediction.json` has no
+  field separating a cell that read the filer's address from one that read a
+  placeholder there. The boundary exists only here, and a stamped cell is
+  post-change if the carrying promotion's merge commit is an ancestor of, or
+  equal to, its `process_version.pipeline_sha`. On an affected docket, cells on
+  either side of the boundary may not be pooled.
+
+  **What changes.** Before the first-and-last-token comparison, a leading
+  caption — `In re`, `In the Matter of` or `Ex parte`, in any case and followed
+  by any run of blanks, colons, periods or commas — is cut from either name,
+  and only where a name follows it. The predicate is the one shared by the
+  petitioner, respondent and `Other` lists, so the docket-level trigger
+  (`unrepresented_sides`), the staged-snapshot scrub and the value pass all
+  read the cut name. In practice the cut only widens: over the blob below,
+  no block on any list that compared equal before compares unequal after. A
+  name that merely begins with the same letters ("Inez") is untouched.
+  Captions whose remainder is not the filer's name ("In re Application of …",
+  "In the Matter of the Estate of …") still compare their first remaining
+  token and stay as served.
+
+  **The population.** An ad hoc read that runs the real `unrepresented_sides`,
+  `scrub_snapshot_contacts`, `party_contact_values` and `scrub_contact_details`
+  over each case's latest stored payload and stored documents in the pulled
+  blob, against a copy of the comparison without the cut. The blob is
+  `sha256:ce9359e9…`, whose newest pull stamp is `2026-09-29` and whose newest
+  stored snapshot is `2026-07-13`. The per-case content store, which alone
+  holds most current dockets, was not read, so this is a figure about the blob
+  and not about the provisioned population.
+  - Of **2,925** latest payloads, **6** blocks carry a leading caption, all on
+    the petitioner side and all an `In re` caption, in either case.
+  - **2** of them newly qualify on the self-naming arm, on **2** dockets
+    (72483472, 73274814), both newly scrubbed: **8** snapshot values are
+    withheld across the 2 blocks, and **6** spans in the one stored petition
+    among their 2 stored documents.
+  - **2** already qualified on the register-number arm and are unchanged.
+  - **2** stay represented: one names a different attorney after the cut, and
+    one caption names a proceeding rather than a person.
+
+  **What a post-change cell reads.** On an affected docket, the cell reads a
+  subset of the pre-change snapshot and of the pre-change document text, and
+  its `documents.json` reads `contact_scrubbed: true` with
+  `contact_scrub_passes` `["value", "shape"]` where it read `false` with `[]`
+  — on every staged document, including one whose text does not change (the
+  questions-presented row on 73274814).
+  No skill movement is predicted. In the 2026-09-21 entry's negative form, a
+  movement in **either** direction across this boundary may not be read as a
+  model effect.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus. The corpus row,
+  the content-store payload and the source PDF are untouched. The three lanes
+  that stage through this provisioning narrow the same way from the carrying
+  promotion on: predict cells, evaluate cells and the case-summary lane's
+  `summary-stage`. Summaries that already exist are not re-derived, and a
+  summary's record digest is taken off the corpus payload, so the change moves
+  no digest and re-owes no summary.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py tests/test_snapshot_scrub.py -k
+    caption` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+    six digests;
+  - `uv run fedcourts provision-snapshot --court scotus --docket 73274814`
+    (with the data root pointed at a scratch directory) echoes a non-zero
+    `snapshot contact scrub: N value(s) withheld on 1 petitioner-side
+    block(s)` line (5 on the blob's payload; non-zero rather than exact, since
+    provisioning may read a newer content-store payload), where its latest
+    payload still serves the captioned self-named block.
