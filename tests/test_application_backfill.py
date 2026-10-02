@@ -732,4 +732,5 @@ def test_the_parse_writes_no_plan_the_writer_would_refuse(
     )
     assert planned.exit_code == 1
     assert "NotADocketKey" in planned.output and "refusing" in planned.output
+    assert "would land 3 row(s)" in planned.output  # the dry run's ledger still prints
     assert not plan.exists()

@@ -1191,7 +1191,8 @@ channel, each one day and named per run, handing one file between its jobs.
 Neither carries a corpus row, a snapshot or a stored document: each is a
 pydantic model (`extra="forbid"`, a literal format name and version) whose
 docstring states why its fields are public — the application back-fill's
-plan, which carries served counsel blocks, under the carve-out below. `repair-projection-<run_id>`
+plan, which carries served counsel blocks, under the carve-out in
+[data-sources.md](data-sources.md). `repair-projection-<run_id>`
 carries, for the vote passes, each population case's ledger case id and the
 Court's docket number for it — the same pair the qp-topic artifacts and the
 release dataset publish; for the application back-fill, the Term's highest
@@ -1214,8 +1215,10 @@ fields parsed from it. It crosses under the one carve-out *PII stance* in
 says: supremecourt.gov's own public docket record, nothing read from the
 corpus, the content store or a stored snapshot; this one artifact, one day,
 downloaded by the applications writer in the same run; never committed and
-never printed — the parse and writer steps tee only the command's ledger to
-the summary, its counts and parsed fields. That nothing in it comes from our
+never printed — the parse and writer steps tee only the command's own output
+to the summary: its ledger (counts, and each row's parsed fields with a
+counsel *count*) and any refusal line, whose upstream text is truncated and
+repr-escaped. That nothing in it comes from our
 stores rests on the credential split: the job that writes it holds no corpus
 credential, and its projection carries serial numbers only. Its shape is
 checked on both sides of the artifact — by the parse before the file is

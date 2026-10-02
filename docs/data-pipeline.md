@@ -1530,8 +1530,8 @@ its full credential set; they are not split.) The application back-fill's
 plan carries served docket JSON with party contact details, and crosses under
 the narrow carve-out recorded in [data-sources.md](data-sources.md) (*PII
 stance*): that one artifact, one day, never committed or printed, and refused
-by the writer if it carries anything beyond the served records and the fields
-parsed from them ([security.md](security.md), *S3 / the private stores*).
+on both sides of the artifact if it is not shaped as the served records and the
+fields parsed from them ([security.md](security.md), *S3 / the private stores*).
 
 - `handoff-projection` holds the read-only role, pulls the corpus and writes
   the few public facts the parse needs (versioned models beside each pass, read and written through `src/fedcourtsai/handoff.py`): for the

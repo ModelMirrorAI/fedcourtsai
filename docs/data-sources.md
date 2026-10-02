@@ -709,12 +709,14 @@ material**:
   (below), so the stored record stays the record as ingested.
 - **Raw facts stay access-gated.** The corpus that holds the full docket detail
   lives in the private S3 estate — the snapshot payloads in its per-case content
-  store, the scannable index beside them — not public git, and no stored copy
-  of a docket leaves it. The only PII that can reach public git is whatever a
-  piece of reasoning quotes from a public docket while explaining a
-  prediction. The one other place served docket detail travels is the
-  transient run artifact in the carve-out below, which holds no stored copy and
-  never reaches git.
+  store, the scannable index beside them — not public git; stored content
+  leaves it only through the short-lived run artifacts *What we redistribute*
+  above inventories (the case-summary lane's contact-scrubbed staged record,
+  run-analytics' questions-presented extracts). The only PII that can reach
+  public git is whatever a piece of reasoning quotes from a public docket while
+  explaining a prediction. The one place a self-represented filer's contact
+  detail travels unscrubbed is the transient run artifact in the carve-out
+  below, which holds no stored copy and never reaches git.
 - **One carve-out: the application back-fill's plan artifact** (maintainer
   decision, 2026-10-01). Every byte it admits is the Court's own public docket
   record, served openly at supremecourt.gov, and none of it comes from our
@@ -732,7 +734,8 @@ material**:
   - *Where:* one workflow artifact, `repair-plan-<run_id>`, kept one day and
     consumed by the applications writer in the same run. It is never committed
     to git and never printed to a log or step summary; the step summary
-    carries the ledger's counts and parsed fields only.
+    carries the ledger's counts and each row's parsed fields (docket number,
+    kind, dates, a counsel *count*), never a served block's text.
   - *Unchanged:* the corpus and the content store stay access-gated; the
     contact scrubs below still withhold these details from every cell, model
     provider and summary; nothing under this carve-out reaches `data/`.
