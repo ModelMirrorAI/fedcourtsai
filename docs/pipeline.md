@@ -946,23 +946,6 @@ spans the scored and unscored confirmations together. On `apply` the step still
 runs the dry-run into the step summary first, as a receipt of what the rewrite
 acted on.
 
-`moment-convergence` re-stamps the stored `moment` of a declared-moment event
-onto the moment its id declares — the id is the key and the declared-moments
-table the authority, so a stored moment that disagrees is a stale copy. The
-population it exists for is application baselines the application-baseline
-relabel (`relabel-application-events`) moved off the cert petition id with the
-cert stage's `distribution` moment carried onto them — a finite residue, since
-the relabel re-derives the moment and no write path produces the shape. A
-decided application has left the live rotation, so nothing else re-reads the
-row. It
-writes both stores — the corpus row (re-mirrored into the content store) and the
-ledger `event.yaml` written from it, each scanned on its own — and stages
-`data/` beside the pointer in the step's one commit, so the two land together.
-An event carrying committed predict or evaluate output is held back in both
-stores and reported, since moving its moment moves scored cells between moment
-strata; unlike the disposition and phantom passes there is no option that
-widens onto them. Its bound counts corpus rows and ledger files together.
-
 Four of the passes that fetch and parse the Court's content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
 **credential split** of three jobs (`ocr-recovery` and `document-backfill`
@@ -1040,38 +1023,6 @@ bound is the dry run's opinion-row count. Each run fetches again, so an apply do
 with a dry run, and a re-dispatched dry run after the apply is the control.
 Nothing a cell sees moves: the table is no part of a `query` row, and no gate,
 mint, outcome or score reads it.
-
-`sampled-frame-weight-repair` restores the derived sampling weight on the legacy
-denial-sampling frame's latched-down rows: grid denials genuinely inside sampled
-ranges that a channel writing with certainty min-latched to 1, leaving the nine
-petitions each stands for represented by nobody. Where the other passes move
-which bucket a row falls in, this one moves the weights themselves, so every
-weighted denominator that admits IFP rows moves with it — the statpack's and
-docket pack's weighted sections, the ops digest's always-deny floor, and one
-committed prose figure in
-[outcome-decomposition.md](outcome-decomposition.md). Its population, direction
-and expected magnitudes are therefore pre-registered in
-[freeze-record.md](freeze-record.md), and its dry-run ledger is read against that
-entry. Every conjunct of the membership predicate is the guard's own rule — the
-grid test, the walker's cursor, and the density guard's neighbourhood reading —
-so the pass and the ingest seam that has to keep its result cannot drift apart;
-the scope is the entry's, narrower than the rule, and a row the rule reaches
-outside the registered cells is reported in the ledger and left alone rather than
-repaired. The write is a direct `UPDATE` bypassing the column's **min** latch:
-the stored weight only ever latches downward, an inclusion probability only ever
-learned toward certainty, so the same value through the upsert path would be
-discarded silently. Convergence is witnessed inside the command rather than by a
-grep in the step: the apply re-runs its own selection and exits non-zero if
-anything remains, which stops the job before the blob is pushed. No ledger
-surface, so a pointer-only commit. **No scored number moves**: every
-scored-segment cut is gated on a paid serial and this population is IFP, so
-`metrics/leaderboard.json`, `metrics/claim-scores.json` and the back-tests are
-unchanged. **The apply is not finished when the blob is pushed.** The weekly
-metrics refresh regenerates the statpack; `metrics/docket.{json,md}` is on
-demand (`fedcourts docket`) and the whole-slice IFP-inclusive figure in
-[outcome-decomposition.md](outcome-decomposition.md) is hand-written, so neither
-heals on a schedule and a stale copy of either carries no marker saying so. The
-apply's own output names them.
 
 `amicus-rederive` writes both stores, and what is distinctive is *which* two: a
 corpus column and the committed `outcome.json` field that column was frozen onto,
