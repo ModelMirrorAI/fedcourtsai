@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500251",
+  "run_id": "20261002T191725Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "courtlistener MCP read_document", "provisioned petition / BIO / QP text"],
+  "helpful": [
+    "The provisioned BIO: it supplied the cert-denial history (Yourko, Martin, Tronsrue, Foster) that is the main case-specific signal.",
+    "CourtListener read_document on the opinion below: the alternative holding ('even if the parties' agreement obligated Richard...') settles the vehicle question the BIO raised.",
+    "The statpack merits section with its explicit grant-Term axis and excluded count."
+  ],
+  "gaps": [
+    "fedcourts query --citation is effectively empty for SCOTUS (200 rows with any cite), so a known-case corpus lookup for Howell / Mansell returned nothing; a case-name filter would make the corpus usable for precedent lookup.",
+    "The SCOTUS cert docket for Tronsrue (No. 25-500) is not on CourtListener, so the recent denial could only be taken from the respondent's brief.",
+    "A statpack cut of the merits disturbed rate by originating court class (state high court vs federal circuit) would sharpen the anchor for a state-court merits cell."
+  ],
+  "notes": "Grant-moment merits cell with no merits briefs on disk, as the moment prescribes. One fedcourts query invocation was refused for passing free text; the two citation lookups then ran clean but empty."
+}
