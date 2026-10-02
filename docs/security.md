@@ -1190,7 +1190,8 @@ rehearsal, the only place those summaries go.
 channel, each one day and named per run, handing one file between its jobs.
 Neither carries a corpus row, a snapshot or a stored document: each is a
 pydantic model (`extra="forbid"`, a literal format name and version) whose
-docstring states why its fields are public. `repair-projection-<run_id>`
+docstring states why its fields are public — the application back-fill's
+plan, which carries served counsel blocks, under the carve-out below. `repair-projection-<run_id>`
 carries, for the vote passes, each population case's ledger case id and the
 Court's docket number for it — the same pair the qp-topic artifacts and the
 release dataset publish; for the application back-fill, the Term's highest
@@ -1205,15 +1206,23 @@ record (votes, provenance, writing roles — the fields the writer commits to
 public git anyway); for the opinion record, each document's opinion rows read
 off the Court's listing and PDF (kind, author, joiners, word counts, the
 printed header sentence) with the case id left for the writer to resolve. The
-application back-fill's plan would carry each served docket JSON verbatim —
+application back-fill's plan carries each served docket JSON verbatim —
 party contact blocks included, a self-represented applicant's address,
-telephone and prisoner number among them — and gathering a Term of those into
-one downloadable file is a republication *PII stance* in
-[data-sources.md](data-sources.md) does not accept. So that plan never
-crosses: the parse job refuses an `application-backfill` apply before the
-upload, and the pass's apply stays held until its plan is either made opaque
-to readers of the artifact (encrypted to a key only the writer job holds) or
-the carve-out is recorded there. Its dry run uploads nothing.
+telephone and prisoner number among them — with the ledger's structured
+fields parsed from it. It crosses under the one carve-out *PII stance* in
+[data-sources.md](data-sources.md) records, and only as narrowly as that
+says: supremecourt.gov's own public docket record, nothing read from the
+corpus, the content store or a stored snapshot; this one artifact, one day,
+downloaded by the applications writer in the same run; never committed and
+never printed — the parse and writer steps tee only the command's ledger to
+the summary, its counts and parsed fields. The writer enforces the content
+limit: it refuses the whole plan before its first write if a served record
+carries a top-level key outside a supremecourt.gov docket's own, lacks the
+docket's `CaseNumber` or proceedings list, or if a planned row's fields are not
+exactly what the live mapping reads from its record, or a held note is one a
+corpus-free walk never files. Tests pin the artifact's name and retention,
+the plan's absence from every summary line, and each refusal. The dry run
+uploads no plan.
 
 The split's residuals, stated plainly. The writer treats the plan as untrusted
 input — it re-validates every row against the reader's own invariants and the

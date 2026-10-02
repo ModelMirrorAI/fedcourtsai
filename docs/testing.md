@@ -689,7 +689,9 @@ on a scheduled workflow, the word-for-word pairing between each fail-fast
 validator and the step of record that re-checks it, `run-repair`'s credential
 split — its parse job holding no `id-token`, environment or secret, its two
 handoff artifacts one-day and named per run, its writers on an apply only,
-fetching nothing and pulling the corpus fresh inside the lock — and
+fetching nothing and pulling the corpus fresh inside the lock, and the
+application plan's PII carve-out held to its limits (the one artifact, no plan
+text in any summary line, the writer's whole-plan check before it writes) — and
 `test_no_job_that_guards_against_oidc_holds_id_token`, which holds every
 workflow's OIDC tripwire true: a job that asserts the OIDC request pair is
 absent may not hold `id-token`, since the runner hands that pair to every step

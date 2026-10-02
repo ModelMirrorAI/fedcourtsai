@@ -521,6 +521,20 @@ def _tamper(plan: dict[str, Any], change: str) -> None:  # noqa: PLR0912 - one b
         plan["terms"][0]["held"] = [{"docket": "24A1", "reason": "x\nwould land 0 row(s)"}]
     elif change == "unresolved-action":
         plan["terms"][0]["candidates"][0]["action"] = "enrich"
+    elif change == "foreign-key":
+        # A record read from somewhere other than the Court's served docket.
+        served[0]["payload"]["stored_snapshot"] = {"note": "from a private store"}
+    elif change == "no-proceedings":
+        del served[0]["payload"]["ProceedingsandOrder"]
+    elif change == "preview-text":
+        # A structured field carrying text its record does not map to.
+        plan["terms"][0]["candidates"][0]["application_kind"] = "free text riding the plan"
+    elif change == "preview-count":
+        plan["terms"][0]["candidates"][0]["counsel"] += 1
+    elif change == "held-reason":
+        plan["terms"][0]["held"] = [{"docket": "24A1", "reason": "any other text"}]
+    elif change == "note-off-term":
+        plan["terms"][0]["failures"] = [{"docket": "23A1", "reason": "x"}]
 
 
 @pytest.mark.parametrize(
@@ -539,6 +553,12 @@ def _tamper(plan: dict[str, Any], change: str) -> None:  # noqa: PLR0912 - one b
         "malformed-note",
         "forged-ledger-line",
         "unresolved-action",
+        "foreign-key",
+        "no-proceedings",
+        "preview-text",
+        "preview-count",
+        "held-reason",
+        "note-off-term",
     ],
 )
 def test_a_tampered_or_malformed_plan_is_refused_whole(tmp_path: Path, change: str) -> None:
@@ -602,3 +622,79 @@ def test_the_commands_split_modes_run_end_to_end(
         ["backfill-applications", "--projection", str(projection), "--apply", "--max-rows", "3"],
     )
     assert misuse.exit_code == 2
+
+
+# --- the PII carve-out's limits ------------------------------------------------------
+
+#: An invented self-represented applicant's contact block, as upstream serves one.
+_CONTACT = {
+    "PartyName": "Quill Example",
+    "Attorney": "Quill Example",
+    "IsCounselofRecord": True,
+    "Title": "",
+    "PrisonerId": "QX-48213-EX",
+    "Phone": "555-0147",
+    "Address": "1 Example Lane",
+    "City": "Exampleton",
+    "State": "ZZ",
+    "Zip": "ZQ-ZIP-77",
+    "Email": "quill@example.invalid",
+}
+
+
+def test_the_plan_carries_served_records_and_parsed_fields_only(tmp_path: Path) -> None:
+    """Every byte of the plan is a served record or a field parsed from one.
+
+    The carve-out admits supremecourt.gov's docket JSON and the structured
+    fields the walk parses from it. So each served record is the payload
+    upstream served, verbatim, and shaped as a docket JSON; and each planned
+    row is the preview its record maps to — nothing read from the corpus.
+    """
+    db, _, upstream = _seeded(tmp_path)
+    upstream.served["24A1"]["Petitioner"] = [_CONTACT]
+    _, plan_file = _split_plan(db, upstream, tmp_path)
+    plan = read_handoff(plan_file, backfill_module.ApplicationPlan)
+    for docket in plan.served:
+        assert docket.payload == upstream.served[f"24A{docket.serial}"]
+        assert set(docket.payload) <= backfill_module.SERVED_DOCKET_KEYS
+    assert {row.case_id for row in plan.terms[0].candidates} == {None}
+    assert set(json.loads(plan_file.read_text())) == {"format", "version", "terms", "served"}
+
+
+def test_no_plan_text_reaches_the_ledger_the_summary_carries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The parse and writer print counts and parsed fields, never the served record.
+
+    run-repair tees both commands' output to the step summary, so a contact
+    value in a served record must not appear in either.
+    """
+    db, _, upstream = _seeded(tmp_path)
+    for number in ("24A1", "24A2", "24A5"):
+        upstream.served[number]["Petitioner"] = [_CONTACT]
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(db.parent))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    monkeypatch.setattr(cli_module, "SupremeCourtClient", lambda **_: _client(upstream.handler))
+    runner = CliRunner()
+    projection, plan = tmp_path / "p.json", tmp_path / "plan.json"
+    runner.invoke(
+        cli_module.app, ["backfill-applications", "--emit-corpus-projection", str(projection)]
+    )
+    planned = runner.invoke(
+        cli_module.app,
+        [
+            "backfill-applications",
+            *("--end-misses", "2"),
+            *("--projection", str(projection)),
+            *("--plan-out", str(plan)),
+        ],
+    )
+    applied = runner.invoke(
+        cli_module.app,
+        ["backfill-applications", "--from-plan", str(plan), "--apply", "--max-rows", "3"],
+    )
+    assert planned.exit_code == 0 and applied.exit_code == 0, planned.output + applied.output
+    assert "quill@example.invalid" in plan.read_text()  # the plan does carry it
+    for output in (planned.output, applied.output):
+        for key in ("PartyName", "PrisonerId", "Phone", "Address", "City", "Zip", "Email"):
+            assert str(_CONTACT[key]) not in output, key

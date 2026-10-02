@@ -1527,10 +1527,11 @@ Four of the passes that fetch and parse third-party content — `opinion-votes`,
 the step most likely to run code nobody wrote. (`ocr-recovery` and
 `document-backfill` also parse fetched PDFs, inside the corpus job and under
 its full credential set; they are not split.) The application back-fill's
-apply is held at the parse job: its plan would carry served docket JSON with
-party contact details, which may not cross as a public artifact
-([security.md](security.md), *S3 / the private stores*), so only its dry run
-runs.
+plan carries served docket JSON with party contact details, and crosses under
+the narrow carve-out recorded in [data-sources.md](data-sources.md) (*PII
+stance*): that one artifact, one day, never committed or printed, and refused
+by the writer if it carries anything beyond the served records and the fields
+parsed from them ([security.md](security.md), *S3 / the private stores*).
 
 - `handoff-projection` holds the read-only role, pulls the corpus and writes
   the few public facts the parse needs (versioned models beside each pass, read and written through `src/fedcourtsai/handoff.py`): for the
@@ -1558,7 +1559,8 @@ runs.
 
 Both files cross as one-day run artifacts (`repair-projection-<run_id>`,
 `repair-plan-<run_id>`), and because the repository is public they carry public
-Court data only; [security.md](security.md), *S3 / the private stores*, says
+Court data only — the application plan's served counsel blocks under the PII
+carve-out above; [security.md](security.md), *S3 / the private stores*, says
 what each holds and why it is public. A job boundary, not a step's `env:`, is
 what does the separating. In a job holding `id-token: write` the runner injects
 the OIDC request pair into every step at run time, after the step's own `env:`,
@@ -1674,9 +1676,9 @@ interim-docket series back to OT2017, and it runs one Term per dispatch.
   `--max-run-seconds` deadline), before its first write. So a cut-off reading
   lands nothing rather than half a Term.
 
-**The apply waits until after the long-conference release,** and is held at
-the parse job until its plan can cross without the served dockets' contact
-details ([security.md](security.md), *S3 / the private stores*). The statpack's
+**The apply waits until after the long-conference release.** Its plan
+crosses from the parse job to the writer under the PII carve-out in
+[data-sources.md](data-sources.md) (*PII stance*). The statpack's
 interim section counts every application row and pools the parsed substantive
 ones into the interim base rate that interim cells anchor to and are scored
 against. A stub row counts as `unparsed`, so an apply moves OT2024's rows into
@@ -1834,9 +1836,7 @@ gh workflow run run-repair.yml --ref main \
 # The application back-fill names its Term and fetches in both modes, so an
 # apply does not run a dry run first. Its bound is the dry run's "would land N",
 # an upper bound: the writer resolves identity and the prediction guard.
-# The apply is post-release (see above), and is held at the parse job until its
-# plan can cross without the served dockets' contact details; as written, the
-# apply below is refused there. Re-dispatching in `dry-run` after the
+# The apply is post-release (see above). Re-dispatching in `dry-run` after the
 # apply is the control: it must report "would land 0".
 gh workflow run run-repair.yml --ref main \
   -f repair=application-backfill -f repair_mode=dry-run -f repair_target=24

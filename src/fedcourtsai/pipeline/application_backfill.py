@@ -57,9 +57,9 @@ thousand fetches of upstream JSON — runs in a job holding no credential. A
 read-only job writes each Term's stored serials (:class:`ApplicationProjection`);
 the credential-free job walks against it, checks each served record's own
 docket number, and writes every served record it would land, verbatim, with a
-mapped preview (:class:`ApplicationPlan`) — a file that carries party contact
-details, so run-repair holds the apply rather than upload it as a public
-artifact; and the writer job,
+mapped preview (:class:`ApplicationPlan`) — a file that carries the served
+dockets' party contact blocks, which crosses only under the narrow carve-out
+``docs/data-sources.md`` (*PII stance*) records; and the writer job,
 holding the corpus lock and the read-write role over a freshly pulled corpus,
 re-checks the plan whole and lands it through the shared seam
 (:func:`apply_application_plan`) — re-reading ownership, resolving identity and
@@ -577,11 +577,13 @@ class ServedDocket(BaseModel):
 class ApplicationPlan(BaseModel):
     """What the credential-free walk read: the file the writer job lands.
 
-    Not a public artifact: each served record is the supremecourt.gov docket
-    JSON verbatim, party contact blocks included, so run-repair holds an apply
-    at the parse job rather than upload it (docs/security.md, *S3 / the
-    private stores*). The model and its apply are complete for when the file
-    can cross opaquely; locally the split runs end to end.
+    Each served record is the supremecourt.gov docket JSON verbatim, party
+    contact blocks included; the rest is the structured fields the walk parsed
+    from those records. That is the whole of what the PII carve-out in
+    ``docs/data-sources.md`` (*PII stance*) lets cross as run-repair's one-day
+    ``repair-plan-<run_id>`` artifact, so the writer refuses a plan carrying
+    anything else (:func:`_plan_shape_problem`): a record that is not shaped as
+    a served docket, or a structured field its record does not map to.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -642,8 +644,66 @@ def plan_applications(
     return result, ApplicationPlan(terms=result.terms, served=served)
 
 
-def _plan_shape_problem(plan: ApplicationPlan, terms: Sequence[int]) -> str | None:  # noqa: PLR0911 - one return per check
-    """Why a plan cannot have come from an honest walk of ``terms``."""
+#: The top-level keys a supremecourt.gov docket JSON carries, read off the
+#: served application and cert dockets. The plan may carry the Court's served
+#: record and nothing else, so a record with any other key is refused with the
+#: whole plan; a key upstream adds later surfaces as that refusal, naming it.
+SERVED_DOCKET_KEYS: Final = frozenset(
+    {
+        "AttorneyHeaderOther",
+        "AttorneyHeaderPetitioner",
+        "AttorneyHeaderRespondent",
+        "CaseNumber",
+        "DocketedDate",
+        "Links",
+        "LowerCourt",
+        "LowerCourtCaseNumbers",
+        "LowerCourtDecision",
+        "Other",
+        "Petitioner",
+        "PetitionerTitle",
+        "ProceedingsandOrder",
+        "QPLink",
+        "RelatedCaseNumber",
+        "Respondent",
+        "RespondentTitle",
+        "bCapitalCase",
+        "sJsonCaseNumber",
+        "sJsonCaseType",
+        "sJsonCreationDate",
+        "sJsonTerm",
+    }
+)
+
+#: The one note an honest corpus-free walk files as held: the served-number
+#: check's (:func:`_served_as_problem`).
+_HELD_REASON_PREFIX: Final = "served docket number "
+
+
+def _served_docket_problem(payload: Mapping[str, Any]) -> str | None:
+    """Why ``payload`` is not shaped as a supremecourt.gov docket JSON, or ``None``."""
+    unknown = sorted(set(payload) - SERVED_DOCKET_KEYS)
+    if unknown:
+        # Upstream (or forged) text in a run summary: truncated, and repr-escaped.
+        return (
+            f"carries {len(unknown)} key(s) a served docket does not, the first {unknown[0][:32]!r}"
+        )
+    if not isinstance(payload.get("CaseNumber"), str) or not isinstance(
+        payload.get("ProceedingsandOrder"), list
+    ):
+        return "lacks a served docket's CaseNumber string or ProceedingsandOrder list"
+    return None
+
+
+def _plan_shape_problem(plan: ApplicationPlan, terms: Sequence[int]) -> str | None:  # noqa: PLR0911, PLR0912 - one return per check
+    """Why a plan cannot have come from an honest walk of ``terms``.
+
+    The plan crosses a public artifact under the PII carve-out, which admits
+    served docket JSON and the structured fields parsed from it, nothing more.
+    So beyond the walk's own consistency, every served record must be shaped as
+    a supremecourt.gov docket, every planned row must be exactly the preview its
+    record maps to, and every held note must be the served-number check's.
+    """
     read = [ledger.term for ledger in plan.terms]
     if read != list(dict.fromkeys(terms)):
         return f"was read for Terms {read}, not {list(dict.fromkeys(terms))}"
@@ -654,6 +714,13 @@ def _plan_shape_problem(plan: ApplicationPlan, terms: Sequence[int]) -> str | No
     notes = [note for ledger in plan.terms for note in (*ledger.held, *ledger.failures)]
     if any(set(note) != {"docket", "reason"} for note in notes):
         return "carries a ledger note without its docket and reason"
+    for ledger in plan.terms:
+        for note in (*ledger.held, *ledger.failures):
+            parsed = parse_scotus_application_number(note["docket"])
+            if parsed is None or parsed[0] != ledger.term:
+                return "carries a ledger note on a docket outside its Term"
+        if any(not note["reason"].startswith(_HELD_REASON_PREFIX) for note in ledger.held):
+            return "holds a record back for a reason a corpus-free walk never gives"
     seen: set[tuple[int, int]] = set()
     for docket in plan.served:
         key = (docket.term, docket.serial)
@@ -662,10 +729,22 @@ def _plan_shape_problem(plan: ApplicationPlan, terms: Sequence[int]) -> str | No
         seen.add(key)
         if key not in previews:
             return f"serves {_payload_key(*key)}, which its ledger does not list"
+        if (why := _served_docket_problem(docket.payload)) is not None:
+            return f"serves {_payload_key(*key)} as something other than a docket JSON: {why}"
         if (why := _served_as_problem(docket.payload, docket.term, docket.serial)) is not None:
             return f"serves a record under the wrong number: {why}"
     if seen != previews:
         return "lists a record its served set does not carry"
+    payloads = {(docket.term, docket.serial): docket.payload for docket in plan.served}
+    for ledger in plan.terms:
+        scratch = TermLedger(term=ledger.term, end_misses=ledger.end_misses, stored_max_serial=None)
+        for row in ledger.candidates:
+            try:
+                derived = _preview(payloads[(ledger.term, row.serial)], row.serial, scratch)
+            except (TypeError, ValueError, KeyError, AttributeError):
+                return f"serves {row.docket_number} as a record the live mapping cannot read"
+            if derived is None or derived[0] != row:
+                return f"lists {row.docket_number} with fields its served record does not map to"
     return None
 
 
