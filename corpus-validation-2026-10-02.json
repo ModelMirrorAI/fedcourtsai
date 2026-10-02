@@ -17,7 +17,7 @@
       "problems": []
     },
     {
-      "checked": 4309774,
+      "checked": 4309775,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -41,7 +41,7 @@
       "problems": []
     },
     {
-      "checked": 657,
+      "checked": 658,
       "detail": "granted before 2024-10-02 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4306701,
+      "checked": 4306702,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4309774,
+      "checked": 4309775,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 14199,
+      "checked": 14200,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 122,
+      "checked": 123,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -174,7 +174,7 @@
       "problems": []
     },
     {
-      "checked": 12746,
+      "checked": 12747,
       "detail": "",
       "failures": 0,
       "name": "outcome_votes_await_a_registered_source",
@@ -190,7 +190,7 @@
       "problems": []
     },
     {
-      "checked": 12746,
+      "checked": 12747,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
@@ -198,7 +198,7 @@
       "problems": []
     }
   ],
-  "corpus_events": 2153421,
+  "corpus_events": 2153422,
   "corpus_rows": 2153280,
   "ok": true,
   "schema_version": "1.0",
