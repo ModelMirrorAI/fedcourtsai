@@ -772,7 +772,7 @@ def test_live_rotation_capped_overdue_tier_breaks_ties_by_priority(tmp_path: Pat
         )
         disabled = [r.case_id for r in corpus.live_rotation(conn, limit=10, overdue_limit=1)]
         uncapped = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
-    assert [r.case_id for r in tied][0] == "scotus/9"
+    assert tied[0].case_id == "scotus/9"
     assert disabled == uncapped
 
 
