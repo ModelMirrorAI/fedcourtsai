@@ -1339,6 +1339,7 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
                 limit=max_cases + len(fresh),
                 term_floor_year=config.term_floor_year,
                 overdue_before=overdue_before,
+                overdue_limit=config.max_overdue_per_run,
             )
             if row.case_id not in fresh
         ][:max_cases]

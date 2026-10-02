@@ -80,6 +80,11 @@ live:
   # sweep of the polled watchlist (~1,800 rows at 300 a cycle, four cycles a
   # day), so the bound bites only when a tier is starving the rest.
   max_poll_staleness_days: 7
+  # The most of each cycle's max_cases_per_run the overdue tier may take, so a
+  # large overdue backlog drains over several cycles while the distributed
+  # petitions keep the rest of each one (their order-list results are days
+  # away). A backlog of ~1,000 clears in under three days at four cycles a day.
+  max_overdue_per_run: 100
   # New petitions onboarded from the Term's numbering frontier per cycle
   # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to
   # absorb the long-conference onboarding burst within a day (~180 over ~2

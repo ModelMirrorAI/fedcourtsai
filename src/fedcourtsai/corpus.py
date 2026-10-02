@@ -4076,6 +4076,7 @@ def live_rotation(
     limit: int,
     term_floor_year: int = 2017,
     overdue_before: date | None = None,
+    overdue_limit: int | None = None,
 ) -> list[CorpusRow]:
     """The next ``limit`` live petitions the live poller should refresh.
 
@@ -4092,7 +4093,11 @@ def live_rotation(
     tiers below are each unbounded in size, so without this tier a large enough
     one holds the whole per-cycle cap indefinitely and everything behind it
     is never reached. A never-polled row is not overdue (it has no stamp to age);
-    it keeps its place in the term order. ``None`` disables the tier. Then
+    it keeps its place in the term order. ``None`` disables the tier.
+    ``overdue_limit`` caps how many of the ``limit`` slots the overdue tier may
+    take (``None``: uncapped), so a large backlog drains over several cycles
+    while the priority tiers keep the rest of each one; an overdue row past the
+    cap keeps its ordinary place below. Then
     **distributed pending petitions** (nearest conference first — they are
     days from resolution, the opposite of stalest-first; a past conference date
     sorts first of all, since that petition is overdue for its order-list
@@ -4104,7 +4109,7 @@ def live_rotation(
     """
     if limit <= 0:
         return []
-    sql = (
+    live_sql = (
         "SELECT * FROM cases WHERE court = 'scotus' "
         "AND date_decided IS NULL "
         "AND (disposition IS NULL "
@@ -4116,16 +4121,43 @@ def live_rotation(
         f"AND {_TERM_YEAR_SQL} >= ? "
         "AND EXISTS (SELECT 1 FROM events "
         "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
-        f"ORDER BY {_OVERDUE_SQL} IS NULL, {_OVERDUE_SQL} ASC, "
+    )
+    priority_order = (
         f"{_PENDING_CONFERENCE_SQL} IS NULL, {_PENDING_CONFERENCE_SQL} ASC, "
         f"{_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
-        "last_live_polled ASC, case_id ASC LIMIT ?"
+        "last_live_polled ASC, case_id ASC"
     )
     cutoff = overdue_before.isoformat() if overdue_before is not None else None
     # Over-fetch to cover candidates the Python re-verification drops (labeled
     # docket-number spellings the raw GLOB admits but `is_modern_cert` rejects).
-    cur = conn.execute(sql, (term_floor_year, cutoff, cutoff, limit * 2))
-    picked = [row for record in cur if is_modern_cert(row := _from_record(record))]
+    if overdue_limit is None:
+        sql = (
+            f"{live_sql}ORDER BY {_OVERDUE_SQL} IS NULL, {_OVERDUE_SQL} ASC, "
+            f"{priority_order} LIMIT ?"
+        )
+        cur = conn.execute(sql, (term_floor_year, cutoff, cutoff, limit * 2))
+        picked = [row for record in cur if is_modern_cert(row := _from_record(record))]
+        return picked[:limit]
+    overdue: list[CorpusRow] = []
+    if cutoff is not None and overdue_limit > 0:
+        cur = conn.execute(
+            f"{live_sql}AND last_live_polled < ? "
+            "ORDER BY last_live_polled ASC, case_id ASC LIMIT ?",
+            (term_floor_year, cutoff, min(overdue_limit, limit) * 2),
+        )
+        overdue = [row for record in cur if is_modern_cert(row := _from_record(record))]
+        overdue = overdue[: min(overdue_limit, limit)]
+    taken = {row.case_id for row in overdue}
+    cur = conn.execute(
+        f"{live_sql}ORDER BY {priority_order} LIMIT ?",
+        (term_floor_year, (limit + len(taken)) * 2),
+    )
+    rest = [
+        row
+        for record in cur
+        if is_modern_cert(row := _from_record(record)) and row.case_id not in taken
+    ]
+    picked = overdue + rest
     return picked[:limit]
 
 

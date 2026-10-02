@@ -721,10 +721,24 @@ def test_live_rotation_overdue_dockets_lead_every_priority_tier(tmp_path: Path) 
             for r in corpus.live_rotation(conn, limit=10, overdue_before=date(2026, 9, 25))
         ]
         head = corpus.live_rotation(conn, limit=2, overdue_before=date(2026, 9, 25))
+        capped = [
+            r.case_id
+            for r in corpus.live_rotation(
+                conn, limit=10, overdue_before=date(2026, 9, 25), overdue_limit=1
+            )
+        ]
+        capped_head = corpus.live_rotation(
+            conn, limit=2, overdue_before=date(2026, 9, 25), overdue_limit=1
+        )
     # Without the bound the July docket sits behind both tiers at any cap.
     assert unbounded == ["scotus/1", "scotus/2", "scotus/3", "scotus/4", "scotus/5"]
     assert bounded == ["scotus/3", "scotus/4", "scotus/1", "scotus/2", "scotus/5"]
     assert [r.case_id for r in head] == ["scotus/3", "scotus/4"]
+    # Capped, the overdue tier takes only its share — the stalest first — and
+    # the distributed petition keeps the next slot; the overdue docket past the
+    # cap keeps its ordinary place in its Term.
+    assert capped == ["scotus/3", "scotus/1", "scotus/2", "scotus/4", "scotus/5"]
+    assert [r.case_id for r in capped_head] == ["scotus/3", "scotus/1"]
 
 
 def test_live_poll_all_reaches_a_docket_starved_behind_a_full_tier(tmp_path: Path) -> None:
