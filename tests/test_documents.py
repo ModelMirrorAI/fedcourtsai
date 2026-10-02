@@ -4243,9 +4243,9 @@ def test_a_titled_or_joined_respondent_in_their_own_name_reads_unrepresented(
         # A joinder none of whose people is the attorney.
         ("Jane Doe and John Roe", "Mary Major"),
         # Two people sharing a surname are still two people.
-        ("Law Professors George Kuney and Mary Major", "David R. Kuney"),
+        ("Law Professors Paul Quill and Mary Major", "Daniel R. Quill"),
         # An organisation named for a person is not that person's namesake.
-        ("Parental Rights Foundation and The Wagner Center", "William Wagner"),
+        ("Family Policy Foundation and The Hartwell Center", "Walter Hartwell"),
         # Names and organisations that merely begin with a title's letters.
         ("Drake Smith", "Dr. Smith"),
         ("Drake Smith", "Ake Smith"),

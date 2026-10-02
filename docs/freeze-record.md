@@ -6364,8 +6364,8 @@ freeze commit is recorded here.
     `contact_scrub_passes` `["value"]`, and none of their text changes (no
     withheld span); on the other 9 every manifest entry is unchanged.
   - **Petitioner side: 1** block on **1** docket (73274831), a party served as
-    "Thomas D. Foster, APC" — the attorney's own professional corporation —
-    against an attorney served as "Thomas Daniel Foster", read through the
+    the attorney's own professional corporation ("<name>, APC") against the
+    attorney's full name, read through the
     comma split. **6** snapshot values are withheld, and the docket is newly
     scrubbed by both passes: **6** spans across its 2 stored documents.
   - **Respondent side:** none.

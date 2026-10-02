@@ -367,8 +367,8 @@ no added reading joins the first name of one to the surname of another (the
 as-served reduction is kept, so the change only widens), and a title is cut only as a whole
 leading word ahead of a name, so an organisation served beside the attorney
 ("Professor … and … Law Center") qualifies through the person it names and an
-organisation named for someone else ("Parental Rights Foundation and The
-Wagner Center", against "William Wagner") does not. On the pulled blob no organisation's block
+organisation named for someone else ("Family Policy Foundation and The
+Hartwell Center", against "Walter Hartwell") does not. On the pulled blob no organisation's block
 qualifies on its own, since every one names a person as `Attorney`. The register-number
 arm is not asked there, because `PrisonerId` on an `Other` block is not a
 register number: on the pulled blob at pull stamp `2026-09-29` every populated
