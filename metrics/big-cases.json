@@ -1,14 +1,14 @@
 {
-  "cases": 218,
+  "cases": 221,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
     {
-      "cases": 192,
+      "cases": 193,
       "n": 3
     },
     {
-      "cases": 24,
+      "cases": 26,
       "n": 2
     },
     {
@@ -16,8 +16,8 @@
       "n": 1
     }
   ],
-  "current_reads": 653,
-  "declared_no_view": 7,
+  "current_reads": 662,
+  "declared_no_view": 9,
   "frozen_process": {
     "digests": [
       "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
@@ -5330,7 +5330,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a370.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-brief-response-disposition",
           "reads": [
             {
@@ -5376,11 +5376,11 @@
               "run_id": "20260927T182226Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-01",
           "title": "Ryan Thornell, et al. v. Shawn Jensen, et al."
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -5426,11 +5426,11 @@
               "run_id": "20260927T182226Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-01",
           "title": "Ryan Thornell, et al. v. Shawn Jensen, et al."
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-order-response-requested-disposition",
           "reads": [
             {
@@ -5476,7 +5476,7 @@
               "run_id": "20260927T182226Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-01",
           "title": "Ryan Thornell, et al. v. Shawn Jensen, et al."
         }
       ],
@@ -5502,7 +5502,7 @@
       "score_min": 0.55,
       "score_range": 0.4,
       "short_caption": "Thornell v. Jensen",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -8782,6 +8782,174 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Missionaries of Saint John the Baptist",
+      "caption": "Missionaries of Saint John the Baptist, Inc. v. Joel Frederic, et ux.",
+      "caption_event_id": "evt-order-judgment",
+      "case_id": "scotus/73281619",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "First Supreme Court construction of RLUIPA's land-use substantial-burden provision after 26 years of acknowledged lower-court disarray; 16 cert-stage amicus briefs including 20 States signal broad interest, but the ruling is statutory and zoning-specific rather than constitutional, so it is significant without being a blockbuster.",
+          "big_case_score": 0.6,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261001T215439Z"
+        },
+        {
+          "big_case_rationale": "A nationally consequential clarification of RLUIPA's land-use substantial-burden standard, affecting religious construction and municipal zoning; the grant excludes the separate equal-terms question.",
+          "big_case_score": 0.64,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261001T215439Z"
+        },
+        {
+          "big_case_rationale": "High-profile religious liberty case interpreting the substantial burden provision of RLUIPA.",
+          "big_case_score": 0.7,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261001T215439Z"
+        }
+      ],
+      "docket_id": 73281619,
+      "docket_number": "25-1131",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1131.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "First Supreme Court construction of RLUIPA's land-use substantial-burden provision after 26 years of acknowledged lower-court disarray; 16 cert-stage amicus briefs including 20 States signal broad interest, but the ruling is statutory and zoning-specific rather than constitutional, so it is significant without being a blockbuster.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73281619/events/evt-order-judgment/predictions/claude-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281619/events/evt-order-judgment/predictions/claude-baseline/20261001T215439Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.86,
+              "run_id": "20261001T215439Z"
+            },
+            {
+              "big_case_rationale": "A nationally consequential clarification of RLUIPA's land-use substantial-burden standard, affecting religious construction and municipal zoning; the grant excludes the separate equal-terms question.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/73281619/events/evt-order-judgment/predictions/codex-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281619/events/evt-order-judgment/predictions/codex-baseline/20261001T215439Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.8,
+              "run_id": "20261001T215439Z"
+            },
+            {
+              "big_case_rationale": "High-profile religious liberty case interpreting the substantial burden provision of RLUIPA.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/73281619/events/evt-order-judgment/predictions/gemini-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281619/events/evt-order-judgment/predictions/gemini-baseline/20261001T215439Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261001T215439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Missionaries of Saint John the Baptist, Inc. v. Joel Frederic, et ux."
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A first-ever construction of RLUIPA's land-use substantial-burden and equal-terms provisions would reshape church-zoning litigation nationwide (20 states and 16 amici say so); the facts themselves (a 16x39-foot grotto) are small, so the stakes are doctrinal rather than headline.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73281619/events/evt-petition-disposition/predictions/claude-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281619/events/evt-petition-disposition/predictions/claude-baseline/20260918T174135Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.3,
+              "run_id": "20260918T174135Z"
+            },
+            {
+              "big_case_rationale": "A ruling could materially change nationwide RLUIPA protections for religious land use and municipal zoning, although this vehicle concerns a particular shrine and disputed preservation and record issues.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73281619/events/evt-petition-disposition/predictions/codex-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281619/events/evt-petition-disposition/predictions/codex-baseline/20260918T174135Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.3,
+              "run_id": "20260918T174135Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73281619/events/evt-petition-disposition/predictions/gemini-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281619/events/evt-petition-disposition/predictions/gemini-baseline/20260918T174135Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.05,
+              "run_id": "20260918T174135Z"
+            }
+          ],
+          "resolved_at": "2026-10-01",
+          "title": "Missionaries of Saint John the Baptist, Inc. v. Joel Frederic, et ux."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6467,
+      "moment": "evt-order-judgment",
+      "moment_opened_at": "2026-10-01",
+      "n": 3,
+      "other_party": "Frederic",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "The Missionaries of Saint John the Baptist wins in the Court; the lower court's decision is overturned, and any remaining issues go back to it.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Frederic wins in the Court; the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to it, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "score_max": 0.7,
+      "score_min": 0.6,
+      "score_range": 0.1,
+      "short_caption": "Missionaries of Saint John the Baptist v. Frederic",
+      "status": "partly_resolved"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Thompson",
       "caption": "Frank Thompson v. Carl Wilson, Commissioner, Maine Department of Marine Resources",
       "caption_event_id": "evt-petition-disposition",
@@ -9828,9 +9996,9 @@
         }
       ],
       "docket_id": 73322426,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1273",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1273.html",
       "events": [
         {
           "actual_disposition": null,
@@ -10550,9 +10718,9 @@
         }
       ],
       "docket_id": 73500259,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1358",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1358.html",
       "events": [
         {
           "actual_disposition": null,
@@ -13662,119 +13830,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Missionaries of Saint John the Baptist",
-      "caption": "Missionaries of Saint John the Baptist, Inc. v. Joel Frederic, et ux.",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/73281619",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A first-ever construction of RLUIPA's land-use substantial-burden and equal-terms provisions would reshape church-zoning litigation nationwide (20 states and 16 amici say so); the facts themselves (a 16x39-foot grotto) are small, so the stakes are doctrinal rather than headline.",
-          "big_case_score": 0.55,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "run_id": "20260918T174135Z"
-        },
-        {
-          "big_case_rationale": "A ruling could materially change nationwide RLUIPA protections for religious land use and municipal zoning, although this vehicle concerns a particular shrine and disputed preservation and record issues.",
-          "big_case_score": 0.62,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "run_id": "20260918T174135Z"
-        },
-        {
-          "big_case_rationale": null,
-          "big_case_score": 0.35,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "run_id": "20260918T174135Z"
-        }
-      ],
-      "docket_id": 73281619,
-      "docket_number": "25-1131",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1131.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A first-ever construction of RLUIPA's land-use substantial-burden and equal-terms provisions would reshape church-zoning litigation nationwide (20 states and 16 amici say so); the facts themselves (a 16x39-foot grotto) are small, so the stakes are doctrinal rather than headline.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/73281619/events/evt-petition-disposition/predictions/claude-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281619/events/evt-petition-disposition/predictions/claude-baseline/20260918T174135Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.3,
-              "run_id": "20260918T174135Z"
-            },
-            {
-              "big_case_rationale": "A ruling could materially change nationwide RLUIPA protections for religious land use and municipal zoning, although this vehicle concerns a particular shrine and disputed preservation and record issues.",
-              "big_case_score": 0.62,
-              "cell_path": "data/cases/scotus/73281619/events/evt-petition-disposition/predictions/codex-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281619/events/evt-petition-disposition/predictions/codex-baseline/20260918T174135Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.3,
-              "run_id": "20260918T174135Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": 0.35,
-              "cell_path": "data/cases/scotus/73281619/events/evt-petition-disposition/predictions/gemini-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281619/events/evt-petition-disposition/predictions/gemini-baseline/20260918T174135Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.05,
-              "run_id": "20260918T174135Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Missionaries of Saint John the Baptist, Inc. v. Joel Frederic, et ux."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.5067,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-03-26",
-      "n": 3,
-      "other_party": "Frederic",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up the Missionaries of Saint John the Baptist's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "The Missionaries of Saint John the Baptist's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.62,
-      "score_min": 0.35,
-      "score_range": 0.27,
-      "short_caption": "Missionaries of Saint John the Baptist v. Frederic",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Johnson",
       "caption": "Floyd D. Johnson v. United States Congress",
       "caption_event_id": "evt-brief-judgment",
@@ -14579,9 +14634,9 @@
         }
       ],
       "docket_id": 73281394,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1115",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1115.html",
       "events": [
         {
           "actual_disposition": null,
@@ -14805,9 +14860,9 @@
         }
       ],
       "docket_id": 73500238,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1330",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1330.html",
       "events": [
         {
           "actual_disposition": null,
@@ -15786,6 +15841,119 @@
       "score_min": 0.2,
       "score_range": 0.45,
       "short_caption": "Christy Ann Martin v. John Fredrick Martin",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Nexstar Media",
+      "caption": "Nexstar Media Inc., Authorized to Operate Television Station WROC-TV v. National Labor Relations Board, et al.",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000435",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A single-station refusal-to-bargain test of certification resolved in an unpublished Second Circuit summary order; the only general stake is whether Loper Bright compliance by circuits reviewing NLRB orders needs policing, and the panel's substantial-evidence posture makes this a poor vehicle for that.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261001T215439Z"
+        },
+        {
+          "big_case_rationale": "The petition could clarify independent judicial review of NLRB statutory interpretations and the supervisory exclusion for broadcast producers. Those questions extend beyond one station, but the evidence-specific summary order limits the likely breadth of a decision.",
+          "big_case_score": 0.45,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261001T215439Z"
+        },
+        {
+          "big_case_rationale": "High-stakes administrative law issue testing the application of Loper Bright and agency deference.",
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261001T215439Z"
+        }
+      ],
+      "docket_id": 9026000435,
+      "docket_number": "26-435",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-435.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A single-station refusal-to-bargain test of certification resolved in an unpublished Second Circuit summary order; the only general stake is whether Loper Bright compliance by circuits reviewing NLRB orders needs policing, and the panel's substantial-evidence posture makes this a poor vehicle for that.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261001T215439Z",
+              "confidence": 0.7,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.03,
+              "run_id": "20261001T215439Z"
+            },
+            {
+              "big_case_rationale": "The petition could clarify independent judicial review of NLRB statutory interpretations and the supervisory exclusion for broadcast producers. Those questions extend beyond one station, but the evidence-specific summary order limits the likely breadth of a decision.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261001T215439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.12,
+              "run_id": "20261001T215439Z"
+            },
+            {
+              "big_case_rationale": "High-stakes administrative law issue testing the application of Loper Bright and agency deference.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261001T215439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.12,
+              "run_id": "20261001T215439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Nexstar Media Inc., Authorized to Operate Television Station WROC-TV v. National Labor Relations Board, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4167,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-01",
+      "n": 3,
+      "other_party": "NLRB",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Nexstar Media's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Nexstar Media's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.65,
+      "score_min": 0.15,
+      "score_range": 0.5,
+      "short_caption": "Nexstar Media v. NLRB",
       "status": "pending"
     },
     {
@@ -19019,9 +19187,9 @@
         }
       ],
       "docket_id": 73281654,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1170",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1170.html",
       "events": [
         {
           "actual_disposition": null,
@@ -19584,9 +19752,9 @@
         }
       ],
       "docket_id": 73372500,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1299",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1299.html",
       "events": [
         {
           "actual_disposition": null,
@@ -21268,9 +21436,9 @@
         }
       ],
       "docket_id": 73309407,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1263",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1263.html",
       "events": [
         {
           "actual_disposition": null,
@@ -24471,9 +24639,9 @@
         }
       ],
       "docket_id": 73246321,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1218",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1218.html",
       "events": [
         {
           "actual_disposition": null,
@@ -26335,9 +26503,224 @@
       "score_range": 0.03,
       "short_caption": "Boddie v. United States District Court",
       "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Givey",
+      "caption": "Ryan P. Givey v. Todd Blanche, Attorney General, et al.",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000434",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A pro se civil-rights suit against the Attorney General, the FBI Director and a U.S. Attorney, dismissed below for lack of subject-matter jurisdiction; the application asks a Circuit Justice for an injunction. Whatever the disposition, it decides nothing beyond this litigant.",
+          "big_case_score": 0.02,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261001T193134Z"
+        },
+        {
+          "big_case_rationale": "The application has no extractable text; the caption and submission entry do not identify the substantive dispute, scope of relief, or public stakes.",
+          "big_case_score": null,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261001T193134Z"
+        },
+        {
+          "big_case_rationale": "Pro se injunction application against the DOJ; routine and highly likely to be summarily denied with no broader impact.",
+          "big_case_score": 0.01,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261001T193134Z"
+        }
+      ],
+      "docket_id": 9526000434,
+      "docket_number": "26A434",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a434.html",
+      "events": [
+        {
+          "actual_disposition": "denied",
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A pro se civil-rights suit against the Attorney General, the FBI Director and a U.S. Attorney, dismissed below for lack of subject-matter jurisdiction; the application asks a Circuit Justice for an injunction. Whatever the disposition, it decides nothing beyond this litigant.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9526000434/events/evt-motion-disposition/predictions/claude-baseline/20261001T193134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000434/events/evt-motion-disposition/predictions/claude-baseline/20261001T193134Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261001T193134Z"
+            },
+            {
+              "big_case_rationale": "The application has no extractable text; the caption and submission entry do not identify the substantive dispute, scope of relief, or public stakes.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9526000434/events/evt-motion-disposition/predictions/codex-baseline/20261001T193134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000434/events/evt-motion-disposition/predictions/codex-baseline/20261001T193134Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.06,
+              "run_id": "20261001T193134Z"
+            },
+            {
+              "big_case_rationale": "Pro se injunction application against the DOJ; routine and highly likely to be summarily denied with no broader impact.",
+              "big_case_score": 0.01,
+              "cell_path": "data/cases/scotus/9526000434/events/evt-motion-disposition/predictions/gemini-baseline/20261001T193134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000434/events/evt-motion-disposition/predictions/gemini-baseline/20261001T193134Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.001,
+              "run_id": "20261001T193134Z"
+            }
+          ],
+          "resolved_at": "2026-10-01",
+          "title": "Ryan P. Givey v. Todd Blanche, Attorney General, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.015,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-09-25",
+      "n": 2,
+      "other_party": "Blanche",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Givey gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Givey does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.02,
+      "score_min": 0.01,
+      "score_range": 0.01,
+      "short_caption": "Givey v. Blanche",
+      "status": "resolved"
+    },
+    {
+      "asking_declined": "in_re",
+      "asking_party": null,
+      "caption": "In Re Nikolay M. Valov",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000437",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A pro se application for an injunction pending appeal from a Virginia county circuit court civil case (CL25-2218), captioned In Re the applicant, with no counsel, no amici and no identifiable public stake; whatever the disposition, it affects one litigant.",
+          "big_case_score": 0.02,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261001T215439Z"
+        },
+        {
+          "big_case_rationale": "The docket identifies an individual applicant seeking an injunction in a Virginia state-court matter, but the 73-page application has no extracted text. The subject, threatened harm, and broader stakes cannot be responsibly assessed.",
+          "big_case_score": null,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261001T215439Z"
+        },
+        {
+          "big_case_rationale": "A pro se application from a state trial court with no media coverage.",
+          "big_case_score": 0.01,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261001T215439Z"
+        }
+      ],
+      "docket_id": 9526000437,
+      "docket_number": "26A437",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a437.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A pro se application for an injunction pending appeal from a Virginia county circuit court civil case (CL25-2218), captioned In Re the applicant, with no counsel, no amici and no identifiable public stake; whatever the disposition, it affects one litigant.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9526000437/events/evt-motion-disposition/predictions/claude-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000437/events/evt-motion-disposition/predictions/claude-baseline/20261001T215439Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261001T215439Z"
+            },
+            {
+              "big_case_rationale": "The docket identifies an individual applicant seeking an injunction in a Virginia state-court matter, but the 73-page application has no extracted text. The subject, threatened harm, and broader stakes cannot be responsibly assessed.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9526000437/events/evt-motion-disposition/predictions/codex-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000437/events/evt-motion-disposition/predictions/codex-baseline/20261001T215439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.04,
+              "run_id": "20261001T215439Z"
+            },
+            {
+              "big_case_rationale": "A pro se application from a state trial court with no media coverage.",
+              "big_case_score": 0.01,
+              "cell_path": "data/cases/scotus/9526000437/events/evt-motion-disposition/predictions/gemini-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000437/events/evt-motion-disposition/predictions/gemini-baseline/20261001T215439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261001T215439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "In Re Nikolay M. Valov"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.015,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-09-28",
+      "n": 2,
+      "other_party": null,
+      "outcome_lines": null,
+      "score_max": 0.02,
+      "score_min": 0.01,
+      "score_range": 0.01,
+      "short_caption": "In re Valov",
+      "status": "pending"
     }
   ],
   "rows_with_leakage_flag": 2,
   "schema_version": "1.2",
-  "scored_reads": 626
+  "scored_reads": 633
 }
