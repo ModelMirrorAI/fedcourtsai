@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000446",
+  "gaps": [
+    "No separately readable government response or lower-court appendix in the provisioned record",
+    "Both general-authority web attempts returned no usable content",
+    "No published arrival-conditioned baseline for escalation increments"
+  ],
+  "helpful": [
+    "Nonempty application text with extraction manifest",
+    "Explicit arrival-position cut and frozen escalation signals",
+    "Per-Term substantive interim counts supporting a leakage-safe pooled baseline"
+  ],
+  "notes": "Forecast rests on the supplied application and prior-Term statpack, without case-specific external retrieval. A temporary writable uv cache bypassed the read-only default cache. Missing opposition is a limitation of this arrival vantage, not evidence that no response will be filed.",
+  "role": "predictor",
+  "run_id": "20261002T212439Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned file reads",
+    "committed interim statpack",
+    "fedcourts paths",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

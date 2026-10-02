@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000446",
+  "run_id": "20261002T212439Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Decisive post-baseline forward signal used: on 2026-10-02 Justice Kavanaugh requested a response to application 26A446, due 2026-10-08. Observed on supremecourt.gov's page for the linked petition docket 26-391; the 26A446 page itself still showed only the Sep 29 submission entry when fetched. The frozen context (response_requested: false) is correct as at the arrival moment; the response-requested-increment claim is stated as near-certain on this basis. No disposition of the application surfaced."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The corpus service caps `fedcourts query --limit` at 500, so the applicant-class tally rests on the 86 substantive resolved rows among the 500 most recent application rows (Terms 2025-2026 only). An interim statpack cut by escalation signal and by applicant class (government vs. private, criminal vs. civil) would replace this ad hoc slice."
+    }
+  ]
+}

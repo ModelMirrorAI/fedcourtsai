@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000447",
+  "run_id": "20261002T212439Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The application manifest marks the 176-page PDF truncated. Supplied text ends during the state-court opposition near EA Appendix 79; later appendix materials and reply are unavailable. The examination order at EA Appendix 3–6 has page labels but little usable order text. The forecast therefore relies on competing party quotations/descriptions of the order's scope and cannot independently verify its limitations. Prediction completed; no case disposition was retrieved."
+    }
+  ]
+}

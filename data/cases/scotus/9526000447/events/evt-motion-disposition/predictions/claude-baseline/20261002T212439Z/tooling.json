@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/9526000447",
+  "run_id": "20261002T212439Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "courtlistener MCP (call_endpoint dockets, search)"
+  ],
+  "helpful": [
+    "The provisioned application text was complete through the argument and signature despite the truncated flag; it carried everything the forecast needed.",
+    "The statpack interim section's per-Term rows made the strictly-prior pool arithmetic straightforward."
+  ],
+  "gaps": [
+    "fedcourts query cannot filter applications to the substantive kind, so a --disposition granted query over applications is swamped by time-extension grants and surfaces no comparable stay grants.",
+    "No cut of the interim grant rate by applicant class (federal government / state / private) or by originating-court type (state court vs federal), which is the single biggest adjustment an interim cell makes and currently has to be done from judgment.",
+    "CourtListener has no record of fresh SCOTUS application dockets, so forward-mode retrieval about the case itself returned nothing."
+  ],
+  "notes": "The query CLI's usage error on a free-text argument is clear and self-correcting; one wasted call."
+}
