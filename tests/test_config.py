@@ -11,6 +11,7 @@ from fedcourtsai.config import (
     RunnerConfig,
     Settings,
     StatpackConfig,
+    SweepCapsConfig,
     load_courts,
     load_predict_config,
     load_pull_config,
@@ -371,3 +372,10 @@ def test_corpus_service_url_reads_its_env_var(monkeypatch: pytest.MonkeyPatch) -
 def test_corpus_backend_accepts_service(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "service")
     assert Settings().corpus_backend == "service"
+
+
+def test_sweep_caps_reject_a_ceiling_below_the_cap() -> None:
+    with pytest.raises(ValueError, match="response_fills_ceiling must be at least"):
+        SweepCapsConfig(response_fills=60, response_fills_ceiling=50)
+    with pytest.raises(ValueError):
+        SweepCapsConfig.model_validate({"docket_marking": 5})  # a misspelled cap is refused

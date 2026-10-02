@@ -1059,7 +1059,7 @@ or network.
   for an event still open, so a re-serve converges the row and leaves a
   committed ledger label to `converge-disposition-labels`. A number the corpus
   never held is onboarded outright, ledger included.
-- **Maintenance sweeps:** after the loop, one window a day also runs eight
+- **Maintenance sweeps:** after the loop, one window a day also runs eleven
   converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
   live-minted duplicate rows; a minted moment's committed event directory moves
   onto the survivor with its re-keyed row, so the lane must stage the moved
@@ -1092,18 +1092,38 @@ or network.
   bulk cluster fields, dropped from the rows nothing re-serves — keyed on
   the fields no channel could have written to a non-SCOTUS row, the ingest
   projection's
-  carve-out converged, refusing above its own blast-radius bound). Dedupe
+  carve-out converged, refusing above its own blast-radius bound), and the
+  three fill sweeps — `fedcourts normalize-docket-markings --sweep --apply`,
+  `fedcourts backfill-response-fields --sweep --apply` and `fedcourts
+  backfill-decision-record --sweep --apply` (the capital-case marking, the dated
+  response signals and the merits decision record; each class is described
+  with its run-repair pass under *[Maintenance passes](#maintenance-passes)*).
+  The three read only the pulled blob and, for the latter two, the stored live
+  snapshots in the content store; each writes a direct `UPDATE` of the index
+  and commits the pointer alone. `--sweep` slices, and refuses only past a
+  ceiling: at most the per-window cap in `historical.sweep_caps`
+  (`config/tracking.yaml`) is written, in `case_id` order, and one ledger line
+  — `would fill N; filled M; remaining R (cap C)` — goes to the run summary, so
+  the remainder carries to the next window; a class found above its configured
+  ceiling is written not at all and fails the step, since that size is a
+  widened predicate rather than a backlog. Each
+  is gated on the dedupe's success, the prerequisite run-repair holds the same
+  passes to, so each reads merged rows rather than one half of a twin pair.
+  Dedupe
   first, so the latch pass weighs deduped rows; the event mint immediately
   after the judgment backfill, so pendency is judged on judgment columns as
   latched as the stored snapshots allow; each is idempotent, so a converged
   corpus costs seconds. All ride run-seed (gated to keep their daily cadence)
   because the corpus is already pulled and pushed there; the sweep window's
-  walk budget yields time for them (25 min against the other windows' 40),
-  so the sweeps' bounded worst case never gambles the job cap.
+  walk budget yields time for them (25 min against the other windows' 40).
+  The sweeps' step bounds still sum past what the job cap leaves after that
+  loop: only a non-converged window or a stalled store pays them, and a cap
+  hit cancels the run — losing the trailing sweeps and the verdict, which the
+  guard job escalates.
 - **What this lane does *not* carry:** a repair whose dry-run is a triage list
   a maintainer must read before an apply. Those have no scheduled moment to
-  converge toward and fail by refusing rather than by not converging, which is
-  the opposite of every sweep above, so they live on the `run-repair` bench —
+  converge toward and fail by refusing as the expected answer, whereas a sweep
+  above fails by not converging and refuses only on a widened predicate, so they live on the `run-repair` bench —
   see *[Maintenance passes](#maintenance-passes)*. The walker's dispatch inputs
   are therefore the walk-configuration family alone: `refresh_terms`,
   `refresh_streams`, `refresh_dockets`.
@@ -1192,7 +1212,8 @@ or network.
      with no outcome written to the git ledger for a case the pipeline never
      forecast, so the ledger holds only what was forecast — and `fedcourts decision-census` counts them per
      October Term; `backfill-decision-record` fills a stored row whose columns
-     are null, applied on run-repair's `decision-record` pass. The per-opinion
+     are null, applied as a standing sweep on run-seed's daily window and on
+     run-repair's `decision-record` pass. The per-opinion
      half of that record — each opinion's kind, author, joiners and word count —
      is the corpus `opinions` table ([corpus/README.md](../corpus/README.md)),
      built by `backfill-opinion-record` from the Court's opinions, applied on
@@ -1257,13 +1278,24 @@ window's corpus push.
 **Why it is not a lane on the walker.** The two have opposite failure postures.
 A standing sweep is idempotent and non-blocking: it converges toward a state a
 window can reach on its own, and a hiccup must retry next window rather than
-redden a walk nobody is watching. A maintenance pass runs because a maintainer
+redden a walk nobody is watching; where one refuses, the refusal marks a widened
+predicate, never the answer it ran for. A maintenance pass runs because a maintainer
 read a dry-run ledger and decided; it fails by **refusing** — an apply without
 its bound, a malformed cell id, a stamp the command declines — and a refusal is
 the answer the dispatch was for. Absorbing one would report work that never
 happened. Separating them also keeps the bench's growth off the production
 workflow: a pass added here costs the walk neither a dispatch input nor a
 `LOOP_BUDGET_SECONDS` conjunct.
+
+Three passes are **both**: `normalize-docket-markings`, `response-backfill` and
+`decision-record` write the index alone and fetch nothing — two fill null
+columns only, and the third rewrites `docket_number` by the marking's exact
+words, neutral to the identity join — so a window can converge them on its own,
+and the walker runs their commands as standing sweeps in `--sweep` mode, sliced
+at a per-window cap and refused only above a class ceiling rather than above a
+maintainer's bound (*[Historical — the Term walker](#historical--the-term-walker)*). The
+pass here is the route for a maintainer-read apply of a whole class in one
+dispatch, under the refusing bound.
 
 **One pass per dispatch, dry-run first.** `repair` is a single choice, so no
 two passes can arm each other, which makes the documented procedure structural

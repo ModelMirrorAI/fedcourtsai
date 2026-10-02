@@ -182,3 +182,113 @@ def test_cli_fails_loud_when_the_corpus_is_absent(
     result = runner.invoke(app, ["normalize-docket-markings"])
     assert result.exit_code == 1
     assert "the corpus database is missing" in result.output
+
+
+# --- the standing sweep -----------------------------------------------------------
+
+
+def _caps(tmp_path: Path, **caps: int) -> Path:
+    """A config root whose `historical.sweep_caps` sets ``caps``."""
+    root = tmp_path / "config"
+    root.mkdir()
+    lines = ["historical:", "  sweep_caps:", *(f"    {k}: {v}" for k, v in caps.items())]
+    (root / "tracking.yaml").write_text("\n".join(lines) + "\n")
+    return root
+
+
+def test_the_limit_slices_the_class_and_defers_the_rest(tmp_path: Path) -> None:
+    rows = [_row(f"scotus/{n}", f"19-{n} *** CAPITAL CASE ***") for n in (3, 1, 2)]
+    with _seeded(tmp_path, rows) as conn:
+        first = normalize_docket_markings(conn, apply=True, limit=2)
+        assert [e.case_id for e in first.rewritten] == ["scotus/1", "scotus/2"]  # case_id order
+        assert first.deferred == 1
+        assert _stored(tmp_path, "scotus/3").docket_number == "19-3 *** CAPITAL CASE ***"
+        second = normalize_docket_markings(conn, apply=True, limit=2)
+        assert [e.case_id for e in second.rewritten] == ["scotus/3"]
+        assert second.deferred == 0
+        third = normalize_docket_markings(conn, apply=True, limit=2)
+    assert third.rewritten == [] and third.deferred == 0  # drained
+    assert _stored(tmp_path, "scotus/3").docket_number == "19-3"
+
+
+def test_cli_sweep_slices_at_the_configured_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rows = [_row(f"scotus/{n}", f"19-{n} *** CAPITAL CASE ***") for n in (1, 2)]
+    with _seeded(tmp_path, rows):
+        pass
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(_caps(tmp_path, docket_markings=1)))
+    dry = runner.invoke(app, ["normalize-docket-markings", "--sweep"])
+    assert dry.exit_code == 0, dry.output
+    assert (
+        "sweep ledger — normalize-docket-markings: would fill 2; filled 0; remaining 2 (cap 1)"
+        in dry.output
+    )
+    first = runner.invoke(app, ["normalize-docket-markings", "--sweep", "--apply"])
+    assert first.exit_code == 0, first.output
+    assert "would fill 2; filled 1; remaining 1 (cap 1)" in first.output
+    second = runner.invoke(app, ["normalize-docket-markings", "--sweep", "--apply"])
+    assert "would fill 1; filled 1; remaining 0 (cap 1)" in second.output
+    third = runner.invoke(app, ["normalize-docket-markings", "--sweep", "--apply"])
+    assert "would fill 0; filled 0; remaining 0 (cap 1)" in third.output
+    assert _stored(tmp_path, "scotus/2").docket_number == "19-2"
+
+
+def test_cli_sweep_refuses_a_bound_beside_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with _seeded(tmp_path, [_row("scotus/1", _MARKED)]):
+        pass
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(
+        app, ["normalize-docket-markings", "--sweep", "--apply", "--max-rewrites", "5"]
+    )
+    assert result.exit_code == 2
+    assert "--sweep slices at the configured per-window cap" in result.output
+    assert _stored(tmp_path, "scotus/1").docket_number == _MARKED
+
+
+def test_the_ceiling_refuses_the_whole_class_and_writes_nothing(tmp_path: Path) -> None:
+    rows = [_row(f"scotus/{n}", f"19-{n} *** CAPITAL CASE ***") for n in (1, 2, 3)]
+    with _seeded(tmp_path, rows) as conn:
+        result = normalize_docket_markings(conn, apply=True, limit=1, ceiling=2)
+    assert result.refused is True and result.applied is False
+    assert _stored(tmp_path, "scotus/1").docket_number == "19-1 *** CAPITAL CASE ***"
+
+
+def test_cli_sweep_refuses_a_class_above_its_ceiling(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rows = [_row(f"scotus/{n}", f"19-{n} *** CAPITAL CASE ***") for n in (1, 2)]
+    with _seeded(tmp_path, rows):
+        pass
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv(
+        "FEDCOURTS_CONFIG_ROOT",
+        str(_caps(tmp_path, docket_markings=1, docket_markings_ceiling=1)),
+    )
+    dry = runner.invoke(app, ["normalize-docket-markings", "--sweep"])
+    assert dry.exit_code == 0, dry.output  # a dry run reads; only an apply refuses
+    result = runner.invoke(app, ["normalize-docket-markings", "--sweep", "--apply"])
+    assert result.exit_code == 1
+    assert "would fill 2; filled 0; remaining 2 (cap 1)" in result.output
+    assert "above its ceiling of 1" in result.output
+    assert _stored(tmp_path, "scotus/1").docket_number == "19-1 *** CAPITAL CASE ***"
+
+
+@pytest.mark.parametrize("bad", [0, -1])
+def test_a_non_positive_slice_or_ceiling_is_refused(tmp_path: Path, bad: int) -> None:
+    with _seeded(tmp_path, [_row("scotus/1", _MARKED)]) as conn:
+        with pytest.raises(ValueError, match="limit must be a positive"):
+            normalize_docket_markings(conn, apply=True, limit=bad)
+        with pytest.raises(ValueError, match="ceiling must be a positive"):
+            normalize_docket_markings(conn, apply=True, ceiling=bad)
+    assert _stored(tmp_path, "scotus/1").docket_number == _MARKED
+
+
+def test_a_rewritten_number_never_reads_as_marked() -> None:
+    """The slice drains only if every rewrite leaves the class it was drawn from."""
+    for marked in (_MARKED, "19-1094 ***CAPITAL CASE***", "*** CAPITAL CASE *** 19-1094"):
+        if corpus.is_capital_docket_number(marked):
+            assert not corpus.is_capital_docket_number(corpus.strip_docket_annotation(marked))

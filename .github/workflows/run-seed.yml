@@ -141,7 +141,7 @@ jobs:
       # that is the check of record and this one is a
       # duplicate, not a substitute. It sits here, ahead of the first costly
       # step (the corpus pull), so a typo fails inside the first minute instead
-      # of after the pull, a full Term walk and seven sweeps — and so a bad
+      # of after the pull, a full Term walk and the trailing sweeps — and so a bad
       # input never consumes a window on the shared corpus-write lock. Only the
       # token mint and the checkout run before it, which is also why the
       # trailing verdict stays skipped on this refusal rather than publishing:
@@ -405,10 +405,12 @@ jobs:
           # room for setup + the trailing steps, and inside the token's 1h life.
           # The 02:31 window carries the daily maintenance sweeps after the
           # loop, so it trades walk time for sweep headroom: the sweeps'
-          # bounded worst case only ever binds on a non-converged window, but
+          # bounded worst case binds only on a non-converged window or a
+          # stalled store (two fill sweeps read their pending-docket
+          # candidates every window, at a cost of seconds), but
           # a cap hit is a cancellation — the one outcome continue-on-error
-          # cannot absorb — so the budget yields rather than gambling the
-          # trailing verdict.
+          # cannot absorb — so the budget yields what it can. It does not cover
+          # every step bound at once (see the fill sweeps' budget note).
           # 25m where the rest of the run needs the room — the daily sweep
           # window, and any dispatch arming a writer step whose own bound is
           # large enough to matter against the job's hard cap. The targeted
@@ -764,10 +766,8 @@ jobs:
         continue-on-error: true
         # Bounded like the siblings, and comfortably: both scans are local
         # (committed outcomes against corpus rows), no external-service loop.
-        # This raises the 02:31 window's bounded sweep tail to 36m over the
-        # 40m loop, against the job's 55m cap — but only a non-converged
-        # window pays a sweep's bound, and this pair's backlog is two events;
-        # every later window costs seconds.
+        # Only a non-converged window pays a sweep's bound, and this pair's
+        # backlog is two events; every later window costs seconds.
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -920,6 +920,144 @@ jobs:
           git commit -m "seed: converge corpus (bulk cluster scrub)"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "cluster-scrub pointer"
+
+      # The three fill sweeps: index columns no channel revisits, converged from
+      # what the window already holds — the pulled blob, and for two of them
+      # the stored live snapshots in the content store beneath the job-level
+      # base URL, which the merits-judgment sweep reads the same way. No
+      # upstream fetch, nothing under `data/`, no content-store write: each is
+      # a direct UPDATE of the index, so the pointer is its own witness and
+      # each commits the pointer alone, like the decision-date sweep.
+      #
+      # Each slices, and refuses only past a ceiling. `--sweep` reads its
+      # per-window cap and its ceiling from `historical.sweep_caps` in
+      # config/tracking.yaml, writes at most the cap's worth of its class in
+      # case_id order, and tees one ledger line (`sweep ledger — <cmd>: would
+      # fill N; filled M; remaining R (cap C)`) to the run summary; a written row leaves its class, so
+      # successive windows drain it. A class found above the ceiling is a
+      # widened predicate: nothing is written, the command exits 1 with an
+      # error annotation, and the step reads as failed. The dispatched passes
+      # on run-repair carry their refusing bounds for a maintainer-read apply.
+      # Two of the three only fill NULL columns; the marking sweep rewrites
+      # `docket_number`, selected by the marking's exact words and neutral to
+      # the identity join (the pass's comment on run-repair has the argument).
+      #
+      # Budget: the three bounds (5 + 8 + 8 minutes) join a tail whose bounds
+      # already sum past the job's 55m cap less the 25m daily loop. Only a
+      # non-converged window or a stalled store pays them; the observed cost
+      # is seconds per step, and these sit last before the verdict, so a
+      # window that does hit the cap loses them and the verdict — the guard
+      # job escalates that cancellation.
+      #
+      # Gated on the dedupe's success as well as the daily cadence, which is
+      # run-repair's prerequisite for the same passes: each reads a row's
+      # columns, and must read the merged row rather than one half of an
+      # unmerged twin pair. Skipped, they converge next window. (The gate does
+      # not close the failed-push split the verdict step below describes —
+      # the ungated siblings above already push the blob first.) Each is its
+      # own continue-on-error step, so one failing never fails the window or
+      # skips the next.
+      #
+      # Unlike the siblings, the two snapshot sweeps cost reads on every
+      # window, converged or not: their candidates — grants still awaiting a
+      # respondent brief, grants still undecided — are the pending docket,
+      # which never drains, and `--sweep` slices the writes, not the reads.
+      # A few hundred pooled content-store reads; run-repair's decision-record
+      # apply over the same candidates took under 20s.
+      - name: Converge stored docket markings
+        if: >-
+          ${{ (github.event_name != 'schedule' || github.event.schedule == '31 2 * * *')
+          && steps.dedupe-live-rows.outcome == 'success' }}
+        continue-on-error: true
+        # Local: one scan of the cases table and a capped UPDATE, plus the blob
+        # push the walk pays on every window anyway.
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to converge.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the docket-marking sweep"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # One apply, its ledger line and per-row report mirrored into the run
+          # summary: a separate dry run would repeat the scan for a report the
+          # apply prints.
+          uv run fedcourts normalize-docket-markings --sweep --apply 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Docket markings already converged; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (docket markings)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "docket-marking pointer"
+
+      - name: Backfill the dated response signals
+        if: >-
+          ${{ (github.event_name != 'schedule' || github.event.schedule == '31 2 * * *')
+          && steps.dedupe-live-rows.outcome == 'success' }}
+        continue-on-error: true
+        # One content-store read per candidate, pooled at PREFETCH_READERS
+        # workers like the merits-judgment sweep; the candidates are a slice of
+        # the granted docket (a few hundred), so the bound guards a stalled
+        # store, not throughput.
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to re-derive.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the response-signal sweep"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          uv run fedcourts backfill-response-fields --sweep --apply 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Response signals already filled; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (dated response signals)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "response-signal pointer"
+
+      - name: Fill the merits decision record
+        if: >-
+          ${{ (github.event_name != 'schedule' || github.event.schedule == '31 2 * * *')
+          && steps.dedupe-live-rows.outcome == 'success' }}
+        continue-on-error: true
+        # The same shape as the response sweep: one content-store read per
+        # unclassified granted row, which is the pending docket plus a residue.
+        timeout-minutes: 8
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          # No committed pointer means no corpus — nothing to fill.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the decision-record sweep"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          uv run fedcourts backfill-decision-record --sweep --apply 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Decision record already filled; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: converge corpus (merits decision record)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "decision-record pointer"
 
       # Trailing, NON-BLOCKING data-validation, as on run-pull's jobs: produce
       # the correctness verdict on the now-current corpus and publish it for

@@ -49,6 +49,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from .. import corpus
+from ..config import require_sweep_slice
 from ..schemas import MERITS_PROCEEDING_DISPOSITIONS
 from .cert_signals import proceedings_entries
 from .interim_signals import response_filed_date, response_requested_date
@@ -118,6 +119,9 @@ class ResponseBackfillResult:
     #: True when ``apply`` was asked for but the blast-radius bound refused it.
     #: Nothing is written in that case — the plan is reported and abandoned.
     refused: bool = False
+    #: Fillable rows past the ``limit`` slice, left for a later run. ``filled``
+    #: plus this is every row the read found something to fill on.
+    deferred: int = 0
 
 
 def _stored_date(record: sqlite3.Row, column: str) -> date | None:
@@ -130,13 +134,32 @@ def backfill_response_fields(
     *,
     apply: bool,
     max_fills: int | None = None,
+    limit: int | None = None,
+    ceiling: int | None = None,
 ) -> ResponseBackfillResult:
     """Re-derive the dated interim/merits signals from each row's newest snapshot.
 
     ``max_fills`` is the blast-radius bound and lives here rather than in the
     caller, so a code caller is bounded on the same terms as the command. Over the
     bound nothing is written and ``refused`` is set.
+
+    ``limit`` is the standing sweep's per-window slice, a different instrument:
+    every candidate is still read, so the counts describe the whole class, but
+    only the first ``limit`` fills in ``case_id`` order are the plan and the rest
+    are counted in ``deferred`` rather than refused. A filled column is never
+    selected again, so successive slices drain the class.
+
+    ``ceiling`` is the sweep's own refusal, read against the whole class before
+    the slice: an apply that finds more than ``ceiling`` writes nothing and sets
+    ``refused``, because a class that size is a widened predicate rather than a
+    backlog for successive slices to drain.
+
+    The sweep passes ``limit`` and ``ceiling`` without a blast-radius bound (the
+    command refuses the mix). A code caller passing both a slice and a bound gets
+    the slice first and the bound checked against it, so the bound refuses only a
+    slice larger than itself.
     """
+    require_sweep_slice(limit, ceiling)
     result = ResponseBackfillResult(applied=apply)
     rows = conn.execute(
         "SELECT case_id, date_cert_granted, disposition, response_requested_at, "
@@ -205,6 +228,16 @@ def backfill_response_fields(
                 continue
             result.filled.append(fill)
 
+    # The sweep's refusing guard, checked on the whole class before the slice:
+    # a class past ``ceiling`` is a widened predicate, not a backlog to drain.
+    if apply and ceiling is not None and len(result.filled) > ceiling:
+        result.refused = True
+        result.applied = False
+    if limit is not None and len(result.filled) > limit:
+        result.deferred = len(result.filled) - limit
+        del result.filled[limit:]
+    if result.refused:
+        return result
     if apply and max_fills is not None and len(result.filled) > max_fills:
         result.refused = True
         result.applied = False

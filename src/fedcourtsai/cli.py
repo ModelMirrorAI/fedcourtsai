@@ -3205,6 +3205,60 @@ def remove_ungranted_merits_events_cmd(
         typer.echo(f"  skipped {ref}: {reason}")
 
 
+#: The help text every fill sweep's ``--sweep`` option carries.
+_SWEEP_HELP = (
+    "Standing-sweep mode (run-seed's daily window): slice the class at the configured "
+    "per-window cap (`historical.sweep_caps`), refuse a class above its configured "
+    "ceiling, and print the sweep ledger line. Still a dry run without --apply; with "
+    "it, the cap and ceiling stand in for the --max-* bound."
+)
+
+
+def _refuse_bound_with_sweep(command: str, bound_flag: str, bound: int | None) -> None:
+    """Refuse a sweep invocation that also names a blast-radius bound.
+
+    The two instruments answer different questions — a bound is a count a
+    maintainer read and approved, a cap is a slice the window takes — so an
+    invocation carrying both would leave it unclear which one governed the write.
+    """
+    if bound is not None:
+        typer.echo(
+            f"{command}: --sweep slices at the configured per-window cap and takes no "
+            f"{bound_flag}; pass one or the other.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+
+def _echo_sweep_ledger(
+    command: str, *, written: bool, planned: int, deferred: int, cap: int
+) -> None:
+    """The one ledger line a fill sweep tees to the run summary, and its refusal.
+
+    ``would fill`` is the whole class the window found, ``filled`` what it wrote
+    (zero on a dry run or a refusal), and ``remaining`` what it leaves for the
+    next window. On a ceiling refusal the line still prints, so the summary shows
+    the class size that tripped it.
+    """
+    found = planned + deferred
+    filled = planned if written else 0
+    typer.echo(
+        f"sweep ledger — {command}: would fill {found}; filled {filled}; "
+        f"remaining {found - filled} (cap {cap})"
+    )
+
+
+def _refuse_sweep_above_ceiling(command: str, *, refused: bool, found: int, ceiling: int) -> None:
+    if refused:
+        typer.echo(
+            f"::error::{command} --sweep: refusing to apply — the class holds {found} rows, "
+            f"above its ceiling of {ceiling} (historical.sweep_caps). A class this size "
+            "means the predicate widened; triage the dry run before raising the ceiling.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
 @app.command("normalize-docket-markings")
 def normalize_docket_markings_cmd(
     apply: Annotated[
@@ -3218,6 +3272,7 @@ def normalize_docket_markings_cmd(
             help="Blast-radius bound, required with --apply: refuse to apply more than this.",
         ),
     ] = None,
+    sweep: Annotated[bool, typer.Option("--sweep", help=_SWEEP_HELP)] = False,
 ) -> None:
     """Converge stored docket numbers on their marking-free spelling.
 
@@ -3256,16 +3311,27 @@ def normalize_docket_markings_cmd(
 
     Idempotent: a rewritten row no longer carries the marking, so it leaves the
     population it was selected from, and ``capital_case`` max-latches so the flag can
-    only advance. Run where the corpus is pulled — a dev checkout dry-runs it, and
-    the apply half belongs in run-repair's `normalize-docket-markings` pass,
-    which holds the corpus-write
-    credentials. ``--apply`` refuses above ``--max-rewrites``: the population is
-    finite and non-growing (the write site strips at ingest), so a count above the
-    number read in the dry run means the predicate widened — triage before raising
-    the bound. Fails loud if the corpus is absent.
+    only advance. Run where the corpus is pulled — a dev checkout dry-runs it. The
+    apply runs in two writer lanes, which hold the corpus-write credentials: as a
+    standing sweep on run-seed's daily window (``--sweep --apply``), and as
+    run-repair's dispatched `normalize-docket-markings` pass. The dispatched
+    ``--apply`` refuses above ``--max-rewrites``: the population is finite and
+    non-growing (the write site strips at ingest), so a count above the number read
+    in the dry run means the predicate widened — triage before raising the bound.
+    ``--sweep`` replaces that bound with a slice: the first
+    ``historical.sweep_caps.docket_markings`` rows of the class are rewritten and
+    the rest left for the next window, reported on one ledger line; an apply whose
+    whole class exceeds ``docket_markings_ceiling`` writes nothing and exits 1.
+    Fails loud if the corpus is absent.
     """
     settings = get_settings()
-    if apply and max_rewrites is None:
+    cap: int | None = None
+    ceiling: int | None = None
+    if sweep:
+        _refuse_bound_with_sweep("normalize-docket-markings", "--max-rewrites", max_rewrites)
+        caps = load_historical_config(settings.config_root).sweep_caps
+        cap, ceiling = caps.docket_markings, caps.docket_markings_ceiling
+    elif apply and max_rewrites is None:
         typer.echo(
             "normalize-docket-markings: --apply requires an explicit --max-rewrites. "
             "Read the dry run first and pass the count you are approving.",
@@ -3281,7 +3347,23 @@ def normalize_docket_markings_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
-        result = normalize_docket_markings(conn, apply=apply, max_rewrites=max_rewrites)
+        result = normalize_docket_markings(
+            conn, apply=apply, max_rewrites=max_rewrites, limit=cap, ceiling=ceiling
+        )
+    if cap is not None and ceiling is not None:
+        _echo_sweep_ledger(
+            "normalize-docket-markings",
+            written=result.applied,
+            planned=len(result.rewritten),
+            deferred=result.deferred,
+            cap=cap,
+        )
+        _refuse_sweep_above_ceiling(
+            "normalize-docket-markings",
+            refused=result.refused,
+            found=len(result.rewritten) + result.deferred,
+            ceiling=ceiling,
+        )
     if result.refused:
         typer.echo(
             f"normalize-docket-markings: refusing to apply {len(result.rewritten)} rewrites "
@@ -3319,6 +3401,7 @@ def backfill_response_fields_cmd(
             help="Blast-radius bound, required with --apply: refuse to apply more than this.",
         ),
     ] = None,
+    sweep: Annotated[bool, typer.Option("--sweep", help=_SWEEP_HELP)] = False,
 ) -> None:
     """Re-derive the dated interim/merits signals from each row's newest live snapshot.
 
@@ -3351,18 +3434,29 @@ def backfill_response_fields_cmd(
     re-read. The write is a direct ``UPDATE`` of the index and never the casestore
     mirror, so a store-side rebuild from ``case.json`` would resurrect the NULLs.
 
-    Idempotent. Run where the corpus is pulled — a dev checkout dry-runs it, and the
-    apply half belongs in run-repair's `response-backfill` pass, which holds the
-    corpus-write
-    credentials. ``--apply`` refuses above ``--max-fills``, which counts the rows
-    actually filled — finite and non-growing, since ingest fills these columns going
-    forward. The ``candidates`` denominator beside it is not: the granted arm admits
-    every new cert grant that has not yet drawn a respondent brief, so a rising
-    candidate count is the ordinary docket rather than a widened predicate. Prints
-    each filled row with the dates it gains. Fails loud if the corpus is absent.
+    Idempotent. Run where the corpus is pulled — a dev checkout dry-runs it. The
+    apply runs in two writer lanes, which hold the corpus-write credentials: as a
+    standing sweep on run-seed's daily window (``--sweep --apply``), and as
+    run-repair's dispatched `response-backfill` pass. The dispatched ``--apply``
+    refuses above ``--max-fills``, which counts the rows actually filled — finite
+    and non-growing, since ingest fills these columns going forward. The
+    ``candidates`` denominator beside it is not: the granted arm admits every new
+    cert grant that has not yet drawn a respondent brief, so a rising candidate
+    count is the ordinary docket rather than a widened predicate. ``--sweep``
+    replaces the bound with a slice: every candidate is read, the first
+    ``historical.sweep_caps.response_fills`` fills are written and the rest left
+    for the next window, reported on one ledger line; an apply whose whole class
+    exceeds ``response_fills_ceiling`` writes nothing and exits 1. Prints each
+    filled row with the dates it gains. Fails loud if the corpus is absent.
     """
     settings = get_settings()
-    if apply and max_fills is None:
+    cap: int | None = None
+    ceiling: int | None = None
+    if sweep:
+        _refuse_bound_with_sweep("backfill-response-fields", "--max-fills", max_fills)
+        caps = load_historical_config(settings.config_root).sweep_caps
+        cap, ceiling = caps.response_fills, caps.response_fills_ceiling
+    elif apply and max_fills is None:
         typer.echo(
             "backfill-response-fields: --apply requires an explicit --max-fills. "
             "Read the dry run first and pass the count you are approving.",
@@ -3378,7 +3472,23 @@ def backfill_response_fields_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
-        result = backfill_response_fields(conn, apply=apply, max_fills=max_fills)
+        result = backfill_response_fields(
+            conn, apply=apply, max_fills=max_fills, limit=cap, ceiling=ceiling
+        )
+    if cap is not None and ceiling is not None:
+        _echo_sweep_ledger(
+            "backfill-response-fields",
+            written=result.applied,
+            planned=len(result.filled),
+            deferred=result.deferred,
+            cap=cap,
+        )
+        _refuse_sweep_above_ceiling(
+            "backfill-response-fields",
+            refused=result.refused,
+            found=len(result.filled) + result.deferred,
+            ceiling=ceiling,
+        )
     if result.refused:
         typer.echo(
             f"backfill-response-fields: refusing to apply {len(result.filled)} fills "
@@ -3422,6 +3532,7 @@ def backfill_decision_record_cmd(
             help="Blast-radius bound, required with --apply: refuse to apply more than this.",
         ),
     ] = None,
+    sweep: Annotated[bool, typer.Option("--sweep", help=_SWEEP_HELP)] = False,
 ) -> None:
     """Read each unclassified granted row's newest live snapshot for its decision record.
 
@@ -3444,14 +3555,25 @@ def backfill_decision_record_cmd(
     The write is a direct ``UPDATE`` of the index and never the casestore mirror.
 
     Idempotent. Run where the corpus is pulled: a dev checkout or the pass
-    dry-runs it, and the apply half belongs in run-repair's `decision-record`
-    pass, which on an apply holds the corpus-write credentials. ``--apply``
-    refuses above ``--max-fills``, which counts the rows actually filled. Prints
-    the counts, the method distribution over the fills, and each filled row.
-    Fails loud if the corpus is absent.
+    dry-runs it. The apply runs in two writer lanes, which hold the corpus-write
+    credentials: as a standing sweep on run-seed's daily window
+    (``--sweep --apply``), and as run-repair's dispatched `decision-record` pass.
+    The dispatched ``--apply`` refuses above ``--max-fills``, which counts the
+    rows actually filled. ``--sweep`` replaces that bound with a slice: every
+    candidate is read, the first ``historical.sweep_caps.decision_fills`` fills
+    are written and the rest left for the next window, reported on one ledger
+    line; an apply whose whole class exceeds ``decision_fills_ceiling`` writes
+    nothing and exits 1. Prints the counts, the method distribution over the fills, and each
+    filled row. Fails loud if the corpus is absent.
     """
     settings = get_settings()
-    if apply and max_fills is None:
+    cap: int | None = None
+    ceiling: int | None = None
+    if sweep:
+        _refuse_bound_with_sweep("backfill-decision-record", "--max-fills", max_fills)
+        caps = load_historical_config(settings.config_root).sweep_caps
+        cap, ceiling = caps.decision_fills, caps.decision_fills_ceiling
+    elif apply and max_fills is None:
         typer.echo(
             "backfill-decision-record: --apply requires an explicit --max-fills. "
             "Read the dry run first and pass the count you are approving.",
@@ -3467,7 +3589,23 @@ def backfill_decision_record_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
-        result = backfill_decision_record(conn, apply=apply, max_fills=max_fills)
+        result = backfill_decision_record(
+            conn, apply=apply, max_fills=max_fills, limit=cap, ceiling=ceiling
+        )
+    if cap is not None and ceiling is not None:
+        _echo_sweep_ledger(
+            "backfill-decision-record",
+            written=result.applied,
+            planned=len(result.filled),
+            deferred=result.deferred,
+            cap=cap,
+        )
+        _refuse_sweep_above_ceiling(
+            "backfill-decision-record",
+            refused=result.refused,
+            found=len(result.filled) + result.deferred,
+            ceiling=ceiling,
+        )
     if result.refused:
         typer.echo(
             f"backfill-decision-record: refusing to apply {len(result.filled)} fills "
