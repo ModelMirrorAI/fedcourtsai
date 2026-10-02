@@ -189,8 +189,9 @@ columns only. A row still carrying the marking converges either by re-ingest —
 live-slice row on its next poll, one outside the slice on a targeted re-read — or
 by `normalize-docket-markings`, the dedicated sweep that rewrites the stored
 spelling and raises the flag without a fetch, which is what the backlog needs,
-being overwhelmingly decided rows the rotation has left. Its apply half is
-run-repair's `normalize-docket-markings` pass ([pipeline.md](pipeline.md)).
+being overwhelmingly decided rows the rotation has left. Its apply runs as a
+standing sweep on run-seed's daily window and as run-repair's
+`normalize-docket-markings` pass ([pipeline.md](pipeline.md)).
 `validate-corpus` counts the remainder as an advisory check ([cli.md](cli.md))
 rather than a failure, because rows written before the write site stripped the
 marking carry one until something reaches them, and the verdict must not be red
@@ -226,7 +227,8 @@ its argument entry can move the argued date back or read an argued per curiam
 as a summary one, the exposure the dated live signals already accept. A stored row whose columns are null
 is read from its newest stored live snapshot by `backfill-decision-record`,
 which never overwrites; its dry run runs from a dev checkout or as run-repair's
-`decision-record` pass, which also runs its apply. Neither column reaches a cell: both are withheld from the
+`decision-record` pass, and its apply as that pass or as a standing sweep on
+run-seed's daily window. Neither column reaches a cell: both are withheld from the
 `query` retrieval rows ([corpus/README.md](../corpus/README.md)).
 
 ## Documents: from metadata to content

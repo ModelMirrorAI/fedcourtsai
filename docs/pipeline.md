@@ -615,7 +615,7 @@ neither queues on the corpus-write lock nor stacks API spend onto a pull
 window's. The job carries `max_cases` and nothing else: the walk orders itself
 ledger-first, so the cases the pipeline is waiting on reach the head without a
 dispatch naming them, and the CLI's `--case` targeting stays a local
-maintenance tool rather than a dispatch input. run-seed also runs eight
+maintenance tool rather than a dispatch input. run-seed also runs eleven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
@@ -647,14 +647,34 @@ convergence** (`fedcourts converge-decision-dates`), which fills a denied
 petition's `date_decided` from its own `date_cert_denied` — the order refusing
 the writ is the order that ends the docket, so the two name one moment, while
 the grant side stays out because a granted docket terminates at a later merits
-judgment no column holds; and, last, the
+judgment no column holds; the
 **bulk-cluster scrub** (`fedcourts scrub-bulk-cluster-fields`), which
 converges the stored circuit slice onto the ingest projection's carve-out —
 the bulk export's misjoined cluster fields are withheld from a re-served
 bulk row, and the scrub drops them from the rows nothing re-serves, keyed
 on the fields no channel could have written to a non-SCOTUS row (the only
 other writer, the opinion enrichment, is SCOTUS-scoped) and bounded by its
-own blast-radius cap. The dedupe runs first so the
+own blast-radius cap; and the three **fill sweeps**, which converge index
+columns no channel revisits from what the window already holds — the
+**docket-marking convergence** (`fedcourts normalize-docket-markings`), the
+**response-signal back-fill** (`fedcourts backfill-response-fields`) and the
+**decision-record back-fill** (`fedcourts backfill-decision-record`), each
+described with its run-repair pass below. They run in `--sweep` mode, which
+slices and refuses only past a ceiling: a window writes at most its per-window
+cap (`historical.sweep_caps` in `config/tracking.yaml`) of the class, in
+`case_id` order, and tees one ledger line to the run summary — `would fill N;
+filled M; remaining R (cap C)` — so the rest carries to the next window; a class
+found above its configured ceiling is a widened predicate, so the window writes
+none of it and the step fails with an error annotation. Two of the three only
+fill null columns; the marking convergence rewrites `docket_number`, selected
+by the marking's exact words and neutral to the identity join. Each writes the
+index alone, so each commits the pointer alone, and
+each is gated on the dedupe's success as well as the daily cadence — the
+prerequisite run-repair holds the same passes to, so each reads merged rows
+rather than one half of a twin pair. The two snapshot sweeps read their
+candidates on every window, since those include the pending granted docket,
+which never drains; the slice bounds the writes, not the reads. The dedupe runs
+first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
@@ -734,7 +754,10 @@ it, so a row outside the live slice converges only under a re-read aimed at it,
 and this is the sweep that needs none. It can neither create nor resolve a
 duplicate pair, since both channels reconcile identity on a key that already
 strips the marking by shape; and having no ledger surface — its write is a
-direct `UPDATE` of the index — it commits the pointer alone.
+direct `UPDATE` of the index — it commits the pointer alone. The walker's daily
+window converges the same class as a standing sweep, sliced at its per-window
+cap; the pass is the route for a maintainer-read apply of the whole class in
+one dispatch, under a refusing bound.
 
 `response-backfill` re-derives the dated interim/merits signals from each row's
 newest stored live-shaped snapshot, which under the corpus split lives in the
@@ -744,7 +767,9 @@ snapshot rather than failing on it, and writes a direct `UPDATE` of the index,
 so the pointer is its own witness. Its bound counts the rows actually filled,
 not the `candidates` denominator beside them, which rises with every new cert
 grant that has not yet drawn a respondent brief — so a rise there is the
-ordinary docket rather than a widened predicate.
+ordinary docket rather than a widened predicate. Like the marking convergence,
+it also runs as a standing sweep on the walker's daily window, sliced at its
+per-window cap.
 
 `ocr-recovery` reads the scanned filings off their page images. A filing
 submitted on paper reaches the corpus with no text layer, so nothing was
@@ -968,8 +993,11 @@ parses are private, so they could not cross a public artifact. The dry run
 holds the read-only role (the snapshots live in the content store) and takes
 no lock, and the apply takes `corpus-write`, the read-write role from its write
 step onward, and the App token only after that step. The bound is the dry run's fill count, and a
-re-dispatched dry run after the apply is the control. `fedcourts
-decision-census` reads the result. Nothing a cell sees moves: both columns are
+re-dispatched dry run after the apply is the control. The walker's daily
+window runs the same command as a standing sweep, sliced at its per-window cap
+in the window's own job, which already holds the read-write role and the content
+store's address. `fedcourts decision-census` reads the result. Nothing a cell
+sees moves: both columns are
 withheld from the `query` rows, and no gate, mint or outcome reads them.
 
 `opinion-record` builds the per-opinion record — each opinion's kind, author,

@@ -172,6 +172,38 @@ historical:
   document_floor_term: 21
   # Per-document cap on extracted text stored in the corpus (see `live:`).
   document_text_cap: 150000
+  # Per-window caps on the daily (02:31) window's three fill sweeps — standing
+  # sweeps that converge index columns no channel revisits, reading only the
+  # pulled blob and the content-store snapshots the window already holds
+  # credentials for. A cap is a slice, not a refusal: a window writes at most
+  # this many rows of its class, in case_id order, and the ledger line it tees
+  # to the run summary (`sweep ledger — <cmd>: would fill N; filled M;
+  # remaining R (cap C)`) carries the rest to the next window. Two classes only fill NULL columns; the marking sweep
+  # rewrites docket_number, selected by the marking's exact words and neutral
+  # to the identity join. A written row leaves its class either way, so a
+  # bounded slice still drains it. Each `<name>_ceiling` is the refusal beside
+  # the slice: a class found larger is written not at all and the step fails,
+  # since that size means a widened predicate, not a backlog. Caps start well
+  # under the classes' historical backlogs; raise one only on the ledger
+  # lines' evidence.
+  sweep_caps:
+    # `normalize-docket-markings --sweep`: stored docket numbers rewritten to
+    # their marking-free spelling, capital_case raised beside them.
+    docket_markings: 50
+    # `backfill-response-fields --sweep`: rows gaining a dated response or
+    # merits-brief signal from their newest stored live snapshot.
+    response_fills: 50
+    # `backfill-decision-record --sweep`: granted rows gaining merits_argued
+    # and/or merits_decision_method from their newest stored live snapshot.
+    decision_fills: 50
+    # Ceilings, each well above the fill class a converged corpus holds. Upper
+    # bounds on that class, on the index blob of 2026-10-02 (sha 2b356dbd):
+    # 0 marked rows, 179 response candidates, 54 decision-record candidates.
+    # A class regrowing past one stops for a maintainer's dry run on
+    # run-repair instead.
+    docket_markings_ceiling: 500
+    response_fills_ceiling: 500
+    decision_fills_ceiling: 500
 
 predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope"). Restricts only the agentic
