@@ -347,20 +347,29 @@ party filed are an individual's own. The docket JSON never says "pro se", so
 the reading is upstream's own, in three arms, all of them read off a **served** block: a self-represented party
 listed as its own attorney (compared on first and last name after a leading
 "In re", "In the Matter of" or "Ex parte" caption is cut, since the two fields
-disagree on the middle constantly), a block naming no attorney at all,
+disagree on the middle constantly; a title or honorific — "Professor", "Hon.",
+"Dr.", "(Ret.)", "Esq." — is read through, and a `PartyName` naming several
+people jointly, or a name followed by a comma-separated description
+(", APC"), matches where the attorney is any one of the people it names), a block naming
+no attorney at all,
 and a prisoner register number on the block — the incarcerated filer, whose own
 address a filing carries most reliably. The arms are the same on either side,
 and any one qualifying block is enough, so a docket carrying a represented
 co-petitioner beside a self-represented one is scrubbed, and so is a counselled
 petition answered by a respondent filing in person. The `Other` list — amici
 and other non-party filers — is read too, on the first two arms only: an
-amicus served as its own attorney (in practice individual lawyers and law
-professors whose served name carries no title) or with no attorney named. The
-comparison is the party sides' own, so a self-filing amicus whose `PartyName`
-carries a title or a joinder the `Attorney` field lacks ("Professor …",
-"Hon. … (Ret.)", "… and …") is not read as self-represented and stays as
-served; on the pulled blob no organisation's block qualifies, since every one
-names a person as `Attorney`. The register-number
+amicus served as its own attorney (in practice individual lawyers, law
+professors and retired judges) or with no attorney named. The comparison is
+the party sides' own, so a self-filing amicus served as "Professor …",
+"Hon. … (Ret.)" or "… and …" with the bare name as `Attorney` reads as
+self-represented. Each person a joinder names is compared on their own, and
+no added reading joins the first name of one to the surname of another (the
+as-served reduction is kept, so the change only widens), and a title is cut only as a whole
+leading word ahead of a name, so an organisation served beside the attorney
+("Professor … and … Law Center") qualifies through the person it names and an
+organisation named for someone else ("Family Policy Foundation and The
+Hartwell Center", against "Walter Hartwell") does not. On the pulled blob no organisation's block
+qualifies on its own, since every one names a person as `Attorney`. The register-number
 arm is not asked there, because `PrisonerId` on an `Other` block is not a
 register number: on the pulled blob at pull stamp `2026-09-29` every populated
 value on that list is an address-shaped string or a phrase on an organisation

@@ -1192,6 +1192,32 @@ _NAME_TAIL_RE = re.compile(r"[,\s]+(?:jr|sr|i{1,3}|iv|v|vi)\.?\Z", re.IGNORECASE
 _CAPTION_PREFIX_RE = re.compile(
     r"\A\s*(?:in\s+re|in\s+the\s+matter\s+of|ex\s+parte)\b[\s:.,]*(?=\w)", re.IGNORECASE
 )
+# An individual filing in their own name — in practice a law professor or a
+# retired judge filing as amicus — is served under a title or honorific the
+# attorney field leaves off ("Professor Jane Doe", "The Hon. Jane Doe (Ret.)",
+# "Jane Doe, Esq.", "Justice Jane Doe (Ret.)", "Professor Emeritus Jane Doe"),
+# so the title would otherwise take the first name's place,
+# or the tail the last name's. A leading title is cut only where it is a whole
+# word followed by a blank and a name, so a name or an organisation that merely
+# begins with the same letters ("Drake", "Honda", "Professorial") is untouched,
+# and a caption-order surname ("Judge, Mary") is not read as a title.
+_TITLE_PREFIX_RE = re.compile(
+    r"\A\s*(?:the\s+)?(?:former\s+|retired\s+)?"
+    r"(?:hon|honorable|honourable|judge|justice|dr|doctor|prof|professors?"
+    r"|law\s+professors?|mr|mrs|ms)\b\.?(?:\s+emerit(?:us|a|i))?\s+(?=\w)",
+    re.IGNORECASE,
+)
+_TITLE_TAIL_RE = re.compile(
+    r"[,\s]+(?:\(\s*ret(?:\.|ired)?\s*\)|esq\.?|esquire|ph\.?\s?d\.?|m\.?d\.?)\s*\Z",
+    re.IGNORECASE,
+)
+# A block can name several filers jointly ("Jane Doe and John Roe", "Professors
+# Jane Doe, John Roe, and Mary Major") with one of them as the attorney. The
+# party name is split on the commas and the whole-word conjunctions between
+# them, and each person is compared on their own. Splitting on every comma also
+# parts a name from a description served after it ("Jane Doe, APC", "Jane Doe,
+# Professor of Law"), so the name is compared on its own there too.
+_JOINDER_SPLIT_RE = re.compile(r"\s*,\s*(?:and\s+|&\s*)?|\s+(?:and|&)\s+", re.IGNORECASE)
 
 
 def _comparable_name(raw: Any) -> frozenset[str]:
@@ -1212,7 +1238,8 @@ def _comparable_name(raw: Any) -> frozenset[str]:
     reason. A leading caption ("In re", "In the Matter of", "Ex parte") is cut
     before either reduction, since the caption words would otherwise take the
     first name's place. What the pair still separates is two different people,
-    which is what it is for.
+    which is what it is for. Titles and joinders are read around this reduction,
+    not inside it (:func:`_name_readings`).
     """
     if not isinstance(raw, str):
         return frozenset()
@@ -1221,6 +1248,37 @@ def _comparable_name(raw: Any) -> frozenset[str]:
     name = _NAME_TAIL_RE.sub("", name)
     tokens = re.sub(r"[\s.,]+", " ", name).casefold().split()
     return frozenset(tokens[:1] + tokens[-1:])
+
+
+def _untitled(name: str) -> str:
+    """``name`` with leading titles and trailing honorific tails cut, each repeatedly."""
+    previous = None
+    while previous != name:
+        previous = name
+        name = _TITLE_PREFIX_RE.sub("", name)
+        name = _TITLE_TAIL_RE.sub("", name)
+    return name
+
+
+def _name_readings(raw: Any, *, joinder: bool) -> frozenset[frozenset[str]]:
+    """Every reduction of ``raw`` the self-naming comparison may match on.
+
+    Always :func:`_comparable_name` of the name as served, so a pair that
+    compared equal on that reduction still does. Beside it, the reduction with
+    titles and honorific tails cut (:func:`_untitled`) — or, with ``joinder``,
+    which the party side asks and the attorney side does not, the reduction of
+    each person the joinder names, each with its own titles cut, and never one
+    spanning two of them. An added reading counts only where it keeps two
+    distinct tokens, so a lone surname or a stray fragment of a list never
+    stands in for a person.
+    """
+    whole = _comparable_name(raw)
+    if not isinstance(raw, str):
+        return frozenset({whole})
+    name = _untitled(_PARTY_SUFFIX_RE.sub("", _CAPTION_PREFIX_RE.sub("", raw)))
+    pieces = _JOINDER_SPLIT_RE.split(name) if joinder else [name]
+    added = (_comparable_name(_untitled(piece)) for piece in pieces)
+    return frozenset({whole, *(reading for reading in added if len(reading) >= 2)})
 
 
 def unrepresented_sides(payload: Mapping[str, Any]) -> tuple[str, ...]:
@@ -1286,12 +1344,16 @@ def unrepresented_sides(payload: Mapping[str, Any]) -> tuple[str, ...]:
 
     The ``Other`` list — amici and other non-party filers — is read too, last
     in :data:`SCRUBBED_LISTS` order, on the first two arms only. An amicus
-    served as its own attorney (in practice an individual lawyer or law
-    professor whose served name carries no title) is served exactly as a
-    self-represented party is, and withholding its contact keys costs a cell
-    nothing. The name comparison is the party sides' own, so a ``PartyName``
-    carrying a title or joinder the ``Attorney`` field lacks does not read as
-    self-represented. The register-number arm is not
+    served as its own attorney (in practice an individual lawyer, law
+    professor or retired judge) is served exactly as a self-represented party
+    is, and withholding its contact keys costs a cell nothing. The name
+    comparison is the party sides' own, and it reads through the shapes amici
+    are served under: a leading title or honorific ("Professor", "Hon.",
+    "Dr.") and a trailing one ("(Ret.)", "Esq.") are cut, and a joinder
+    ("Jane Doe and John Roe", "Professors Jane Doe, John Roe and Mary Major")
+    is compared person by person, so the block qualifies where its attorney is
+    any one of the people it names (see :func:`_name_readings`). The
+    register-number arm is not
     asked there, because ``PrisonerId`` on an ``Other`` block is not a register
     number: over the pulled blob at the ``2026-09-29`` pull stamp every one of
     the 7 populated values on that list is an address-shaped string or a
@@ -1328,10 +1390,10 @@ def _block_names_nobody_else(block: Mapping[str, Any], *, register_number_arm: b
     """
     if register_number_arm and str(block.get("PrisonerId") or "").strip():
         return True
-    attorney = _comparable_name(block.get("Attorney"))
-    if not attorney:
+    if not _comparable_name(block.get("Attorney")):
         return True
-    return attorney == _comparable_name(block.get("PartyName"))
+    attorney = _name_readings(block.get("Attorney"), joinder=False)
+    return not attorney.isdisjoint(_name_readings(block.get("PartyName"), joinder=True))
 
 
 # --- The staged snapshot's counsel blocks -----------------------------------

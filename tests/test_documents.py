@@ -4152,6 +4152,164 @@ def test_the_caption_cut_takes_whole_leading_words_ahead_of_a_name(
     assert documents_module._comparable_name(raw) == frozenset(tokens)
 
 
+_TITLED_SELF_FILERS = (
+    # A title or honorific ahead of the name, a tail behind it, or both.
+    ("Professor Jane Q. Scholar", "Jane Scholar"),
+    ("Prof. Jane Scholar", "Jane Q. Scholar"),
+    ("Hon. Jane Scholar (Ret.)", "Jane Scholar"),
+    ("The Honorable Jane Scholar (ret.)", "Jane Scholar"),
+    ("Dr. Jane Scholar", "Jane Scholar"),
+    ("Judge Jane Scholar (Retired)", "Jane Scholar"),
+    ("Justice Jane Scholar (Ret.)", "Jane Scholar"),
+    ("Former Judge Jane Scholar", "Jane Scholar"),
+    ("Professor Emeritus Jane Scholar", "Jane Scholar"),
+    ("Ms. Jane Scholar", "Jane Scholar"),
+    ("Jane Scholar, Professor of Law", "Jane Scholar"),
+    ("Jane Scholar, Esq.", "Jane Q. Scholar"),
+    ("Jane Scholar, Ph.D.", "Jane Scholar"),
+    ("Professor Jane Scholar, et al.", "Jane Scholar"),
+    # A joinder: the attorney is one of the people the block names.
+    ("Jane Scholar and John Roe", "Jane Scholar"),
+    ("John Roe and Jane Scholar", "Jane Q. Scholar"),
+    ("John Roe & Jane Scholar", "Jane Scholar"),
+    ("Professors John Roe and Jane Scholar", "Jane Scholar"),
+    ("Professor Jane Scholar and Example University Law Center", "Jane Scholar"),
+    ("Example Institute and Professor Jane Scholar", "Jane Scholar"),
+    ("Hon. John Roe (Ret.), and Law Professors Mary Major and Jane Scholar", "Jane R. Scholar"),
+)
+
+
+@pytest.mark.parametrize(("party", "attorney"), _TITLED_SELF_FILERS)
+def test_a_titled_or_joined_amicus_in_its_own_name_keys_the_value_pass(
+    party: str, attorney: str
+) -> None:
+    payload = {
+        "Petitioner": [{"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"}],
+        "Other": [
+            {
+                "PartyName": party,
+                "Attorney": attorney,
+                "Email": "jscholar@law.example.edu",
+                "Phone": "(555) 555-0142",
+            }
+        ],
+    }
+    sides = unrepresented_sides(payload)
+
+    assert sides == ("Other",)
+    assert party_contact_values(payload, sides) == (
+        "jscholar@law.example.edu",
+        "(555) 555-0142",
+    )
+
+
+@pytest.mark.parametrize(
+    ("party", "attorney"),
+    [
+        ("Professor Jane Doe", "Jane Doe"),
+        ("Jane Doe and John Roe", "John Roe"),
+        ("Hon. Jane Doe (Ret.)", "Jane Doe"),
+    ],
+)
+def test_a_titled_or_joined_petitioner_in_their_own_name_reads_unrepresented(
+    party: str, attorney: str
+) -> None:
+    payload = {
+        "Petitioner": [{"PartyName": party, "Attorney": attorney}],
+        "Respondent": [{"PartyName": "United States", "Attorney": "D. John Sauer"}],
+    }
+
+    assert unrepresented_sides(payload) == ("Petitioner",)
+
+
+@pytest.mark.parametrize("party", ["Dr. Richard Roe", "Richard Roe and Jane Doe"])
+def test_a_titled_or_joined_respondent_in_their_own_name_reads_unrepresented(
+    party: str,
+) -> None:
+    payload = {
+        "Petitioner": [{"PartyName": "Cascade School District", "Attorney": "Kannon K. Shanmugam"}],
+        "Respondent": [{"PartyName": party, "Attorney": "Richard A. Roe"}],
+    }
+
+    assert unrepresented_sides(payload) == ("Respondent",)
+
+
+@pytest.mark.parametrize(
+    ("party", "attorney"),
+    [
+        # The title is cut and the names still differ: counsel for the filer.
+        ("Professor Jane Doe", "Ann Counsel"),
+        ("Hon. Jane Doe (Ret.)", "Mary Doe"),
+        # A joinder none of whose people is the attorney.
+        ("Jane Doe and John Roe", "Mary Major"),
+        # Two people sharing a surname are still two people.
+        ("Law Professors Paul Quill and Mary Major", "Daniel R. Quill"),
+        # An organisation named for a person is not that person's namesake.
+        ("Family Policy Foundation and The Hartwell Center", "Walter Hartwell"),
+        # Names and organisations that merely begin with a title's letters.
+        ("Drake Smith", "Dr. Smith"),
+        ("Drake Smith", "Ake Smith"),
+        ("Justiceville Doe", "Ville Doe"),
+        ("Honda Doe Foundation", "Doe Foundation"),
+        ("Professorial Society of Doe", "Society Doe"),
+    ],
+)
+def test_a_title_or_joinder_does_not_make_a_different_person_read_unrepresented(
+    party: str, attorney: str
+) -> None:
+    payload = {
+        "Petitioner": [{"PartyName": party, "Attorney": attorney}],
+        "Other": [{"PartyName": party, "Attorney": attorney}],
+    }
+
+    assert unrepresented_sides(payload) == ()
+
+
+@pytest.mark.parametrize(
+    ("party", "attorney"),
+    [
+        # Every pair that compared equal on the served reduction still does.
+        ("Doe, Jane", "Jane Doe"),
+        ("Judge, Mary", "Mary Judge"),
+        ("In re Jane Doe", "Jane Doe"),
+        ("Jane Doe, et al.", "Jane Q. Doe"),
+        ("Raymond H. Pierson", "Raymond H. Pierson II"),
+        ("Professor", "Professor"),
+    ],
+)
+def test_a_pair_equal_on_the_served_reduction_still_reads_unrepresented(
+    party: str, attorney: str
+) -> None:
+    payload = {"Petitioner": [{"PartyName": party, "Attorney": attorney}]}
+
+    assert unrepresented_sides(payload) == ("Petitioner",)
+
+
+@pytest.mark.parametrize(
+    ("raw", "readings"),
+    [
+        ("Professor Jane Doe", [{"professor", "doe"}, {"jane", "doe"}]),
+        ("The Hon. Jane Doe", [{"the", "doe"}, {"jane", "doe"}]),
+        ("Jane Doe, Esq.", [{"jane", "esq"}, {"jane", "doe"}]),
+        # Whole words ahead of a name only: these keep their letters.
+        ("Drake Smith", [{"drake", "smith"}]),
+        ("Judge, Mary", [{"judge", "mary"}]),
+        # One reading per person, and no added one spanning two of them: the
+        # served reduction ({jane, roe}) is kept as it always was.
+        (
+            "Jane Doe and John Roe",
+            [{"jane", "roe"}, {"jane", "doe"}, {"john", "roe"}],
+        ),
+        # A lone token adds no reading of its own.
+        ("Doe, Jane", [{"doe", "jane"}]),
+    ],
+)
+def test_the_title_and_joinder_readings(raw: str, readings: list[set[str]]) -> None:
+    assert documents_module._name_readings(raw, joinder=True) == frozenset(
+        frozenset(r) for r in readings
+    )
+
+
 def test_a_prisoner_register_number_reads_unrepresented_on_its_own() -> None:
     # Upstream's own positive marker for a party writing from an institution,
     # taken whatever the attorney field says: the population whose filings carry
