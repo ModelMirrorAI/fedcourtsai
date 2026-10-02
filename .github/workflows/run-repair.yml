@@ -2663,7 +2663,8 @@ jobs:
       # stance*) records: this one artifact, one day, consumed by the
       # applications writer in this run, never committed and never printed —
       # the summary above carries the ledger's counts and parsed fields only,
-      # and the writer refuses a plan carrying anything else.
+      # and the walk (before writing it) and the writer both refuse a plan not
+      # shaped as served docket JSON plus the fields parsed from it.
       - name: Upload the plan
         if: ${{ inputs.repair_mode == 'apply' && (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record') }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -2672,9 +2673,12 @@ jobs:
           path: ${{ runner.temp }}/handoff/plan.json
           if-no-files-found: error
           overwrite: true
-          # Public Court data only (see the credential-split comment above the
-          # projection job); one day, because it exists to hand one file to the
-          # writer job, and the application plan's carve-out is bounded to it.
+          # The Court's own public record only (see the credential-split comment
+          # above the projection job; the application plan under its carve-out);
+          # one day, because it exists to hand one file to the writer job, and
+          # the carve-out is bounded to this artifact. Deleting it once the
+          # writer has read it was weighed and declined: that needs `actions:
+          # write` in a job already holding `id-token` and the App token.
           retention-days: 1
 
   # The vote writer, on an apply only. It holds no AWS role and no

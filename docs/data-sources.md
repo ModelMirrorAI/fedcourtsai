@@ -599,7 +599,7 @@ labeling run and, on the same footing, the case-summary lane's staged records
 CourtListener REST snapshot), not as a route for corpus content generally. The other
 three republish no document text. `run-repair`'s one-day handoff artifacts ride
 the same channel with public Court identifiers and supremecourt.gov content
-only, never corpus content; the application back-fill's plan, whose served
+only, never a corpus row, snapshot or stored document; the application back-fill's plan, whose served
 docket JSON carries counsel blocks, crosses under the one carve-out recorded in
 *PII stance* below. Prediction reasoning may quote or summarize
 public-record docket facts in the course of explaining a prediction, and may
@@ -725,8 +725,10 @@ material**:
     included, which for a self-represented filer carry a home address,
     telephone, email or prisoner register number — plus the structured fields
     parsed from it. Nothing read from the corpus, the content store or any
-    snapshot we stored. The applications writer refuses a plan carrying
-    anything else.
+    snapshot we stored — which rests on the job that writes the plan holding
+    no corpus credential at all. Both that job and the applications writer
+    refuse a plan not shaped as served docket JSON plus the fields parsed
+    from it.
   - *Where:* one workflow artifact, `repair-plan-<run_id>`, kept one day and
     consumed by the applications writer in the same run. It is never committed
     to git and never printed to a log or step summary; the step summary

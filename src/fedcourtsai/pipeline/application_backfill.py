@@ -581,9 +581,11 @@ class ApplicationPlan(BaseModel):
     contact blocks included; the rest is the structured fields the walk parsed
     from those records. That is the whole of what the PII carve-out in
     ``docs/data-sources.md`` (*PII stance*) lets cross as run-repair's one-day
-    ``repair-plan-<run_id>`` artifact, so the writer refuses a plan carrying
-    anything else (:func:`_plan_shape_problem`): a record that is not shaped as
-    a served docket, or a structured field its record does not map to.
+    ``repair-plan-<run_id>`` artifact, so both sides refuse a plan not shaped
+    that way (:func:`check_plan`): a record that is not shaped as a served
+    docket, or a structured field its record does not map to. The check is of
+    shape, not of values; that nothing in the plan comes from our stores rests
+    on the parse job holding no corpus credential.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -714,8 +716,12 @@ def _plan_shape_problem(plan: ApplicationPlan, terms: Sequence[int]) -> str | No
     notes = [note for ledger in plan.terms for note in (*ledger.held, *ledger.failures)]
     if any(set(note) != {"docket", "reason"} for note in notes):
         return "carries a ledger note without its docket and reason"
+    if any(ledger.failures for ledger in plan.terms):
+        # A walk that failed exits non-zero and writes no plan, so a plan never
+        # carries one; refusing it closes the notes' one free-text field.
+        return "carries a fetch failure, which no written plan does"
     for ledger in plan.terms:
-        for note in (*ledger.held, *ledger.failures):
+        for note in ledger.held:
             parsed = parse_scotus_application_number(note["docket"])
             if parsed is None or parsed[0] != ledger.term:
                 return "carries a ledger note on a docket outside its Term"
@@ -744,8 +750,22 @@ def _plan_shape_problem(plan: ApplicationPlan, terms: Sequence[int]) -> str | No
             except (TypeError, ValueError, KeyError, AttributeError):
                 return f"serves {row.docket_number} as a record the live mapping cannot read"
             if derived is None or derived[0] != row:
-                return f"lists {row.docket_number} with fields its served record does not map to"
+                return (
+                    f"lists {row.docket_number[:32]!r} with fields its served record does "
+                    "not map to"
+                )
     return None
+
+
+def check_plan(plan: ApplicationPlan, terms: Sequence[int]) -> None:
+    """Refuse ``plan`` whole (:class:`HandoffRefused`) unless an honest walk of ``terms`` wrote it.
+
+    Run on both sides of the artifact: the parse job checks the plan before it
+    writes the file, so a plan the carve-out does not admit is never uploaded,
+    and the writer checks it again as untrusted input before its first write.
+    """
+    if (why := _plan_shape_problem(plan, terms)) is not None:
+        raise HandoffRefused(f"the plan {why}")
 
 
 def apply_application_plan(
@@ -774,8 +794,7 @@ def apply_application_plan(
     """
     if apply and max_rows is None:
         raise ValueError("an apply needs max_rows, the count read off a dry run")
-    if (why := _plan_shape_problem(plan, terms)) is not None:
-        raise HandoffRefused(f"the plan {why}")
+    check_plan(plan, terms)
     served: dict[int, list[ServedDocket]] = {}
     for docket in plan.served:
         served.setdefault(docket.term, []).append(docket)

@@ -10743,7 +10743,11 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
                     cache=cache,
                     deadline=deadline,
                 )
-            if plan_out is not None:
+            if plan_out is not None and not result.failures:
+                # The plan crosses a public artifact under the PII carve-out, so
+                # one the writer would refuse is refused here, before the file
+                # exists; a failed walk writes none (it exits 1 below).
+                application_backfill.check_plan(plan, terms)
                 write_handoff(plan_out, plan)
         else:
             with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:

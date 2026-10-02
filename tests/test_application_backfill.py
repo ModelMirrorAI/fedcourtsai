@@ -534,7 +534,9 @@ def _tamper(plan: dict[str, Any], change: str) -> None:  # noqa: PLR0912 - one b
     elif change == "held-reason":
         plan["terms"][0]["held"] = [{"docket": "24A1", "reason": "any other text"}]
     elif change == "note-off-term":
-        plan["terms"][0]["failures"] = [{"docket": "23A1", "reason": "x"}]
+        plan["terms"][0]["held"] = [{"docket": "23A1", "reason": "served docket number x"}]
+    elif change == "failure-note":
+        plan["terms"][0]["failures"] = [{"docket": "24A1", "reason": "free text"}]
 
 
 @pytest.mark.parametrize(
@@ -559,6 +561,7 @@ def _tamper(plan: dict[str, Any], change: str) -> None:  # noqa: PLR0912 - one b
         "preview-count",
         "held-reason",
         "note-off-term",
+        "failure-note",
     ],
 )
 def test_a_tampered_or_malformed_plan_is_refused_whole(tmp_path: Path, change: str) -> None:
@@ -698,3 +701,35 @@ def test_no_plan_text_reaches_the_ledger_the_summary_carries(
     for output in (planned.output, applied.output):
         for key in ("PartyName", "PrisonerId", "Phone", "Address", "City", "Zip", "Email"):
             assert str(_CONTACT[key]) not in output, key
+
+
+def test_the_parse_writes_no_plan_the_writer_would_refuse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The content check runs before the artifact exists, not only at the writer.
+
+    A served record with a key outside a docket JSON's own is refused by the
+    walk's command itself, which writes no plan, so the workflow uploads none.
+    """
+    db, _, upstream = _seeded(tmp_path)
+    upstream.served["24A1"]["NotADocketKey"] = "x"
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(db.parent))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    monkeypatch.setattr(cli_module, "SupremeCourtClient", lambda **_: _client(upstream.handler))
+    runner = CliRunner()
+    projection, plan = tmp_path / "p.json", tmp_path / "plan.json"
+    runner.invoke(
+        cli_module.app, ["backfill-applications", "--emit-corpus-projection", str(projection)]
+    )
+    planned = runner.invoke(
+        cli_module.app,
+        [
+            "backfill-applications",
+            *("--end-misses", "2"),
+            *("--projection", str(projection)),
+            *("--plan-out", str(plan)),
+        ],
+    )
+    assert planned.exit_code == 1
+    assert "NotADocketKey" in planned.output and "refusing" in planned.output
+    assert not plan.exists()

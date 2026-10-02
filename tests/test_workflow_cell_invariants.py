@@ -4663,6 +4663,11 @@ def test_no_plan_text_reaches_a_step_summary_or_log() -> None:
                 run = run.replace(token, "")
             assert "HANDOFF_PLAN" not in run, (job, step.get("name"))
             assert "plan.json" not in run, (job, step.get("name"))
+            # An action handed the plan's path (other than the one upload and
+            # the one download, which name the directory) could print it.
+            with_text = yaml.safe_dump(step.get("with", {}))
+            if "plan.json" in with_text or "HANDOFF_PLAN" in with_text:
+                assert step.get("name") == "Upload the plan", (job, step.get("name"))
     # The walk and the writer pipe the CLI's ledger, and nothing else, into the summary.
     expected = {
         ("handoff-parse", "Walk the application back-fill"): ['| tee -a "$GITHUB_STEP_SUMMARY"'],

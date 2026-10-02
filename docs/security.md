@@ -1215,14 +1215,21 @@ says: supremecourt.gov's own public docket record, nothing read from the
 corpus, the content store or a stored snapshot; this one artifact, one day,
 downloaded by the applications writer in the same run; never committed and
 never printed — the parse and writer steps tee only the command's ledger to
-the summary, its counts and parsed fields. The writer enforces the content
-limit: it refuses the whole plan before its first write if a served record
-carries a top-level key outside a supremecourt.gov docket's own, lacks the
-docket's `CaseNumber` or proceedings list, or if a planned row's fields are not
-exactly what the live mapping reads from its record, or a held note is one a
-corpus-free walk never files. Tests pin the artifact's name and retention,
-the plan's absence from every summary line, and each refusal. The dry run
-uploads no plan.
+the summary, its counts and parsed fields. That nothing in it comes from our
+stores rests on the credential split: the job that writes it holds no corpus
+credential, and its projection carries serial numbers only. Its shape is
+checked on both sides of the artifact — by the parse before the file is
+written, so a plan that fails is never uploaded, and by the writer as
+untrusted input before its first write: the whole plan is refused if a served
+record carries a top-level key outside a supremecourt.gov docket's own or
+lacks the docket's `CaseNumber` or proceedings list, if a planned row's fields
+are not exactly what the live mapping reads from its record, or if a note is
+one a written plan never carries (a fetch failure, or a held reason other than
+the served-number check's). It is a check of shape, not of values: a forged
+plan could still put any text inside a served docket's own keys, which is the
+parse-job residual below. Tests pin the artifact's name and retention, the
+plan's absence from every summary line, and each refusal. The dry run uploads
+no plan.
 
 The split's residuals, stated plainly. The writer treats the plan as untrusted
 input — it re-validates every row against the reader's own invariants and the

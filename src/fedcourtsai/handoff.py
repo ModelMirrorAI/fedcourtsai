@@ -19,8 +19,8 @@ public Court data only — never a corpus row, snapshot or stored document — a
 its docstring says why its fields are public. The one exception is
 ``ApplicationPlan``, which carries supremecourt.gov's served docket JSON, party
 contact blocks included, under the narrow carve-out ``docs/data-sources.md``
-(*PII stance*) records; its writer refuses a plan carrying anything beyond
-those records and the fields parsed from them.
+(*PII stance*) records; a plan not shaped as those records and the fields
+parsed from them is refused before it is written and again by its writer.
 
 The receiving side treats a file as untrusted input: it is size-capped, parsed
 by its pydantic model (``extra="forbid"``, a literal ``format`` name and
