@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000434",
+  "run_id": "20261001T193134Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The provisioned application (55 pages) was fetched with empty_text: true, so the applicant's own argument was unavailable; the forecast rests on the one-line docket, the caption, and retrieved public dockets of the underlying litigation."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward retrieval surfaced this applicant's other Term-2026 applications (26A397 denied 2026-09-23 without a response or referral; 26A331, an extension, granted 2026-09-11) and the E.D. Pa. Rule 12(b)(1) dismissal underlying the Third Circuit appeal. All predate the snapshot and were used as forward signal. Nothing about 26A434's own disposition was seen. The linked cert petition 26-153 could not be located in CourtListener or the corpus."
+    }
+  ]
+}

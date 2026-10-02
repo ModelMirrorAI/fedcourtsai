@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000437",
+  "run_id": "20261001T215439Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The provisioned application was fetched but is content-unavailable: documents.json reports 73 pages, empty_text=true, ocr_derived=false, and application.txt is whitespace only. The prediction uses the arrival docket and the committed interim prior, not the application substance. The federal issue, harm, precise relief, and appellate history cannot be assessed; significance is null with an explicit rationale. Readable application text or OCR would materially improve this cell. No outcome material was retrieved."
+    }
+  ]
+}

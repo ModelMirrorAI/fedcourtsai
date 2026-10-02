@@ -1,0 +1,3 @@
+This is an application for an injunction pending appeal, submitted by a pro se applicant (Nikolay M. Valov) regarding a case from the Circuit Court of Virginia, Mecklenburg County. 
+
+Given the pro se nature of the application and the state-court origin, the application is highly unlikely to draw an affirmative act of attention from the Court. I do not expect the Circuit Justice to request a response from the respondent, nor do I expect the application to be referred to the full Court. The amicus count, currently at zero, will almost certainly remain zero. The application will be denied shortly without further escalation.

@@ -1,0 +1,14 @@
+case_id: scotus/9026000435
+decision_target: disposition
+description: "Disposition of the petition, forecast at docketing \u2014 before any\
+  \ distribution or docket-acquired signal exists."
+docket_entry_id: null
+event_id: evt-petition-arrival-disposition
+kind: petition
+moment: arrival
+opened_at: '2026-10-01'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Nexstar Media Inc., Authorized to Operate Television Station WROC-TV v. National
+  Labor Relations Board, et al.

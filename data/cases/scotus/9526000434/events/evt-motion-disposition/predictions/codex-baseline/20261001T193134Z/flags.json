@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000434",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "The provisioned 55-page application is marked empty_text=true and ocr_derived=false; application.txt contains only whitespace. A web-tool open of the manifest's PDF produced no readable result. Forecast rests on the arrival snapshot, prior-Term interim base rate, and general injunction context, not the applicant's arguments. Substantive stakes cannot be placed, so big_case_score is explicitly null. OCR or a readable application would materially improve the inputs. No case outcome was retrieved.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261001T193134Z",
+  "schema_version": "1.0"
+}

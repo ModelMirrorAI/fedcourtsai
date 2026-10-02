@@ -1,0 +1,25 @@
+# Rationale
+
+I assign **0.06 probability to an unqualified grant** and predict denial of the injunction application, not disposition of the linked certiorari petition. Mixed grant-and-denial language counts as ungranted under this event's resolver.
+
+## Information set
+
+I read event.yaml, record/context.json, record/snapshots/2026-09-26.json, and both files in record/documents/. This is a forward, interim-arrival cell. The baseline ends at the September 25, 2026 entry submitting application 26A434 to Justice Alito, with arrival-position anchor index 0 and cutoff September 26. The snapshot names the Third Circuit, lower-court number 26-1067, and linked petition 26-153. It records no requested response, no referral to the full Court, and no amicus entries; the frozen context agrees. Submission to a Circuit Justice is not referral to the full Court. The absence of later proceedings is the moment's definition, not evidence that the application subsequently received no attention.
+
+The document manifest describes a 55-page application fetched October 1, but marks it empty_text: true, ocr_derived: false, and truncated: false. application.txt contains only whitespace. The application was fetched but is content-unavailable, not absent. A web-tool attempt to open the manifest's PDF produced no readable result. I therefore cannot identify the legal claim, the requested injunction's scope, a threatened injury, the lower court's reasoning, or an operative deadline. The applicant is also listed as his own attorney; that suggests self-representation but establishes nothing about the merits. Naming federal respondents does not make this a federal-government application.
+
+## Anchor and adjustment
+
+The committed metrics/statpack.md interim section, last changed in the checkout on September 28, 2026, supplies the anchor. For application Term 2026 the eligible ten-Term window is 2016–2025. Only 2024 and 2025 contribute resolved substantive applications: 14 grants / 70 resolved and 17 / 226 respectively. Pooling gives **31 / 296 = 10.47%**, above the 50-resolution floor. The other eligible rows contribute zero resolved applications. I exclude Term 2026 and all extension requests, and do not use cert salience or caption-class rates.
+
+This is a committed-pack vintage, not a verified current corpus census; I did not pull or query the corpus or establish its newest refresh stamp. Coverage is uneven: the 2024 row has 972 unparsed applications, versus zero in 2025. The 2024 and 2025 rows contain 70 and 227 substantive applications respectively, so 296 of those 297 have machine-matched resolutions. The pool selects machine-matchable dispositions; withdrawals and dismissals count as ungranted, and mixed orders are denial-first. Escalation columns cover pending as well as resolved applications at their last polls and are not conditioned arrival hazards. Selection into prediction also differs from the pooled population. None of these counts supports a claim of model skill.
+
+I make a modest downward adjustment from 10.47% to 6% for an individual applicant seeking affirmative injunctive relief, with no substantive evidence available to support an exceptional entitlement. This is a judgmental adjustment, not a measured self-represented-applicant rate. The missing text is uncertainty, not an adverse finding about the applicant's actual arguments. I retain appreciable grant probability rather than treating missing evidence as proof of a meritless request.
+
+For general legal context I read Brown v. Gilmore, 533 U.S. 1301, 1303–05 (2001) (Rehnquist, C.J., in chambers), through CourtListener opinion 9195259. It distinguishes an affirmative injunction from a stay and describes the demanding emergency showing for injunctive relief under the All Writs Act. I use that procedural principle only, not Brown's substantive constitutional analysis or its outcome as a matched empirical prior. Without this application's text I cannot determine whether precisely the same doctrinal route governs, assess irreparable harm, or forecast a merits holding.
+
+## Other forecasts and limitations
+
+From the frozen zero-response, zero-referral, zero-amicus state, I assign 12% to a later response request, 30% to referral to the full Court, and 3% to at least one additional qualifying amicus entry. These are subjective procedural forecasts, not ratios derived from terminal escalation counts. Referral need not imply likely relief; an application may be referred and denied. The central path remains disposition without those further steps. The timing forecast is low-confidence because the record supplies no deadline.
+
+I leave the stakes score explicitly null: the government caption alone cannot establish national significance, and a 55-page filing does not establish it either. I make no individual-Justice vote or writing prediction. I neither sought this application's disposition nor retrieved its current docket, the linked petition, or subsequent case history. I do not know the outcome. No outcome-revealing material surfaced. The inaccessible application text is flagged for durable maintainer review.

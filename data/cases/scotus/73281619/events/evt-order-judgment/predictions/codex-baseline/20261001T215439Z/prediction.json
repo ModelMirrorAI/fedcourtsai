@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "A nationally consequential clarification of RLUIPA's land-use substantial-burden standard, affecting religious construction and municipal zoning; the grant excludes the separate equal-terms question.",
+  "big_case_score": 0.64,
+  "case_id": "scotus/73281619",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.8
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-02",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-01",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-01T22:02:32.203738Z",
+  "engine": "codex",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-01.json",
+  "judgment": "reversed",
+  "model": "gpt-6-astra",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.8,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "2e23080c0cb3e63c5ee6a51bcc180ab1d376dc28",
+    "stamped_at": "2026-10-01T22:03:10.805609Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261001T215439Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "RLUIPA's protection of building real property for religious exercise makes a complete prohibition of the sincerely proposed religious use a substantial burden; the availability of a smaller structure elsewhere and advance knowledge of the zoning restriction do not themselves defeat that showing."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority announces a rule extending beyond this grotto to land-use decisions completely prohibiting a sincerely proposed religious use of the claimant's property, rather than merely finding an evidentiary error peculiar to these parcels; it does not make every zoning restriction unlawful."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

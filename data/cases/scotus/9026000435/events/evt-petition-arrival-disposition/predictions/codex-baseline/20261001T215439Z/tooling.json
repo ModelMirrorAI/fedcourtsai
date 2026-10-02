@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000435",
+  "run_id": "20261001T215439Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local provisioned-file reads",
+    "fedcourts paths",
+    "committed statpack",
+    "local weighted-rate calculation",
+    "web search/open attempts",
+    "CourtListener search",
+    "CourtListener search_document",
+    "CourtListener read_document",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "The petition appendix supplies the actual lower-court rationale, allowing comparison with the petition's split and deference claims.",
+    "Frozen arrival context prevents confusing an initial distribution forecast with a repeat relist.",
+    "CourtListener citation searches permitted narrowly scoped checks of pre-petition general authorities."
+  ],
+  "gaps": [
+    "No opposition brief is provisioned at this arrival moment.",
+    "Web search and official-PDF open returned no usable content.",
+    "The Markdown statpack has no visible build timestamp and displays rounded band rates."
+  ],
+  "notes": "The default uv cache was read-only; a temporary-cache override allowed the CLI to run. No direct CourtListener REST fallback or live target-case lookup was used."
+}

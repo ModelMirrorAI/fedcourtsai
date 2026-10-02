@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281619",
+  "run_id": "20261001T215439Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus priors; court/disposition/era filters)",
+    "metrics/statpack.md (merits-docket baseline, ten-Term pool)",
+    "CourtListener MCP search (opinions and dockets)",
+    "CourtListener MCP read_document (Kentucky Supreme Court opinion below)"
+  ],
+  "helpful": [
+    "The provisioned petition, brief in opposition, and QP text were the decisive inputs: the BIO's vehicle arguments (invited error, adequate-and-independent state ground, record failure) are the whole affirmance/DIG tail, and they were readable without retrieval.",
+    "Reading the opinion below through the MCP server sharpened the reversed-versus-vacated call: the Kentucky court decided the threshold on exactly two factors and never reached strict scrutiny, which is the shape the Court usually reverses rather than vacates.",
+    "The statpack merits table with its excluded-count guard made the baseline pooling mechanical."
+  ],
+  "gaps": [
+    "fedcourts query has no subject or keyword filter on SCOTUS rows, so it cannot surface doctrinal neighbors (the Court's prior RLUIPA and RFRA merits cases); the ranked result for a granted/2020s query was dominated by shadow-docket applications rather than argued cases.",
+    "The merits statpack section carries no cut by lower-court type (state high court vs. federal circuit) or by subject area, so the adjustment from the pooled rate to a religious-liberty petitioner's rate is unquantified judgment.",
+    "CourtListener held no text for the Third Circuit's Anash v. Borough of Kingston opinion the BIO flagged as a post-petition split development, so its characterization rests on the BIO alone."
+  ],
+  "notes": "Merits grant-moment cell, forward mode. No merits briefs on disk, as the moment requires. Retrieval used about seven calls, well under the advisory budget."
+}

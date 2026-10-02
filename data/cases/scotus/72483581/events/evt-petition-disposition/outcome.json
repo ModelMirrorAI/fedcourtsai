@@ -3,15 +3,39 @@
   "actual_granted": 0,
   "case_id": "scotus/72483581",
   "disposition_basis": "standard",
+  "disposition_route": null,
   "event_id": "evt-petition-disposition",
+  "interim_signals": null,
   "judgment": null,
+  "noted_dissent_from_denial": null,
   "resolved_at": "2025-06-23",
   "schema_version": "1.0",
   "signals": {
     "cvsg_date": null,
-    "distribution_count": 1
+    "distribution_count": 1,
+    "distribution_parse": null
   },
   "source": null,
-  "vote_provenance": null,
-  "votes": []
+  "vote_provenance": {
+    "complete": false,
+    "documents": [
+      "https://www.supremecourt.gov/orders/courtorders/062325zor_d18e.pdf"
+    ],
+    "grammars": [
+      {
+        "grammar": "scotus-order-notations",
+        "version": 1
+      }
+    ],
+    "participating": 8,
+    "source": "supremecourt-orders"
+  },
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "did-not-participate",
+      "writing": null
+    }
+  ],
+  "writing_roles": null
 }

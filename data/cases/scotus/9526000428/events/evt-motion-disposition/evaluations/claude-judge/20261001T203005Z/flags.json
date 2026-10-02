@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000428",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "gemini-baseline's prediction.json carries created_at 2026-09-30T19:20:00Z, about 95 minutes before its own retrieval_log.json shows the first tool call (20:55Z) and the write-out (20:56Z). The stamp appears to have been copied from the run id rather than read from the clock. It did not affect grading on this forward cell, but a created_at that precedes the cell's work would mislead any timing-based leakage or latency reading that trusts it.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261001T203005Z",
+  "schema_version": "1.0"
+}

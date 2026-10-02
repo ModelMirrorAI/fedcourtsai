@@ -3,9 +3,66 @@
   "actual_granted": 0,
   "case_id": "scotus/73277379",
   "disposition_basis": "standard",
+  "disposition_route": null,
   "event_id": "evt-petition-disposition",
+  "interim_signals": null,
+  "judgment": null,
+  "noted_dissent_from_denial": null,
   "resolved_at": "2025-10-20",
   "schema_version": "1.0",
+  "signals": null,
   "source": null,
-  "votes": []
+  "vote_provenance": {
+    "complete": false,
+    "documents": [
+      "https://www.supremecourt.gov/orders/courtorders/102025zor_19m2.pdf"
+    ],
+    "grammars": [
+      {
+        "grammar": "scotus-order-notations",
+        "version": 1
+      }
+    ],
+    "participating": 9,
+    "source": "supremecourt-orders"
+  },
+  "votes": [],
+  "writing_roles": [
+    {
+      "justice": "Thomas",
+      "writing": "none"
+    },
+    {
+      "justice": "Roberts",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "writing": "none"
+    },
+    {
+      "justice": "Kagan",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "writing": "none"
+    },
+    {
+      "justice": "Kavanaugh",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "writing": "none"
+    }
+  ]
 }

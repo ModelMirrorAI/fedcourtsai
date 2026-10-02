@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000428",
+  "run_id": "20261001T203005Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell (cat/sed/python3 for reading the record and schemas)", "metrics/statpack.md"],
+  "helpful": [
+    "The per-candidate retrieval_log.json with result_capture markers: the leakage grading on a forward same-day cell rested entirely on call classes and query slices, and the markers made the unobserved-vs-captured distinction explicit.",
+    "The provisioned 2026-10-01 snapshot carrying the full same-day docket (submission, response, reply, referral, disposing order text with the dissent lineup), which let the big-case read and the interim_signals reading be checked against the Court's own entries."
+  ],
+  "gaps": [
+    "A per-entry time of day on the SCOTUS docket snapshot. Emergency applications resolve the day they are filed, so a date-granular retrieved_doc_date cannot separate pre- and post-disposition retrieval; the leakage check had to fall back to query content.",
+    "A schema-validation one-liner for evaluation.json in the evaluator's path (validate data is expected to fail mid-run); I validated with jsonschema by hand."
+  ],
+  "notes": "Interim cell: segment_base_rate, brier_skill_score, and claim_scores left to the stamp. The three candidate logs varied widely in capture coverage (0.0, 1.0, 0.93), which is the engines' shape rather than a defect, but it does make the 0.0 candidate's clean grade rest on query text alone."
+}

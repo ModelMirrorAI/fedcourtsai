@@ -1,0 +1,4 @@
+- Consulted the `metrics/statpack.md` to find the base rate for the interim docket.
+- Used CourtListener MCP tool to search for docket "26A434" (no results) and then for the applicant "Ryan P. Givey", surfacing his related civil rights lawsuits against the DOJ and Pamela Bondi in the district and circuit courts (e.g., `2:25-cv-00943`, `25-3575`, `26-1067`, `23-2330`).
+- Ran `uv run fedcourts query --include-applications --limit 5` to inspect recent substantive and extension applications.
+  - stderr: `ranged corpus reads: 1315 GET(s), 344719360 byte(s)`
