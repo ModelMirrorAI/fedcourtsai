@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000447",
+  "run_id": "20261002T212439Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned document text", "committed statpack", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search and open", "jq"],
+  "helpful": ["Arrival-position context distinguishes submission from referral and freezes all three ladder signals.", "Interim per-Term counts support an auditable strictly-prior pooled baseline.", "Targeted CourtListener opinion snippets verified historical standards without case-specific retrieval."],
+  "gaps": ["Truncated application appendix omits later opposition and reply materials.", "Key examination-order appendix pages contain page labels without usable order text.", "Web attempts returned no usable content."],
+  "notes": "No live corpus query was needed. A writable temporary uv cache resolved the initial read-only-cache error. The forecast relies on the provisioned case record and historical precedent only."
+}

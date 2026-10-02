@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000446",
+  "run_id": "20261002T212439Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts paths", "fedcourts query --include-applications", "metrics/statpack.md interim section", "CourtListener MCP search (dockets)", "WebSearch", "WebFetch (supremecourt.gov docket pages, commentary)"],
+  "helpful": [
+    "Provisioned application.txt gave the full ask, the split, and the procedural history without any retrieval.",
+    "Statpack interim section made the strictly-prior pool arithmetic direct.",
+    "fedcourts query --include-applications rows carry response_requested / referred_to_court / amicus_briefs, so a local conditional tally was possible.",
+    "supremecourt.gov docket pages exposed the post-baseline response request that the CourtListener index did not have."
+  ],
+  "gaps": [
+    "fedcourts query caps at 500 rows through the service and has no filter on application_kind, escalation signals, or applicant class.",
+    "No committed interim cut conditioning the base rate on response-requested / referred / amicus, which is the signal an interim cell actually turns on.",
+    "CourtListener's docket index returned nothing for this SCOTUS matter; live application state had to come from supremecourt.gov HTML."
+  ],
+  "notes": "Four corpus queries (one refused on the limit cap), one MCP search, two web searches, seven page fetches; inside the advisory budget."
+}

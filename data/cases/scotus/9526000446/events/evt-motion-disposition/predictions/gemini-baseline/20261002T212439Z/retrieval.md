@@ -1,0 +1,3 @@
+- `fedcourts query` (aborted due to argument error).
+- CourtListener MCP search for "Kyle Wagner" "United States" (returned lower court cases in E.D. Michigan and 6th Circuit, confirming it is a criminal matter).
+- Statpack base rates: "The interim docket (applications)" table, read for pooled rate over Terms 2016-2025.
