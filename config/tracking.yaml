@@ -59,20 +59,32 @@ pull:
 # SCOTUS freshness. No API budget — these caps bound per-cycle wall clock and
 # upstream politeness (~1 req/s), not spend.
 live:
-  # Live petitions re-polled per cycle (recent Terms first, then stalest):
-  # pending ones plus the granted dockets retained until their merits
-  # judgment (a cohort of roughly a Term's grants, small against this cap).
-  # Sized to re-poll the whole pending watchlist each cycle even at its seasonal
-  # peak — the September long conference distributes ~180 petitions at once
-  # (regular conferences run a median ~34, p90 ~82). This is a coverage ceiling,
-  # not the wall-clock bound: a re-poll that catches a distribution transition
-  # also fetches up to two document PDFs, and those cluster exactly at that peak,
-  # so cycle time is governed by the run-pull live job's `--max-run-seconds` soft
-  # budget (which commits progress and resumes next cycle), not by this count.
-  # The poller only fetches what is actually live — pending, or granted with
-  # the merits proceeding open — so off-peak cycles stay small; a high
-  # ceiling just stops the rotation from truncating coverage.
+  # Live petitions re-polled per cycle (overdue dockets first, then distributed
+  # petitions by conference, then recent Terms, then stalest): pending ones plus
+  # the granted dockets retained until their merits judgment (a cohort of
+  # roughly a Term's grants, small against this cap). Sized to re-poll the
+  # distributed set each cycle at a regular conference (median ~34, p90 ~82);
+  # at the September long-conference peak the distributed set can exceed it,
+  # which is what max_poll_staleness_days below bounds. This is a coverage
+  # ceiling, not the wall-clock bound: a re-poll that catches a distribution
+  # transition also fetches up to two document PDFs, and those cluster exactly
+  # at that peak, so cycle time is governed by the run-pull live job's
+  # `--max-run-seconds` soft budget (which commits progress and resumes next
+  # cycle), not by this count. The poller only fetches what is actually live —
+  # pending, or granted with the merits proceeding open.
   max_cases_per_run: 300
+  # Days a docket the live channel has polled may go unpolled before it leads
+  # the next cycle, ahead of the distributed and term tiers (stalest first).
+  # Without it a tier larger than max_cases_per_run holds the head of every
+  # cycle and the rows behind it are never reached. Comfortably above one
+  # sweep of the polled watchlist (~1,800 rows at 300 a cycle, four cycles a
+  # day), so the bound bites only when a tier is starving the rest.
+  max_poll_staleness_days: 7
+  # The most of each cycle's max_cases_per_run the overdue tier may take, so a
+  # large overdue backlog drains over several cycles while the distributed
+  # petitions keep the rest of each one (their order-list results are days
+  # away). At four cycles a day that drains at most ~400 overdue dockets a day.
+  max_overdue_per_run: 100
   # New petitions onboarded from the Term's numbering frontier per cycle
   # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to
   # absorb the long-conference onboarding burst within a day (~180 over ~2
