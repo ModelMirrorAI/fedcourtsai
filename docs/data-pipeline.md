@@ -1272,8 +1272,8 @@ pass's ledger to the run summary and writes nothing, the maintainer reads the
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. Nine passes skip it: the distribution re-derivation, whose
-plan *is* its write set, and the two fetching passes and the store mirror,
+before the write. Eight passes skip it: the distribution re-derivation, whose
+plan *is* its write set, and the two fetching passes,
 whose apply ledgers already state the class they found before writing; the
 two vote-writer passes, the application back-fill and the opinion record, whose
 every run fetches from supremecourt.gov again, so a leading dry run would double the pass's
@@ -1283,8 +1283,8 @@ be one more full read of the content store under the read-write session. (The
 response-signal back-fill, the same shape of pass, keeps its receipt because it
 sits in the corpus job, where every pass leads with one.)
 In each, the receipt would be bought with a whole extra full-population read of
-the content store — the third, on those applies, which already re-read the
-class as their own write witness — and on the document back-fill it would also
+the content store — the third, on a fetching apply, which already re-reads the
+class as its own write witness — and on the document back-fill it would also
 buy a second paced docket fetch for every candidate. `repair` defaults to
 `none`, which
 is refused outright: the form's initial state cannot start a corpus write.
@@ -1322,7 +1322,6 @@ population and apply against another.
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
 | `ocr-recovery` | `ocr-recover-petitions` (the name is this lane's invocation string; the population is every fetched document kind, not petitions alone) | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds` — and it counts candidates, so a case holding two scanned filings spends two of it); the class is cut per kind in the ledger | — | — |
 | `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too; the class has two arms, a form-keyed opening document and, on a granted row whose respondent has filed on the merits, each side's merits brief, and the ledger's `merits_candidates` says how the **class** splits between them, which is not the mix a bounded slice takes — the class is in `case_id` order and the arms are not separated in it; an apply **stamps** each candidate it reads at a floor, and the class holds a stamped candidate out until its docket is polled again, so a floor costs one paced docket GET per docket version rather than one per dispatch and a bounded slice reaches the tail of the class — `standing_floors` on the ledger is that held-out balance, and `candidates + standing_floors` is the whole gap class this route can address. A floor the modern-docket alarm fired on is never stamped, so a selector regression cannot bank its own exclusions. Because the stamps are index columns, an applied slice that read any floor moves the pointer) | — | — |
-| `mirror-stored-documents` | `mirror-stored-documents` | `--max-cases` (a slice, not a ceiling — **apply only**: the dry run always enumerates the whole population, and the command refuses a bound without `--apply`) | — | — |
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
@@ -1339,22 +1338,14 @@ the scan runs unless it is a positive integer — blank, zero, negative, decimal
 and leading-zero alike. An unbounded apply would convert a widened predicate
 into a mass rewrite rather than a loud refusal, and each of these populations is
 finite, so a count above the one read means the predicate widened rather than a
-dirtier corpus. **Three passes' bounds mean something else**: on the OCR
-recovery, the document back-fill and the store mirror the bound is a *slice
-size*, and the pass takes the first that many candidates rather than refusing
-above them. What bounds the others is blast radius, which is why exceeding the
-read count is a refusal; what bounds these three is runner minutes — against a
-politeness-paced upstream on the first two (a re-fetch and a page-by-page
-recognition on the one, a docket fetch and the filings it nominates on the
-other) and against the content store on the third, which reaches no upstream
-host at all and pays a manifest read and a PUT per document instead — so a
-backlog is meant to clear across dispatches. The store mirror's bound is the one
-that is **apply-only**: its dry run must enumerate the whole population, because
-that ledger is what the bound is read off, so the command exits 2 on a bound
-given without `--apply` and the step does not forward `repair_bound` on a
-`dry-run` dispatch. It is also the one slice-bounded pass with no wall-clock
-deadline — nothing it does is paced — so its step cap is the only clock and the
-bound is what is sized against it. The document back-fill takes its bound on `dry-run` as well,
+dirtier corpus. **Two passes' bounds mean something else**: on the OCR
+recovery and the document back-fill the bound is a *slice size*, and the pass
+takes the first that many candidates rather than refusing above them. What
+bounds the others is blast radius, which is why exceeding the read count is a
+refusal; what bounds these two is runner minutes against a politeness-paced
+upstream (a re-fetch and a page-by-page recognition on the one, a docket fetch
+and the filings it nominates on the other), so a backlog is meant to clear
+across dispatches. The document back-fill takes its bound on `dry-run` as well,
 because its dry run is not free either: running selection over a freshly served
 docket payload is the whole diagnostic, and that payload is a paced round trip
 per candidate. The rest of this paragraph describes the OCR recovery, and the
@@ -1490,7 +1481,7 @@ the runner image rolls, and would fail the pass for a reason that has nothing to
 do with the corpus, so what a recovered text was read by is recorded by the run
 instead of promised by the workflow. An apply refuses where the binaries are
 absent, which is what keeps a failed install from reading as a converged class.
-**Least privilege per pass.** Fourteen of the corpus passes run in the corpus job, holding the
+**Least privilege per pass.** Eleven of the corpus passes run in the corpus job, holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
@@ -1721,18 +1712,6 @@ gh workflow run run-repair.yml --ref main \
   -f repair=document-backfill -f repair_mode=dry-run -f repair_bound=40
 gh workflow run run-repair.yml --ref main \
   -f repair=document-backfill -f repair_mode=apply -f repair_bound=15
-
-# The store mirror's bound is a slice too, but apply-only: its dry run has to
-# enumerate the whole population, since that ledger is what the bound is read
-# off, and the command refuses a bound offered without `--apply`. Read the
-# per-case rows and text bytes off that ledger before sizing the apply — they
-# say what the slice will upload — and read the apply's `unverified` list after,
-# since the store writer is best-effort and an empty `verified` beside a full
-# `attempted` is a store that took no write at all.
-gh workflow run run-repair.yml --ref main \
-  -f repair=mirror-stored-documents -f repair_mode=dry-run
-gh workflow run run-repair.yml --ref main \
-  -f repair=mirror-stored-documents -f repair_mode=apply -f repair_bound=50
 
 # The arrival back-fill's bound is an ordinary refusal threshold, so the number
 # is the fill count its dry run printed — a five-figure class is expected, and
