@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "A recurring military-divorce question (roughly a quarter of two million military retirees waive retired pay for disability pay, and settlement indemnity clauses are standard drafting), with an entrenched state-high-court split; consequential for family-law practice and veterans' former spouses, but a technical preemption question of little general public salience.",
+  "big_case_score": 0.3,
+  "case_id": "scotus/73500251",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.7
+    }
+  ],
+  "confidence": 0.5,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-02",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-02",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-02T19:27:00Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-02.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.7,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "aadb706c10089aad149b024a4210f379c1e45b1f",
+    "stamped_at": "2026-10-02T19:29:11.380955Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261002T191725Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that the USFSPA (10 U.S.C. 1408), as construed in Mansell and Howell, restricts only what a state court may itself treat and divide as marital property, and does not preempt enforcement of a veteran's voluntary, bargained-for promise in a divorce settlement to indemnify a former spouse for retired pay later waived or converted to disability-based pay. It will distinguish Howell as a court-imposed restoration of a divided asset rather than enforcement of a contract, confine Mansell to the state court's own power of division, and rest on the presumption that a statutory protection is waivable by the party it protects (the Mezzanatto line) together with Rose v. Rose's recognition that a veteran's personal obligations may be enforced against him notwithstanding the character of the funds, while declining to treat 38 U.S.C. 5301's anti-assignment clause as reaching an indemnity obligation payable from any source."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's stated ground will be a categorical rule for negotiated indemnification and waiver provisions in divorce settlements generally, not confined to this decree's wording, to Chapter 61 disability-retirement pay, or to pre-Howell agreements; but it will stop short of deciding whether this particular 2016 decree and post-judgment order in fact embody such an agreement or what remedy follows, leaving those state-law questions (including the Rule 60(b) and spousal-support framing the trial court used) to the North Dakota courts on remand."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}
