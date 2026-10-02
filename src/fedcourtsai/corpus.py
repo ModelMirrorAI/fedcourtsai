@@ -4578,33 +4578,6 @@ def stamp_first_moments(conn: sqlite3.Connection, stage: Stage, moment: Moment) 
     return int(stamped)
 
 
-def stamp_event_moments(conn: sqlite3.Connection, stamps: Sequence[tuple[str, str, Moment]]) -> int:
-    """Write ``moment`` on the named event rows, in one transaction.
-
-    The moment convergence's sole writer
-    (:func:`fedcourtsai.moment_convergence.converge_event_moments`). A direct
-    ``UPDATE`` rather than an upsert: the caller has already decided which rows
-    move and to what, reading the declared moment off the table this module
-    sits below, and an upsert round trip would rewrite every other column of a
-    row it is not changing. As there, the write bypasses the
-    upsert mirror hook, so the touched cases are re-mirrored here. Returns the
-    rows written.
-    """
-    if not stamps:
-        return 0
-    with conn:
-        written = sum(
-            conn.execute(
-                "UPDATE events SET moment = ? WHERE case_id = ? AND event_id = ?",
-                (moment.value, case_id, event_id),
-            ).rowcount
-            for case_id, event_id, moment in stamps
-        )
-    if (sink := _mirror_sink()) is not None:
-        sink.mirror_events_for_cases(conn, sorted({case_id for case_id, _, _ in stamps}))
-    return int(written)
-
-
 def stamp_event_opened_at(conn: sqlite3.Connection, stamps: Sequence[tuple[str, str, date]]) -> int:
     """Write ``opened_at`` on the named event rows, in one transaction.
 

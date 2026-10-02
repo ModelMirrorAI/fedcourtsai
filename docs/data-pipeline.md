@@ -1326,8 +1326,6 @@ population and apply against another.
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
-| `moment-convergence` | `converge-event-moments` | `--max-rewrites` (corpus rows and ledger files together) | — | — |
-| `sampled-frame-weight-repair` | `repair-sampled-frame-weights` | `--max-repairs` | — | — |
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 | `opinion-votes` | `stamp-opinion-votes` (split: `--emit-corpus-projection`, `--projection --plan-out`, `--from-plan`) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
@@ -1456,30 +1454,6 @@ widens the phantom removal onto events whose only committed output is
 trade of failure history for a ledger with no dangling phantom paths. It does
 **not** inherit the every-mode bound rule, because it takes on no backlog — what
 it grows is the removal set, which the apply's own bound already sizes.
-
-**One pass re-weights the frame rather than converging it.**
-`sampled-frame-weight-repair` restores the derived sampling weight on grid
-denials a certainty-asserting channel min-latched to 1. Where the other passes
-move which bucket a row falls in, this one moves the **weights themselves**, so
-every weighted denominator that admits IFP rows moves with it — the statpack's
-and docket pack's weighted sections, the ops digest's always-deny floor, and one
-committed prose figure in [outcome-decomposition.md](outcome-decomposition.md).
-Its population, its direction and its expected magnitudes are therefore
-pre-registered in [freeze-record.md](freeze-record.md), and the dry-run ledger is
-read **against that entry** rather than on its own: the entry licenses
-magnitudes, never membership, so a row the command reports as outside the
-registered cells is a different population needing its own entry and the pass
-leaves it alone. The apply witnesses itself — it re-runs its own selection over
-the written corpus and exits non-zero if anything remains — because a direct
-`UPDATE` of a column no downstream artifact recomputes moves the blob whether or
-not it moved the right rows. Read the ledger, and dispatch the apply with the
-count read off it — then finish the job: the weekly metrics refresh regenerates
-the statpack, but `metrics/docket.{json,md}` is on demand (`fedcourts docket`)
-and the whole-slice IFP-inclusive figure in
-[outcome-decomposition.md](outcome-decomposition.md) is hand-written, so a stale
-copy of either looks exactly like a current one. No scored number moves, and
-that is a property of the population rather than a hope: every scored-segment
-cut is gated on a paid serial and these rows are IFP.
 
 **Prerequisites the bench brings along.** Every pass in the corpus job is gated
 on a `dedupe-live-rows --apply` prerequisite that runs first and must succeed: any
@@ -1804,16 +1778,6 @@ gh workflow run run-repair.yml --ref main \
   -f repair=amicus-rederive -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
   -f repair=amicus-rederive -f repair_mode=apply -f repair_bound=<the ledger's total_changes>
-
-# The moment convergence is a two-store pass: it re-stamps the corpus row and
-# the ledger `event.yaml` apart, and its bound counts both together — read the
-# header's corpus-row and ledger-file counts off the dry run and pass their sum.
-# Re-dispatching in `dry-run` after the apply is the control: it must report
-# 0 of each.
-gh workflow run run-repair.yml --ref main \
-  -f repair=moment-convergence -f repair_mode=dry-run
-gh workflow run run-repair.yml --ref main \
-  -f repair=moment-convergence -f repair_mode=apply -f repair_bound=<corpus rows + ledger files>
 
 # The vote writer stamps committed outcomes from the Court's documents; each
 # pass's bound is the dry run's "would stamp N", in the handoff-parse job's

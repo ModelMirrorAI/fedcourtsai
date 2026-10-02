@@ -486,7 +486,8 @@ def test_a_repaired_weight_survives_a_later_re_serve(tmp_path: Path) -> None:
     the durable half of the repair rather than a tidy-up beside it.
     """
     db = _seed_frame(tmp_path, _sampled(10, 2000))
-    # The writer-lane pass sets the row to the sampled weight.
+    # A direct UPDATE, the only write that raises a stored weight, sets the row
+    # to the sampled weight.
     with corpus.connect(db) as conn:
         conn.execute(
             "UPDATE cases SET sample_weight = ? WHERE case_id = ?",
