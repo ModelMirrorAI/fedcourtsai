@@ -4064,9 +4064,18 @@ _GRANTED_SQL = ", ".join(f"'{d.value}'" for d in sorted(GRANTED_DISPOSITIONS))
 # staleness rotation.
 _PENDING_CONFERENCE_SQL = "(CASE WHEN disposition IS NULL THEN distributed_for_conference END)"
 
+# The overdue tier's sort key: the stored poll date when it falls before the
+# bound parameter, else NULL. A NULL bound (the tier disabled) or a never-polled
+# row compares to NULL, so neither is overdue. ISO date text orders as dates.
+_OVERDUE_SQL = "(CASE WHEN last_live_polled < ? THEN last_live_polled END)"
+
 
 def live_rotation(
-    conn: sqlite3.Connection, *, limit: int, term_floor_year: int = 2017
+    conn: sqlite3.Connection,
+    *,
+    limit: int,
+    term_floor_year: int = 2017,
+    overdue_before: date | None = None,
 ) -> list[CorpusRow]:
     """The next ``limit`` live petitions the live poller should refresh.
 
@@ -4077,14 +4086,21 @@ def live_rotation(
     **granted with its merits proceeding open** (a granted-set disposition, an
     unresolved ``merits``-stage event — minted at the cert grant — and no
     docket-level decision yet: the case stays on the merits docket until the
-    judgment). **Distributed pending petitions lead** (nearest
-    conference first — they are days from resolution, the opposite of
-    stalest-first; a past conference date sorts first of all, since that
-    petition is overdue for its order-list result; a granted docket's stale
-    conference date is masked — :data:`_PENDING_CONFERENCE_SQL`), then recent
-    Terms first, then never-polled before stale, then ``case_id`` for
-    determinism. Rotates on ``last_live_polled``, never ``last_pulled``, so the
-    CourtListener enrichment rotation is undisturbed.
+    judgment). **Overdue dockets lead**: a row last live-polled before
+    ``overdue_before`` sorts ahead of every priority tier, stalest first, which
+    is what bounds how long any polled docket can go unpolled — the priority
+    tiers below are each unbounded in size, so without this tier a large enough
+    one holds the whole per-cycle cap indefinitely and everything behind it
+    is never reached. A never-polled row is not overdue (it has no stamp to age);
+    it keeps its place in the term order. ``None`` disables the tier. Then
+    **distributed pending petitions** (nearest conference first — they are
+    days from resolution, the opposite of stalest-first; a past conference date
+    sorts first of all, since that petition is overdue for its order-list
+    result; a granted docket's stale conference date is masked —
+    :data:`_PENDING_CONFERENCE_SQL`), then recent Terms first, then
+    never-polled before stale, then ``case_id`` for determinism. Rotates on
+    ``last_live_polled``, never ``last_pulled``, so the CourtListener
+    enrichment rotation is undisturbed.
     """
     if limit <= 0:
         return []
@@ -4100,13 +4116,15 @@ def live_rotation(
         f"AND {_TERM_YEAR_SQL} >= ? "
         "AND EXISTS (SELECT 1 FROM events "
         "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
-        f"ORDER BY {_PENDING_CONFERENCE_SQL} IS NULL, {_PENDING_CONFERENCE_SQL} ASC, "
+        f"ORDER BY {_OVERDUE_SQL} IS NULL, {_OVERDUE_SQL} ASC, "
+        f"{_PENDING_CONFERENCE_SQL} IS NULL, {_PENDING_CONFERENCE_SQL} ASC, "
         f"{_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
         "last_live_polled ASC, case_id ASC LIMIT ?"
     )
+    cutoff = overdue_before.isoformat() if overdue_before is not None else None
     # Over-fetch to cover candidates the Python re-verification drops (labeled
     # docket-number spellings the raw GLOB admits but `is_modern_cert` rejects).
-    cur = conn.execute(sql, (term_floor_year, limit * 2))
+    cur = conn.execute(sql, (term_floor_year, cutoff, cutoff, limit * 2))
     picked = [row for record in cur if is_modern_cert(row := _from_record(record))]
     return picked[:limit]
 

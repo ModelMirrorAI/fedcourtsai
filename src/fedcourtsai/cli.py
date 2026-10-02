@@ -13787,7 +13787,8 @@ def live_poll(
     onboards each served petition or application — and, for a window after the
     July numbering roll, the outgoing Term too, so its late tail is caught; the
     refresh re-polls the pending
-    modern-cert watchlist (recent Terms first), then the application rotation
+    modern-cert watchlist (overdue dockets first, then distributed petitions,
+    then recent Terms), then the application rotation
     re-polls unresolved interim applications under its own cap — queueing
     predict for a changed, still-unresolved substantive application in scope
     (daily-debounced), ground truth for the rest. Resolution is detected from

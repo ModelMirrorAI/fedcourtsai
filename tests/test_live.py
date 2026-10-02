@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -649,6 +650,117 @@ def test_live_rotation_orders_recent_term_then_staleness(tmp_path: Path) -> None
         picked = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
         assert picked == ["scotus/2", "scotus/1", "scotus/3"]
         # A case with no open event (scotus/6 above) never enters the rotation.
+
+
+def _seed_pending(conn: sqlite3.Connection, rows: list[corpus.CorpusRow]) -> None:
+    """Upsert pending SCOTUS rows, each with the open petition event the
+    rotation's EXISTS requires."""
+    corpus.upsert_rows(conn, rows)
+    corpus.upsert_events(
+        conn,
+        [
+            corpus.CorpusEvent(
+                event_id="evt-petition-disposition",
+                case_id=row.case_id,
+                court="scotus",
+                kind="petition",
+                title=row.case_id,
+            )
+            for row in rows
+        ],
+    )
+
+
+def test_live_rotation_overdue_dockets_lead_every_priority_tier(tmp_path: Path) -> None:
+    """A priority tier larger than the per-cycle cap holds the head of every
+    cycle, so a docket behind it — an older Term, or past a distributed set
+    bigger than the cap — would never be polled again. A docket last polled
+    before ``overdue_before`` leads instead, stalest first; a never-polled row
+    has no stamp to age and keeps its term-order place."""
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        _seed_pending(
+            conn,
+            [
+                # Distributed, polled yesterday: the conference tier.
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="26-1",
+                    distributed_for_conference=date(2026, 9, 29),
+                    last_live_polled=date(2026, 10, 1),
+                ),
+                # Current Term, polled yesterday: the term tier.
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="26-2",
+                    last_live_polled=date(2026, 10, 1),
+                ),
+                # Previous Term, unpolled since July: behind both tiers.
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="25-3",
+                    last_live_polled=date(2026, 7, 17),
+                ),
+                # Previous Term, unpolled since August: overdue, less stale.
+                corpus.CorpusRow(
+                    case_id="scotus/4",
+                    court="scotus",
+                    docket_number="25-4",
+                    last_live_polled=date(2026, 8, 20),
+                ),
+                # Never polled: not overdue, so it stays in its Term's order.
+                corpus.CorpusRow(case_id="scotus/5", court="scotus", docket_number="24-5"),
+            ],
+        )
+        unbounded = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
+        bounded = [
+            r.case_id
+            for r in corpus.live_rotation(conn, limit=10, overdue_before=date(2026, 9, 25))
+        ]
+        head = corpus.live_rotation(conn, limit=2, overdue_before=date(2026, 9, 25))
+    # Without the bound the July docket sits behind both tiers at any cap.
+    assert unbounded == ["scotus/1", "scotus/2", "scotus/3", "scotus/4", "scotus/5"]
+    assert bounded == ["scotus/3", "scotus/4", "scotus/1", "scotus/2", "scotus/5"]
+    assert [r.case_id for r in head] == ["scotus/3", "scotus/4"]
+
+
+def test_live_poll_all_reaches_a_docket_starved_behind_a_full_tier(tmp_path: Path) -> None:
+    """The cycle wires the staleness bound: with the per-cycle cap filled by a
+    distributed petition, an older-Term docket unpolled for months is the one
+    this cycle polls."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    today = date(2026, 10, 2)
+    with corpus.connect(db) as conn:
+        _seed_pending(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9026000001",
+                    court="scotus",
+                    docket_number="26-1",
+                    distributed_for_conference=date(2026, 9, 29),
+                    last_live_polled=date(2026, 10, 1),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/9025000007",
+                    court="scotus",
+                    docket_number="25-7",
+                    last_live_polled=date(2026, 7, 17),
+                ),
+            ],
+        )
+    served = {"26-1": _payload("26-1"), "25-7": _payload("25-7")}
+    config = LiveConfig(max_cases_per_run=1, max_new_cases_per_run=0, max_applications_per_run=0)
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, tmp_path / "data", term=26, config=config, today=today)
+    with corpus.connect(db) as conn:
+        starved = corpus.get_row(conn, "scotus/9025000007")
+        leader = corpus.get_row(conn, "scotus/9026000001")
+    assert starved is not None and starved.last_live_polled == today
+    assert leader is not None and leader.last_live_polled == date(2026, 10, 1)
 
 
 def test_live_rotation_keeps_a_granted_docket_with_an_open_merits_event(tmp_path: Path) -> None:

@@ -123,12 +123,25 @@ outcome days later, all in the forward stratum.
 
 **Implemented:** the latest distribution entry per petition lands as the
 corpus's `distributed_for_conference` (a relist updates it; non-live writers
-preserve it); the refresh rotation leads with distributed *pending* petitions,
-nearest conference first (a granted docket retained for its open merits event
-rotates on staleness instead — its latched conference date is the one that
-produced the grant, not a resolution about to happen); and **predict fires on
-the distribution transition** — a
-fresh distribution or a relist's new date — the cert-calendar analogue of
+preserve it); and the refresh rotation's priority tiers are distributed
+*pending* petitions, nearest conference first (a granted docket retained for its
+open merits event rotates on staleness instead — its latched conference date is
+the one that produced the grant, not a resolution about to happen), then recent
+Terms first, then stalest.
+
+Each of those tiers is unbounded in size while the cycle's cap
+(`live.max_cases_per_run`) is fixed, so a tier larger than the cap — the
+long-conference distributed set, or a new Term's onboarded petitions — would
+hold the head of every cycle and nothing behind it would be polled again. A
+**staleness bound** sits ahead of all of them: a docket the channel last polled
+more than `live.max_poll_staleness_days` ago leads the next cycle, stalest
+first, so no polled docket goes unpolled longer than that bound plus the
+cycles its overdue backlog takes to drain. A never-polled row has no stamp to
+age and keeps its term-order place. The bound is set well above one sweep of
+the polled watchlist at the cap, so it bites only when a tier is starving the
+rest and the priority tiers govern otherwise.
+
+**Predict fires on the distribution transition** — a fresh distribution or a relist's new date — the cert-calendar analogue of
 `pull.predict_on_change_only`, for petitions the salience gate admits (a
 deferred petition's transition only keeps it on the watchlist; the cycle-end
 selection sweep queues what a later selection latches; a relist inside its

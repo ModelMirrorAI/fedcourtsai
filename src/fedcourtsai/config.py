@@ -319,6 +319,13 @@ class LiveConfig(BaseModel):
 
     # Pending petitions re-polled per cycle (the watchlist refresh rotation).
     max_cases_per_run: int = Field(default=30, ge=0)
+    # Staleness bound on the refresh rotation, days: a docket last live-polled
+    # longer ago than this leads the next cycle (stalest first) ahead of the
+    # priority tiers, so no single tier can hold the per-cycle cap
+    # indefinitely. Must exceed the time the cap needs to sweep the polled
+    # watchlist once, or the overdue tier is never empty and the priority
+    # tiers stop governing; 0 disables the bound.
+    max_poll_staleness_days: int = Field(default=7, ge=0)
     # New petitions onboarded from the Term's numbering frontier per cycle.
     max_new_cases_per_run: int = Field(default=25, ge=0)
     # Unresolved interim applications re-polled per cycle (the application
