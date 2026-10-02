@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000434",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward cell resolved on the same calendar day the predictions ran: all three predictions were created 2026-10-01T19:40-19:43Z and Justice Alito's denial is docketed Oct 01 2026, with no intra-day time in the record. No candidate's retrieval log or prose surfaces the disposition, so every grading stands as forward with influenced_prediction not_applicable; the forward margin was under one day and cannot be confirmed from here. Not a mis-provisioning finding: the cell was provisioned on 2026-09-26 while the application was open.",
+      "severity": "info"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "Application text was unavailable to every predictor: their manifests recorded empty_text true and ocr_derived false (fetched 2026-10-01), and application.txt was whitespace. The evaluator's record carries the same document re-fetched 2026-10-02 with ocr_derived true and about 65k characters of text. The OCR fallback ran only on the later fetch; a predict cell provisioned the same day as its fetch may routinely see an empty primary document for scanned pro se filings.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0"
+}

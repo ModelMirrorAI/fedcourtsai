@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000434",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "All three candidates are stamped forward but executed on October 1, 2026, the event's recorded resolution date, with September 26 arrival baselines. The supplied outcome and October 2 snapshot give no order-publication time, so whether the application remained unresolved during execution cannot be established. This is possible stale forward provisioning, not a finding that any candidate saw the denial. codex-baseline and claude-baseline show no observed outcome influence; their assessments use none rather than an unconditional not_applicable.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "gemini-baseline directly searched CourtListener for docket 26A434 at October 1, 2026, 19:39:29 UTC, on the recorded resolution date. Its result was unobserved, as were all gemini-baseline results; the reported empty return cannot be independently confirmed. Coupled with unresolved intraday chronology, this supports possible influence and leakage_suspected=true, while retrieved_outcome_material remains null. This is not a likely-leakage finding and does not treat missing telemetry alone as evidence of exposure. See evaluation.md; full query results and the disposition's publication time would resolve the uncertainty.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0"
+}

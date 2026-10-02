@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000370",
+  "gaps": [
+    "Unobserved result payloads limit retrospective retrieval auditing; query scope and chronology remain usable."
+  ],
+  "helpful": [
+    "Blinded candidates preserve probabilities, frozen contexts, and retrieval evidence without names.",
+    "Per-call result-capture markers distinguish unobserved results from empty results.",
+    "The staged outcome and committed interim statpack suffice for stage-correct scoring."
+  ],
+  "notes": "Scored three aliases using local provisioned artifacts and the committed statpack only. No corpus, CourtListener, or web retrieval. Interim baseline, skill, and claim-score stamping are left to the harness; no flags were needed.",
+  "role": "evaluator",
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "fedcourtsai.paths",
+    "fedcourtsai.serialize",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000437",
+  "gaps": [
+    "Intraday resolution or order-publication timestamp",
+    "Readable search-result content for gemini-baseline's unobserved case-specific queries"
+  ],
+  "helpful": [
+    "Blinded candidate artifacts and capture-status markers",
+    "Provisioned outcome and snapshot",
+    "Committed interim statpack table"
+  ],
+  "notes": "No external research or corpus queries. The refreshed OCR manifest was not treated as proof of what prediction-time document bytes contained. Interim baseline and skill remain harness-owned.",
+  "role": "evaluator",
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "local JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

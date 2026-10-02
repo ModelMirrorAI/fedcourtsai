@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000437",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "Resolution-day exposure on a forward cell: the three predictions (run 20261001T215439Z) were created 2026-10-01T21:59Z\u201322:05Z, the same date the Chief Justice's denial was entered (outcome resolved_at 2026-10-01). Provisioning was clean (snapshot 2026-09-29, pre-decision), but gemini-baseline's web searches by caption returned what its own retrieval note calls 'supreme court docket information' with every result unobserved (result_capture_coverage 0.0), so whether the 26A437 docket page already showed the denial cannot be determined from the log. No candidate's reasoning shows the disposition; all three graded not_applicable, gemini-baseline with retrieved_outcome_material null. A predict run landing on the resolution date of a fast in-chambers application is a standing exposure for the forward stratum that the scheduler may want to account for.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "The record's application.txt now carries OCR-derived text (documents.json: ocr_derived true, empty_text false, fetched_at 2026-10-02, 73 pages) while all three predictors in run 20261001T215439Z reported the same document as empty_text true (a scan with no text layer). The candidates were graded on what they were provisioned; the grader's big-case read and posture checks used the OCR text. Noting so the record's two document states are not read as a predictor omission.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0"
+}

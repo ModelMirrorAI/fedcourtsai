@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000370",
+  "gaps": [
+    "Unobserved retrieval results limit independent auditing of returned material.",
+    "The opposition retrieved by claude-baseline is not separately staged for this evaluator."
+  ],
+  "helpful": [
+    "Blinded prediction and prose files preserve independent candidate grading.",
+    "Outcome and dated snapshot establish the resolution and forward chronology.",
+    "Retrieval result-capture markers distinguish unobserved results from empty results.",
+    "The application appendix provides lower-court findings for checking analytical balance.",
+    "Committed interim statpack identifies baseline eligibility without external retrieval."
+  ],
+  "notes": "Used only local contracts, schemas, blinded candidates, provisioned case evidence, and the committed statpack. No corpus query, CourtListener call, or web retrieval was needed. Interim baseline and skill are left to the harness. Full-tree validation is deferred until restoration and alias resolution, as the evaluation contract requires.",
+  "role": "evaluator",
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell reads",
+    "jq",
+    "apply_patch",
+    "JSON Schema validation",
+    "Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

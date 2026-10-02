@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/9526000434",
+  "run_id": "20261002T200745Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "cat",
+    "ls"
+  ],
+  "helpful": [],
+  "gaps": [],
+  "notes": "Used basic shell commands to review files."
+}

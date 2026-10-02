@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000370",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate reasoning and harness retrieval logs",
+    "Per-call capture markers distinguish unobserved results from empty results",
+    "Provisioned outcome, snapshot, application appendix, and interim statpack"
+  ],
+  "notes": "No corpus, CourtListener, or web retrieval was needed. Interim baseline and skill remain reserved for the harness. gemini-baseline's unobserved results limit result-level auditability but are not themselves a defect. The system Python supplies jsonschema; the project virtual environment does not.",
+  "role": "evaluator",
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: local artifact reads and jq",
+    "apply_patch",
+    "python3: JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

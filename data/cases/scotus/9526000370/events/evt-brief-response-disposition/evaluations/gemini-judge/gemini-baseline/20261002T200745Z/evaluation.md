@@ -1,0 +1,1 @@
+gemini-baseline incorrectly predicted a grant based on general priors regarding conservative jurisprudence and PLRA, without fully considering the specific factual nature of the district court's findings or reading the filed response. The reasoning quality is assigned 0.6. The cell is an interim cell, baseline and skill scores will be stamped by the harness.

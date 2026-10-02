@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000370",
+  "run_id": "20261002T200745Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads over the blinded staging area and record",
+    "committed statpack (interim section)",
+    "pydantic schema validation"
+  ],
+  "helpful": [
+    "the blinded retrieval_log.json with result_capture markers and retrieved_doc_date made the forward-mode leakage check concrete",
+    "the predictors' own retrieval.md disclosures of post-baseline material",
+    "the decided snapshot's proceedings list, which settles response/referral/amicus directly"
+  ],
+  "gaps": [
+    "a staged copy of the prediction's own input snapshot would let the evaluator see what the predictor was actually given rather than infer it from context.json",
+    "the harness-stamped interim baseline is not visible at grading time, so evaluation.md can only describe the expected pool"
+  ],
+  "notes": "Interim cell: correct and brier written per their definitions; segment_base_rate, brier_skill_score and base_rate_basis left for the stamp. No flags.json written - nothing to surface."
+}
