@@ -6257,8 +6257,8 @@ freeze commit is recorded here.
     one caption names a proceeding rather than a person.
 
   **What a post-change cell reads.** On an affected docket, the cell reads a
-  subset of the pre-change snapshot and of the pre-change document text, and
-  its `documents.json` reads `contact_scrubbed: true` with
+  subset of the pre-change snapshot and of the pre-change document text. On a
+  newly scrubbed docket its `documents.json` reads `contact_scrubbed: true` with
   `contact_scrub_passes` `["value", "shape"]` where it read `false` with `[]`
   — on every staged document, including one whose text does not change (the
   questions-presented row on 73274814).
@@ -6291,3 +6291,123 @@ freeze commit is recorded here.
     block(s)` line (5 on the blob's payload; non-zero rather than exact, since
     provisioning may read a newer content-store payload), where its latest
     payload still serves the captioned self-named block.
+
+- **A self-filer served under a title or in a joinder is read as its own
+  attorney by both contact scrubs, 2026-10-02.** A **conditioning** entry in
+  the *what the pipeline provisions* class. The self-naming arm compares the
+  first and last tokens of `PartyName` and `Attorney`, and an amicus served as
+  "Professor Jane Doe", "Hon. Jane Doe (Ret.)" or "Jane Doe and John Roe"
+  against an attorney served as "Jane Doe" compared `{jane, doe}` with a pair
+  in which the title took the first name's place, the tail took the surname's,
+  or the last person's surname took the first person's surname's place, so an individual filing in
+  their own name was staged with their contact details as served.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary. The staged snapshot and the staged
+  document text live in the gitignored `record/`, and `prediction.json` has no
+  field separating a cell that read the filer's address from one that read a
+  placeholder there. The boundary exists only here, and a stamped cell is
+  post-change if the carrying promotion's merge commit is an ancestor of, or
+  equal to, its `process_version.pipeline_sha`. On an affected docket, cells on
+  either side of the boundary may not be pooled.
+
+  **What changes.** The served reduction of each name is kept, and beside it
+  the comparison reads further reductions: with a leading title or honorific
+  cut (`Hon.`, `Honorable`, `Honourable`, `Judge`, `Justice`, `Dr.`,
+  `Doctor`, `Prof.`, `Professor(s)`, `Law Professor(s)`, `Mr.`, `Mrs.`,
+  `Ms.`, optionally after `The` and then `Former` or `Retired`, and
+  optionally followed by `Emeritus`, as whole words followed by a blank and a
+  name) and a trailing one cut (`(Ret.)`, `(Retired)`, `Esq.`,
+  `Esquire`, `Ph.D.`, `M.D.`); and, on the `PartyName` side alone, the
+  reduction of each person a joinder names, split on commas and on a
+  whole-word `and` or `&`. An added reduction counts only where it keeps two
+  distinct tokens, and none spans two people. A block qualifies where any
+  reduction of its attorney equals any reduction of its party. The predicate
+  is the one shared by the petitioner, respondent and `Other` lists, so the
+  docket-level trigger (`unrepresented_sides`), the staged-snapshot scrub and
+  the value pass all read it. It applies to all three lists rather than behind
+  a per-list switch, since the served reduction is kept and the change can
+  therefore only widen; over the blob below, no block on any list that
+  qualified before stops qualifying. Names and organisations that merely
+  begin with a title's letters ("Drake", "Honda", "Professorial") and a
+  caption-order surname ("Judge, Mary") are untouched.
+  **Known residuals:** a joinder in caption order ("Doe, Jane and Roe, John")
+  is split into lone tokens and adds no reading; titles outside the list
+  ("Representative", "Senator", "Rev.") are not cut; and since the served
+  reduction is kept, a pair that compared equal across two people before
+  (party "Jane Doe and John Roe" against attorney "Jane Roe", or a
+  multi-counsel attorney field) still does, as it always did.
+
+  **The population.** An ad hoc read that runs the real `unrepresented_sides`,
+  `scrub_snapshot_contacts`, `party_contact_values` and the provisioning
+  document scrub over each case's latest stored payload and stored documents
+  in the pulled blob, against a copy of the comparison without the new
+  readings. The blob is `sha256:2b356dbd…`, whose newest pull stamp is
+  `2026-10-02` and whose newest stored snapshot is `2026-07-13`. The per-case
+  content store, which alone holds most current dockets, was not read, so this
+  is a figure about the blob and not about the provisioned population.
+  - Of **2,925** latest payloads, **30** blocks newly qualify on the
+    self-naming arm, on **26** dockets. None stops qualifying. On the other
+    **2,899** payloads the staged snapshot, the keyed values and every staged
+    document's text and passes are byte-identical before and after.
+  - **`Other` list: 29** blocks on **25** dockets — titled self-filers
+    ("Professor …", "Hon. … (Ret.)", "…, Esq."), joinders whose attorney is
+    one of the people named, and a professor served beside an institute.
+    **169** snapshot values are withheld across those blocks. **16** of the
+    dockets were not scrubbed before and are now scrubbed by the value pass
+    alone; on the other 9 the `Other` list already qualified and more of its
+    blocks now do. On the 16 newly scrubbed dockets all **39** stored
+    documents flip from unscrubbed to `contact_scrubbed: true` with
+    `contact_scrub_passes` `["value"]`, and none of their text changes (no
+    withheld span); on the other 9 every manifest entry is unchanged.
+  - **Petitioner side: 1** block on **1** docket (73274831), a party served as
+    "Thomas D. Foster, APC" — the attorney's own professional corporation —
+    against an attorney served as "Thomas Daniel Foster", read through the
+    comma split. **6** snapshot values are withheld, and the docket is newly
+    scrubbed by both passes: **6** spans across its 2 stored documents.
+  - **Respondent side:** none.
+  - Titled or joined `Other` blocks that stay represented include a
+    joinder naming a different person of the attorney's surname, an
+    organisation named for the attorney's surname, and joinders of
+    organisations; none newly qualifies on the blob.
+
+  **What a post-change cell reads.** On an affected docket, the cell reads a
+  subset of the pre-change snapshot and of the pre-change document text. On a
+  newly scrubbed docket its `documents.json` reads `contact_scrubbed: true` with
+  `contact_scrub_passes` `["value"]` (`["value", "shape"]` on 73274831) where
+  it read `false` with `[]` — on every staged document the pass ran over,
+  including the ones whose text does not change. On a docket whose `Other`
+  list already qualified, the manifest is unchanged and only more snapshot
+  values are withheld.
+  No skill movement is predicted. In the 2026-09-21 entry's negative form, a
+  movement in **either** direction across this boundary may not be read as a
+  model effect.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus. The corpus row,
+  the content-store payload and the source PDF are untouched. The three lanes
+  that stage through this provisioning narrow the same way from the carrying
+  promotion on: predict cells, evaluate cells and the case-summary lane's
+  `summary-stage`. Summaries that already exist are not re-derived, and a
+  summary's record digest is taken off the corpus payload, so the change moves
+  no digest and re-owes no summary.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py tests/test_snapshot_scrub.py -k
+    "titled or title_or or equal_on_the_served or readings"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+    six digests;
+  - `uv run fedcourts provision-snapshot --court scotus --docket 73221533`
+    (with the data root pointed at a scratch directory) echoes a non-zero
+    `snapshot contact scrub: N value(s) withheld on 1 amicus-side block(s)`
+    line (6 on the blob's payload; non-zero rather than exact, since
+    provisioning may read a newer content-store payload), where its latest
+    payload still serves the "Professor …" block.

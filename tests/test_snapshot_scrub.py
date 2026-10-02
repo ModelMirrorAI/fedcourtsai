@@ -345,6 +345,29 @@ def test_a_self_represented_amicus_block_is_scrubbed() -> None:
     assert payload["Other"][1] == _pro_se_amicus()
 
 
+@pytest.mark.parametrize(
+    "party",
+    [
+        "Professor Jane Scholar",
+        "Hon. Jane Scholar (Ret.)",
+        "Jane Scholar, Esq.",
+        "Professors John Roe and Jane Scholar",
+    ],
+)
+def test_a_titled_or_joined_self_filing_amicus_block_is_scrubbed(party: str) -> None:
+    payload = _payload()
+    payload["Other"] = [_represented_amicus(), {**_pro_se_amicus(), "PartyName": party}]
+
+    scrubbed = scrub_snapshot_contacts(payload)
+
+    block = scrubbed.payload["Other"][1]
+    for key in SNAPSHOT_CONTACT_FIELDS:
+        assert block[key] == CONTACT_PLACEHOLDER
+    assert block["PartyName"] == party
+    assert scrubbed.blocks == 2
+    assert scrubbed.payload["Other"][0] is payload["Other"][0]
+
+
 @pytest.mark.parametrize("block", [_represented_amicus(), _represented_org_amicus()])
 def test_a_represented_amicus_is_left_as_served(block: dict[str, Any]) -> None:
     # The organisation's `PrisonerId` holds free text, not a register number,

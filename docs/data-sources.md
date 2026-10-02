@@ -730,8 +730,10 @@ material**:
   what is staged there is counsel's filings; a self-represented non-amicus
   `Other` filer whose own opposition is staged gets the value pass alone too.
   A self-filing amicus whose served
-  name carries a title or joinder the attorney field lacks is not read as
-  self-represented and stays as served.
+  name carries a title or honorific ("Professor", "Hon. … (Ret.)"), names
+  several people jointly, or adds a comma-separated description (", APC") is
+  read as self-represented where the attorney field is the person, or one of
+  the people, it names.
   This is the one narrowing applied on privacy grounds, and it applies to the
   **staged copies** alone: the source PDF and the corpus row are untouched. On
   the same docket the snapshot staged beside the documents has each
