@@ -10622,7 +10622,8 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     serial and live-owned serials, fetching nothing; `--projection PATH
     --plan-out PLAN` walks against that projection, opening no corpus, and
     writes each served record verbatim with its ledger (identity unresolved,
-    so the count is an upper bound); `--from-plan PLAN` re-checks the plan
+    so the count is an upper bound), checking the plan's shape first and
+    writing none it or the writer would refuse; `--from-plan PLAN` re-checks the plan
     whole, re-reads ownership, resolves identity and applies the prediction
     guard against the corpus, and with `--apply --max-rows N` lands the rows —
     fetching nothing.
@@ -10715,6 +10716,7 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
         return
     cache = None if cache_dir is None else application_backfill.DocketCache(cache_dir)
     deadline = None if max_run_seconds is None else time.monotonic() + max_run_seconds
+    plan_refused: str | None = None
     try:
         if from_plan is not None:
             plan = _read_handoff_or_exit(
@@ -10743,8 +10745,17 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
                     cache=cache,
                     deadline=deadline,
                 )
-            if plan_out is not None:
-                write_handoff(plan_out, plan)
+            if plan_out is not None and not result.failures:
+                # The plan crosses a public artifact under the PII carve-out, so
+                # one the writer would refuse is refused here, before the file
+                # exists — after the ledger prints, so a dry run still shows what
+                # it read; a failed walk writes none (it exits 1 below).
+                try:
+                    application_backfill.check_plan(plan, terms)
+                except HandoffRefused as exc:
+                    plan_refused = str(exc)
+                else:
+                    write_handoff(plan_out, plan)
         else:
             with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
                 result = application_backfill.backfill_applications(
@@ -10768,6 +10779,12 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     if out is not None:
         write_json(out, result)
     typer.echo(application_backfill.render_ledger(result, max_rows=max_rows))
+    if plan_refused is not None:
+        typer.echo(
+            f"backfill-applications: refusing the plan whole, so none was written — {plan_refused}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     if result.refused or result.failures:
         raise typer.Exit(code=1)
 

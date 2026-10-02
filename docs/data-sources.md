@@ -597,7 +597,11 @@ records, outside the CC BY-ND term above — and that channel is accepted for th
 labeling run and, on the same footing, the case-summary lane's staged records
 (supremecourt.gov docket JSON and filings only; the lane refuses a
 CourtListener REST snapshot), not as a route for corpus content generally. The other
-three republish no document text. Prediction reasoning may quote or summarize
+three republish no document text. `run-repair`'s one-day handoff artifacts ride
+the same channel with public Court identifiers and supremecourt.gov content
+only, never a corpus row, snapshot or stored document; the application back-fill's plan, whose served
+docket JSON carries counsel blocks, crosses under the one carve-out recorded in
+*PII stance* below. Prediction reasoning may quote or summarize
 public-record docket facts in the course of explaining a prediction, and may
 characterize what a provisioned filing argues — a petition, a brief in
 opposition, a questions-presented section, either side's brief on the merits or
@@ -705,9 +709,39 @@ material**:
   (below), so the stored record stays the record as ingested.
 - **Raw facts stay access-gated.** The corpus that holds the full docket detail
   lives in the private S3 estate — the snapshot payloads in its per-case content
-  store, the scannable index beside them — not public git. The only PII that can
-  reach public git is whatever a piece of reasoning quotes from a public docket
-  while explaining a prediction.
+  store, the scannable index beside them — not public git; stored content
+  leaves it only through the short-lived run artifacts *What we redistribute*
+  above inventories (the case-summary lane's contact-scrubbed staged record,
+  run-analytics' questions-presented extracts). The only PII that can reach
+  public git is whatever a piece of reasoning quotes from a public docket while
+  explaining a prediction. The one place a self-represented filer's contact
+  detail travels unscrubbed is the transient run artifact in the carve-out
+  below, which holds no stored copy and never reaches git.
+- **One carve-out: the application back-fill's plan artifact** (maintainer
+  decision, 2026-10-01). Every byte it admits is the Court's own public docket
+  record, served openly at supremecourt.gov, and none of it comes from our
+  private stores; it lets that record transit one short-lived workflow
+  artifact between two jobs of the same run.
+  - *What:* the docket JSON exactly as supremecourt.gov serves it for the
+    dockets in one `application-backfill` run's plan — counsel blocks
+    included, which for a self-represented filer carry a home address,
+    telephone, email or prisoner register number — plus the structured fields
+    parsed from it. Nothing read from the corpus, the content store or any
+    snapshot we stored — which rests on the job that writes the plan holding
+    no corpus credential at all. Both that job and the applications writer
+    refuse a plan not shaped as served docket JSON plus the fields parsed
+    from it.
+  - *Where:* one workflow artifact, `repair-plan-<run_id>`, kept one day and
+    consumed by the applications writer in the same run. It is never committed
+    to git and never printed to a log or step summary; the step summary
+    carries the ledger's counts and each row's parsed fields (docket number,
+    kind, dates, a counsel *count*), never a served block's text.
+  - *Unchanged:* the corpus and the content store stay access-gated; the
+    contact scrubs below still withhold these details from every cell, model
+    provider and summary; nothing under this carve-out reaches `data/`.
+  - *Not a precedent:* any other pass whose plan would carry a stored or
+    private record still crosses a public-only projection. A new use of this
+    carve-out is its own decision, recorded in this section.
 - **A filing made in person is scrubbed before a cell reads it.** Where the
   provisioned snapshot serves a counsel block on either party side — petitioner
   or respondent — naming nobody but the party to write to — no attorney, the

@@ -16,9 +16,11 @@ beside each pass:
 Both travel as GitHub Actions run artifacts, which on a public repository any
 signed-in user can download while they exist, so a model that crosses carries
 public Court data only — never a corpus row, snapshot or stored document — and
-its docstring says why its fields are public. The one that could not
-(``ApplicationPlan``, which carries served docket JSON with party contact
-details) is held back by the workflow and says so.
+its docstring says why its fields are public. The one exception is
+``ApplicationPlan``, which carries supremecourt.gov's served docket JSON, party
+contact blocks included, under the narrow carve-out ``docs/data-sources.md``
+(*PII stance*) records; a plan not shaped as those records and the fields
+parsed from them is refused before it is written and again by its writer.
 
 The receiving side treats a file as untrusted input: it is size-capped, parsed
 by its pydantic model (``extra="forbid"``, a literal ``format`` name and

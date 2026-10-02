@@ -4595,22 +4595,109 @@ def test_no_job_that_guards_against_oidc_holds_id_token() -> None:
     assert guarded >= 4, "fewer OIDC-guarded jobs than expected; the invariant is vacuous"
 
 
-def test_the_application_plan_never_crosses_as_a_public_artifact() -> None:
-    """The application back-fill's plan carries served docket JSON with contact details.
+def test_the_application_plan_crosses_only_as_its_one_day_run_artifact() -> None:
+    """The PII carve-out's *where*: one artifact, named per run, kept one day.
 
-    So on an apply the parse job refuses before the upload, and the upload is
-    gated to the three passes whose plans carry public facts only.
+    The application back-fill's plan carries served docket JSON, party contact
+    blocks included, and crosses under the carve-out docs/data-sources.md
+    records: the parse job uploads it on an apply as `repair-plan-<run_id>`
+    with one day of retention, and the applications writer in the same run is
+    the one job that downloads it. No step holds the apply back any more.
     """
     steps = _repair_steps("handoff-parse")
     names = _step_names(steps)
-    hold = steps[names.index("Hold the application plan")]
-    upload_index = names.index("Upload the plan")
-    assert names.index("Hold the application plan") < upload_index
-    assert _norm(str(hold["if"])) == (
-        "${{ inputs.repair_mode == 'apply' && inputs.repair == 'application-backfill' }}"
-    )
-    assert "exit 1" in str(hold["run"])
-    gate = _norm(str(steps[upload_index]["if"]))
-    assert "application-backfill" not in gate
-    for name in ("opinion-votes", "order-votes", "opinion-record"):
+    assert "Hold the application plan" not in names
+    upload = steps[names.index("Upload the plan")]
+    gate = _norm(str(upload["if"]))
+    assert gate.startswith("${{ inputs.repair_mode == 'apply' && (")
+    for name in SPLIT_PASSES:
         assert f"inputs.repair == '{name}'" in gate, name
+    assert upload["with"]["name"] == "repair-plan-${{ github.run_id }}"
+    assert upload["with"]["retention-days"] == 1
+    assert upload["with"]["path"] == "${{ runner.temp }}/handoff/plan.json"
+    uploads = [
+        s
+        for s in steps
+        if str(s.get("uses", "")).startswith("actions/upload-artifact@")
+        and "repair-plan" in str(s.get("with", {}).get("name", ""))
+    ]
+    assert uploads == [upload]
+    # The applications writer downloads exactly that artifact, and only on an apply.
+    writer = _repair_job("applications")
+    assert _norm(str(writer["if"])) == (
+        "${{ inputs.repair == 'application-backfill' && inputs.repair_mode == 'apply' }}"
+    )
+    downloads = [
+        s
+        for s in writer["steps"]
+        if str(s.get("uses", "")).startswith("actions/download-artifact@")
+    ]
+    assert [d["with"]["name"] for d in downloads] == ["repair-plan-${{ github.run_id }}"]
+    # Never committed: the plan lands under the runner's temp directory, outside
+    # the checkout, and the writer's commit stages the corpus pointer and data/.
+    commit = writer["steps"][_step_names(writer["steps"]).index("Commit the back-filled corpus")]
+    staged = [line.strip() for line in str(commit["run"]).splitlines() if "git add" in line]
+    assert staged == ["git add corpus/corpus.db.ref", "git add data/"]
+
+
+def test_no_plan_text_reaches_a_step_summary_or_log() -> None:
+    """The PII carve-out's *never printed*: the plan file is only ever a CLI argument.
+
+    In the parse job and the applications writer, the plan's path is named
+    only as `--plan-out` (the walk writes it) and `--from-plan` (the writer
+    reads it), and by the downloaded-file check; no step cats, greps, jq's or
+    otherwise echoes it, so what reaches a log or the step summary is the
+    command's own ledger — counts and parsed fields, pinned free of the served
+    record by tests/test_application_backfill.py.
+    """
+    allowed = (
+        '--plan-out "${HANDOFF_PLAN}"',
+        '--from-plan "${HANDOFF_PLAN}"',
+        '"f plan.json"',
+        "one plan.json file",
+    )
+    for job in ("handoff-parse", "applications"):
+        for step in _repair_steps(job):
+            run = str(step.get("run", ""))
+            for token in allowed:
+                run = run.replace(token, "")
+            assert "HANDOFF_PLAN" not in run, (job, step.get("name"))
+            assert "plan.json" not in run, (job, step.get("name"))
+            # An action handed the plan's path (other than the one upload and
+            # the one download, which name the directory) could print it.
+            with_text = yaml.safe_dump(step.get("with", {}))
+            if "plan.json" in with_text or "HANDOFF_PLAN" in with_text:
+                assert step.get("name") == "Upload the plan", (job, step.get("name"))
+    # The walk and the writer pipe the CLI's ledger, and nothing else, into the summary.
+    expected = {
+        ("handoff-parse", "Walk the application back-fill"): ['| tee -a "$GITHUB_STEP_SUMMARY"'],
+        ("applications", "Land the planned applications"): [
+            '| tee -a "$GITHUB_STEP_SUMMARY" || status=$?'
+        ],
+    }
+    for (job, name), lines in expected.items():
+        steps = _repair_steps(job)
+        run = str(steps[_step_names(steps).index(name)]["run"])
+        summary = [line.strip() for line in run.splitlines() if "GITHUB_STEP_SUMMARY" in line]
+        assert summary == lines, (job, summary)
+
+
+def test_the_application_writer_validates_the_whole_plan_before_it_writes() -> None:
+    """The PII carve-out's limit on content is the writer's whole-plan check.
+
+    The writer reads the plan through `--from-plan` with its bound, which
+    re-checks it whole (`apply_application_plan`) and refuses a plan carrying
+    anything beyond supremecourt.gov docket JSON and the fields parsed from it
+    before the first write; the downloaded artifact is checked to be the one
+    plan file first.
+    """
+    steps = _repair_steps("applications")
+    names = _step_names(steps)
+    check = names.index("Check the downloaded plan")
+    land = names.index("Land the planned applications")
+    assert check < land
+    run = _norm(str(steps[land]["run"]).replace("\\\n", " "))
+    assert (
+        'uv run fedcourts backfill-applications --term "${REPAIR_TARGET}" '
+        '--from-plan "${HANDOFF_PLAN}" --apply --max-rows "${REPAIR_BOUND}"'
+    ) in run

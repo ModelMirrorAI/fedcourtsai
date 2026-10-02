@@ -2368,7 +2368,9 @@ jobs:
   # data only — case ids, docket numbers, listing keys, docket JSON as the
   # Court serves it, facts read off the Court's own documents — never a corpus
   # row, a snapshot or a stored document; each model's docstring says why its
-  # fields are public. One day of retention, and named per run.
+  # fields are public. One day of retention, and named per run. The
+  # application plan's served docket JSON carries party contact blocks, and
+  # crosses under the PII carve-out docs/data-sources.md records for it alone.
   handoff-projection:
     needs: [validate]
     if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' }}
@@ -2653,33 +2655,30 @@ jobs:
         if: ${{ inputs.repair_mode != 'apply' }}
         run: echo "dry-run only; nothing written." | tee -a "$GITHUB_STEP_SUMMARY"
 
-      # The application back-fill's plan is held back: it carries each served
-      # docket JSON verbatim, party contact blocks included (a self-represented
-      # applicant's address, telephone and prisoner number among them), and a
-      # run artifact on this public repository is downloadable by any signed-in
-      # user. Gathering a Term of those into one public file is a republication
-      # docs/data-sources.md (*PII stance*) does not accept, so the apply is
-      # refused here, before anything crosses, until the plan is made opaque to
-      # readers of the artifact or the carve-out is recorded there.
-      - name: Hold the application plan
-        if: ${{ inputs.repair_mode == 'apply' && inputs.repair == 'application-backfill' }}
-        run: |
-          echo "::error::the application back-fill plan carries served docket JSON with party contact details, which may not cross as a public run artifact; the apply is held until that is decided (docs/security.md, S3 / the private stores)."
-          exit 1
-
       # The plan crosses to the writer only on an apply; a dry run's ledger is
-      # its whole product.
+      # its whole product. The application back-fill's plan carries each served
+      # docket JSON verbatim, party contact blocks included (a self-represented
+      # applicant's address, telephone and prisoner number among them), which
+      # crosses only under the narrow carve-out docs/data-sources.md (*PII
+      # stance*) records: this one artifact, one day, consumed by the
+      # applications writer in this run, never committed and never printed —
+      # the summary above carries the ledger's counts and parsed fields only,
+      # and the walk (before writing it) and the writer both refuse a plan not
+      # shaped as served docket JSON plus the fields parsed from it.
       - name: Upload the plan
-        if: ${{ inputs.repair_mode == 'apply' && (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'opinion-record') }}
+        if: ${{ inputs.repair_mode == 'apply' && (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record') }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: repair-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff/plan.json
           if-no-files-found: error
           overwrite: true
-          # Public Court data only (see the credential-split comment above the
-          # projection job); one day, because it exists to hand one file to the
-          # writer job.
+          # The Court's own public record only (see the credential-split comment
+          # above the projection job; the application plan under its carve-out);
+          # one day, because it exists to hand one file to the writer job, and
+          # the carve-out is bounded to this artifact. Deleting it once the
+          # writer has read it was weighed and declined: that needs `actions:
+          # write` in a job already holding `id-token` and the App token.
           retention-days: 1
 
   # The vote writer, on an apply only. It holds no AWS role and no
