@@ -83,7 +83,7 @@ live:
   # The most of each cycle's max_cases_per_run the overdue tier may take, so a
   # large overdue backlog drains over several cycles while the distributed
   # petitions keep the rest of each one (their order-list results are days
-  # away). A backlog of ~1,000 clears in under three days at four cycles a day.
+  # away). At four cycles a day that drains at most ~400 overdue dockets a day.
   max_overdue_per_run: 100
   # New petitions onboarded from the Term's numbering frontier per cycle
   # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to

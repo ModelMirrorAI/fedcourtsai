@@ -4142,7 +4142,7 @@ def live_rotation(
     if cutoff is not None and overdue_limit > 0:
         cur = conn.execute(
             f"{live_sql}AND last_live_polled < ? "
-            "ORDER BY last_live_polled ASC, case_id ASC LIMIT ?",
+            f"ORDER BY last_live_polled ASC, {priority_order} LIMIT ?",
             (term_floor_year, cutoff, min(overdue_limit, limit) * 2),
         )
         overdue = [row for record in cur if is_modern_cert(row := _from_record(record))]

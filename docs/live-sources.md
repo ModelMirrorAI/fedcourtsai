@@ -133,16 +133,17 @@ Each of those tiers is unbounded in size while the cycle's cap
 (`live.max_cases_per_run`) is fixed, so a tier larger than the cap — the
 long-conference distributed set, or a new Term's onboarded petitions — would
 hold the head of every cycle and nothing behind it would be polled again. A
-**staleness bound** sits ahead of all of them: a docket the channel last polled
-more than `live.max_poll_staleness_days` ago leads the next cycle, stalest
-first, so no polled docket goes unpolled longer than that bound plus the
-cycles its overdue backlog takes to drain. The overdue tier takes at most
+**staleness bound** sits ahead of all of them: a docket the channel last
+polled more than `live.max_poll_staleness_days` ago leads the next cycle,
+stalest first, so no polled docket goes unpolled longer than that bound plus
+the cycles its overdue backlog takes to drain. The overdue tier takes at most
 `live.max_overdue_per_run` of each cycle, so a large backlog drains over
 several cycles while the distributed petitions, whose order-list results are
 days away, keep the rest; an overdue docket past that share keeps its ordinary
-place. A never-polled row has no stamp to age and keeps its term-order place. The bound is set well above one sweep of
-the polled watchlist at the cap, so it bites only when a tier is starving the
-rest and the priority tiers govern otherwise.
+place. A never-polled row has no stamp to age and keeps its term-order place.
+The bound is set well above one sweep of the polled watchlist at the cap, so
+it bites only when a tier is starving the rest and the priority tiers govern
+otherwise.
 
 **Predict fires on the distribution transition** — a fresh distribution or a relist's new date — the cert-calendar analogue of
 `pull.predict_on_change_only`, for petitions the salience gate admits (a
