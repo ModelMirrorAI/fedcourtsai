@@ -1,0 +1,74 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": null,
+  "brier_score": 0.3364,
+  "brier_skill_score": -29.670158584807492,
+  "case_id": "scotus/9526000370",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.58,
+        "score": -0.3254316837107377
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.3254316837107377,
+    "total": -0.3254316837107377
+  },
+  "correct": 0,
+  "created_at": "2026-10-02T20:18:25Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The September 27 log precedes the October 1 denial. Of 26 calls, 24 have captured results; the two unobserved web calls concern the Nken stay standard and a specific September 25 opposition PDF, not a later disposition. The rationale explicitly distinguishes the available application/appendix from the unread opposition and does not presuppose denial. Reported web failures are self-reports, not independently established by uncaptured results. No evidence of a decided case being provisioned forward.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "9791ff5154a1328c14679f5d6fa249f59980fbda",
+    "stamped_at": "2026-10-02T20:21:00.339796Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

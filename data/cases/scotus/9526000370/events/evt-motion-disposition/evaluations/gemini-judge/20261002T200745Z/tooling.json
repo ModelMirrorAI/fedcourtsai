@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/9526000370",
+  "run_id": "20261002T200745Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "read_file",
+    "write_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "The instructions clearly state not to score base_rate and skill for interim cells."
+  ],
+  "gaps": [],
+  "notes": "Cell processed properly without need for external corpus or statpack, since those values are stamped by the harness for interim cases."
+}

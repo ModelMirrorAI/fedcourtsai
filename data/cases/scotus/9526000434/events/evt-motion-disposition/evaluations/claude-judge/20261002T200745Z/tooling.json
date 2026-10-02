@@ -1,0 +1,25 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000434",
+  "gaps": [
+    "The corpus row carries no intra-day time for an in-chambers order, so a same-day forward cell cannot be checked for whether the order preceded the prediction run.",
+    "fedcourts query has no name or docket-number filter, so checking one applicant's history means pulling 400 rows (about 4.7 MB) and filtering locally."
+  ],
+  "helpful": [
+    "The blinded retrieval_log.json's per-call result_capture markers and retrieved_doc_date made the forward leakage check mechanical.",
+    "One corpus query confirmed a candidate's claim about the applicant's prior application in a single call.",
+    "The OCR-recovered application text in the record let me check each candidate's posture claims against the filing itself."
+  ],
+  "notes": "Interim cell; baseline and skill left to the stamp. Expected stamped pool from the committed pack is 31 of 296 over Terms 2024 and 2025.",
+  "role": "evaluator",
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0",
+  "tool_manifest": null,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "record/documents/application.txt (OCR text)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281619",
+  "run_id": "20261002T200745Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "python3 (jsonschema validation of outputs)"
+  ],
+  "helpful": [
+    "metrics/statpack.json carries the per-Term prefix_est_grant_rate and prefix_weighted_resolved fields, so the pooled risk-set rate can be reproduced exactly rather than re-derived from rounded table percentages",
+    "The staged retrieval_log.json result_capture markers made the three logs comparable despite one engine capturing no results"
+  ],
+  "gaps": [
+    "A one-line CLI that prints the pooled risk-set rate for a given band, salience version, and Term (the number the evaluator must write by hand on every cert cell) would remove the main hand-computation step",
+    "The decided snapshot shows the grant was limited to Question 1, but outcome.json has no field for a limited grant; a reader of the record alone cannot see the scope of the grant without opening the snapshot"
+  ],
+  "notes": "Three forward candidates, all clean on leakage. The statpack table rendered all 10 Terms it holds, so no window-divergence flag was needed. No flags.json written."
+}

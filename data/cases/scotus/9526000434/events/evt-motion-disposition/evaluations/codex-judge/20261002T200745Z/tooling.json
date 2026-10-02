@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000434",
+  "gaps": [
+    "No intraday publication time for the October 1 disposition.",
+    "Unobserved direct own-docket search results limit gemini-baseline's leakage assessment."
+  ],
+  "helpful": [
+    "Alias-keyed candidate artifacts preserve the blind.",
+    "Result-capture markers distinguish unavailable results from observed empty returns.",
+    "Frozen candidate context separates the arrival baseline from execution time."
+  ],
+  "notes": "No external searches or corpus queries. The committed interim table was consulted only to assess the candidates' use of the anchor; baseline and skill fields remain harness-owned. Only the three provided aliases were scored.",
+  "role": "evaluator",
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell local-file inspection",
+    "jq",
+    "committed metrics/statpack.md",
+    "JSON Schema and Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

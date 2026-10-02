@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000370",
+  "run_id": "20261002T200745Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat, grep, awk, python3 for JSON summaries)",
+    "metrics/statpack.md interim section",
+    "staged retrieval_log.json per candidate"
+  ],
+  "helpful": [
+    "The staged retrieval_log.json with result_capture markers and retrieved_doc_date made the forward leakage check mechanical: one scan for dates on or after resolution settled it.",
+    "The decided snapshot's disposing entry text ('denied by Justice Kagan') made the in-chambers route visible, which mattered for judging how each rationale modelled the proceeding.",
+    "The statpack interim section's own caveat text let me check a candidate's conditional-rate claim against the source directly."
+  ],
+  "gaps": [
+    "A compact per-call table view of retrieval_log.json (class, capture, date, query slice) would save re-deriving it with a script on every cell.",
+    "The schema's enum values live under $defs; a one-screen field/enum summary beside schemas/evaluation.schema.json would speed the first read."
+  ],
+  "notes": "Interim cell: segment_base_rate, brier_skill_score and base_rate_basis left to the harness stamp per the prompt; I described the expected pool (296 resolved / 31 granted) in evaluation.md so a null stamp can be diagnosed. No flags.json written: nothing to flag."
+}

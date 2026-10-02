@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000437",
+  "run_id": "20261002T200745Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local file reads of the provisioned record and blinded staging area",
+    "metrics/statpack.md (interim section)",
+    "jsonschema validation of outputs"
+  ],
+  "helpful": [
+    "The staged retrieval_log.json with result_capture markers made the forward-mode leakage check concrete per call",
+    "The now-OCR'd application.txt let the big-case read and the posture facts be checked against the Court's record rather than inferred from the docket shell",
+    "The statpack interim table made the candidates' shared 31/296 anchor verifiable in one read"
+  ],
+  "gaps": [
+    "A per-candidate note of when the Court's docket page first showed the disposition would settle the resolution-day exposure that an unobserved web-search result cannot",
+    "A record of which document version (empty scan vs OCR text) each predictor's cell was provisioned with, so the grader does not have to infer it from the candidates' prose"
+  ],
+  "notes": "Interim cell: segment_base_rate, brier_skill_score and base_rate_basis left to the harness stamp as the contract requires; no semantic set declared and no semantic_claims block on any candidate."
+}
