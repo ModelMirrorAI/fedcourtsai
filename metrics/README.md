@@ -1408,13 +1408,14 @@ the rendered table) and
   the hash order, itself a random subsample of the draw whose composition
   differs from the full set by sampling noise alone (large at these sizes),
   otherwise the most recent decisions — a differently composed slice, not
-  merely a smaller one. Either way the truncated entry is scored over a
-  smaller set against its own floor, and losses to `engine-failed` or
-  `harness-error` are not prefix-shaped at all and may track a petition's
-  difficulty: its denial
-  share (so its floor), its band mix (so its `segment_base_rate` and per-band
-  skill) and the `provisioning` mix that applies to it all follow from the
-  prefix rather than from the dispatched population. `lost_cells` names the
+  merely a smaller one: its denial share (so its floor), its band mix (so its
+  `segment_base_rate` and per-band skill) and the `provisioning` mix that
+  applies to it all follow from the prefix rather than from the dispatched
+  population. Losses to `engine-failed`, `missing`, `invalid` or
+  `wrote-outside-work-root` (and the single cell that raised a
+  `harness-error`) are scattered rather than prefix-shaped and may track a
+  petition's difficulty; either way the short entry is scored over a smaller
+  set against its own floor. `lost_cells` names the
   case ids, so reconstruct the surviving set before reading such an entry's
   numbers, and do not compare it with a full entry even as a listing.
   The board keeps a short entry below every full one whatever its lift —
@@ -1502,9 +1503,11 @@ the rendered table) and
   calls) over n, never as a percentage without its n. Read the mix before the
   scores, and read a shift in it between two fortnights the way you read a
   change of dispatch. Under `--spread` the mix moves every fortnight by
-  sampling alone, since each newer blob re-keys the random draw (*How the set
-  was drawn*, above), so a shift says to read the two fortnights' figures
-  apart, not that anything about the draw changed. The weekly digest's cert back-test line and the review PR
+  sampling, since each newer blob re-keys the random draw (*How the set was
+  drawn*, above), and by whatever the replayable population gained since —
+  newly decided petitions and newly snapshotted ones — so a shift says to read
+  the two fortnights as two independent samples, not that the draw rule
+  changed. The weekly digest's cert back-test line and the review PR
   carry the outcome mix (denied, granted, dismissed or withdrawn), the same mix
   per arm, and each engine entry's per-arm score beside the figure for that
   reason — rendered by shared helpers, so the two surfaces state the same
@@ -1634,7 +1637,8 @@ the rendered table) and
   two granted outcomes and a band on fewer, so read the series and each
   segment's own `events_scored`, never one fortnight's rank. Three things to hold when
   reading consecutive fortnights: they are samples of one dispatch, one salience
-  floor and one lookback, which is what makes them comparable **in population**;
+  floor and one lookback, which is what makes them comparable **in population**
+  — one dispatch over a replayable population that grows between them;
   the report carries no process digest, so a prompt or predictor-config change
   between them is legible only from the promotion history; and a dispatched
   campaign's report is not comparable to either. The
