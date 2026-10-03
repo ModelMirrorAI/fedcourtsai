@@ -6277,8 +6277,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-10-03` (merge commit
+  `41d003e28`, merged `2026-10-03T19:08:50Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py tests/test_snapshot_scrub.py -k
@@ -6397,8 +6397,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-10-03` (merge commit
+  `41d003e28`, merged `2026-10-03T19:08:50Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py tests/test_snapshot_scrub.py -k
@@ -6530,8 +6530,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-10-03` (merge commit
+  `41d003e28`, merged `2026-10-03T19:08:50Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py tests/test_document_backfill.py
@@ -6631,8 +6631,8 @@ freeze commit is recorded here.
   and on one with a `draw` it is the target size the walk fills, so the two
   reports' `limit`s are not differenced.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-10-03` (merge commit
+  `41d003e28`, merged `2026-10-03T19:08:50Z`).
 
   The runnable effect check once it is live, deterministic rather than read
   off one fortnight's floor (at ten petitions a correct draw lands at or below
