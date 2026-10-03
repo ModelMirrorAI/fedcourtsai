@@ -1433,13 +1433,15 @@ def replay_predictors(
                 replay_cutoff=cutoff,
             )
         )
-        # The cell's mode context: a replay cell runs with the same tools
-        # as a forward one — etiquette, logging, and the cross-evaluator's leakage
-        # grading replace walls — so the prompt contract needs the mode stated, not
-        # inferred. It carries the same conditioning block a forward cell gets, now
-        # that truncation leaves a docket to derive one from: a replay cell that can
-        # see its own trajectory can be scored against the rate that trajectory
-        # implies, instead of one keyed on where the petition ended up.
+        # The cell's mode context: a replay cell is not walled off from what a
+        # forward one may reach — etiquette and logging replace walls (though the
+        # back-test configures no MCP server and stages no documents, so its
+        # harness is narrower than a forward cell's) — so the prompt contract
+        # needs the mode stated, not inferred. It carries the same conditioning
+        # block a forward cell gets, now that truncation leaves a docket to
+        # derive one from: a replay cell that can see its own trajectory can be
+        # scored against the rate that trajectory implies, instead of one keyed
+        # on where the petition ended up.
         context = cell_context.build(
             item.features.case_id,
             snapshot_date,
@@ -1653,23 +1655,27 @@ class _BandAcc:
         self.brier_sum += brier
         if base_rate is not None:
             self.base_rates.append(base_rate)
+        skill = brier_skill(brier, actual_granted, base_rate)
+        if skill is not None and base_rate is not None:
+            # The same items both skill figures are over: those with a base
+            # rate and a non-zero reference Brier.
+            self.skills.append(skill)
             self.skilled_brier_sum += brier
             self.reference_brier_sum += (base_rate - actual_granted) ** 2
-        skill = brier_skill(brier, actual_granted, base_rate)
-        if skill is not None:
-            self.skills.append(skill)
 
     def pooled_skill(self) -> float | None:
         """Ratio-of-sums Brier skill, or ``None`` with no (non-zero) reference.
 
-        ``1 - sum(Brier) / sum(reference Brier)`` over the items with a base
-        rate: the band scored as one forecaster. The mean of per-item ratios
+        ``1 - sum(Brier) / sum(reference Brier)`` over the items ``skills``
+        covers (a base rate and a non-zero reference Brier): the band scored as
+        one forecaster, the estimator the forward stratum's population skill
+        uses. The mean of per-item ratios
         (``skills``) weights an item by the inverse of its reference Brier, so
         a denied petition in a band whose rate is near zero — a reference Brier
         near zero — can swing it by whole units on a forecast off by a few
         points; the pooled ratio weights every item by its reference instead.
         """
-        if not self.base_rates or self.reference_brier_sum == 0:
+        if not self.skills:
             return None
         return 1.0 - self.skilled_brier_sum / self.reference_brier_sum
 

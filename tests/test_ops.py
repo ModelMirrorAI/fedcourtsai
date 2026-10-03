@@ -2700,6 +2700,16 @@ def test_the_weekly_digest_states_the_per_arm_mix_and_scores_the_pr_body_does() 
     assert "`constant-denied` blind" not in bullet  # a baseline, not an engine entry
 
 
+def test_the_weekly_digest_marks_a_short_entrys_per_arm_scores() -> None:
+    """A short entry's arms cover its own subset, so they are marked as such."""
+    report = split_arm_report()
+    short = next(e for e in report.entries if e.predictor_id == "codex-baseline")
+    short.events_scored = 9
+    bullet = _cert_bullet(report)
+    assert "`codex-baseline` (short: 9 of 10) blind" in bullet
+    assert "`claude-baseline` blind" in bullet
+
+
 def test_the_weekly_digest_reports_an_empty_cert_backtest_board() -> None:
     # The CLI writes a report with no entries where nothing could be replayed.
     # A floor over nothing is not a number, so the line prints none.

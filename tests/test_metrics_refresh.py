@@ -560,6 +560,23 @@ def test_a_tie_at_the_top_is_named_as_one_not_broken_by_brier(tmp_path: Path) ->
         "`gemini-baseline` — each 7/10 correct, lift **+10.0 pp (+1 petition of 10)**"
     ) in pr.body
     assert "a tie-break rather than a ranking at this n" in pr.body
+    # Where the lift sits travels with the headline, not only in the table below.
+    assert "over always-deny — for each, all of it on the blind arm (1 petition)." in pr.body
+
+
+def test_a_small_n_lead_is_stated_as_its_margin_in_petitions(tmp_path: Path) -> None:
+    """One petition ahead at ten petitions is an ordering, and the headline says so."""
+    report = split_arm_report()
+    leader = next(e for e in report.entries if e.predictor_id == "claude-baseline")
+    leader.accuracy, leader.lift_over_always_denied = 0.8, 0.2
+    write_json(tmp_path / "cert-backtest.json", report)
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert "top predictor `claude-baseline`: lift **+20.0 pp (+2 petitions of 10)**" in pr.body
+    assert (
+        "leads the next whole-set entry by 1 petition, an ordering at this n rather "
+        "than a measurement"
+    ) in pr.body
 
 
 def test_the_floor_line_states_the_draw_three_ways_and_by_arm(tmp_path: Path) -> None:

@@ -4911,15 +4911,17 @@ class CertBacktestSegment(_Strict):
     reports the same, per salience band, over the paid scored segment (IFP
     petitions are outside it). ``segment_base_rate`` is the mean of the items'
     leakage-safe per-Term band rates (each computed over Terms strictly before its
-    own). Skill against them is given two ways. ``pooled_brier_skill`` is the
-    ratio of sums, ``1 - sum(Brier) / sum(reference Brier)`` over the band's
-    items with a base rate — the band's skill as one forecaster, and the figure
-    to read. ``mean_brier_skill`` is the mean of the per-item ratios, the shape
-    the forward stratum's own per-cell ``brier_skill_score`` averages to; it is
-    kept for that comparison, but a denied petition in a low-rate band has a
-    reference Brier near zero, so one such item's ratio can run to large
-    negatives and the mean can sit below zero while the pooled skill is
-    positive. Both null when no item in the band had a prior-Term base rate.
+    own). Skill against them is given two ways, over the same items.
+    ``pooled_brier_skill`` is the ratio of sums, ``1 - sum(Brier) / sum(reference
+    Brier)`` — the band's skill as one forecaster, the estimator the forward
+    stratum's population skill uses, and the figure to read.
+    ``mean_brier_skill`` is the mean of the per-item ratios, kept so the band
+    reading stays continuous with reports written before the pooled figure; it
+    is the estimator the forward stratum rejects, because a denied petition in
+    a low-rate band has a reference Brier near zero, so one such item's ratio
+    can run to large negatives and the mean can sit below zero while the
+    pooled skill is positive. Both null when no item in the band had a
+    prior-Term base rate.
     """
 
     band: str = Field(description="The frozen band, in the assigning version's own vocabulary")
@@ -4941,21 +4943,23 @@ class CertBacktestSegment(_Strict):
         default=None,
         le=1.0,
         description="Mean of the per-item Brier skills vs each item's segment base "
-        "rate (positive beats the base rate, ~0 parrots it, negative is worse) — the "
-        "forward stratum's per-cell shape, kept for that comparison. A denied item "
-        "in a low-rate band has a reference Brier near zero, so its ratio can run "
-        "to large negatives and dominate the mean; read `pooled_brier_skill` for "
-        "the band's skill. Null when no item had a base rate",
+        "rate (positive beats the base rate, ~0 parrots it, negative is worse), kept "
+        "for continuity with reports written before `pooled_brier_skill`. Not "
+        "comparable with the forward stratum's population skill, which is a ratio "
+        "of sums: a denied item in a low-rate band has a reference Brier near zero, "
+        "so its ratio can run to large negatives and dominate the mean. Read "
+        "`pooled_brier_skill` for the band's skill. Null when no item had a base rate",
     )
     pooled_brier_skill: float | None = Field(
         default=None,
         le=1.0,
         description="Ratio-of-sums Brier skill over the band: one minus the summed "
         "Brier over the summed reference Brier (each item's base rate as its "
-        "forecast), over the items with a base rate — the band's skill as one "
-        "forecaster, not swayed by a single near-zero reference. Null when no item "
-        "had a base rate or every reference Brier was zero, and on reports written "
-        "before the figure existed",
+        "forecast), over the items `mean_brier_skill` covers — the band's skill as "
+        "one forecaster, not swayed by a single near-zero reference, and the same "
+        "estimator as the forward stratum's population skill. Null when no item had "
+        "a base rate with a non-zero reference Brier, and on reports written before "
+        "the figure existed",
     )
 
 

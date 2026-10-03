@@ -927,8 +927,15 @@ def _cert_backtest_provisioning(report: CertBacktest) -> str:
             " Provisioning mix **unknown** — the report records no snapshot-provenance "
             "split, so the information set behind these scores is unstated."
         )
+    # A short entry's arms cover only the petitions that came back for it, so
+    # it is marked: beside the whole-set mix its counts would read as the arm's.
     scores = "; ".join(
         f"`{entry.predictor_id}` "
+        + (
+            f"(short: {entry.events_scored} of {report.events_scored}) "
+            if entry.events_scored != report.events_scored
+            else ""
+        )
         + ", ".join(f"{arm.arm} {arm_score_text(arm)}" for arm in entry.arms)
         for entry in report.entries
         if entry.engine is not None and entry.arms

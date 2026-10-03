@@ -1294,18 +1294,26 @@ merits section rather than the cert band, with `base_rate_basis` and
   skill breakdown** over the paid scored segment — the mean leakage-safe segment
   base rate (each petition's own prior-Term band grant rate) and the Brier
   skill against it — so the back-test measures the same segment-baseline skill the
-  forward stratum does, not just raw Brier. The skill is given two ways, and
-  **`pooled_brier_skill` is the one to read**: the ratio of sums, one minus the
-  band's summed Brier over the summed Brier of forecasting each petition's base
-  rate, which scores the band as one forecaster. `mean_brier_skill` is the mean
-  of the per-petition ratios, kept because it is the shape the forward
-  stratum's per-cell `brier_skill_score` averages to, so the two stay
-  comparable; but a denied petition in a low-rate band has a reference Brier
-  near zero (at a 1% rate, 0.0001), so a forecast a few points off it scores a
-  ratio in the tens of negative units and one such petition can pull the mean
-  below zero while the pooled skill is positive. At the pinned draw a band holds
-  a handful of petitions at most, so neither figure is more than a count of how its few
-  forecasts sat against their base rates. Comparable across the two strata while
+  forward stratum does, not just raw Brier. The skill is given two ways, over
+  the same petitions, and **`pooled_brier_skill` is the one to read**: the
+  ratio of sums, one minus the band's summed Brier over the summed Brier of
+  forecasting each petition's base rate, which scores the band as one
+  forecaster — the estimator the forward stratum's population skill uses (*Both
+  columns aggregate as a ratio of sums*, above), so it is the band figure
+  comparable with it. `mean_brier_skill` is the mean of the per-petition
+  ratios, the estimator that section rejects: a denied petition in a low-rate
+  band has a reference Brier near zero (at a 1% rate, 0.0001), so a forecast a
+  few points off it scores a ratio in the tens of negative units and one such
+  petition can pull the mean below zero while the pooled skill is positive. It
+  stays in the report only so the band reading is continuous with reports
+  written before the pooled figure, which carry it alone and cannot be
+  re-pooled (the report keeps no per-petition band data): **the pooled band
+  series starts with the first report that carries it**, and a pooled value
+  is never read against an older report's mean. At the pinned draw a band
+  holds a handful of petitions at most, so neither figure is more than a
+  count of how its few
+  forecasts sat against their base rates. The pooled figure is comparable
+  with the forward stratum's while
   `salience.base_rate_lookback_terms` (the in-code window, shipped at 10 to match
 the rendered table) and
   `statpack.markdown_terms` (what the prompts' Term table renders, 10) agree; see
@@ -1329,7 +1337,7 @@ the rendered table) and
   reason, because they move the population and the baselines under an *identical*
   dispatch: `salience_floor` (what `--scope selected` means) and
   `base_rate_lookback_terms` (what every `segment_base_rate`, and so every
-  `mean_brier_skill`, is scored against — it sits in no process digest, so
+  band's `pooled_brier_skill` and `mean_brier_skill`, is scored against — it sits in no process digest, so
   without it here a per-band comparison across two reports is not one).
   `dropped_predictors` names the predictors lost at run time (no registered
   runner, a missing CLI binary, or every one of its cells lost — the ids
@@ -1428,12 +1436,12 @@ the rendered table) and
   always-deny floor is not one of the figures the information set moves — it is
   the replayed set's own denial share, a property of the labels. What moves it
   is **composition**: **the blind arm is outcome-selected, in either
-  direction.** Both of its causes correlate with the outcome. A docket with no
-  pre-resolution distribution to show is most often a denial — the strongest
-  denial signal here — but it is also a petition the Court acted on before any
-  ordinary conference cycle, as one docketed and granted within days is; and a
-  truncation that still showed a disposition is selected on the disposition's
-  own docket text. So a blind arm can come out
+  direction.** Both of its causes correlate with the outcome, and the
+  direction is not known in advance: a docket with no pre-resolution
+  distribution to show can be a petition denied without one, or one the Court
+  acted on before any ordinary conference cycle, as one docketed and granted
+  within days is; and a truncation that still showed a disposition is selected
+  on the disposition's own docket text. So a blind arm can come out
   denial-pure, raising the pooled floor and diluting every lift, or grant-pure,
   where a predictor that calls its grant collects lift no other arm gave it.
   Neither direction is the expected one, so **read the blind arm as a count**:
@@ -1461,28 +1469,7 @@ the rendered table) and
   carry the outcome mix (denied, granted, dismissed or withdrawn), the same mix
   per arm, and each engine entry's per-arm score beside the figure for that
   reason — rendered by one shared helper, so the two surfaces state the same
-  draw.
-
-  **The review PR's headline names a tie as one.** Entries scored over the
-  whole set share one floor, so equal accuracy is equal lift; the board breaks
-  such a tie by Brier only to be a total order. Where the top whole-set
-  entries tie on their correct count, the headline names every one of them
-  rather than a "top predictor" chosen by that tie-break. Below 100 petitions
-  it states a lift in petitions beside its percentage points: there one
-  petition is worth more than a point, so the points are quantized to whole
-  petitions and their decimal is a resolution the draw does not have — at the
-  pinned ten, one petition is ten points.
-
-  **The back-test measures a different process from a forward cell.** A replay
-  cell runs with no MCP server — none of the CourtListener sidecar tools a
-  forward predict cell is given — and is provisioned no `documents/` (no
-  petition, brief in opposition, or merits-brief text; it gets the redacted
-  docket snapshot and `context.json`), so its information set is narrower than the forward cell's by
-  construction, on top of the snapshot and retrieval differences below. A
-  back-test figure is therefore evidence about the replayed prompt and engine
-  under that reduced harness, not an estimate of the same predictor's forward
-  performance, and a prompt change that works through the forward cell's tools
-  or documents cannot show up here at all. Two things the mix does not capture.
+  draw. Two things the mix does not capture.
   The first is that the day bar narrows the retrieval of every cell with a
   cutoff — the **dated and truncated** arms — and not the blind ones', so the
   arms differ in what they could *retrieve* as well as in what their
@@ -1500,6 +1487,31 @@ the rendered table) and
   `prior-vote`'s top line between a replay run and a no-replay one regardless:
   `--engine` also narrows the population to the replayable petitions, so the
   two are scored over different sets and their floors are different floors.
+
+
+  **The review PR's headline names a tie as one.** Entries scored over the
+  whole set share one floor, so equal accuracy is equal lift; the board breaks
+  such a tie by Brier only to be a total order. Where the top whole-set
+  entries tie on their correct count, the headline names every one of them
+  rather than a "top predictor" chosen by that tie-break, and where every tied
+  entry's whole lift sits on one arm it says which, on the headline itself.
+  Below 100 petitions — a display rule, not a statistical threshold — it
+  states a lift in petitions beside its percentage points, and a single
+  leader's margin over the next whole-set entry in petitions: there one
+  petition is worth more than a whole point, and a points figure alone hides
+  that it counts a few outcomes. At the pinned ten, one petition is ten
+  points.
+
+  **The back-test measures a different process from a forward cell.** A
+  **back-test** replay cell runs with no MCP server — none of the CourtListener
+  sidecar tools a forward predict cell is given — and is provisioned no `documents/` (no
+  petition, brief in opposition, or merits-brief text; it gets the redacted
+  docket snapshot and `context.json`), so its information set is narrower
+  than the forward cell's by construction, on top of the snapshot and
+  retrieval differences this section describes. A back-test figure is therefore evidence about the replayed prompt and engine
+  under that reduced harness, not an estimate of the same predictor's forward
+  performance, and a prompt change that works through the forward cell's tools
+  or documents cannot show up here at all.
 
   `provenance.clocks` records, per replayed petition, the arm and the two
   clock halves its cells were exported — `decided_before` (the Term) and

@@ -623,7 +623,7 @@
     },
     "CertBacktestSegment": {
       "additionalProperties": false,
-      "description": "One salience-band slice of a predictor's cert back-test standings.\n\nReconciles the offline cert back-test with the live prediction process: the\nforward tournament now scores skill against the **segment base rate** (the\npredicted slice's own grant rate, not the whole-docket rate), so the back-test\nreports the same, per salience band, over the paid scored segment (IFP\npetitions are outside it). ``segment_base_rate`` is the mean of the items'\nleakage-safe per-Term band rates (each computed over Terms strictly before its\nown). Skill against them is given two ways. ``pooled_brier_skill`` is the\nratio of sums, ``1 - sum(Brier) / sum(reference Brier)`` over the band's\nitems with a base rate \u2014 the band's skill as one forecaster, and the figure\nto read. ``mean_brier_skill`` is the mean of the per-item ratios, the shape\nthe forward stratum's own per-cell ``brier_skill_score`` averages to; it is\nkept for that comparison, but a denied petition in a low-rate band has a\nreference Brier near zero, so one such item's ratio can run to large\nnegatives and the mean can sit below zero while the pooled skill is\npositive. Both null when no item in the band had a prior-Term base rate.",
+      "description": "One salience-band slice of a predictor's cert back-test standings.\n\nReconciles the offline cert back-test with the live prediction process: the\nforward tournament now scores skill against the **segment base rate** (the\npredicted slice's own grant rate, not the whole-docket rate), so the back-test\nreports the same, per salience band, over the paid scored segment (IFP\npetitions are outside it). ``segment_base_rate`` is the mean of the items'\nleakage-safe per-Term band rates (each computed over Terms strictly before its\nown). Skill against them is given two ways, over the same items.\n``pooled_brier_skill`` is the ratio of sums, ``1 - sum(Brier) / sum(reference\nBrier)`` \u2014 the band's skill as one forecaster, the estimator the forward\nstratum's population skill uses, and the figure to read.\n``mean_brier_skill`` is the mean of the per-item ratios, kept so the band\nreading stays continuous with reports written before the pooled figure; it\nis the estimator the forward stratum rejects, because a denied petition in\na low-rate band has a reference Brier near zero, so one such item's ratio\ncan run to large negatives and the mean can sit below zero while the\npooled skill is positive. Both null when no item in the band had a\nprior-Term base rate.",
       "properties": {
         "accuracy": {
           "description": "Disposition accuracy over the band's petitions",
@@ -661,7 +661,7 @@
             }
           ],
           "default": null,
-          "description": "Mean of the per-item Brier skills vs each item's segment base rate (positive beats the base rate, ~0 parrots it, negative is worse) \u2014 the forward stratum's per-cell shape, kept for that comparison. A denied item in a low-rate band has a reference Brier near zero, so its ratio can run to large negatives and dominate the mean; read `pooled_brier_skill` for the band's skill. Null when no item had a base rate",
+          "description": "Mean of the per-item Brier skills vs each item's segment base rate (positive beats the base rate, ~0 parrots it, negative is worse), kept for continuity with reports written before `pooled_brier_skill`. Not comparable with the forward stratum's population skill, which is a ratio of sums: a denied item in a low-rate band has a reference Brier near zero, so its ratio can run to large negatives and dominate the mean. Read `pooled_brier_skill` for the band's skill. Null when no item had a base rate",
           "title": "Mean Brier Skill"
         },
         "pooled_brier_skill": {
@@ -675,7 +675,7 @@
             }
           ],
           "default": null,
-          "description": "Ratio-of-sums Brier skill over the band: one minus the summed Brier over the summed reference Brier (each item's base rate as its forecast), over the items with a base rate \u2014 the band's skill as one forecaster, not swayed by a single near-zero reference. Null when no item had a base rate or every reference Brier was zero, and on reports written before the figure existed",
+          "description": "Ratio-of-sums Brier skill over the band: one minus the summed Brier over the summed reference Brier (each item's base rate as its forecast), over the items `mean_brier_skill` covers \u2014 the band's skill as one forecaster, not swayed by a single near-zero reference, and the same estimator as the forward stratum's population skill. Null when no item had a base rate with a non-zero reference Brier, and on reports written before the figure existed",
           "title": "Pooled Brier Skill"
         },
         "segment_base_rate": {

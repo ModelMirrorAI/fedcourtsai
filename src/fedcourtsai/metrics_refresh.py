@@ -384,12 +384,13 @@ def granted_in_set(report: CertBacktest) -> int | None:
     return None
 
 
-#: Below this many petitions the review PR states a lift in petitions beside
-#: its percentage points. One petition is worth ``100 / n`` points, so under a
-#: hundred a single outcome moves the figure by more than a point: the pp lift
-#: is quantized to whole petitions and its decimal reads as a resolution the
-#: draw does not have. The registered fortnightly draw is ten, where one
-#: petition is ten points and the count is the measurement.
+#: A display rule, not a statistical threshold: below this many petitions the
+#: review PR states a lift in petitions beside its percentage points, and a
+#: lead at the top as a margin in petitions. One petition is worth ``100 / n``
+#: points, so under a hundred a single outcome moves the figure by more than a
+#: whole point, and a points figure alone hides that it counts a few
+#: outcomes. The registered fortnightly draw is ten, where one petition is ten
+#: points and the count is the measurement.
 SMALL_N = 100
 
 
@@ -461,18 +462,17 @@ def arm_mix_text(report: CertBacktest) -> str:
     arms = _whole_set_arms(report)
     parts = []
     for key in _arm_order(list(mix)):
-        n = mix[key]
         arm = arms.get(key)
         if arm is not None:
             other = arm.events_scored - arm.denied - arm.granted
             parts.append(
-                f"{key} {n} ({arm.denied} denied · {arm.granted} granted · "
+                f"{key} {arm.events_scored} ({arm.denied} denied · {arm.granted} granted · "
                 f"{other} dismissed/withdrawn)"
             )
         elif key in report.provisioning_denied:
-            parts.append(f"{key} {n} ({report.provisioning_denied[key]} denied)")
+            parts.append(f"{key} {mix[key]} ({report.provisioning_denied[key]} denied)")
         else:
-            parts.append(f"{key} {n}")
+            parts.append(f"{key} {mix[key]}")
     text = "; ".join(parts)
     if not arms:
         text += " — the per-arm grant/dismissal split is not recorded in this report"
@@ -616,33 +616,67 @@ def _backtest_disclosures_line(report: CertBacktest) -> str:
     )
 
 
+def _arm_carrier(entry: CertBacktestEntry) -> str | None:
+    """The one arm a positive lift sits on, as a clause, or ``None``.
+
+    Where exactly one arm's lift in petitions is positive and covers the whole
+    pooled lift, the lift is that arm's — at the registered draw usually one
+    petition — and the headline says so in place, since a caveat in the table
+    below does not travel when the headline is quoted.
+    """
+    lifts = [(arm, arm.correct - arm.denied) for arm in entry.arms]
+    pooled = sum(lift for _, lift in lifts)
+    positive = [(arm, lift) for arm, lift in lifts if lift > 0]
+    if pooled <= 0 or len(positive) != 1 or positive[0][1] < pooled:
+        return None
+    arm = positive[0][0]
+    noun = "petition" if arm.events_scored == 1 else "petitions"
+    return f"all of it on the {arm.arm} arm ({arm.events_scored} {noun})"
+
+
 def _top_line(report: CertBacktest, full: list[CertBacktestEntry]) -> str:
     """The headline over the whole-set entries: the top one, or the tie at the top.
 
-    Whole-set entries share one floor, so their lifts order exactly as their
-    correct counts do, and a tie on the count is a tie on lift. The board breaks
-    it by Brier, which is a total order and nothing more: at the registered draw
-    a Brier gap between tied entries rests on the one or two granted outcomes
-    the draw holds, so naming the Brier winner the "top predictor" reads a
-    tie-break as a finding. A tie is stated as one, every tied entry named.
+    ``full`` is in board order, and the board ranks whole-set entries by lift
+    first, so ``full[0]`` holds the highest correct count. Whole-set entries
+    share one floor, so their lifts order exactly as their correct counts do,
+    and a tie on the count is a tie on lift. The board breaks it by Brier,
+    which is a total order and nothing more: at the registered draw a Brier gap
+    between tied entries rests on the one or two granted outcomes the draw
+    holds, so naming the Brier winner the "top predictor" reads a tie-break as
+    a finding. A tie is stated as one, every tied entry named; a lead below
+    :data:`SMALL_N` petitions is stated as its margin in petitions, an
+    ordering rather than a measurement.
     """
     n = report.events_scored
     best = full[0]
     correct = round(best.accuracy * n)
     tied = [e for e in full if round(e.accuracy * n) == correct]
+    carriers = {_arm_carrier(e) for e in tied}
+    carrier = next(iter(carriers)) if len(carriers) == 1 else None
+    where = f" — {'for each, ' if len(tied) > 1 else ''}{carrier}" if carrier else ""
     if len(tied) == 1:
+        runner_up = next((e for e in full[1:]), None)
+        lead = ""
+        if runner_up is not None and n < SMALL_N:
+            margin = correct - round(runner_up.accuracy * n)
+            noun = "petition" if margin == 1 else "petitions"
+            lead = (
+                f"; leads the next whole-set entry by {margin} {noun}, an ordering at "
+                "this n rather than a measurement"
+            )
         return (
             f"top predictor `{best.predictor_id}`: lift **{_lift_text(best)}** over "
-            f"always-deny (accuracy {correct}/{n}, Brier {best.mean_brier_score:.3f})"
-            + _headline_disclosures(report, best.predictor_id)
+            f"always-deny{where} (accuracy {correct}/{n}, Brier "
+            f"{best.mean_brier_score:.3f}{lead})" + _headline_disclosures(report, best.predictor_id)
         )
     names = ", ".join(f"`{e.predictor_id}`" for e in tied)
     briers = " · ".join(f"{e.mean_brier_score:.3f}" for e in tied)
     caveats = "".join(_headline_disclosures(report, e.predictor_id, named=True) for e in tied)
     return (
         f"**{len(tied)} predictors tie at the top** — {names} — each {correct}/{n} "
-        f"correct, lift **{_lift_text(best)}** over always-deny. The board orders "
-        f"them by Brier ({briers}), a tie-break rather than a ranking"
+        f"correct, lift **{_lift_text(best)}** over always-deny{where}. The board "
+        f"orders them by Brier ({briers}), a tie-break rather than a ranking"
         + (" at this n" if n < SMALL_N else "")
         + caveats
     )
