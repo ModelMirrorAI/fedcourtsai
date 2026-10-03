@@ -1,14 +1,14 @@
 {
-  "cases": 221,
+  "cases": 224,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
     {
-      "cases": 193,
+      "cases": 195,
       "n": 3
     },
     {
-      "cases": 26,
+      "cases": 27,
       "n": 2
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 662,
+  "current_reads": 670,
   "declared_no_view": 9,
   "frozen_process": {
     "digests": [
@@ -4647,9 +4647,9 @@
         }
       ],
       "docket_id": 73358839,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1290",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1290.html",
       "events": [
         {
           "actual_disposition": null,
@@ -8307,9 +8307,9 @@
         }
       ],
       "docket_id": 73272491,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1238",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1238.html",
       "events": [
         {
           "actual_disposition": null,
@@ -9376,9 +9376,9 @@
         }
       ],
       "docket_id": 73286452,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1240",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1240.html",
       "events": [
         {
           "actual_disposition": null,
@@ -11440,9 +11440,9 @@
         }
       ],
       "docket_id": 73280380,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-882",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-882.html",
       "events": [
         {
           "actual_disposition": null,
@@ -12796,9 +12796,9 @@
         }
       ],
       "docket_id": 73265705,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1230",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1230.html",
       "events": [
         {
           "actual_disposition": null,
@@ -15958,6 +15958,119 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Wagner",
+      "caption": "Kyle Wagner v. United States",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000446",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, bearing on tens of thousands of bail determinations a year, and the applicant is a politically charged defendant detained largely on the basis of anti-ICE speech; the application itself resolves only a procedural stay, which tempers the score.",
+          "big_case_score": 0.55,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261002T212439Z"
+        },
+        {
+          "big_case_rationale": "An individual detention dispute presents a potentially nationwide appellate-review rule under the Bail Reform Act, with substantial liberty and political-speech stakes; the immediate stay remains case-specific.",
+          "big_case_score": 0.58,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261002T212439Z"
+        },
+        {
+          "big_case_rationale": "A routine criminal stay application without obvious nationwide implications.",
+          "big_case_score": 0.1,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261002T212439Z"
+        }
+      ],
+      "docket_id": 9526000446,
+      "docket_number": "26A446",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a446.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, bearing on tens of thousands of bail determinations a year, and the applicant is a politically charged defendant detained largely on the basis of anti-ICE speech; the application itself resolves only a procedural stay, which tempers the score.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.12,
+              "run_id": "20261002T212439Z"
+            },
+            {
+              "big_case_rationale": "An individual detention dispute presents a potentially nationwide appellate-review rule under the Bail Reform Act, with substantial liberty and political-speech stakes; the immediate stay remains case-specific.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.2,
+              "run_id": "20261002T212439Z"
+            },
+            {
+              "big_case_rationale": "A routine criminal stay application without obvious nationwide implications.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/gemini-baseline/20261002T212439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/gemini-baseline/20261002T212439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.05,
+              "run_id": "20261002T212439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kyle Wagner v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.41,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-09-29",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Wagner gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Wagner does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.58,
+      "score_min": 0.1,
+      "score_range": 0.48,
+      "short_caption": "Wagner v. United States",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Jane Elizabeth Roberts",
       "caption": "Jane Elizabeth Roberts, et al. v. Bob Ferguson, Governor of Washington, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -16216,9 +16329,9 @@
         }
       ],
       "docket_id": 73281346,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1062",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1062.html",
       "events": [
         {
           "actual_disposition": null,
@@ -16293,6 +16406,108 @@
       "score_min": 0.3,
       "score_range": 0.16,
       "short_caption": "Pitts v. Burke",
+      "status": "pending"
+    },
+    {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "Roxane M. Marschner v. Richard A. Marschner",
+      "caption_event_id": "evt-order-judgment",
+      "case_id": "scotus/73500251",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A recurring military-divorce question (roughly a quarter of two million military retirees waive retired pay for disability pay, and settlement indemnity clauses are standard drafting), with an entrenched state-high-court split; consequential for family-law practice and veterans' former spouses, but a technical preemption question of little general public salience.",
+          "big_case_score": 0.3,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261002T191725Z"
+        },
+        {
+          "big_case_rationale": "A nationally recurring question about the security of military-divorce settlements and disability-benefit protections, with substantial household stakes but a bounded statutory and family-law reach.",
+          "big_case_score": 0.56,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261002T191725Z"
+        },
+        {
+          "big_case_rationale": "Addresses the enforceability of contractual indemnification for VA disability waivers in divorce, which affects a specific subset of veterans but does not implicate broad constitutional or structural issues.",
+          "big_case_score": 0.3,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261002T191725Z"
+        }
+      ],
+      "docket_id": 73500251,
+      "docket_number": "25-1349",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1349.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring military-divorce question (roughly a quarter of two million military retirees waive retired pay for disability pay, and settlement indemnity clauses are standard drafting), with an entrenched state-high-court split; consequential for family-law practice and veterans' former spouses, but a technical preemption question of little general public salience.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/73500251/events/evt-order-judgment/predictions/claude-baseline/20261002T191725Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500251/events/evt-order-judgment/predictions/claude-baseline/20261002T191725Z",
+              "confidence": 0.5,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.7,
+              "run_id": "20261002T191725Z"
+            },
+            {
+              "big_case_rationale": "A nationally recurring question about the security of military-divorce settlements and disability-benefit protections, with substantial household stakes but a bounded statutory and family-law reach.",
+              "big_case_score": 0.56,
+              "cell_path": "data/cases/scotus/73500251/events/evt-order-judgment/predictions/codex-baseline/20261002T191725Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500251/events/evt-order-judgment/predictions/codex-baseline/20261002T191725Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.62,
+              "run_id": "20261002T191725Z"
+            },
+            {
+              "big_case_rationale": "Addresses the enforceability of contractual indemnification for VA disability waivers in divorce, which affects a specific subset of veterans but does not implicate broad constitutional or structural issues.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/73500251/events/evt-order-judgment/predictions/gemini-baseline/20261002T191725Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500251/events/evt-order-judgment/predictions/gemini-baseline/20261002T191725Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.25,
+              "run_id": "20261002T191725Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Roxane M. Marschner v. Richard A. Marschner"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3867,
+      "moment": "evt-order-judgment",
+      "moment_opened_at": "2026-10-01",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "score_max": 0.56,
+      "score_min": 0.3,
+      "score_range": 0.26,
+      "short_caption": "Marschner v. Marschner",
       "status": "pending"
     },
     {
@@ -16668,9 +16883,9 @@
         }
       ],
       "docket_id": 73281674,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1192",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1192.html",
       "events": [
         {
           "actual_disposition": null,
@@ -18396,9 +18611,9 @@
         }
       ],
       "docket_id": 73500222,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1321",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1321.html",
       "events": [
         {
           "actual_disposition": null,
@@ -19152,6 +19367,97 @@
       "score_range": 0.34,
       "short_caption": "Guam v. Ybanez",
       "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Swift Transportation of Arizona",
+      "caption": "Swift Transportation of Arizona, LLC v. Francis J. Mathew, Judge, First Judicial District Court of New Mexico, Santa Fe County, et al.",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000447",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A novel Fourth Amendment theory about a state court's Rule 706 examiner, pressed by a subsidiary of a NYSE-listed carrier, but at bottom a civil discovery-sanctions dispute in one wrongful-death case; little public salience unless the Court engages it.",
+          "big_case_score": 0.2,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261002T212439Z"
+        },
+        {
+          "big_case_rationale": "A compulsory examination of corporate electronic records raises potentially broader Fourth Amendment and civil-discovery questions, but this application concerns a case-specific discovery and contempt dispute in private wrongful-death litigation, not a nationwide policy.",
+          "big_case_score": 0.36,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261002T212439Z"
+        }
+      ],
+      "docket_id": 9526000447,
+      "docket_number": "26A447",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a447.html",
+      "events": [
+        {
+          "actual_disposition": "denied",
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A novel Fourth Amendment theory about a state court's Rule 706 examiner, pressed by a subsidiary of a NYSE-listed carrier, but at bottom a civil discovery-sanctions dispute in one wrongful-death case; little public salience unless the Court engages it.",
+              "big_case_score": 0.2,
+              "cell_path": "data/cases/scotus/9526000447/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000447/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261002T212439Z"
+            },
+            {
+              "big_case_rationale": "A compulsory examination of corporate electronic records raises potentially broader Fourth Amendment and civil-discovery questions, but this application concerns a case-specific discovery and contempt dispute in private wrongful-death litigation, not a nationwide policy.",
+              "big_case_score": 0.36,
+              "cell_path": "data/cases/scotus/9526000447/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000447/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.06,
+              "run_id": "20261002T212439Z"
+            }
+          ],
+          "resolved_at": "2026-10-02",
+          "title": "Swift Transportation of Arizona, LLC v. Francis J. Mathew, Judge, First Judicial District Court of New Mexico, Santa Fe County, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.28,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-09-30",
+      "n": 2,
+      "other_party": "Mathew",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Swift Transportation of Arizona gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "The Swift Transportation of Arizona does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.36,
+      "score_min": 0.2,
+      "score_range": 0.16,
+      "short_caption": "Swift Transportation of Arizona v. Mathew",
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -24865,9 +25171,9 @@
         }
       ],
       "docket_id": 73500245,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1344",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1344.html",
       "events": [
         {
           "actual_disposition": null,
@@ -26532,7 +26838,7 @@
           "big_case_rationale": "Pro se injunction application against the DOJ; routine and highly likely to be summarily denied with no broader impact.",
           "big_case_score": 0.01,
           "event_id": "evt-motion-disposition",
-          "leakage_suspected": false,
+          "leakage_suspected": true,
           "predictor_id": "gemini-baseline",
           "run_id": "20261001T193134Z"
         }
@@ -26581,7 +26887,7 @@
               "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000434/events/evt-motion-disposition/predictions/gemini-baseline/20261001T193134Z",
               "confidence": null,
               "granted": 0,
-              "leakage_suspected": false,
+              "leakage_suspected": true,
               "mode": "forward",
               "predicted_disposition": "denied",
               "predictor_id": "gemini-baseline",
@@ -26593,7 +26899,7 @@
           "title": "Ryan P. Givey v. Todd Blanche, Attorney General, et al."
         }
       ],
-      "leakage_suspected": false,
+      "leakage_suspected": true,
       "mean_big_case_score": 0.015,
       "moment": "evt-motion-disposition",
       "moment_opened_at": "2026-09-25",
@@ -26645,7 +26951,7 @@
           "big_case_rationale": "A pro se application from a state trial court with no media coverage.",
           "big_case_score": 0.01,
           "event_id": "evt-motion-disposition",
-          "leakage_suspected": false,
+          "leakage_suspected": true,
           "predictor_id": "gemini-baseline",
           "run_id": "20261001T215439Z"
         }
@@ -26656,7 +26962,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a437.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -26694,7 +27000,7 @@
               "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000437/events/evt-motion-disposition/predictions/gemini-baseline/20261001T215439Z",
               "confidence": null,
               "granted": 0,
-              "leakage_suspected": false,
+              "leakage_suspected": true,
               "mode": "forward",
               "predicted_disposition": "denied",
               "predictor_id": "gemini-baseline",
@@ -26702,11 +27008,11 @@
               "run_id": "20261001T215439Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-01",
           "title": "In Re Nikolay M. Valov"
         }
       ],
-      "leakage_suspected": false,
+      "leakage_suspected": true,
       "mean_big_case_score": 0.015,
       "moment": "evt-motion-disposition",
       "moment_opened_at": "2026-09-28",
@@ -26717,10 +27023,10 @@
       "score_min": 0.01,
       "score_range": 0.01,
       "short_caption": "In re Valov",
-      "status": "pending"
+      "status": "resolved"
     }
   ],
-  "rows_with_leakage_flag": 2,
+  "rows_with_leakage_flag": 4,
   "schema_version": "1.2",
-  "scored_reads": 633
+  "scored_reads": 641
 }
