@@ -6411,3 +6411,141 @@ freeze commit is recorded here.
     line (6 on the blob's payload; non-zero rather than exact, since
     provisioning may read a newer content-store payload), where its latest
     payload still serves the "Professor …" block.
+
+- **The merits-brief selector reads "Brief for the petitioner" and redacted
+  briefs, and a consolidated member reads its merits filings off the lead
+  docket, 2026-10-03.** A **conditioning** entry in the *what the pipeline
+  provisions* class. Two changes to which documents a granted case's cells are
+  given, landed together:
+  1. The merits-brief arms (and the reply arms) read two further spellings of
+     the filing entry: "Brief **for** the petitioner/respondent(s) …" — the
+     Court's title form, often naming no party — and a leading **"Redacted"**,
+     the public copy of a brief filed under seal. Both stay anchored at the
+     entry's start, so a motion *about* a brief ("Motion to file petitioner's
+     brief on the merits under seal with redacted copies …", "Motion for an
+     extension of time to file the briefs on the merits …") is still not
+     selected.
+  2. A **consolidated member** — a docket carrying the Court's entry "Because
+     the Court has consolidated these cases for briefing and oral argument,
+     future filings and activity in the cases will now be reflected on the
+     docket of No. <lead>." naming a number other than its own — has its lead's
+     docket JSON fetched beside its own (one more paced GET), by the live poller
+     and by the `document-backfill` pass (on a candidate missing a merits kind)
+     alike, and each of the four merits
+     kinds its own docket does not yield is taken from the lead's selection
+     over the lead entries that are **the member's own** — an "(as to No.)"
+     mark naming the member's number, or, unmarked, a filer naming a party on
+     the member's own side list — only lead filings dated after the
+     **member's** own grant, and none at all where the lead's party side reads
+     as self-represented. A borrowed row is
+     stored under the member's `case_id` with the lead's PDF URL and the lead
+     entry's date. Cert-stage kinds stay the member's own.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary. The staged documents live in the
+  gitignored `record/`, and `prediction.json` has no field separating a cell
+  that read a merits brief from one that did not. The boundary exists only
+  here, and a stamped cell is post-change if the carrying promotion's merge
+  commit is an ancestor of, or equal to, its `process_version.pipeline_sha` —
+  and, since the documents are fetched rather than staged differently, only
+  once a post-promotion fetch (a live re-poll or a `document-backfill` apply)
+  has stored the newly selected rows for that docket. On an affected docket,
+  cells on either side of the boundary may not be pooled.
+
+  **What does not move.** The registered **briefed** merits moment is still
+  dated by the narrower "Brief of respondent …" reading
+  (`merits_signals.respondent_brief_date`); the selector's wider respondent
+  reading is a separate predicate (`is_respondent_merits_brief_document`). So
+  no moment opens, moves or closes, no base rate re-prices, no membership rule
+  moves and no scored figure moves. The source PDFs and the snapshots are
+  untouched; the corpus gains document rows only through the fetching lanes.
+  The staged-text contact scrub is unchanged: it runs over a borrowed document
+  exactly as over the member's own, keyed on the member's counsel blocks.
+
+  **The population.** An ad hoc read-only pass over a *copy* of the pulled
+  blob, `sha256:2b356dbd…`, newest pull stamp `2026-10-02`, newest stored
+  snapshot `2026-07-13`. It predates the `document-backfill` applies of
+  2026-10-03, and the per-case content store, which alone holds most current
+  dockets, was not read, so these are figures about the blob's 2,925 latest
+  payloads and not about the provisioned population.
+  - **Widened arms:** 4 entries newly match, on 4 dockets, and none stops
+    matching. Petitioner side 2 — "Brief for the petitioner filed." (25-429)
+    and "Redacted brief of petitioner … filed." (23-14) — each a post-grant
+    entry, so each of those two dockets newly selects a
+    `merits-brief-petitioner` row. Respondent side 2 ("Brief for the
+    Respondents filed.", "Brief for respondent … filed."), both cert-stage
+    entries, so neither selects a merits row. Reply arms: none. No other
+    docket's selection changes.
+  - **Consolidation:** 23 dockets carry the entry — 11 leads naming
+    themselves and **12 members**. **1** member has an open merits event
+    (25-566, lead 25-238, at the grant moment). Reading each lead's stored blob
+    snapshot as a stand-in for the fresh fetch, **7** members would borrow
+    **21** merits rows, each one the member's own party's filing, placed by an
+    "(as to No.)" mark or by the filer named (24-151 among them: the United
+    States' brief and reply as petitioner, its own docket carrying the
+    respondent's brief, and the lead petitioners' brief — a respondent on
+    24-151's own docket — not borrowed). 1 member reads a
+    cross-positioned lead whose entries name none of its own side's parties,
+    and borrows nothing (24-1113); for 2 members the lead is not stored on the
+    blob (23-1201, 24-1287), and for 2 the lead's stored snapshot yields no
+    merits filing (25-238, not yet briefed there; 25-406, whose filings are
+    entered under counsel's own names). No stored lead reads as
+    self-represented on a party side.
+
+  **Known residuals.**
+  - A consolidated member's briefed moment still reads the member's own
+    docket, so a member whose respondent filed on the lead never opens it
+    (11 of the 12 members carry no `merits_brief_filed`). The borrowed
+    documents reach that member's cells only at moments placed after the
+    filings (or uncut, the evaluate path and the case-summary lane), and the
+    `document-backfill` merits arm, gated on `merits_brief_filed`, reaches only
+    24-151 among them; a pending member is provisioned by the live poller's
+    selection sweep while its merits event is open. Moving the moment is a
+    separate change.
+  - The lead's own party blocks are not compared by the staged-text scrub,
+    since provisioning reads one case's snapshot; a lead reading as
+    self-represented on a party side lends nothing instead.
+  - The cert-stage opposition arm still reads only "Brief of respondent(s) …",
+    so the two cert-stage "Brief for the respondent(s)" entries above are not
+    selected as oppositions.
+  - Merits filings entered under counsel's own name rather than a party word
+    remain unread, on a lead as on any docket; a lead entry naming no filer
+    ("Brief for the petitioner filed.") is not borrowed, since nothing places
+    it with one docket of the group; and a lead's **own** selection still
+    takes the first matching entry, which on a lead may be a member's filing.
+  - A member whose lead carries the filing but lends nothing (every entry
+    another docket's, or dated before the member's grant) is read at the
+    `no_link` floor by `document-backfill` and stamped until its next poll.
+
+  **What a post-change cell reads.** On an affected docket, a superset of the
+  pre-change documents: a `merits-brief-petitioner` row on 25-429 and 23-14,
+  and on a consolidated member up to four merits rows whose manifest `url` is
+  the lead docket's PDF. Each is placed by its entry date, so a cell cut before
+  the filing does not read it. No skill movement is predicted. In the
+  2026-09-21 entry's negative form, a movement in **either** direction across
+  this boundary may not be read as a model effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py tests/test_document_backfill.py
+    tests/test_cli_provision.py tests/test_live.py -k "consolidat or lead or
+    merits_brief or merits_reply or briefed_moment or as_to or filer or
+    cross_positioned"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+    six digests;
+  - `gh workflow run run-repair.yml --ref main -f repair=document-backfill -f
+    repair_mode=dry-run -f repair_bound=50` lists 25-429 (`scotus/73228193`),
+    23-14 (`scotus/68354674`) and 24-151 (`scotus/72483856`) under `selected`
+    with their missing merits kinds, and none of the three under
+    `no_entry_modern_cases` — where the ledger's `candidates` exceeds the
+    bound and a docket is not reached, the dry run is repeated with the bound
+    raised to `candidates`, since the class is walked in `case_id` order; an
+    apply bounded to that count then stores them, 24-151's rows carrying the
+    24-20 docket's PDF URLs and the United States' brief.

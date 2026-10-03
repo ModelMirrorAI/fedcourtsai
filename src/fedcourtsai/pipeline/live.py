@@ -73,7 +73,7 @@ from ..supremecourt import (
     parse_scotus_docket_number,
     term_roll_date,
 )
-from .documents import fetch_case_documents
+from .documents import fetch_case_documents, fetch_consolidation_lead
 from .events import extract_events
 from .ingest import (
     UNSAMPLED_WEIGHT,
@@ -327,11 +327,20 @@ def provision_documents(
     is provisioned, and the fetch happens near filing time (document links are
     a rolling window upstream). Idempotent per (kind, url); returns the number
     of documents written.
+
+    A granted **consolidated member** — a docket carrying the Court's entry that moves
+    every later filing to a lead docket — costs one more paced GET, for the
+    lead's JSON (:func:`~fedcourtsai.pipeline.documents.fetch_consolidation_lead`),
+    because its merits briefs and replies are entered there and never on its
+    own docket. They are stored under the member with the lead's URL; a lead
+    the fetch did not return is warned into the run log and the member's own
+    documents are stored without it. Any other docket costs no extra request.
     """
     with corpus.connect(corpus_db_path) as conn:
         stored = {d.kind: d.url for d in corpus.documents_for_case(conn, case_id)}
+    lead = fetch_consolidation_lead(client, case_id, payload).payload
     documents = fetch_case_documents(
-        client, case_id, payload, stored_urls=stored, char_cap=char_cap, today=today
+        client, case_id, payload, stored_urls=stored, char_cap=char_cap, today=today, lead=lead
     )
     if not documents:
         return 0

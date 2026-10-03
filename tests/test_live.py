@@ -50,7 +50,7 @@ from fedcourtsai.supremecourt import (
     term_roll_date,
 )
 from tests.conftest import seed_prediction
-from tests.test_documents import _pdf
+from tests.test_documents import _LEAD_BRIEFS, _lead_payload, _member_payload, _pdf
 
 # --- payload fixtures (trimmed real shapes, per docs/live-sources.md) -----
 
@@ -3684,3 +3684,59 @@ def test_a_case_already_on_the_unrecorded_queue_is_not_listed_twice(tmp_path: Pa
         {"court": "scotus", "docket": 9526000327, "reason": "outcome convergence: OSError"}
     ]
     assert queues.convergence["unrecorded_events"] == 2
+
+
+# --- a consolidated member's merits filings, read off its lead docket -------------
+
+
+def test_provision_documents_reads_a_consolidated_members_briefs_off_its_lead(
+    tmp_path: Path,
+) -> None:
+    """The live path: one more paced docket GET, the lead's links stored under the member."""
+    pdfs = {
+        "https://www.supremecourt.gov/member-petition.pdf": _pdf("The member's petition."),
+        "https://www.supremecourt.gov/member-bio.pdf": _pdf("The member's opposition."),
+        "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-pet.pdf": _pdf(
+            "Petitioners say reverse."
+        ),
+        "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-resp.pdf": _pdf(
+            "Respondents say affirm."
+        ),
+        "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-reply.pdf": _pdf(
+            "Petitioners answer."
+        ),
+    }
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        asked.append(url)
+        if url.endswith("/25-500.json"):
+            return httpx.Response(200, json=_lead_payload(*_LEAD_BRIEFS))
+        return httpx.Response(200, content=pdfs[url]) if url in pdfs else httpx.Response(404)
+
+    sleeps: list[float] = []
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        conn.commit()
+    with _client(handler, sleeps) as client:
+        written = live_module.provision_documents(
+            client,
+            db,
+            "scotus/9025000501",
+            _member_payload(),
+            char_cap=10_000,
+            today=date(2026, 8, 20),
+        )
+    with corpus.connect(db) as conn:
+        stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/9025000501")}
+    assert written == len(stored)
+    # The lead's JSON is asked for once, first, and paced like every other GET.
+    assert [url for url in asked if url.endswith(".json")] == [asked[0]]
+    assert asked[0].endswith("/25-500.json")
+    assert len(sleeps) == len(asked) - 1  # the throttle sits between requests
+    assert stored["petition"].url == "https://www.supremecourt.gov/member-petition.pdf"
+    assert stored["merits-brief-petitioner"].url.endswith("/25-500/lead-pet.pdf")
+    assert stored["merits-brief-respondent"].url.endswith("/25-500/lead-resp.pdf")
+    assert stored["merits-reply-petitioner"].url.endswith("/25-500/lead-reply.pdf")
+    assert "Petitioners say reverse." in stored["merits-brief-petitioner"].text

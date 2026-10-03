@@ -51,6 +51,11 @@ their trigger.
   Fresh rather than from the stored snapshot because the question is whether the
   link is served *now* — a stored payload can name a URL upstream has since
   withdrawn, and a stored payload predating the filing names none at all.
+  A **consolidated member** (a docket carrying the Court's entry moving every
+  later filing to a lead docket) also has its lead's JSON fetched, one more
+  paced GET in either mode, because its merits briefs are entered there
+  (:func:`~fedcourtsai.pipeline.documents.fetch_consolidation_lead`); the
+  member is selected, measured for the alarm, and stored against both.
 - **Two floors, reported as floors.** A candidate whose docket carries the entry
   for a kind it is missing but posts no fetchable PDF behind it is at the
   ``no_link`` floor: a Rule 34.6 paper filing the Court served nothing for, or —
@@ -145,7 +150,9 @@ from .documents import (
     KIND_PETITION,
     document_fetch_losses,
     fetch_case_documents,
+    fetch_consolidation_lead,
     merits_entry_matched,
+    one_log_line,
     primary_entry_matched,
     reset_document_fetch_losses,
     select_documents,
@@ -160,7 +167,10 @@ logger = logging.getLogger(__name__)
 # transport failure), not compute: everything this pass does is a paced GET and
 # a cheap parse.
 #
-# The docket JSON, fetched on every candidate in either mode.
+# The docket JSON, fetched on every candidate in either mode. A consolidated
+# member missing a merits kind fetches its lead's JSON too, and is left
+# uncharged for it on the reasoning below for the overrunning candidate: only the
+# last-admitted candidate can run past the deadline, and members are a handful.
 ESTIMATED_DOCKET_SECONDS = 5.0
 # One selected filing: the GET, the download, and the PDF text extraction.
 ESTIMATED_DOCUMENT_SECONDS = 20.0
@@ -381,11 +391,14 @@ class DocumentBackfillResult(BaseModel):
     docket_unserved: int = Field(
         ge=0,
         description="Candidates whose docket JSON came back 404 — the row is "
-        "addressable but upstream serves nothing there",
+        "addressable but upstream serves nothing there. Includes a consolidated "
+        "member missing a merits kind whose **lead** docket came back 404, since "
+        "its merits filings are entered there",
     )
     docket_errors: int = Field(
         ge=0,
-        description="Candidates whose docket JSON fetch failed transport-side after "
+        description="Candidates whose docket JSON fetch — or, on a consolidated "
+        "member missing a merits kind, its lead docket's — failed transport-side after "
         "the client's own retry. Apart from `docket_unserved` because the repairs "
         "differ: a transport failure is worth re-attempting, a 404 is not",
     )
@@ -505,10 +518,13 @@ def is_merits_relevant(row: corpus.CorpusRow) -> bool:
     both sides' opening briefs filed, so a missing kind is a document waiting to
     be fetched. A granted row without it is one of two things, and a fetch helps
     neither: a case still being briefed, which the selection sweep provisions at
-    its next pass while its merits event is open, or a case whose briefing is
-    recorded in a shape :mod:`~fedcourtsai.pipeline.merits_signals` does not
-    read — in which case the selector will not read it either and the row would
-    sit at a floor in this class forever.
+    its next pass while its merits event is open, or a case whose respondent's
+    briefing the briefed moment's reading
+    (:func:`~fedcourtsai.pipeline.merits_signals.respondent_brief_date`) does not
+    date. That reading is narrower than the selector's — it reads neither "Brief
+    for the respondent …" nor a consolidated member's lead docket — so this arm
+    is gated on the moment, and such a case is reached only by the selection
+    sweep while its merits event is open.
     """
     return row.date_cert_granted is not None and row.merits_brief_filed is not None
 
@@ -676,23 +692,42 @@ def estimated_candidate_seconds(*, apply: bool) -> float:
 
 def _fetch_docket(
     client: SupremeCourtClient, gap: DocumentGap
-) -> tuple[Mapping[str, Any] | None, str | None]:
-    """This candidate's docket JSON, or ``None`` and the reason there is none.
+) -> tuple[Mapping[str, Any] | None, Mapping[str, Any] | None, str | None]:
+    """This candidate's docket JSON and its lead's, or ``None`` and the reason there is none.
 
     Every way the fetch can fail is a *reported reason* rather than a raise, for
     the reason the OCR recovery's re-fetch is: a slice must cost the maintainer
     one candidate when a docket is unreachable, not the whole dispatch.
+
+    The second value is a **consolidated member's** lead docket
+    (:func:`~fedcourtsai.pipeline.documents.fetch_consolidation_lead`), whose
+    merits filings are entered there: one more paced GET, in either mode, since
+    selection is the dry run's whole diagnostic. Only for a candidate missing a
+    merits kind — no other kind is borrowed, so a primary-arm candidate would
+    spend the GET and discard what it read — and ``None`` otherwise. A lead the
+    fetch did not return fails the candidate with the lead's reason, counted as
+    the docket loss it is rather than attributed to a floor: read without its
+    lead, a member's docket carries no merits entry, which would name it as a
+    selector blind spot. A candidate in both arms loses its primary fetch for
+    that pass with it, and keeps its place at the head of the next slice.
     """
     assert gap.address is not None  # unaddressable gaps never enter a slice
     term, serial, form = gap.address
     try:
         payload = client.get_docket(term, serial, form=form)
     except httpx.HTTPError as exc:
-        logger.warning("document-backfill: docket fetch failed for %s: %s", gap.case_id, exc)
-        return None, "docket-error"
+        logger.warning(
+            "document-backfill: docket fetch failed for %s: %s", gap.case_id, one_log_line(str(exc))
+        )
+        return None, None, "docket-error"
     if payload is None:
-        return None, "docket-unserved"
-    return payload, None
+        return None, None, "docket-unserved"
+    if not gap.merits:
+        return payload, None, None
+    lead = fetch_consolidation_lead(client, gap.case_id, payload)
+    if lead.failure is not None:
+        return None, None, lead.failure
+    return payload, lead.payload, None
 
 
 def backfill_documents(
@@ -815,16 +850,16 @@ def backfill_documents(
                     estimate,
                 )
                 break
-        payload, refused = _fetch_docket(client, gap)
+        payload, lead, refused = _fetch_docket(client, gap)
         if payload is None:
             if refused == "docket-unserved":
                 tally.docket_unserved += 1
             else:
                 tally.docket_errors += 1
             continue
-        refs = [ref for ref in select_documents(payload) if ref.kind in gap.kinds]
+        refs = [ref for ref in select_documents(payload, lead=lead) if ref.kind in gap.kinds]
         if not refs:
-            alarmed = _record_floor(payload, gap, tally)
+            alarmed = _record_floor(payload, gap, tally, lead=lead)
             # A floor the alarm fired on is not stamped. That reading is a
             # missing kind the selector matched no entry for on a docket modern
             # enough to carry links — which is this pass's own blind spot rather
@@ -839,7 +874,9 @@ def backfill_documents(
         elif not apply:
             tally.selected[gap.case_id] = [ref.kind for ref in refs]
         else:
-            _store_case(conn, client, gap, payload, char_cap=char_cap, today=today, tally=tally)
+            _store_case(
+                conn, client, gap, payload, lead=lead, char_cap=char_cap, today=today, tally=tally
+            )
 
     return DocumentBackfillResult(
         applied=apply,
@@ -889,7 +926,9 @@ class _SliceTally:
     docket_errors: int = 0
 
 
-def _entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
+def _entry_matched(
+    payload: Mapping[str, Any], *, kind: str, lead: Mapping[str, Any] | None
+) -> bool:
     """Whether the docket carries this kind's entry at all, link or no link.
 
     The two readers behind it answer for their own halves of the class and
@@ -898,13 +937,23 @@ def _entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
     unrecognized kind reads ``False`` — the alarming side, which is right: a kind
     this pass put a case in the class for and cannot then measure is a defect
     worth surfacing, not one to absorb.
+
+    ``lead`` is a consolidated member's lead docket, which the merits reader
+    consults beside the member's own: the member's briefs are entered there, so
+    a member briefed on its lead is not a filing shape the selector is blind to.
     """
     if kind in MERITS_GAP_KINDS:
-        return merits_entry_matched(payload, kind=kind)
+        return merits_entry_matched(payload, kind=kind, lead=lead)
     return primary_entry_matched(payload, kind=kind)
 
 
-def _record_floor(payload: Mapping[str, Any], gap: DocumentGap, tally: _SliceTally) -> bool:
+def _record_floor(
+    payload: Mapping[str, Any],
+    gap: DocumentGap,
+    tally: _SliceTally,
+    *,
+    lead: Mapping[str, Any] | None = None,
+) -> bool:
     """Attribute a candidate selection nominated nothing for, to its own floor.
 
     Returns whether this candidate raised the modern-docket **alarm**, which the
@@ -930,8 +979,15 @@ def _record_floor(payload: Mapping[str, Any], gap: DocumentGap, tally: _SliceTal
     are there and whose opening entry is not is named here even though its count
     went to ``no_link``. Folding the alarm into the count instead would hide
     exactly the case the alarm exists for behind the one kind that did match.
+
+    On a **consolidated member** the lead's entries are read too, on text alone.
+    So a member whose lead carries the filing but lends nothing — every such
+    entry is another docket's, dated before the member's grant, or on a lead
+    reading as self-represented — is at ``no_link`` and an apply stamps it, the
+    same as a filing the Court posted no PDF for: either way nothing on the
+    docket version read is this route's to fetch, and the next poll releases it.
     """
-    unmatched = [kind for kind in gap.kinds if not _entry_matched(payload, kind=kind)]
+    unmatched = [kind for kind in gap.kinds if not _entry_matched(payload, kind=kind, lead=lead)]
     if len(unmatched) < len(gap.kinds):
         tally.no_link += 1
     else:
@@ -988,6 +1044,7 @@ def _store_case(
     gap: DocumentGap,
     payload: Mapping[str, Any],
     *,
+    lead: Mapping[str, Any] | None,
     char_cap: int,
     today: date,
     tally: _SliceTally,
@@ -1002,7 +1059,13 @@ def _store_case(
     """
     stored_urls = {d.kind: d.url for d in corpus.documents_for_case(conn, gap.case_id)}
     fetched = fetch_case_documents(
-        client, gap.case_id, payload, stored_urls=stored_urls, char_cap=char_cap, today=today
+        client,
+        gap.case_id,
+        payload,
+        stored_urls=stored_urls,
+        char_cap=char_cap,
+        today=today,
+        lead=lead,
     )
     if not fetched:
         return

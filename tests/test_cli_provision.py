@@ -2656,3 +2656,71 @@ def test_a_represented_docket_says_nothing_about_a_scrub_in_the_run_log(
 
     assert result.exit_code == 0, result.output
     assert "contact scrub" not in result.output
+
+
+# --- a consolidated member's merits filings, stored off its lead docket ------------
+
+_LEAD_REPLY_URL = "https://www.supremecourt.gov/DocketPDF/25/25-1200/reply.pdf"
+
+
+def _seed_lead_reply(fixture_corpus: FixtureCorpus, text: str, *, entry_date: str) -> None:
+    """A merits reply the member filed after consolidation, so entered on the lead docket."""
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="merits-reply-petitioner",
+                    url=_LEAD_REPLY_URL,
+                    entry_date=entry_date,
+                    fetched_at=date(2026, 8, 20),
+                    text=text,
+                )
+            ],
+        )
+
+
+def test_a_document_from_the_lead_docket_is_scrubbed_on_the_members_reading(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A self-represented member's own filings go to the lead docket once the
+    # cases are consolidated, signed exactly as its petition was. The scrub is
+    # keyed on the member's counsel blocks and runs over every staged document,
+    # wherever it was fetched from, so the borrowed one is withheld alike.
+    _seed_snapshot(fixture_corpus, date(2026, 8, 20), _PRO_SE_DOCKET)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+    _seed_lead_reply(fixture_corpus, _SIGNED_IN_PERSON, entry_date="Aug 12 2026")
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    staged = paths.document("merits-reply-petitioner").read_text()
+    assert "jane.doe@example.com" not in staged
+    assert "(713) 555-0147" not in staged
+    entry = _documents_manifest(fixture_corpus)["merits-reply-petitioner"]
+    assert entry["contact_scrubbed"] is True
+    assert entry["contact_replacements"] == 3
+    # Its provenance is the lead's PDF, where the filing actually is.
+    assert entry["url"] == _LEAD_REPLY_URL
+
+
+def test_the_moment_cut_places_a_lead_docket_document_by_its_lead_entry_date(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The cut applies to a borrowed filing exactly as to the member's own: it is
+    # placed by the lead entry's date, so a grant-moment cell does not read it.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+    _seed_lead_reply(fixture_corpus, "The petitioners reply.", entry_date="Mar 02 2026")
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert not paths.document("merits-reply-petitioner").exists()
+
+    uncut = _provision_cell()
+    assert uncut.exit_code == 0, uncut.output
+    assert paths.document("merits-reply-petitioner").read_text() == "The petitioners reply.\n"
