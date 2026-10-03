@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000447",
+  "run_id": "20261003T191100Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The event resolved on 2026-10-02 (single-Justice denial) and both predictions were created on 2026-10-02 at about 21:30Z from a 2026-10-01 snapshot, so the denial was plausibly public when the forward cells ran. Neither retrieval log nor either reasoning document shows the disposition being retrieved (case-specific CourtListener lookups returned nothing; the one corpus priors query listed rows that exclude 26A447), so both cells are graded forward and clean. Not a mis-provisioned decided case, but the window between provisioning and resolution on fast interim applications is a day or less; outcome.json carries no time of day, so the forward guarantee for such cells rests on the logs rather than on timestamps."
+    }
+  ]
+}

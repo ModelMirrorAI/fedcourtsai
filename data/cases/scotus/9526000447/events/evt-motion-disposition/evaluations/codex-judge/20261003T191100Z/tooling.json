@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000447",
+  "gaps": [
+    "Intraday disposition timestamp for checking same-day forward provisioning",
+    "Captured result bodies are not available in the staged digest-only logs"
+  ],
+  "helpful": [
+    "Blinded candidate records",
+    "Harness-captured query slices and result-capture markers",
+    "Committed interim statpack and stage-specific scoring contract"
+  ],
+  "notes": "No external research or corpus query was needed. The statpack was read for baseline context, not to populate harness-owned interim baseline or skill fields. System Python supplies JSON Schema validation; the project environment supplies model validation.",
+  "role": "evaluator",
+  "run_id": "20261003T191100Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local file reads",
+    "jq",
+    "Python schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
