@@ -1501,7 +1501,10 @@ the rendered table) and
   an arm that small is a count, not a rate: quote it as denials (or correct
   calls) over n, never as a percentage without its n. Read the mix before the
   scores, and read a shift in it between two fortnights the way you read a
-  change of dispatch. The weekly digest's cert back-test line and the review PR
+  change of dispatch. Under `--spread` the mix moves every fortnight by
+  sampling alone, since each newer blob re-keys the random draw (*How the set
+  was drawn*, above), so a shift says to read the two fortnights' figures
+  apart, not that anything about the draw changed. The weekly digest's cert back-test line and the review PR
   carry the outcome mix (denied, granted, dismissed or withdrawn), the same mix
   per arm, and each engine entry's per-arm score beside the figure for that
   reason — rendered by shared helpers, so the two surfaces state the same
