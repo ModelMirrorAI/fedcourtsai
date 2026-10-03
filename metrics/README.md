@@ -1461,14 +1461,14 @@ the rendered table) and
   docket. Like the pooled floor, the floor counts are over the whole replayed
   set, so an entry short some cells is floored by neither, while its `arms`
   cover only its own scored subset. At the pinned
-  draw of ten an arm can hold one to three petitions, and a floor or score over
+  draw of ten an arm can hold as few as one petition, and a floor or score over
   an arm that small is a count, not a rate: quote it as denials (or correct
   calls) over n, never as a percentage without its n. Read the mix before the
   scores, and read a shift in it between two fortnights the way you read a
   change of dispatch. The weekly digest's cert back-test line and the review PR
   carry the outcome mix (denied, granted, dismissed or withdrawn), the same mix
   per arm, and each engine entry's per-arm score beside the figure for that
-  reason — rendered by one shared helper, so the two surfaces state the same
+  reason — rendered by shared helpers, so the two surfaces state the same
   draw. Two things the mix does not capture.
   The first is that the day bar narrows the retrieval of every cell with a
   cutoff — the **dated and truncated** arms — and not the blind ones', so the
@@ -1488,36 +1488,11 @@ the rendered table) and
   `--engine` also narrows the population to the replayable petitions, so the
   two are scored over different sets and their floors are different floors.
 
-
-  **The review PR's headline names a tie as one.** Entries scored over the
-  whole set share one floor, so equal accuracy is equal lift; the board breaks
-  such a tie by Brier only to be a total order. Where the top whole-set
-  entries tie on their correct count, the headline names every one of them
-  rather than a "top predictor" chosen by that tie-break, and where every tied
-  entry's whole lift sits on one arm it says which, on the headline itself.
-  Below 100 petitions — a display rule, not a statistical threshold — it
-  states a lift in petitions beside its percentage points, and a single
-  leader's margin over the next whole-set entry in petitions: there one
-  petition is worth more than a whole point, and a points figure alone hides
-  that it counts a few outcomes. At the pinned ten, one petition is ten
-  points.
-
-  **The back-test measures a different process from a forward cell.** A
-  **back-test** replay cell runs with no MCP server — none of the CourtListener
-  sidecar tools a forward predict cell is given — and is provisioned no `documents/` (no
-  petition, brief in opposition, or merits-brief text; it gets the redacted
-  docket snapshot and `context.json`), so its information set is narrower
-  than the forward cell's by construction, on top of the snapshot and
-  retrieval differences this section describes. A back-test figure is therefore evidence about the replayed prompt and engine
-  under that reduced harness, not an estimate of the same predictor's forward
-  performance, and a prompt change that works through the forward cell's tools
-  or documents cannot show up here at all.
-
   `provenance.clocks` records, per replayed petition, the arm and the two
   clock halves its cells were exported — `decided_before` (the Term) and
   `replay_cutoff` (the day, null on a blind petition) — so the clock's width
   is read from the report rather than assumed from the arm. Named petitions
-  beside their arms, with the arms' denial counts, state a named petition's
+  beside their arms, with the arms' outcome counts, state a named petition's
   outcome wherever its arm is pure, which includes every arm of one, and the
   draws of consecutive fortnights can overlap. So `cert-backtest` takes the
   standing report out of the working tree while the cells run and puts it
@@ -1560,6 +1535,32 @@ the rendered table) and
   always-deny floor (a property of the labels) and the offline `prior-vote`
   row (which votes on dispositions, not counsel) are unaffected and compare
   across it as before.
+
+  **The review PR's headline names a tie as one.** Entries scored over the
+  whole set share one floor, so equal accuracy is equal lift; the board breaks
+  such a tie by Brier only to be a total order. Where the top whole-set
+  entries tie on their correct count, the headline names every one of them
+  rather than a "top predictor" chosen by that tie-break; and where the
+  headline entry's whole lift — every tied entry's alike — sits on one arm, it
+  says which, on the headline itself.
+  Below 100 petitions — a display rule, not a statistical threshold — it
+  states a lift in petitions beside its percentage points, and a single
+  leader's margin over the next whole-set entry in petitions: there one
+  petition is worth more than a whole point, and a points figure alone hides
+  that it counts a few outcomes. At the pinned ten, one petition is ten
+  points.
+
+  **The back-test measures a different process from a forward cell.** A
+  **back-test** replay cell runs with no MCP server — none of the CourtListener
+  sidecar tools a forward predict cell is given — and is provisioned no `documents/` — none of
+  the filed-document text (petition, brief in opposition, merits briefs) a
+  forward cell is given wherever any was provisioned; it gets the redacted
+  docket snapshot and `context.json` — so its information set is narrower
+  than the forward cell's by construction, on top of the snapshot and
+  retrieval differences this section describes. A back-test figure is therefore evidence about the replayed prompt and engine
+  under that reduced harness, not an estimate of the same predictor's forward
+  performance, and a prompt change that works through the forward cell's tools
+  or documents cannot show up here at all.
 
   Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A

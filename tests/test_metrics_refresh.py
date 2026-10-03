@@ -569,6 +569,9 @@ def test_a_small_n_lead_is_stated_as_its_margin_in_petitions(tmp_path: Path) -> 
     report = split_arm_report()
     leader = next(e for e in report.entries if e.predictor_id == "claude-baseline")
     leader.accuracy, leader.lift_over_always_denied = 0.8, 0.2
+    # Its second extra call is on the truncated arm, so no one arm carries it.
+    truncated = next(a for a in leader.arms if a.arm == "truncated")
+    truncated.correct, truncated.accuracy, truncated.lift_over_always_denied = 7, 7 / 8, 1 / 8
     write_json(tmp_path / "cert-backtest.json", report)
     pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
     assert pr is not None
@@ -577,6 +580,7 @@ def test_a_small_n_lead_is_stated_as_its_margin_in_petitions(tmp_path: Path) -> 
         "leads the next whole-set entry by 1 petition, an ordering at this n rather "
         "than a measurement"
     ) in pr.body
+    assert "all of it on" not in pr.body
 
 
 def test_the_floor_line_states_the_draw_three_ways_and_by_arm(tmp_path: Path) -> None:

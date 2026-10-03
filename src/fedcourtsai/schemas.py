@@ -4976,7 +4976,7 @@ CERT_BACKTEST_ARMS: tuple[Literal["blind", "truncated", "dated"], ...] = (
 class CertBacktestArm(_Strict):
     """One predictor's scores over one provisioning arm of the cert back-test set.
 
-    The arms (`dated`, `truncated`, `blind`) are three information sets, and
+    The arms (`blind`, `truncated`, `dated`) are three information sets, and
     which arm a petition lands in correlates with its outcome — in either
     direction, so a pooled lift can be carried by one arm. This splits an
     entry's disposition score by arm so that is read off the report rather
@@ -5002,7 +5002,8 @@ class CertBacktestArm(_Strict):
         ge=0,
         description="Of those, the realized grant-family outcomes (granted, "
         "granted-in-part, GVR, summary reversal); the remainder after `denied` "
-        "and this is dismissed, withdrawn or other",
+        "and this is dismissed or withdrawn (the replay takes only machine-readable "
+        "dispositions)",
     )
     accuracy: float = Field(ge=0.0, le=1.0, description="`correct` over `events_scored`")
     lift_over_always_denied: float = Field(

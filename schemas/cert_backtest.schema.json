@@ -51,7 +51,7 @@
     },
     "CertBacktestArm": {
       "additionalProperties": false,
-      "description": "One predictor's scores over one provisioning arm of the cert back-test set.\n\nThe arms (`dated`, `truncated`, `blind`) are three information sets, and\nwhich arm a petition lands in correlates with its outcome \u2014 in either\ndirection, so a pooled lift can be carried by one arm. This splits an\nentry's disposition score by arm so that is read off the report rather\nthan reconstructed. Counts, not only rates: at the pinned draw an arm holds\none to a handful of petitions, so read `correct` against `denied` over\n`events_scored` (the arm's lift **in petitions** is ``correct - denied``),\nnever a percentage without its n.",
+      "description": "One predictor's scores over one provisioning arm of the cert back-test set.\n\nThe arms (`blind`, `truncated`, `dated`) are three information sets, and\nwhich arm a petition lands in correlates with its outcome \u2014 in either\ndirection, so a pooled lift can be carried by one arm. This splits an\nentry's disposition score by arm so that is read off the report rather\nthan reconstructed. Counts, not only rates: at the pinned draw an arm holds\none to a handful of petitions, so read `correct` against `denied` over\n`events_scored` (the arm's lift **in petitions** is ``correct - denied``),\nnever a percentage without its n.",
       "properties": {
         "accuracy": {
           "description": "`correct` over `events_scored`",
@@ -89,7 +89,7 @@
           "type": "integer"
         },
         "granted": {
-          "description": "Of those, the realized grant-family outcomes (granted, granted-in-part, GVR, summary reversal); the remainder after `denied` and this is dismissed, withdrawn or other",
+          "description": "Of those, the realized grant-family outcomes (granted, granted-in-part, GVR, summary reversal); the remainder after `denied` and this is dismissed or withdrawn (the replay takes only machine-readable dispositions)",
           "minimum": 0,
           "title": "Granted",
           "type": "integer"
