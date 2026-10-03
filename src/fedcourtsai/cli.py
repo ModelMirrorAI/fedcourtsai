@@ -97,6 +97,7 @@ from .cert_backtest import (
     truncate_snapshot,
 )
 from .claim_metrics import agreement_summary, build_claim_scores
+from .cohort_cut import counted_by_conference
 from .collect import (
     BOARD_ARTIFACTS,
     CODE_MODE_PARENT_TOOL,
@@ -356,6 +357,7 @@ from .schemas import (
     ClaimScoreBlock,
     ConferenceBucket,
     CorpusValidation,
+    CountedConferenceTotal,
     DataHealth,
     Disposition,
     Engine,
@@ -13655,6 +13657,24 @@ def conference_set(
         Path | None,
         typer.Option(help="Also write the machine JSON (per-petition rows) here."),
     ] = None,
+    counted: Annotated[
+        bool,
+        typer.Option(
+            "--counted",
+            help="Instead, cut the counted (frozen-scope) events by the conference each "
+            "counted cell was distributed for at its cut: a CountedConferenceCut on "
+            "stdout, per-conference and per-band totals on stderr.",
+        ),
+    ] = False,
+    registered_at: Annotated[
+        str,
+        typer.Option(
+            "--registered-at",
+            help="With --counted: the ISO registration day. Each event also carries the "
+            "registered rule's reconstructed membership as at that day, and a registered "
+            "event with no counted cell is listed too.",
+        ),
+    ] = "",
 ) -> None:
     """The pending-before-conference set: the live cert watchlist, by conference.
 
@@ -13662,9 +13682,26 @@ def conference_set(
     carry a "DISTRIBUTED for Conference of …" membership, grouped by conference
     date — the set predictions fire ahead of and score against days later. The
     September long-conference set is this report's largest date bucket.
+
+    With ``--counted`` it answers the release question instead: which counted
+    events were distributed for which conference when their cells were made.
+    The ledger supplies the population, band, predictors and resolution; the
+    conference is reconstructed from the corpus as at each counted cell's cut
+    (``fedcourtsai.cohort_cut``), because the current column moves on relist.
     """
     settings = get_settings()
     db = corpus.corpus_db_path(settings.corpus_root)
+    if counted:
+        try:
+            registration_day = date.fromisoformat(registered_at) if registered_at else None
+        except ValueError:
+            typer.echo(f"--registered-at {registered_at!r} is not an ISO date", err=True)
+            raise typer.Exit(code=2) from None
+        _conference_set_counted(settings, db, out, registration_day)
+        return
+    if registered_at:
+        typer.echo("--registered-at applies only with --counted", err=True)
+        raise typer.Exit(code=2)
     if not db.exists():
         typer.echo(f"no corpus at {db}", err=True)
         raise typer.Exit(code=2)
@@ -13697,6 +13734,66 @@ def conference_set(
                 for row in rows
             ],
         )
+
+
+def _conference_set_counted(
+    settings: Settings, db: Path, out: Path | None, registered_at: date | None
+) -> None:
+    """``conference-set --counted``: the counted cohort cut by conference at its cut."""
+    backend = settings.corpus_backend
+    if backend == "local" and not db.exists():
+        typer.echo(
+            f"no corpus at {db}; `fedcourts corpus-pull` it — the conference is read from it",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    corpus_sha = _census_corpus_sha(settings, db)
+    with corpus.connect_readonly(db, backend=backend) as conn:
+        cut = counted_by_conference(
+            settings.data_root,
+            conn,
+            vintage=corpus_vintage(conn, backend),
+            corpus_sha256=corpus_sha,
+            registered_at=registered_at,
+        )
+    vintage = cut.corpus
+    typer.echo(
+        f"counted events by conference at their cut — corpus {backend}, newest pull "
+        f"{vintage.latest_pull or '-'}, newest stored snapshot {vintage.latest_snapshot or '-'}"
+        + (f", registered as at {registered_at}" if registered_at else ""),
+        err=True,
+    )
+    by_group: dict[tuple[bool | None, str], list[CountedConferenceTotal]] = {}
+    for total in cut.totals:
+        by_group.setdefault((total.registered, total.conference), []).append(total)
+    for (registered, conference), totals in by_group.items():
+        label = {True: "registered", False: "not registered", None: "counted"}[registered]
+        events = sum(t.events for t in totals)
+        typer.echo(
+            f"{label}, conference {conference}: {events} event(s) — "
+            f"{sum(t.scored for t in totals)} scored, "
+            f"{sum(t.resolved_unscored for t in totals)} resolved unscored, "
+            f"{sum(t.pending for t in totals)} pending, "
+            f"{sum(t.unforecast for t in totals)} unforecast",
+            err=True,
+        )
+        for t in totals:
+            typer.echo(
+                f"  {t.stage or '-'}@{t.moment or '-'} {t.band or 'mixed/none'}: {t.events} "
+                f"({t.scored} scored, {t.resolved_unscored} resolved unscored, "
+                f"{t.pending} pending, {t.unforecast} unforecast)",
+                err=True,
+            )
+    if cut.conference_fallbacks:
+        typer.echo(
+            f"{cut.conference_fallbacks} conference reading(s) fell back to the current "
+            "column — no live payload was readable — and that column moves on relist: "
+            "these conferences are not reconstructions",
+            err=True,
+        )
+    if out is not None:
+        write_raw_json(out, cut.model_dump(mode="json"))
+    typer.echo(cut.model_dump_json())
 
 
 @app.command("live-frontier")
