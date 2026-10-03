@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000449",
+  "run_id": "20261003T175711Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The provisioned application.txt (44 pages, fetched 2026-10-03) carries empty_text: true, so the application's text was unavailable and the ask was read from the single docket entry ('Application (26A449) for a stay, submitted to Justice Alito'). The forecast rests on the docket skeleton, the applicant's public litigation history on CourtListener, and the statpack baseline, not on the filing's content."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "CourtListener MCP calls began returning HTTP 429 (shared 300/hour limit, ~8 minutes to reset) after eight successful calls, so the underlying N.D. Tex. docket (Holloway v. Polk, 4:25-cv-01128) and the 2026 Waco court of appeals opinion were located but not read. The cell proceeded on the provisioned inputs plus the search results already returned."
+    }
+  ]
+}

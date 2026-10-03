@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000446",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "External legal-context verification was unavailable: general web searches yielded no visible results and the CourtListener citation lookup for 558 U.S. 183 returned HTTP 429. Completed from the provisioned application, snapshot, and committed interim base rates. No case-outcome information was retrieved and no REST fallback was attempted.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261003T175711Z",
+  "schema_version": "1.0"
+}
