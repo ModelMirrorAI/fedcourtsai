@@ -26,7 +26,9 @@ check at implementation):
 - **Document links are a rolling window** (~OT2021+), so fetching happens near
   filing time and a missing document is an expected condition.
 
-Only :func:`fetch_case_documents` touches the network (through the polite
+Only :func:`fetch_case_documents` and :func:`fetch_consolidation_lead` — the
+one extra docket GET a consolidated member's merits filings need — touch the
+network (through the polite
 :class:`~fedcourtsai.supremecourt.SupremeCourtClient`); selection, extraction,
 and the QP derivation are pure and tested offline. Extraction is pure *at its
 default*: :func:`extract_pdf_text` takes an optional :data:`OcrPage` seam, and
@@ -63,7 +65,7 @@ from .. import corpus
 # `pipeline` at all, so the import closes no cycle — stated as the property
 # rather than as a list of modules, which the next import would falsify.
 from ..matrix import predicted_case_ids
-from ..supremecourt import OffHostFetch, SupremeCourtClient
+from ..supremecourt import OffHostFetch, SupremeCourtClient, parse_scotus_docket_number
 
 # `_scored_segment` is the salience gate's paid modern-cert predicate, imported
 # rather than restated: the censuses cut their frames with it, and `caption` is
@@ -102,10 +104,17 @@ from .interim_signals import ApplicationKind, application_kind
 # than restated so the selector fetches exactly the filing the merits signal
 # names, and so a change to the reading moves both. Leaf module, like the two
 # above it.
+#
+# One respondent-side difference, stated where it is imported: the selector reads
+# :func:`~merits_signals.is_respondent_merits_brief_document`, the briefed
+# moment's predicate plus "Brief for the respondent …" and a leading "Redacted",
+# while the moment itself keeps the narrower reading. Which document a cell is
+# given and when its moment opens are separate questions, and widening the
+# second is a moment change rather than a selector one.
 from .merits_signals import (
     is_petitioner_merits_brief,
     is_petitioner_merits_reply,
-    is_respondent_merits_brief,
+    is_respondent_merits_brief_document,
     is_respondent_merits_reply,
 )
 from .prefetch import prefetch_by_case
@@ -503,8 +512,19 @@ def _is_application_entry(text: str) -> bool:
     )
 
 
-def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
+def select_documents(
+    payload: Mapping[str, Any], *, lead: Mapping[str, Any] | None = None
+) -> list[DocumentRef]:
     """The fetchable predict-input documents on one docket JSON (pure).
+
+    ``lead`` is the lead docket's JSON where this docket is a **consolidated
+    member** (:func:`consolidation_lead`): once the Court consolidates cases
+    for briefing and argument, every later filing is entered on the lead
+    docket alone, so a member's own JSON never shows the merits briefs written
+    for it. A merits kind the member's own docket does not yield is then taken
+    from the lead's (:func:`_lead_merits_refs`); the member's own filings, and
+    every cert-stage kind, stay the member's. Without ``lead`` this reads one
+    docket, as follows.
 
     Seven arms, all entry-keyed rather than form-keyed — the payload says which
     filings it carries, and nothing here needs to be told the docket's form. Five
@@ -537,7 +557,7 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
       ``brief-in-opposition`` document.
     - The **petitioner's brief on the merits**
       (:func:`merits_signals.is_petitioner_merits_brief`) and the
-      **respondent's** (:func:`~merits_signals.is_respondent_merits_brief`),
+      **respondent's** (:func:`~merits_signals.is_respondent_merits_brief_document`),
       stored as ``merits-brief-petitioner`` and ``merits-brief-respondent``: one
       per side, the first in docket order after the grant, each from its own
       ``Main Document`` link and from no other — a merits-brief entry posts its
@@ -556,7 +576,7 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
       (:func:`merits_signals.is_petitioner_merits_reply`) and the
       **respondent's** (:func:`~merits_signals.is_respondent_merits_reply`),
       stored as ``merits-reply-petitioner`` and ``merits-reply-respondent``: a
-      separate entry family ("Reply [Brief] of …") the brief anchors never reach,
+      separate entry family ("Reply [Brief] of/for …") the brief anchors never reach,
       read on exactly the terms those arms are — one per side, the first in
       docket order after the grant, ``Main Document`` only, and the same
       post-grant bound. That bound does more work here than anywhere else in this
@@ -572,6 +592,22 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
     leaks the outcome; the questions presented are derived from the petition
     text instead (:func:`extract_questions_presented`).
     """
+    own = _select_own(payload)
+    if lead is None:
+        return own
+    held = {ref.kind for ref in own}
+    borrowed = [ref for ref in _lead_merits_refs(lead, member=payload) if ref.kind not in held]
+    if not borrowed:
+        return own
+    order = {kind: index for index, kind in enumerate(FETCHED_DOCUMENT_KINDS)}
+    # Stable on the provisioning order, so a borrowed brief sits where the
+    # member's own would have: the opposition briefs share one kind and keep
+    # their docket order among themselves.
+    return sorted([*own, *borrowed], key=lambda ref: order[ref.kind])
+
+
+def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
+    """:func:`select_documents` over one docket's own entries."""
     granted_on = cert_grant_date(payload)
     petition: DocumentRef | None = None
     application: DocumentRef | None = None
@@ -620,7 +656,7 @@ def select_documents(payload: Mapping[str, Any]) -> list[DocumentRef]:
         elif (
             merits_respondent is None
             and _is_post_grant(filed, granted_on)
-            and is_respondent_merits_brief(text)
+            and is_respondent_merits_brief_document(text)
         ):
             merits_respondent = _merits_filing_ref(entry, KIND_MERITS_BRIEF_RESPONDENT, entry_date)
         elif (
@@ -671,6 +707,318 @@ def _merits_filing_ref(
     return DocumentRef(kind, found[0], entry_date, str(entry.get("Text") or "").strip())
 
 
+# The merits kinds, which are the ones a consolidated member reads off its lead
+# docket. All four rather than the briefs alone: the consolidation entry moves
+# *every* later filing to the lead, so a member's replies are there too, and a
+# member read for its opening briefs and not its last word would read the two
+# theories without the answer to either.
+MERITS_KINDS: tuple[str, ...] = (
+    KIND_MERITS_BRIEF_PETITIONER,
+    KIND_MERITS_BRIEF_RESPONDENT,
+    KIND_MERITS_REPLY_PETITIONER,
+    KIND_MERITS_REPLY_RESPONDENT,
+)
+
+# The Court's consolidation entry, entered on every docket of the group, the
+# lead's own included:
+#
+#   "Because the Court has consolidated these cases for briefing and oral
+#    argument, future filings and activity in the cases will now be reflected on
+#    the docket of No. 24-20.  Subsequent filings in these cases must therefore
+#    be submitted through the electronic filing system in No. 24-20."
+#
+# Keyed on the clause that names where the filings go, rather than on
+# "consolidated" alone, because that word also rides orders that consolidate
+# nothing for filing purposes ("The motion to consolidate is denied.", a
+# consolidated oral argument for cases still briefed apart). The number is the
+# modern Term form only: the lead is fetched from the same endpoint the member
+# was, which serves no other.
+_CONSOLIDATION_LEAD_RE = re.compile(
+    r"\bfuture\s+filings\s+and\s+activity\s+in\s+the\s+cases\s+will\s+now\s+be"
+    r"\s+reflected\s+on\s+the\s+docket\s+of\s+No\.\s*(\d{2}-\d{1,5})\b",
+    re.IGNORECASE,
+)
+
+
+def consolidation_lead(payload: Mapping[str, Any]) -> tuple[int, int] | None:
+    """The ``(term, serial)`` of the lead docket a consolidated member files on, or ``None``.
+
+    Read off the docket's own consolidation entry (:data:`_CONSOLIDATION_LEAD_RE`)
+    rather than the Court's Granted & Noted list
+    (:mod:`~fedcourtsai.pipeline.granted_noted`): the entry is on the payload the
+    caller already holds, it names the lead explicitly where the list prints the
+    group without saying which docket carries it, and it is entered the day the
+    Court consolidates rather than once a Term's list is next republished.
+
+    ``None`` on the lead itself — the Court enters the same words there, naming
+    its own number — and on a docket whose own ``CaseNumber`` is not served,
+    since a member that cannot be told from its lead could otherwise be sent to
+    re-read itself. One hop only: the number named is the docket the filings are
+    on, so nothing here follows a lead to a further lead.
+    """
+    own = parse_scotus_docket_number(str(payload.get("CaseNumber") or ""))
+    if own is None:
+        return None
+    for entry in payload.get("ProceedingsandOrder") or []:
+        if not isinstance(entry, Mapping):
+            continue
+        found = _CONSOLIDATION_LEAD_RE.search(str(entry.get("Text") or ""))
+        if found is None:
+            continue
+        lead = parse_scotus_docket_number(found.group(1))
+        if lead is None or lead == own:
+            return None
+        return lead
+    return None
+
+
+LEAD_DOCKET_ERROR = "docket-error"
+"""A consolidated member's lead docket failed transport-side after the client's retry."""
+LEAD_DOCKET_UNSERVED = "docket-unserved"
+"""A consolidated member's lead docket came back 404."""
+
+
+@dataclass(frozen=True)
+class LeadFetch:
+    """What :func:`fetch_consolidation_lead` found: the lead's JSON, or why there is none.
+
+    ``payload`` and ``failure`` are both ``None`` on a docket that is not a
+    consolidated member, which costs no request at all.
+    """
+
+    payload: Mapping[str, Any] | None = None
+    failure: str | None = None
+
+
+def fetch_consolidation_lead(
+    client: SupremeCourtClient, case_id: str, payload: Mapping[str, Any]
+) -> LeadFetch:
+    """The lead docket's JSON where ``payload`` is a consolidated member.
+
+    One paced GET through the same client and the same endpoint as the member's
+    own docket, and only where :func:`consolidation_lead` names a lead and the
+    member's own grant can be dated — an unconsolidated docket, and a member
+    that could borrow nothing, cost no request. Fetched fresh rather than read from the
+    corpus for the reason the back-fill fetches the member fresh: the question is
+    which links the Court serves now.
+
+    A lead the fetch did not return is warned into the run log and carries its
+    reason (:data:`LEAD_DOCKET_ERROR`, :data:`LEAD_DOCKET_UNSERVED`), so the
+    back-fill can count it as the docket loss it is rather than as a selector
+    that read nothing. Its payload is ``None`` either way: the member's own
+    documents are still selected and stored, and the merits kinds it would have
+    borrowed are not there this pass.
+    """
+    lead = consolidation_lead(payload)
+    if lead is None or cert_grant_date(payload) is None:
+        # A member whose grant cannot be dated borrows nothing
+        # (:func:`_lead_merits_refs`), so the GET would buy nothing.
+        return LeadFetch()
+    term, serial = lead
+    try:
+        served = client.get_docket(term, serial, form="cert")
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "documents: lead docket %02d-%d for consolidated %s not fetched: %s",
+            term,
+            serial,
+            case_id,
+            one_log_line(str(exc)),
+        )
+        return LeadFetch(failure=LEAD_DOCKET_ERROR)
+    if served is None:
+        logger.warning(
+            "documents: lead docket %02d-%d for consolidated %s is not served",
+            term,
+            serial,
+            case_id,
+        )
+        return LeadFetch(failure=LEAD_DOCKET_UNSERVED)
+    return LeadFetch(payload=served)
+
+
+# A lead-docket entry the Clerk marks as filed in one docket of the group:
+# "Brief of petitioners TikTok Inc. and ByteDance Ltd. filed (as to 24-656).",
+# "Brief of respondent Northern Arapaho Tribe (as to 23-253) filed." The
+# parenthesis may name more than one number.
+_AS_TO_RE = re.compile(r"\(\s*as\s+to\s+([^)]*)\)", re.IGNORECASE)
+_DOCKET_NUMBER_RE = re.compile(r"\b\d{2}-\d{1,5}\b")
+# The filer clause of a merits entry: what follows the opening ("Brief of",
+# "Brief for the", "Reply Brief of", a leading "Redacted") up to the verb or the
+# first parenthesis. The side word inside it is dropped with the stopwords below.
+_FILER_OPENING_RE = re.compile(
+    r"^\s*(?:redacted\s+)?(?:reply\s+)?(?:brief\s+)?(?:of|for)\s+", re.IGNORECASE
+)
+_FILER_END_RE = re.compile(r"\bfiled\b|\bsubmitted\b|\(", re.IGNORECASE)
+# Words that say nothing about *which* party filed: the side words, the
+# Clerk's tails, articles and entity suffixes. Everything else is a name token.
+_FILER_STOPWORDS = frozenset(
+    {
+        "a", "al", "an", "and", "co", "corp", "corporation", "et", "inc", "llc",
+        "ltd", "limited", "of", "the", "petitioner", "petitioners", "respondent",
+        "respondents", "in", "support",
+    }
+)  # fmt: skip
+
+
+# Name tokens shared by too many parties to place a filing on their own: a
+# subset match resting on these alone is not one (an exact match still is, so
+# "the United States" reads as "United States").
+_GENERIC_NAME_TOKENS = frozenset(
+    {"federal", "state", "states", "united", "government", "city", "county", "commonwealth"}
+)
+
+
+def _name_tokens(text: str) -> frozenset[str]:
+    """The casefolded name tokens of a party name or a filer clause.
+
+    Periods are removed before splitting, so "L.L.C." and "LLC", "Merrick B." and
+    "Merrick B" read alike, and every other non-alphanumeric run splits.
+    """
+    words = re.split(r"[^0-9a-z]+", text.casefold().replace(".", ""))
+    return frozenset(word for word in words if word and word not in _FILER_STOPWORDS)
+
+
+def _filer_tokens(text: str) -> frozenset[str]:
+    """The name tokens of the filer a merits entry names, empty where it names none."""
+    rest = _FILER_OPENING_RE.sub("", text, count=1)
+    end = _FILER_END_RE.search(rest)
+    return _name_tokens(rest[: end.start()] if end else rest)
+
+
+def _filed_for_member(
+    text: str, *, side: str, member: Mapping[str, Any], member_number: tuple[int, int]
+) -> bool:
+    """Whether a lead-docket merits entry is the member's own side's filing.
+
+    A lead docket carries the filings of **every** docket in the group, so the
+    first petitioner's brief on it is often another member's petitioner — or,
+    where the group is cross-positioned, a party that is the member's
+    *respondent* — and a first-match selection would store it as the member's
+    own side. Two readings decide, the Clerk's own first:
+
+    - **An "(as to No.)" mark** belongs to the member when it names the
+      member's own number and no other; a mark naming several dockets is a
+      joint filing whose filer is read as below too, and a mark naming only
+      other dockets is never the member's.
+    - **Otherwise the filer named**: the entry's filer clause must name a party
+      on the member's own ``side`` list (``Petitioner`` for a petitioner-side
+      kind, ``Respondent`` for a respondent-side one) — the two names' tokens
+      equal, or one a subset of the other sharing a distinguishing word (not
+      only "Federal", "State", "United" and the like), so
+      "the United States" reads as "United States" and "Merrick B. Garland,
+      Attorney General" as "Garland, Merrick". An entry naming no filer at all
+      ("Brief for the petitioner filed.") cannot be placed on a lead and is not
+      the member's.
+
+    Failing both, the entry is not borrowed: a brief stored under the wrong
+    side's label is read by a cell as the member's own argument, which is worse
+    than the absent row the coverage report can see.
+    """
+    marked = _AS_TO_RE.search(text)
+    if marked is not None:
+        named = {parse_scotus_docket_number(n) for n in _DOCKET_NUMBER_RE.findall(marked.group(1))}
+        if member_number not in named:
+            return False
+        if len(named) == 1:
+            return True
+        # A joint filing marked for several dockets: its co-filers may be
+        # parties on another docket alone, so the filer is read as well.
+    filer = _filer_tokens(text)
+    if not filer:
+        return False
+    for block in _served_blocks(member, side):
+        party = _name_tokens(str(block.get("PartyName") or ""))
+        if not party:
+            continue
+        if filer == party:
+            return True
+        # A subset match must rest on a distinguishing word: "Federal
+        # Petitioners" leaves {federal}, which every "Federal …" party contains.
+        nested = filer.issubset(party) or party.issubset(filer)
+        if nested and (filer & party) - _GENERIC_NAME_TOKENS:
+            return True
+    return False
+
+
+# Which side's party list a merits-entry predicate reads the filer against.
+_MERITS_ENTRY_SIDES: tuple[tuple[Callable[[str], bool], str], ...] = (
+    (is_petitioner_merits_brief, "Petitioner"),
+    (is_petitioner_merits_reply, "Petitioner"),
+    (is_respondent_merits_brief_document, "Respondent"),
+    (is_respondent_merits_reply, "Respondent"),
+)
+
+
+def _lead_for_member(lead: Mapping[str, Any], member: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The lead docket with the merits entries that are not the member's own removed.
+
+    Every other entry is kept — the grant entry above all, which dates the
+    lead's merits stage. ``None`` where the member serves no number of its own.
+    """
+    member_number = parse_scotus_docket_number(str(member.get("CaseNumber") or ""))
+    if member_number is None:
+        return None
+    kept: list[Any] = []
+    for entry in lead.get("ProceedingsandOrder") or []:
+        if isinstance(entry, Mapping):
+            text = str(entry.get("Text") or "")
+            sides = {side for predicate, side in _MERITS_ENTRY_SIDES if predicate(text)}
+            if sides and not any(
+                _filed_for_member(text, side=side, member=member, member_number=member_number)
+                for side in sides
+            ):
+                continue
+        kept.append(entry)
+    return {**lead, "ProceedingsandOrder": kept}
+
+
+def _lead_merits_refs(lead: Mapping[str, Any], *, member: Mapping[str, Any]) -> list[DocumentRef]:
+    """The merits filings a consolidated member reads off its lead docket.
+
+    The lead's own selection (:func:`_select_own`) over the lead's entries **cut
+    to the member's own filings** (:func:`_filed_for_member`), and then to
+    :data:`MERITS_KINDS`: the same anchors, the lead's own post-grant bound, the
+    ``Main Document`` link alone. Each ref keeps the lead's link and the lead's
+    entry date, so the stored row records the URL it actually came from, and a
+    moment cut places it by the day it reached the record.
+
+    Two further conditions, each the conservative side of a question the
+    member's own docket cannot answer:
+
+    - **After the member's own grant.** A member granted after its lead was
+      briefed would otherwise borrow a brief filed before the member had a
+      merits stage, and its grant-moment cell — cut at the day after the grant —
+      would read merits advocacy that moment does not declare. A member whose
+      grant this reader cannot date borrows nothing, the same refusal the
+      merits arms make on its own docket (:func:`_is_post_grant`).
+    - **No self-represented party on the lead.** The contact scrub that runs
+      over staged documents is keyed on the *member's* counsel blocks, since
+      provisioning reads one case's snapshot; a lead whose party side names
+      nobody but the filer (:func:`unrepresented_sides`) could carry that
+      filer's own address and telephone in a brief the member's scrub would
+      not key on. Such a lead lends nothing, and the run log says so. The
+      ``Other`` list does not trigger it: an amicus brief is not a staged kind.
+    """
+    if any(side in COUNSEL_SIDES for side in unrepresented_sides(lead)):
+        logger.warning(
+            "documents: lead docket %s names a self-represented party; "
+            "its merits filings are not borrowed",
+            one_log_line(str(lead.get("CaseNumber") or "").strip()),
+        )
+        return []
+    own_filings = _lead_for_member(lead, member)
+    if own_filings is None:
+        return []
+    member_granted_on = cert_grant_date(member)
+    return [
+        ref
+        for ref in _select_own(own_filings)
+        if ref.kind in MERITS_KINDS
+        and _is_post_grant(_parse_entry_date(ref.entry_date), member_granted_on)
+    ]
+
+
 def primary_entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
     """Whether the docket carries the entry that opens it, link or no link.
 
@@ -704,13 +1052,15 @@ def primary_entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
 # against exactly what would have selected it.
 _MERITS_ENTRY_PREDICATES: dict[str, Callable[[str], bool]] = {
     KIND_MERITS_BRIEF_PETITIONER: is_petitioner_merits_brief,
-    KIND_MERITS_BRIEF_RESPONDENT: is_respondent_merits_brief,
+    KIND_MERITS_BRIEF_RESPONDENT: is_respondent_merits_brief_document,
     KIND_MERITS_REPLY_PETITIONER: is_petitioner_merits_reply,
     KIND_MERITS_REPLY_RESPONDENT: is_respondent_merits_reply,
 }
 
 
-def merits_entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
+def merits_entry_matched(
+    payload: Mapping[str, Any], *, kind: str, lead: Mapping[str, Any] | None = None
+) -> bool:
     """Whether the docket carries this side's merits filing, link or no link.
 
     :func:`primary_entry_matched`'s counterpart for the merits kinds, and it
@@ -727,16 +1077,26 @@ def merits_entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
     A wording the anchors genuinely miss still falls through to that alarm,
     because no entry matches the text either.
 
+    ``lead`` is a consolidated member's lead docket (:func:`consolidation_lead`),
+    read on the same text-only terms: the member's filings are entered there, so
+    a member whose briefs are on its lead has the entry, and reads ``True``
+    rather than raising the alarm for a filing shape that is not missing. The
+    lead is read whole here, not cut to the member's own filings
+    (:func:`_filed_for_member`): an entry another docket of the group filed is
+    still the filing shape the selector reads, so a member that borrows nothing
+    from it is a floor, not a blind spot.
+
     ``kind`` is one of the four merits kinds; any other matches nothing.
     """
     predicate = _MERITS_ENTRY_PREDICATES.get(kind)
     if predicate is None:
         return False
-    for entry in payload.get("ProceedingsandOrder") or []:
-        if not isinstance(entry, Mapping):
-            continue
-        if predicate(str(entry.get("Text") or "")):
-            return True
+    for docket in (payload,) if lead is None else (payload, lead):
+        for entry in docket.get("ProceedingsandOrder") or []:
+            if not isinstance(entry, Mapping):
+                continue
+            if predicate(str(entry.get("Text") or "")):
+                return True
     return False
 
 
@@ -1967,8 +2327,15 @@ def fetch_case_documents(
     stored_urls: Mapping[str, str],
     char_cap: int,
     today: date,
+    lead: Mapping[str, Any] | None = None,
 ) -> list[corpus.CaseDocument]:
     """Fetch and extract this case's predict-input documents; return the rows.
+
+    ``lead`` is a consolidated member's lead docket JSON
+    (:func:`fetch_consolidation_lead`), handed to :func:`select_documents`: the
+    merits filings it lends are fetched from the lead's own links and stored
+    under the member's ``case_id``, each row recording the lead URL it was read
+    from and the lead entry's date.
 
     Idempotent against ``stored_urls`` (the already-stored kind → url mapping):
     a document whose URL is unchanged is not re-fetched, so a relist that
@@ -2003,7 +2370,7 @@ def fetch_case_documents(
     degradation is exactly what makes a later "this case holds no petition"
     count unattributable otherwise.
     """
-    refs = select_documents(payload)
+    refs = select_documents(payload, lead=lead)
     if not refs:
         # Selection came back empty on a docket the caller asked about, which is
         # the one loss the five post-selection reasons cannot see. Recorded

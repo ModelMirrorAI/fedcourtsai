@@ -1413,7 +1413,13 @@ forces. Its candidates are live-slice rows queued for prediction or selected by
 the salience gate, measured on two arms: their own docket form's opening
 document — an application-form row against its `application`, a cert-form row
 against its `petition` — and, on a **granted** row whose respondent has filed on
-the merits, each side's merits brief. A candidate it cannot recover falls into
+the merits, each side's merits brief. A **consolidated member**, whose merits
+briefs the Court enters on the lead docket alone, costs one more paced docket GET
+for that lead's JSON, and its merits kinds are selected off the lead's entries
+that are the member's own ([live-sources.md](live-sources.md)), so a member
+briefed on its lead is recovered or floored rather than read as a selector
+regression — floored where the lead lends nothing (every entry another docket's,
+or dated before the member's grant). A candidate it cannot recover falls into
 one of two **floors** rather than a failure: a docket carrying an entry for a
 missing kind with nothing fetchable behind it (a Rule 34.6 paper filing the
 Court served nothing for, or a merits kind on a docket whose grant cannot be

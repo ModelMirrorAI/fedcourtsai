@@ -33,16 +33,21 @@ from fedcourtsai.pipeline.documents import (
     KIND_MERITS_REPLY_RESPONDENT,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
+    LEAD_DOCKET_ERROR,
+    LEAD_DOCKET_UNSERVED,
     SCRUB_PASS_SHAPE,
     SCRUB_PASS_VALUE,
     DocumentFetchLosses,
+    LeadFetch,
     _qp_stored_is_fragment,
     backfill_questions_presented,
+    consolidation_lead,
     document_fetch_losses,
     document_text_coverage,
     extract_pdf_text,
     extract_questions_presented,
     fetch_case_documents,
+    fetch_consolidation_lead,
     merits_entry_matched,
     party_contact_values,
     questions_presented_extract,
@@ -52,6 +57,11 @@ from fedcourtsai.pipeline.documents import (
     unrepresented_sides,
 )
 from fedcourtsai.pipeline.live import LiveDiscovery
+from fedcourtsai.pipeline.merits_signals import (
+    is_respondent_merits_brief,
+    is_respondent_merits_brief_document,
+    respondent_brief_date,
+)
 from fedcourtsai.pipeline.pull import PullQueues
 from fedcourtsai.provision import documents_before
 from fedcourtsai.supremecourt import SupremeCourtClient
@@ -911,6 +921,12 @@ def _granted_payload(*entries: dict[str, object]) -> dict[str, object]:
         "Brief of petitioners Xavier Becerra, Secretary of Health and Human Services, "
         + "et al. filed. VIDED.",
         "Brief of petitioners TikTok Inc. and ByteDance Ltd. filed (as to 24-656). (Distributed)",
+        # The Court's own title form, naming no party, and the public copy of a
+        # brief filed under seal.
+        "Brief for the petitioner filed.",
+        "Brief for petitioners Harbor Pilots Association, et al. filed.",
+        "Redacted brief of petitioner Marisol Quintero filed.",
+        "Redacted Brief for the Petitioner filed. (Distributed)",
     ],
 )
 def test_select_documents_takes_the_petitioner_merits_brief(entry_text: str) -> None:
@@ -929,6 +945,9 @@ def test_select_documents_takes_the_petitioner_merits_brief(entry_text: str) -> 
         "Brief of respondent filed.  (Distributed)",  # no party named at all
         "Brief of respondents Alliance for Hippocratic Medicine, et al. filed. "
         + "VIDED. (Distributed)",
+        "Brief for the Respondents filed.",
+        "Brief for respondent Lakeshore Shipping Company filed.",
+        "Redacted brief of respondent Tomas Okafor filed.",
     ],
 )
 def test_select_documents_takes_the_respondent_merits_brief(entry_text: str) -> None:
@@ -951,6 +970,15 @@ def test_select_documents_takes_the_respondent_merits_brief(entry_text: str) -> 
         "Brief of respondents Mi Familia Vota, et al. in support of petitioners filed.",
         "Brief of petitioner Acme Corp. in support of respondents filed.",
         "Motion for an extension of time to file the briefs on the merits filed.",
+        # A filing *about* a sealed brief, which names the brief and the redacted
+        # copy and is neither: the start anchor is what keeps it out.
+        "Motion to file petitioner's brief on the merits under seal with redacted copies "
+        + "filed by petitioner Marisol Quintero.",
+        "Motion of respondent to file the brief for the respondent under seal filed.",
+        "Brief for the United States filed.",  # names no side
+        "Brief for the United States as amicus curiae supporting petitioners filed.",
+        "Brief for the United States as respondent supporting petitioners filed.",
+        "Redacted version of the joint appendix filed.",
     ],
 )
 def test_select_documents_merits_arms_exclude_non_adversarial_briefs(entry_text: str) -> None:
@@ -1102,6 +1130,8 @@ def test_fetch_case_documents_stores_each_merits_brief_under_its_own_kind() -> N
         "Reply of petitioners Winston R. Anderson, et al. filed.",
         "Reply of petitioner Floyd Johnson filed.  (Distributed)",
         "Reply Brief of petitioner Acme Corp. filed. (Distributed)",
+        "Reply brief for the petitioner filed.",
+        "Redacted reply brief of petitioner Marisol Quintero filed.",
     ],
 )
 def test_select_documents_takes_the_petitioner_merits_reply(entry_text: str) -> None:
@@ -1250,6 +1280,386 @@ def test_merits_entry_matched_reads_the_entry_without_the_stage_bound() -> None:
     assert not merits_entry_matched(payload, kind=KIND_MERITS_BRIEF_RESPONDENT)
     # And a kind that opens a docket is not this reader's to answer for.
     assert not merits_entry_matched(payload, kind=KIND_PETITION)
+
+
+def test_the_briefed_moment_keeps_its_narrower_respondent_reading() -> None:
+    """The selector reads "Brief for the respondent"; the registered moment does not.
+
+    Which document a cell is given and when its moment opens are separate
+    questions, and the widening answers only the first.
+    """
+    for words in (
+        "Brief for the Respondents filed.",
+        "Redacted brief of respondent Ana Ruiz filed.",
+    ):
+        assert is_respondent_merits_brief_document(words)
+        assert not is_respondent_merits_brief(words)
+        payload = _granted_payload(
+            _entry("Jul 13 2026", words, url="https://www.supremecourt.gov/resp.pdf")
+        )
+        assert respondent_brief_date(payload, granted_on=date(2026, 4, 6)) is None
+        # And the gap scan's floor test reads it as the selector does.
+        assert merits_entry_matched(payload, kind=KIND_MERITS_BRIEF_RESPONDENT)
+
+
+# --- consolidated members: merits filings read off the lead docket ----------------
+
+_CONSOLIDATION_WORDS = (
+    "Because the Court has consolidated these cases for briefing and oral argument, "
+    + "future filings and activity in the cases will now be reflected on the docket of "
+    + "No. 25-500.  Subsequent filings in these cases must therefore be submitted through "
+    + "the electronic filing system in No. 25-500."
+)
+
+
+def _consolidation_entry(date_: str = "Apr 06 2026") -> dict[str, object]:
+    return {"Date": date_, "Text": _CONSOLIDATION_WORDS, "Links": []}
+
+
+def _member_payload(*entries: dict[str, object]) -> dict[str, object]:
+    """No. 25-501, granted and consolidated into No. 25-500, its own entries after."""
+    return {
+        "CaseNumber": "25-501 ",
+        "Petitioner": [{"PartyName": "Harbor Pilots Association, et al.", "Attorney": "Ida Lund"}],
+        "Respondent": [{"PartyName": "Coastal Freight Lines", "Attorney": "Omar Haddad"}],
+        "ProceedingsandOrder": [
+            {
+                "Date": "Dec 17 2025",
+                "Text": "Petition for a writ of certiorari filed.",
+                "Links": [
+                    {
+                        "Description": "Petition",
+                        "DocumentUrl": "https://www.supremecourt.gov/member-petition.pdf",
+                    }
+                ],
+            },
+            _entry(
+                "Mar 06 2026",
+                "Brief of respondent Coastal Freight Lines in opposition filed.",
+                url="https://www.supremecourt.gov/member-bio.pdf",
+            ),
+            _GRANT_ENTRY,
+            _consolidation_entry(),
+            *entries,
+        ],
+    }
+
+
+def _lead_payload(*entries: dict[str, object]) -> dict[str, object]:
+    """No. 25-500, the lead: its own petition, the grant, the same entry naming itself."""
+    return {
+        "CaseNumber": "25-500 ",
+        "ProceedingsandOrder": [
+            {
+                "Date": "Nov 03 2025",
+                "Text": "Petition for a writ of certiorari filed.",
+                "Links": [
+                    {
+                        "Description": "Petition",
+                        "DocumentUrl": "https://www.supremecourt.gov/lead-petition.pdf",
+                    }
+                ],
+            },
+            _GRANT_ENTRY,
+            _consolidation_entry(),
+            *entries,
+        ],
+    }
+
+
+_LEAD_BRIEFS = (
+    _entry(
+        "Jun 01 2026",
+        "Brief of petitioners Harbor Pilots Association, et al. filed.",
+        url="https://www.supremecourt.gov/DocketPDF/25/25-500/lead-pet.pdf",
+    ),
+    _entry(
+        "Jul 13 2026",
+        "Brief of respondents Coastal Freight Lines, et al. filed.",
+        url="https://www.supremecourt.gov/DocketPDF/25/25-500/lead-resp.pdf",
+    ),
+    _entry(
+        "Aug 12 2026",
+        "Reply of petitioners Harbor Pilots Association, et al. filed.",
+        url="https://www.supremecourt.gov/DocketPDF/25/25-500/lead-reply.pdf",
+    ),
+)
+
+
+def test_consolidation_lead_reads_the_lead_number_off_the_members_entry() -> None:
+    assert consolidation_lead(_member_payload()) == (25, 500)
+    # The Court enters the same words on the lead, naming itself: not a member.
+    assert consolidation_lead(_lead_payload()) is None
+    # A docket that does not serve its own number cannot be told from its lead.
+    unnumbered = {k: v for k, v in _member_payload().items() if k != "CaseNumber"}
+    assert consolidation_lead(unnumbered) is None
+    # Nor does the word alone make a member.
+    words = {
+        "CaseNumber": "25-501",
+        "ProceedingsandOrder": [
+            {"Date": "Apr 06 2026", "Text": "Motion to consolidate DENIED.", "Links": []},
+            {
+                "Date": "Apr 06 2026",
+                "Text": "The cases are consolidated, and a total of one hour is allotted "
+                + "for oral argument.",
+                "Links": [],
+            },
+        ],
+    }
+    assert consolidation_lead(words) is None
+
+
+def test_a_consolidated_member_takes_its_merits_filings_from_the_lead() -> None:
+    member = _member_payload()
+    lead = _lead_payload(*_LEAD_BRIEFS)
+    refs = {r.kind: r for r in select_documents(member, lead=lead)}
+    # Each merits row records the lead's link and the lead entry's date, which is
+    # where the filing actually is and when it reached the record.
+    assert refs[KIND_MERITS_BRIEF_PETITIONER].url.endswith("/25-500/lead-pet.pdf")
+    assert refs[KIND_MERITS_BRIEF_PETITIONER].entry_date == "Jun 01 2026"
+    assert refs[KIND_MERITS_BRIEF_RESPONDENT].url.endswith("/25-500/lead-resp.pdf")
+    assert refs[KIND_MERITS_REPLY_PETITIONER].url.endswith("/25-500/lead-reply.pdf")
+    # The cert stage stays the member's own: its petition and its opposition.
+    assert refs[KIND_PETITION].url.endswith("member-petition.pdf")
+    assert refs[KIND_BRIEF_IN_OPPOSITION].url.endswith("member-bio.pdf")
+    # In provisioning order, as an unconsolidated docket's would be.
+    assert [r.kind for r in select_documents(member, lead=lead)] == [
+        KIND_PETITION,
+        KIND_BRIEF_IN_OPPOSITION,
+        KIND_MERITS_BRIEF_PETITIONER,
+        KIND_MERITS_BRIEF_RESPONDENT,
+        KIND_MERITS_REPLY_PETITIONER,
+    ]
+    # Without the lead, the member's own docket yields no merits filing at all.
+    assert not {r.kind for r in select_documents(member)} & {
+        KIND_MERITS_BRIEF_PETITIONER,
+        KIND_MERITS_BRIEF_RESPONDENT,
+    }
+
+
+def test_a_members_own_merits_filing_is_kept_over_the_leads() -> None:
+    member = _member_payload(
+        _entry(
+            "May 20 2026",
+            "Brief of petitioner Coastal Freight Lines filed.",
+            url="https://www.supremecourt.gov/member-own.pdf",
+        )
+    )
+    refs = {r.kind: r.url for r in select_documents(member, lead=_lead_payload(*_LEAD_BRIEFS))}
+    assert refs[KIND_MERITS_BRIEF_PETITIONER] == "https://www.supremecourt.gov/member-own.pdf"
+    assert refs[KIND_MERITS_BRIEF_RESPONDENT].endswith("/25-500/lead-resp.pdf")
+
+
+def test_a_lead_filing_from_before_the_members_grant_is_not_borrowed() -> None:
+    """A member granted after its lead was briefed has no merits stage before its grant.
+
+    Its grant-moment cell is cut at the day after the grant, so a lead brief
+    dated earlier would be read at a moment that declares no merits advocacy.
+    """
+    member = _member_payload()
+    member["ProceedingsandOrder"][2] = {  # type: ignore[index]
+        "Date": "Jul 01 2026",
+        "Text": "Petition GRANTED.",
+        "Links": [],
+    }
+    refs = {r.kind for r in select_documents(member, lead=_lead_payload(*_LEAD_BRIEFS))}
+    assert KIND_MERITS_BRIEF_PETITIONER not in refs  # Jun 01, before the member's grant
+    assert KIND_MERITS_BRIEF_RESPONDENT in refs  # Jul 13, after it
+    assert KIND_MERITS_REPLY_PETITIONER in refs
+
+
+def test_a_lead_with_a_self_represented_party_lends_nothing() -> None:
+    """The staged-text scrub is keyed on the member's counsel blocks, not the lead's.
+
+    A lead whose party side names nobody but the filer could carry that filer's
+    own contact details in a brief the member's scrub would not key on, so its
+    filings stay unborrowed.
+    """
+    lead = {
+        **_lead_payload(*_LEAD_BRIEFS),
+        "Petitioner": [
+            {"PartyName": "Rosalind Achterberg", "Attorney": "Rosalind Achterberg"},
+        ],
+        "Respondent": [{"PartyName": "Coastal Freight Lines", "Attorney": "Imani Castellanos"}],
+    }
+    refs = {r.kind for r in select_documents(_member_payload(), lead=lead)}
+    assert not refs & {KIND_MERITS_BRIEF_PETITIONER, KIND_MERITS_BRIEF_RESPONDENT}
+    # A self-filing amicus on the lead's `Other` list does not: an amicus brief is
+    # not a staged kind.
+    amicus_lead = {
+        **_lead_payload(*_LEAD_BRIEFS),
+        "Other": [{"PartyName": "Professor Ilse Brandt", "Attorney": "Ilse Brandt"}],
+    }
+    refs = {r.kind for r in select_documents(_member_payload(), lead=amicus_lead)}
+    assert KIND_MERITS_BRIEF_PETITIONER in refs
+
+
+def test_merits_entry_matched_reads_a_members_lead() -> None:
+    member = _member_payload()
+    lead = _lead_payload(*_LEAD_BRIEFS)
+    assert not merits_entry_matched(member, kind=KIND_MERITS_BRIEF_PETITIONER)
+    assert merits_entry_matched(member, kind=KIND_MERITS_BRIEF_PETITIONER, lead=lead)
+
+
+def test_fetch_case_documents_stores_a_borrowed_brief_under_the_member() -> None:
+    served = {
+        "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-pet.pdf": _pdf(
+            "Petitioners say reverse."
+        ),
+        "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-resp.pdf": _pdf(
+            "Respondents say affirm."
+        ),
+        "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-reply.pdf": _pdf(
+            "Petitioners answer."
+        ),
+    }
+    with _doc_client(served) as client:
+        documents = fetch_case_documents(
+            client,
+            "scotus/9025000501",
+            _member_payload(),
+            # The cert stage is already stored, so only the merits rows are fetched.
+            stored_urls={
+                KIND_PETITION: "https://www.supremecourt.gov/member-petition.pdf",
+                KIND_BRIEF_IN_OPPOSITION: "https://www.supremecourt.gov/member-bio.pdf",
+            },
+            char_cap=10_000,
+            today=date(2026, 8, 20),
+            lead=_lead_payload(*_LEAD_BRIEFS),
+        )
+    by_kind = {d.kind: d for d in documents}
+    brief = by_kind[KIND_MERITS_BRIEF_PETITIONER]
+    assert brief.case_id == "scotus/9025000501"
+    assert brief.url == "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-pet.pdf"
+    assert "Petitioners say reverse." in brief.text
+    # Placed by the lead entry's own date, so a moment cut applies to it exactly
+    # as to the member's own filings: a grant-moment cell reads none of them.
+    assert documents_before(list(by_kind.values()), date(2026, 4, 7)) == []
+    assert [d.kind for d in documents_before(list(by_kind.values()), date(2026, 7, 14))] == [
+        KIND_MERITS_BRIEF_PETITIONER,
+        KIND_MERITS_BRIEF_RESPONDENT,
+    ]
+
+
+def test_fetch_consolidation_lead_gets_the_lead_once_and_only_for_a_member() -> None:
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.path)
+        if request.url.path.endswith("/25-500.json"):
+            return httpx.Response(200, json=_lead_payload(*_LEAD_BRIEFS))
+        return httpx.Response(404)
+
+    inner = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        headers={"User-Agent": supremecourt.BROWSER_USER_AGENT},
+    )
+    with SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None) as client:
+        lead = fetch_consolidation_lead(client, "scotus/9025000501", _member_payload())
+        assert lead.failure is None
+        assert lead.payload is not None and lead.payload["CaseNumber"] == "25-500 "
+        assert len(asked) == 1
+        # The lead itself, and an unconsolidated docket, cost no request at all.
+        assert fetch_consolidation_lead(client, "scotus/9025000500", _lead_payload()) == LeadFetch()
+        assert fetch_consolidation_lead(client, "scotus/1", _granted_payload()) == LeadFetch()
+        assert len(asked) == 1
+
+
+@pytest.mark.parametrize(
+    ("status", "failure"), [(404, LEAD_DOCKET_UNSERVED), (500, LEAD_DOCKET_ERROR)]
+)
+def test_a_lead_the_fetch_did_not_return_carries_its_reason(
+    status: int, failure: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    inner = httpx.Client(
+        transport=httpx.MockTransport(lambda _r: httpx.Response(status)),
+        headers={"User-Agent": supremecourt.BROWSER_USER_AGENT},
+    )
+    client = SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None)
+    with client, caplog.at_level(logging.WARNING):
+        lead = fetch_consolidation_lead(client, "scotus/9025000501", _member_payload())
+    assert lead == LeadFetch(failure=failure)
+    assert "lead docket 25-500" in caplog.text
+
+
+# Lead-docket shapes from real consolidated groups, under invented names: a lead
+# carries every docket's filings, marked "(as to No.)" or not at all, and in a
+# cross-positioned group the lead's petitioner is the member's respondent.
+def _member_of(number: str, petitioner: str, respondent: str) -> dict[str, object]:
+    payload = _member_payload()
+    payload["CaseNumber"] = f"{number} "
+    payload["Petitioner"] = [{"PartyName": petitioner, "Attorney": "Ida Lund"}]
+    payload["Respondent"] = [{"PartyName": respondent, "Attorney": "Omar Haddad"}]
+    return payload
+
+
+def _lead_with(*texts: str) -> dict[str, object]:
+    return _lead_payload(
+        *(
+            _entry("Jun 01 2026", text, url=f"https://www.supremecourt.gov/lead-{index}.pdf")
+            for index, text in enumerate(texts)
+        )
+    )
+
+
+def test_an_as_to_mark_decides_whose_filing_a_lead_entry_is() -> None:
+    member = _member_of("25-501", "Brightwater Collective, et al.", "Ellery Vance")
+    lead = _lead_with(
+        "Brief of petitioners Quillon Media Inc. and Quillon Ltd. filed (as to 25-500).",
+        "Brief of petitioners Brightwater Collective, et al. filed (as to 25-501).",
+        "Brief of respondent Ellery Vance, Attorney General filed.  VIDED.",
+        "Reply of petitioners Quillon Media Inc. and Quillon Ltd. filed (as to 25-500).",
+        "Reply of petitioners Brightwater Collective, et al. filed (as to 25-501).",
+    )
+    refs = {r.kind: r.url for r in select_documents(member, lead=lead)}
+    assert refs[KIND_MERITS_BRIEF_PETITIONER].endswith("lead-1.pdf")
+    assert refs[KIND_MERITS_BRIEF_RESPONDENT].endswith("lead-2.pdf")
+    assert refs[KIND_MERITS_REPLY_PETITIONER].endswith("lead-4.pdf")
+
+
+def test_an_unmarked_lead_entry_is_the_members_only_if_it_names_the_members_party() -> None:
+    # The first petitioner's brief on the lead is the lead's own petitioner's.
+    member = _member_of("25-501", "Kestrel Pharma, L.L.C.", "Alliance for Rural Clinics, et al.")
+    lead = _lead_with(
+        "Brief of Federal Petitioners filed. VIDED",
+        "Brief of petitioner Kestrel Pharma, LLC filed. VIDED",
+        "Brief of respondents Alliance for Rural Clinics, et al. filed.  VIDED. (Distributed)",
+    )
+    refs = {r.kind: r.url for r in select_documents(member, lead=lead)}
+    assert refs[KIND_MERITS_BRIEF_PETITIONER].endswith("lead-1.pdf")
+    assert refs[KIND_MERITS_BRIEF_RESPONDENT].endswith("lead-2.pdf")
+
+
+def test_a_cross_positioned_lead_never_lends_the_other_sides_brief() -> None:
+    """The lead's petitioners are a respondent on the member's own docket.
+
+    Read first-match, the member would store its opponents' brief as its own
+    side's; read against the member's petitioner list, it takes its own.
+    """
+    member = _member_of("25-501", "United States", "Rowan Ashby, et al.")
+    lead = _lead_with(
+        "Brief of petitioners Rowan Ashby, et al. filed.  VIDED.",
+        "Brief of petitioner the United States filed.  VIDED.",
+    )
+    refs = {r.kind: r.url for r in select_documents(member, lead=lead)}
+    assert refs[KIND_MERITS_BRIEF_PETITIONER].endswith("lead-1.pdf")
+    # And where only the opponents' brief is there, nothing is borrowed at all.
+    kinds = {
+        r.kind
+        for r in select_documents(
+            member, lead=_lead_with("Brief of petitioners Rowan Ashby, et al. filed.")
+        )
+    }
+    assert KIND_MERITS_BRIEF_PETITIONER not in kinds
+
+
+def test_a_lead_entry_naming_no_filer_is_not_borrowed() -> None:
+    # Unplaceable on a lead that carries several dockets' filings.
+    member = _member_of("25-501", "Brightwater Collective", "Ellery Vance")
+    refs = {
+        r.kind for r in select_documents(member, lead=_lead_with("Brief for the petitioner filed."))
+    }
+    assert KIND_MERITS_BRIEF_PETITIONER not in refs
 
 
 # --- extraction -------------------------------------------------------------------
@@ -4518,3 +4928,47 @@ def test_party_values_come_first_then_the_qualifying_amicus_values() -> None:
 
     assert sides == ("Petitioner", "Other")
     assert party_contact_values(payload, sides) == ("shared@example.com", "(555) 555-0142")
+
+
+def test_a_filer_named_only_by_a_generic_word_is_not_placed() -> None:
+    # "Federal Petitioners" leaves {federal}, a subset of any "Federal …" party.
+    member = _member_of("25-501", "Federal Maritime Commission", "Ellery Vance")
+    refs = {
+        r.kind
+        for r in select_documents(member, lead=_lead_with("Brief of Federal Petitioners filed."))
+    }
+    assert KIND_MERITS_BRIEF_PETITIONER not in refs
+    # An exact name still is, however generic its words.
+    member = _member_of("25-501", "United States", "Ellery Vance")
+    refs = {
+        r.kind
+        for r in select_documents(
+            member, lead=_lead_with("Brief of petitioner the United States filed.")
+        )
+    }
+    assert KIND_MERITS_BRIEF_PETITIONER in refs
+
+
+def test_a_joint_as_to_mark_still_reads_the_filer() -> None:
+    member = _member_of("25-501", "Brightwater Collective", "Ellery Vance")
+    joint_other = "Brief of petitioners Quillon Media Inc. filed (as to 25-500 and 25-501)."
+    joint_own = "Brief of petitioners Brightwater Collective filed (as to 25-500 and 25-501)."
+    assert KIND_MERITS_BRIEF_PETITIONER not in {
+        r.kind for r in select_documents(member, lead=_lead_with(joint_other))
+    }
+    assert KIND_MERITS_BRIEF_PETITIONER in {
+        r.kind for r in select_documents(member, lead=_lead_with(joint_own))
+    }
+
+
+def test_a_member_with_no_datable_grant_spends_no_lead_get() -> None:
+    member = _member_payload()
+    member["ProceedingsandOrder"] = [  # the consolidation entry, and no grant
+        _consolidation_entry()
+    ]
+    inner = httpx.Client(
+        transport=httpx.MockTransport(lambda _r: pytest.fail("no request expected")),
+        headers={"User-Agent": supremecourt.BROWSER_USER_AGENT},
+    )
+    with SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None) as client:
+        assert fetch_consolidation_lead(client, "scotus/9025000501", member) == LeadFetch()

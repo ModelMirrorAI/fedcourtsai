@@ -820,7 +820,13 @@ briefs and derived questions-presented row included. Its population is scoped to
 rows that can still mint a cell, not to the wide distributed stock, which is
 overwhelmingly legacy rows carrying no document links at all, and each such row
 is measured on two arms: its own docket form's opening document, and — on a
-granted row whose respondent has filed on the merits — each side's merits brief. It is the other slice-bounded pass, and the one whose `dry-run`
+granted row whose respondent has filed on the merits — each side's merits brief.
+A consolidated member missing a merits kind, whose merits briefs are entered on
+its lead docket alone, has that lead's JSON fetched beside its own (one more
+paced GET, in either mode) and its merits kinds selected off the lead's entries
+that are the member's own, so a member briefed on its lead is recovered or
+floored rather than named by the selector-regression alarm; a lead the fetch did
+not return is counted as a docket loss. It is the other slice-bounded pass, and the one whose `dry-run`
 is bounded too: that dry run fetches each candidate's docket JSON, which is the
 whole diagnostic — it is what separates a case with a link waiting for it from
 one at a floor — and it is a paced round trip per candidate. Two floors are

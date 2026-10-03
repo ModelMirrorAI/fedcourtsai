@@ -706,7 +706,9 @@ material**:
   collection, enrichment, or de-anonymization, and no redaction beyond what
   CourtListener already applies to the public records. Narrowing on privacy
   grounds happens one step later instead, on the copy staged for a cell
-  (below), so the stored record stays the record as ingested.
+  (below), so the stored record stays the record as ingested. The one
+  collection-side refusal is a consolidated member's borrowing from its lead
+  docket (below), which is declined rather than narrowed.
 - **Raw facts stay access-gated.** The corpus that holds the full docket detail
   lives in the private S3 estate — the snapshot payloads in its per-case content
   store, the scannable index beside them — not public git; stored content
@@ -768,7 +770,12 @@ material**:
   several people jointly, or adds a comma-separated description (", APC") is
   read as self-represented where the attorney field is the person, or one of
   the people, it names.
-  This is the one narrowing applied on privacy grounds, and it applies to the
+  A consolidated member's merits filings read off its lead docket are staged
+  and scrubbed on the member's own reading, since only the member's own side's
+  filings are borrowed; a lead whose petitioner or respondent side reads as
+  self-represented lends nothing at all, because provisioning reads one case's
+  snapshot and cannot key the scrub on the lead's blocks.
+  This is the staged-copy narrowing applied on privacy grounds, and it applies to the
   **staged copies** alone: the source PDF and the corpus row are untouched. On
   the same docket the snapshot staged beside the documents has each
   self-represented block's `Address`, `City`, `Zip`, `Phone`,

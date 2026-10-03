@@ -1441,3 +1441,148 @@ def test_a_motion_reply_does_not_take_the_reply_slot(tmp_path: Path) -> None:
         stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/1")}
     assert "Petitioner replies." in stored[KIND_MERITS_REPLY_PETITIONER].text
     assert "About the argument order." not in stored[KIND_MERITS_REPLY_PETITIONER].text
+
+
+# --- Consolidated members: merits briefs on the lead docket -------------------
+
+_CONSOLIDATED_INTO_25_500 = (
+    "Because the Court has consolidated these cases for briefing and oral argument, "
+    + "future filings and activity in the cases will now be reflected on the docket of "
+    + "No. 25-500.  Subsequent filings in these cases must therefore be submitted through "
+    + "the electronic filing system in No. 25-500."
+)
+
+
+def _consolidated_dockets() -> dict[str, dict[str, Any]]:
+    """A member (25-501) whose merits briefs are entered on its lead (25-500) alone."""
+    consolidation = {"Text": _CONSOLIDATED_INTO_25_500, "Date": "Apr 06 2026", "Links": []}
+    member = {
+        "CaseNumber": "25-501 ",
+        "Petitioner": [{"PartyName": "Harbor Pilots Association", "Attorney": "Ida Lund"}],
+        "Respondent": [{"PartyName": "Coastal Freight Lines", "Attorney": "Omar Haddad"}],
+        "ProceedingsandOrder": [_petition_entry(), _grant_entry(), consolidation],
+    }
+    lead = {
+        "CaseNumber": "25-500 ",
+        "ProceedingsandOrder": [
+            _petition_entry(url="https://www.supremecourt.gov/lead-petition.pdf"),
+            _grant_entry(),
+            consolidation,
+            _merits_entry(
+                "Brief of petitioners Harbor Pilots Association filed.",
+                "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-pet.pdf",
+            ),
+            _merits_entry(
+                "Brief of respondent Coastal Freight Lines filed.",
+                "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-resp.pdf",
+                date_="Jul 13 2026",
+            ),
+        ],
+    }
+    return {"25-501": member, "25-500": lead}
+
+
+def test_a_consolidated_member_is_selected_off_its_lead_in_a_dry_run(tmp_path: Path) -> None:
+    """The dry run's diagnostic reads the lead: the member's briefs are fetchable.
+
+    One more docket GET for the lead, and still no PDF — the dry run's restraint
+    holds for the borrowed filings as for the member's own.
+    """
+    rows = [_granted_row("scotus/1", "25-501")]
+    documents = [_document("scotus/1", KIND_PETITION, url="https://www.supremecourt.gov/pet.pdf")]
+    log = _Requests()
+    with (
+        _seeded(tmp_path / "corpus", rows, documents) as conn,
+        _client(_consolidated_dockets(), log=log) as client,
+    ):
+        result = _run(conn, client, max_cases=5)
+    assert result.selected == {
+        "scotus/1": [KIND_MERITS_BRIEF_PETITIONER, KIND_MERITS_BRIEF_RESPONDENT]
+    }
+    assert result.no_entry_modern_cases == []
+    assert [url.rsplit("/", 1)[-1] for url in log.urls] == ["25-501.json", "25-500.json"]
+    assert log.pdfs() == []
+
+
+def test_an_apply_stores_a_members_lead_briefs_with_the_lead_urls(tmp_path: Path) -> None:
+    rows = [_granted_row("scotus/1", "25-501")]
+    documents = [_document("scotus/1", KIND_PETITION, url="https://www.supremecourt.gov/pet.pdf")]
+    pdfs = {
+        "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-pet.pdf": _pdf(
+            "Petitioners say reverse."
+        ),
+        "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-resp.pdf": _pdf(
+            "Respondent says affirm."
+        ),
+    }
+    with _seeded(tmp_path / "corpus", rows, documents) as conn:
+        with _client(_consolidated_dockets(), pdfs=pdfs) as client:
+            result = _run(conn, client, apply=True, max_cases=5)
+        stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/1")}
+    assert result.recovered == 1
+    assert result.remaining == 0
+    brief = stored[KIND_MERITS_BRIEF_PETITIONER]
+    assert brief.url == "https://www.supremecourt.gov/DocketPDF/25/25-500/lead-pet.pdf"
+    assert brief.entry_date == "Jun 01 2026"
+    assert "Petitioners say reverse." in brief.text
+    assert stored[KIND_MERITS_BRIEF_RESPONDENT].url.endswith("/25-500/lead-resp.pdf")
+    # The member's own petition is untouched — the cert stage stays the member's.
+    assert stored[KIND_PETITION].url == "https://www.supremecourt.gov/pet.pdf"
+
+
+def test_a_consolidated_member_does_not_raise_the_selector_alarm(tmp_path: Path) -> None:
+    """Briefs on the lead with no PDF behind them are a floor, not a blind selector.
+
+    Before the lead was read, a member's own docket carried no merits entry at
+    all, which is exactly the alarm's shape on a modern docket.
+    """
+    dockets = _consolidated_dockets()
+    for entry in dockets["25-500"]["ProceedingsandOrder"][3:]:
+        entry["Links"] = []
+    rows = [_granted_row("scotus/1", "25-501")]
+    documents = [_document("scotus/1", KIND_PETITION)]
+    with _seeded(tmp_path / "corpus", rows, documents) as conn, _client(dockets) as client:
+        result = _run(conn, client, max_cases=5)
+    assert result.no_entry_modern_cases == []
+    assert result.no_link == 1
+    # And an unconsolidated docket with the same empty proceedings still alarms.
+    del dockets["25-501"]["ProceedingsandOrder"][2]
+    with (
+        _seeded(tmp_path / "corpus2", rows, documents) as conn,
+        _client(dockets) as client,
+    ):
+        result = _run(conn, client, max_cases=5)
+    assert result.no_entry_modern_cases == ["scotus/1"]
+
+
+@pytest.mark.parametrize(("errors", "unserved"), [(frozenset(), 1), (frozenset({"25-500"}), 0)])
+def test_a_lead_the_fetch_did_not_return_is_a_docket_loss(
+    tmp_path: Path, errors: frozenset[str], unserved: int
+) -> None:
+    """Counted as the docket loss it is, never a floor and never the selector alarm."""
+    dockets = _consolidated_dockets()
+    del dockets["25-500"]
+    rows = [_granted_row("scotus/1", "25-501")]
+    documents = [_document("scotus/1", KIND_PETITION)]
+    with (
+        _seeded(tmp_path / "corpus", rows, documents) as conn,
+        _client(dockets, errors=errors) as client,
+    ):
+        result = _run(conn, client, apply=True, max_cases=5)
+    assert result.docket_unserved == unserved
+    assert result.docket_errors == 1 - unserved
+    assert result.no_entry_modern_cases == []
+    assert result.floors_stamped == 0
+    assert result.remaining == 1
+
+
+def test_a_primary_only_member_does_not_spend_a_lead_get(tmp_path: Path) -> None:
+    """Only merits kinds are borrowed, so a candidate missing none skips the lead."""
+    rows = [_row("scotus/1", "25-501")]  # ungranted on the row: primary arm only
+    log = _Requests()
+    with (
+        _seeded(tmp_path / "corpus", rows) as conn,
+        _client(_consolidated_dockets(), log=log) as client,
+    ):
+        _run(conn, client, max_cases=5)
+    assert [url.rsplit("/", 1)[-1] for url in log.urls] == ["25-501.json"]

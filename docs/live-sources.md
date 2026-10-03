@@ -298,13 +298,23 @@ the docket form, so one function serves both lanes:
   would share one extraction cap, so the second would be cut by however long the
   first ran. The first brief in docket order on each side — the first whose entry
   posts that link — is the opening one; the reply is a separate entry family
-  ("Reply [Brief] of …") the two reply kinds below take, and the joint-appendix
+  ("Reply [Brief] of/for …") the two reply kinds below take, and the joint-appendix
   reprint is passed over because the opening brief precedes it. **One per side**
   is the
   accepted residual, and it is the opposite call from the opposition arm above
   on purpose: a case with several respondent groups files several merits briefs
   and only the first is stored, because combining them is exactly what the
-  per-side kinds exist to avoid.
+  per-side kinds exist to avoid. The entry opens "Brief of …" or the Court's
+  title form "Brief for the …" (often naming no party), either with an optional
+  leading "Redacted" — the public copy of a brief filed under seal ("Redacted
+  brief of petitioner … filed."). Every spelling is still anchored at
+  the entry's start, so a filing *about* a brief ("Motion to file petitioner's
+  brief on the merits under seal with redacted copies …", "Motion for an
+  extension of time to file the briefs on the merits …") is not selected. On the
+  respondent side the wider reading is the selector's alone: the briefed merits
+  moment is still dated by the narrower "Brief of respondent …" reading, since
+  which document a cell is given and when its moment opens are separate
+  questions.
 - **`merits-reply-petitioner`** / **`merits-reply-respondent`** — each side's
   *reply* on the merits, the last word on the argument and the one filing that
   answers what the other side actually argued. A distinct entry family ("Reply
@@ -327,10 +337,59 @@ the docket form, so one function serves both lanes:
   before the briefs would occupy the side's slot and put its real merits reply
   out of reach. And a reply the Clerk recorded under counsel's own name rather
   than a party's is left unfetched rather than guessed at, since no party-word
-  anchor can read it.
+  anchor can read it. The reply arms read the same two further spellings the
+  briefs do ("Reply brief for the petitioner …", a leading "Redacted").
+
 - **`questions-presented`** — derived from the `petition` text alone, never
   fetched and never derived from an `application`.
 
+**Consolidated members read their merits filings off the lead docket.** When
+the Court consolidates cases for briefing and argument it enters, on every
+docket of the group, "Because the Court has consolidated these cases for
+briefing and oral argument, future filings and activity in the cases will now
+be reflected on the docket of No. 24-20." From then on the merits briefs and
+replies are entered on the lead docket alone, and a member's own JSON never
+shows them. So on a **member** — a docket whose entry names a number other
+than its own `CaseNumber` — the fetch reads the lead's docket JSON as well (one
+more paced GET through the same client and endpoint), and each of the four
+merits kinds the member's own docket does not yield is taken from the lead's
+selection. The rules:
+
+- **The lead is read off the entry**, not off the Granted & Noted list: the
+  entry is on the payload already in hand, names the lead explicitly, and is
+  entered the day the Court consolidates. The lead's own docket carries the same
+  words naming itself, which is how it is told apart. One hop only.
+- **Merits kinds only.** The member's petition, opposition and derived
+  questions presented stay the member's own; so does any merits filing its own
+  docket carries, which is kept over the lead's.
+- **Only the member's own filings.** A lead carries the filings of every docket
+  in the group, so the first petitioner's brief on it is often another
+  docket's — and in a cross-positioned group, a party that is the member's
+  *respondent*. A lead entry is the member's only where its "(as to No. …)"
+  mark names the member's number, or, unmarked, where the filer it names is a
+  party on the member's own side list (`Petitioner` for a petitioner-side kind,
+  `Respondent` for a respondent-side one), compared on name tokens. An entry
+  naming no filer ("Brief for the petitioner filed.") cannot be placed on a
+  lead and is not borrowed; neither is anything when no entry is the member's.
+- **Provenance stays honest.** A borrowed row is stored under the member's
+  `case_id` with the lead's PDF URL and the lead entry's date, so the manifest
+  says where the text came from and a moment cut places it by the day it reached
+  the record.
+- **Timing.** A lead filing is borrowed only if it is dated after the
+  **member's** own grant (as well as the lead's), so a member consolidated into
+  an already-briefed lead does not read, at its grant moment, advocacy filed
+  before it had a merits stage. A member whose grant cannot be dated borrows
+  nothing. A replay or moment cut then applies by entry date exactly as to the
+  member's own documents.
+- **Contact scrub.** The staged-text scrub runs over a borrowed document exactly
+  as over the member's own, keyed on the **member's** counsel blocks — which is
+  right for the member's own pro se filings, since those are now entered on the
+  lead. The lead's party blocks are not compared at provisioning (it reads one
+  case's snapshot), so a lead whose party side reads as self-represented lends
+  nothing, and the run log says so. A self-filing amicus on the lead's `Other`
+  list does not block it: an amicus brief is not a staged kind.
+- **A lead that does not serve** is warned into the run log and read as no lead:
+  the member's own documents are stored without it.
 **Implemented:** each lane fetches at the moment it queues prediction, which is
 not the same moment for both. On a cert docket that is the **distribution
 transition** (the
@@ -916,7 +975,10 @@ corpus row rather than off a poll.
   The apply goes on through the same fetch the poller runs, so a recovered case
   is provisioned on exactly the terms a case provisioned at its trigger was —
   the opposition briefs and the derived questions-presented row land with the
-  primary filing, and a merits reply lands with the merits briefs. Recovery is
+  primary filing, and a merits reply lands with the merits briefs. A
+  consolidated member missing a merits kind costs one more docket GET in either
+  mode, for its lead's JSON, since its merits briefs are entered there (see *Consolidated members*
+  above). Recovery is
   **leaving the class**, so a candidate that gained one of two missing merits
   briefs is a write and not a recovery, and stays at the head of the next slice.
 - **What it reports as a floor rather than a failure.** Two readings, and
@@ -943,6 +1005,12 @@ corpus row rather than off a poll.
   exists to stop producing — and those cases are **named** whichever floor they
   were counted at, so a granted case whose merits entries are on the docket and
   whose opening filing is unreadable is not silenced by the kind that matched.
+  On a consolidated member the lead's entries count as the member's for this
+  test, so a member whose briefs are on a lead the fetch served is a recovery
+  or a floor, not an alarm — the floor where the lead lends nothing (every
+  entry another docket's, or dated before the member's grant). A lead the fetch
+  did not return is counted with the docket losses (`docket_unserved`,
+  `docket_errors`), unstamped, so the member is retried.
   A floor the alarm fired on is also the one floor that is **never stamped**: it
   is a reading about this pass rather than about the docket, so holding the case
   out would bank an exclusion over a defect on our own side — and it is the
