@@ -878,7 +878,7 @@ def _cert_backtest_dispatch(report: CertBacktest) -> str:
         else "the most recently decided"
     )
     spread = (
-        "spread on (drawn across conference cohorts)"
+        "spread on (a salted-hash random draw over the population)"
         if dispatch.spread
         else (
             f"spread off ({head}, which collapses onto the grant-heavy "

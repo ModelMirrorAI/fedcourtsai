@@ -2607,9 +2607,10 @@ def test_the_weekly_digest_names_the_engines_a_back_test_opted_out_of() -> None:
     )
 
     assert "engine `stub` (offline rehearsal — no model ran)" in bullet
-    assert "scope `paid` (IFP dropped), limit 10, spread on (drawn across conference cohorts)" in (
-        bullet
-    )
+    assert (
+        "scope `paid` (IFP dropped), limit 10, "
+        + "spread on (a salted-hash random draw over the population)"
+    ) in bullet
     assert "engines opted out: codex, gemini" in bullet
 
 

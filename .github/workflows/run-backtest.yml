@@ -87,7 +87,7 @@ on:
         options: [all, paid, selected]
         default: all
       spread:
-        description: "Sample across conference cohorts (a full term's cadence) instead of the most recently decided N."
+        description: "Draw a salted-hash random sample of the population instead of the most recently decided N."
         type: boolean
         default: false
 
@@ -100,7 +100,7 @@ permissions: {}
 # directly — an unresolved `inputs.limit` would pass an empty `--limit`.
 #
 # The pins are the standing measurement — 10 petitions, all three real engines,
-# the paid modern-cert population, spread across conference cohorts — and what a
+# the paid modern-cert population, drawn at random by the salted-hash rule — and what a
 # fortnight costs is whatever the usage ledger measures against exactly them.
 #
 # `--scope paid` is the pin, not the wider `all`, because the population has to
@@ -290,10 +290,10 @@ jobs:
             # The pins are read from the same workflow env the replay command
             # reads, never retyped: a plan that restated them would be the one
             # document able to describe a spend the run does not make.
-            printf 'Pinned on the cron path: `--engine %s` (each predictor through its own real engine), `--limit %s`, `--scope %s`, spread across conference cohorts: `%s`. Replay mode `%s`; engines opted out: none.\n' \
+            printf 'Pinned on the cron path: `--engine %s` (each predictor through its own real engine), `--limit %s`, `--scope %s`, salted-hash random draw (`--spread`): `%s`. Replay mode `%s`; engines opted out: none.\n' \
               "$BT_ENGINE" "$BT_LIMIT" "$BT_SCOPE" "$BT_SPREAD" "$BT_REPLAY"
             echo ""
-            echo 'The limit is a ceiling, not the sample: a petition holding no snapshot is dropped before any cell runs, so the report'"'"'s own `events_scored` is what was measured. Spreading draws the newest petition from each conference cohort rather than the tail of one — a within-run property; the draw moves between fortnights only as newly decided petitions enter the population.'
+            echo 'The draw ranks every petition in the population by a salted hash of its case id keyed by the corpus vintage, and walks that order passing over any petition holding no replayable snapshot, so the set is a random sample of the replayable population and the report'"'"'s `provenance.draw` records the rule, its key and how many were passed over. The same blob draws the same set; a newer blob draws afresh. The report'"'"'s own `events_scored` is what was measured.'
             echo ""
             echo 'Corpus the population is drawn from — the vintage of the blob this plan read, not of the one a released run pulls:'
             echo '```'

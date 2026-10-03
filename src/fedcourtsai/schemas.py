@@ -5081,16 +5081,73 @@ class CertBacktestDispatch(_Strict):
     )
     spread: bool = Field(
         default=False,
-        description="``--spread``: sampled across conference cohorts instead of the "
-        "most recently decided N, which collapses onto the grant-heavy last order "
-        "lists — a different grant mix, so the floor and every lift move with it",
+        description="``--spread``: drawn by the salted-hash rule (`provenance.draw`) — "
+        "a pseudo-random sample spread over the population's conferences and Terms "
+        "in proportion to their size — instead of the most recently decided N, "
+        "which collapses onto the grant-heavy last order lists. A different grant "
+        "mix, so the floor and every lift move with it",
     )
     limit: int = Field(
         default=0,
         ge=0,
-        description="``--limit``: the cap on the cert set before unreplayable "
-        "petitions were dropped. `events_scored` is what survived that filter, so "
-        "a gap between the two is coverage, not sampling",
+        description="``--limit``: the size of the drawn set. On an engine replay "
+        "the draw passes over petitions it cannot replay and keeps walking "
+        "(`provenance.draw.passed_over`), so `events_scored` falls short of it only "
+        "where the eligible population is smaller than the limit",
+    )
+
+
+#: The rule that drew a cert back-test set from its population. ``recency-head``
+#: takes the most recently decided petitions in order; ``vintage-keyed-hash-v1``
+#: takes them in the order of a salted SHA-256 of the case id keyed by the
+#: corpus vintage — a pseudo-random order no outcome, date or conference feeds.
+CertBacktestDrawRule = Literal["recency-head", "vintage-keyed-hash-v1"]
+
+
+class CertBacktestDraw(_Strict):
+    """How a cert back-test set was drawn from its population.
+
+    Recorded because the draw rule decides the set's grant mix, and so the
+    always-deny floor every lift is measured against, while the dispatch alone
+    does not say which rule ran. ``vintage-keyed-hash-v1`` (``--spread``) ranks
+    every petition in the population by
+    ``sha256("<salt>|<key>|<case_id>")`` and walks that order, taking each
+    eligible petition until ``limit``: a simple random sample without
+    replacement, so the set's expected outcome mix is the eligible
+    population's and each conference and Term holds a share in proportion to
+    its size. The key is the corpus vintage, so the same corpus and the same
+    dispatch draw the same set, and a newer corpus draws afresh.
+    """
+
+    rule: CertBacktestDrawRule = Field(
+        default="recency-head",
+        description="'recency-head': the most recently decided petitions in order "
+        "(`--no-spread`), which lands a small limit on the last order lists. "
+        "'vintage-keyed-hash-v1' (`--spread`): the salted-hash order described "
+        "on this block, independent of outcome, decision date and conference",
+    )
+    salt: str | None = Field(
+        default=None,
+        description="The fixed salt the hash rule mixes in, recorded so the draw "
+        "can be recomputed from the report alone. Null under 'recency-head'",
+    )
+    key: str | None = Field(
+        default=None,
+        description="The corpus vintage the hash rule was keyed by: the blob's "
+        "newest `last_pulled` stamp (ISO date), or 'undated' where no row carries "
+        "one. Two reports with the same key and dispatch over the same blob drew "
+        "the same set. Null under 'recency-head'",
+    )
+    passed_over: int = Field(
+        default=0,
+        ge=0,
+        description="Petitions the walk reached and passed over because an engine "
+        "replay could not run them (no held snapshot or petition event) before "
+        "the set filled. The set is drawn from the replayable population, so this "
+        "is coverage, not sampling — and replayable coverage is not "
+        "outcome-neutral, so the replayable population's floor, not the whole "
+        "population's, is what the drawn set estimates. 0 where no engine replay "
+        "ran: the offline baselines need no snapshot",
     )
 
 
@@ -5301,6 +5358,13 @@ class CertBacktestProvenance(_Strict):
         default_factory=CertBacktestDispatch,
         description="The parameters the run was dispatched with — the population "
         "definition and the engine routing behind these scores",
+    )
+    draw: CertBacktestDraw | None = Field(
+        default=None,
+        description="How the set was drawn from its population — the rule, and the "
+        "salt and corpus-vintage key a hash draw used. Null on the empty report "
+        "and on reports written before the draw was recorded, whose draw rule the "
+        "artifact cannot say",
     )
     salience_floor: float | None = Field(
         default=None,

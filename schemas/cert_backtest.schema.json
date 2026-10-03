@@ -351,7 +351,7 @@
         },
         "limit": {
           "default": 0,
-          "description": "``--limit``: the cap on the cert set before unreplayable petitions were dropped. `events_scored` is what survived that filter, so a gap between the two is coverage, not sampling",
+          "description": "``--limit``: the size of the drawn set. On an engine replay the draw passes over petitions it cannot replay and keeps walking (`provenance.draw.passed_over`), so `events_scored` falls short of it only where the eligible population is smaller than the limit",
           "minimum": 0,
           "title": "Limit",
           "type": "integer"
@@ -372,12 +372,63 @@
         },
         "spread": {
           "default": false,
-          "description": "``--spread``: sampled across conference cohorts instead of the most recently decided N, which collapses onto the grant-heavy last order lists \u2014 a different grant mix, so the floor and every lift move with it",
+          "description": "``--spread``: drawn by the salted-hash rule (`provenance.draw`) \u2014 a pseudo-random sample spread over the population's conferences and Terms in proportion to their size \u2014 instead of the most recently decided N, which collapses onto the grant-heavy last order lists. A different grant mix, so the floor and every lift move with it",
           "title": "Spread",
           "type": "boolean"
         }
       },
       "title": "CertBacktestDispatch",
+      "type": "object"
+    },
+    "CertBacktestDraw": {
+      "additionalProperties": false,
+      "description": "How a cert back-test set was drawn from its population.\n\nRecorded because the draw rule decides the set's grant mix, and so the\nalways-deny floor every lift is measured against, while the dispatch alone\ndoes not say which rule ran. ``vintage-keyed-hash-v1`` (``--spread``) ranks\nevery petition in the population by\n``sha256(\"<salt>|<key>|<case_id>\")`` and walks that order, taking each\neligible petition until ``limit``: a simple random sample without\nreplacement, so the set's expected outcome mix is the eligible\npopulation's and each conference and Term holds a share in proportion to\nits size. The key is the corpus vintage, so the same corpus and the same\ndispatch draw the same set, and a newer corpus draws afresh.",
+      "properties": {
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The corpus vintage the hash rule was keyed by: the blob's newest `last_pulled` stamp (ISO date), or 'undated' where no row carries one. Two reports with the same key and dispatch over the same blob drew the same set. Null under 'recency-head'",
+          "title": "Key"
+        },
+        "passed_over": {
+          "default": 0,
+          "description": "Petitions the walk reached and passed over because an engine replay could not run them (no held snapshot or petition event) before the set filled. The set is drawn from the replayable population, so this is coverage, not sampling \u2014 and replayable coverage is not outcome-neutral, so the replayable population's floor, not the whole population's, is what the drawn set estimates. 0 where no engine replay ran: the offline baselines need no snapshot",
+          "minimum": 0,
+          "title": "Passed Over",
+          "type": "integer"
+        },
+        "rule": {
+          "default": "recency-head",
+          "description": "'recency-head': the most recently decided petitions in order (`--no-spread`), which lands a small limit on the last order lists. 'vintage-keyed-hash-v1' (`--spread`): the salted-hash order described on this block, independent of outcome, decision date and conference",
+          "enum": [
+            "recency-head",
+            "vintage-keyed-hash-v1"
+          ],
+          "title": "Rule",
+          "type": "string"
+        },
+        "salt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The fixed salt the hash rule mixes in, recorded so the draw can be recomputed from the report alone. Null under 'recency-head'",
+          "title": "Salt"
+        }
+      },
+      "title": "CertBacktestDraw",
       "type": "object"
     },
     "CertBacktestEntry": {
@@ -572,6 +623,18 @@
         "dispatch": {
           "$ref": "#/$defs/CertBacktestDispatch",
           "description": "The parameters the run was dispatched with \u2014 the population definition and the engine routing behind these scores"
+        },
+        "draw": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CertBacktestDraw"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the set was drawn from its population \u2014 the rule, and the salt and corpus-vintage key a hash draw used. Null on the empty report and on reports written before the draw was recorded, whose draw rule the artifact cannot say"
         },
         "dropped_predictors": {
           "description": "Enabled predictors that produced no entry for a **run-time** reason, sorted: their engine had no registered runner, its CLI binary turned out to be missing mid-run, or every one of its cells was lost (`lost_cells`). The ids carry no cause \u2014 the run log names which. The deliberate opt-out is `dispatch.skip_engines` instead. Recorded because a board silently short one engine is a different comparison from the three-engine one it looks like, and stderr does not survive the runner",

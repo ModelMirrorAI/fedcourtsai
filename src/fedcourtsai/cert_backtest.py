@@ -9,8 +9,9 @@ axes the cert task demands:
   SCOTUS **modern discretionary-cert** petitions (:func:`corpus.is_modern_cert`)
   with a machine-readable grant/deny label — the pre-1925 mandatory-jurisdiction
   regime and the application/original forms are excluded up front, so scoring
-  labels stay comparable. Most recently decided first, so a small ``--limit``
-  reads on recent cert practice.
+  labels stay comparable. Most recently decided first by default, so a small
+  ``--limit`` reads on recent cert practice; ``--spread`` instead draws a
+  pre-registered salted-hash random sample of the population.
 - **Scoring** reports the honest signal under cert's structural denial skew:
   raw accuracy is cheap when almost everything is denied, so each entry carries
   **lift over the always-deny floor** plus a decile **calibration** view of
@@ -26,6 +27,7 @@ axes the cert task demands:
 
 from __future__ import annotations
 
+import hashlib
 import re
 import sqlite3
 import subprocess
@@ -89,6 +91,8 @@ from .schemas import (
     CertBacktestCellLoss,
     CertBacktestDisclosure,
     CertBacktestDisclosureTally,
+    CertBacktestDraw,
+    CertBacktestDrawRule,
     CertBacktestEntry,
     CertBacktestFlag,
     CertBacktestLossReason,
@@ -138,62 +142,66 @@ def _in_scope(row: corpus.CorpusRow, scope: str, floor: float) -> bool:
     return row.cvsg_date is not None or salience_score(row) >= floor
 
 
-def _conference_key(row: corpus.CorpusRow) -> str:
-    """A cohort key for the spread sampler: the conference, else the Term.
+#: The salt the ``--spread`` hash draw mixes into every rank. Pre-registered and
+#: fixed: changing it is a new draw rule (bump ``SPREAD_DRAW_RULE``), never a knob
+#: a dispatch turns, so a reader can recompute any recorded draw from its report.
+SPREAD_DRAW_SALT = "fedcourtsai/cert-backtest/spread"
+SPREAD_DRAW_RULE: CertBacktestDrawRule = "vintage-keyed-hash-v1"
+RECENCY_DRAW_RULE: CertBacktestDrawRule = "recency-head"
 
-    Prefers the parsed ``distributed_for_conference`` (only the live/REST channels
-    populate it); falls back to the docket's Term year so bulk-seeded rows still
-    spread across terms rather than collapsing into one bucket.
+
+def spread_draw_rank(key: str, case_id: str) -> str:
+    """A petition's place in the ``--spread`` draw order: a salted SHA-256 hex digest.
+
+    A function of the fixed salt, the corpus-vintage ``key`` and the case id only,
+    so no outcome, decision date, conference or docket number feeds the order —
+    which is what makes walking it a simple random sample of the population.
     """
-    if row.distributed_for_conference is not None:
-        return row.distributed_for_conference.isoformat()
-    term = corpus.scotus_term_year(row.docket_number)
-    return f"term-{term}" if term is not None else "term-unknown"
+    return hashlib.sha256(f"{SPREAD_DRAW_SALT}|{key}|{case_id}".encode()).hexdigest()
 
 
-def _spread_sample(rows_recent_first: list[corpus.CorpusRow], limit: int) -> list[corpus.CorpusRow]:
-    """Round-robin across conference cohorts, most-recent within each.
+def spread_draw_key(conn: sqlite3.Connection) -> str:
+    """The corpus vintage the ``--spread`` draw is keyed by: the newest pull stamp.
 
-    Most-recent-first ordering alone collapses a small ``limit`` onto the last
-    order lists (a grant/GVR-heavy term-end snapshot); this instead draws the
-    newest petition from each conference, then the next from each, until ``limit``
-    — so the sample mirrors a full term's live cadence across conferences rather
-    than one moment. Deterministic: buckets preserve the recency order they were
-    fed, and cohorts are visited in most-recent-first order.
+    Keying by the vintage rather than a constant keeps a draw reproducible (the
+    same blob draws the same set) while letting a newer corpus draw afresh, so a
+    standing series of reports accumulates new petitions instead of replaying
+    one fixed set. ``undated`` where no row carries a pull stamp.
     """
-    buckets: dict[str, list[corpus.CorpusRow]] = {}
-    order: list[str] = []
-    for row in rows_recent_first:
-        key = _conference_key(row)
-        if key not in buckets:
-            buckets[key] = []
-            order.append(key)
-        buckets[key].append(row)
-    sampled: list[corpus.CorpusRow] = []
-    depth = 0
-    while len(sampled) < limit:
-        progressed = False
-        for key in order:
-            if depth < len(buckets[key]):
-                sampled.append(buckets[key][depth])
-                progressed = True
-                if len(sampled) >= limit:
-                    return sampled
-        if not progressed:
-            break
-        depth += 1
-    return sampled
+    stamp = corpus.latest_pull_date(conn)
+    return stamp.isoformat() if stamp is not None else "undated"
 
 
-def select_cert_backtest_set(
+def is_replayable(conn: corpus.ReadConnection, case_id: str) -> bool:
+    """Whether an engine replay can run the petition: a held snapshot and a petition event.
+
+    What a live predict cell reads, and what partial coverage withholds while the
+    date backfill drains (a bulk-seeded row has neither until its first fetch).
+    The cheap blob read goes first; the snapshot read may reach the content store.
+    """
+    events = corpus.events_for_case(conn, case_id)
+    if not any(ev.kind == EventKind.petition for ev in events):
+        return False
+    return corpus.latest_snapshot(conn, case_id) is not None
+
+
+@dataclass(frozen=True)
+class CertBacktestSet:
+    """A drawn cert back-test set and the record of how it was drawn."""
+
+    items: list[BacktestItem]
+    draw: CertBacktestDraw
+    #: Case ids the walk passed over as unreplayable, in walk order.
+    passed_over: list[str] = field(default_factory=list)
+
+
+def cert_backtest_population(
     conn: sqlite3.Connection,
     *,
-    limit: int | None = None,
     scope: str = "all",
-    spread: bool = False,
     salience_floor: float | None = None,
-) -> list[BacktestItem]:
-    """The decided cert petitions to back-test, most recently decided first.
+) -> list[corpus.CorpusRow]:
+    """The decided cert petitions a back-test draws from, most recently decided first.
 
     A row qualifies when it is a SCOTUS **modern discretionary-cert** docket
     (:func:`corpus.is_modern_cert` — the Term-prefixed post-1925 form, so the
@@ -206,12 +214,8 @@ def select_cert_backtest_set(
     IFP (the gate's Tier-0 exclusion); ``selected`` keeps only the gate's
     carve-out core (CVSG or at/above ``salience_floor``), the closest replay-safe
     analog of the live selected slice. ``salience_floor`` defaults to the shipped
-    :class:`SalienceConfig` floor.
-
-    Ordering is by most recent decision then ``case_id`` (deterministic), so a
-    small ``limit`` samples recent cert practice. ``spread`` instead round-robins
-    across conference cohorts (:func:`_spread_sample`), so the sample mirrors a
-    full term's live cadence rather than collapsing onto the last order lists.
+    :class:`SalienceConfig` floor. Ordered by most recent decision then
+    ``case_id`` (deterministic).
     """
     if scope not in CERT_BACKTEST_SCOPES:
         raise ValueError(
@@ -228,11 +232,80 @@ def select_cert_backtest_set(
         and _in_scope(row, scope, floor)
     ]
     rows.sort(key=lambda r: (corpus.recency_key(r), r.case_id))
-    if spread and limit is not None:
-        rows = _spread_sample(rows, limit)
-    elif limit is not None:
-        rows = rows[:limit]
-    return [BacktestItem(backtest_features(row), Disposition(str(row.disposition))) for row in rows]
+    return rows
+
+
+def draw_cert_backtest_set(
+    conn: sqlite3.Connection,
+    *,
+    limit: int | None = None,
+    scope: str = "all",
+    spread: bool = False,
+    salience_floor: float | None = None,
+    replayable_only: bool = False,
+) -> CertBacktestSet:
+    """Draw the cert petitions to back-test from :func:`cert_backtest_population`.
+
+    Without ``spread`` the walk is the population's own order, most recently
+    decided first, so a small ``limit`` lands on the last order lists — recent
+    cert practice, grant-heavy at term end. With ``spread`` the walk is the
+    pre-registered hash order (:func:`spread_draw_rank`, keyed by
+    :func:`spread_draw_key`): a simple random sample without replacement, so the
+    set's expected outcome mix is the population's and every conference and Term
+    holds a share in proportion to its size — the never-distributed petitions
+    with no conference included, at their own share and no more. The set is
+    returned in walk order, so any prefix of it (what an engine whose quota trips
+    leaves) is itself a random subsample.
+
+    ``replayable_only`` (an engine replay) passes over petitions
+    :func:`is_replayable` refuses and keeps walking, so ``limit`` is the set's
+    size whenever the replayable population can fill it; the walk checks
+    petitions only until the set is full, which keeps the content-store reads to
+    roughly ``limit`` over the replayable share.
+    """
+    rows = cert_backtest_population(conn, scope=scope, salience_floor=salience_floor)
+    if spread:
+        key = spread_draw_key(conn)
+        rows.sort(key=lambda r: spread_draw_rank(key, r.case_id))
+        draw = CertBacktestDraw(rule=SPREAD_DRAW_RULE, salt=SPREAD_DRAW_SALT, key=key)
+    else:
+        draw = CertBacktestDraw(rule=RECENCY_DRAW_RULE)
+    drawn: list[corpus.CorpusRow] = []
+    passed_over: list[str] = []
+    for row in rows:
+        if limit is not None and len(drawn) >= limit:
+            break
+        if replayable_only and not is_replayable(conn, row.case_id):
+            passed_over.append(row.case_id)
+            continue
+        drawn.append(row)
+    return CertBacktestSet(
+        items=[
+            BacktestItem(backtest_features(row), Disposition(str(row.disposition))) for row in drawn
+        ],
+        draw=draw.model_copy(update={"passed_over": len(passed_over)}),
+        passed_over=passed_over,
+    )
+
+
+def select_cert_backtest_set(
+    conn: sqlite3.Connection,
+    *,
+    limit: int | None = None,
+    scope: str = "all",
+    spread: bool = False,
+    salience_floor: float | None = None,
+    replayable_only: bool = False,
+) -> list[BacktestItem]:
+    """The drawn set's items alone — :func:`draw_cert_backtest_set` without its record."""
+    return draw_cert_backtest_set(
+        conn,
+        limit=limit,
+        scope=scope,
+        spread=spread,
+        salience_floor=salience_floor,
+        replayable_only=replayable_only,
+    ).items
 
 
 # Snapshot fields that reveal the outcome — because they exist only once the
@@ -445,35 +518,6 @@ def replay_model(runner: Runner) -> str | None:
     applied to a replay cell, so reporting it would state a model that did not run.
     """
     return runner.model if isinstance(runner, AgenticRunner) else None
-
-
-def replayable_items(
-    corpus_db_path: Path, items: list[BacktestItem]
-) -> tuple[list[BacktestItem], list[str]]:
-    """Split the cert set into replayable petitions and the skipped case ids.
-
-    An engine replay needs what a live predict cell reads — a held snapshot and a
-    petition event — and partial coverage is the norm while the date backfill
-    drains (a bulk-seeded row has neither until its first fetch). Filtering up
-    front is what makes one report internally comparable: every backtester,
-    offline baselines included, starts from the same kept set, and the caller
-    can name what was skipped instead of failing the whole run on the first bare
-    row. A replayed predictor can still end up short of that set — a cell lost to
-    a failed engine, a spent quota or an unreadable artifact
-    (:func:`_replay_item_cells`) — which is why the entry publishes its own
-    ``events_scored`` and is floored over it.
-    """
-    kept: list[BacktestItem] = []
-    skipped: list[str] = []
-    with corpus.connect_readonly(corpus_db_path) as conn:
-        for item in items:
-            found = corpus.latest_snapshot(conn, item.features.case_id)
-            events = corpus.events_for_case(conn, item.features.case_id)
-            if found is not None and any(ev.kind == EventKind.petition for ev in events):
-                kept.append(item)
-            else:
-                skipped.append(item.features.case_id)
-    return kept, skipped
 
 
 def _runners_by_predictor(
