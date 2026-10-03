@@ -29,16 +29,20 @@ open PR updates in place instead of stacking a new PR per schedule tick.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from .claim_metrics import agreement_summary
 from .schemas import (
+    CERT_BACKTEST_ARMS,
     Backtest,
     BigCaseBoard,
     CertBacktest,
+    CertBacktestArm,
     CertBacktestDisclosure,
+    CertBacktestEntry,
     ClaimScoreBoard,
     DocketPack,
     Leaderboard,
@@ -380,6 +384,122 @@ def granted_in_set(report: CertBacktest) -> int | None:
     return None
 
 
+#: Below this many petitions the review PR states a lift in petitions beside
+#: its percentage points. One petition is worth ``100 / n`` points, so under a
+#: hundred a single outcome moves the figure by more than a point: the pp lift
+#: is quantized to whole petitions and its decimal reads as a resolution the
+#: draw does not have. The registered fortnightly draw is ten, where one
+#: petition is ten points and the count is the measurement.
+SMALL_N = 100
+
+
+@dataclass(frozen=True)
+class OutcomeMix:
+    """The replayed set's realized outcomes, split three ways.
+
+    ``other`` is what is neither denied nor grant-family — a dismissal or a
+    withdrawal (the replay only takes petitions with a machine-readable
+    disposition). Stated, not left as ``n - denied - granted``, because the
+    always-deny floor is the denied share and ``1 - floor`` is not the granted
+    share whenever this is non-zero.
+    """
+
+    denied: int
+    granted: int
+    other: int
+
+    def text(self) -> str:
+        return f"{self.denied} denied · {self.granted} granted · {self.other} dismissed/withdrawn"
+
+
+def outcome_mix(report: CertBacktest) -> OutcomeMix | None:
+    """The set's denied / grant-family / dismissed-or-withdrawn counts, or ``None``.
+
+    Denied is the floor times the set (the floor is exactly that share); the
+    grant-family count is :func:`granted_in_set`'s, so ``None`` wherever that
+    is unrecoverable. The one source for the PR body's floor line and the
+    weekly digest's, so the two cannot state the draw differently.
+    """
+    granted = granted_in_set(report)
+    if granted is None or not report.events_scored:
+        return None
+    denied = round(report.always_denied_accuracy * report.events_scored)
+    return OutcomeMix(denied=denied, granted=granted, other=report.events_scored - denied - granted)
+
+
+def _whole_set_arms(report: CertBacktest) -> dict[str, CertBacktestArm]:
+    """Per-arm counts from an entry that scored the whole set, or ``{}``.
+
+    An arm's denied and granted counts are properties of the labels, so any
+    entry scored over every petition carries the set's; a short entry carries
+    only its own subset's. Empty on a report written before the split.
+    """
+    for entry in report.entries:
+        if entry.arms and sum(a.events_scored for a in entry.arms) == report.events_scored:
+            return {arm.arm: arm for arm in entry.arms}
+    return {}
+
+
+def _arm_order(keys: Sequence[str]) -> list[str]:
+    """The known arms in reading order, then any unknown key: all are counted."""
+    order = [arm for arm in CERT_BACKTEST_ARMS if arm in keys]
+    return order + sorted(key for key in keys if key not in CERT_BACKTEST_ARMS)
+
+
+def arm_mix_text(report: CertBacktest) -> str:
+    """The provisioning mix with each arm's outcomes, or ``""`` with no mix.
+
+    Each arm's denials come from ``provisioning_denied``; its grant-family and
+    dismissed/withdrawn counts from a whole-set entry's ``arms`` where the
+    report carries them. On an older report only the denials are known, and
+    the text says the rest is unrecorded rather than leaving a reader to infer
+    ``n - denied`` granted. Shared by the PR body and the weekly digest.
+    """
+    mix = report.provisioning
+    if not mix:
+        return ""
+    arms = _whole_set_arms(report)
+    parts = []
+    for key in _arm_order(list(mix)):
+        n = mix[key]
+        arm = arms.get(key)
+        if arm is not None:
+            other = arm.events_scored - arm.denied - arm.granted
+            parts.append(
+                f"{key} {n} ({arm.denied} denied · {arm.granted} granted · "
+                f"{other} dismissed/withdrawn)"
+            )
+        elif key in report.provisioning_denied:
+            parts.append(f"{key} {n} ({report.provisioning_denied[key]} denied)")
+        else:
+            parts.append(f"{key} {n}")
+    text = "; ".join(parts)
+    if not arms:
+        text += " — the per-arm grant/dismissal split is not recorded in this report"
+    return text
+
+
+def arm_score_text(arm: CertBacktestArm) -> str:
+    """One entry's score on one arm: correct over n, and its lift in petitions.
+
+    The lift is ``correct - denied`` — what the entry got right beyond what
+    always-deny gets right on that arm — so the arms' lifts add up to the
+    entry's pooled lift in petitions.
+    """
+    return f"{arm.correct}/{arm.events_scored} ({arm.correct - arm.denied:+d})"
+
+
+def _lift_text(entry: CertBacktestEntry) -> str:
+    """A lift in percentage points, and in petitions when the entry's n is small."""
+    n = entry.events_scored
+    pp = f"{entry.lift_over_always_denied * 100:+.1f} pp"
+    if n >= SMALL_N:
+        return pp
+    petitions = round(entry.lift_over_always_denied * n)
+    noun = "petition" if abs(petitions) == 1 else "petitions"
+    return f"{pp} ({petitions:+d} {noun} of {n})"
+
+
 def _backtest_losses_line(report: CertBacktest) -> str:
     """The PR body's per-cell loss line, empty where nothing was lost.
 
@@ -414,12 +534,13 @@ def _is_candidate(disclosure: CertBacktestDisclosure) -> bool:
     return any(f.outcome_exposure_candidate for f in disclosure.flags)
 
 
-def _headline_disclosures(report: CertBacktest, predictor_id: str) -> str:
+def _headline_disclosures(report: CertBacktest, predictor_id: str, *, named: bool = False) -> str:
     """The headline entry's own candidate and unreadable-note counts, or ``""``.
 
     On the headline itself, not only in the line below it: a caveat one line
     away does not travel when the headline is quoted — and with its direction,
-    since that is what makes it actionable.
+    since that is what makes it actionable. ``named`` says whose cells they
+    are, for a headline that names several tied entries.
     """
     if report.provenance is None:
         return ""
@@ -433,8 +554,9 @@ def _headline_disclosures(report: CertBacktest, predictor_id: str) -> str:
         counts.append(f"{candidates} raised a possible outcome-exposure note")
     if unreadable:
         counts.append(f"{unreadable} left an unreadable one")
+    whose = f"`{predictor_id}`'s" if named else "its"
     return (
-        f" — **of its scored cells, {' and '.join(counts)}**, still counted in this "
+        f" — **of {whose} scored cells, {' and '.join(counts)}**, still counted in this "
         "figure, which a real exposure can only bias upward (see the disclosures below)"
     )
 
@@ -494,6 +616,72 @@ def _backtest_disclosures_line(report: CertBacktest) -> str:
     )
 
 
+def _top_line(report: CertBacktest, full: list[CertBacktestEntry]) -> str:
+    """The headline over the whole-set entries: the top one, or the tie at the top.
+
+    Whole-set entries share one floor, so their lifts order exactly as their
+    correct counts do, and a tie on the count is a tie on lift. The board breaks
+    it by Brier, which is a total order and nothing more: at the registered draw
+    a Brier gap between tied entries rests on the one or two granted outcomes
+    the draw holds, so naming the Brier winner the "top predictor" reads a
+    tie-break as a finding. A tie is stated as one, every tied entry named.
+    """
+    n = report.events_scored
+    best = full[0]
+    correct = round(best.accuracy * n)
+    tied = [e for e in full if round(e.accuracy * n) == correct]
+    if len(tied) == 1:
+        return (
+            f"top predictor `{best.predictor_id}`: lift **{_lift_text(best)}** over "
+            f"always-deny (accuracy {correct}/{n}, Brier {best.mean_brier_score:.3f})"
+            + _headline_disclosures(report, best.predictor_id)
+        )
+    names = ", ".join(f"`{e.predictor_id}`" for e in tied)
+    briers = " · ".join(f"{e.mean_brier_score:.3f}" for e in tied)
+    caveats = "".join(_headline_disclosures(report, e.predictor_id, named=True) for e in tied)
+    return (
+        f"**{len(tied)} predictors tie at the top** — {names} — each {correct}/{n} "
+        f"correct, lift **{_lift_text(best)}** over always-deny. The board orders "
+        f"them by Brier ({briers}), a tie-break rather than a ranking"
+        + (" at this n" if n < SMALL_N else "")
+        + caveats
+    )
+
+
+def _backtest_arms_lines(report: CertBacktest) -> str:
+    """The floor's per-arm outcome mix and each entry's score per arm.
+
+    The arms are three information sets whose membership correlates with the
+    outcome in either direction, so a pooled lift can be carried by one arm —
+    at the registered draw, by one petition. The table puts each entry's
+    correct count beside the arm's own floor, its lift in petitions alongside.
+    """
+    mix = arm_mix_text(report)
+    if not mix:
+        return ""
+    lines = f"- by arm: {mix}\n"
+    scored = [e for e in report.entries if e.arms]
+    if not scored:
+        return lines + (
+            "- per-arm scores: not recorded in this report, so whether one arm carries "
+            "a lift cannot be read off it\n"
+        )
+    keys = _arm_order(sorted({a.arm for e in scored for a in e.arms}))
+    header = " | ".join(keys)
+    rows = []
+    for entry in scored:
+        by_arm = {a.arm: a for a in entry.arms}
+        cells = " | ".join(arm_score_text(by_arm[key]) if key in by_arm else "—" for key in keys)
+        rows.append(f"  | `{entry.predictor_id}` | {cells} |")
+    return (
+        lines + "- per-arm scores — correct/n on the arm, and in brackets the lift in "
+        "petitions over that arm's always-deny (an arm of a few petitions is a count, "
+        "not a rate; the arms' brackets sum to the pooled lift):\n\n"
+        f"  | predictor | {header} |\n"
+        f"  |---|{'---|' * len(keys)}\n" + "\n".join(rows) + "\n\n"
+    )
+
+
 def render_backtest_pr(
     metrics_root: Path, run_id: str, *, limit: int, engine: str
 ) -> MetricsRefreshPr | None:
@@ -517,7 +705,10 @@ def render_backtest_pr(
     # both rescales and shifts its lift — at a ten-petition draw, far enough to
     # outrank every honest full-set entry. Such an entry belongs on the board
     # and in the losses line, never on the top line.
-    full = next((e for e in report.entries if e.events_scored == report.events_scored), None)
+    full = sorted(
+        (e for e in report.entries if e.events_scored == report.events_scored),
+        key=lambda e: e.rank,
+    )
     if not report.entries:
         headline = "no predictors scored (empty set)"
     elif granted == 0:
@@ -525,23 +716,19 @@ def render_backtest_pr(
             "no granted-side outcome in this set — every predictor is scored against a "
             "draw with nothing to discriminate, so the lift ordering is not a measurement"
         )
-    elif full is None:
+    elif not full:
         headline = (
             "no predictor scored the whole set — every entry is short some cells (see "
             "the losses below), so there is no lift here measured over the set and the "
             "ordering is not a measurement"
         )
     else:
-        headline = (
-            f"top predictor `{full.predictor_id}`: lift "
-            f"**{full.lift_over_always_denied:+.1%}** over always-deny "
-            f"(accuracy {full.accuracy:.0%}, Brier {full.mean_brier_score:.3f})"
-        )
-        headline += _headline_disclosures(report, full.predictor_id)
+        headline = _top_line(report, full)
     title = f"metrics: cert back-test over {report.events_scored} petition(s)"
+    mix = outcome_mix(report)
     granted_line = (
-        f" ({granted} granted-side outcome(s) in {report.events_scored})"
-        if granted is not None
+        f" ({mix.text()} of {report.events_scored})"
+        if mix is not None
         else " (granted-side count unavailable — no calibration view)"
     )
     body = (
@@ -556,6 +743,7 @@ def render_backtest_pr(
         f"- {headline}\n"
         f"- always-deny floor: **{report.always_denied_accuracy:.0%}** over this set"
         f"{granted_line}\n"
+        f"{_backtest_arms_lines(report)}"
         f"- predictors on the board: {report.predictors_evaluated}\n"
         f"{_backtest_losses_line(report)}"
         f"{_backtest_disclosures_line(report)}\n"

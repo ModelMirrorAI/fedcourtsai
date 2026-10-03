@@ -11,6 +11,7 @@ from fedcourtsai import cli, corpus, ops
 from fedcourtsai.agent_feedback import open_issue_once
 from fedcourtsai.cli import app
 from fedcourtsai.integrity import forward_claim_record, leakage_record
+from fedcourtsai.metrics_refresh import arm_mix_text
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     AgentFlag,
@@ -65,6 +66,7 @@ from fedcourtsai.store import (
     iter_predicted_events,
     load_predicted_event,
 )
+from tests.test_cert_backtest import split_arm_report
 
 
 def _run(
@@ -2569,13 +2571,19 @@ def test_the_weekly_digest_qualifies_the_cert_backtest_in_its_own_bullet() -> No
     # The board is two populations of entry, and only one of them ran a model.
     assert "3 engine predictor(s) and 2 reference baseline(s) over 25 petition(s)" in bullet
     # The granted side, which `1 - floor` would overstate by the dismissals.
-    assert "8 of 25 grant-family; always-deny floor 60.0%" in bullet
+    assert "15 denied · 8 granted · 2 dismissed/withdrawn of 25; always-deny floor 60.0%" in (
+        bullet
+    )
     assert "`retrospective` by construction" in bullet
     assert "**iteration instrument**" in bullet
     assert "engine `auto` over scope `all` (no scope filter), limit 25" in bullet
     assert "spread off (the 25 most recently decided" in bullet
-    assert "5 blind, 20 truncated, 0 dated petition(s)" in bullet
-    assert "raises the pooled floor and dilutes every lift" in bullet
+    assert "Provisioned by arm: blind 5; truncated 20; dated 0" in bullet
+    # No per-arm split recorded: said, rather than `n - denied` read as granted.
+    assert "the per-arm grant/dismissal split is not recorded in this report" in bullet
+    # The blind arm is outcome-selected in either direction and read as a count.
+    assert "can depress a pooled lift or carry it: read it as a count" in bullet
+    assert "dilutes every lift" not in bullet
     # Nothing was opted out or lost, and "none" would read as a finding.
     assert "opted out" not in bullet
     assert "cell(s) lost" not in bullet
@@ -2634,7 +2642,7 @@ def test_the_weekly_digest_puts_the_cert_backtest_coverage_losses_on_the_same_li
     # Every clause is on the one line: the figure, the caveats, the coverage.
     assert "always-deny floor 60.0%" in bullet
     assert "engine `auto`" in bullet
-    assert "5 blind, 20 truncated, 0 dated" in bullet
+    assert "blind 5; truncated 20; dated 0" in bullet
 
 
 def test_the_weekly_digest_calls_a_provenance_less_cert_backtest_unknown() -> None:
@@ -2669,7 +2677,27 @@ def test_the_weekly_digest_counts_an_unrecognised_snapshot_provenance() -> None:
     # know about is printed after the three it does rather than dropped.
     bullet = _cert_bullet(_cert_backtest(provisioning={"truncated": 3, "as-stored": 2, "blind": 1}))
 
-    assert "Provisioned 1 blind, 3 truncated, 2 as-stored petition(s)" in bullet
+    assert "Provisioned by arm: blind 1; truncated 3; as-stored 2" in bullet
+
+
+def test_the_weekly_digest_states_the_per_arm_mix_and_scores_the_pr_body_does() -> None:
+    """The digest and the review PR read the arms through one helper each.
+
+    Both quote the same draw; were the counts rendered twice, one surface
+    could state a mix the other does not. A report with per-arm scores carries
+    each arm's denied / granted / dismissed counts and each engine entry's
+    score on it, the baselines left to the board.
+    """
+    report = split_arm_report()
+    bullet = _cert_bullet(report)
+
+    mix = arm_mix_text(report)
+    assert mix in bullet
+    assert "blind 1 (0 denied · 1 granted · 0 dismissed/withdrawn)" in mix
+    assert "truncated 8 (6 denied · 1 granted · 1 dismissed/withdrawn)" in mix
+    assert "6 denied · 3 granted · 1 dismissed/withdrawn of 10" in bullet
+    assert "`claude-baseline` blind 1/1 (+1), truncated 6/8 (+0), dated 0/1 (+0)" in bullet
+    assert "`constant-denied` blind" not in bullet  # a baseline, not an engine entry
 
 
 def test_the_weekly_digest_reports_an_empty_cert_backtest_board() -> None:

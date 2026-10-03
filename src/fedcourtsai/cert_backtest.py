@@ -79,9 +79,11 @@ from .pipeline.salience import (
 )
 from .registry import enabled_predictors
 from .schemas import (
+    CERT_BACKTEST_ARMS,
     AgentFlags,
     CalibrationBin,
     CertBacktest,
+    CertBacktestArm,
     CertBacktestBigCase,
     CertBacktestCellClock,
     CertBacktestCellLoss,
@@ -1622,7 +1624,15 @@ def build_segment_context(
 class _BandAcc:
     """Streaming accumulator for one salience band's cert back-test scores."""
 
-    __slots__ = ("base_rates", "brier_sum", "correct", "events", "skills")
+    __slots__ = (
+        "base_rates",
+        "brier_sum",
+        "correct",
+        "events",
+        "reference_brier_sum",
+        "skilled_brier_sum",
+        "skills",
+    )
 
     def __init__(self) -> None:
         self.events = 0
@@ -1630,6 +1640,10 @@ class _BandAcc:
         self.brier_sum = 0.0
         self.base_rates: list[float] = []
         self.skills: list[float] = []
+        # The ratio-of-sums pair, over the items that have a base rate: the
+        # band's Brier and the Brier of forecasting each item's base rate.
+        self.skilled_brier_sum = 0.0
+        self.reference_brier_sum = 0.0
 
     def add(
         self, disp_correct: bool, brier: float, actual_granted: int, base_rate: float | None
@@ -1639,9 +1653,25 @@ class _BandAcc:
         self.brier_sum += brier
         if base_rate is not None:
             self.base_rates.append(base_rate)
+            self.skilled_brier_sum += brier
+            self.reference_brier_sum += (base_rate - actual_granted) ** 2
         skill = brier_skill(brier, actual_granted, base_rate)
         if skill is not None:
             self.skills.append(skill)
+
+    def pooled_skill(self) -> float | None:
+        """Ratio-of-sums Brier skill, or ``None`` with no (non-zero) reference.
+
+        ``1 - sum(Brier) / sum(reference Brier)`` over the items with a base
+        rate: the band scored as one forecaster. The mean of per-item ratios
+        (``skills``) weights an item by the inverse of its reference Brier, so
+        a denied petition in a band whose rate is near zero — a reference Brier
+        near zero — can swing it by whole units on a forecast off by a few
+        points; the pooled ratio weights every item by its reference instead.
+        """
+        if not self.base_rates or self.reference_brier_sum == 0:
+            return None
+        return 1.0 - self.skilled_brier_sum / self.reference_brier_sum
 
 
 def _band_segments(band_acc: dict[str, _BandAcc]) -> list[CertBacktestSegment]:
@@ -1661,6 +1691,7 @@ def _band_segments(band_acc: dict[str, _BandAcc]) -> list[CertBacktestSegment]:
                     sum(acc.base_rates) / len(acc.base_rates) if acc.base_rates else None
                 ),
                 mean_brier_skill=(sum(acc.skills) / len(acc.skills) if acc.skills else None),
+                pooled_brier_skill=acc.pooled_skill(),
             )
         )
     return segments
@@ -1696,10 +1727,44 @@ def _predicted(backtester: Backtester, item: BacktestItem) -> BacktestPrediction
     return backtester.predict(item.features)
 
 
+class _ArmAcc:
+    """Streaming accumulator for one provisioning arm of one entry."""
+
+    __slots__ = ("correct", "denied", "events", "granted")
+
+    def __init__(self) -> None:
+        self.events = 0
+        self.correct = 0
+        self.denied = 0
+        self.granted = 0
+
+
+def _arm_scores(arm_acc: Mapping[str, _ArmAcc]) -> list[CertBacktestArm]:
+    """Roll the per-arm accumulators into the entry's ``arms``, in reading order."""
+    arms = []
+    for arm in CERT_BACKTEST_ARMS:
+        acc = arm_acc.get(arm)
+        if acc is None or acc.events == 0:
+            continue
+        arms.append(
+            CertBacktestArm(
+                arm=arm,
+                events_scored=acc.events,
+                correct=acc.correct,
+                denied=acc.denied,
+                granted=acc.granted,
+                accuracy=acc.correct / acc.events,
+                lift_over_always_denied=(acc.correct - acc.denied) / acc.events,
+            )
+        )
+    return arms
+
+
 def _score_one(
     backtester: Backtester,
     items: list[BacktestItem],
     segments: Mapping[str, _ItemSegment] | None,
+    arm_of: Mapping[str, str] | None = None,
 ) -> CertBacktestEntry | None:
     correct = 0
     granted_correct = 0
@@ -1708,6 +1773,7 @@ def _score_one(
     pairs: list[tuple[float, int]] = []
     band_acc: dict[str, _BandAcc] = {}
     big_case_scores: list[float] = []
+    arm_acc: dict[str, _ArmAcc] = {}
     for item in items:
         prediction = _predicted(backtester, item)
         if prediction is None:
@@ -1725,6 +1791,13 @@ def _score_one(
         pairs.append((prediction.probability_granted, actual_granted))
         if prediction.big_case_score is not None:
             big_case_scores.append(prediction.big_case_score)
+        arm = arm_of.get(item.features.case_id) if arm_of is not None else None
+        if arm is not None:
+            tally = arm_acc.setdefault(arm, _ArmAcc())
+            tally.events += 1
+            tally.correct += int(disp_correct)
+            tally.denied += int(item.actual_disposition == Disposition.denied)
+            tally.granted += actual_granted
         if segments is not None:
             seg = segments.get(item.features.case_id)
             if seg is not None:
@@ -1764,6 +1837,7 @@ def _score_one(
         lift_over_always_denied=correct / n - floor,
         calibration=_calibration(pairs),
         segments=_band_segments(band_acc),
+        arms=_arm_scores(arm_acc),
         big_case=_big_case_distribution(big_case_scores),
     )
 
@@ -1810,10 +1884,18 @@ def run_cert_backtest(
     always_denied_accuracy = sum(
         item.actual_disposition == Disposition.denied for item in items
     ) / len(items)
+    # Which arm each petition sat in, off the same clocks `provisioning_denied`
+    # reads, so an entry's per-arm split and the report's per-arm floors are
+    # counted over one assignment.
+    arm_of = (
+        {clock.case_id: clock.snapshot_provenance for clock in provenance.clocks}
+        if provenance is not None and provenance.clocks
+        else None
+    )
     entries = [
         entry
         for backtester in backtesters
-        if (entry := _score_one(backtester, items, segments)) is not None
+        if (entry := _score_one(backtester, items, segments, arm_of)) is not None
     ]
     # Lift ranks the board — but only among entries measured over the same
     # petitions. Lift is a per-petition mean against a floor computed the same

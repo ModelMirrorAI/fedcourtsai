@@ -8,7 +8,12 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from fedcourtsai.integrity import leakage_record
-from fedcourtsai.metrics_refresh import REFRESH_BRANCH, render_backtest_pr, render_refresh_pr
+from fedcourtsai.metrics_refresh import (
+    REFRESH_BRANCH,
+    SMALL_N,
+    render_backtest_pr,
+    render_refresh_pr,
+)
 from fedcourtsai.schemas import (
     Backtest,
     BacktestEntry,
@@ -38,6 +43,7 @@ from fedcourtsai.schemas import (
     StatPackSection,
 )
 from fedcourtsai.serialize import read_model, write_json, write_text
+from tests.test_cert_backtest import split_arm_report
 
 runner = CliRunner()
 
@@ -370,7 +376,9 @@ def test_render_backtest_pr_reads_the_report_headline(tmp_path: Path) -> None:
     assert pr is not None
     assert pr.branch == "metrics/cert-backtest"
     assert "cert back-test over 25 petition(s)" in pr.title
-    assert "`claude-baseline`" in pr.body and "+4.0%" in pr.body
+    assert "top predictor `claude-baseline`" in pr.body
+    # Under SMALL_N petitions the lift is stated as a count beside its points.
+    assert "+4.0 pp (+1 petition of 25)" in pr.body
     assert "always-deny floor: **92%**" in pr.body
     assert "--limit 25 --engine auto" in pr.body
     assert "not** auto-merged" in pr.body
@@ -532,7 +540,97 @@ def test_the_grant_free_guard_reads_a_full_set_entry_not_the_top_one(
     pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
     assert pr is not None
     assert "no granted-side outcome in this set" in pr.body
-    assert "(0 granted-side outcome(s) in 10)" in pr.body
+    assert "(10 denied · 0 granted · 0 dismissed/withdrawn of 10)" in pr.body
+
+
+def test_a_tie_at_the_top_is_named_as_one_not_broken_by_brier(tmp_path: Path) -> None:
+    """Three engines on the same correct count are a tie, whatever Brier says.
+
+    Whole-set entries share one floor, so equal accuracy is equal lift; the
+    board breaks the tie by Brier only to be a total order. At ten petitions
+    naming the Brier winner "top predictor" reads a tie-break as a finding.
+    The lift is stated in petitions too: +10 pp here is one petition.
+    """
+    write_json(tmp_path / "cert-backtest.json", split_arm_report())
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert "top predictor" not in pr.body
+    assert (
+        "**3 predictors tie at the top** — `claude-baseline`, `codex-baseline`, "
+        "`gemini-baseline` — each 7/10 correct, lift **+10.0 pp (+1 petition of 10)**"
+    ) in pr.body
+    assert "a tie-break rather than a ranking at this n" in pr.body
+
+
+def test_the_floor_line_states_the_draw_three_ways_and_by_arm(tmp_path: Path) -> None:
+    """Denied, granted and dismissed stated outright, and the mix per arm.
+
+    The floor is the denied share, so neither it nor `1 - floor` gives the
+    granted count once a dismissal is in the draw; and the arms carry different
+    outcome mixes, which is what a pooled lift can hide.
+    """
+    write_json(tmp_path / "cert-backtest.json", split_arm_report())
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert (
+        "always-deny floor: **60%** over this set "
+        "(6 denied · 3 granted · 1 dismissed/withdrawn of 10)"
+    ) in pr.body
+    assert (
+        "- by arm: blind 1 (0 denied · 1 granted · 0 dismissed/withdrawn); "
+        "truncated 8 (6 denied · 1 granted · 1 dismissed/withdrawn); "
+        "dated 1 (0 denied · 1 granted · 0 dismissed/withdrawn)\n"
+    ) in pr.body
+
+
+def test_the_per_arm_table_shows_which_arm_carries_the_lift(tmp_path: Path) -> None:
+    """Every engine's whole +1 sits on the one blind petition, and the table shows it."""
+    write_json(tmp_path / "cert-backtest.json", split_arm_report())
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert "  | predictor | blind | truncated | dated |\n" in pr.body
+    assert "  | `claude-baseline` | 1/1 (+1) | 6/8 (+0) | 0/1 (+0) |\n" in pr.body
+    assert "  | `constant-denied` | 0/1 (+0) | 6/8 (+0) | 0/1 (+0) |\n" in pr.body
+
+
+def test_a_report_without_per_arm_fields_still_renders(tmp_path: Path) -> None:
+    """A report written before the split renders what it has and says what it lacks.
+
+    The run before the split carried the per-arm denials but no per-arm scores
+    or per-arm granted counts; neither is inferred.
+    """
+    report = split_arm_report()
+    for entry in report.entries:
+        entry.arms = []
+    raw = json.loads(report.model_dump_json())
+    for entry in raw["entries"]:
+        del entry["arms"]
+        for segment in entry["segments"]:
+            segment.pop("pooled_brier_skill", None)
+    (tmp_path / "cert-backtest.json").write_text(json.dumps(raw))
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert (
+        "- by arm: blind 1 (0 denied); truncated 8 (6 denied); dated 1 (0 denied) — "
+        "the per-arm grant/dismissal split is not recorded in this report\n"
+    ) in pr.body
+    assert "- per-arm scores: not recorded in this report" in pr.body
+    assert "**3 predictors tie at the top**" in pr.body
+
+
+def test_a_large_set_states_its_lift_in_points_alone(tmp_path: Path) -> None:
+    """At SMALL_N petitions and above one petition is under a point: points suffice."""
+    report = CertBacktest(
+        events_scored=SMALL_N,
+        predictors_evaluated=1,
+        always_denied_accuracy=0.9,
+        entries=[_entry("claude-baseline", scored=SMALL_N, lift=0.03)],
+    )
+    write_json(tmp_path / "cert-backtest.json", report)
+    pr = render_backtest_pr(tmp_path, "RID", limit=SMALL_N, engine="auto")
+    assert pr is not None
+    assert "lift **+3.0 pp** over always-deny" in pr.body
+    assert "petitions of" not in pr.body
 
 
 def test_render_backtest_pr_none_without_a_report(tmp_path: Path) -> None:
@@ -592,7 +690,7 @@ def test_render_backtest_pr_refuses_a_rank_over_a_grant_free_draw(tmp_path: Path
     assert pr is not None
     assert "not a measurement" in pr.body
     assert "`claude-baseline`" not in pr.body
-    assert "(0 granted-side outcome(s) in 10)" in pr.body
+    assert "(10 denied · 0 granted · 0 dismissed/withdrawn of 10)" in pr.body
 
 
 def test_the_granted_count_is_not_read_off_the_always_deny_floor(tmp_path: Path) -> None:
@@ -605,7 +703,7 @@ def test_the_granted_count_is_not_read_off_the_always_deny_floor(tmp_path: Path)
     (tmp_path / "cert-backtest.json").write_text(_grant_free_report(floor=0.9).model_dump_json())
     pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
     assert pr is not None
-    assert "(0 granted-side outcome(s) in 10)" in pr.body
+    assert "(9 denied · 0 granted · 1 dismissed/withdrawn of 10)" in pr.body
     assert "not a measurement" in pr.body
     assert "`claude-baseline`" not in pr.body
 

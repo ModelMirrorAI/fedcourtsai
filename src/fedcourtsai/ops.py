@@ -32,7 +32,7 @@ from .agent_feedback import already_posted, marker_head
 from .analytics import _GRANT_LABELS
 from .collect import flags_table
 from .integrity import FORWARD, RETROSPECTIVE
-from .metrics_refresh import granted_in_set
+from .metrics_refresh import arm_mix_text, arm_score_text, outcome_mix
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
@@ -841,9 +841,6 @@ _OFFLINE_ENGINES = {
     "replay": "offline — one captured forecast re-emitted across every petition",
 }
 
-#: The snapshot provenances in reading order; anything else is printed after them.
-_PROVISIONING_ORDER = ("blind", "truncated", "dated")
-
 
 def _cert_backtest_dispatch(report: CertBacktest) -> str:
     """The dispatch that chose the replayed population, or that it is unknown.
@@ -910,12 +907,15 @@ def _cert_backtest_provisioning(report: CertBacktest) -> str:
     mixture — and the mixture is not neutral. A blind petition was shown no
     docket trajectory at all: either no forward moment fixed a cutoff, or
     truncation left a disposition visible and the fail-closed guard withdrew
-    the trajectory. A docket with no distribution to show is this pipeline's
-    strongest denial signal, so the blind arm is selected on a feature that
-    correlates with the outcome: it raises the pooled floor and dilutes every
-    lift measured over the union rather than depressing them.
+    the trajectory. Both causes correlate with the outcome, in either
+    direction, so a blind arm can come out denial-pure or grant-pure and can
+    depress a pooled lift or carry it. The arm is read as a count — its
+    outcomes and each engine entry's score on it, which
+    :func:`~fedcourtsai.metrics_refresh.arm_mix_text` and
+    :func:`~fedcourtsai.metrics_refresh.arm_score_text` render for the review
+    PR as well, so the two surfaces state the same mix.
     """
-    mix = report.provisioning
+    mix = arm_mix_text(report)
     if not mix:
         engine = report.provenance.dispatch.engine if report.provenance is not None else None
         if report.provenance is not None and not engine:
@@ -927,18 +927,23 @@ def _cert_backtest_provisioning(report: CertBacktest) -> str:
             " Provisioning mix **unknown** — the report records no snapshot-provenance "
             "split, so the information set behind these scores is unstated."
         )
-    # The report's own keys, the known three first: a count the renderer does
-    # not know about still has to be in the total the reader adds up.
-    order = [kind for kind in _PROVISIONING_ORDER if kind in mix]
-    order += sorted(kind for kind in mix if kind not in _PROVISIONING_ORDER)
-    counts = ", ".join(f"{mix[kind]:,} {kind}" for kind in order)
+    scores = "; ".join(
+        f"`{entry.predictor_id}` "
+        + ", ".join(f"{arm.arm} {arm_score_text(arm)}" for arm in entry.arms)
+        for entry in report.entries
+        if entry.engine is not None and entry.arms
+    )
+    score_clause = (
+        f" Per arm, correct/n with the lift in petitions over that arm's always-deny: {scores}."
+        if scores
+        else ""
+    )
     return (
-        f" Provisioned {counts} petition(s) — a blind petition was shown no docket "
-        "trajectory at all (no dated pre-resolution distribution, or a truncation that "
-        "still showed a disposition), and a docket with no distribution to show is the "
-        "strongest denial signal here, so the blind arm is selected on an "
-        "outcome-correlated feature: it raises the pooled floor and dilutes every lift "
-        "rather than depressing them."
+        f" Provisioned by arm: {mix}. A blind petition was shown no docket trajectory "
+        "at all (no dated pre-resolution distribution, or a truncation that still "
+        "showed a disposition), and both causes correlate with the outcome in either "
+        "direction, so the blind arm can depress a pooled lift or carry it: read it "
+        f"as a count, not a rate.{score_clause}"
     )
 
 
@@ -1045,10 +1050,10 @@ def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
     # the floor is the **denied** share and a dismissal is neither, so `1 -
     # floor` is a different quantity. A draw with none is an ordinary outcome
     # at this sample size, and there every denial-heavy predictor ties.
-    granted = granted_in_set(report)
+    mix = outcome_mix(report)
     grants = (
-        f"{granted:,} of {report.events_scored:,} grant-family; "
-        if granted is not None
+        f"{mix.text()} of {report.events_scored:,}; "
+        if mix is not None
         else "grant-family count unrecoverable, no entry scored the whole set; "
     )
     # The stratum caveat, the dispatch, and the provisioning mix ride in this
