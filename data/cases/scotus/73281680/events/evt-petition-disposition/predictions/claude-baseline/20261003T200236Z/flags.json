@@ -1,0 +1,26 @@
+{
+  "case_id": "scotus/73281680",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "No record/documents/ directory was provisioned: no petition, questions-presented, or brief-in-opposition text. The petition is a paper filing (Rule 34.6 instruction on the docket) with no PDF on supremecourt.gov, and the Sept. 8, 2026 BIO entry carries no document link, so the pipeline had nothing to fetch. The forecast rests on the Eighth Circuit opinion (CourtListener) and the docket; the SG's arguments are inferred, not read."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Caption/counsel ambiguity: the snapshot and the live docket list the petitioner (Abrahim Mohamed Fofana) as his own counsel of record, but at a Minneapolis immigration law firm's address, and the SG's extension letter says 'counsel for petitioner' did not oppose. The salience caption class (private) is unaffected; the advocacy-quality read is uncertain."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode disclosure: public, pre-snapshot information about related matters was material to the number: cert was denied in Shaiban v. Jaddou, No. 24-183 (Jan. 2025) on the same clause (ii)/section 1159(b) question after a hold for Bouarfa, and the Tenth Circuit vacated its contrary Mukantagara opinion in July 2026 after Mullin v. Doe. Nothing about this petition's own disposition was sought or seen; its first conference is Oct. 9, 2026."
+    }
+  ]
+}

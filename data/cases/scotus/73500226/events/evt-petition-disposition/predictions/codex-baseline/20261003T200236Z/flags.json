@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500226",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned documents include only the petition and questions presented, although the snapshot links both respondents' August 28, 2026 responses and the September 15 reply. Retrieved those fixed pre-decision Supreme Court PDFs successfully. They materially change the petition-only picture: the responses acknowledge a renewed enforcement split but request a hold for companion petitions, and the reply raises a competing-vehicle jurisdiction concern. Consider provisioning these response forms and replies. No target disposition or subsequent case history was retrieved; the gap did not block completion."
+    }
+  ]
+}

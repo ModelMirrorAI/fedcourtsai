@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73521973",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "The provisioned petition and brief in opposition carried everything that mattered; the BIO's quotation of the Branch concurrence settled the not-raised-below question without any retrieval.",
+    "The sal-v4 band table's bracketed reached figures made the anchor a two-minute computation."
+  ],
+  "gaps": [
+    "fedcourts query has no filter for capital marking, petitioner class (prisoner vs State), or case type, so a cert cell cannot pull comparable priors; the two queries returned mostly 26A application dockets despite the default application screen.",
+    "The statpack's capital-case cut is marginal; a capital cut split by petitioner side (prisoner vs State) would be far more informative for this posture.",
+    "The reply brief was on the docket but not provisioned; a provisioned reply would help on a cell where the BIO raises vehicle objections.",
+    "CourtListener's docket index does not cover Supreme Court dockets well, so checking whether a related circuit case has a pending cert petition is not possible through the MCP server."
+  ],
+  "notes": "The petition text is flagged truncated at 713 pages, but the cut falls in the appendix; the brief body through the Conclusion was intact."
+}

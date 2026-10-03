@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73521973",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned filings", "committed statpack", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts"],
+  "helpful": ["Both petition and BIO text were provisioned", "Frozen sal-v4 band and Term supported an appropriate prior-Term anchor", "MCP located a narrow passage in general precedent without a target-case search"],
+  "gaps": ["Reply brief text was not provisioned despite a docketed filing", "Petition appendix was truncated", "Web attempts returned no usable content"],
+  "notes": "The default uv cache was read-only; a temporary writable cache allowed the CLI to run. No target-case outcome retrieval was needed. Terminal relist and CVSG cuts describe population shape but do not directly estimate forward increments."
+}

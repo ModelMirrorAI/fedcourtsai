@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73500226",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from companion dockets: the federal respondents' brief (Aug. 28, 2026) and the Authority's response ask the Court to grant Nos. 26-199 and 26-201 (FTC and Authority petitions from the Fifth Circuit's June 11, 2026 decision) and HOLD this petition; petitioners' reply asks for grant and consolidation. The Sept. 21 'Rescheduled' entry aligns this petition with that cluster (cross-petitions 26-332/26-335 have responses due Oct. 13-14). The forecast weights a hold-then-GVR path heavily; a hold means this event may stay open until mid-2027."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "documents.json lists only the petition and QP; the two Aug. 28 responses (federal respondents, Authority) and the Sept. 15 reply were on the docket with supremecourt.gov links but were not provisioned. Retrieved them manually (forward mode)."
+    }
+  ]
+}

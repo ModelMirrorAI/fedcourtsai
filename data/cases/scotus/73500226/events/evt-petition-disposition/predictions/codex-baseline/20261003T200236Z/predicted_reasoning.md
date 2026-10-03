@@ -1,0 +1,13 @@
+# Forecast
+
+The most likely path is a hold for the related Fifth Circuit litigation, followed by denial of this petition after the Court resolves the enforcement question there. The eventual disposition call is **denied**, with **P(any grant) = 0.48**; that grant probability includes a later GVR, not just plenary review. A hold is an intermediate step, not the terminal disposition being forecast.
+
+The baseline records **one distribution**, on September 16, 2026, for the October 9 conference, followed by **Rescheduled** on September 21. I expect at least one further distribution, and most likely one or two additional recorded distributions across scheduling and final cleanup. P(distribution count increases beyond one) is **0.94**. The rescheduling means I do not predict disposition at the originally listed October 9 conference. Nor do I treat an additional scheduling distribution as proof of a substantive relist. Under the hold path, final disposition is more likely around the companion merits decision in spring or summer 2027 than in October 2026; that timing is a forecast, not a known calendar setting.
+
+I expect **no CVSG**, assigning **0.01** to a new call. The Solicitor General already appears for the federal respondents and has filed a substantive response recommending review in the companion litigation and a hold here.
+
+If this petition receives plenary review, the Court will most likely limit the question to whether HISA's **enforcement provisions are facially unconstitutional under the private-nondelegation doctrine**, leaving the separate rulemaking challenge outside the grant. Consolidation with the Fifth Circuit petitions is a material alternative, particularly if the Court wants this case as insurance against the appellate-finality issue raised in the reply.
+
+**Conditional on any grant, P(summary disposition in the cert order) = 0.60.** The expected summary route is a GVR after a companion decision supplies the governing enforcement standard, not an immediate summary reversal and not simply another remand under Consumers' Research without new guidance. If the Court instead selects this docket to decide the question itself, briefing and argument are the expected route.
+
+If the Court denies review, I expect **no noted dissent or statement respecting denial**; the conditional probability of some such writing is **0.10**. I make no individual cert-vote forecast. Any merits discussion here is conditional: on the leading companion-case path, the Court will more likely preserve sufficient FTC supervision to defeat this facial challenge than invalidate the entire enforcement arrangement, making a subsequent denial here plausible.

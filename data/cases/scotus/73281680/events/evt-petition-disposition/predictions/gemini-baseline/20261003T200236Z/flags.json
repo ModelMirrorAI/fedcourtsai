@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73281680",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The `data/cases/scotus/73281680/record/documents/` directory was entirely missing, so no filed-document text (such as the petition or the brief in opposition) was provisioned. Inference was based on the docket and lower court opinions found via CourtListener.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

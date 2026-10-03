@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500246",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "No record/documents/ directory was provisioned for this fully briefed paid petition (petition, BIO and reply all on the docket), so no questions-presented, petition or BIO text was available. The question presented was inferred from the Fourth Circuit opinion (CA4 24-2070, published 2025-09-02, 2-1) retrieved via CourtListener."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode timing signal used, disclosed for transparency: a corpus query surfaced neighbouring docket 25-1349 as granted, and its public docket shows 'Petition GRANTED' dated 2026-10-01, i.e. the long-conference (9/28/2026) grant tranche issued before this cell's 2026-10-03 snapshot. This case's own public docket, fetched 2026-10-03, carries no entry after the 8/19/2026 distribution: no grant, no denial, no relist. No disposition of this case was surfaced; the forecast conditions on 'not granted in the first tranche', which is why it sits well below the federal-band anchor."
+    }
+  ]
+}

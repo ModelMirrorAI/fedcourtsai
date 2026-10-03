@@ -1,0 +1,5 @@
+Distributed once so far (for the 9/28/2026 conference). I expect the petition to be granted outright on the first conference without further relists, though a single relist to firm up a dissent from denial is possible (hence a 0.35 probability of at least one more relist). A CVSG will not occur as the federal government is already the petitioner.
+
+If granted, the Court will take up the question of whether the BIA's broad interpretation of the "material support" bar (including de minimis forced labor like cooking) is a permissible reading of the Immigration and Nationality Act. A summary disposition (GVR) is unlikely (0.05 probability) because the Fourth Circuit's decision represents a direct split on statutory interpretation rather than a failure to apply an intervening decision; plenary review is the most probable route.
+
+Should the Court deny review, expect a dissent from denial by conservative Justices (such as Alito or Thomas), given the national security implications and the Fourth Circuit's rejection of the agency's terrorism-related deportation grounds.

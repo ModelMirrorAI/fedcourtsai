@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73529868",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal predating the snapshot: on 2026-10-01 the Court granted the government's companion petition on the same statutory question, Rhoney v. Barbosa da Cunha, No. 26-104 (2d Cir.), without acting on this petition, although the Solicitor General had asked the Court to grant this one and hold Rhoney. I treat this petition as most likely held pending Rhoney, with its disposition (GVR vs. denial) tracking the merits. This is public companion-case information, not this case's outcome; the supremecourt.gov docket for 25-1415 shows no entry after 2026-09-25 as of 2026-10-03."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "No record/documents/ was provisioned (no petition, BIO, reply or QP text). The docket carries a Rule 34.6 paper-only filing directive, so the filings have no supremecourt.gov PDF links for the pipeline to fetch; only the 2026-09-25 letter is linked. I read the SG's petition from justice.gov instead and did not read the BIO. Consider a fallback source (justice.gov/osg) for SG petitions on paper-only dockets."
+    }
+  ]
+}

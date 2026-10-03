@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73529868",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "No petition, questions-presented, or opposition text was provisioned. The snapshot directs paper-only filing and most filing links are empty. The forecast uses the pre-petition Sixth Circuit opinion and the snapshot-linked September 25 respondents' letter; it does not purport to reproduce the actual QPs or assess the full briefing. The missing advocacy particularly limits confidence in vehicle selection."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The September 25, 2026 respondents' letter materially informs the hold/GVR forecast. It discusses alternative vehicles, reports dismissal of companion Genalo v. G.M., and identifies the then-filed Genalo v. D.C. petition. This is pre-snapshot companion context in a forward cell, not this petition's disposition. No outcome of Putra v. Lopez-Campos was sought or encountered."
+    }
+  ]
+}
