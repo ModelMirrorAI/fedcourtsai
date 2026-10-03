@@ -1,0 +1,4 @@
+- `fedcourts query --court scotus --disposition denied | head -n 10`
+  - `ranged corpus reads: 9 GET(s), 2359296 byte(s)`
+- Google Web Search: `"Elisha Holloway" "Bryan Polk" Texas Supreme Court` (revealed applicant's history of pro se litigation).
+- Evaluated base rates from `metrics/statpack.md` ("The interim docket (applications)").

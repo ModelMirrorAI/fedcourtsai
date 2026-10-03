@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000446",
+  "gaps": [
+    "CourtListener citation verification was throttled with HTTP 429.",
+    "General web searches returned no visible results.",
+    "No respondent's brief is yet provisioned; that is consistent with the future response deadline."
+  ],
+  "helpful": [
+    "Extracted application text permits a substantive forecast rather than a docket-only estimate.",
+    "Frozen interim signals and prior-Term counts separate the event's conditioning from the generic population."
+  ],
+  "notes": "Used the provisioned record and committed base-rate context after unsuccessful external verification. A temporary writable cache resolved the local CLI startup issue. No outcome-seeking retrieval was performed.",
+  "role": "predictor",
+  "run_id": "20261003T175711Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "committed interim statpack",
+    "fedcourts paths",
+    "web search",
+    "CourtListener MCP search",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

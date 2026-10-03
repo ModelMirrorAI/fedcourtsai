@@ -1,0 +1,11 @@
+# Forecast of the application's disposition
+
+The Court will most likely deny Kyle Wagner's application for a stay pending certiorari, leaving the Sixth Circuit's detention ruling operative. I assign a 27% probability to an unqualified grant. This forecasts the application, not the disposition of the linked certiorari petition. A mixed grant-and-denial order belongs to the ungranted side under this event's resolver.
+
+Justice Kavanaugh has already requested a response, due October 8, 2026, at 4 p.m. EDT. The next expected filing is that response, not a first request for one. The declared response-requested-increment probability is 0.00 as a placeholder for an already-fired, vacuous rung; it is not a prediction that the recorded request did not occur. No full-Court referral or amicus entry appears in the frozen record. I predict referral to the full Court (72%) and, more likely than not, no additional amicus entry before disposition (30% probability of at least one qualifying addition above zero, including a submitted brief).
+
+My central timing forecast is a short disposing order between October 9 and October 23, 2026, after the response deadline, rather than an immediate grant before the response. Delay beyond that window remains plausible, particularly if the Court coordinates the application with the linked petition. I do not predict expedited plenary treatment of the application as the central outcome.
+
+The most likely denial will contain no substantial explanation. The competing considerations are the asserted entrenched split over appellate review of detention decisions and the applicant's ongoing loss of liberty, against uncertainty that a different review standard would change the safety assessment and justify immediate release. A denial would not settle either the review standard or Wagner's criminal liability.
+
+If the Court instead grants relief and explains it, the likely ground is the district court's institutional advantage in making individualized detention and release-condition judgments, coupled with the ongoing liberty injury. That would be a narrow interim intervention concerning review of the detention ruling, not a holding that the charged speech is constitutionally protected or that Wagner must be acquitted. No Justice-by-Justice votes or opinion authorship are forecast.

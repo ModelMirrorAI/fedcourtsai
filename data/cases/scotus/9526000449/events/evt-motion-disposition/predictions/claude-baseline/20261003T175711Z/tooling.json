@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000449",
+  "run_id": "20261003T175711Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (interim docket section)",
+    "fedcourts query --include-applications",
+    "courtlistener-mcp search (types o, d, r)",
+    "courtlistener-mcp call_endpoint / get_endpoint_item (throttled, HTTP 429)"
+  ],
+  "helpful": [
+    "The statpack interim section's per-Term substantive counts made the strictly-prior pooled baseline (31/296) and its floor check a two-line computation.",
+    "A RECAP party-name search placed the applicant as a repeat pro se litigant in Texas landlord-tenant and civil-rights matters in two calls, which is most of the signal this cell has."
+  ],
+  "gaps": [
+    "The application PDF had no text layer (empty_text), so the stay's target and the Texas Supreme Court posture (26-0569) are unread; an OCR pass on scanned applications would fix the commonest interim-cell blind spot.",
+    "The CourtListener sidecar shares one hourly rate budget across the fan-out, so a late-starting cell can be throttled after a handful of calls; a per-cell budget or a cached docket-entries fetch for the underlying case would help.",
+    "A statpack cut of the interim grant rate by applicant class (government / counseled / pro se) would let the large downward adjustment from the pooled rate rest on a committed number."
+  ],
+  "notes": "fedcourts query returns no captions or asks on live application rows, so same-ask priors had to come from the MCP side."
+}

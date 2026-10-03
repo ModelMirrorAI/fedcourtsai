@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000449",
+  "run_id": "20261003T175711Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The provisioned 44-page application has empty_text=true and ocr_derived=false; application.txt contains only whitespace. Direct web opening of the manifest's application PDF yielded no usable content. The underlying dispute, stay target, urgency, and arguments could not be evaluated. Prediction uses the arrival snapshot and prior-Term interim base rate; big_case_score is null for lack of identifiable stakes. OCR of the provisioned application would materially improve the input."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "General-precedent retrieval degraded: CourtListener MCP citation lookup for 558 U.S. 183 returned HTTP 429; web search returned no usable content. No REST fallback, current-case outcome search, or outcome exposure occurred. Proceeded on provisioned inputs and the committed statpack."
+    }
+  ]
+}

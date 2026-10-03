@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000449",
+  "run_id": "20261003T175711Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local file reads", "fedcourts paths", "web search", "web open", "CourtListener MCP search", "fedcourts validate"],
+  "helpful": ["Arrival-position snapshot and frozen interim signals clearly define the forecast vantage.", "Document manifest distinguishes failed text extraction from an absent application.", "Interim per-Term counts permit the prescribed strictly-prior pooled baseline."],
+  "gaps": ["OCR-derived text for the scanned 44-page application.", "Available general-precedent retrieval: CourtListener MCP was rate-limited and web calls returned no content.", "A generation timestamp or corpus-vintage stamp alongside the committed statpack."],
+  "notes": "No case-outcome retrieval. The default uv cache was read-only; a temporary writable cache allowed the local CLI to run. Forecast is deliberately limited to the docket skeleton and published prior-Term counts."
+}

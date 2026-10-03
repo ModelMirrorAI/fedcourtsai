@@ -1,0 +1,7 @@
+P(grant) is estimated at 0.001.
+
+This is a stay application submitted by a pro se applicant, Elisha Holloway, arising from a civil dispute in the Texas state courts. According to a brief web search on the parties, the applicant has a history of filing numerous meritless pro se actions in both state and federal courts and has been recommended for designation as a vexatious litigant in federal court.
+
+Although the `metrics/statpack.md` reports a pooled base grant rate of 10.47% for substantive applications over the prior 10 terms (with the pool clearing the 50-application floor), this case is completely outside the normal bounds of a substantive application that might realistically be granted. The application was submitted to Justice Alito. Pro se stay applications originating from state civil cases, absent extraordinary circumstances (which are not present here), are uniformly denied.
+
+Because the underlying claims appear frivolous, I estimate the likelihood of any affirmative escalation (a request for response or referral to the full Court) to be extremely low. It is nearly impossible that this case will attract amicus briefs, and the application will very likely be denied summarily by the Circuit Justice without further proceedings. The actual document text was missing (`empty_text: true`), but the context of a pro se civil litigant from a state court is sufficient to anchor a near-zero probability.
