@@ -101,8 +101,9 @@ permissions: {}
 # directly — an unresolved `inputs.limit` would pass an empty `--limit`.
 #
 # The pins are the standing measurement — 10 petitions, all three real engines,
-# the paid modern-cert population, drawn at random by the salted-hash rule — and what a
-# fortnight costs is whatever the usage ledger measures against exactly them.
+# the paid modern-cert population, drawn at random by the salted-hash rule —
+# and what a fortnight costs is whatever the usage ledger measures against
+# exactly them.
 #
 # `--scope paid` is the pin, not the wider `all`, because the population has to
 # carry signal at this sample size: the paid class resolves grant-or-GVR at

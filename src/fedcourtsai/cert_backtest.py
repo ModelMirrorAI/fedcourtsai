@@ -194,6 +194,16 @@ class CertBacktestSet:
     #: Case ids the walk passed over as unreplayable, in walk order.
     passed_over: list[str] = field(default_factory=list)
 
+    def passed_over_line(self, shown: int = 10) -> str:
+        """The run-log line naming what the walk passed over: a count and the first ids."""
+        head = ", ".join(self.passed_over[:shown])
+        more = len(self.passed_over) - shown
+        tail = f", and {more} more" if more > 0 else ""
+        return (
+            f"passed over {len(self.passed_over)} drawn petition(s) without a replayable "
+            f"snapshot ({head}{tail}); {len(self.items)} replayable petition(s) drawn"
+        )
+
 
 def cert_backtest_population(
     conn: sqlite3.Connection,

@@ -1523,7 +1523,9 @@ def test_cli_auto_routes_and_skips_partial_coverage(
     # The draw passed over the snapshotless petition; every backtester —
     # offline baselines included — scored the same one-petition set.
     assert report.events_scored == 1
-    assert "passed over 1 drawn petition(s) without a replayable snapshot" in result.stderr
+    assert "passed over 1 drawn petition(s) without a replayable snapshot (scotus/999)" in (
+        result.stderr
+    )
     ids = {e.predictor_id for e in report.entries}
     # Every enabled predictor replays through its own engine — gemini-baseline
     # included, now that the gemini runner is registered.

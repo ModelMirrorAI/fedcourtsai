@@ -6026,8 +6026,8 @@ def cert_backtest_cmd(
             "salted hash of each case id, keyed by the corpus vintage; with --engine, "
             "the replayable petitions), spread over its conferences and Terms in "
             "proportion to their size, instead of the most recently decided N, "
-            "which collapses onto the last, grant-heavy order lists. Applies within "
-            "--limit.",
+            "which collapses onto the last, grant-heavy order lists. Draws --limit "
+            "petitions.",
         ),
     ] = False,
     work_dir: Annotated[
@@ -6134,11 +6134,7 @@ def cert_backtest_cmd(
         )
         items = drawn.items
         if drawn.passed_over:
-            typer.echo(
-                f"passed over {len(drawn.passed_over)} drawn petition(s) without a "
-                f"replayable snapshot; {len(items)} replayable petition(s) drawn",
-                err=True,
-            )
+            typer.echo(drawn.passed_over_line(), err=True)
         provisioning: dict[str, int] = {}  # empty unless an agentic replay ran
         replay_run_id: str | None = None  # null unless one did: baselines have no run
         dropped: list[str] = []  # predictors lost at run time, not opted out
