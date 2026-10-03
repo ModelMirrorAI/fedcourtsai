@@ -390,3 +390,8 @@ def test_cli_prints_the_cut_on_stdout_and_the_totals_on_stderr(
 def test_registered_at_needs_counted(ledger: tuple[Path, Path]) -> None:
     result = runner.invoke(app, ["conference-set", "--registered-at", "2026-09-15"])
     assert result.exit_code == 2
+
+
+def test_a_malformed_registration_day_is_refused(ledger: tuple[Path, Path]) -> None:
+    result = runner.invoke(app, ["conference-set", "--counted", "--registered-at", "9/15"])
+    assert result.exit_code == 2

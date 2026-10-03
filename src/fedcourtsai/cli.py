@@ -13692,9 +13692,12 @@ def conference_set(
     settings = get_settings()
     db = corpus.corpus_db_path(settings.corpus_root)
     if counted:
-        _conference_set_counted(
-            settings, db, out, date.fromisoformat(registered_at) if registered_at else None
-        )
+        try:
+            registration_day = date.fromisoformat(registered_at) if registered_at else None
+        except ValueError:
+            typer.echo(f"--registered-at {registered_at!r} is not an ISO date", err=True)
+            raise typer.Exit(code=2) from None
+        _conference_set_counted(settings, db, out, registration_day)
         return
     if registered_at:
         typer.echo("--registered-at applies only with --counted", err=True)

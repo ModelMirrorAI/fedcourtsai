@@ -8302,8 +8302,9 @@ class CountedConferenceCut(_Strict):
     conference_fallbacks: int = Field(
         ge=0,
         description="Conference readings that fell back to the current column, cells and "
-        "registration readings together. Nonzero means the cut's conferences are not "
-        "reconstructions and no figure is quoted from it",
+        "registration readings together — every event's registration reading counts, "
+        "whatever its moment, so the count is strict. Nonzero means the cut's "
+        "conferences are not all reconstructions and no figure is quoted from it",
     )
     events: list[CountedConferenceEvent] = Field(default_factory=list)
     totals: list[CountedConferenceTotal] = Field(default_factory=list)
