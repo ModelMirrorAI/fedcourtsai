@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281680",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "No filed-document directory, petition, questions-presented text, or brief-in-opposition text was provisioned, although the snapshot records an opposition filed September 8, 2026. The pre-petition January 9 appellate opinion was retrieved through CourtListener. The forecast's proposed question is inferred from that opinion; the petition's actual framing, split assertions, and opposition arguments remain unverified. Prediction completed without retrieving this petition's disposition."
+    }
+  ]
+}

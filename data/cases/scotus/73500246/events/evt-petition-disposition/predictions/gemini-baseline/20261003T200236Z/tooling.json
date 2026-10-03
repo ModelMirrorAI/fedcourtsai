@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500246",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "run_id": "20261003T200236Z",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "run_shell_command",
+    "google_web_search"
+  ],
+  "helpful": [
+    "google_web_search",
+    "statpack.md"
+  ],
+  "gaps": [],
+  "notes": "Used web search to understand the specific issues of the case (4th Circuit 24-2070 on material support bar) to inform the baseline anchor."
+}

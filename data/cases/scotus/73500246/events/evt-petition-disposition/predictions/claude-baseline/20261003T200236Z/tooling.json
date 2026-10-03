@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500246",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md",
+    "CourtListener MCP: search, read_document",
+    "WebFetch (supremecourt.gov dockets 25-1343, 25-1349)"
+  ],
+  "helpful": [
+    "Segment base rate by salience band (sal-v4) with bracketed reached figures for the federal band",
+    "CourtListener read_document for the CA4 opinion and dissent",
+    "Live supremecourt.gov docket to confirm post-conference state"
+  ],
+  "gaps": [
+    "No provisioned documents (QP/petition/BIO) for a fully briefed paid petition",
+    "fedcourts query has no filter for petitioner class (federal/state/private) or for a Term's conference date, so neighbouring long-conference dispositions had to be found incidentally",
+    "Statpack relist/CVSG cuts are terminal-count buckets, not forward hazards from a given state"
+  ],
+  "notes": "The corpus query (--era 2020s --disposition granted) returned mostly emergency applications ahead of cert petitions; a flag to exclude the 'A' docket form from cert-cell priors would help. The statpack federal band column was the right anchor here, but the decisive case-specific evidence (not in the 10/1 grant tranche) came from the live docket, which no provisioned input carried."
+}

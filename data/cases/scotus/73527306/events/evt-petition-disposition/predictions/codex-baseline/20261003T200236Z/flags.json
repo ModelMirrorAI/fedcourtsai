@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73527306",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned manifest marks petition.txt truncated. Its main argument and conclusion are available, but the full appendix was not reviewed. The docket lists a reply without provisioned reply text, and the underlying videos were not viewed. Because the force and interlocutory-review arguments turn on competing accounts of that evidence, the forecast relies on the parties' written descriptions and is correspondingly uncertain. No target outcome was retrieved."
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+- CourtListener search for docket number 25-6 (`docket_number: "25-6", type: "d"`).
+- CourtListener search for case name "Keathley" in SCOTUS (`case_name: "Keathley", court: ["scotus"], type: "d"`).
+- Read sections of `metrics/statpack.md` using `cat` and `grep` to review modern discretionary-cert petitions and salience band base rates.

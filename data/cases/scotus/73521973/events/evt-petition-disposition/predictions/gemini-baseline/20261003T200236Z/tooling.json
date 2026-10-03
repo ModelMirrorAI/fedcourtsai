@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73521973",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "fedcourts query",
+    "grep"
+  ],
+  "helpful": [
+    "metrics/statpack.md provided the necessary baseline bounds."
+  ],
+  "gaps": [
+    "No direct search inside the corpus documents using text strings from the CLI."
+  ],
+  "notes": "The MCP tool was useful to confirm the Eleventh Circuit case context."
+}
