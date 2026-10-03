@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000447",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward-timing ambiguity: outcome.resolved_at is 2026-10-02 without a time, while claude-baseline was created at 2026-10-02T21:31:00Z and codex-baseline at 2026-10-02T21:30:24Z. Both logs record forward mode. Please verify the disposition/publication timing against prediction execution before interpreting these as genuinely pre-decision forecasts. The available record does not establish intraday ordering or demonstrate either candidate retrieved this application's denial; this is not a finding of proven misprovisioning or leakage. See both evaluation.md files.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261003T191100Z",
+  "schema_version": "1.0"
+}

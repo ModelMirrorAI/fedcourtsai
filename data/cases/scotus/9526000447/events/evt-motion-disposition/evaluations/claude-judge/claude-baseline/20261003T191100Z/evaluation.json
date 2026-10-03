@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "Private wrongful-death discovery-sanctions dispute dressed in a novel Fourth Amendment theory (a court-appointed examiner as a general warrant). No split, an unreported interlocutory order below, a summary state-high-court denial, and a two-day single-Justice denial with no response, referral, amicus, or noted dissent. The theory could matter if the Court ever engaged it, but nothing in the record or the outcome suggests it will; stakes are confined to one case."
+  },
+  "brier_score": 0.0016,
+  "brier_skill_score": 0.8541252861602497,
+  "case_id": "scotus/9526000447",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.009368316289262234
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.009368316289262234,
+    "total": 0.009368316289262234
+  },
+  "correct": 1,
+  "created_at": "2026-10-03T19:15:56Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; log mode forward, result_capture_coverage 1.0, 20 calls all captured. Case-specific lookups: CourtListener dockets endpoint by id 9526000447 and search for docket 26A447, both empty per the candidate's retrieval.md. The only call with a retrieved_doc_date (2026-10-02) is a corpus priors query for granted/denied 2020s applications; its listed rows (26A370, 26A434, 26A437, 26A382, 26A405, 26A414, 26A415, 26A422 and extension grants) do not include 26A447. reasoning.md states the outcome was not observed. Resolution date (2026-10-02) equals the run date; prediction created 2026-10-02T21:31Z. No disposition material surfaced, so the forward default stands.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261002T212439Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "41d003e28da4232d772031bf142a773afea52ff5",
+    "stamped_at": "2026-10-03T19:17:54.034168Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261003T191100Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,23 @@
+# Evaluation: codex-baseline
+
+## Outcome and numerical score
+
+This is an interim application. The supplied outcome records denied on October 2, 2026, with actual_granted = 0. The candidate's denied label is correct, and its 0.06 probability gives Brier score (0.06 - 0)^2 = 0.0036. The outcome records no explanatory holding; agreement on disposition cannot establish the correctness of a proposed judicial rationale.
+
+The interim segment baseline and skill belong to the post-run harness. Neither is written here, and base_rate_basis is null. The committed statpack contains the prior application-Term substantive counts needed for the pooling attempt, rather than a missing interim section, but its caption warns of uneven parsing coverage and selection differences between the pooled and predicted populations. The candidate appropriately treats this as committed-pack context, not a freshly measured corpus statistic. Its frozen Term is 2026 and band is null. I did not refresh the corpus or compute a replacement baseline. Interim votes are not scored; no semantic set is declared. Mechanical claims remain for harness scoring. The pointed-to forecast document was read only as context.
+
+## Reasoning quality: 0.90
+
+The rationale separates the demanding review-and-reversal showing from the asserted irreversible disclosure injury, rather than treating a potential constitutional concern as sufficient for emergency relief. It distinguishes the applicant's general-warrant characterization from the state-court opposition's narrower description of a supervised inquiry and expressly labels both as advocacy. It treats finality as an uncertainty, addresses the limited original-proceeding argument associated with the cited Fisher footnote, and avoids assuming that a proposed sanctions deferral was adopted. The staged log corroborates historical-authority lookups; I did not independently retrieve those authorities or treat the denial as proof of their application.
+
+The statistical discussion is careful about strictly prior application-Terms, incomplete parse coverage, the distinction between unconditional counts and forward escalation hazards, and the difference between the pooled population and selected prediction cells. The rationale also explains the missing primary-order text and appendix truncation, avoids inventing the October 1 hearing's result, and distinguishes the state court's response request from a Supreme Court request. These are sound evidentiary distinctions independent of the correct label.
+
+The exact movement from the pooled anchor to 6% remains a judgmental calibration rather than a validated conditional estimate. The available record also leaves uncertainty about the actual scope and privilege protections of the examination order, and the candidate cannot resolve that uncertainty from the parties' descriptions alone. These limitations prevent a near-perfect grade. Neither the incremental claims nor the forecast document's timing and procedural predictions contribute to reasoning_quality.
+
+## Leakage and timing
+
+The log records forward mode, 29 calls, and result_capture_coverage = 27/29. Two web calls are unobserved: a historical Hollingsworth query and a Library of Congress Fisher PDF request. Although the retrieval note says the web attempts supplied no usable content, unobserved telemetry cannot verify empty results; I assess the calls from their historical-authority targets instead. The logged CourtListener query slices likewise concern those precedents, not this application's result. Calls collapsed to the neutral class other are not suspicious by that label alone. A find command explicitly excludes the labeling-artifact path and seeks instruction files; it is not evidence of reading those artifacts.
+
+There is no visible outcome-file read, case-specific external outcome query, or rationale presupposing this application's denial. The candidate describes the September 30 submission baseline, arrival-position anchor 0, and October 1 cutoff without claiming later same-day proceedings were provisioned. Retrieved outcome material is assessed false, influence not_applicable, and leakage_suspected false. The conclusion rests on the log and rationale, not on the absence of unstaged predictor flags.
+
+The prediction was created on October 2 at 21:30:24 UTC, the same date as the recorded disposition. The outcome has no intraday timestamp, so the sequence cannot be established from these inputs. A shared data-quality flag records this forward-timing uncertainty; it does not assert that the candidate saw the result or prove that provisioning was wrong. No later evaluator snapshot is used to reconstruct the candidate's baseline.

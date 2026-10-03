@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000447",
+  "run_id": "20261003T191100Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "file-read", "metrics/statpack.md"],
+  "helpful": [
+    "The staged retrieval_log.json with result_capture markers and retrieved_doc_date made the forward-cell leakage check mechanical.",
+    "Candidates' retrieval.md notes listing the docket numbers their corpus queries returned let me confirm 26A447 was not among them.",
+    "The 2026-10-03 snapshot carrying the disposing entry pinned the denial's date and shape without any retrieval."
+  ],
+  "gaps": [
+    "fedcourts query has no per-docket lookup, so there was no way to read this case's own corpus row (last_pulled, disposition timestamp) to check whether the denial was in the corpus when the predict cells ran.",
+    "outcome.json records a resolution date but no time of day; for a two-day single-Justice application resolved on the same calendar day the cells ran, a timestamp would make the forward guarantee auditable."
+  ],
+  "notes": "Interim cell: baseline and skill left to the stamp. One wasted query call on a non-existent flag."
+}
