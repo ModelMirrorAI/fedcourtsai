@@ -935,7 +935,8 @@ def _filed_for_member(
             return True
         # A subset match must rest on a distinguishing word: "Federal
         # Petitioners" leaves {federal}, which every "Federal …" party contains.
-        if (filer <= party or party <= filer) and (filer & party) - _GENERIC_NAME_TOKENS:
+        nested = filer.issubset(party) or party.issubset(filer)
+        if nested and (filer & party) - _GENERIC_NAME_TOKENS:
             return True
     return False
 
