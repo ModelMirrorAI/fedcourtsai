@@ -1,7 +1,8 @@
 name: run-backtest
 
-# Cert back-test: replay the enabled predictors over the most recently decided
-# modern discretionary-cert petitions (outcomes hidden — redacted snapshots in a
+# Cert back-test: replay the enabled predictors over decided modern
+# discretionary-cert petitions — a salted-hash random draw on the cron, the most
+# recently decided by default (outcomes hidden — redacted snapshots in a
 # scratch tree, never data/, and the committed ledger removed from the working
 # tree for the replay so no outcome sits beside the cells) and land the
 # refreshed `metrics/cert-backtest.json` as a **reviewed** PR — never a direct
@@ -70,7 +71,7 @@ on:
         options: [stub, auto]
         default: stub
       limit:
-        description: "cert only. Replay the N most recently decided petitions (~one cell per predictor each; model spend scales linearly)."
+        description: "cert only. Replay N petitions: the most recently decided, or drawn at random under spread (~one cell per predictor each; model spend scales linearly)."
         type: string
         default: "25"
       terms:

@@ -1863,8 +1863,9 @@ hand. The cron's `--spread` ranks every paid petition by a salted SHA-256 of
 its case id, keyed by the corpus vintage the run pulled, and walks that order,
 passing over any petition it cannot replay, until it holds ten. Nothing about
 an outcome, a decision date or a conference feeds the rank, so the set's
-expected grant mix is the replayable population's and its conferences and
-Terms fall in proportion to their size; the same blob draws the same set, and a
+expected grant mix is the replayable population's and that population's
+conferences and Terms (only the recent Terms the snapshots reach) fall in
+proportion to their size; the same blob draws the same set, and a
 fortnight on a newer blob draws afresh. The report records the rule, its salt
 and key, and how many petitions the walk passed over (`provenance.draw`), and
 [metrics/README.md](../metrics/README.md) carries the reading rule — chiefly

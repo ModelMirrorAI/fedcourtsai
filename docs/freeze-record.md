@@ -6587,8 +6587,10 @@ freeze commit is recorded here.
   `provenance.draw`.
 
   **Still no per-run randomness.** The key is a property of the corpus, not
-  of the run: the same blob and dispatch draw the same set, which a reader
-  can recompute from the report. A newer blob re-keys the draw, so the
+  of the run: the walk order is recomputable from the report's salt and key,
+  and the same blob and dispatch draw the same set so long as the content
+  store's snapshot coverage has not moved in between, since replayability is
+  read from it at run time. A newer blob re-keys the draw, so the
   fortnightly series accumulates fresh samples instead of replaying one set.
 
   **What the measurement showed.** On the same blob, measured with the
@@ -6599,7 +6601,8 @@ freeze commit is recorded here.
   10-petition floor averaged 67.0% with a standard deviation of 15.4 points.
   The round-robin's replayable survivors were 5, 15 and 29 petitions at 80%,
   47% and 38% denied. Without the replay filter the new draw was 90%, 92% and
-  92% denied, spread over every Term from OT2017.
+  92% denied, drawn from OT2017–OT2025 alike (the 50-petition draw held
+  every Term in that range).
 
   **What did not move.** No digest input: no prompt template, neither agent
   config, and not `src/fedcourtsai/process_version.py`. `uv run fedcourts
@@ -6615,17 +6618,34 @@ freeze commit is recorded here.
   drawn by the round-robin when `spread` is true. A replayed set's floor
   estimates the **replayable** population's denial share, not the whole
   population's. Snapshot coverage is not outcome-neutral: on the blob above
-  the replayable share was 68% against 92%. So a replayed floor below the
+  the replayable share was 68% against 92%, and only OT2023 onward is
+  replayable at all. So a replayed floor below the
   statpack's is the coverage, not the draw. At ten petitions one fortnight's
-  floor is noisy around that expectation; only the series is read.
+  floor is noisy around that expectation; only the series is read. The
+  2026-09-07 entry's "at least roughly one half" chance of a fortnight with
+  nothing granted was computed at the paid population's grant-family rate;
+  at the replayable mix measured above it is far smaller (about 4% at ten
+  petitions), so that withholding rule fires less often, not differently. And the
+  limit means two things across the boundary: on a report with a null
+  `draw` it was a cap applied before unreplayable petitions were dropped,
+  and on one with a `draw` it is the target size the walk fills, so the two
+  reports' `limit`s are not differenced.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit
   `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
 
-  The runnable effect check once it is live: the first `metrics/cert-backtest.json`
-  landed after the promotion satisfies `jq -r '.provenance.draw.rule'` =
-  `vintage-keyed-hash-v1`, with `.provenance.draw.key` an ISO date no later
-  than the run's day: the newest pull stamp of the blob the replay read. Its
-  denial share sits near the replayable population's, not near 50–60%.
-  `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
-  six digests.
+  The runnable effect check once it is live, deterministic rather than read
+  off one fortnight's floor (at ten petitions a correct draw lands at or below
+  60% denied about two times in five): the first `metrics/cert-backtest.json`
+  landed after the promotion carries `.provenance.draw.rule` =
+  `vintage-keyed-hash-v1`, `.provenance.draw.salt` =
+  `fedcourtsai/cert-backtest/spread`, and a `.provenance.draw.key` equal to
+  the newest pull stamp `uv run fedcourts corpus-info` prints on the blob at
+  that report's pointer. On that blob, ranking the scope-`paid` population
+  by `sha256("<salt>|<key>|<case_id>")` puts every case id in
+  `.provenance.clocks` among the replayable petitions at the top of that
+  order, and the report's `events_scored` equals its `limit` unless the
+  replayable population is smaller. The denial share across the series is
+  read against the replayable population's, as a description and not a
+  pass/fail test. `uv run fedcourts process-digest --all` still prints
+  `proc-v8` and the same six digests.

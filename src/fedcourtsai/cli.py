@@ -6022,9 +6022,10 @@ def cert_backtest_cmd(
         bool,
         typer.Option(
             "--spread/--no-spread",
-            help="Draw a pre-registered random sample of the population (a salted hash of "
-            "each case id, keyed by the corpus vintage), spread over its conferences and "
-            "Terms in proportion to their size, instead of the most recently decided N, "
+            help="Draw a pre-registered random sample of the eligible population (a "
+            "salted hash of each case id, keyed by the corpus vintage; with --engine, "
+            "the replayable petitions), spread over its conferences and Terms in "
+            "proportion to their size, instead of the most recently decided N, "
             "which collapses onto the last, grant-heavy order lists. Applies within "
             "--limit.",
         ),

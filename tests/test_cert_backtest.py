@@ -340,6 +340,30 @@ def test_spread_draw_is_the_salted_hash_order_keyed_by_vintage(tmp_path: Path) -
     assert [i.features.case_id for i in rekeyed.items] != ids
 
 
+def test_spread_replay_draw_walks_the_hash_order_past_unreplayable_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # On an engine replay the hash walk passes over what it cannot replay and
+    # keeps going: the set is the hash order filtered to replayable rows, cut at
+    # the limit, and every row ranked above the last kept one that was not kept
+    # is counted as passed over.
+    db = tmp_path / "corpus.db"
+    _seed_tail_skewed_cohorts(db)
+    replayable = {f"scotus/c{c:02d}p{k}" for c in range(20) for k in range(10) if (c + k) % 3 == 0}
+    monkeypatch.setattr(
+        cert_backtest, "is_replayable", lambda _conn, case_id: case_id in replayable
+    )
+    with corpus.connect(db) as conn:
+        population = cert_backtest_population(conn)
+        drawn = draw_cert_backtest_set(conn, limit=9, spread=True, replayable_only=True)
+    order = sorted((r.case_id for r in population), key=lambda c: spread_draw_rank("undated", c))
+    kept = [c for c in order if c in replayable][:9]
+    assert [i.features.case_id for i in drawn.items] == kept
+    walked = order[: order.index(kept[-1]) + 1]
+    assert drawn.passed_over == [c for c in walked if c not in replayable]
+    assert drawn.draw.passed_over == len(drawn.passed_over) > 0
+
+
 def test_no_spread_keeps_the_recency_head(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _seed_tail_skewed_cohorts(db)
@@ -1447,7 +1471,7 @@ def test_replay_unknown_override_still_raises(fixture_corpus: FixtureCorpus) -> 
 
 def test_replayable_draw_passes_over_snapshotless_petitions(fixture_corpus: FixtureCorpus) -> None:
     # A bulk-seeded row has no snapshot or petition event until its first fetch;
-    # the pre-flight names it and keeps the report's set consistent.
+    # the draw passes over it and keeps the report's set consistent.
     with corpus.connect(fixture_corpus.db_path) as conn:
         corpus.upsert_rows(
             conn,
@@ -1496,7 +1520,7 @@ def test_cli_auto_routes_and_skips_partial_coverage(
     )
     assert result.exit_code == 0, result.output
     report = read_model(out, CertBacktest)
-    # The snapshotless petition was dropped up front; every backtester —
+    # The draw passed over the snapshotless petition; every backtester —
     # offline baselines included — scored the same one-petition set.
     assert report.events_scored == 1
     assert "passed over 1 drawn petition(s) without a replayable snapshot" in result.stderr

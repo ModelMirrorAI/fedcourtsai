@@ -1339,8 +1339,9 @@ def replay_predictors(
     been the campaign's to lose. All of them are reported **loudly** — the losses to stderr
     as they happen, and everything to the caller. A real engine spends tokens
     per cell.
-    Callers filter the set through :func:`replayable_items` first; a petition
-    with no snapshot or petition event here is an internal-invariant error.
+    Callers draw the set with ``replayable_only=True``
+    (:func:`draw_cert_backtest_set`) first; a petition with no snapshot or
+    petition event here is an internal-invariant error.
 
     Each returned backtester carries the backend that ran it and that backend's
     model (:func:`replay_model`), so the report can state what produced a number

@@ -351,7 +351,7 @@
         },
         "limit": {
           "default": 0,
-          "description": "``--limit``: the size of the drawn set. On an engine replay the draw passes over petitions it cannot replay and keeps walking (`provenance.draw.passed_over`), so `events_scored` falls short of it only where the eligible population is smaller than the limit",
+          "description": "``--limit``: the size of the drawn set. On an engine replay the draw passes over petitions it cannot replay and keeps walking (`provenance.draw.passed_over`), so the set's size falls short of it only where the eligible population is smaller than the limit",
           "minimum": 0,
           "title": "Limit",
           "type": "integer"
@@ -372,7 +372,7 @@
         },
         "spread": {
           "default": false,
-          "description": "``--spread``: drawn by the salted-hash rule (`provenance.draw`) \u2014 a pseudo-random sample spread over the population's conferences and Terms in proportion to their size \u2014 instead of the most recently decided N, which collapses onto the grant-heavy last order lists. A different grant mix, so the floor and every lift move with it",
+          "description": "``--spread``: drawn by the salted-hash rule (`provenance.draw`) \u2014 a pseudo-random sample spread over the eligible population's conferences and Terms in proportion to their size (on an engine replay, the replayable population's, which reaches back only a few Terms) \u2014 instead of the most recently decided N, which collapses onto the grant-heavy last order lists. A different grant mix, so the floor and every lift move with it",
           "title": "Spread",
           "type": "boolean"
         }
@@ -382,7 +382,7 @@
     },
     "CertBacktestDraw": {
       "additionalProperties": false,
-      "description": "How a cert back-test set was drawn from its population.\n\nRecorded because the draw rule decides the set's grant mix, and so the\nalways-deny floor every lift is measured against, while the dispatch alone\ndoes not say which rule ran. ``vintage-keyed-hash-v1`` (``--spread``) ranks\nevery petition in the population by\n``sha256(\"<salt>|<key>|<case_id>\")`` and walks that order, taking each\neligible petition until ``limit``: a simple random sample without\nreplacement, so the set's expected outcome mix is the eligible\npopulation's and each conference and Term holds a share in proportion to\nits size. The key is the corpus vintage, so the same corpus and the same\ndispatch draw the same set, and a newer corpus draws afresh.",
+      "description": "How a cert back-test set was drawn from its population.\n\nRecorded because the draw rule decides the set's grant mix, and so the\nalways-deny floor every lift is measured against, while the dispatch alone\ndoes not say which rule ran. ``vintage-keyed-hash-v1`` (``--spread``) ranks\nevery petition in the population by\n``sha256(\"<salt>|<key>|<case_id>\")`` and walks that order, taking each\neligible petition until ``limit``: a simple random sample without\nreplacement, so the set's expected outcome mix is the eligible\npopulation's (on an engine replay, the replayable population's) and each of\nthat population's conferences and Terms holds a share in proportion to its\nsize. The key is the corpus vintage, so the same corpus and the same\ndispatch draw the same set while snapshot coverage holds still, and a newer\ncorpus draws afresh.",
       "properties": {
         "key": {
           "anyOf": [
@@ -394,7 +394,7 @@
             }
           ],
           "default": null,
-          "description": "The corpus vintage the hash rule was keyed by: the blob's newest `last_pulled` stamp (ISO date), or 'undated' where no row carries one. Two reports with the same key and dispatch over the same blob drew the same set. Null under 'recency-head'",
+          "description": "The corpus vintage the hash rule was keyed by: the blob's newest `last_pulled` stamp (ISO date), or 'undated' where no row carries one. Two reports with the same key and dispatch over the same blob drew the same set, provided the content store's snapshot coverage did not move between them. Null under 'recency-head'",
           "title": "Key"
         },
         "passed_over": {
@@ -424,7 +424,7 @@
             }
           ],
           "default": null,
-          "description": "The fixed salt the hash rule mixes in, recorded so the draw can be recomputed from the report alone. Null under 'recency-head'",
+          "description": "The fixed salt the hash rule mixes in, recorded so the walk order can be recomputed from the report; the set also needs the blob and, on a replay, the snapshot coverage at run time. Null under 'recency-head'",
           "title": "Salt"
         }
       },

@@ -5082,8 +5082,10 @@ class CertBacktestDispatch(_Strict):
     spread: bool = Field(
         default=False,
         description="``--spread``: drawn by the salted-hash rule (`provenance.draw`) — "
-        "a pseudo-random sample spread over the population's conferences and Terms "
-        "in proportion to their size — instead of the most recently decided N, "
+        "a pseudo-random sample spread over the eligible population's conferences "
+        "and Terms in proportion to their size (on an engine replay, the replayable "
+        "population's, which reaches back only a few Terms) — instead of the most "
+        "recently decided N, "
         "which collapses onto the grant-heavy last order lists. A different grant "
         "mix, so the floor and every lift move with it",
     )
@@ -5092,7 +5094,7 @@ class CertBacktestDispatch(_Strict):
         ge=0,
         description="``--limit``: the size of the drawn set. On an engine replay "
         "the draw passes over petitions it cannot replay and keeps walking "
-        "(`provenance.draw.passed_over`), so `events_scored` falls short of it only "
+        "(`provenance.draw.passed_over`), so the set's size falls short of it only "
         "where the eligible population is smaller than the limit",
     )
 
@@ -5114,9 +5116,11 @@ class CertBacktestDraw(_Strict):
     ``sha256("<salt>|<key>|<case_id>")`` and walks that order, taking each
     eligible petition until ``limit``: a simple random sample without
     replacement, so the set's expected outcome mix is the eligible
-    population's and each conference and Term holds a share in proportion to
-    its size. The key is the corpus vintage, so the same corpus and the same
-    dispatch draw the same set, and a newer corpus draws afresh.
+    population's (on an engine replay, the replayable population's) and each of
+    that population's conferences and Terms holds a share in proportion to its
+    size. The key is the corpus vintage, so the same corpus and the same
+    dispatch draw the same set while snapshot coverage holds still, and a newer
+    corpus draws afresh.
     """
 
     rule: CertBacktestDrawRule = Field(
@@ -5128,15 +5132,17 @@ class CertBacktestDraw(_Strict):
     )
     salt: str | None = Field(
         default=None,
-        description="The fixed salt the hash rule mixes in, recorded so the draw "
-        "can be recomputed from the report alone. Null under 'recency-head'",
+        description="The fixed salt the hash rule mixes in, recorded so the walk "
+        "order can be recomputed from the report; the set also needs the blob and, "
+        "on a replay, the snapshot coverage at run time. Null under 'recency-head'",
     )
     key: str | None = Field(
         default=None,
         description="The corpus vintage the hash rule was keyed by: the blob's "
         "newest `last_pulled` stamp (ISO date), or 'undated' where no row carries "
         "one. Two reports with the same key and dispatch over the same blob drew "
-        "the same set. Null under 'recency-head'",
+        "the same set, provided the content store's snapshot coverage did not move "
+        "between them. Null under 'recency-head'",
     )
     passed_over: int = Field(
         default=0,

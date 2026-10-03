@@ -1342,22 +1342,27 @@ the rendered table) and
   in code and recorded beside the key, the key being the blob's newest
   `last_pulled` stamp, and the set is the top `limit` of that order. Nothing
   about an outcome, a decision date or a conference feeds the rank, so the set
-  is a simple random sample: its expected denial share is the population's,
-  each conference and Term holds a share in proportion to its size, and a
-  never-distributed petition (no `distributed_for_conference`) enters at its
-  own small share, with no slot set aside for it. The same blob and dispatch
-  draw the same set, which a reader can recompute from the block; a newer blob
+  is a simple random sample of the **eligible** population — on an engine
+  replay, the replayable one, whose limits come next: its expected denial
+  share is the eligible population's, each of that population's conferences
+  and Terms holds a share in proportion to its size, and a never-distributed
+  petition (no `distributed_for_conference`) enters at its own small share,
+  with no slot set aside for it. The walk order is recomputable from the
+  block's salt and key; the set also needs the blob and, on a replay, the
+  content store's snapshot coverage at run time, so the same blob and
+  dispatch draw the same set while that coverage holds still. A newer blob
   re-keys the draw, so consecutive fortnights are fresh samples rather than one
   set replayed. On an engine replay the walk passes over every petition it
   cannot replay (`draw.passed_over` counts them) and keeps going, so the set is
   a random sample of the **replayable** population, not of the whole one. The
-  two differ, and not at random: snapshot coverage is not outcome-neutral (a
-  granted docket keeps moving and keeps being fetched), so the replayable
+  two differ, and not at random: snapshot coverage is not outcome-neutral
+  (likely because a granted docket keeps moving and keeps being fetched), and
+  it reaches back only a few Terms, so the replayable
   population's denial share can sit well below the whole population's — read
   a replayed set's floor against the replayable population's, not the
   statpack's. At ten petitions the floor is
-  still noisy around that expectation (a standard deviation of roughly 15
-  points), so one fortnight's floor says little alone. A report whose `draw`
+  still noisy around that expectation (a binomial standard deviation of
+  about 15 points at a floor near 70%), so one fortnight's floor says little alone. A report whose `draw`
   is null names no rule, so how its set was drawn cannot be read off it. Two
   config values ride the block for the same
   reason, because they move the population and the baselines under an *identical*
@@ -1400,9 +1405,13 @@ the rendered table) and
   the dispatched order, and once its allowance trips or its lane stops every
   later cell of that engine is lost, so
   what survives is the *prefix* of that order — under `--spread` a prefix of
-  the hash order, which is itself a random subsample of the draw, otherwise
-  the most recent decisions. Even the random prefix is a differently composed
-  slice, not merely a smaller one, once it is this small: its denial
+  the hash order, itself a random subsample of the draw whose composition
+  differs from the full set by sampling noise alone (large at these sizes),
+  otherwise the most recent decisions — a differently composed slice, not
+  merely a smaller one. Either way the truncated entry is scored over a
+  smaller set against its own floor, and losses to `engine-failed` or
+  `harness-error` are not prefix-shaped at all and may track a petition's
+  difficulty: its denial
   share (so its floor), its band mix (so its `segment_base_rate` and per-band
   skill) and the `provisioning` mix that applies to it all follow from the
   prefix rather than from the dispatched population. `lost_cells` names the
@@ -1611,7 +1620,9 @@ the rendered table) and
   breakdown scores paid rows only — so an unfiltered draw would leave the lift
   reading against a floor that denial purity pins near 1.00 and the bands
   genuinely empty. Even so, a fortnight with **nothing granted** is an ordinary
-  outcome at this size — roughly half of them — and there every denial-heavy
+  outcome at this size — roughly half of them for ten petitions drawn at the
+  paid population's grant-family rate, though far fewer at the replayable
+  population's richer mix, which is what the replayed draw samples — and there every denial-heavy
   predictor ties the floor and the ranking is not a measurement: the review PR
   withholds the top line and states the granted-side count instead, which it
   recovers from the calibration view rather than from the floor (a dismissal is
@@ -1627,7 +1638,8 @@ the rendered table) and
   `provenance` block is where all of that is checked, not assumed. The
   refreshed report lands as
   a **reviewed, never auto-merged** PR. Only petitions holding a snapshot
-  replay; the report names what it skips. `fedcourts cert-backtest` remains
+  replay; the draw passes over the rest and the report counts them
+  (`provenance.draw.passed_over`). `fedcourts cert-backtest` remains
   runnable locally with the engine CLIs authenticated.
 - `salience-replay.json` — the **salience gate** replayed over past Terms
   (`fedcourts salience-replay`; deterministic, offline, spends nothing). One
