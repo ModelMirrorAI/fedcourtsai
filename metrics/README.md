@@ -72,15 +72,17 @@ residue of earlier funded rounds, and so is selected **upward on band**: 63.6%
 baseline against the in-scope conference's 76.7%. Read it on the **per-band
 cut**, never as a pooled row, against the registered sal-v4 segment base rates.
 Each is the risk-set band rate pooled over the statpack Terms strictly before
-the scored prediction's **docket-number** Term (`context.term`), the family the
-evaluator scores skill against (`metrics/statpack.md`'s *Segment base rate by
-salience band*, not its terminal composition table). The cohort is
-overwhelmingly OT2025 dockets, anchored on the OT2017–OT2024 pool: 5.12%
-baseline / 17.22% elevated / 34.97% high / 72.93% federal / 22.70% state. Its
-few OT2026 dockets pool OT2017–OT2025: 5.02% / 16.89% / 35.51% / 70.79% /
-23.63%. `uv run fedcourts segment-anchors --term 2025 --term 2026` prints both
-off the committed pack, with each band's `n` and pooled Terms. Those rates are
-the skill anchor. Their complements are grant-family denial shares,
+the scored prediction's **docket-number** Term (`context.term`), within
+`salience.base_rate_lookback_terms`, the family the evaluator scores skill
+against (`metrics/statpack.md`'s *Segment base rate by salience band*, not its
+terminal composition table). The cohort is overwhelmingly OT2025 dockets,
+anchored on the OT2017–OT2024 pool: 5.12% baseline / 17.22% elevated / 34.97%
+high / 72.93% federal / 22.70% state. Its few OT2026 dockets pool
+OT2017–OT2025: 5.02% / 16.89% / 35.51% / 70.79% / 23.63%, which move with each
+pack build while OT2025 resolves.
+`uv run fedcourts segment-anchors --term 2025 --term 2026` prints both off the
+committed pack, with each band's `n` and pooled Terms. Those rates are the
+skill anchor. Their complements are grant-family denial shares,
 not the exact-match always-deny floor a lift is measured against: that floor is
 realized on the scored cells themselves (`always_deny_accuracy`, below). Its
 high band is **n = 1 on cert/distribution and n = 10 on
@@ -569,7 +571,8 @@ stays outside the gate:
 
   None of this is the registered historical figure per band. The registered
   sal-v4 band rates are the **skill anchor**: each band's risk-set rate pooled
-  over the statpack Terms strictly before the cell's docket-number Term, so
+  over the statpack Terms strictly before the cell's docket-number Term, within
+  `salience.base_rate_lookback_terms`, so
   the figure depends on the docket Term. On the committed pack that is 5.12%
   baseline / 17.22% elevated / 34.97% high / 72.93% federal / 22.70% state for
   an OT2025 docket and 5.02% / 16.89% / 35.51% / 70.79% / 23.63% for an OT2026

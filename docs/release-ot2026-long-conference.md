@@ -375,9 +375,10 @@ grading names another Term, add it.
 > state, pooled over OT2017–OT2024. The pack starts at OT2017, so the ten-Term
 > lookback reaches back eight Terms here. These count the whole grant family,
 > GVRs included, and they are the skill anchor. Petitions docketed in OT2026
-> pool OT2017–OT2025 instead: 5.02% / 16.89% / 35.51% / 70.79% / 23.63%. Those
-> apply to OT2026 dockets only. Their pool includes the OT2025 row, which is still
-> resolving, so they move with each pack build and are quoted with the build.
+> pool OT2017–OT2025 instead: 5.02% / 16.89% / 35.51% / 70.79% / 23.63%.
+> Those apply to OT2026 dockets only. Their pool includes the OT2025 row, which
+> is still resolving, so they move with each pack build and are quoted with
+> the build.
 > Each grading's skill is computed against the rate it records, which is the
 > evaluator's own pooling of the statpack's prior-Term rows. Judges differ in
 > the fourth decimal: pooling the table's rounded rows gives 0.17238 elevated,
@@ -390,8 +391,8 @@ grading names another Term, add it.
 > 5.9% over the declined remainder (n = 71) — and about 12.3% over all 120
 > cert-stage events once the CVSG arm is folded in. The two OT2026 dockets move
 > the 110-event figure by under a hundredth of a point. The freeze record's
-> correction entry carries these figures; its earlier entries' 10.1%, 12.2%,
-> ~17.8% and ~5.8% were computed on the OT2026-docket rates. A
+> correction entry carries these figures; the 2026-09-15 entry's ~10.1%,
+> ~12.2%, ~17.8% and ~5.8% were computed on the OT2026-docket rates. A
 > whole-docket cert rate of 1–3% is the wrong anchor for this cohort and is
 > not used as one anywhere in this write-up.
 >
@@ -460,7 +461,7 @@ grant more often than the ones already decided, so while they pend realized
 runs below expected, and a shortfall is not yet evidence of miscalibration.
 Each band's anchor stays the skill anchor and is shown beside its row, named
 by docket Term: 5.12% / 17.22% / 34.97% / 72.93% / 22.70% for OT2025 dockets
-and the freeze-record figures 5.02% / 16.89% / 35.51% / 70.79% / 23.63% for
+and the OT2026-docket pool 5.02% / 16.89% / 35.51% / 70.79% / 23.63% for
 OT2026 dockets, each re-read off the refreshed pack, with the row's count of scored
 events per docket Term (the scored predictions' `context.term`) beside them.
 Post-freeze additions graded onto the board are mostly OT2026 dockets, so a

@@ -6687,13 +6687,20 @@ freeze commit is recorded here.
 
   | Population | Corrected | Replaces |
   | --- | --- | --- |
-  | 110 cert/distribution events | 10.24% | 10.05% |
-  | 120 cert-stage events | 12.30% | 12.17% |
+  | 110 cert/distribution events | 10.24% | 10.05% (~10.1%) |
+  | 120 cert-stage events | 12.30% | ~12.2% |
   | Selected subset (n = 39) | 18.18% | ~17.8% |
   | Declined remainder (n = 71) | 5.88% | ~5.8% |
 
   The two OT2026 dockets among the 110 move the 110-event figure by under a
-  hundredth of a point.
+  hundredth of a point. The 2026-09-15 entry's comparison rates, 8.30% for the
+  in-scope conference and 6.67% for the distributed set, rest on the same
+  OT2026-docket basis. Re-read on the OT2025-docket rates, the in-scope 180
+  (138 baseline / 37 elevated / 1 high / 1 federal / 3 state) is 8.44%, so the
+  cohort stays about 1.2x the in-scope conference. The entry does not give
+  the distributed set's full band mix, so its figure is re-read at release
+  rather than corrected here. The complements of the rates move with them,
+  and no reading uses them as floors.
 
   **What did not move.** No grading, rule, prompt or digest. The board scores
   each cert cell against the `segment_base_rate` its grading records, never
