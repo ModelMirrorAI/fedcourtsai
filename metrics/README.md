@@ -1292,9 +1292,28 @@ merits section rather than the cert band, with `base_rate_basis` and
   function that assigned it, so a per-band figure is not comparable with one
   produced under another version. Each entry also carries a **per-salience-band
   skill breakdown** over the paid scored segment — the mean leakage-safe segment
-  base rate (each petition's own prior-Term band grant rate) and the mean Brier
+  base rate (each petition's own prior-Term band grant rate) and the Brier
   skill against it — so the back-test measures the same segment-baseline skill the
-  forward stratum does, not just raw Brier. Comparable across the two strata while
+  forward stratum does, not just raw Brier. The skill is given two ways, over
+  the same petitions, and **`pooled_brier_skill` is the one to read**: the
+  ratio of sums, one minus the band's summed Brier over the summed Brier of
+  forecasting each petition's base rate, which scores the band as one
+  forecaster — the estimator the forward stratum's population skill uses (*Both
+  columns aggregate as a ratio of sums*, above), so it is the band figure
+  comparable with it. `mean_brier_skill` is the mean of the per-petition
+  ratios, the estimator that section rejects: a denied petition in a low-rate
+  band has a reference Brier near zero (at a 1% rate, 0.0001), so a forecast a
+  few points off it scores a ratio in the tens of negative units and one such
+  petition can pull the mean below zero while the pooled skill is positive. It
+  stays in the report only so the band reading is continuous with reports
+  written before the pooled figure, which carry it alone and cannot be
+  re-pooled (the report keeps no per-petition band data): **the pooled band
+  series starts with the first report that carries it**, and a pooled value
+  is never read against an older report's mean. At the pinned draw a band
+  holds a handful of petitions at most, so neither figure is more than a
+  count of how its few
+  forecasts sat against their base rates. The pooled figure is comparable
+  with the forward stratum's while
   `salience.base_rate_lookback_terms` (the in-code window, shipped at 10 to match
 the rendered table) and
   `statpack.markdown_terms` (what the prompts' Term table renders, 10) agree; see
@@ -1318,7 +1337,7 @@ the rendered table) and
   reason, because they move the population and the baselines under an *identical*
   dispatch: `salience_floor` (what `--scope selected` means) and
   `base_rate_lookback_terms` (what every `segment_base_rate`, and so every
-  `mean_brier_skill`, is scored against — it sits in no process digest, so
+  band's `pooled_brier_skill` and `mean_brier_skill`, is scored against — it sits in no process digest, so
   without it here a per-band comparison across two reports is not one).
   `dropped_predictors` names the predictors lost at run time (no registered
   runner, a missing CLI binary, or every one of its cells lost — the ids
@@ -1416,26 +1435,41 @@ the rendered table) and
   relist history, which is most of what a cert forecast turns on. The
   always-deny floor is not one of the figures the information set moves — it is
   the replayed set's own denial share, a property of the labels. What moves it
-  is **composition**: a docket with no distribution to show is the strongest
-  denial signal here, so the blind arm is selected on a feature that correlates
-  with the outcome and comes out denial-purer than the rest. A blind-heavy draw
-  therefore carries a *higher* pooled floor and dilutes every lift measured
-  over the union, rather than depressing them. `provisioning_denied` gives
-  the size of that effect: keyed as `provisioning` is, a zero stated, it counts
-  each arm's realized denials, so each arm's own always-deny floor is its
-  count there over its count in `provisioning`, and the pooled floor is those
-  arm floors weighted by arm size. That separates the floor, not the scores:
-  no entry's accuracy is broken out by arm, so a lift cannot be split the same
-  way, and what the counts license is how much of the pooled floor the blind
-  arm carries — the floor over the non-blind arms alone is their denials over
-  their count. Like the pooled floor, the counts are over the whole replayed
-  set, so an entry short some cells is floored by neither. At the pinned
-  draw of ten an arm can hold one to three petitions, and a floor over an
-  arm that small is a count, not a rate: quote it as denials over n, never
-  as a percentage without its n. Read the mix before the scores, and read a
-  shift in it between two fortnights the way you read a change of dispatch.
-  The weekly digest's cert back-test line carries the mix and the dispatch
-  beside the figure for that reason. Two things the mix does not capture.
+  is **composition**: **the blind arm is outcome-selected, in either
+  direction.** Both of its causes correlate with the outcome, and the
+  direction is not known in advance: a docket with no pre-resolution
+  distribution to show can be a petition denied without one, or one the Court
+  acted on before any ordinary conference cycle, as one docketed and granted
+  within days is; and a truncation that still showed a disposition is selected
+  on the disposition's own docket text. So a blind arm can come out
+  denial-pure, raising the pooled floor and diluting every lift, or grant-pure,
+  where a predictor that calls its grant collects lift no other arm gave it.
+  Neither direction is the expected one, so **read the blind arm as a count**:
+  its petitions, their outcomes, and each entry's correct calls on them, never
+  a rate. `provisioning_denied` gives the floor's side of that: keyed as
+  `provisioning` is, a zero stated, it counts each arm's realized denials, so
+  each arm's own always-deny floor is its count there over its count in
+  `provisioning`, and the pooled floor is those arm floors weighted by arm
+  size. Each entry's **`arms`** gives the scores' side: per arm the entry
+  scored, its `events_scored`, its `correct` calls, the arm's `denied` and
+  `granted` counts (the remainder dismissed or withdrawn), and its accuracy and
+  lift against that arm's own floor. The arms add up — their `correct` to the
+  entry's correct count, their ``correct - denied`` to its lift in petitions —
+  so **read which arm a pooled lift sits on before reading the lift**: a
+  ten-petition lift of one petition carried by the one blind petition is a
+  statement about that petition, not about the predictor's reading of a
+  docket. Like the pooled floor, the floor counts are over the whole replayed
+  set, so an entry short some cells is floored by neither, while its `arms`
+  cover only its own scored subset. At the pinned
+  draw of ten an arm can hold as few as one petition, and a floor or score over
+  an arm that small is a count, not a rate: quote it as denials (or correct
+  calls) over n, never as a percentage without its n. Read the mix before the
+  scores, and read a shift in it between two fortnights the way you read a
+  change of dispatch. The weekly digest's cert back-test line and the review PR
+  carry the outcome mix (denied, granted, dismissed or withdrawn), the same mix
+  per arm, and each engine entry's per-arm score beside the figure for that
+  reason — rendered by shared helpers, so the two surfaces state the same
+  draw. Two things the mix does not capture.
   The first is that the day bar narrows the retrieval of every cell with a
   cutoff — the **dated and truncated** arms — and not the blind ones', so the
   arms differ in what they could *retrieve* as well as in what their
@@ -1458,7 +1492,7 @@ the rendered table) and
   clock halves its cells were exported — `decided_before` (the Term) and
   `replay_cutoff` (the day, null on a blind petition) — so the clock's width
   is read from the report rather than assumed from the arm. Named petitions
-  beside their arms, with the arms' denial counts, state a named petition's
+  beside their arms, with the arms' outcome counts, state a named petition's
   outcome wherever its arm is pure, which includes every arm of one, and the
   draws of consecutive fortnights can overlap. So `cert-backtest` takes the
   standing report out of the working tree while the cells run and puts it
@@ -1501,6 +1535,32 @@ the rendered table) and
   always-deny floor (a property of the labels) and the offline `prior-vote`
   row (which votes on dispositions, not counsel) are unaffected and compare
   across it as before.
+
+  **The review PR's headline names a tie as one.** Entries scored over the
+  whole set share one floor, so equal accuracy is equal lift; the board breaks
+  such a tie by Brier only to be a total order. Where the top whole-set
+  entries tie on their correct count, the headline names every one of them
+  rather than a "top predictor" chosen by that tie-break; and where the
+  headline entry's whole lift — every tied entry's alike — sits on one arm, it
+  says which, on the headline itself.
+  Below 100 petitions — a display rule, not a statistical threshold — it
+  states a lift in petitions beside its percentage points, and a single
+  leader's margin over the next whole-set entry in petitions: there one
+  petition is worth more than a whole point, and a points figure alone hides
+  that it counts a few outcomes. At the pinned ten, one petition is ten
+  points.
+
+  **The back-test measures a different process from a forward cell.** A
+  **back-test** replay cell runs with no MCP server — none of the CourtListener
+  sidecar tools a forward predict cell is given — and is provisioned no `documents/` — none of
+  the filed-document text (petition, brief in opposition, merits briefs) a
+  forward cell is given wherever any was provisioned; it gets the redacted
+  docket snapshot and `context.json` — so its information set is narrower
+  than the forward cell's by construction, on top of the snapshot and
+  retrieval differences this section describes. A back-test figure is therefore evidence about the replayed prompt and engine
+  under that reduced harness, not an estimate of the same predictor's forward
+  performance, and a prompt change that works through the forward cell's tools
+  or documents cannot show up here at all.
 
   Produced by the
   `run-backtest` workflow and labeled retrospective like `backtest.json`. A

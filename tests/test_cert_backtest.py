@@ -2734,3 +2734,134 @@ def test_each_lane_runs_under_its_own_identically_provisioned_root(
         event = next((work_root / lane).rglob("event.yaml")).read_bytes()
         inputs.add((snapshot, context, event))
     assert len(inputs) == 1
+
+
+# --- Per-arm scores and the pooled band skill -------------------------------
+
+
+def split_arm_report() -> CertBacktest:
+    """A ten-petition report shaped like the first standing real-engine sample.
+
+    Eight truncated petitions (six denied, one granted, one dismissed), one dated
+    grant and one blind grant. Three engine entries each call every denial and
+    the blind grant and nothing else, so each scores 7/10 against a 6/10 floor —
+    tied on accuracy, separated only by Brier — and the whole +1 petition of
+    lift sits on the blind arm: on the nine non-blind petitions every engine
+    ties the floor. The always-deny baseline rides along as a whole-set entry.
+    """
+    truncated = [
+        *(("scotus/t" + str(i), Disposition.denied) for i in range(1, 7)),
+        ("scotus/t7", Disposition.granted),
+        ("scotus/t8", Disposition.dismissed),
+    ]
+    labels = [*truncated, ("scotus/d1", Disposition.granted), ("scotus/b1", Disposition.granted)]
+    items = [_item(case_id, actual) for case_id, actual in labels]
+    clocks = [
+        *(_clock(case_id, "truncated", date(2025, 5, 1)) for case_id, _ in truncated),
+        _clock("scotus/d1", "dated", date(2025, 6, 2)),
+        _clock("scotus/b1", "blind"),
+    ]
+
+    def engine(predictor_id: str, doubt: float) -> cert_backtest.ReplayedBacktester:
+        predictions = {
+            case_id: BacktestPrediction(Disposition.denied, doubt) for case_id, _ in labels
+        }
+        predictions["scotus/b1"] = BacktestPrediction(Disposition.granted, 1 - doubt)
+        return cert_backtest.ReplayedBacktester(
+            id=predictor_id, predictions=predictions, engine="stub"
+        )
+
+    return run_cert_backtest(
+        [
+            engine("claude-baseline", 0.20),
+            engine("codex-baseline", 0.15),
+            engine("gemini-baseline", 0.10),
+            ConstantBacktester(id="constant-denied", disposition=Disposition.denied),
+        ],
+        items,
+        provisioning={"truncated": 8, "dated": 1, "blind": 1},
+        provenance=CertBacktestProvenance(clocks=clocks),
+    )
+
+
+def test_an_entry_is_scored_per_provisioning_arm() -> None:
+    """Each entry carries its score on each arm against that arm's own floor.
+
+    A pooled lift over a mixture of information sets can be carried by one arm,
+    and at a ten-petition draw by one petition: the split is what shows it. The
+    arms add back up to the entry — counts and lift in petitions alike.
+    """
+    report = split_arm_report()
+    claude = next(e for e in report.entries if e.predictor_id == "claude-baseline")
+    assert [arm.arm for arm in claude.arms] == ["blind", "truncated", "dated"]
+    by_arm = {arm.arm: arm for arm in claude.arms}
+    blind, truncated, dated = by_arm["blind"], by_arm["truncated"], by_arm["dated"]
+    assert (blind.events_scored, blind.correct, blind.denied, blind.granted) == (1, 1, 0, 1)
+    assert (truncated.events_scored, truncated.correct, truncated.denied) == (8, 6, 6)
+    assert truncated.granted == 1  # the dismissal is neither
+    assert (dated.events_scored, dated.correct, dated.denied, dated.granted) == (1, 0, 0, 1)
+    assert blind.lift_over_always_denied == 1.0
+    assert truncated.lift_over_always_denied == 0.0
+    assert dated.lift_over_always_denied == 0.0
+    # The arms reassemble the entry: its n, its correct count, its lift in petitions.
+    assert sum(a.events_scored for a in claude.arms) == claude.events_scored
+    assert sum(a.correct for a in claude.arms) == round(claude.accuracy * claude.events_scored)
+    assert sum(a.correct - a.denied for a in claude.arms) == round(
+        claude.lift_over_always_denied * claude.events_scored
+    )
+    # The per-arm denials agree with the report's own per-arm floor counts.
+    assert {a.arm: a.denied for a in claude.arms} == report.provisioning_denied
+
+
+def test_no_clock_means_no_arm_split() -> None:
+    """Without the clocks nothing says which arm a petition sat in, so no split is guessed."""
+    report = run_cert_backtest(
+        [ConstantBacktester(id="constant-denied", disposition=Disposition.denied)],
+        [_item("scotus/1", Disposition.denied)],
+        provisioning={"truncated": 1},
+    )
+    assert report.entries[0].arms == []
+
+
+def test_band_skill_is_reported_as_a_ratio_of_sums_beside_the_mean_of_ratios() -> None:
+    """The mean of per-item skills can sit below zero while the band beats its base rate.
+
+    A denied petition in a band whose rate is near zero has a reference Brier
+    near zero, so a forecast a few points off it scores a ratio in the large
+    negatives and drags the mean down; the pooled ratio weights each item by
+    its reference Brier and reads the band as one forecaster.
+    """
+    items = [_item("scotus/1", Disposition.denied), _item("scotus/2", Disposition.granted)]
+    segments = {
+        "scotus/1": cert_backtest._ItemSegment(band="baseline", base_rate=0.01),
+        "scotus/2": cert_backtest._ItemSegment(band="baseline", base_rate=0.01),
+    }
+
+    class Calls:
+        id = "calls"
+
+        def predict(self, features: BacktestFeatures) -> BacktestPrediction:
+            if features.case_id == "scotus/1":
+                return BacktestPrediction(Disposition.denied, 0.05)
+            return BacktestPrediction(Disposition.granted, 0.6)
+
+    report = run_cert_backtest([Calls()], items, segments=segments)
+    (band,) = report.entries[0].segments
+    # Per item: 1 - 0.0025/0.0001 = -24, and 1 - 0.16/0.9801 ≈ 0.837.
+    assert band.mean_brier_skill == pytest.approx((-24 + (1 - 0.16 / 0.9801)) / 2)
+    assert band.mean_brier_skill is not None and band.mean_brier_skill < 0
+    # Pooled: 1 - (0.0025 + 0.16) / (0.0001 + 0.9801).
+    assert band.pooled_brier_skill == pytest.approx(1 - 0.1625 / 0.9802)
+    assert band.pooled_brier_skill is not None and band.pooled_brier_skill > 0
+
+
+def test_pooled_band_skill_is_null_without_a_base_rate() -> None:
+    items = [_item("scotus/1", Disposition.denied)]
+    segments = {"scotus/1": cert_backtest._ItemSegment(band="baseline", base_rate=None)}
+    report = run_cert_backtest(
+        [ConstantBacktester(id="constant-denied", disposition=Disposition.denied)],
+        items,
+        segments=segments,
+    )
+    (band,) = report.entries[0].segments
+    assert band.mean_brier_skill is None and band.pooled_brier_skill is None
