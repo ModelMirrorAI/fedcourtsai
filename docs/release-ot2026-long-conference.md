@@ -376,8 +376,7 @@ grading names another Term, add it.
 > lookback reaches back eight Terms here. These count the whole grant family,
 > GVRs included, and they are the skill anchor. Petitions docketed in OT2026
 > pool OT2017–OT2025 instead: 5.02% / 16.89% / 35.51% / 70.79% / 23.63%. Those
-> are the rates the freeze record and `metrics/README.md` quote, and they apply
-> to OT2026 dockets only. Their pool includes the OT2025 row, which is still
+> apply to OT2026 dockets only. Their pool includes the OT2025 row, which is still
 > resolving, so they move with each pack build and are quoted with the build.
 > Each grading's skill is computed against the rate it records, which is the
 > evaluator's own pooling of the statpack's prior-Term rows. Judges differ in
@@ -391,7 +390,8 @@ grading names another Term, add it.
 > 5.9% over the declined remainder (n = 71) — and about 12.3% over all 120
 > cert-stage events once the CVSG arm is folded in. The two OT2026 dockets move
 > the 110-event figure by under a hundredth of a point. The freeze record's
-> 10.1%, 12.2%, ~17.8% and ~5.8% were computed on the OT2026-docket rates. A
+> correction entry carries these figures; its earlier entries' 10.1%, 12.2%,
+> ~17.8% and ~5.8% were computed on the OT2026-docket rates. A
 > whole-docket cert rate of 1–3% is the wrong anchor for this cohort and is
 > not used as one anywhere in this write-up.
 >
@@ -475,9 +475,10 @@ never folded into a band›
 refreshed pack pools them — the `risk_set` figures from `fedcourts
 segment-anchors --term 2025 --term 2026`, each with its pooled Terms and
 weighted `n`, re-read rather than quoted from an earlier build. Reconcile them
-against the figures quoted in [freeze-record.md](freeze-record.md) and
-[metrics/README.md](../metrics/README.md), which are the OT2026-docket pool,
-and state which docket Term each quoted rate is for›
+against the figures quoted in [metrics/README.md](../metrics/README.md) and
+the freeze record's correction entry for this cohort's anchor
+([freeze-record.md](freeze-record.md)), and state which docket Term each quoted
+rate is for›
 
 ‹the whole-docket per-Term cert rate, quoted as context only and labelled as
 not this cohort's anchor — from `metrics/statpack.md`, *SCOTUS cert petitions
