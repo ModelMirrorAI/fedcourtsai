@@ -770,7 +770,7 @@ def render_backtest_pr(
         f"{report.events_scored} decided modern discretionary-cert petition(s) "
         f"with outcomes hidden (`--limit {limit} --engine {engine}`; the report's "
         "`provenance` block carries the rest of the dispatch — the scope, and "
-        "whether the draw was spread across conference cohorts — which is what "
+        "how the set was drawn (`provenance.draw`) — which is what "
         "the population actually was), scored against the realized "
         "grant/deny. Retrospective by construction — iteration signal, never "
         "claimable performance.\n\n"

@@ -91,10 +91,9 @@ from .cert_backtest import (
     ReplayOutcome,
     build_segment_context,
     clock_days,
+    draw_cert_backtest_set,
     replay_predictors,
-    replayable_items,
     run_cert_backtest,
-    select_cert_backtest_set,
     truncate_snapshot,
 )
 from .claim_metrics import agreement_summary, build_claim_scores
@@ -5982,8 +5981,10 @@ def cert_backtest_cmd(
     limit: Annotated[
         int,
         typer.Option(
-            help="Cap the cert set to the N most recently decided petitions. Keep it "
-            "small with a real --engine: every petition costs one cell per predictor."
+            help="Size of the cert set: the N most recently decided petitions, or N "
+            "drawn at random under --spread. With --engine the draw passes over "
+            "petitions it cannot replay. Keep it small with a real --engine: every "
+            "petition costs one cell per predictor."
         ),
     ] = 25,
     engine: Annotated[
@@ -6021,9 +6022,12 @@ def cert_backtest_cmd(
         bool,
         typer.Option(
             "--spread/--no-spread",
-            help="Sample across conference cohorts (a full term's live cadence) instead of "
-            "the most recently decided N, which collapses onto the last, grant-heavy order "
-            "lists. Applies within --limit.",
+            help="Draw a pre-registered random sample of the eligible population (a "
+            "salted hash of each case id, keyed by the corpus vintage; with --engine, "
+            "the replayable petitions), spread over its conferences and Terms in "
+            "proportion to their size, instead of the most recently decided N, "
+            "which collapses onto the last, grant-heavy order lists. Draws --limit "
+            "petitions.",
         ),
     ] = False,
     work_dir: Annotated[
@@ -6046,23 +6050,27 @@ def cert_backtest_cmd(
 ) -> None:
     """Back-test cert predictors over decided petitions into ``metrics/cert-backtest.json``.
 
-    Selects the most recently decided modern discretionary-cert petitions with a
-    machine-readable grant/deny label, hides their outcomes, replays predictors,
+    Draws decided modern discretionary-cert petitions with a machine-readable
+    grant/deny label — the most recently decided by default — hides their
+    outcomes, replays predictors,
     and scores them with the honest cert signals: **lift over the always-deny
     floor** and a P(granted) calibration view, alongside accuracy and Brier.
     ``--scope selected`` restricts the set to the salience gate's paid carve-out
     core — the ``N``-independent core of the live selected slice (which also fills
-    to ``N`` by rank) — and ``--spread`` samples across conferences rather than the
-    last order lists, together the closest replay-safe like-for-live read instead
-    of a grant-heavy term-end snapshot. The
+    to ``N`` by rank) — and ``--spread`` draws a pre-registered random sample (a
+    salted hash of each case id, keyed by the corpus vintage) rather than the last
+    order lists, so the set's expected grant mix is the population's instead of a
+    grant-heavy term-end snapshot's. The
     offline reference baselines always run; ``--engine`` additionally replays
     every enabled predictor over redacted snapshots in a scratch tree, each
     through its own configured engine under ``auto`` (this spends tokens on a
     real engine). Petitions the corpus cannot replay (no held snapshot or
     petition event — partial coverage is the norm while the historical walk
-    drains) are dropped up front and named, so every backtester in one report
-    starts from the same set — a predictor short of it lost cells at run time
-    and the report says which. Out of band by design: it never writes the
+    drains) are passed over by the draw and counted, so every backtester in one
+    report starts from the same set — a predictor short of it lost cells at run
+    time and the report says which. Replayable coverage is not outcome-neutral,
+    so a replayed set estimates the replayable population's floor, not the whole
+    population's. Out of band by design: it never writes the
     ``data/`` ledger, and the report is labeled retrospective (the outcomes
     predate every modern model's training cutoff).
     """
@@ -6113,13 +6121,20 @@ def cert_backtest_cmd(
     # every segment base rate the per-band skill is scored against.
     salience_cfg = load_salience_config(settings.config_root)
     with corpus.connect(db_path) as conn:
-        items = select_cert_backtest_set(
+        # An engine replay draws from the replayable petitions, passing over the
+        # rest as it walks, so the limit is the set's size and an unreplayable
+        # petition never costs the draw a slot it would have filled.
+        drawn = draw_cert_backtest_set(
             conn,
             limit=limit,
             scope=scope,
             spread=spread,
             salience_floor=salience_cfg.floor,
+            replayable_only=bool(engine),
         )
+        items = drawn.items
+        if drawn.passed_over:
+            typer.echo(drawn.passed_over_line(), err=True)
         provisioning: dict[str, int] = {}  # empty unless an agentic replay ran
         replay_run_id: str | None = None  # null unless one did: baselines have no run
         dropped: list[str] = []  # predictors lost at run time, not opted out
@@ -6129,13 +6144,6 @@ def cert_backtest_cmd(
         replayed: list[Backtester] = []  # the engine cells' backtesters, if any ran
         clocks: list[CertBacktestCellClock] = []  # every petition's arm and exported clock
         if engine:
-            items, unreplayable = replayable_items(db_path, items)
-            if unreplayable:
-                typer.echo(
-                    f"skipped {len(unreplayable)} petition(s) without a replayable "
-                    "snapshot: " + ", ".join(unreplayable),
-                    err=True,
-                )
             work_root = work_dir if work_dir is not None else Path(tempfile.mkdtemp())
             known_engines = {
                 str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")
@@ -6205,6 +6213,7 @@ def cert_backtest_cmd(
             provenance=CertBacktestProvenance(
                 run_id=replay_run_id,
                 dispatch=dispatch,
+                draw=drawn.draw,
                 salience_floor=salience_cfg.floor,
                 base_rate_lookback_terms=salience_cfg.base_rate_lookback_terms,
                 dropped_predictors=sorted(dropped),

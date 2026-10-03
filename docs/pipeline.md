@@ -1858,6 +1858,21 @@ cell, which lands on that ledger like any other. What bounds this lane is the
 fortnightly cadence, that pinned `--limit`, the manual hold, and the job's
 `timeout-minutes` — not `spend.ceiling_usd`.
 
+What a release replays is a **random draw**, pinned by rule rather than by
+hand. The cron's `--spread` ranks every paid petition by a salted SHA-256 of
+its case id, keyed by the corpus vintage the run pulled, and walks that order,
+passing over any petition it cannot replay, until it holds ten. Nothing about
+an outcome, a decision date or a conference feeds the rank, so the set's
+expected grant mix is the replayable population's and that population's
+conferences and Terms (only the recent Terms the snapshots reach) fall in
+proportion to their size; the same blob draws the same set while its
+snapshot coverage holds still, and a
+fortnight on a newer blob draws afresh. The report records the rule, its salt
+and key, and how many petitions the walk passed over (`provenance.draw`), and
+[metrics/README.md](../metrics/README.md) carries the reading rule — chiefly
+that the replayable population's floor, not the statpack's, is what a set's
+floor estimates.
+
 The campaign runs its cells in **engine lanes**. Every petition's case tree is
 provisioned first, serially, under each lane's own sub-root of the work root
 (`<work-dir>/<engine>/`, the same inputs byte for byte); then one worker per

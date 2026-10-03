@@ -6549,3 +6549,103 @@ freeze commit is recorded here.
     raised to `candidates`, since the class is walked in `case_id` order; an
     apply bounded to that count then stores them, 24-151's rows carrying the
     24-20 docket's PDF URLs and the United States' brief.
+
+- **The cert back-test's `--spread` draw becomes a salted-hash random sample of
+  the replayable population; recorded 2026-10-03.** A **sampling-rule** entry,
+  recorded ahead of the promotion that carries the change and of the first
+  scheduled report it governs. It amends the 2026-09-07 entry, which
+  registered the draw as "`--spread` round-robins conference cohorts within a
+  run" and the limit as "a ceiling, not the sample". Both sentences stop
+  describing the instrument at the carrying promotion; that entry stands as
+  landed.
+
+  **Why.** The round-robin took each conference cohort's latest-resolving
+  petition, and the last petition a conference resolves is disproportionately
+  a late grant or a party dismissal. Never-distributed petitions fell back to
+  a Term bucket that was guaranteed a slot. On the blob whose newest pull is
+  2026-10-02 (index sha256 `2b356dbd…`), the paid population is 13,344
+  petitions at a 92% denial share (12,303 denied, 572 granted, 311 GVR, 158
+  dismissed), and its OT2025 slice is 93% denied. The round-robin's 10-, 25-
+  and 50-petition draws were 60%, 56% and 56% denied, before the replay
+  filter.
+
+  **What moved.** Under `--spread` every petition in the population is ranked
+  by `sha256("fedcourtsai/cert-backtest/spread|<key>|<case_id>")`, where the
+  key is the blob's newest `last_pulled` stamp (`undated` where none is set).
+  The draw walks that order and takes petitions until it holds `--limit`.
+  On an engine replay it passes over every petition it cannot replay (no
+  held snapshot or petition event) and keeps walking, so the limit is the
+  set's size wherever the replayable population can fill it. The set is
+  returned in walk order. No outcome, decision date, conference or docket
+  number feeds the rank, so the set is a simple random sample without
+  replacement. Each conference and Term holds a share in proportion to its
+  size, and never-distributed petitions are pooled into the population at
+  their own share, with no slot set aside. They are 94 of the 13,344 and
+  mostly dismissals. Without `--spread` the recency head is unchanged,
+  except that an engine replay now fills it past unreplayable petitions
+  too. The report records the rule, salt, key and pass-over count in
+  `provenance.draw`.
+
+  **Still no per-run randomness.** The key is a property of the corpus, not
+  of the run: the walk order is recomputable from the report's salt and key,
+  and the same blob and dispatch draw the same set so long as the content
+  store's snapshot coverage has not moved in between, since replayability is
+  read from it at run time. A newer blob re-keys the draw, so the
+  fortnightly series accumulates fresh samples instead of replaying one set.
+
+  **What the measurement showed.** On the same blob, measured with the
+  blob's own snapshot rows standing in for the content store, 803 of the
+  13,344 paid petitions are replayable (OT2023–OT2025 only), at a 68% denial
+  share. The new draw over them was 7/10, 18/25 and 38/50 denied (70%, 72%,
+  76%), across 10, 18 and 34 conferences. Over 400 alternative keys the
+  10-petition floor averaged 67.0% with a standard deviation of 15.4 points.
+  The round-robin's replayable survivors were 5, 15 and 29 petitions at 80%,
+  47% and 38% denied. Without the replay filter the new draw was 90%, 92% and
+  92% denied, drawn from OT2017–OT2025 alike (the 50-petition draw held
+  every Term in that range).
+
+  **What did not move.** No digest input: no prompt template, neither agent
+  config, and not `src/fedcourtsai/process_version.py`. `uv run fedcourts
+  process-digest --all` prints `proc-v8` and the same six digests on either
+  side. Replay cells carry no process digest, which is why this record
+  exists. The scheduled pins (`replay=cert`, `engine=auto`, `--limit 10`,
+  `--scope paid`, `--spread`), the cadence, the hold and the stratum are
+  unchanged. No forward cell reads the back-test set.
+
+  **The reading rule.** Two cert back-test reports on either side of the
+  carrying promotion are different samples even where their dispatch blocks
+  agree. A report with `provenance.draw` names its rule; one without it was
+  drawn by the round-robin when `spread` is true. A replayed set's floor
+  estimates the **replayable** population's denial share, not the whole
+  population's. Snapshot coverage is not outcome-neutral: on the blob above
+  the replayable share was 68% against 92%, and only OT2023 onward is
+  replayable at all. So a replayed floor below the
+  statpack's is the coverage, not the draw. At ten petitions one fortnight's
+  floor is noisy around that expectation; only the series is read. The
+  2026-09-07 entry's "at least roughly one half" chance of a fortnight with
+  nothing granted was computed at the paid population's grant-family rate;
+  at the replayable mix measured above it is far smaller (about 4% at ten
+  petitions), so that withholding rule fires less often, not differently. And the
+  limit means two things across the boundary: on a report with a null
+  `draw` it was a cap applied before unreplayable petitions were dropped,
+  and on one with a `draw` it is the target size the walk fills, so the two
+  reports' `limit`s are not differenced.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live, deterministic rather than read
+  off one fortnight's floor (at ten petitions a correct draw lands at or below
+  60% denied about two times in five): the first `metrics/cert-backtest.json`
+  landed after the promotion carries `.provenance.draw.rule` =
+  `vintage-keyed-hash-v1`, `.provenance.draw.salt` =
+  `fedcourtsai/cert-backtest/spread`, and a `.provenance.draw.key` equal to
+  the newest pull stamp `uv run fedcourts corpus-info` prints on the blob at
+  that report's pointer. On that blob, ranking the scope-`paid` population
+  by `sha256("<salt>|<key>|<case_id>")` puts every case id in
+  `.provenance.clocks` among the replayable petitions at the top of that
+  order, and the report's `events_scored` equals its `limit` unless the
+  replayable population is smaller. The denial share across the series is
+  read against the replayable population's, as a description and not a
+  pass/fail test. `uv run fedcourts process-digest --all` still prints
+  `proc-v8` and the same six digests.
