@@ -1,0 +1,13 @@
+case_id: scotus/9526000447
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-motion-disposition
+kind: motion
+moment: arrival
+opened_at: '2026-09-30'
+resolved: true
+schema_version: '1.0'
+stage: interim
+title: Swift Transportation of Arizona, LLC v. Francis J. Mathew, Judge, First Judicial
+  District Court of New Mexico, Santa Fe County, et al.

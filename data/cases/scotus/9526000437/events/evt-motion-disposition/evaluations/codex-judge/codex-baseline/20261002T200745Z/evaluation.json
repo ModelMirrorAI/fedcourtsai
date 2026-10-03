@@ -1,0 +1,74 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": null,
+  "brier_score": 0.0016,
+  "brier_skill_score": 0.8541252861602497,
+  "case_id": "scotus/9526000437",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.009368316289262234
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.009368316289262234,
+    "total": 0.009368316289262234
+  },
+  "correct": 1,
+  "created_at": "2026-10-02T20:19:54Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The log shows local provisioned-input and statpack reads, with no applicant-specific external search. Capture coverage is 20/22; the two unobserved web calls seek general injunction precedent, not this case. Their null dates are not evidence of empty results, but their queries do not target the disposition. The rationale expressly treats the outcome as unknown and preserves substantive uncertainty. Prediction and resolution share October 1, 2026; unknown intraday ordering is flagged separately and does not itself demonstrate exposure.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261001T215439Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "9791ff5154a1328c14679f5d6fa249f59980fbda",
+    "stamped_at": "2026-10-02T20:22:26.621784Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

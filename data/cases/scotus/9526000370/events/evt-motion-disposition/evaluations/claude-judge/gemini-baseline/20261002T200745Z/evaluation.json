@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "Independent read: a federal receivership over a State's entire prison healthcare system (about 25,000 prisoners, minimum five years), a sovereign applicant with elite counsel, and a PLRA least-intrusive-means question with a CASA-flavored equitable-authority argument give it real weight for state AGs and prison-reform litigators. Against that, the Court handled it as an ordinary in-chambers matter: a single-Justice denial with no referral, no amicus, and no noted dissent, and the live controversy continues on an expedited Ninth Circuit appeal. Moderate significance; low general-public salience. Candour note: I had read each candidate's prediction.json (which carries its big_case_score) before writing this, so the read was formed with those numbers in view, though it was not set from them."
+  },
+  "brier_score": 0.42250000000000004,
+  "brier_skill_score": -37.52004162330906,
+  "case_id": "scotus/9526000370",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.65,
+        "score": -0.4115316837107378
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.9,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.85,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.4115316837107378,
+    "total": -0.4115316837107378
+  },
+  "correct": 0,
+  "created_at": "2026-10-02T20:12:30Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-27, application denied 2026-10-01, so the outcome did not exist at prediction time. Log (30 calls, result_capture_coverage 0.0 - every call unobserved, the engine's standing shape, so each call is graded on its query): reads of the prompt, AGENTS.md, the statpack, event.yaml, context.json, the 2026-09-17 snapshot and documents.json; grep over the provisioned application.txt; four fedcourts query attempts with --decided-before 2026-09-17 and a free-text term (the predictor's retrieval.md reports they failed). No web, no MCP, no live-docket read, no query naming this case's docket or caption, no data/qp-topics read. Nothing in the log or prose seeks or reflects this application's disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "9791ff5154a1328c14679f5d6fa249f59980fbda",
+    "stamped_at": "2026-10-02T20:14:57.238697Z"
+  },
+  "reasoning_quality": 0.3,
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

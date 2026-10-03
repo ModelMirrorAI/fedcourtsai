@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.8,
+    "notes": "Statewide prison healthcare receivership with significant structural and budgetary implications."
+  },
+  "brier_score": 0.36,
+  "brier_skill_score": -31.82181061394381,
+  "case_id": "scotus/9526000370",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.6,
+        "score": -0.34903168371073773
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.93,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.65,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.34903168371073773,
+    "total": -0.34903168371073773
+  },
+  "correct": 0,
+  "created_at": "2026-10-02T20:07:45Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction. Checked the retrieval log; no evidence of retrieving the outcome, which was decided after the prediction run.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-3.1-pro-preview",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+    "label": "proc-v8",
+    "pipeline_sha": "9791ff5154a1328c14679f5d6fa249f59980fbda",
+    "stamped_at": "2026-10-02T20:25:02.724259Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

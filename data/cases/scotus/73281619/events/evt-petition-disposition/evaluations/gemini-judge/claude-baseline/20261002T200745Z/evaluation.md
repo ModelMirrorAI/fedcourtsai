@@ -1,0 +1,2 @@
+The candidate predicted denial with P(grant) = 0.30, but the Court granted the petition.
+The predictor pulled the correct base rate from the statpack (~17.2%) and offered an exceptionally detailed analysis of the case. It identified the recent Third Circuit split (Anash) and properly weighed the amicus support (including 20 states) and response request, nearly doubling the base rate. It also accurately recognized the vehicle problems (invited error, preservation) which justifiably kept the probability from crossing 50%. The reasoning quality is very high (0.9).

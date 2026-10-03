@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000370",
+  "run_id": "20261002T200745Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "The response-filed moment's opening document (the respondents' 2026-09-25 stay opposition, linked from the snapshot's own docket entry) is not in record/documents; the manifest carries only the application (truncated, 189 pages). One candidate fetched it from the public docket URL and another tried and failed, so the three predictions ran on unequal views of the opposition, and the evaluator cannot verify any candidate's reading of it against the record. Provisioning the response text for response-filed cells would close both gaps."
+    }
+  ]
+}

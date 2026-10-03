@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "A ruling on RLUIPA substantial burden will set a national standard, attracting significant amicus attention."
+  },
+  "brier_score": 0.49,
+  "brier_skill_score": 0.2849,
+  "case_id": "scotus/73281619",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.3,
+        "score": 0.19518331834703223
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": 0.11078035122457727
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.2,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.3059636695716095,
+    "total": 0.3059636695716095
+  },
+  "correct": 0,
+  "created_at": "2026-10-02T20:23:33Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Cell ran forward prior to event resolution. Log shows no leakage.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-3.1-pro-preview",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+    "label": "proc-v8",
+    "pipeline_sha": "9791ff5154a1328c14679f5d6fa249f59980fbda",
+    "stamped_at": "2026-10-02T20:25:02.775456Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261002T200745Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1722,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
