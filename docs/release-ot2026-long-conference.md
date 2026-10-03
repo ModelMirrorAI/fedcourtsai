@@ -55,7 +55,6 @@ construction, and a stamped cell under a retired digest is shakedown as well.
 
 ```bash
 uv run fedcourts process-digest --all         # the live tree's digests
-uv run fedcourts predict-plan | jq .counts.cell_ledger.would_mint_cells  # 0 = done
 uv run fedcourts corpus-info                  # the vintage every count is read at
 ```
 
@@ -63,6 +62,42 @@ That command prints what the **current** tree resolves, which is only the
 check being made when it is compared against `FROZEN_PROCESS_DIGESTS`; on a
 tree that has moved past the freeze commit a difference means something moved,
 not that the freeze is wrong. Say which comparison was run.
+
+Cohort completeness is read off the cohort cut section 5 builds, against the
+plan:
+
+```bash
+uv run fedcourts conference-set --counted --registered-at 2026-09-15 > cut.json
+jq '.conference_fallbacks' cut.json           # fallbacks: must be 0
+uv run fedcourts predict-plan > plan.json
+jq -n --slurpfile cut cut.json --slurpfile plan plan.json '
+  [$cut[0].events[] | select(.registered) | "\(.case_id) \(.event_id)"] as $cohort
+  | {minted: [$plan[0].would_mint[] | "\(.court)/\(.docket) \(.event_id)"],
+     withheld: [$plan[0].withheld_stranded[] | "\(.case_id) \(.event_id)"],
+     deferred_cases: $plan[0].deferred_by_cap.cases}
+  | {minted: [.minted[] | select(. as $k | $cohort | index($k))],
+     withheld: [.withheld[] | select(. as $k | $cohort | index($k))],
+     deferred_cases: [.deferred_cases[]
+       | select(. as $c | $cohort | map(startswith($c + " ")) | any)]}'
+                                              # owed: every list empty
+jq '[.events[] | select(.registered) | select(.predictors | length < 3)
+  | {case_id, event_id, predictors, status}]' cut.json   # short of the full grid
+```
+
+The plan's own `would_mint_cells` is backlog-wide, so during the write-up window
+it counts cells owed on later conferences and rarely reads 0. The *owed* command
+narrows the plan to the cohort's own events — matched on case **and** event, so
+a later event on a cohort case does not count — across the cells this round
+would mint, the cells the stranded guard withheld, and the cases the volume cap
+deferred (case grain, which is all the plan records for them). The *short of
+the full grid* command lists every cohort event with fewer than three counted
+predictors, including a registered event no engine produced a counted cell for,
+which the cut lists with no predictors and the status `unforecast` rather than
+leaving out. Such an event has an incomplete grid, and the complete-grid rule
+in the prose below applies to it. Neither result is guaranteed to be empty: the
+distribution moment closes with the conference, but the CVSG and interim
+moments do not, and an event the registered rule re-owed but no engine ever
+forecast stays short for good.
 
 Per-digest census over the committed ledger, one digest at a time, in the form
 the pre-registration record itself uses — over `origin/main`, because data
@@ -255,9 +290,24 @@ The board's roll-ups are `forward_claim` (`policy`, `claimed_forward`,
 > as what it is — the panel disagreed about whether that cell read its own
 > outcome, which is a question about the record that no aggregate here answers.
 
-‹the two exclusion counts and their per-predictor split, and the distinct
-evaluator digests over the counted gradings — from `metrics/leaderboard.json`
-after the refresh in section 3›
+The board carries the six frozen digests, not the digests the counted gradings
+were actually stamped under, so the evaluator-set check reads the fill export's
+gradings table (section 8, step 2), where `counted` and `process_digest` sit on
+every row:
+
+```bash
+python3 -c 'import csv, collections, sys
+rows = [r for r in csv.DictReader(open(sys.argv[1])) if r["counted"] == "true"]
+print(len(rows), collections.Counter((r["evaluator_id"], r["process_digest"]) for r in rows))' \
+  <fill-dir>/gradings.csv
+```
+
+One digest per evaluator means one evaluator set graded the list; a second
+digest under any evaluator is the protocol boundary the state above names.
+
+‹the two exclusion counts and their per-predictor split — from
+`metrics/leaderboard.json` after the refresh in section 3 — and the distinct
+evaluator digests over the counted gradings, from the command above›
 
 ## 3. Calibration against the registered base rates
 
@@ -548,9 +598,95 @@ the commands give is the counted side, read against it:
 
 ```bash
 uv run fedcourts corpus-info                       # the vintage counts are read at
-uv run fedcourts predict-plan | jq '.counts.provenance'  # cases and events covered
+uv run fedcourts conference-set --counted --registered-at 2026-09-15 > cut.json
+jq '.conference_fallbacks' cut.json                # fallbacks: must be 0
+jq '[.totals[] | select(.registered)] | group_by([.stage, .moment, .band])
+  | map({stage: .[0].stage, moment: .[0].moment, band: .[0].band,
+         events: (map(.events) | add), scored: (map(.scored) | add),
+         resolved_unscored: (map(.resolved_unscored) | add),
+         pending: (map(.pending) | add), unforecast: (map(.unforecast) | add)})' \
+  cut.json                                         # registered: by arm and band
+jq '[.events[] | select(.registered and .moment == "distribution")
+  | select(.conference != .conference_at_registration
+           or .current_conference != .conference_at_registration)
+  | {case_id, docket_number, conference_at_registration, conference,
+     current_conference, bands, status,
+     moved: (if .predictors == [] then "no counted cell"
+             elif .conference == "mixed" then "between its cells"
+             elif .conference != .conference_at_registration then "before the cut"
+             else "after the cut" end)}]' cut.json  # moved
+jq '[.events[] | select(.registered and .conference == "mixed") | {case_id, cells}]' \
+  cut.json                                         # split cells
+jq '[.events[] | select(.registered | not) | select(.moment == "distribution")]
+  | group_by(.conference) | map({conference: .[0].conference, events: length})' \
+  cut.json                                         # outside the registered rule
 jq '.events_scored, .entries[].events_scored' metrics/leaderboard.json
 ```
+
+`conference-set --counted --registered-at` gives both sides of the
+reconciliation in one reading. Its population is every **counted** event — one
+with a counted cell: the run a counted grading names, else a predictor's staged
+(newest) run when it carries a frozen process — together with every
+**registered** event, counted or not. For each it gives the conference the
+petition was distributed for at its counted cells' cut, the conference it was
+distributed for on the registration day, the current corpus column, the band the
+cells froze, the counted and scored predictors, and a status: `scored`
+(resolved, every counted predictor graded), `resolved_unscored` (resolved, a
+grading not yet landed or excluded), `pending` (no outcome yet), or `unforecast`
+(no counted cell at all — attrition, never an ungraded forecast). Its totals are
+per (registered, conference, stage, moment, band), the four statuses summing to
+the events; the *registered* command folds the conference away to give the
+table per arm and band. The JSON names the corpus vintage and digest it was read
+at.
+
+**The cohort is selected by `registered`, never by a conference.** The flag
+reconstructs the registered rule's membership as at the registration day: an
+event at a re-predict moment that held a retired or unstamped cell by that day,
+had no outcome before it, and — at the distribution moment — was distributed
+for a conference still ahead. 2026-09-15 is that day because the census in the
+freeze record was read from a blob pulled 2026-09-14 against a ledger whose tip
+is dated 2026-09-15, so the reconstruction admits docket entries filed through
+09-14 and retired cells made through 09-15. It reconstructs the **rule**, so its
+per-arm counts are checked against the rule's census in the freeze record —
+123 events: 110 cert/distribution, 10 cert/cvsg and **3** interim/arrival —
+not against the 122 the deriver minted, which held one interim event back; the
+prose below carries both figures, and which interim events were forecast is
+named from the rows. Any other difference is named event by event. The census
+blob is named in the freeze record, and a re-read against it settles a
+difference exactly.
+
+Membership is fixed at registration, so a registered petition stays in the
+denominator whatever happened to it afterwards, and the *moved* command names
+each one whose conference changed: before its counted cut (it was forecast
+against the later conference, and the band its cell froze may differ from the
+registered one), after the cut (it was forecast against this conference but did
+not go to it, or was relisted from it, and is pending until the Court acts),
+between its own cells (the *split cells* command shows which), or never forecast
+at all. Each is reported inside the registered count, with the move named,
+rather than dropped. Selecting by the cut conference instead would make
+membership turn on whether a re-forecast ran before or after a reschedule,
+which is pipeline timing, and a reschedule is itself a salience signal, so
+dropping on it is selection on a signal correlated with the outcome. A CVSG
+cell is cut at the invitation and an interim cell names no conference, so
+neither arm is compared this way.
+
+The cut is read with `fallbacks` at 0. Run it where the content store is wired
+(a dev checkout's read-only role serves it): both conferences are reconstructed
+from each case's live payload, and on a payload-free index with no store every
+reading falls back to the current `distributed_for_conference` column, which
+moves on every relist and reschedule. Each event's `payload_date` says how fresh
+that case's payload was, since the corpus-wide vintage does not: a `pending`
+status on a case whose payload predates the order list means "no outcome as of
+that payload", and is named as such or refreshed by the pull lane before the
+fill.
+
+The reconciliation then reads, per arm: the registered table; the cut's
+registered count and band mix by the band the counted cells froze, with each
+band difference named from the *moved* rows; the scored, resolved-unscored,
+pending and unforecast split, which sums to the arm; and, beside it and never
+inside it, the counted events the registered rule did not cover (the *outside
+the registered rule* command) — forecasts the frozen process made first, which
+are later backlog rather than cohort.
 
 `fedcourts unlatch-overselected` is **not** the source for the overhang, and
 running it in the write-up window would mislead: its dry run scans **pending**
@@ -577,8 +713,9 @@ band-biased. In that case the band mix is re-measured at the conference and the
 > The cohort is the still-forward residue of earlier funded rounds, re-forecast
 > under the blessed processes. Its composition was registered before any of its
 > outcomes existed: 110 cert/distribution events — 1 high, 37 elevated, 70
-> baseline, 1 federal, 1 state — with 10 cert/cvsg events, all high band, and 2
-> interim events beside them.
+> baseline, 1 federal, 1 state — with 10 cert/cvsg events, all high band, and 3
+> interim/arrival events beside them, of which 2 were minted when the cohort was
+> registered and the third was held back.
 >
 > It is not the conference. 557 SCOTUS petitions are distributed for the
 > conference and 180 of them are in predict scope; the cohort is 110 of those
@@ -612,10 +749,12 @@ band-biased. In that case the band mix is re-measured at the conference and the
 > denominator is 110.
 
 ‹the graded cohort's size and composition, reconciled against the registered
-table above, with any delta explained — from `metrics/leaderboard.json`›
+table above, with any delta explained — from `conference-set --counted
+--registered-at 2026-09-15`'s registered totals and per-event rows, with the
+vintage it was read at, and `metrics/leaderboard.json`'s `events_scored`›
 
-‹the re-measured band mix, if any tick of the drain did not run — from the
-committed cells at the conference›
+‹the re-measured band mix, if any tick of the drain did not run — from the same
+cut's registered per-band totals›
 
 ## 6. Scope rules: every number names its population
 
