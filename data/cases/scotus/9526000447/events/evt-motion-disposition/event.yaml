@@ -6,7 +6,7 @@ event_id: evt-motion-disposition
 kind: motion
 moment: arrival
 opened_at: '2026-09-30'
-resolved: false
+resolved: true
 schema_version: '1.0'
 stage: interim
 title: Swift Transportation of Arizona, LLC v. Francis J. Mathew, Judge, First Judicial
