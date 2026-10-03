@@ -49,6 +49,71 @@
       "title": "CalibrationBin",
       "type": "object"
     },
+    "CertBacktestArm": {
+      "additionalProperties": false,
+      "description": "One predictor's scores over one provisioning arm of the cert back-test set.\n\nThe arms (`blind`, `truncated`, `dated`) are three information sets, and\nwhich arm a petition lands in correlates with its outcome \u2014 in either\ndirection, so a pooled lift can be carried by one arm. This splits an\nentry's disposition score by arm so that is read off the report rather\nthan reconstructed. Counts, not only rates: at the pinned draw an arm holds\none to a handful of petitions, so read `correct` against `denied` over\n`events_scored` (the arm's lift **in petitions** is ``correct - denied``),\nnever a percentage without its n.",
+      "properties": {
+        "accuracy": {
+          "description": "`correct` over `events_scored`",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Accuracy",
+          "type": "number"
+        },
+        "arm": {
+          "description": "The snapshot provenance the petitions were provisioned under",
+          "enum": [
+            "blind",
+            "truncated",
+            "dated"
+          ],
+          "title": "Arm",
+          "type": "string"
+        },
+        "correct": {
+          "description": "Of those, the petitions whose disposition the entry called",
+          "minimum": 0,
+          "title": "Correct",
+          "type": "integer"
+        },
+        "denied": {
+          "description": "Of those, the realized denials \u2014 what always-deny gets right on this arm, so the arm's floor is this over `events_scored`",
+          "minimum": 0,
+          "title": "Denied",
+          "type": "integer"
+        },
+        "events_scored": {
+          "description": "Petitions of this arm the entry was scored on",
+          "minimum": 1,
+          "title": "Events Scored",
+          "type": "integer"
+        },
+        "granted": {
+          "description": "Of those, the realized grant-family outcomes (granted, granted-in-part, GVR, summary reversal); the remainder after `denied` and this is dismissed or withdrawn (the replay takes only machine-readable dispositions)",
+          "minimum": 0,
+          "title": "Granted",
+          "type": "integer"
+        },
+        "lift_over_always_denied": {
+          "description": "`accuracy` minus this arm's own always-deny floor (`denied` over `events_scored`) \u2014 the per-petition share of ``correct - denied``",
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "title": "Lift Over Always Denied",
+          "type": "number"
+        }
+      },
+      "required": [
+        "arm",
+        "events_scored",
+        "correct",
+        "denied",
+        "granted",
+        "accuracy",
+        "lift_over_always_denied"
+      ],
+      "title": "CertBacktestArm",
+      "type": "object"
+    },
     "CertBacktestBigCase": {
       "additionalProperties": false,
       "description": "A predictor's big-case-score distribution over the cert back-test set.\n\nThe replay has no independent evaluator, so \u2014 unlike the live leaderboard's\nrank-agreement dimension \u2014 it cannot *grade* the score; it reports the\npredicted stakes distribution, which confirms the predictor exercised the\ndimension in replay and gives a calibration eyeball (is the 0-1 scale used, or\nclustered?). Deliberately **not** correlated with the realized grant: bigness\nis stakes, not grant likelihood (see ``docs/salience.md``), and conflating the\ntwo is the very thing the pre-registered score exists to avoid.",
@@ -286,7 +351,7 @@
         },
         "limit": {
           "default": 0,
-          "description": "``--limit``: the cap on the cert set before unreplayable petitions were dropped. `events_scored` is what survived that filter, so a gap between the two is coverage, not sampling",
+          "description": "``--limit``: the size of the drawn set. On an engine replay the draw passes over petitions it cannot replay and keeps walking (`provenance.draw.passed_over`), so the set's size falls short of it only where the eligible population is smaller than the limit",
           "minimum": 0,
           "title": "Limit",
           "type": "integer"
@@ -307,12 +372,63 @@
         },
         "spread": {
           "default": false,
-          "description": "``--spread``: sampled across conference cohorts instead of the most recently decided N, which collapses onto the grant-heavy last order lists \u2014 a different grant mix, so the floor and every lift move with it",
+          "description": "``--spread``: drawn by the salted-hash rule (`provenance.draw`) \u2014 a pseudo-random sample spread over the eligible population's conferences and Terms in proportion to their size (on an engine replay, the replayable population's, which reaches back only a few Terms) \u2014 instead of the most recently decided N, which collapses onto the grant-heavy last order lists. A different grant mix, so the floor and every lift move with it",
           "title": "Spread",
           "type": "boolean"
         }
       },
       "title": "CertBacktestDispatch",
+      "type": "object"
+    },
+    "CertBacktestDraw": {
+      "additionalProperties": false,
+      "description": "How a cert back-test set was drawn from its population.\n\nRecorded because the draw rule decides the set's grant mix, and so the\nalways-deny floor every lift is measured against, while the dispatch alone\ndoes not say which rule ran. ``vintage-keyed-hash-v1`` (``--spread``) ranks\nevery petition in the population by\n``sha256(\"<salt>|<key>|<case_id>\")`` and walks that order, taking each\neligible petition until ``limit``: a simple random sample without\nreplacement, so the set's expected outcome mix is the eligible\npopulation's (on an engine replay, the replayable population's) and each of\nthat population's conferences and Terms holds a share in proportion to its\nsize. The key is the corpus vintage, so the same corpus and the same\ndispatch draw the same set while snapshot coverage holds still, and a newer\ncorpus draws afresh.",
+      "properties": {
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The corpus vintage the hash rule was keyed by: the blob's newest `last_pulled` stamp (ISO date), or 'undated' where no row carries one. Two reports with the same key and dispatch over the same blob drew the same set, provided the content store's snapshot coverage did not move between them. Null under 'recency-head'",
+          "title": "Key"
+        },
+        "passed_over": {
+          "default": 0,
+          "description": "Petitions the walk reached and passed over because an engine replay could not run them (no held snapshot or petition event) before the set filled. The set is drawn from the replayable population, so this is coverage, not sampling \u2014 and replayable coverage is not outcome-neutral, so the replayable population's floor, not the whole population's, is what the drawn set estimates. 0 where no engine replay ran: the offline baselines need no snapshot",
+          "minimum": 0,
+          "title": "Passed Over",
+          "type": "integer"
+        },
+        "rule": {
+          "default": "recency-head",
+          "description": "'recency-head': the most recently decided petitions in order (`--no-spread`), which lands a small limit on the last order lists. 'vintage-keyed-hash-v1' (`--spread`): the salted-hash order described on this block, independent of outcome, decision date and conference",
+          "enum": [
+            "recency-head",
+            "vintage-keyed-hash-v1"
+          ],
+          "title": "Rule",
+          "type": "string"
+        },
+        "salt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The fixed salt the hash rule mixes in, recorded so the walk order can be recomputed from the report; the set also needs the blob and, on a replay, the snapshot coverage at run time. Null under 'recency-head'",
+          "title": "Salt"
+        }
+      },
+      "title": "CertBacktestDraw",
       "type": "object"
     },
     "CertBacktestEntry": {
@@ -325,6 +441,14 @@
           "minimum": 0.0,
           "title": "Accuracy",
           "type": "number"
+        },
+        "arms": {
+          "description": "The entry's disposition score split by provisioning arm (blind, truncated, dated, in that order; an arm the entry scored nothing on omitted), each against that arm's own always-deny floor. The arms' `correct` sum to this entry's correct count and their `events_scored` to its own, so a pooled lift reads as the sum of the arms' lifts in petitions. Empty where no clock recorded the arms (a run with no replay), and on reports written before the split existed",
+          "items": {
+            "$ref": "#/$defs/CertBacktestArm"
+          },
+          "title": "Arms",
+          "type": "array"
         },
         "big_case": {
           "anyOf": [
@@ -500,6 +624,18 @@
           "$ref": "#/$defs/CertBacktestDispatch",
           "description": "The parameters the run was dispatched with \u2014 the population definition and the engine routing behind these scores"
         },
+        "draw": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CertBacktestDraw"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the set was drawn from its population \u2014 the rule, and the salt and corpus-vintage key a hash draw used. Null on the empty report and on reports written before the draw was recorded, whose draw rule the artifact cannot say"
+        },
         "dropped_predictors": {
           "description": "Enabled predictors that produced no entry for a **run-time** reason, sorted: their engine had no registered runner, its CLI binary turned out to be missing mid-run, or every one of its cells was lost (`lost_cells`). The ids carry no cause \u2014 the run log names which. The deliberate opt-out is `dispatch.skip_engines` instead. Recorded because a board silently short one engine is a different comparison from the three-engine one it looks like, and stderr does not survive the runner",
           "items": {
@@ -550,7 +686,7 @@
     },
     "CertBacktestSegment": {
       "additionalProperties": false,
-      "description": "One salience-band slice of a predictor's cert back-test standings.\n\nReconciles the offline cert back-test with the live prediction process: the\nforward tournament now scores skill against the **segment base rate** (the\npredicted slice's own grant rate, not the whole-docket rate), so the back-test\nreports the same, per salience band, over the paid scored segment (IFP\npetitions are outside it). ``segment_base_rate`` is the mean of the items'\nleakage-safe per-Term band rates (each computed over Terms strictly before its\nown), and ``mean_brier_skill`` the mean skill against them \u2014 null when no item\nin the band had a prior-Term base rate.",
+      "description": "One salience-band slice of a predictor's cert back-test standings.\n\nReconciles the offline cert back-test with the live prediction process: the\nforward tournament now scores skill against the **segment base rate** (the\npredicted slice's own grant rate, not the whole-docket rate), so the back-test\nreports the same, per salience band, over the paid scored segment (IFP\npetitions are outside it). ``segment_base_rate`` is the mean of the items'\nleakage-safe per-Term band rates (each computed over Terms strictly before its\nown). Skill against them is given two ways, over the same items.\n``pooled_brier_skill`` is the ratio of sums, ``1 - sum(Brier) / sum(reference\nBrier)`` \u2014 the band's skill as one forecaster, the estimator the forward\nstratum's population skill uses, and the figure to read.\n``mean_brier_skill`` is the mean of the per-item ratios, kept so the band\nreading stays continuous with reports written before the pooled figure; it\nis the estimator the forward stratum rejects, because a denied petition in\na low-rate band has a reference Brier near zero, so one such item's ratio\ncan run to large negatives and the mean can sit below zero while the\npooled skill is positive. Both null when no item in the band had a\nprior-Term base rate.",
       "properties": {
         "accuracy": {
           "description": "Disposition accuracy over the band's petitions",
@@ -588,8 +724,22 @@
             }
           ],
           "default": null,
-          "description": "Mean Brier skill vs the segment base rate over the band (positive beats the base rate, ~0 parrots it, negative is worse); null when no item had a base rate",
+          "description": "Mean of the per-item Brier skills vs each item's segment base rate (positive beats the base rate, ~0 parrots it, negative is worse), kept for continuity with reports written before `pooled_brier_skill`. Not comparable with the forward stratum's population skill, which is a ratio of sums: a denied item in a low-rate band has a reference Brier near zero, so its ratio can run to large negatives and dominate the mean. Read `pooled_brier_skill` for the band's skill. Null when no item had a base rate",
           "title": "Mean Brier Skill"
+        },
+        "pooled_brier_skill": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Ratio-of-sums Brier skill over the band: one minus the summed Brier over the summed reference Brier (each item's base rate as its forecast), over the items `mean_brier_skill` covers \u2014 the band's skill as one forecaster, not swayed by a single near-zero reference, and the same estimator as the forward stratum's population skill. Null when no item had a base rate with a non-zero reference Brier, and on reports written before the figure existed",
+          "title": "Pooled Brier Skill"
         },
         "segment_base_rate": {
           "anyOf": [
@@ -685,7 +835,7 @@
       "additionalProperties": {
         "type": "integer"
       },
-      "description": "How many replayed petitions were provisioned under each snapshot_provenance \u2014 'dated' (a snapshot the docket really served before the cutoff), 'truncated' (a later payload with its post-cutoff entries removed), 'blind' (no trajectory shown at all, from either cause: no forward moment fixed a cutoff, or truncation left a disposition visible and the fail-closed leakage guard withdrew the trajectory). These are three different information sets, and a figure over their union is a figure over a mixture: a blind petition cannot observe its own relist history at all, which is most of what a cert forecast turns on. The mixture is not neutral either \u2014 a docket with no distribution to show is the strongest denial signal here, so the blind arm is selected on an outcome-correlated feature, which raises the pooled floor and dilutes every lift measured over the union. Read the mix before reading the scores. Empty on reports written before the split existed",
+      "description": "How many replayed petitions were provisioned under each snapshot_provenance \u2014 'dated' (a snapshot the docket really served before the cutoff), 'truncated' (a later payload with its post-cutoff entries removed), 'blind' (no trajectory shown at all, from either cause: no forward moment fixed a cutoff, or truncation left a disposition visible and the fail-closed leakage guard withdrew the trajectory). These are three different information sets, and a figure over their union is a figure over a mixture: a blind petition cannot observe its own relist history at all, which is most of what a cert forecast turns on. The mixture is not neutral either \u2014 the blind arm is selected on outcome-correlated features (a docket with no distribution to show, or one whose kept entries already showed a disposition), so it can come out denial-pure or grant-pure and can depress or carry a pooled lift. Read it as a count, beside each entry's `arms`, before reading the scores. Empty on reports written before the split existed",
       "title": "Provisioning",
       "type": "object"
     },
@@ -693,7 +843,7 @@
       "additionalProperties": {
         "type": "integer"
       },
-      "description": "Of the petitions counted under each key of `provisioning`, how many were realized denials \u2014 keyed the same, a zero stated rather than omitted. Each arm's own always-deny floor is its count here over its count there, which undoes the mixture in the floor: the pooled `always_denied_accuracy` is those floors weighted by the arm sizes. It does not split the scores \u2014 no entry's accuracy is broken out by arm \u2014 so it says how much of the pooled floor the blind arm carries, not how an entry did on each arm. Beside `provenance.clocks`, which names each petition's arm, it states a named petition's outcome wherever its arm is pure, which includes every arm of one. Over the whole replayed set, like the pooled floor, so an entry short some cells (`provenance.lost_cells`) is not floored by these either. A floor over an arm of one to three petitions is a count, not a rate: read it as denials over n, never as a percentage without its n. Empty where no replay provisioned a petition, and on reports written before the per-arm count existed",
+      "description": "Of the petitions counted under each key of `provisioning`, how many were realized denials \u2014 keyed the same, a zero stated rather than omitted. Each arm's own always-deny floor is its count here over its count there, which undoes the mixture in the floor: the pooled `always_denied_accuracy` is those floors weighted by the arm sizes. The scores are split the same way in each entry's `arms`. Beside `provenance.clocks`, which names each petition's arm, it states a named petition's outcome wherever its arm is pure, which includes every arm of one. Over the whole replayed set, like the pooled floor, so an entry short some cells (`provenance.lost_cells`) is not floored by these either. A floor over an arm of one to three petitions is a count, not a rate: read it as denials over n, never as a percentage without its n. Empty where no replay provisioned a petition, and on reports written before the per-arm count existed",
       "title": "Provisioning Denied",
       "type": "object"
     },

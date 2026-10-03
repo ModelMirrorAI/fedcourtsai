@@ -506,6 +506,70 @@ def test_the_cli_requires_a_bound_and_reports(
     assert _stored(tmp_path).merits_decision_method == "argued-signed"
 
 
+def _two_decided(tmp_path: Path) -> list[str]:
+    """Two decided granted rows, each with a classifiable snapshot, in case_id order."""
+    ids = ["scotus/900482", "scotus/900483"]
+    rows = [
+        _row(
+            case_id=case_id,
+            docket_number=f"24-{case_id[-3:]}",
+            merits_judgment="reversed",
+            merits_decided=_DECIDED,
+        )
+        for case_id in ids
+    ]
+    with _seeded(tmp_path, rows, dict.fromkeys(ids, _decided_payload())):
+        pass
+    return ids
+
+
+def test_the_limit_slices_the_fills_and_defers_the_rest(tmp_path: Path) -> None:
+    first_id, second_id = _two_decided(tmp_path)
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        first = backfill_decision_record(conn, apply=True, limit=1)
+        assert [f.case_id for f in first.filled] == [first_id]
+        assert first.deferred == 1 and first.candidates == 2
+        assert first.methods == {"argued-signed": 1}  # over the slice written
+        second = backfill_decision_record(conn, apply=True, limit=1)
+        assert [f.case_id for f in second.filled] == [second_id]
+        third = backfill_decision_record(conn, apply=True, limit=1)
+    assert not third.filled and third.deferred == 0 and third.candidates == 0  # drained
+    assert _stored(tmp_path, second_id).merits_decision_method == "argued-signed"
+
+
+def test_the_cli_sweep_slices_at_the_configured_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, second_id = _two_decided(tmp_path)
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "tracking.yaml").write_text("historical:\n  sweep_caps:\n    decision_fills: 1\n")
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(config))
+    bounded = runner.invoke(
+        app, ["backfill-decision-record", "--sweep", "--apply", "--max-fills", "5"]
+    )
+    assert bounded.exit_code == 2  # the cap and a bound never ride together
+    first = runner.invoke(app, ["backfill-decision-record", "--sweep", "--apply"])
+    assert first.exit_code == 0, first.output
+    assert (
+        "sweep ledger — backfill-decision-record: would fill 2; filled 1; remaining 1 (cap 1)"
+        in first.output
+    )
+    assert _stored(tmp_path, second_id).merits_decision_method is None
+    second = runner.invoke(app, ["backfill-decision-record", "--sweep", "--apply"])
+    assert "would fill 1; filled 1; remaining 0 (cap 1)" in second.output
+    assert _stored(tmp_path, second_id).merits_decision_method == "argued-signed"
+
+
+def test_the_ceiling_refuses_the_whole_class_and_writes_nothing(tmp_path: Path) -> None:
+    first_id, _ = _two_decided(tmp_path)
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        result = backfill_decision_record(conn, apply=True, limit=1, ceiling=1)
+    assert result.refused and not result.applied
+    assert _stored(tmp_path, first_id).merits_decision_method is None
+
+
 # --- the census -------------------------------------------------------------------
 
 

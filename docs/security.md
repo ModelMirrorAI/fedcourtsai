@@ -67,7 +67,7 @@ environment-scoped one correctly resolves empty. Each workflow mints a token sco
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
-| `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token |
+| `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
 | `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for either role `prod` is trusted by — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests · codex watchdog token: issues | the **agent** token is comment-only; the workflow commits. The third is narrower still and is not the agent's: the arm/disarm steps and the detached watchdog they launch hold it for the `codex-watchdog` telemetry issue and one comment per cell on it, which is the only account of a hang that survives a cancelled runner. The watchdog brackets every engine; this token is minted on codex cells alone |
 | `integration-test` (codex-application-repro leg and the codex-freeze-probe job) | dev on a prod-bound dispatch; staging telemetry App on a staging-bound one | issues | the cell workflows' watchdog telemetry mint, on identical terms: arm/disarm steps and the detached watchdog only, never the agent step. The credentials select per bound environment, and the arm/disarm steps pass the matching channel, so a staging rehearsal's rows land on the rehearsal channel's own issue under an App whose platform-enforced ceiling is Issues alone; a leg bound to neither environment mints nothing, warns, and degrades to its runner-local account |
@@ -1190,7 +1190,9 @@ rehearsal, the only place those summaries go.
 channel, each one day and named per run, handing one file between its jobs.
 Neither carries a corpus row, a snapshot or a stored document: each is a
 pydantic model (`extra="forbid"`, a literal format name and version) whose
-docstring states why its fields are public. `repair-projection-<run_id>`
+docstring states why its fields are public — the application back-fill's
+plan, which carries served counsel blocks, under the carve-out in
+[data-sources.md](data-sources.md). `repair-projection-<run_id>`
 carries, for the vote passes, each population case's ledger case id and the
 Court's docket number for it — the same pair the qp-topic artifacts and the
 release dataset publish; for the application back-fill, the Term's highest
@@ -1205,15 +1207,32 @@ record (votes, provenance, writing roles — the fields the writer commits to
 public git anyway); for the opinion record, each document's opinion rows read
 off the Court's listing and PDF (kind, author, joiners, word counts, the
 printed header sentence) with the case id left for the writer to resolve. The
-application back-fill's plan would carry each served docket JSON verbatim —
+application back-fill's plan carries each served docket JSON verbatim —
 party contact blocks included, a self-represented applicant's address,
-telephone and prisoner number among them — and gathering a Term of those into
-one downloadable file is a republication *PII stance* in
-[data-sources.md](data-sources.md) does not accept. So that plan never
-crosses: the parse job refuses an `application-backfill` apply before the
-upload, and the pass's apply stays held until its plan is either made opaque
-to readers of the artifact (encrypted to a key only the writer job holds) or
-the carve-out is recorded there. Its dry run uploads nothing.
+telephone and prisoner number among them — with the ledger's structured
+fields parsed from it. It crosses under the one carve-out *PII stance* in
+[data-sources.md](data-sources.md) records, and only as narrowly as that
+says: supremecourt.gov's own public docket record, nothing read from the
+corpus, the content store or a stored snapshot; this one artifact, one day,
+downloaded by the applications writer in the same run; never committed and
+never printed — the parse and writer steps tee only the command's own output
+to the summary: its ledger (counts, and each row's parsed fields with a
+counsel *count*) and any refusal line, whose upstream text is truncated and
+repr-escaped. That nothing in it comes from our
+stores rests on the credential split: the job that writes it holds no corpus
+credential, and its projection carries serial numbers only. Its shape is
+checked on both sides of the artifact — by the parse before the file is
+written, so a plan that fails is never uploaded, and by the writer as
+untrusted input before its first write: the whole plan is refused if a served
+record carries a top-level key outside a supremecourt.gov docket's own or
+lacks the docket's `CaseNumber` or proceedings list, if a planned row's fields
+are not exactly what the live mapping reads from its record, or if a note is
+one a written plan never carries (a fetch failure, or a held reason other than
+the served-number check's). It is a check of shape, not of values: a forged
+plan could still put any text inside a served docket's own keys, which is the
+parse-job residual below. Tests pin the artifact's name and retention, the
+plan's absence from every summary line, and each refusal. The dry run uploads
+no plan.
 
 The split's residuals, stated plainly. The writer treats the plan as untrusted
 input — it re-validates every row against the reader's own invariants and the

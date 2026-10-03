@@ -68,12 +68,9 @@ on:
           - response-backfill
           - ocr-recovery
           - document-backfill
-          - mirror-stored-documents
           - arrival-backfill
           - merits-phantom-removal
           - disposition-convergence
-          - moment-convergence
-          - sampled-frame-weight-repair
           - amicus-rederive
           - regrade-stale
           - opinion-votes
@@ -176,8 +173,6 @@ jobs:
             document-backfill)
               bound_flag="--max-cases"; bound_required_on_apply=1
               bound_read_on_dry_run=1 ;;
-            mirror-stored-documents)
-              bound_flag="--max-cases"; bound_required_on_apply=1 ;;
             arrival-backfill)
               bound_flag="--max-fills"; bound_required_on_apply=1 ;;
             merits-phantom-removal)
@@ -186,10 +181,6 @@ jobs:
             disposition-convergence)
               bound_flag="--max-relabels"; bound_required_on_apply=1
               accepted_options="include-scored" ;;
-            moment-convergence)
-              bound_flag="--max-rewrites"; bound_required_on_apply=1 ;;
-            sampled-frame-weight-repair)
-              bound_flag="--max-repairs"; bound_required_on_apply=1 ;;
             amicus-rederive)
               bound_flag="--max-changes"; bound_required_on_apply=1 ;;
             regrade-stale)
@@ -350,7 +341,7 @@ jobs:
     # pass reaches them only by being named here. A deny-list would hand every
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
-    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","moment-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) }}
+    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","amicus-rederive"]'), inputs.repair) }}
     # Join the repo-wide corpus-writer lock: one writer at a time across
     # run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
@@ -362,7 +353,7 @@ jobs:
     # run's own real pass — before ever being skipped. The condition is the
     # `if:` above, repeated because no context available here can hold it once.
     concurrency:
-      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","mirror-stored-documents","arrival-backfill","merits-phantom-removal","disposition-convergence","moment-convergence","sampled-frame-weight-repair","amicus-rederive"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","amicus-rederive"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     # Headroom over the longest chain of capped steps a dispatch can run, which
@@ -1444,153 +1435,6 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "document backfill pointer"
 
-      # Mirror to the content store the document text that reached only the blob.
-      # Under the corpus split the per-case store is the system of record for
-      # documents and every production read is served from it, so a case whose
-      # text was written before the store existed has intact rows in the blob's
-      # `documents` table and no objects under its store prefix: provisioning,
-      # the questions-presented derivations and the QP-topic labeling pack all
-      # serve nothing for it. No fetching lane
-      # repairs that — the poller re-fetches a kind only when its link changes,
-      # and these kinds are already stored — and the gap does not grow either,
-      # since a document written under the split mirrors at upsert.
-      #
-      # Unlike the OCR recovery and the document back-fill this one reaches NO
-      # upstream host at all: its inputs are the blob's own rows and its writes
-      # are content-store PUTs, so it costs store round trips rather than paced
-      # GETs against the Court. Its bound is a slice size all the same — a
-      # manifest read and a PUT per document for every case in it — so the class
-      # clears across dispatches. It is the one slice bound that is APPLY-ONLY:
-      # the dry run has to enumerate the whole population, because that ledger is
-      # what the bound is read off, and the command refuses a bound without an
-      # apply rather than silently ignoring it.
-      #
-      # Its writes land in the content store and never in the blob, so the
-      # pointer cannot witness them and an unchanged one is reported rather than
-      # failed. Two witnesses instead: the pass re-probes every case it mirrors
-      # (the store writer is best-effort and swallows its failures, so a slice
-      # that wrote nothing would otherwise read exactly like one that worked),
-      # and the walk-only re-read below requires the class the apply's ledger
-      # said it would leave.
-      - name: Mirror blob-only documents to the content store
-        if: ${{ inputs.repair == 'mirror-stored-documents' && steps.dedupe-live-rows.outcome == 'success' }}
-        # One store listing per case in the population, and on an apply TWO full
-        # walks — the pass's own probe and the witness re-read below, which is an
-        # entire second dry run — plus, per case in the slice, a manifest read,
-        # a PUT per document, the manifest PUT, and the re-probe listing. No
-        # upstream fetch and no politeness pacing, so the walks are the bulk of
-        # it and the slice adds in proportion to the bound.
-        #
-        # Unlike both slice-bounded siblings this pass takes no
-        # `--deadline-seconds`, because nothing it does is paced and a store
-        # listing has no per-case cost to estimate: this cap is the only wall
-        # clock, and the bound is what the maintainer sizes against it. A cap hit
-        # keeps whatever the store already took — the PUTs are idempotent and an
-        # unverified case stays at the head of the class — but loses the apply's
-        # ledger, which is redirected to a file and tee'd only once the command
-        # returns.
-        timeout-minutes: 25
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPAIR: ${{ inputs.repair }}
-          REPAIR_MODE: ${{ inputs.repair_mode }}
-          REPAIR_BOUND: ${{ inputs.repair_bound }}
-        run: |
-          set -euo pipefail
-          # Validate the bound before anything else, including the corpus guard:
-          # a dispatch that cannot legally apply should say so in seconds, not
-          # after a full-population probe of the content store. `Validate the
-          # repair selector` duplicates it word for word so a bad dispatch dies
-          # before any credential is minted; this copy is the one of record,
-          # because the step has to be safe on whatever reaches it. The refusal
-          # names the pass through `${REPAIR}` rather than a literal so the two
-          # copies are identical as text, not merely equivalent once expanded.
-          if [ "${REPAIR_MODE}" = "apply" ] \
-            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
-            exit 1
-          fi
-          # No committed pointer means no corpus — nothing to mirror from.
-          if [ ! -f corpus/corpus.db.ref ]; then
-            echo "no corpus pointer yet; skipping the document mirror"; exit 0
-          fi
-          gh auth setup-git # persist-credentials is false on checkout
-          # Read off the machine-readable ledger each run prints last, rather
-          # than off the prose above it: the field name is passed as an argument
-          # so nothing from a file is interpolated into the program.
-          ledger_field() {
-            grep -h '^{"applied"' "$1" | tail -n 1 \
-              | uv run python -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2"
-          }
-          # The summary is capped: GitHub errors the file command past 1 MiB,
-          # and this pass's ledgers name whole classes — the dry run's, the
-          # largest, is exactly the one the apply's bound is read off. The head
-          # reaches the summary; the full ledger is already in the step log
-          # through the `cat` beside each call.
-          summarize() {
-            head -n 60 "$1" >> "$GITHUB_STEP_SUMMARY"
-            local total
-            total=$(wc -l < "$1")
-            if [ "$total" -gt 60 ]; then
-              echo "… $((total - 60)) more line(s) in the step log" >> "$GITHUB_STEP_SUMMARY"
-            fi
-          }
-          # The dry run is unbounded by construction — it enumerates the whole
-          # population, and that ledger is what the apply's bound is read off, so
-          # `repair_bound` is not forwarded here and the command refuses it.
-          #
-          # Its stdout goes to a file for the reason the apply's does: the
-          # ledger's last line is JSON read back as data, and a merged stream can
-          # interleave a log line into it once the untruncated per-case list runs
-          # past a pipe buffer.
-          if [ "${REPAIR_MODE}" != "apply" ]; then
-            uv run fedcourts mirror-stored-documents > /tmp/mirror-dry.txt
-            cat /tmp/mirror-dry.txt
-          summarize /tmp/mirror-dry.txt
-            echo "dry-run only; nothing written."
-            exit 0
-          fi
-          uv run fedcourts mirror-stored-documents --apply \
-            --max-cases "${REPAIR_BOUND}" > /tmp/mirror-apply.txt
-          cat /tmp/mirror-apply.txt
-          summarize /tmp/mirror-apply.txt
-          # A case the store did not take exits green: the pass reports it
-          # `unverified`, subtracts it from nothing, and the convergence check
-          # below still passes because the apply's own `remaining` already
-          # counted it. That is the one shape of this pass a reader can miss, so
-          # ANY unverified case is annotated — not only a slice that verified
-          # nothing, which would stay silent on a run that lost half its writes.
-          if [ "$(ledger_field /tmp/mirror-apply.txt unverified)" != "[]" ]; then
-            echo "::warning::the slice mirrored cases the store then served nothing for: $(ledger_field /tmp/mirror-apply.txt unverified). The write was withheld, failed, or landed without its manifest. Check the store address and the role's write access rather than re-dispatching; those cases stay at the head of the class."
-          fi
-          # The witness. The apply's ledger states the class it expects to leave
-          # behind, and a re-read must find exactly that: the store writer is
-          # best-effort, so a failed PUT leaves the case in the class and nothing
-          # in the pointer commit below would ever notice. The dry run IS the
-          # walk-only reading here — it writes nothing and takes no slice.
-          uv run fedcourts mirror-stored-documents > /tmp/mirror-verify.txt
-          cat /tmp/mirror-verify.txt
-          summarize /tmp/mirror-verify.txt
-          expected="$(ledger_field /tmp/mirror-apply.txt remaining)"
-          found="$(ledger_field /tmp/mirror-verify.txt absent)"
-          if [ "${found}" != "${expected}" ]; then
-            echo "::error::apply did not converge — the re-read finds ${found} case(s) with no stored documents where the apply's ledger left ${expected} (a content-store write may have failed; see the warnings above)"
-            exit 1
-          fi
-          # Blob before pointer commit, as everywhere. This pass writes only to
-          # the content store — the blob's own rows are read and never touched —
-          # so the index comes back byte-identical on every ordinary run and an
-          # unchanged pointer is reported rather than failed.
-          uv run fedcourts corpus-push
-          git add corpus/corpus.db.ref
-          if git diff --cached --quiet; then
-            echo "Mirrored documents are in the content store; the index pointer is unchanged."
-            exit 0
-          fi
-          git commit -m "repair: mirror blob-only documents to the content store"
-          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
-            "document mirror pointer"
-
       # Re-derive the interim baseline's arrival stamp. An interim event's
       # `opened_at` is the moment it declares — the day the application was
       # submitted to a Justice — and it is where provisioning cuts, so what is
@@ -1709,7 +1553,7 @@ jobs:
             --max-fills "${REPAIR_BOUND}" > /tmp/arrival-apply.txt 2>&1
           summarize /tmp/arrival-apply.txt
           # Blob before pointer commit, as everywhere. The index is where
-          # `events.opened_at` lives, so unlike the three document passes the
+          # `events.opened_at` lives, so unlike the two document passes the
           # pointer moving IS the witness that the write landed.
           uv run fedcourts corpus-push
           git add corpus/corpus.db.ref
@@ -1999,191 +1843,6 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "disposition-label pointer"
 
-      # Converge the stored moment of a declared-moment event onto the moment
-      # its id declares. The id is the key and the declared-moments table the
-      # authority, so a stored moment that disagrees is a stale copy — the shape
-      # an application baseline carries when the application-baseline relabel
-      # (`relabel-application-events`) moved it off the cert petition id with
-      # the cert stage's `distribution` moment carried onto it. The relabel
-      # re-derives the moment, so no write path produces the shape and the
-      # population is a finite residue; a decided application has left the
-      # live rotation, so no channel re-reads it and nothing else converges it.
-      #
-      # Two stores, one commit. The pass re-stamps the corpus row (a direct
-      # UPDATE that re-mirrors the touched cases' events into the content
-      # store) AND the ledger `event.yaml` written from it, scanning each store
-      # on its own. The ledger half lands in `data/`, so it is staged with the
-      # pointer: a ledger file left
-      # uncommitted would disagree with the corpus it was just converged onto,
-      # and the next dry run would find it again. An event carrying committed
-      # predict/evaluate output is held back in both stores and reported —
-      # moving its moment moves scored cells between moment strata — as are
-      # entry-pinned rows and rows off the declared moment's stage; there is no
-      # option that widens onto them.
-      - name: Converge event moments
-        if: ${{ inputs.repair == 'moment-convergence' && steps.dedupe-live-rows.outcome == 'success' }}
-        # Local, like the disposition sweep: an indexed read of the events
-        # table and a walk of committed `event.yaml` files, with the apply's
-        # writes under `data/`, plus the blob push.
-        timeout-minutes: 15
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPAIR: ${{ inputs.repair }}
-          REPAIR_MODE: ${{ inputs.repair_mode }}
-          REPAIR_BOUND: ${{ inputs.repair_bound }}
-        run: |
-          set -euo pipefail
-          # Validate the bound before anything else, including the corpus
-          # guard: a dispatch that cannot legally apply should say so in
-          # seconds, not after a full scan. The command refuses an unbounded
-          # apply on its own too; this refusal is the one with the maintainer's
-          # procedure in it. `Validate the repair selector` duplicates it word
-          # for word so a bad dispatch dies before any credential is minted;
-          # this copy is the one of record, because the step has to be safe on
-          # whatever reaches it. The refusal names the pass through `${REPAIR}`
-          # rather than a literal so the two copies are identical as text, not
-          # merely equivalent once expanded.
-          if [ "${REPAIR_MODE}" = "apply" ] \
-            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
-            exit 1
-          fi
-          # No committed pointer means no corpus — nothing to converge.
-          if [ ! -f corpus/corpus.db.ref ]; then
-            echo "no corpus pointer yet; skipping moment convergence"; exit 0
-          fi
-          gh auth setup-git # persist-credentials is false on checkout
-          # The sweep reads committed ledger artifacts out of `data/` and
-          # rewrites beside them, so it needs the remote tip, not this
-          # checkout's — the scored-cell holdback is keyed on output that
-          # arrives by collect PR. Fast-forward only, for the merits-phantom
-          # pass's reason: an unpushed local commit over live corpus mutations
-          # must fail this closed rather than be reset away.
-          git fetch origin "$GITHUB_REF_NAME"
-          git merge --ff-only FETCH_HEAD
-          # Dry-run first, into the summary: the re-stamp ledger — corpus rows
-          # and ledger files counted apart, each skip with its reason — is the
-          # reading the apply's bound comes from, and it must outlive the step
-          # log. The bound counts both stores together. (On an apply this run
-          # is a receipt, not a reading.)
-          uv run fedcourts converge-event-moments 2>&1 \
-            | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ "${REPAIR_MODE}" != "apply" ]; then
-            echo "dry-run only; nothing written."
-            exit 0
-          fi
-          uv run fedcourts converge-event-moments \
-            --apply --max-rewrites "${REPAIR_BOUND}" 2>&1 \
-            | tee -a "$GITHUB_STEP_SUMMARY"
-          # Blob before pointer commit, as everywhere. An apply that pushed the
-          # blob but failed before the commit publishes nothing: readers resolve
-          # the committed pointer, and the next dispatch re-detects both halves —
-          # the corpus rows from the old blob that pointer still names, the
-          # ledger files from the still-committed `data/`. The one write the
-          # pointer does not fence is the content-store events mirror the apply
-          # already refreshed; it runs ahead of the pointer until that re-run
-          # converges, as on the arrival back-fill.
-          uv run fedcourts corpus-push
-          # The ledger half lands in `data/` (`event.yaml`); stage it with the
-          # pointer so the ledger and the corpus it must match move together
-          # or not at all.
-          git add corpus/corpus.db.ref
-          if [ -d data ]; then
-            git add data/
-          fi
-          if git diff --cached --quiet; then
-            echo "Event moments already converged; nothing to persist."
-            exit 0
-          fi
-          git commit -m "repair: converge corpus (event moments)"
-          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
-            "event-moment pointer"
-
-      # Restore the derived sampling weight on the legacy denial-sampling frame's
-      # latched-down rows: grid denials genuinely inside sampled ranges that a
-      # channel writing with certainty min-latched to 1, so the nine petitions
-      # each stands for are represented by nobody. The population and the
-      # magnitudes it moves are pre-registered in `docs/freeze-record.md`, which
-      # is what makes this a deliberate re-weighting of the frame rather than a
-      # convergence sweep: it moves published weighted figures, so the dry-run
-      # ledger is read by a maintainer against that entry before any write.
-      #
-      # The write is a direct UPDATE that bypasses the column's MIN latch — the
-      # stored weight only ever latches downward, an inclusion probability only
-      # ever learned toward certainty — so the same 1 -> 10 routed through the
-      # upsert path would report success having changed nothing. The guard that replaces the latch is the command's own
-      # and is narrower than it: a row whose block the corpus now stores row by
-      # row derives 1 and is never selected, so the pass cannot invent a petition
-      # the corpus already counts. Rows the rule reaches OUTSIDE the registered
-      # cells are reported and left alone — a different population needs its own
-      # entry — which is what makes a widened predicate visible in the ledger.
-      #
-      # Convergence is witnessed inside the command rather than by a grep here:
-      # the apply re-runs its own selection and exits non-zero if anything
-      # remains, so a write that reached fewer rows than the ledger named stops
-      # the job before the blob is pushed. Corpus-only, so a pointer-only commit
-      # and no fetch/ff-only — nothing here reads committed `data/`.
-      - name: Repair the sampled-frame weights
-        if: ${{ inputs.repair == 'sampled-frame-weight-repair' && steps.dedupe-live-rows.outcome == 'success' }}
-        # Local, like the docket-marking convergence: an indexed read of the live
-        # slice and a bounded UPDATE against the pulled blob, plus the blob push.
-        # No content-store read at all — every column the rule reads is in the
-        # index. Sized for an apply, which selects three times: the dry-run
-        # ledger, the write's own selection, and the convergence witness after it.
-        timeout-minutes: 8
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPAIR: ${{ inputs.repair }}
-          REPAIR_MODE: ${{ inputs.repair_mode }}
-          REPAIR_BOUND: ${{ inputs.repair_bound }}
-        run: |
-          set -euo pipefail
-          # Validate the bound before anything else, including the corpus
-          # guard: a dispatch that cannot legally apply should say so in
-          # seconds, not after a full scan. The command refuses an unbounded
-          # apply on its own too; this refusal is the one with the maintainer's
-          # procedure in it. `Validate the repair selector` duplicates it word
-          # for word so a bad dispatch dies before any credential is minted;
-          # this copy is the one of record, because the step has to be safe on
-          # whatever reaches it. The refusal names the pass through `${REPAIR}`
-          # rather than a literal so the two copies are identical as text, not
-          # merely equivalent once expanded.
-          if [ "${REPAIR_MODE}" = "apply" ] \
-            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
-            exit 1
-          fi
-          # No committed pointer means no corpus — nothing to repair.
-          if [ ! -f corpus/corpus.db.ref ]; then
-            echo "no corpus pointer yet; skipping the sampled-frame weight repair"; exit 0
-          fi
-          gh auth setup-git # persist-credentials is false on checkout
-          # Dry-run first, into the summary: the per-row ledger — each case's
-          # old and new weight, its walk cell and its block's occupancy, beside
-          # any row the rule reaches outside the registered cells — is what the
-          # apply is decided against, and it must outlive the step log. It is
-          # also the record of a re-weighting that moves published figures, so
-          # it is written down whichever mode ran. (On an apply this run is a
-          # receipt, not a reading: nobody reads it before the write.)
-          uv run fedcourts repair-sampled-frame-weights 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ "${REPAIR_MODE}" != "apply" ]; then
-            echo "dry-run only; nothing written."
-            exit 0
-          fi
-          uv run fedcourts repair-sampled-frame-weights --apply \
-            --max-repairs "${REPAIR_BOUND}" 2>&1 \
-            | tee -a "$GITHUB_STEP_SUMMARY"
-          # Blob before pointer commit, as everywhere.
-          uv run fedcourts corpus-push
-          git add corpus/corpus.db.ref
-          if git diff --cached --quiet; then
-            echo "Sampled-frame weights already repaired; nothing to persist."
-            exit 0
-          fi
-          git commit -m "repair: converge corpus (sampled-frame weights)"
-          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
-            "sampled-frame-weight pointer"
-
       # Re-derive the interim `amicus_briefs` column under the widened
       # submitted-form reading with the end-of-day cut, and re-freeze the
       # committed interim outcomes that column was frozen onto. The retrospective
@@ -2195,7 +1854,7 @@ jobs:
       # the same promotion batch.
       #
       # Two writes in one pass. The corpus write is a **direct UPDATE that
-      # bypasses the max latch** (the sampled-frame-weight repair's shape): the
+      # bypasses the max latch** (the distribution re-derivation's shape): the
       # end-of-day cut lowers a resolved application's count, which the max latch
       # — built to stop a degraded payload lowering a stored count — would reject
       # as a silent no-op through the upsert path. Only resolved applications (a
@@ -2368,7 +2027,9 @@ jobs:
   # data only — case ids, docket numbers, listing keys, docket JSON as the
   # Court serves it, facts read off the Court's own documents — never a corpus
   # row, a snapshot or a stored document; each model's docstring says why its
-  # fields are public. One day of retention, and named per run.
+  # fields are public. One day of retention, and named per run. The
+  # application plan's served docket JSON carries party contact blocks, and
+  # crosses under the PII carve-out docs/data-sources.md records for it alone.
   handoff-projection:
     needs: [validate]
     if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' }}
@@ -2653,33 +2314,30 @@ jobs:
         if: ${{ inputs.repair_mode != 'apply' }}
         run: echo "dry-run only; nothing written." | tee -a "$GITHUB_STEP_SUMMARY"
 
-      # The application back-fill's plan is held back: it carries each served
-      # docket JSON verbatim, party contact blocks included (a self-represented
-      # applicant's address, telephone and prisoner number among them), and a
-      # run artifact on this public repository is downloadable by any signed-in
-      # user. Gathering a Term of those into one public file is a republication
-      # docs/data-sources.md (*PII stance*) does not accept, so the apply is
-      # refused here, before anything crosses, until the plan is made opaque to
-      # readers of the artifact or the carve-out is recorded there.
-      - name: Hold the application plan
-        if: ${{ inputs.repair_mode == 'apply' && inputs.repair == 'application-backfill' }}
-        run: |
-          echo "::error::the application back-fill plan carries served docket JSON with party contact details, which may not cross as a public run artifact; the apply is held until that is decided (docs/security.md, S3 / the private stores)."
-          exit 1
-
       # The plan crosses to the writer only on an apply; a dry run's ledger is
-      # its whole product.
+      # its whole product. The application back-fill's plan carries each served
+      # docket JSON verbatim, party contact blocks included (a self-represented
+      # applicant's address, telephone and prisoner number among them), which
+      # crosses only under the narrow carve-out docs/data-sources.md (*PII
+      # stance*) records: this one artifact, one day, consumed by the
+      # applications writer in this run, never committed and never printed —
+      # the summary above carries the ledger's counts and parsed fields only,
+      # and the walk (before writing it) and the writer both refuse a plan not
+      # shaped as served docket JSON plus the fields parsed from it.
       - name: Upload the plan
-        if: ${{ inputs.repair_mode == 'apply' && (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'opinion-record') }}
+        if: ${{ inputs.repair_mode == 'apply' && (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record') }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: repair-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff/plan.json
           if-no-files-found: error
           overwrite: true
-          # Public Court data only (see the credential-split comment above the
-          # projection job); one day, because it exists to hand one file to the
-          # writer job.
+          # The Court's own public record only (see the credential-split comment
+          # above the projection job; the application plan under its carve-out);
+          # one day, because it exists to hand one file to the writer job, and
+          # the carve-out is bounded to this artifact. Deleting it once the
+          # writer has read it was weighed and declined: that needs `actions:
+          # write` in a job already holding `id-token` and the App token.
           retention-days: 1
 
   # The vote writer, on an apply only. It holds no AWS role and no

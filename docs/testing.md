@@ -689,7 +689,9 @@ on a scheduled workflow, the word-for-word pairing between each fail-fast
 validator and the step of record that re-checks it, `run-repair`'s credential
 split — its parse job holding no `id-token`, environment or secret, its two
 handoff artifacts one-day and named per run, its writers on an apply only,
-fetching nothing and pulling the corpus fresh inside the lock — and
+fetching nothing and pulling the corpus fresh inside the lock, and the
+application plan's PII carve-out held to its limits (the one artifact, no plan
+text in any summary line, the writer's whole-plan check before it writes) — and
 `test_no_job_that_guards_against_oidc_holds_id_token`, which holds every
 workflow's OIDC tripwire true: a job that asserts the OIDC request pair is
 absent may not hold `id-token`, since the runner hands that pair to every step
@@ -706,7 +708,7 @@ a drained backlog) — so deleting a load-bearing line fails a
 named test instead of passing every linter. Two of the family go further and
 *run* what the YAML embeds, because a workflow string is matched against the CLI
 for the first time when the job runs: `test_workflow_repair_cli_parity` reads
-each of `run-repair`'s twenty dispatch-only maintenance passes back out of the
+each of `run-repair`'s seventeen dispatch-only maintenance passes back out of the
 workflow — argv, conditional flag arrays and all, via the shared reader
 `tests/workflow_argv.py` — and executes it against the fixture corpus, so a
 renamed flag fails here rather than as a usage error mid-dispatch — a

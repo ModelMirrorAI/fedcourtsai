@@ -57,6 +57,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from . import corpus
+from .config import require_sweep_slice
 
 
 @dataclass
@@ -81,6 +82,9 @@ class DocketMarkingResult:
     #: True when ``apply`` was asked for but the blast-radius bound refused it.
     #: Nothing is written in that case — the plan is reported and abandoned.
     refused: bool = False
+    #: Marked rows past the ``limit`` slice, left for a later run. ``rewritten``
+    #: plus this is the whole class found.
+    deferred: int = 0
 
 
 def normalize_docket_markings(
@@ -88,13 +92,31 @@ def normalize_docket_markings(
     *,
     apply: bool,
     max_rewrites: int | None = None,
+    limit: int | None = None,
+    ceiling: int | None = None,
 ) -> DocketMarkingResult:
     """Rewrite marked SCOTUS docket numbers to their stored spelling, flag raised.
 
     ``max_rewrites`` is the blast-radius bound and lives here rather than in the
     caller, so a code caller is bounded on the same terms as the command. Over the
     bound nothing is written and ``refused`` is set.
+
+    ``limit`` is the standing sweep's per-window slice, a different instrument:
+    the first ``limit`` rows of the class in ``case_id`` order are the plan, and
+    the rest are counted in ``deferred`` rather than refused. A rewritten row
+    leaves the class, so successive slices drain it.
+
+    ``ceiling`` is the sweep's own refusal, read against the whole class before
+    the slice: an apply that finds more than ``ceiling`` writes nothing and sets
+    ``refused``, because a class that size is a widened predicate rather than a
+    backlog for successive slices to drain.
+
+    The sweep passes ``limit`` and ``ceiling`` without a blast-radius bound (the
+    command refuses the mix). A code caller passing both a slice and a bound gets
+    the slice first and the bound checked against it, so the bound refuses only a
+    slice larger than itself.
     """
+    require_sweep_slice(limit, ceiling)
     result = DocketMarkingResult(applied=apply)
     # Court-agnostic, matching the `docket_numbers_carry_no_capital_marking` corpus check whose
     # population this drains: the marking is a SCOTUS habit upstream, but a pass
@@ -142,6 +164,16 @@ def normalize_docket_markings(
             )
         )
 
+    # The sweep's refusing guard, checked on the whole class before the slice:
+    # a class past ``ceiling`` is a widened predicate, not a backlog to drain.
+    if apply and ceiling is not None and len(result.rewritten) > ceiling:
+        result.refused = True
+        result.applied = False
+    if limit is not None and len(result.rewritten) > limit:
+        result.deferred = len(result.rewritten) - limit
+        del result.rewritten[limit:]
+    if result.refused:
+        return result
     if apply and max_rewrites is not None and len(result.rewritten) > max_rewrites:
         result.refused = True
         result.applied = False

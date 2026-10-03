@@ -615,7 +615,7 @@ neither queues on the corpus-write lock nor stacks API spend onto a pull
 window's. The job carries `max_cases` and nothing else: the walk orders itself
 ledger-first, so the cases the pipeline is waiting on reach the head without a
 dispatch naming them, and the CLI's `--case` targeting stays a local
-maintenance tool rather than a dispatch input. run-seed also runs eight
+maintenance tool rather than a dispatch input. run-seed also runs eleven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
@@ -647,14 +647,34 @@ convergence** (`fedcourts converge-decision-dates`), which fills a denied
 petition's `date_decided` from its own `date_cert_denied` — the order refusing
 the writ is the order that ends the docket, so the two name one moment, while
 the grant side stays out because a granted docket terminates at a later merits
-judgment no column holds; and, last, the
+judgment no column holds; the
 **bulk-cluster scrub** (`fedcourts scrub-bulk-cluster-fields`), which
 converges the stored circuit slice onto the ingest projection's carve-out —
 the bulk export's misjoined cluster fields are withheld from a re-served
 bulk row, and the scrub drops them from the rows nothing re-serves, keyed
 on the fields no channel could have written to a non-SCOTUS row (the only
 other writer, the opinion enrichment, is SCOTUS-scoped) and bounded by its
-own blast-radius cap. The dedupe runs first so the
+own blast-radius cap; and the three **fill sweeps**, which converge index
+columns no channel revisits from what the window already holds — the
+**docket-marking convergence** (`fedcourts normalize-docket-markings`), the
+**response-signal back-fill** (`fedcourts backfill-response-fields`) and the
+**decision-record back-fill** (`fedcourts backfill-decision-record`), each
+described with its run-repair pass below. They run in `--sweep` mode, which
+slices and refuses only past a ceiling: a window writes at most its per-window
+cap (`historical.sweep_caps` in `config/tracking.yaml`) of the class, in
+`case_id` order, and tees one ledger line to the run summary — `would fill N;
+filled M; remaining R (cap C)` — so the rest carries to the next window; a class
+found above its configured ceiling is a widened predicate, so the window writes
+none of it and the step fails with an error annotation. Two of the three only
+fill null columns; the marking convergence rewrites `docket_number`, selected
+by the marking's exact words and neutral to the identity join. Each writes the
+index alone, so each commits the pointer alone, and
+each is gated on the dedupe's success as well as the daily cadence — the
+prerequisite run-repair holds the same passes to, so each reads merged rows
+rather than one half of a twin pair. The two snapshot sweeps read their
+candidates on every window, since those include the pending granted docket,
+which never drains; the slice bounds the writes, not the reads. The dedupe runs
+first so the
 latch pass weighs deduped rows, and the event mint runs immediately after the
 judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
@@ -734,7 +754,10 @@ it, so a row outside the live slice converges only under a re-read aimed at it,
 and this is the sweep that needs none. It can neither create nor resolve a
 duplicate pair, since both channels reconcile identity on a key that already
 strips the marking by shape; and having no ledger surface — its write is a
-direct `UPDATE` of the index — it commits the pointer alone.
+direct `UPDATE` of the index — it commits the pointer alone. The walker's daily
+window converges the same class as a standing sweep, sliced at its per-window
+cap; the pass is the route for a maintainer-read apply of the whole class in
+one dispatch, under a refusing bound.
 
 `response-backfill` re-derives the dated interim/merits signals from each row's
 newest stored live-shaped snapshot, which under the corpus split lives in the
@@ -744,7 +767,9 @@ snapshot rather than failing on it, and writes a direct `UPDATE` of the index,
 so the pointer is its own witness. Its bound counts the rows actually filled,
 not the `candidates` denominator beside them, which rises with every new cert
 grant that has not yet drawn a respondent brief — so a rise there is the
-ordinary docket rather than a widened predicate.
+ordinary docket rather than a widened predicate. Like the marking convergence,
+it also runs as a standing sweep on the walker's daily window, sliced at its
+per-window cap.
 
 `ocr-recovery` reads the scanned filings off their page images. A filing
 submitted on paper reaches the corpus with no text layer, so nothing was
@@ -760,7 +785,7 @@ per-brief headings are themselves text, so such a row is not empty by the
 coverage report's test either: it reads as covered while carrying no argument,
 and neither surface sizes it. It is the only pass that installs a
 binary dependency, in its own gated step (`tesseract` and poppler's `pdftoppm`,
-from the runner image's own archive), and one of the three whose bound is a
+from the runner image's own archive), and one of the two whose bound is a
 **slice size** rather than a refusal threshold: each case costs a re-fetch and a
 page-by-page recognition, and runner minutes are the whole cost. That makes the
 bound a *spend* cap, so the step hands the pass a wall-clock deadline as well —
@@ -795,7 +820,13 @@ briefs and derived questions-presented row included. Its population is scoped to
 rows that can still mint a cell, not to the wide distributed stock, which is
 overwhelmingly legacy rows carrying no document links at all, and each such row
 is measured on two arms: its own docket form's opening document, and — on a
-granted row whose respondent has filed on the merits — each side's merits brief. It is the second slice-bounded pass, and the one whose `dry-run`
+granted row whose respondent has filed on the merits — each side's merits brief.
+A consolidated member missing a merits kind, whose merits briefs are entered on
+its lead docket alone, has that lead's JSON fetched beside its own (one more
+paced GET, in either mode) and its merits kinds selected off the lead's entries
+that are the member's own, so a member briefed on its lead is recovered or
+floored rather than named by the selector-regression alarm; a lead the fetch did
+not return is counted as a docket loss. It is the other slice-bounded pass, and the one whose `dry-run`
 is bounded too: that dry run fetches each candidate's docket JSON, which is the
 whole diagnostic — it is what separates a case with a link waiting for it from
 one at a floor — and it is a paced round trip per candidate. Two floors are
@@ -817,43 +848,6 @@ class afterwards — an empty slice, which costs no round trip — and requires
 exactly what the apply's ledger said it would leave behind. The stamps are its
 one index write, so an applied slice that read any floor also moves the
 pointer.
-
-`mirror-stored-documents` moves to the content store the document text that
-reached only the blob. Under the corpus split the per-case store is the system
-of record for documents and every production read is served from it, so a case
-whose text was written before the store existed has intact rows in the blob's
-`documents` table and no objects under its store prefix — provisioning, the
-questions-presented derivations and the QP-topic labeling pack all serve nothing
-for it. Nothing repairs that on its own:
-the poller re-fetches a kind only when its link changes, and these kinds are
-already stored. The gap does not grow either, since a document written under
-the split mirrors at upsert, so this is a finite historical class rather than a
-standing
-sweep. Its population is read by **direct SQL over the blob's own table**, which
-inverts every other document pass's reading — they walk `documents_for_case`
-precisely because a split-written blob's table is empty — and that is the point:
-the blob it is dispatched against is the pre-split-era full one, and the routed
-read would answer from the very store known to be missing. It is the third
-slice-bounded pass and the only one that reaches no upstream host at all: its
-cost is content-store round trips — one listing per case in the population, two
-such walks on an apply since the witness re-read is an entire second dry run,
-and per case in the slice a manifest read, a PUT per document, the manifest PUT
-and the re-probe listing. It is also the only slice-bounded pass with no
-wall-clock deadline, since nothing it does is paced and a store listing has no
-per-case cost to estimate: the step's own cap is the wall clock, and the bound
-is what a maintainer sizes against it. Its bound is
-**apply-only**, because the dry run has to enumerate the whole population — that
-ledger, which names each absent case with the rows and text bytes the blob holds
-for it, is what the bound is read off. The store's own writer is best-effort and
-swallows transport failures, so the pass **re-probes every case it mirrors** —
-with the production read, not a prefix listing, since the leaves are written
-before the manifest and a half-landed write leaves keys behind while serving
-nothing — and reports `verified` and `unverified` apart. Without that, a run
-whose credentials, store address or pointer override withheld every write would
-report exactly the clean slice a successful one does. Its writes never touch the blob, so the
-pointer cannot witness them and an unchanged one is reported rather than failed;
-the step re-walks the class afterwards and requires exactly what the apply's
-ledger said it would leave.
 
 `arrival-backfill` re-derives the interim baseline's arrival stamp — the day an
 application was submitted to a Justice, which is the moment that event declares
@@ -946,23 +940,6 @@ spans the scored and unscored confirmations together. On `apply` the step still
 runs the dry-run into the step summary first, as a receipt of what the rewrite
 acted on.
 
-`moment-convergence` re-stamps the stored `moment` of a declared-moment event
-onto the moment its id declares — the id is the key and the declared-moments
-table the authority, so a stored moment that disagrees is a stale copy. The
-population it exists for is application baselines the application-baseline
-relabel (`relabel-application-events`) moved off the cert petition id with the
-cert stage's `distribution` moment carried onto them — a finite residue, since
-the relabel re-derives the moment and no write path produces the shape. A
-decided application has left the live rotation, so nothing else re-reads the
-row. It
-writes both stores — the corpus row (re-mirrored into the content store) and the
-ledger `event.yaml` written from it, each scanned on its own — and stages
-`data/` beside the pointer in the step's one commit, so the two land together.
-An event carrying committed predict or evaluate output is held back in both
-stores and reported, since moving its moment moves scored cells between moment
-strata; unlike the disposition and phantom passes there is no option that
-widens onto them. Its bound counts corpus rows and ledger files together.
-
 Four of the passes that fetch and parse the Court's content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
 **credential split** of three jobs (`ocr-recovery` and `document-backfill`
@@ -1001,10 +978,10 @@ corpus, so identity, the ownership re-read and the prediction guard are the
 writer's, against the corpus it pulls under the lock: the dry run's count
 (`unresolved=N` in its ledger) is an upper bound on what the apply lands. Each
 run fetches from supremecourt.gov, so an apply does not lead with a dry run,
-and a re-dispatched dry run after the apply is the control. **The apply is
-held in the workflow** until its plan can cross without publishing the served
-dockets' party contact details ([security.md](security.md), *S3 / the private
-stores*); the dry run is unaffected. **The apply is post-release**: it moves OT2024's unparsed rows into the
+and a re-dispatched dry run after the apply is the control. Its plan carries
+the served dockets' party contact details to the writer under the narrow
+carve-out in [data-sources.md](data-sources.md) (*PII stance*): one artifact,
+one day, never committed or printed. **The apply is post-release**: it moves OT2024's unparsed rows into the
 population the pooled interim base rate is computed over, so it waits until
 after the long-conference release and is pre-registered in
 [freeze-record.md](freeze-record.md). That registration covers OT2024 only: an
@@ -1022,8 +999,11 @@ parses are private, so they could not cross a public artifact. The dry run
 holds the read-only role (the snapshots live in the content store) and takes
 no lock, and the apply takes `corpus-write`, the read-write role from its write
 step onward, and the App token only after that step. The bound is the dry run's fill count, and a
-re-dispatched dry run after the apply is the control. `fedcourts
-decision-census` reads the result. Nothing a cell sees moves: both columns are
+re-dispatched dry run after the apply is the control. The walker's daily
+window runs the same command as a standing sweep, sliced at its per-window cap
+in the window's own job, which already holds the read-write role and the content
+store's address. `fedcourts decision-census` reads the result. Nothing a cell
+sees moves: both columns are
 withheld from the `query` rows, and no gate, mint or outcome reads them.
 
 `opinion-record` builds the per-opinion record — each opinion's kind, author,
@@ -1040,38 +1020,6 @@ bound is the dry run's opinion-row count. Each run fetches again, so an apply do
 with a dry run, and a re-dispatched dry run after the apply is the control.
 Nothing a cell sees moves: the table is no part of a `query` row, and no gate,
 mint, outcome or score reads it.
-
-`sampled-frame-weight-repair` restores the derived sampling weight on the legacy
-denial-sampling frame's latched-down rows: grid denials genuinely inside sampled
-ranges that a channel writing with certainty min-latched to 1, leaving the nine
-petitions each stands for represented by nobody. Where the other passes move
-which bucket a row falls in, this one moves the weights themselves, so every
-weighted denominator that admits IFP rows moves with it — the statpack's and
-docket pack's weighted sections, the ops digest's always-deny floor, and one
-committed prose figure in
-[outcome-decomposition.md](outcome-decomposition.md). Its population, direction
-and expected magnitudes are therefore pre-registered in
-[freeze-record.md](freeze-record.md), and its dry-run ledger is read against that
-entry. Every conjunct of the membership predicate is the guard's own rule — the
-grid test, the walker's cursor, and the density guard's neighbourhood reading —
-so the pass and the ingest seam that has to keep its result cannot drift apart;
-the scope is the entry's, narrower than the rule, and a row the rule reaches
-outside the registered cells is reported in the ledger and left alone rather than
-repaired. The write is a direct `UPDATE` bypassing the column's **min** latch:
-the stored weight only ever latches downward, an inclusion probability only ever
-learned toward certainty, so the same value through the upsert path would be
-discarded silently. Convergence is witnessed inside the command rather than by a
-grep in the step: the apply re-runs its own selection and exits non-zero if
-anything remains, which stops the job before the blob is pushed. No ledger
-surface, so a pointer-only commit. **No scored number moves**: every
-scored-segment cut is gated on a paid serial and this population is IFP, so
-`metrics/leaderboard.json`, `metrics/claim-scores.json` and the back-tests are
-unchanged. **The apply is not finished when the blob is pushed.** The weekly
-metrics refresh regenerates the statpack; `metrics/docket.{json,md}` is on
-demand (`fedcourts docket`) and the whole-slice IFP-inclusive figure in
-[outcome-decomposition.md](outcome-decomposition.md) is hand-written, so neither
-heals on a schedule and a stale copy of either carries no marker saying so. The
-apply's own output names them.
 
 `amicus-rederive` writes both stores, and what is distinctive is *which* two: a
 corpus column and the committed `outcome.json` field that column was frozen onto,
@@ -1196,7 +1144,8 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  ├─ probe supremecourt.gov docket-number frontier
                                  │  → onboard new petitions + applications
                                  │    (per-(Term, stream) cursors)
-                                 ├─ re-poll the live cert watchlist (recent Terms first)
+                                 ├─ re-poll the live cert watchlist (overdue first,
+                                 │    then distributed, then recent Terms)
                                  ├─ re-poll unresolved interim applications (capped;
                                  │    substantive + changed + in scope → predict queue)
                                  ├─ detect resolution from the proceedings text
@@ -1908,6 +1857,21 @@ ceiling reads stays flat while the campaign spends — unlike a committed replay
 cell, which lands on that ledger like any other. What bounds this lane is the
 fortnightly cadence, that pinned `--limit`, the manual hold, and the job's
 `timeout-minutes` — not `spend.ceiling_usd`.
+
+What a release replays is a **random draw**, pinned by rule rather than by
+hand. The cron's `--spread` ranks every paid petition by a salted SHA-256 of
+its case id, keyed by the corpus vintage the run pulled, and walks that order,
+passing over any petition it cannot replay, until it holds ten. Nothing about
+an outcome, a decision date or a conference feeds the rank, so the set's
+expected grant mix is the replayable population's and that population's
+conferences and Terms (only the recent Terms the snapshots reach) fall in
+proportion to their size; the same blob draws the same set while its
+snapshot coverage holds still, and a
+fortnight on a newer blob draws afresh. The report records the rule, its salt
+and key, and how many petitions the walk passed over (`provenance.draw`), and
+[metrics/README.md](../metrics/README.md) carries the reading rule — chiefly
+that the replayable population's floor, not the statpack's, is what a set's
+floor estimates.
 
 The campaign runs its cells in **engine lanes**. Every petition's case tree is
 provisioned first, serially, under each lane's own sub-root of the work root

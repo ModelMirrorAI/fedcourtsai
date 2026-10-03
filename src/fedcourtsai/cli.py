@@ -91,10 +91,9 @@ from .cert_backtest import (
     ReplayOutcome,
     build_segment_context,
     clock_days,
+    draw_cert_backtest_set,
     replay_predictors,
-    replayable_items,
     run_cert_backtest,
-    select_cert_backtest_set,
     truncate_snapshot,
 )
 from .claim_metrics import agreement_summary, build_claim_scores
@@ -199,7 +198,6 @@ from .merits_event_migration import (
     backfill_event_moments,
     backfill_merits_events,
 )
-from .moment_convergence import converge_event_moments
 from .ops import (
     DAILY_DIGEST_LABEL,
     DAILY_DIGEST_MARKER_LINES,
@@ -258,7 +256,6 @@ from .pipeline.decision_record import backfill_decision_record, decision_census
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
 from .pipeline.document_backfill import backfill_documents
-from .pipeline.document_mirror import mirror_stored_documents
 from .pipeline.documents import (
     FETCH_LOSS_BIO_EMPTY,
     FETCH_LOSS_BIO_PARTIAL,
@@ -284,7 +281,6 @@ from .pipeline.documents import (
     unrepresented_sides,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
-from .pipeline.ingest import UNSAMPLED_WEIGHT
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
 from .pipeline.live import live_poll_all
@@ -329,10 +325,6 @@ from .pipeline.salience import (
     reconcile_salience_selection,
     registered_versions,
     unlatch_overselected,
-)
-from .pipeline.sampled_frame_repair import (
-    SampledFrameWeightRepair,
-    repair_sampled_frame_weights,
 )
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
@@ -2779,92 +2771,6 @@ def relabel_application_events_cmd(
         typer.echo(f"  skipped {case_id}: {reason}")
 
 
-@app.command("converge-event-moments")
-def converge_event_moments_cmd(
-    apply: Annotated[
-        bool,
-        typer.Option("--apply", help="Write the re-derived moments; omit for a dry-run report."),
-    ] = False,
-    max_rewrites: Annotated[
-        int | None,
-        typer.Option(
-            "--max-rewrites",
-            help="Blast-radius bound, required with --apply: refuse to apply more than this "
-            "(corpus rows and ledger files together).",
-        ),
-    ] = None,
-) -> None:
-    """Re-stamp declared-moment events whose stored moment disagrees with their id.
-
-    A declared-moment event id names exactly one forecast moment, and the
-    declared-moments table is the authority on which. This sweep finds every
-    un-pinned corpus row and every ledger `event.yaml` under such an id whose
-    stored moment is non-null and different from the declared one, and
-    re-stamps it. The population this exists for is application baselines the
-    relabel moved from the cert petition id while carrying its `distribution`
-    moment onto `evt-motion-disposition`, whose declared moment is `arrival`.
-    Decided applications are not re-read by the live rotation, so nothing else
-    converges them. A null moment is `backfill-event-moments`' population, not
-    this one.
-
-    An event with committed predictions or evaluations under it is skipped in
-    both stores and reported, because moving its moment moves scored cells
-    between moment strata. So is an entry-pinned row, or one whose stage is
-    not the declared moment's stage.
-
-    Idempotent. Run where the corpus is pulled: a dev checkout dry-runs it,
-    and the apply half belongs on a run-repair pass, which holds the
-    corpus-write credentials and commits the ledger half beside the corpus it
-    must match. `--apply` refuses above `--max-rewrites`. The population is
-    finite, because the relabel re-derives the moment and so no write path
-    produces this shape; a count above the dry run's means the predicate
-    widened. Fails loud if the corpus is absent.
-    """
-    settings = get_settings()
-    if apply and max_rewrites is None:
-        typer.echo(
-            "converge-event-moments: --apply requires an explicit --max-rewrites. "
-            "Read the dry run first and pass the count you are approving.",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-    db_path = corpus.corpus_db_path(settings.corpus_root)
-    if not db_path.exists():
-        typer.echo(
-            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
-            "before running the convergence.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
-        result = converge_event_moments(
-            conn, settings.data_root, apply=apply, max_rewrites=max_rewrites
-        )
-    if result.refused:
-        typer.echo(
-            f"converge-event-moments: refusing to apply {result.total} rewrite(s) "
-            f"(--max-rewrites {max_rewrites}). The population is finite: the relabel "
-            "re-derives the moment, so no write path produces this shape; a count this "
-            "size means the predicate widened — triage before raising the bound.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    verb = "re-stamped" if apply else "would re-stamp"
-    typer.echo(
-        f"converge-event-moments ({'applied' if apply else 'dry-run'}): "
-        f"{verb} {len(result.corpus_rows)} corpus row(s) and "
-        f"{len(result.ledger_files)} ledger event.yaml file(s); "
-        f"skipped {len(result.skipped)} for triage"
-    )
-    for label, rewrites in (("corpus", result.corpus_rows), ("ledger", result.ledger_files)):
-        for rewrite in rewrites:
-            typer.echo(
-                f"  {label} {rewrite.case_id}/{rewrite.event_id}: {rewrite.was} -> {rewrite.now}"
-            )
-    for ref, reason in result.skipped:
-        typer.echo(f"  skipped {ref}: {reason}")
-
-
 @app.command("reopen-misattributed-outcomes")
 def reopen_misattributed_outcomes_cmd(
     apply: Annotated[
@@ -3297,6 +3203,60 @@ def remove_ungranted_merits_events_cmd(
         typer.echo(f"  skipped {ref}: {reason}")
 
 
+#: The help text every fill sweep's ``--sweep`` option carries.
+_SWEEP_HELP = (
+    "Standing-sweep mode (run-seed's daily window): slice the class at the configured "
+    "per-window cap (`historical.sweep_caps`), refuse a class above its configured "
+    "ceiling, and print the sweep ledger line. Still a dry run without --apply; with "
+    "it, the cap and ceiling stand in for the --max-* bound."
+)
+
+
+def _refuse_bound_with_sweep(command: str, bound_flag: str, bound: int | None) -> None:
+    """Refuse a sweep invocation that also names a blast-radius bound.
+
+    The two instruments answer different questions — a bound is a count a
+    maintainer read and approved, a cap is a slice the window takes — so an
+    invocation carrying both would leave it unclear which one governed the write.
+    """
+    if bound is not None:
+        typer.echo(
+            f"{command}: --sweep slices at the configured per-window cap and takes no "
+            f"{bound_flag}; pass one or the other.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+
+def _echo_sweep_ledger(
+    command: str, *, written: bool, planned: int, deferred: int, cap: int
+) -> None:
+    """The one ledger line a fill sweep tees to the run summary, and its refusal.
+
+    ``would fill`` is the whole class the window found, ``filled`` what it wrote
+    (zero on a dry run or a refusal), and ``remaining`` what it leaves for the
+    next window. On a ceiling refusal the line still prints, so the summary shows
+    the class size that tripped it.
+    """
+    found = planned + deferred
+    filled = planned if written else 0
+    typer.echo(
+        f"sweep ledger — {command}: would fill {found}; filled {filled}; "
+        f"remaining {found - filled} (cap {cap})"
+    )
+
+
+def _refuse_sweep_above_ceiling(command: str, *, refused: bool, found: int, ceiling: int) -> None:
+    if refused:
+        typer.echo(
+            f"::error::{command} --sweep: refusing to apply — the class holds {found} rows, "
+            f"above its ceiling of {ceiling} (historical.sweep_caps). A class this size "
+            "means the predicate widened; triage the dry run before raising the ceiling.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
 @app.command("normalize-docket-markings")
 def normalize_docket_markings_cmd(
     apply: Annotated[
@@ -3310,6 +3270,7 @@ def normalize_docket_markings_cmd(
             help="Blast-radius bound, required with --apply: refuse to apply more than this.",
         ),
     ] = None,
+    sweep: Annotated[bool, typer.Option("--sweep", help=_SWEEP_HELP)] = False,
 ) -> None:
     """Converge stored docket numbers on their marking-free spelling.
 
@@ -3348,16 +3309,27 @@ def normalize_docket_markings_cmd(
 
     Idempotent: a rewritten row no longer carries the marking, so it leaves the
     population it was selected from, and ``capital_case`` max-latches so the flag can
-    only advance. Run where the corpus is pulled — a dev checkout dry-runs it, and
-    the apply half belongs in run-repair's `normalize-docket-markings` pass,
-    which holds the corpus-write
-    credentials. ``--apply`` refuses above ``--max-rewrites``: the population is
-    finite and non-growing (the write site strips at ingest), so a count above the
-    number read in the dry run means the predicate widened — triage before raising
-    the bound. Fails loud if the corpus is absent.
+    only advance. Run where the corpus is pulled — a dev checkout dry-runs it. The
+    apply runs in two writer lanes, which hold the corpus-write credentials: as a
+    standing sweep on run-seed's daily window (``--sweep --apply``), and as
+    run-repair's dispatched `normalize-docket-markings` pass. The dispatched
+    ``--apply`` refuses above ``--max-rewrites``: the population is finite and
+    non-growing (the write site strips at ingest), so a count above the number read
+    in the dry run means the predicate widened — triage before raising the bound.
+    ``--sweep`` replaces that bound with a slice: the first
+    ``historical.sweep_caps.docket_markings`` rows of the class are rewritten and
+    the rest left for the next window, reported on one ledger line; an apply whose
+    whole class exceeds ``docket_markings_ceiling`` writes nothing and exits 1.
+    Fails loud if the corpus is absent.
     """
     settings = get_settings()
-    if apply and max_rewrites is None:
+    cap: int | None = None
+    ceiling: int | None = None
+    if sweep:
+        _refuse_bound_with_sweep("normalize-docket-markings", "--max-rewrites", max_rewrites)
+        caps = load_historical_config(settings.config_root).sweep_caps
+        cap, ceiling = caps.docket_markings, caps.docket_markings_ceiling
+    elif apply and max_rewrites is None:
         typer.echo(
             "normalize-docket-markings: --apply requires an explicit --max-rewrites. "
             "Read the dry run first and pass the count you are approving.",
@@ -3373,7 +3345,23 @@ def normalize_docket_markings_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
-        result = normalize_docket_markings(conn, apply=apply, max_rewrites=max_rewrites)
+        result = normalize_docket_markings(
+            conn, apply=apply, max_rewrites=max_rewrites, limit=cap, ceiling=ceiling
+        )
+    if cap is not None and ceiling is not None:
+        _echo_sweep_ledger(
+            "normalize-docket-markings",
+            written=result.applied,
+            planned=len(result.rewritten),
+            deferred=result.deferred,
+            cap=cap,
+        )
+        _refuse_sweep_above_ceiling(
+            "normalize-docket-markings",
+            refused=result.refused,
+            found=len(result.rewritten) + result.deferred,
+            ceiling=ceiling,
+        )
     if result.refused:
         typer.echo(
             f"normalize-docket-markings: refusing to apply {len(result.rewritten)} rewrites "
@@ -3398,167 +3386,6 @@ def normalize_docket_markings_cmd(
         typer.echo(f"  {verb} {entry.case_id}: {entry.was!r} -> {entry.now!r}{note}")
 
 
-def _repair_cell_label(entry: SampledFrameWeightRepair) -> str:
-    """One repair's walk cell, as the ledger names it.
-
-    The Term is rendered from the corpus's own century pivot rather than a local
-    ``20{term}``: the ledger's out-of-scope lines are where a maintainer
-    adjudicates a population the freeze record does not cover, and a pre-2000
-    docket misnamed there is a misread of exactly the row that most needs
-    reading. Falls back to the two-digit term where the pivot declines the
-    number, rather than guessing a century.
-    """
-    term, stream = entry.cell
-    named = f"OT{entry.term_year}" if entry.term_year is not None else f"term {term:02d}"
-    return f"{named}/{stream}"
-
-
-@app.command("repair-sampled-frame-weights")
-def repair_sampled_frame_weights_cmd(
-    apply: Annotated[
-        bool,
-        typer.Option("--apply", help="Write the derived weights; omit for a dry-run ledger."),
-    ] = False,
-    max_repairs: Annotated[
-        int | None,
-        typer.Option(
-            "--max-repairs",
-            help="Blast-radius bound, required with --apply: refuse to apply more than this.",
-        ),
-    ] = None,
-) -> None:
-    """Restore the derived sampling weight on the registered latched-down rows.
-
-    The registered repair of the legacy denial-sampling frame
-    (``docs/freeze-record.md``): live-slice SCOTUS rows the guarded rule
-    ``legacy_denial_sample_weight`` derives at the sampled weight and that are
-    **stored at 1** — grid denials genuinely inside sampled ranges, min-latched
-    to certainty by a channel that asserted it, so the nine petitions each stands
-    for are represented by nobody.
-
-    Every conjunct of the membership predicate is the guard's own rule rather
-    than a restatement of it — the grid, the walker's cursor, the density guard's
-    neighbourhood reading — so the pass and the writer that has to keep its
-    result cannot drift apart. The *scope* is the freeze record's and is narrower
-    than the rule: only rows inside the eight ``historical-ifp`` OT2017-OT2024
-    cells are repaired. A row the rule derives at the sampled weight outside them
-    is a different population needing its own entry, so it is reported and left
-    alone.
-
-    The write is a direct ``UPDATE`` that deliberately bypasses the upsert path's
-    **min latch**: the stored weight only ever latches downward, an inclusion
-    probability only ever learned toward certainty, so the same 1 → 10 routed
-    through ``upsert_rows`` would report success having changed nothing. What
-    replaces the latch is the guard, which is narrower than it — a row whose
-    block the corpus now stores row by row derives 1 and is never selected — so
-    the pass cannot invent a petition the corpus already counts. It moves the
-    weights themselves rather than which bucket a row falls in, so every weighted
-    denominator that admits IFP rows moves with it, which is why it is a
-    registered decision on the frame rather than a convergence sweep.
-
-    The apply witnesses itself: the selection is re-run over the written corpus
-    and must come back empty, and this exits non-zero if it does not. That is the
-    check the pointer cannot be, a direct ``UPDATE`` of a column no downstream
-    artifact recomputes moving the blob whether or not it moved the right rows.
-
-    Run where the corpus is pulled — a dev checkout dry-runs it, and the apply
-    half belongs in run-repair's ``sampled-frame-weight-repair`` pass, which holds
-    the corpus-write credentials. ``--apply`` refuses above ``--max-repairs``:
-    read the dry-run ledger and pass the count you are approving. Fails loud if
-    the corpus is absent.
-    """
-    settings = get_settings()
-    if apply and max_repairs is None:
-        typer.echo(
-            "repair-sampled-frame-weights: --apply requires an explicit --max-repairs. "
-            "Read the dry run first and pass the count you are approving.",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-    db_path = corpus.corpus_db_path(settings.corpus_root)
-    if not db_path.exists():
-        typer.echo(
-            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
-            "before running the repair.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
-        result = repair_sampled_frame_weights(conn, apply=apply, max_repairs=max_repairs)
-    # A refused apply is labelled as one rather than as a dry run: nothing was
-    # written either way, but the ledger's own header is what a reader attributes
-    # it to, and "dry-run" on a dispatch that asked to write is the wrong
-    # provenance.
-    if result.refused:
-        mode, verb = "refused", "refused to repair"
-    elif result.applied:
-        mode, verb = "applied", "repaired"
-    else:
-        mode, verb = "dry-run", "would repair"
-    typer.echo(
-        f"repair-sampled-frame-weights ({mode}): "
-        f"{verb} {len(result.repairs)} row(s) of {result.scanned} live-slice SCOTUS "
-        f"denial(s) stored at weight {UNSAMPLED_WEIGHT}; "
-        f"{len(result.out_of_registration)} outside the registered cells, untouched"
-    )
-    for entry in result.repairs:
-        typer.echo(
-            f"  {verb} {entry.case_id} ({entry.docket_number}): {entry.was} -> {entry.now} "
-            f"[cell {_repair_cell_label(entry)}, serial {entry.serial}, "
-            f"{entry.block_neighbours} stored neighbour(s) in its block]"
-        )
-    for entry in result.out_of_registration:
-        # Named, not counted away: the freeze-record entry's predicate is the
-        # pass's scope law, and a row the rule reaches outside it is the shape a
-        # widening would take. A maintainer reading only the repairs would never
-        # see it.
-        typer.echo(
-            f"  outside the registered cells, untouched: {entry.case_id} "
-            f"({entry.docket_number}) would be {entry.was} -> {entry.now} "
-            f"[cell {_repair_cell_label(entry)}] — a different population, and one that "
-            "needs its own freeze-record entry before any pass touches it",
-            err=True,
-        )
-    if result.refused:
-        typer.echo(
-            f"repair-sampled-frame-weights: refusing to apply {len(result.repairs)} repair(s) "
-            f"(--max-repairs {max_repairs}). Nothing was written. The population is fixed by "
-            "the registered predicate, so a count above the one read off the dry run means "
-            "the predicate reached rows the freeze record does not cover — triage the ledger "
-            "above before raising the bound.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    if result.applied and result.remaining:
-        # The apply's own witness. A direct UPDATE of a column nothing downstream
-        # recomputes moves the blob whether or not it moved the right rows, so a
-        # re-derivation that still selects rows is a failed apply reported as one
-        # — before the workflow pushes the blob.
-        typer.echo(
-            f"repair-sampled-frame-weights: the apply did not converge — the re-derivation "
-            f"still selects {result.remaining} row(s). The write reached fewer rows than the "
-            "ledger named; do not push this blob without triaging it.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    if result.applied and result.repairs:
-        # The follow-through, printed where the apply's own record is rather than
-        # left in a doc: the corpus now disagrees with every committed weighted
-        # artifact, and only some of them heal on a schedule. Named individually
-        # because the on-demand ones carry no marker distinguishing a stale pack
-        # from a current one.
-        typer.echo(
-            "repair-sampled-frame-weights: the weighted artifacts are now stale against the "
-            "corpus. The scheduled metrics refresh regenerates the statpack; "
-            "metrics/docket.{json,md} is on demand (fedcourts docket) and the IFP-inclusive "
-            "whole-slice relist figure in docs/outcome-decomposition.md is hand-written — "
-            "neither heals on its own. The ops digest's always-deny floor re-bases here too. "
-            "No scored number moves: every scored-segment cut is gated on a paid serial and "
-            "this population is IFP.",
-            err=True,
-        )
-
-
 @app.command("backfill-response-fields")
 def backfill_response_fields_cmd(
     apply: Annotated[
@@ -3572,6 +3399,7 @@ def backfill_response_fields_cmd(
             help="Blast-radius bound, required with --apply: refuse to apply more than this.",
         ),
     ] = None,
+    sweep: Annotated[bool, typer.Option("--sweep", help=_SWEEP_HELP)] = False,
 ) -> None:
     """Re-derive the dated interim/merits signals from each row's newest live snapshot.
 
@@ -3604,18 +3432,29 @@ def backfill_response_fields_cmd(
     re-read. The write is a direct ``UPDATE`` of the index and never the casestore
     mirror, so a store-side rebuild from ``case.json`` would resurrect the NULLs.
 
-    Idempotent. Run where the corpus is pulled — a dev checkout dry-runs it, and the
-    apply half belongs in run-repair's `response-backfill` pass, which holds the
-    corpus-write
-    credentials. ``--apply`` refuses above ``--max-fills``, which counts the rows
-    actually filled — finite and non-growing, since ingest fills these columns going
-    forward. The ``candidates`` denominator beside it is not: the granted arm admits
-    every new cert grant that has not yet drawn a respondent brief, so a rising
-    candidate count is the ordinary docket rather than a widened predicate. Prints
-    each filled row with the dates it gains. Fails loud if the corpus is absent.
+    Idempotent. Run where the corpus is pulled — a dev checkout dry-runs it. The
+    apply runs in two writer lanes, which hold the corpus-write credentials: as a
+    standing sweep on run-seed's daily window (``--sweep --apply``), and as
+    run-repair's dispatched `response-backfill` pass. The dispatched ``--apply``
+    refuses above ``--max-fills``, which counts the rows actually filled — finite
+    and non-growing, since ingest fills these columns going forward. The
+    ``candidates`` denominator beside it is not: the granted arm admits every new
+    cert grant that has not yet drawn a respondent brief, so a rising candidate
+    count is the ordinary docket rather than a widened predicate. ``--sweep``
+    replaces the bound with a slice: every candidate is read, the first
+    ``historical.sweep_caps.response_fills`` fills are written and the rest left
+    for the next window, reported on one ledger line; an apply whose whole class
+    exceeds ``response_fills_ceiling`` writes nothing and exits 1. Prints each
+    filled row with the dates it gains. Fails loud if the corpus is absent.
     """
     settings = get_settings()
-    if apply and max_fills is None:
+    cap: int | None = None
+    ceiling: int | None = None
+    if sweep:
+        _refuse_bound_with_sweep("backfill-response-fields", "--max-fills", max_fills)
+        caps = load_historical_config(settings.config_root).sweep_caps
+        cap, ceiling = caps.response_fills, caps.response_fills_ceiling
+    elif apply and max_fills is None:
         typer.echo(
             "backfill-response-fields: --apply requires an explicit --max-fills. "
             "Read the dry run first and pass the count you are approving.",
@@ -3631,7 +3470,23 @@ def backfill_response_fields_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
-        result = backfill_response_fields(conn, apply=apply, max_fills=max_fills)
+        result = backfill_response_fields(
+            conn, apply=apply, max_fills=max_fills, limit=cap, ceiling=ceiling
+        )
+    if cap is not None and ceiling is not None:
+        _echo_sweep_ledger(
+            "backfill-response-fields",
+            written=result.applied,
+            planned=len(result.filled),
+            deferred=result.deferred,
+            cap=cap,
+        )
+        _refuse_sweep_above_ceiling(
+            "backfill-response-fields",
+            refused=result.refused,
+            found=len(result.filled) + result.deferred,
+            ceiling=ceiling,
+        )
     if result.refused:
         typer.echo(
             f"backfill-response-fields: refusing to apply {len(result.filled)} fills "
@@ -3675,6 +3530,7 @@ def backfill_decision_record_cmd(
             help="Blast-radius bound, required with --apply: refuse to apply more than this.",
         ),
     ] = None,
+    sweep: Annotated[bool, typer.Option("--sweep", help=_SWEEP_HELP)] = False,
 ) -> None:
     """Read each unclassified granted row's newest live snapshot for its decision record.
 
@@ -3697,14 +3553,25 @@ def backfill_decision_record_cmd(
     The write is a direct ``UPDATE`` of the index and never the casestore mirror.
 
     Idempotent. Run where the corpus is pulled: a dev checkout or the pass
-    dry-runs it, and the apply half belongs in run-repair's `decision-record`
-    pass, which on an apply holds the corpus-write credentials. ``--apply``
-    refuses above ``--max-fills``, which counts the rows actually filled. Prints
-    the counts, the method distribution over the fills, and each filled row.
-    Fails loud if the corpus is absent.
+    dry-runs it. The apply runs in two writer lanes, which hold the corpus-write
+    credentials: as a standing sweep on run-seed's daily window
+    (``--sweep --apply``), and as run-repair's dispatched `decision-record` pass.
+    The dispatched ``--apply`` refuses above ``--max-fills``, which counts the
+    rows actually filled. ``--sweep`` replaces that bound with a slice: every
+    candidate is read, the first ``historical.sweep_caps.decision_fills`` fills
+    are written and the rest left for the next window, reported on one ledger
+    line; an apply whose whole class exceeds ``decision_fills_ceiling`` writes
+    nothing and exits 1. Prints the counts, the method distribution over the fills, and each
+    filled row. Fails loud if the corpus is absent.
     """
     settings = get_settings()
-    if apply and max_fills is None:
+    cap: int | None = None
+    ceiling: int | None = None
+    if sweep:
+        _refuse_bound_with_sweep("backfill-decision-record", "--max-fills", max_fills)
+        caps = load_historical_config(settings.config_root).sweep_caps
+        cap, ceiling = caps.decision_fills, caps.decision_fills_ceiling
+    elif apply and max_fills is None:
         typer.echo(
             "backfill-decision-record: --apply requires an explicit --max-fills. "
             "Read the dry run first and pass the count you are approving.",
@@ -3720,7 +3587,23 @@ def backfill_decision_record_cmd(
         )
         raise typer.Exit(code=1)
     with corpus.connect(db_path) as conn:
-        result = backfill_decision_record(conn, apply=apply, max_fills=max_fills)
+        result = backfill_decision_record(
+            conn, apply=apply, max_fills=max_fills, limit=cap, ceiling=ceiling
+        )
+    if cap is not None and ceiling is not None:
+        _echo_sweep_ledger(
+            "backfill-decision-record",
+            written=result.applied,
+            planned=len(result.filled),
+            deferred=result.deferred,
+            cap=cap,
+        )
+        _refuse_sweep_above_ceiling(
+            "backfill-decision-record",
+            refused=result.refused,
+            found=len(result.filled) + result.deferred,
+            ceiling=ceiling,
+        )
     if result.refused:
         typer.echo(
             f"backfill-decision-record: refusing to apply {len(result.filled)} fills "
@@ -4569,150 +4452,6 @@ def backfill_documents_cmd(
             "modern docket (selector regression; the log names the kind)"
         )
     _echo_unreached(result.unreached)
-    if apply:
-        _ensure_corpus_layout(db_path)
-    typer.echo(result.model_dump_json())
-
-
-@app.command("mirror-stored-documents")
-def mirror_stored_documents_cmd(
-    apply: Annotated[
-        bool,
-        typer.Option(
-            "--apply",
-            help="Mirror the blob's document text to the content store; omit for a dry "
-            "run that probes every case and reports the class, writing nothing.",
-        ),
-    ] = False,
-    max_cases: Annotated[
-        int | None,
-        typer.Option(
-            "--max-cases",
-            help="Per-dispatch slice size, required with --apply: the number of cases "
-            "at the head of the class this run mirrors. Read it off a dry-run ledger. "
-            "Not read on a dry run, which always enumerates the whole population — a "
-            "bounded ledger would describe a smaller class than the apply acts on.",
-        ),
-    ] = None,
-) -> None:
-    """Mirror to the content store the documents that reached only the blob.
-
-    Under the corpus split the per-case content store is the system of record
-    for documents, and every production read is served from it. A case whose
-    text was written before the store existed has intact rows in the blob's
-    `documents` table and no objects under its store prefix, so provisioning,
-    the questions-presented derivations and the QP-topic labeling pack all serve
-    nothing for it — a gap no fetching lane
-    repairs, since the poller re-fetches a kind only when its link changes and
-    these kinds are already stored.
-
-    The population is read by **direct SQL over the blob's own table**, which
-    inverts every other document pass's reading — they walk `documents_for_case`
-    precisely because a split-written blob's table is empty. That is the point:
-    the blob this pass is dispatched against is the pre-split-era full one, and
-    the routed read would answer from the very store known to be missing. Each
-    case is then probed against its store prefix, and one listing no
-    `documents/` key at all is in the class.
-
-    The **dry run** enumerates the whole population and writes nothing: the
-    counts, plus every absent case named with the rows and text bytes the blob
-    holds for it — the ledger the apply's `--max-cases` is read off. The
-    **apply** takes the first that many of the class in `case_id` order and
-    mirrors each through the store's own batch writer, then **re-probes** every
-    one and reports `verified` and `unverified` apart. That split is not
-    ceremony: the mirror writer swallows transport failures by contract, so
-    without the re-probe a run whose credentials, store address or pointer
-    override withheld every write would report exactly the clean slice a
-    successful one does. An unverified case keeps its blob rows untouched and
-    heads the next slice.
-
-    Its apply half is a writer-lane pass by construction, since the corpus-write
-    credentials exist only there, and the lane invocation is run-repair's
-    `mirror-stored-documents` pass. Exits 1 when the corpus is absent, when the
-    blob holds no document rows at all (the wrong blob — a blob written entirely
-    under the split holds none), and when no content store could be built to
-    mirror to; 2 on an apply with no `--max-cases`, on a `--max-cases` given
-    without `--apply`, and on a negative one. Dry-run by default.
-    """
-    settings = get_settings()
-    if apply and max_cases is None:
-        typer.echo(
-            "mirror-stored-documents: --apply requires an explicit --max-cases. "
-            "Read the dry run first and pass the slice you are approving.",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-    if not apply and max_cases is not None:
-        # Refused rather than ignored, the same rule the dispatch selector applies
-        # to a field its pass does not read: a bound accepted here would read as a
-        # preview of the slice an apply would take, and what it would actually
-        # produce is the full class the dry run always enumerates.
-        typer.echo(
-            "mirror-stored-documents: --max-cases is read only with --apply. The dry "
-            "run always enumerates the whole population — that ledger is what the "
-            "bound is read off, so a bounded one would describe a smaller class.",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-    max_cases = _slice_bound(max_cases, command="mirror-stored-documents")
-    db_path = corpus.corpus_db_path(settings.corpus_root)
-    if not db_path.exists():
-        typer.echo(
-            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
-            "before running the document mirror.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    if apply:
-        # The pointer the mirror is about to write beside — the corpus state the
-        # ledger below describes. The writes themselves land in the content
-        # store, so this names the index those documents were read out of.
-        ref = db_path.parent / (db_path.name + ".ref")
-        if ref.is_file():
-            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
-    with corpus.connect(db_path) as conn:
-        result = mirror_stored_documents(conn, apply=apply, max_cases=max_cases)
-    if not result.cases_with_blob_documents:
-        # The blob's own table is what this pass mirrors from, so an empty one is
-        # the wrong blob rather than a converged class: a corpus written entirely
-        # under the split holds no document rows anywhere, and there is nothing
-        # here to move.
-        typer.echo(
-            f"mirror-stored-documents: no document rows in {db_path} "
-            "— wrong blob for this command?",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    if result.store_unavailable:
-        # Refused rather than reported: with no store there is no prefix to probe,
-        # so every case would read as absent and the ledger would name the whole
-        # population as a class this run could never repair.
-        typer.echo(
-            "mirror-stored-documents: no content store is configured, so there is "
-            "nothing to mirror to and no prefix to probe. Address the store and re-run.",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    typer.echo(
-        f"mirror-stored-documents ({'applied' if apply else 'dry-run'}): "
-        f"{result.absent} case(s) with blob documents and no stored ones, in a "
-        f"population of {result.cases_with_blob_documents} case(s) carrying document "
-        f"rows ({result.present} already mirrored) — "
-        f"{len(result.verified)} verified, {result.remaining} left for the next slice"
-    )
-    typer.echo(
-        f"  attempted {len(result.attempted)} "
-        f"(bound {'none' if result.bound is None else result.bound}); "
-        f"{result.unreached} case(s) beyond the bound, untouched"
-    )
-    for case_id, holdings in result.absent_cases.items():
-        typer.echo(f"  {case_id}: {holdings.rows} blob row(s), {holdings.text_bytes} text byte(s)")
-    for case_id in result.verified:
-        typer.echo(f"  {case_id}: mirrored and verified")
-    for case_id in result.unverified:
-        # Named, not counted: the mirror writer swallows its failures, so this
-        # line is the only report a withheld or failed write ever gets.
-        typer.echo(f"  {case_id}: MIRRORED BUT NOT VERIFIED — the store lists nothing for it")
     if apply:
         _ensure_corpus_layout(db_path)
     typer.echo(result.model_dump_json())
@@ -6242,8 +5981,10 @@ def cert_backtest_cmd(
     limit: Annotated[
         int,
         typer.Option(
-            help="Cap the cert set to the N most recently decided petitions. Keep it "
-            "small with a real --engine: every petition costs one cell per predictor."
+            help="Size of the cert set: the N most recently decided petitions, or N "
+            "drawn at random under --spread. With --engine the draw passes over "
+            "petitions it cannot replay. Keep it small with a real --engine: every "
+            "petition costs one cell per predictor."
         ),
     ] = 25,
     engine: Annotated[
@@ -6281,9 +6022,12 @@ def cert_backtest_cmd(
         bool,
         typer.Option(
             "--spread/--no-spread",
-            help="Sample across conference cohorts (a full term's live cadence) instead of "
-            "the most recently decided N, which collapses onto the last, grant-heavy order "
-            "lists. Applies within --limit.",
+            help="Draw a pre-registered random sample of the eligible population (a "
+            "salted hash of each case id, keyed by the corpus vintage; with --engine, "
+            "the replayable petitions), spread over its conferences and Terms in "
+            "proportion to their size, instead of the most recently decided N, "
+            "which collapses onto the last, grant-heavy order lists. Draws --limit "
+            "petitions.",
         ),
     ] = False,
     work_dir: Annotated[
@@ -6306,23 +6050,27 @@ def cert_backtest_cmd(
 ) -> None:
     """Back-test cert predictors over decided petitions into ``metrics/cert-backtest.json``.
 
-    Selects the most recently decided modern discretionary-cert petitions with a
-    machine-readable grant/deny label, hides their outcomes, replays predictors,
+    Draws decided modern discretionary-cert petitions with a machine-readable
+    grant/deny label — the most recently decided by default — hides their
+    outcomes, replays predictors,
     and scores them with the honest cert signals: **lift over the always-deny
     floor** and a P(granted) calibration view, alongside accuracy and Brier.
     ``--scope selected`` restricts the set to the salience gate's paid carve-out
     core — the ``N``-independent core of the live selected slice (which also fills
-    to ``N`` by rank) — and ``--spread`` samples across conferences rather than the
-    last order lists, together the closest replay-safe like-for-live read instead
-    of a grant-heavy term-end snapshot. The
+    to ``N`` by rank) — and ``--spread`` draws a pre-registered random sample (a
+    salted hash of each case id, keyed by the corpus vintage) rather than the last
+    order lists, so the set's expected grant mix is the population's instead of a
+    grant-heavy term-end snapshot's. The
     offline reference baselines always run; ``--engine`` additionally replays
     every enabled predictor over redacted snapshots in a scratch tree, each
     through its own configured engine under ``auto`` (this spends tokens on a
     real engine). Petitions the corpus cannot replay (no held snapshot or
     petition event — partial coverage is the norm while the historical walk
-    drains) are dropped up front and named, so every backtester in one report
-    starts from the same set — a predictor short of it lost cells at run time
-    and the report says which. Out of band by design: it never writes the
+    drains) are passed over by the draw and counted, so every backtester in one
+    report starts from the same set — a predictor short of it lost cells at run
+    time and the report says which. Replayable coverage is not outcome-neutral,
+    so a replayed set estimates the replayable population's floor, not the whole
+    population's. Out of band by design: it never writes the
     ``data/`` ledger, and the report is labeled retrospective (the outcomes
     predate every modern model's training cutoff).
     """
@@ -6373,13 +6121,20 @@ def cert_backtest_cmd(
     # every segment base rate the per-band skill is scored against.
     salience_cfg = load_salience_config(settings.config_root)
     with corpus.connect(db_path) as conn:
-        items = select_cert_backtest_set(
+        # An engine replay draws from the replayable petitions, passing over the
+        # rest as it walks, so the limit is the set's size and an unreplayable
+        # petition never costs the draw a slot it would have filled.
+        drawn = draw_cert_backtest_set(
             conn,
             limit=limit,
             scope=scope,
             spread=spread,
             salience_floor=salience_cfg.floor,
+            replayable_only=bool(engine),
         )
+        items = drawn.items
+        if drawn.passed_over:
+            typer.echo(drawn.passed_over_line(), err=True)
         provisioning: dict[str, int] = {}  # empty unless an agentic replay ran
         replay_run_id: str | None = None  # null unless one did: baselines have no run
         dropped: list[str] = []  # predictors lost at run time, not opted out
@@ -6389,13 +6144,6 @@ def cert_backtest_cmd(
         replayed: list[Backtester] = []  # the engine cells' backtesters, if any ran
         clocks: list[CertBacktestCellClock] = []  # every petition's arm and exported clock
         if engine:
-            items, unreplayable = replayable_items(db_path, items)
-            if unreplayable:
-                typer.echo(
-                    f"skipped {len(unreplayable)} petition(s) without a replayable "
-                    "snapshot: " + ", ".join(unreplayable),
-                    err=True,
-                )
             work_root = work_dir if work_dir is not None else Path(tempfile.mkdtemp())
             known_engines = {
                 str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")
@@ -6465,6 +6213,7 @@ def cert_backtest_cmd(
             provenance=CertBacktestProvenance(
                 run_id=replay_run_id,
                 dispatch=dispatch,
+                draw=drawn.draw,
                 salience_floor=salience_cfg.floor,
                 base_rate_lookback_terms=salience_cfg.base_rate_lookback_terms,
                 dropped_predictors=sorted(dropped),
@@ -10622,7 +10371,8 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     serial and live-owned serials, fetching nothing; `--projection PATH
     --plan-out PLAN` walks against that projection, opening no corpus, and
     writes each served record verbatim with its ledger (identity unresolved,
-    so the count is an upper bound); `--from-plan PLAN` re-checks the plan
+    so the count is an upper bound), checking the plan's shape first and
+    writing none it or the writer would refuse; `--from-plan PLAN` re-checks the plan
     whole, re-reads ownership, resolves identity and applies the prediction
     guard against the corpus, and with `--apply --max-rows N` lands the rows —
     fetching nothing.
@@ -10715,6 +10465,7 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
         return
     cache = None if cache_dir is None else application_backfill.DocketCache(cache_dir)
     deadline = None if max_run_seconds is None else time.monotonic() + max_run_seconds
+    plan_refused: str | None = None
     try:
         if from_plan is not None:
             plan = _read_handoff_or_exit(
@@ -10743,8 +10494,17 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
                     cache=cache,
                     deadline=deadline,
                 )
-            if plan_out is not None:
-                write_handoff(plan_out, plan)
+            if plan_out is not None and not result.failures:
+                # The plan crosses a public artifact under the PII carve-out, so
+                # one the writer would refuse is refused here, before the file
+                # exists — after the ledger prints, so a dry run still shows what
+                # it read; a failed walk writes none (it exits 1 below).
+                try:
+                    application_backfill.check_plan(plan, terms)
+                except HandoffRefused as exc:
+                    plan_refused = str(exc)
+                else:
+                    write_handoff(plan_out, plan)
         else:
             with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
                 result = application_backfill.backfill_applications(
@@ -10768,6 +10528,12 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     if out is not None:
         write_json(out, result)
     typer.echo(application_backfill.render_ledger(result, max_rows=max_rows))
+    if plan_refused is not None:
+        typer.echo(
+            f"backfill-applications: refusing the plan whole, so none was written — {plan_refused}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     if result.refused or result.failures:
         raise typer.Exit(code=1)
 
@@ -13787,7 +13553,8 @@ def live_poll(
     onboards each served petition or application — and, for a window after the
     July numbering roll, the outgoing Term too, so its late tail is caught; the
     refresh re-polls the pending
-    modern-cert watchlist (recent Terms first), then the application rotation
+    modern-cert watchlist (overdue dockets first, then distributed petitions,
+    then recent Terms), then the application rotation
     re-polls unresolved interim applications under its own cap — queueing
     predict for a changed, still-unresolved substantive application in scope
     (daily-debounced), ground truth for the rest. Resolution is detected from

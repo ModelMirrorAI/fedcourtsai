@@ -1409,11 +1409,10 @@ def stored_block_neighbours(
     """How many of a serial's ``2 * _SAMPLE_BLOCK_SPAN`` neighbours the live slice holds.
 
     The occupancy :func:`sampled_block_is_enumerated` thresholds, named on its own
-    because a ledger wants the number where the verdict wants the boolean: a
-    repair that prints each row's occupancy shows how far from the threshold the
-    block sat, which ``False`` cannot. One definition of the window serves both,
-    so the ledger and the verdict can never disagree about which serials a block
-    reaches over.
+    because a reading of the frame wants the number where the verdict wants the
+    boolean: the occupancy shows how far from the threshold a block sits, which
+    ``False`` cannot. One definition of the window serves both, so the two can
+    never disagree about which serials a block reaches over.
     """
     neighbourhood = serials.get(cell, frozenset())
     return sum(
@@ -1542,9 +1541,9 @@ def backfill_live_signals(db_path: Path) -> tuple[int, int]:
       :data:`LEGACY_DENIAL_SAMPLE_EVERY` but which some earlier write latched to
       :data:`UNSAMPLED_WEIGHT` leaves its block's unobserved petitions
       represented by nobody. Neither is this pass's to settle. Re-weighting a
-      stored row moves published figures, so it is a deliberate act on the
-      frame — a reviewed writer-lane pass whose dry-run ledger a maintainer
-      reads — never a convergence sweep that runs at every walk.
+      stored row moves published figures, so it would have to be a deliberate
+      act on the frame — a reviewed writer-lane pass whose dry-run ledger a
+      maintainer reads — never a convergence sweep that runs at every walk.
       What this pass's guard *does* prevent is minting the error: a NULL row in
       an enumerated block can never come out of here at
       :data:`LEGACY_DENIAL_SAMPLE_EVERY`.

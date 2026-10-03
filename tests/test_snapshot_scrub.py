@@ -222,6 +222,23 @@ def test_a_self_represented_respondent_block_is_scrubbed_like_a_petitioners() ->
     assert payload["Respondent"][1] == _pro_se_respondent()
 
 
+@pytest.mark.parametrize("caption", ["In re", "In the Matter of", "Ex parte"])
+def test_a_captioned_self_represented_block_is_scrubbed(caption: str) -> None:
+    payload = _payload()
+    payload["Petitioner"][0]["Attorney"] = "Kannon K. Shanmugam"
+    payload["Petitioner"][0]["PrisonerId"] = None
+    payload["Respondent"].append({**_pro_se_respondent(), "PartyName": f"{caption} Richard Roe"})
+
+    scrubbed = scrub_snapshot_contacts(payload)
+
+    block = scrubbed.payload["Respondent"][1]
+    for key in ("Address", "City", "Zip", "Phone", "Email"):
+        assert block[key] == CONTACT_PLACEHOLDER
+    assert block["PartyName"] == f"{caption} Richard Roe"
+    assert scrubbed.blocks == 1
+    assert scrubbed.payload["Petitioner"][0] is payload["Petitioner"][0]
+
+
 def test_a_represented_respondent_block_is_left_as_served() -> None:
     payload = _payload()
 
@@ -326,6 +343,29 @@ def test_a_self_represented_amicus_block_is_scrubbed() -> None:
     # The represented amicus beside it is the payload's own object, untouched.
     assert scrubbed.payload["Other"][0] is payload["Other"][0]
     assert payload["Other"][1] == _pro_se_amicus()
+
+
+@pytest.mark.parametrize(
+    "party",
+    [
+        "Professor Jane Scholar",
+        "Hon. Jane Scholar (Ret.)",
+        "Jane Scholar, Esq.",
+        "Professors John Roe and Jane Scholar",
+    ],
+)
+def test_a_titled_or_joined_self_filing_amicus_block_is_scrubbed(party: str) -> None:
+    payload = _payload()
+    payload["Other"] = [_represented_amicus(), {**_pro_se_amicus(), "PartyName": party}]
+
+    scrubbed = scrub_snapshot_contacts(payload)
+
+    block = scrubbed.payload["Other"][1]
+    for key in SNAPSHOT_CONTACT_FIELDS:
+        assert block[key] == CONTACT_PLACEHOLDER
+    assert block["PartyName"] == party
+    assert scrubbed.blocks == 2
+    assert scrubbed.payload["Other"][0] is payload["Other"][0]
 
 
 @pytest.mark.parametrize("block", [_represented_amicus(), _represented_org_amicus()])

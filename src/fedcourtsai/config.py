@@ -319,6 +319,17 @@ class LiveConfig(BaseModel):
 
     # Pending petitions re-polled per cycle (the watchlist refresh rotation).
     max_cases_per_run: int = Field(default=30, ge=0)
+    # Staleness bound on the refresh rotation, days: a docket last live-polled
+    # longer ago than this leads the next cycle (stalest first) ahead of the
+    # priority tiers, so no single tier can hold the per-cycle cap
+    # indefinitely. Must exceed the time the cap needs to sweep the polled
+    # watchlist once, or the overdue tier is never empty and the priority
+    # tiers stop governing; 0 disables the bound.
+    max_poll_staleness_days: int = Field(default=7, ge=0)
+    # The most of each cycle's cap the overdue tier may take. A backlog larger
+    # than this drains over several cycles instead of displacing the
+    # distributed petitions, whose order-list results are due within days.
+    max_overdue_per_run: int = Field(default=100, ge=1)
     # New petitions onboarded from the Term's numbering frontier per cycle.
     max_new_cases_per_run: int = Field(default=25, ge=0)
     # Unresolved interim applications re-polled per cycle (the application
@@ -362,6 +373,59 @@ def load_live_config(config_root: Path) -> LiveConfig:
     return LiveConfig.model_validate((data or {}).get("live", {}))
 
 
+class SweepCapsConfig(BaseModel):
+    """The ``historical.sweep_caps`` block — per-window caps on run-seed's fill sweeps.
+
+    Three standing sweeps on the walker's daily window converge index columns no
+    channel revisits, each reading only the pulled blob and the content store the
+    window already holds: ``normalize-docket-markings --sweep``,
+    ``backfill-response-fields --sweep`` and ``backfill-decision-record --sweep``.
+    A cap is a **slice**, not a refusal: a window writes at most this many rows of
+    its class, in ``case_id`` order, and leaves the rest as ``remaining`` on its
+    ledger line for the next window. Beside it a **ceiling** refuses: a class
+    found larger than it is written not at all, and the step fails, so a widened
+    predicate stops rather than draining at the cap's pace. The dispatched passes
+    on run-repair carry their blast-radius bounds, which refuse on the count a
+    maintainer read and approved.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Rows whose stored docket number still carries the capital-case marking,
+    # rewritten to the marking-free spelling per window.
+    docket_markings: int = Field(default=50, ge=1, le=1000)
+    # Rows gaining a dated response / merits-brief signal per window.
+    response_fills: int = Field(default=50, ge=1, le=1000)
+    # Granted rows gaining a merits decision record (argued date and/or
+    # decision method) per window.
+    decision_fills: int = Field(default=50, ge=1, le=1000)
+    # Each sweep's refusing ceiling on the WHOLE class it finds, before the
+    # slice: above it the window writes nothing and the step fails, because a
+    # class that size is a widened predicate rather than a backlog to drain.
+    docket_markings_ceiling: int = Field(default=500, ge=1, le=10_000)
+    response_fills_ceiling: int = Field(default=500, ge=1, le=10_000)
+    decision_fills_ceiling: int = Field(default=500, ge=1, le=10_000)
+
+    @model_validator(mode="after")
+    def _ceiling_admits_the_cap(self) -> Self:
+        for name in ("docket_markings", "response_fills", "decision_fills"):
+            if getattr(self, f"{name}_ceiling") < getattr(self, name):
+                raise ValueError(f"sweep_caps.{name}_ceiling must be at least sweep_caps.{name}")
+        return self
+
+
+def require_sweep_slice(limit: int | None, ceiling: int | None) -> None:
+    """Refuse a non-positive sweep slice or ceiling from a code caller.
+
+    The config's own bounds cover the command; a library caller passing ``0``
+    would plan nothing and a negative slice would cut from the other end of the
+    class, so both are refused where the bound is applied.
+    """
+    for name, value in (("limit", limit), ("ceiling", ceiling)):
+        if value is not None and value < 1:
+            raise ValueError(f"{name} must be a positive row count, got {value}")
+
+
 class HistoricalConfig(BaseModel):
     """The ``historical:`` section of ``tracking.yaml`` — the historical Term walker.
 
@@ -402,6 +466,8 @@ class HistoricalConfig(BaseModel):
     document_floor_term: int = Field(default=21, ge=0, le=99)
     # Per-document cap on extracted text stored in the corpus (see `live:`).
     document_text_cap: int = Field(default=150_000, ge=1_000)
+    # Per-window caps on the daily window's fill sweeps (`SweepCapsConfig`).
+    sweep_caps: SweepCapsConfig = Field(default_factory=SweepCapsConfig)
 
     @field_validator("terms")
     @classmethod

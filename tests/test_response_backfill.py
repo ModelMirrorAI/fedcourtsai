@@ -369,3 +369,79 @@ def test_cli_fails_loud_when_the_corpus_is_absent(
     result = runner.invoke(app, ["backfill-response-fields"])
     assert result.exit_code == 1
     assert "the corpus database is missing" in result.output
+
+
+# --- the standing sweep -----------------------------------------------------------
+
+
+def _two_fillable(tmp_path: Path) -> list[str]:
+    """Two granted rows each with a fillable request date, in case_id order."""
+    ids = ["scotus/900101", "scotus/900102"]
+    rows = [
+        _row(
+            case_id=case_id,
+            response_requested=True,
+            date_cert_granted=_GRANTED_AT,
+            disposition="granted",
+        )
+        for case_id in ids
+    ]
+    snapshot = _full_snapshot()[_CASE]
+    with _seeded(tmp_path, rows, dict.fromkeys(ids, snapshot)):
+        pass
+    return ids
+
+
+def test_the_limit_slices_the_fills_and_defers_the_rest(tmp_path: Path) -> None:
+    first_id, second_id = _two_fillable(tmp_path)
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        first = backfill_response_fields(conn, apply=True, limit=1)
+        assert [f.case_id for f in first.filled] == [first_id]
+        assert first.deferred == 1 and first.candidates == 2
+        second = backfill_response_fields(conn, apply=True, limit=1)
+        assert [f.case_id for f in second.filled] == [second_id]
+        assert second.deferred == 0
+        third = backfill_response_fields(conn, apply=True, limit=1)
+    assert third.filled == [] and third.deferred == 0  # drained
+    assert _stored(tmp_path, second_id).response_requested_at == date(2024, 3, 4)
+
+
+def test_cli_sweep_slices_at_the_configured_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, second_id = _two_fillable(tmp_path)
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "tracking.yaml").write_text("historical:\n  sweep_caps:\n    response_fills: 1\n")
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(config))
+    first = runner.invoke(app, ["backfill-response-fields", "--sweep", "--apply"])
+    assert first.exit_code == 0, first.output
+    assert (
+        "sweep ledger — backfill-response-fields: would fill 2; filled 1; remaining 1 (cap 1)"
+        in first.output
+    )
+    assert _stored(tmp_path, second_id).response_requested_at is None
+    second = runner.invoke(app, ["backfill-response-fields", "--sweep", "--apply"])
+    assert "would fill 1; filled 1; remaining 0 (cap 1)" in second.output
+    assert _stored(tmp_path, second_id).response_requested_at == date(2024, 3, 4)
+
+
+def test_cli_sweep_refuses_a_bound_beside_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _two_fillable(tmp_path)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(
+        app, ["backfill-response-fields", "--sweep", "--apply", "--max-fills", "5"]
+    )
+    assert result.exit_code == 2
+    assert "--sweep slices at the configured per-window cap" in result.output
+
+
+def test_the_ceiling_refuses_the_whole_class_and_writes_nothing(tmp_path: Path) -> None:
+    first_id, _ = _two_fillable(tmp_path)
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        result = backfill_response_fields(conn, apply=True, limit=1, ceiling=1)
+    assert result.refused is True and result.applied is False
+    assert _stored(tmp_path, first_id).response_requested_at is None

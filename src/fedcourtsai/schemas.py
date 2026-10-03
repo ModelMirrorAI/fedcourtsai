@@ -4911,8 +4911,17 @@ class CertBacktestSegment(_Strict):
     reports the same, per salience band, over the paid scored segment (IFP
     petitions are outside it). ``segment_base_rate`` is the mean of the items'
     leakage-safe per-Term band rates (each computed over Terms strictly before its
-    own), and ``mean_brier_skill`` the mean skill against them — null when no item
-    in the band had a prior-Term base rate.
+    own). Skill against them is given two ways, over the same items.
+    ``pooled_brier_skill`` is the ratio of sums, ``1 - sum(Brier) / sum(reference
+    Brier)`` — the band's skill as one forecaster, the estimator the forward
+    stratum's population skill uses, and the figure to read.
+    ``mean_brier_skill`` is the mean of the per-item ratios, kept so the band
+    reading stays continuous with reports written before the pooled figure; it
+    is the estimator the forward stratum rejects, because a denied petition in
+    a low-rate band has a reference Brier near zero, so one such item's ratio
+    can run to large negatives and the mean can sit below zero while the
+    pooled skill is positive. Both null when no item in the band had a
+    prior-Term base rate.
     """
 
     band: str = Field(description="The frozen band, in the assigning version's own vocabulary")
@@ -4933,9 +4942,76 @@ class CertBacktestSegment(_Strict):
     mean_brier_skill: float | None = Field(
         default=None,
         le=1.0,
-        description="Mean Brier skill vs the segment base rate over the band "
-        "(positive beats the base rate, ~0 parrots it, negative is worse); null "
-        "when no item had a base rate",
+        description="Mean of the per-item Brier skills vs each item's segment base "
+        "rate (positive beats the base rate, ~0 parrots it, negative is worse), kept "
+        "for continuity with reports written before `pooled_brier_skill`. Not "
+        "comparable with the forward stratum's population skill, which is a ratio "
+        "of sums: a denied item in a low-rate band has a reference Brier near zero, "
+        "so its ratio can run to large negatives and dominate the mean. Read "
+        "`pooled_brier_skill` for the band's skill. Null when no item had a base rate",
+    )
+    pooled_brier_skill: float | None = Field(
+        default=None,
+        le=1.0,
+        description="Ratio-of-sums Brier skill over the band: one minus the summed "
+        "Brier over the summed reference Brier (each item's base rate as its "
+        "forecast), over the items `mean_brier_skill` covers — the band's skill as "
+        "one forecaster, not swayed by a single near-zero reference, and the same "
+        "estimator as the forward stratum's population skill. Null when no item had "
+        "a base rate with a non-zero reference Brier, and on reports written before "
+        "the figure existed",
+    )
+
+
+#: The cert back-test's provisioning arms in reading order — the arm that
+#: shows the least first — shared by the report's per-entry `arms` and every
+#: surface that renders the mix, so the two cannot list them differently.
+CERT_BACKTEST_ARMS: tuple[Literal["blind", "truncated", "dated"], ...] = (
+    "blind",
+    "truncated",
+    "dated",
+)
+
+
+class CertBacktestArm(_Strict):
+    """One predictor's scores over one provisioning arm of the cert back-test set.
+
+    The arms (`blind`, `truncated`, `dated`) are three information sets, and
+    which arm a petition lands in correlates with its outcome — in either
+    direction, so a pooled lift can be carried by one arm. This splits an
+    entry's disposition score by arm so that is read off the report rather
+    than reconstructed. Counts, not only rates: at the pinned draw an arm holds
+    one to a handful of petitions, so read `correct` against `denied` over
+    `events_scored` (the arm's lift **in petitions** is ``correct - denied``),
+    never a percentage without its n.
+    """
+
+    arm: Literal["blind", "truncated", "dated"] = Field(
+        description="The snapshot provenance the petitions were provisioned under"
+    )
+    events_scored: int = Field(ge=1, description="Petitions of this arm the entry was scored on")
+    correct: int = Field(
+        ge=0, description="Of those, the petitions whose disposition the entry called"
+    )
+    denied: int = Field(
+        ge=0,
+        description="Of those, the realized denials — what always-deny gets right "
+        "on this arm, so the arm's floor is this over `events_scored`",
+    )
+    granted: int = Field(
+        ge=0,
+        description="Of those, the realized grant-family outcomes (granted, "
+        "granted-in-part, GVR, summary reversal); the remainder after `denied` "
+        "and this is dismissed or withdrawn (the replay takes only machine-readable "
+        "dispositions)",
+    )
+    accuracy: float = Field(ge=0.0, le=1.0, description="`correct` over `events_scored`")
+    lift_over_always_denied: float = Field(
+        ge=-1.0,
+        le=1.0,
+        description="`accuracy` minus this arm's own always-deny floor "
+        "(`denied` over `events_scored`) — the per-petition share of "
+        "``correct - denied``",
     )
 
 
@@ -5005,16 +5081,79 @@ class CertBacktestDispatch(_Strict):
     )
     spread: bool = Field(
         default=False,
-        description="``--spread``: sampled across conference cohorts instead of the "
-        "most recently decided N, which collapses onto the grant-heavy last order "
-        "lists — a different grant mix, so the floor and every lift move with it",
+        description="``--spread``: drawn by the salted-hash rule (`provenance.draw`) — "
+        "a pseudo-random sample spread over the eligible population's conferences "
+        "and Terms in proportion to their size (on an engine replay, the replayable "
+        "population's, which reaches back only a few Terms) — instead of the most "
+        "recently decided N, "
+        "which collapses onto the grant-heavy last order lists. A different grant "
+        "mix, so the floor and every lift move with it",
     )
     limit: int = Field(
         default=0,
         ge=0,
-        description="``--limit``: the cap on the cert set before unreplayable "
-        "petitions were dropped. `events_scored` is what survived that filter, so "
-        "a gap between the two is coverage, not sampling",
+        description="``--limit``: the size of the drawn set. On an engine replay "
+        "the draw passes over petitions it cannot replay and keeps walking "
+        "(`provenance.draw.passed_over`), so the set's size falls short of it only "
+        "where the eligible population is smaller than the limit",
+    )
+
+
+#: The rule that drew a cert back-test set from its population. ``recency-head``
+#: takes the most recently decided petitions in order; ``vintage-keyed-hash-v1``
+#: takes them in the order of a salted SHA-256 of the case id keyed by the
+#: corpus vintage — a pseudo-random order no outcome, date or conference feeds.
+CertBacktestDrawRule = Literal["recency-head", "vintage-keyed-hash-v1"]
+
+
+class CertBacktestDraw(_Strict):
+    """How a cert back-test set was drawn from its population.
+
+    Recorded because the draw rule decides the set's grant mix, and so the
+    always-deny floor every lift is measured against, while the dispatch alone
+    does not say which rule ran. ``vintage-keyed-hash-v1`` (``--spread``) ranks
+    every petition in the population by
+    ``sha256("<salt>|<key>|<case_id>")`` and walks that order, taking each
+    eligible petition until ``limit``: a simple random sample without
+    replacement, so the set's expected outcome mix is the eligible
+    population's (on an engine replay, the replayable population's) and each of
+    that population's conferences and Terms holds a share in proportion to its
+    size. The key is the corpus vintage, so the same corpus and the same
+    dispatch draw the same set while snapshot coverage holds still, and a newer
+    corpus draws afresh.
+    """
+
+    rule: CertBacktestDrawRule = Field(
+        default="recency-head",
+        description="'recency-head': the most recently decided petitions in order "
+        "(`--no-spread`), which lands a small limit on the last order lists. "
+        "'vintage-keyed-hash-v1' (`--spread`): the salted-hash order described "
+        "on this block, independent of outcome, decision date and conference",
+    )
+    salt: str | None = Field(
+        default=None,
+        description="The fixed salt the hash rule mixes in, recorded so the walk "
+        "order can be recomputed from the report; the set also needs the blob and, "
+        "on a replay, the snapshot coverage at run time. Null under 'recency-head'",
+    )
+    key: str | None = Field(
+        default=None,
+        description="The corpus vintage the hash rule was keyed by: the blob's "
+        "newest `last_pulled` stamp (ISO date), or 'undated' where no row carries "
+        "one. Two reports with the same key and dispatch over the same blob drew "
+        "the same set, provided the content store's snapshot coverage did not move "
+        "between them. Null under 'recency-head'",
+    )
+    passed_over: int = Field(
+        default=0,
+        ge=0,
+        description="Petitions the walk reached and passed over because an engine "
+        "replay could not run them (no held snapshot or petition event) before "
+        "the set filled. The set is drawn from the replayable population, so this "
+        "is coverage, not sampling — and replayable coverage is not "
+        "outcome-neutral, so the replayable population's floor, not the whole "
+        "population's, is what the drawn set estimates. 0 where no engine replay "
+        "ran: the offline baselines need no snapshot",
     )
 
 
@@ -5226,6 +5365,13 @@ class CertBacktestProvenance(_Strict):
         description="The parameters the run was dispatched with — the population "
         "definition and the engine routing behind these scores",
     )
+    draw: CertBacktestDraw | None = Field(
+        default=None,
+        description="How the set was drawn from its population — the rule, and the "
+        "salt and corpus-vintage key a hash draw used. Null on the empty report "
+        "and on reports written before the draw was recorded, whose draw rule the "
+        "artifact cannot say",
+    )
     salience_floor: float | None = Field(
         default=None,
         ge=0.0,
@@ -5361,6 +5507,16 @@ class CertBacktestEntry(_Strict):
         "baseline skill the forward stratum measures. Empty when no statpack was "
         "supplied (offline runs) or no paid-segment petition was scored",
     )
+    arms: list[CertBacktestArm] = Field(
+        default_factory=list,
+        description="The entry's disposition score split by provisioning arm "
+        "(blind, truncated, dated, in that order; an arm the entry scored nothing on omitted), "
+        "each against that arm's own always-deny floor. The arms' `correct` sum "
+        "to this entry's correct count and their `events_scored` to its own, so "
+        "a pooled lift reads as the sum of the arms' lifts in petitions. Empty "
+        "where no clock recorded the arms (a run with no replay), and on reports "
+        "written before the split existed",
+    )
     big_case: CertBacktestBigCase | None = Field(
         default=None,
         description="The predictor's pre-registered big-case-score distribution over "
@@ -5455,11 +5611,12 @@ class CertBacktest(_Strict):
         "three different information sets, and a figure over their union is a "
         "figure over a mixture: a blind petition cannot observe its own relist "
         "history at all, which is most of what a cert forecast turns on. The "
-        "mixture is not neutral either — a docket with no distribution to show is "
-        "the strongest denial signal here, so the blind arm is selected on an "
-        "outcome-correlated feature, which raises the pooled floor and dilutes "
-        "every lift measured over the union. Read the mix before reading the "
-        "scores. Empty on reports written before the split existed",
+        "mixture is not neutral either — the blind arm is selected on "
+        "outcome-correlated features (a docket with no distribution to show, or "
+        "one whose kept entries already showed a disposition), so it can come out "
+        "denial-pure or grant-pure and can depress or carry a pooled lift. Read "
+        "it as a count, beside each entry's `arms`, before reading the scores. "
+        "Empty on reports written before the split existed",
     )
     provisioning_denied: dict[str, int] = Field(
         default_factory=dict,
@@ -5467,10 +5624,9 @@ class CertBacktest(_Strict):
         "many were realized denials — keyed the same, a zero stated rather than "
         "omitted. Each arm's own always-deny floor is its count here over its count "
         "there, which undoes the mixture in the floor: the pooled "
-        "`always_denied_accuracy` is those floors weighted by the arm sizes. It "
-        "does not split the scores — no entry's accuracy is broken out by arm — so "
-        "it says how much of the pooled floor the blind arm carries, not how an "
-        "entry did on each arm. Beside `provenance.clocks`, which names each "
+        "`always_denied_accuracy` is those floors weighted by the arm sizes. The "
+        "scores are split the same way in each entry's `arms`. Beside "
+        "`provenance.clocks`, which names each "
         "petition's arm, it states a named petition's outcome wherever its arm is "
         "pure, which includes every arm of one. Over the whole replayed "
         "set, like the pooled floor, so an entry short some cells "

@@ -58,9 +58,26 @@ from .cert_signals import entry_date, proceedings_entries
 _RESPONDENT_BRIEF_RE = re.compile(
     r"^\s*brief\s+of\s+(?:the\s+)?(?:\S+\s+){0,3}?respondents?\b", re.I
 )
-_PETITIONER_BRIEF_RE = re.compile(
-    r"^\s*brief\s+of\s+(?:the\s+)?(?:\S+\s+){0,3}?petitioners?\b", re.I
-)
+
+# The **document selector's** opening, which reads two spellings the moment's
+# anchor above does not: "Brief **for** the petitioner filed." — the Court's own
+# title form, naming no party — and a leading **"Redacted"**, the public copy of
+# a brief filed under seal ("Redacted brief of petitioner Jane Roe filed.").
+# Still start-anchored, and that is what keeps a filing *about* a brief out: "Motion
+# to file petitioner's brief on the merits under seal with redacted copies" and
+# "Motion for an extension of time to file the briefs on the merits" open on
+# "Motion", so neither reaches "brief" at the start of the entry.
+#
+# The petitioner arm takes it outright, because nothing dates a moment off the
+# petitioner's brief. The respondent arm takes it only through the selector's
+# predicate (:func:`is_respondent_merits_brief_document`), and the moment's
+# reading (:func:`is_respondent_merits_brief`, behind
+# :func:`respondent_brief_date`) reads the narrower anchor above, because that
+# reading dates the registered briefed moment, and moving that moment is a
+# different change from giving a cell a document it can read.
+_BRIEF_DOCUMENT_OPENING = r"^\s*(?:redacted\s+)?brief\s+(?:of|for)\s+(?:the\s+)?(?:\S+\s+){0,3}?"
+_RESPONDENT_BRIEF_DOCUMENT_RE = re.compile(_BRIEF_DOCUMENT_OPENING + r"respondents?\b", re.I)
+_PETITIONER_BRIEF_RE = re.compile(_BRIEF_DOCUMENT_OPENING + r"petitioners?\b", re.I)
 
 # Each side's REPLY on the merits — the last word on the argument, and the one
 # filing that answers the other side's brief directly. The mirror of the pair
@@ -82,12 +99,15 @@ _PETITIONER_BRIEF_RE = re.compile(
 # counsel's own name rather than a party's ("Reply of AT&T, Inc. and Verizon
 # Communications Inc. filed."), which no party-word anchor can reach and which is
 # left unfetched rather than guessed at.
-_RESPONDENT_REPLY_RE = re.compile(
-    r"^\s*reply\s+(?:brief\s+)?of\s+(?:the\s+)?(?:\S+\s+){0,3}?respondents?\b", re.I
+#
+# The reply takes the same two widenings as the opening briefs — "Reply brief
+# for the petitioner filed." and a leading "Redacted" — so a side's last word is
+# read on the terms its opening brief is. Nothing dates a moment off a reply.
+_REPLY_OPENING = (
+    r"^\s*(?:redacted\s+)?reply\s+(?:brief\s+)?(?:of|for)\s+(?:the\s+)?(?:\S+\s+){0,3}?"
 )
-_PETITIONER_REPLY_RE = re.compile(
-    r"^\s*reply\s+(?:brief\s+)?of\s+(?:the\s+)?(?:\S+\s+){0,3}?petitioners?\b", re.I
-)
+_RESPONDENT_REPLY_RE = re.compile(_REPLY_OPENING + r"respondents?\b", re.I)
+_PETITIONER_REPLY_RE = re.compile(_REPLY_OPENING + r"petitioners?\b", re.I)
 
 # Collateral **motion** practice, which the reply family reaches and the opening
 # briefs do not. The unpartied form falls outside the anchor already ("Reply on
@@ -160,14 +180,32 @@ def is_respondent_merits_brief(text: str) -> bool:
     ) and not _NOT_THE_RESPONDENT_MERITS_FILING_RE.search(text)
 
 
+def is_respondent_merits_brief_document(text: str) -> bool:
+    """Whether an entry is the respondent's brief on the merits, as the selector reads it.
+
+    :func:`is_respondent_merits_brief` plus the two spellings the selector's
+    opening reads (:data:`_BRIEF_DOCUMENT_OPENING`): "Brief for the
+    respondent(s) …" and a leading "Redacted". Kept apart from that predicate
+    because that one dates the registered briefed moment
+    (:func:`respondent_brief_date`), and which document a cell is given is a
+    different question from when its moment opens. Same exclusions, same
+    contract: text alone, the post-grant bound owed by the caller.
+    """
+    return bool(
+        _RESPONDENT_BRIEF_DOCUMENT_RE.search(text)
+    ) and not _NOT_THE_RESPONDENT_MERITS_FILING_RE.search(text)
+
+
 def is_petitioner_merits_brief(text: str) -> bool:
     """Whether an entry reads as the petitioner's brief on the merits.
 
-    The mirror of :func:`is_respondent_merits_brief`, and the same contract: text
-    alone, with the post-grant bound owed by the caller. Nothing dates a
-    petitioner-side moment — the milestone this module forecasts from is the
-    respondent's — so this exists for the document selector, which needs to know
-    *which entry* the brief is rather than when it arrived.
+    The mirror of :func:`is_respondent_merits_brief_document`, and the same
+    contract: text alone, with the post-grant bound owed by the caller. Nothing
+    dates a petitioner-side moment — the milestone this module forecasts from is
+    the respondent's — so this exists for the document selector, which needs to
+    know *which entry* the brief is rather than when it arrived, and it reads the
+    selector's wider opening ("Brief for the petitioner filed.", "Redacted brief
+    of petitioner … filed.") directly.
     """
     return bool(
         _PETITIONER_BRIEF_RE.search(text)

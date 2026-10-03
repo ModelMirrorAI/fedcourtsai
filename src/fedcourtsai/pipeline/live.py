@@ -13,7 +13,8 @@ Deterministic, no agent. Each cycle:
   also probes the *outgoing* Term (``LiveConfig.outgoing_term_grace_days``), so a
   late filing onto the old prefix is caught before it is lost.
 - **Refresh** re-polls the live modern-cert watchlist
-  (:func:`fedcourtsai.corpus.live_rotation` — recent Terms first, then stalest;
+  (:func:`fedcourtsai.corpus.live_rotation` — overdue dockets first, then
+  distributed petitions by conference, then recent Terms, then stalest;
   pending petitions plus the granted dockets whose merits proceeding is still
   open) and detects resolution: the disposition orders ride in the proceedings
   text,
@@ -51,7 +52,7 @@ import sqlite3
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -72,7 +73,7 @@ from ..supremecourt import (
     parse_scotus_docket_number,
     term_roll_date,
 )
-from .documents import fetch_case_documents
+from .documents import fetch_case_documents, fetch_consolidation_lead
 from .events import extract_events
 from .ingest import (
     UNSAMPLED_WEIGHT,
@@ -326,11 +327,20 @@ def provision_documents(
     is provisioned, and the fetch happens near filing time (document links are
     a rolling window upstream). Idempotent per (kind, url); returns the number
     of documents written.
+
+    A granted **consolidated member** — a docket carrying the Court's entry that moves
+    every later filing to a lead docket — costs one more paced GET, for the
+    lead's JSON (:func:`~fedcourtsai.pipeline.documents.fetch_consolidation_lead`),
+    because its merits briefs and replies are entered there and never on its
+    own docket. They are stored under the member with the lead's URL; a lead
+    the fetch did not return is warned into the run log and the member's own
+    documents are stored without it. Any other docket costs no extra request.
     """
     with corpus.connect(corpus_db_path) as conn:
         stored = {d.kind: d.url for d in corpus.documents_for_case(conn, case_id)}
+    lead = fetch_consolidation_lead(client, case_id, payload).payload
     documents = fetch_case_documents(
-        client, case_id, payload, stored_urls=stored, char_cap=char_cap, today=today
+        client, case_id, payload, stored_urls=stored, char_cap=char_cap, today=today, lead=lead
     )
     if not documents:
         return 0
@@ -1325,11 +1335,20 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
 
     fresh = set(discovery.case_ids)
     max_cases = config.max_cases_per_run
+    overdue_before = (
+        today - timedelta(days=config.max_poll_staleness_days)
+        if config.max_poll_staleness_days > 0
+        else None
+    )
     with corpus.connect(corpus_db_path) as conn:
         due = [
             row
             for row in corpus.live_rotation(
-                conn, limit=max_cases + len(fresh), term_floor_year=config.term_floor_year
+                conn,
+                limit=max_cases + len(fresh),
+                term_floor_year=config.term_floor_year,
+                overdue_before=overdue_before,
+                overdue_limit=config.max_overdue_per_run,
             )
             if row.case_id not in fresh
         ][:max_cases]

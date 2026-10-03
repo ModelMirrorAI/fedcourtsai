@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 import threading
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -22,12 +23,16 @@ from fedcourtsai.backtest import (
     ConstantBacktester,
 )
 from fedcourtsai.cert_backtest import (
+    SPREAD_DRAW_RULE,
+    SPREAD_DRAW_SALT,
     _kept_entries_show_a_disposition,
+    cert_backtest_population,
+    draw_cert_backtest_set,
     redact_snapshot,
     replay_predictors,
-    replayable_items,
     run_cert_backtest,
     select_cert_backtest_set,
+    spread_draw_rank,
     truncate_snapshot,
 )
 from fedcourtsai.cli import app
@@ -54,6 +59,7 @@ from fedcourtsai.schemas import (
     CertBacktestCellClock,
     CertBacktestCellLoss,
     CertBacktestDisclosureTally,
+    CertBacktestDraw,
     CertBacktestProvenance,
     Disposition,
     FlagCategory,
@@ -257,28 +263,114 @@ def test_scope_paid_drops_ifp_and_selected_keeps_the_carveout_core(tmp_path: Pat
     assert selected_ids == {"scotus/paidhot", "scotus/cvsg"}  # below-floor paid dropped too
 
 
-def test_spread_round_robins_across_conferences(tmp_path: Path) -> None:
-    # Recency order alone takes the newest N from one conference; --spread instead
-    # draws the newest from each conference in turn — a term-cadence sample.
-    db = tmp_path / "corpus.db"
-    conf_a, conf_b, conf_c = date(2024, 1, 5), date(2024, 2, 16), date(2024, 3, 15)
-    with corpus.connect(db) as conn:
-        corpus.upsert_rows(
-            conn,
-            [
-                _cert_row("scotus/a1", "23-101", conference=conf_a, decided=date(2024, 6, 10)),
-                _cert_row("scotus/a2", "23-102", conference=conf_a, decided=date(2024, 6, 9)),
-                _cert_row("scotus/a3", "23-103", conference=conf_a, decided=date(2024, 6, 8)),
-                _cert_row("scotus/b1", "23-201", conference=conf_b, decided=date(2024, 5, 10)),
-                _cert_row("scotus/b2", "23-202", conference=conf_b, decided=date(2024, 5, 9)),
-                _cert_row("scotus/c1", "23-301", conference=conf_c, decided=date(2024, 4, 10)),
-            ],
+def _seed_tail_skewed_cohorts(db: Path, *, pulled: date | None = None) -> None:
+    # Twenty conferences of ten petitions each, where every conference's
+    # latest-resolving petition is a grant and the rest are denials (a 90% floor),
+    # plus three never-distributed dismissals decided after all of them — the
+    # shape that made a latest-per-cohort draw all grants and dismissals.
+    rows: list[corpus.CorpusRow] = []
+    for c in range(20):
+        conf = date(2024, 1, 5) + timedelta(days=7 * c)
+        for k in range(10):
+            row = _cert_row(
+                f"scotus/c{c:02d}p{k}",
+                f"23-{100 + c * 10 + k}",
+                disposition=Disposition.granted if k == 0 else Disposition.denied,
+                conference=conf,
+                decided=conf + timedelta(days=30 - k),
+            )
+            rows.append(row.model_copy(update={"last_pulled": pulled}) if pulled else row)
+    for k in range(3):
+        rows.append(
+            _cert_row(
+                f"scotus/nc{k}",
+                f"23-{900 + k}",
+                disposition=Disposition.dismissed,
+                decided=date(2024, 9, 1) + timedelta(days=k),
+            )
         )
     with corpus.connect(db) as conn:
-        plain = [i.features.case_id for i in select_cert_backtest_set(conn, limit=3)]
-        spread = [i.features.case_id for i in select_cert_backtest_set(conn, limit=3, spread=True)]
-    assert plain == ["scotus/a1", "scotus/a2", "scotus/a3"]  # all from the newest conference
-    assert spread == ["scotus/a1", "scotus/b1", "scotus/c1"]  # one from each, newest-conf first
+        corpus.upsert_rows(conn, rows)
+
+
+def test_spread_draws_near_the_population_floor_not_the_cohort_tails(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_tail_skewed_cohorts(db)
+    with corpus.connect(db) as conn:
+        population = cert_backtest_population(conn)
+        drawn = draw_cert_backtest_set(conn, limit=40, spread=True)
+    assert len(population) == 203
+    outcomes = [i.actual_disposition for i in drawn.items]
+    # The cohort tails are 23 of 203 petitions; a draw blind to recency holds
+    # them at about their share (the realized count is fixed by the salt).
+    assert outcomes.count(Disposition.denied) >= 32
+    conferences = {i.features.case_id.split("p")[0] for i in drawn.items}
+    assert len(conferences) >= 15  # spread over the conferences, not bunched
+
+
+def test_spread_draw_is_the_salted_hash_order_keyed_by_vintage(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_tail_skewed_cohorts(db)
+    with corpus.connect(db) as conn:
+        population = cert_backtest_population(conn)
+        drawn = draw_cert_backtest_set(conn, limit=12, spread=True)
+        again = draw_cert_backtest_set(conn, limit=12, spread=True)
+    key = "undated"  # no row carries a pull stamp
+    expected = sorted((r.case_id for r in population), key=lambda c: spread_draw_rank(key, c))
+    ids = [i.features.case_id for i in drawn.items]
+    # The draw is exactly the top of the hash order, in that order — so the
+    # never-distributed rows enter by rank like any other, with no slot reserved,
+    # and any prefix of the set is itself a random subsample.
+    assert ids == expected[:12]
+    assert ids == [i.features.case_id for i in again.items]  # same corpus, same draw
+    assert drawn.draw == CertBacktestDraw(
+        rule=SPREAD_DRAW_RULE, salt=SPREAD_DRAW_SALT, key=key, passed_over=0
+    )
+    assert (
+        spread_draw_rank(key, "scotus/x")
+        == hashlib.sha256(f"{SPREAD_DRAW_SALT}|{key}|scotus/x".encode()).hexdigest()
+    )
+
+    # A newer corpus vintage re-keys the draw: a fresh sample, still reproducible.
+    newer = tmp_path / "newer.db"
+    _seed_tail_skewed_cohorts(newer, pulled=date(2024, 10, 1))
+    with corpus.connect(newer) as conn:
+        rekeyed = draw_cert_backtest_set(conn, limit=12, spread=True)
+    assert rekeyed.draw.key == "2024-10-01"
+    assert [i.features.case_id for i in rekeyed.items] != ids
+
+
+def test_spread_replay_draw_walks_the_hash_order_past_unreplayable_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # On an engine replay the hash walk passes over what it cannot replay and
+    # keeps going: the set is the hash order filtered to replayable rows, cut at
+    # the limit, and every row ranked above the last kept one that was not kept
+    # is counted as passed over.
+    db = tmp_path / "corpus.db"
+    _seed_tail_skewed_cohorts(db)
+    replayable = {f"scotus/c{c:02d}p{k}" for c in range(20) for k in range(10) if (c + k) % 3 == 0}
+    monkeypatch.setattr(
+        cert_backtest, "is_replayable", lambda _conn, case_id: case_id in replayable
+    )
+    with corpus.connect(db) as conn:
+        population = cert_backtest_population(conn)
+        drawn = draw_cert_backtest_set(conn, limit=9, spread=True, replayable_only=True)
+    order = sorted((r.case_id for r in population), key=lambda c: spread_draw_rank("undated", c))
+    kept = [c for c in order if c in replayable][:9]
+    assert [i.features.case_id for i in drawn.items] == kept
+    walked = order[: order.index(kept[-1]) + 1]
+    assert drawn.passed_over == [c for c in walked if c not in replayable]
+    assert drawn.draw.passed_over == len(drawn.passed_over) > 0
+
+
+def test_no_spread_keeps_the_recency_head(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_tail_skewed_cohorts(db)
+    with corpus.connect(db) as conn:
+        drawn = draw_cert_backtest_set(conn, limit=3)
+    assert [i.features.case_id for i in drawn.items] == ["scotus/nc2", "scotus/nc1", "scotus/nc0"]
+    assert drawn.draw == CertBacktestDraw(rule="recency-head")
 
 
 def test_select_rejects_an_unknown_scope(tmp_path: Path) -> None:
@@ -1377,9 +1469,9 @@ def test_replay_unknown_override_still_raises(fixture_corpus: FixtureCorpus) -> 
         )
 
 
-def test_replayable_items_drops_snapshotless_petitions(fixture_corpus: FixtureCorpus) -> None:
+def test_replayable_draw_passes_over_snapshotless_petitions(fixture_corpus: FixtureCorpus) -> None:
     # A bulk-seeded row has no snapshot or petition event until its first fetch;
-    # the pre-flight names it and keeps the report's set consistent.
+    # the draw passes over it and keeps the report's set consistent.
     with corpus.connect(fixture_corpus.db_path) as conn:
         corpus.upsert_rows(
             conn,
@@ -1394,10 +1486,13 @@ def test_replayable_items_drops_snapshotless_petitions(fixture_corpus: FixtureCo
             ],
         )
         items = select_cert_backtest_set(conn)
+        drawn = draw_cert_backtest_set(conn, limit=1, replayable_only=True)
     assert [i.features.case_id for i in items] == ["scotus/999", "scotus/304"]
-    kept, skipped = replayable_items(fixture_corpus.db_path, items)
-    assert [i.features.case_id for i in kept] == ["scotus/304"]
-    assert skipped == ["scotus/999"]
+    # The draw passes over the unreplayable petition and keeps walking, so the
+    # limit is filled from the replayable population rather than lost to it.
+    assert [i.features.case_id for i in drawn.items] == ["scotus/304"]
+    assert drawn.passed_over == ["scotus/999"]
+    assert drawn.draw.passed_over == 1
 
 
 def test_cli_auto_routes_and_skips_partial_coverage(
@@ -1425,10 +1520,12 @@ def test_cli_auto_routes_and_skips_partial_coverage(
     )
     assert result.exit_code == 0, result.output
     report = read_model(out, CertBacktest)
-    # The snapshotless petition was dropped up front; every backtester —
+    # The draw passed over the snapshotless petition; every backtester —
     # offline baselines included — scored the same one-petition set.
     assert report.events_scored == 1
-    assert "skipped 1 petition(s) without a replayable snapshot: scotus/999" in result.stderr
+    assert "passed over 1 drawn petition(s) without a replayable snapshot (scotus/999)" in (
+        result.stderr
+    )
     ids = {e.predictor_id for e in report.entries}
     # Every enabled predictor replays through its own engine — gemini-baseline
     # included, now that the gemini runner is registered.
@@ -1511,6 +1608,11 @@ def test_cli_stub_report_self_identifies_as_stub(
     assert dispatch.scope == "paid"
     assert dispatch.spread is True
     assert dispatch.limit == 7
+    # The draw rule and what keyed it, so the set can be recomputed from the report.
+    draw = report.provenance.draw
+    assert draw is not None
+    assert (draw.rule, draw.salt) == (SPREAD_DRAW_RULE, SPREAD_DRAW_SALT)
+    assert draw.key is not None
     assert report.provenance.run_id is not None  # a replay ran, so it has a run
     # The frozen config that moves the population and the baselines under an
     # identical dispatch string rides along, or the block cannot decompose a
@@ -2734,3 +2836,134 @@ def test_each_lane_runs_under_its_own_identically_provisioned_root(
         event = next((work_root / lane).rglob("event.yaml")).read_bytes()
         inputs.add((snapshot, context, event))
     assert len(inputs) == 1
+
+
+# --- Per-arm scores and the pooled band skill -------------------------------
+
+
+def split_arm_report() -> CertBacktest:
+    """A ten-petition report shaped like the first standing real-engine sample.
+
+    Eight truncated petitions (six denied, one granted, one dismissed), one dated
+    grant and one blind grant. Three engine entries each call every denial and
+    the blind grant and nothing else, so each scores 7/10 against a 6/10 floor —
+    tied on accuracy, separated only by Brier — and the whole +1 petition of
+    lift sits on the blind arm: on the nine non-blind petitions every engine
+    ties the floor. The always-deny baseline rides along as a whole-set entry.
+    """
+    truncated = [
+        *(("scotus/t" + str(i), Disposition.denied) for i in range(1, 7)),
+        ("scotus/t7", Disposition.granted),
+        ("scotus/t8", Disposition.dismissed),
+    ]
+    labels = [*truncated, ("scotus/d1", Disposition.granted), ("scotus/b1", Disposition.granted)]
+    items = [_item(case_id, actual) for case_id, actual in labels]
+    clocks = [
+        *(_clock(case_id, "truncated", date(2025, 5, 1)) for case_id, _ in truncated),
+        _clock("scotus/d1", "dated", date(2025, 6, 2)),
+        _clock("scotus/b1", "blind"),
+    ]
+
+    def engine(predictor_id: str, doubt: float) -> cert_backtest.ReplayedBacktester:
+        predictions = {
+            case_id: BacktestPrediction(Disposition.denied, doubt) for case_id, _ in labels
+        }
+        predictions["scotus/b1"] = BacktestPrediction(Disposition.granted, 1 - doubt)
+        return cert_backtest.ReplayedBacktester(
+            id=predictor_id, predictions=predictions, engine="stub"
+        )
+
+    return run_cert_backtest(
+        [
+            engine("claude-baseline", 0.20),
+            engine("codex-baseline", 0.15),
+            engine("gemini-baseline", 0.10),
+            ConstantBacktester(id="constant-denied", disposition=Disposition.denied),
+        ],
+        items,
+        provisioning={"truncated": 8, "dated": 1, "blind": 1},
+        provenance=CertBacktestProvenance(clocks=clocks),
+    )
+
+
+def test_an_entry_is_scored_per_provisioning_arm() -> None:
+    """Each entry carries its score on each arm against that arm's own floor.
+
+    A pooled lift over a mixture of information sets can be carried by one arm,
+    and at a ten-petition draw by one petition: the split is what shows it. The
+    arms add back up to the entry — counts and lift in petitions alike.
+    """
+    report = split_arm_report()
+    claude = next(e for e in report.entries if e.predictor_id == "claude-baseline")
+    assert [arm.arm for arm in claude.arms] == ["blind", "truncated", "dated"]
+    by_arm = {arm.arm: arm for arm in claude.arms}
+    blind, truncated, dated = by_arm["blind"], by_arm["truncated"], by_arm["dated"]
+    assert (blind.events_scored, blind.correct, blind.denied, blind.granted) == (1, 1, 0, 1)
+    assert (truncated.events_scored, truncated.correct, truncated.denied) == (8, 6, 6)
+    assert truncated.granted == 1  # the dismissal is neither
+    assert (dated.events_scored, dated.correct, dated.denied, dated.granted) == (1, 0, 0, 1)
+    assert blind.lift_over_always_denied == 1.0
+    assert truncated.lift_over_always_denied == 0.0
+    assert dated.lift_over_always_denied == 0.0
+    # The arms reassemble the entry: its n, its correct count, its lift in petitions.
+    assert sum(a.events_scored for a in claude.arms) == claude.events_scored
+    assert sum(a.correct for a in claude.arms) == round(claude.accuracy * claude.events_scored)
+    assert sum(a.correct - a.denied for a in claude.arms) == round(
+        claude.lift_over_always_denied * claude.events_scored
+    )
+    # The per-arm denials agree with the report's own per-arm floor counts.
+    assert {a.arm: a.denied for a in claude.arms} == report.provisioning_denied
+
+
+def test_no_clock_means_no_arm_split() -> None:
+    """Without the clocks nothing says which arm a petition sat in, so no split is guessed."""
+    report = run_cert_backtest(
+        [ConstantBacktester(id="constant-denied", disposition=Disposition.denied)],
+        [_item("scotus/1", Disposition.denied)],
+        provisioning={"truncated": 1},
+    )
+    assert report.entries[0].arms == []
+
+
+def test_band_skill_is_reported_as_a_ratio_of_sums_beside_the_mean_of_ratios() -> None:
+    """The mean of per-item skills can sit below zero while the band beats its base rate.
+
+    A denied petition in a band whose rate is near zero has a reference Brier
+    near zero, so a forecast a few points off it scores a ratio in the large
+    negatives and drags the mean down; the pooled ratio weights each item by
+    its reference Brier and reads the band as one forecaster.
+    """
+    items = [_item("scotus/1", Disposition.denied), _item("scotus/2", Disposition.granted)]
+    segments = {
+        "scotus/1": cert_backtest._ItemSegment(band="baseline", base_rate=0.01),
+        "scotus/2": cert_backtest._ItemSegment(band="baseline", base_rate=0.01),
+    }
+
+    class Calls:
+        id = "calls"
+
+        def predict(self, features: BacktestFeatures) -> BacktestPrediction:
+            if features.case_id == "scotus/1":
+                return BacktestPrediction(Disposition.denied, 0.05)
+            return BacktestPrediction(Disposition.granted, 0.6)
+
+    report = run_cert_backtest([Calls()], items, segments=segments)
+    (band,) = report.entries[0].segments
+    # Per item: 1 - 0.0025/0.0001 = -24, and 1 - 0.16/0.9801 ≈ 0.837.
+    assert band.mean_brier_skill == pytest.approx((-24 + (1 - 0.16 / 0.9801)) / 2)
+    assert band.mean_brier_skill is not None and band.mean_brier_skill < 0
+    # Pooled: 1 - (0.0025 + 0.16) / (0.0001 + 0.9801).
+    assert band.pooled_brier_skill == pytest.approx(1 - 0.1625 / 0.9802)
+    assert band.pooled_brier_skill is not None and band.pooled_brier_skill > 0
+
+
+def test_pooled_band_skill_is_null_without_a_base_rate() -> None:
+    items = [_item("scotus/1", Disposition.denied)]
+    segments = {"scotus/1": cert_backtest._ItemSegment(band="baseline", base_rate=None)}
+    report = run_cert_backtest(
+        [ConstantBacktester(id="constant-denied", disposition=Disposition.denied)],
+        items,
+        segments=segments,
+    )
+    (band,) = report.entries[0].segments
+    assert band.mean_brier_skill is None and band.pooled_brier_skill is None

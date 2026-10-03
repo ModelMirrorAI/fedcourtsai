@@ -6204,3 +6204,448 @@ freeze commit is recorded here.
   the lists as stored, non-empty on the priors that carry them. `uv run
   fedcourts process-digest --all` still prints
   `proc-v8` and the same six digests.
+
+- **A self-represented filer captioned "In re <name>" is read as its own
+  attorney by both contact scrubs, 2026-10-02.** A **conditioning** entry in
+  the *what the pipeline provisions* class. The self-naming arm compares the
+  first and last tokens of `PartyName` and `Attorney`, and a party served as
+  "In re Jane Doe" against an attorney served as "Jane Doe" compared `{in,
+  doe}` with `{jane, doe}`, so a filer appearing in person on an application
+  or an extraordinary writ was staged with their contact details as served.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary. The staged snapshot and the staged
+  document text live in the gitignored `record/`, and `prediction.json` has no
+  field separating a cell that read the filer's address from one that read a
+  placeholder there. The boundary exists only here, and a stamped cell is
+  post-change if the carrying promotion's merge commit is an ancestor of, or
+  equal to, its `process_version.pipeline_sha`. On an affected docket, cells on
+  either side of the boundary may not be pooled.
+
+  **What changes.** Before the first-and-last-token comparison, a leading
+  caption — `In re`, `In the Matter of` or `Ex parte`, in any case and followed
+  by any run of blanks, colons, periods or commas — is cut from either name,
+  and only where a name follows it. The predicate is the one shared by the
+  petitioner, respondent and `Other` lists, so the docket-level trigger
+  (`unrepresented_sides`), the staged-snapshot scrub and the value pass all
+  read the cut name. In practice the cut only widens: over the blob below,
+  no block on any list that compared equal before compares unequal after. A
+  name that merely begins with the same letters ("Inez") is untouched.
+  Captions whose remainder is not the filer's name ("In re Application of …",
+  "In the Matter of the Estate of …") still compare their first remaining
+  token and stay as served.
+
+  **The population.** An ad hoc read that runs the real `unrepresented_sides`,
+  `scrub_snapshot_contacts`, `party_contact_values` and `scrub_contact_details`
+  over each case's latest stored payload and stored documents in the pulled
+  blob, against a copy of the comparison without the cut. The blob is
+  `sha256:ce9359e9…`, whose newest pull stamp is `2026-09-29` and whose newest
+  stored snapshot is `2026-07-13`. The per-case content store, which alone
+  holds most current dockets, was not read, so this is a figure about the blob
+  and not about the provisioned population.
+  - Of **2,925** latest payloads, **6** blocks carry a leading caption, all on
+    the petitioner side and all an `In re` caption, in either case.
+  - **2** of them newly qualify on the self-naming arm, on **2** dockets
+    (72483472, 73274814), both newly scrubbed: **8** snapshot values are
+    withheld across the 2 blocks, and **6** spans in the one stored petition
+    among their 2 stored documents.
+  - **2** already qualified on the register-number arm and are unchanged.
+  - **2** stay represented: one names a different attorney after the cut, and
+    one caption names a proceeding rather than a person.
+
+  **What a post-change cell reads.** On an affected docket, the cell reads a
+  subset of the pre-change snapshot and of the pre-change document text. On a
+  newly scrubbed docket its `documents.json` reads `contact_scrubbed: true` with
+  `contact_scrub_passes` `["value", "shape"]` where it read `false` with `[]`
+  — on every staged document, including one whose text does not change (the
+  questions-presented row on 73274814).
+  No skill movement is predicted. In the 2026-09-21 entry's negative form, a
+  movement in **either** direction across this boundary may not be read as a
+  model effect.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus. The corpus row,
+  the content-store payload and the source PDF are untouched. The three lanes
+  that stage through this provisioning narrow the same way from the carrying
+  promotion on: predict cells, evaluate cells and the case-summary lane's
+  `summary-stage`. Summaries that already exist are not re-derived, and a
+  summary's record digest is taken off the corpus payload, so the change moves
+  no digest and re-owes no summary.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py tests/test_snapshot_scrub.py -k
+    caption` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+    six digests;
+  - `uv run fedcourts provision-snapshot --court scotus --docket 73274814`
+    (with the data root pointed at a scratch directory) echoes a non-zero
+    `snapshot contact scrub: N value(s) withheld on 1 petitioner-side
+    block(s)` line (5 on the blob's payload; non-zero rather than exact, since
+    provisioning may read a newer content-store payload), where its latest
+    payload still serves the captioned self-named block.
+
+- **A self-filer served under a title or in a joinder is read as its own
+  attorney by both contact scrubs, 2026-10-02.** A **conditioning** entry in
+  the *what the pipeline provisions* class. The self-naming arm compares the
+  first and last tokens of `PartyName` and `Attorney`, and an amicus served as
+  "Professor Jane Doe", "Hon. Jane Doe (Ret.)" or "Jane Doe and John Roe"
+  against an attorney served as "Jane Doe" compared `{jane, doe}` with a pair
+  in which the title took the first name's place, the tail took the surname's,
+  or the last person's surname took the first person's surname's place, so an individual filing in
+  their own name was staged with their contact details as served.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary. The staged snapshot and the staged
+  document text live in the gitignored `record/`, and `prediction.json` has no
+  field separating a cell that read the filer's address from one that read a
+  placeholder there. The boundary exists only here, and a stamped cell is
+  post-change if the carrying promotion's merge commit is an ancestor of, or
+  equal to, its `process_version.pipeline_sha`. On an affected docket, cells on
+  either side of the boundary may not be pooled.
+
+  **What changes.** The served reduction of each name is kept, and beside it
+  the comparison reads further reductions: with a leading title or honorific
+  cut (`Hon.`, `Honorable`, `Honourable`, `Judge`, `Justice`, `Dr.`,
+  `Doctor`, `Prof.`, `Professor(s)`, `Law Professor(s)`, `Mr.`, `Mrs.`,
+  `Ms.`, optionally after `The` and then `Former` or `Retired`, and
+  optionally followed by `Emeritus`, as whole words followed by a blank and a
+  name) and a trailing one cut (`(Ret.)`, `(Retired)`, `Esq.`,
+  `Esquire`, `Ph.D.`, `M.D.`); and, on the `PartyName` side alone, the
+  reduction of each person a joinder names, split on commas and on a
+  whole-word `and` or `&`. An added reduction counts only where it keeps two
+  distinct tokens, and none spans two people. A block qualifies where any
+  reduction of its attorney equals any reduction of its party. The predicate
+  is the one shared by the petitioner, respondent and `Other` lists, so the
+  docket-level trigger (`unrepresented_sides`), the staged-snapshot scrub and
+  the value pass all read it. It applies to all three lists rather than behind
+  a per-list switch, since the served reduction is kept and the change can
+  therefore only widen; over the blob below, no block on any list that
+  qualified before stops qualifying. Names and organisations that merely
+  begin with a title's letters ("Drake", "Honda", "Professorial") and a
+  caption-order surname ("Judge, Mary") are untouched.
+  **Known residuals:** a joinder in caption order ("Doe, Jane and Roe, John")
+  is split into lone tokens and adds no reading; titles outside the list
+  ("Representative", "Senator", "Rev.") are not cut; and since the served
+  reduction is kept, a pair that compared equal across two people before
+  (party "Jane Doe and John Roe" against attorney "Jane Roe", or a
+  multi-counsel attorney field) still does, as it always did.
+
+  **The population.** An ad hoc read that runs the real `unrepresented_sides`,
+  `scrub_snapshot_contacts`, `party_contact_values` and the provisioning
+  document scrub over each case's latest stored payload and stored documents
+  in the pulled blob, against a copy of the comparison without the new
+  readings. The blob is `sha256:2b356dbd…`, whose newest pull stamp is
+  `2026-10-02` and whose newest stored snapshot is `2026-07-13`. The per-case
+  content store, which alone holds most current dockets, was not read, so this
+  is a figure about the blob and not about the provisioned population.
+  - Of **2,925** latest payloads, **30** blocks newly qualify on the
+    self-naming arm, on **26** dockets. None stops qualifying. On the other
+    **2,899** payloads the staged snapshot, the keyed values and every staged
+    document's text and passes are byte-identical before and after.
+  - **`Other` list: 29** blocks on **25** dockets — titled self-filers
+    ("Professor …", "Hon. … (Ret.)", "…, Esq."), joinders whose attorney is
+    one of the people named, and a professor served beside an institute.
+    **169** snapshot values are withheld across those blocks. **16** of the
+    dockets were not scrubbed before and are now scrubbed by the value pass
+    alone; on the other 9 the `Other` list already qualified and more of its
+    blocks now do. On the 16 newly scrubbed dockets all **39** stored
+    documents flip from unscrubbed to `contact_scrubbed: true` with
+    `contact_scrub_passes` `["value"]`, and none of their text changes (no
+    withheld span); on the other 9 every manifest entry is unchanged.
+  - **Petitioner side: 1** block on **1** docket (73274831), a party served as
+    the attorney's own professional corporation ("<name>, APC") against the
+    attorney's full name, read through the
+    comma split. **6** snapshot values are withheld, and the docket is newly
+    scrubbed by both passes: **6** spans across its 2 stored documents.
+  - **Respondent side:** none.
+  - Titled or joined `Other` blocks that stay represented include a
+    joinder naming a different person of the attorney's surname, an
+    organisation named for the attorney's surname, and joinders of
+    organisations; none newly qualifies on the blob.
+
+  **What a post-change cell reads.** On an affected docket, the cell reads a
+  subset of the pre-change snapshot and of the pre-change document text. On a
+  newly scrubbed docket its `documents.json` reads `contact_scrubbed: true` with
+  `contact_scrub_passes` `["value"]` (`["value", "shape"]` on 73274831) where
+  it read `false` with `[]` — on every staged document the pass ran over,
+  including the ones whose text does not change. On a docket whose `Other`
+  list already qualified, the manifest is unchanged and only more snapshot
+  values are withheld.
+  No skill movement is predicted. In the 2026-09-21 entry's negative form, a
+  movement in **either** direction across this boundary may not be read as a
+  model effect.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus. The corpus row,
+  the content-store payload and the source PDF are untouched. The three lanes
+  that stage through this provisioning narrow the same way from the carrying
+  promotion on: predict cells, evaluate cells and the case-summary lane's
+  `summary-stage`. Summaries that already exist are not re-derived, and a
+  summary's record digest is taken off the corpus payload, so the change moves
+  no digest and re-owes no summary.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py tests/test_snapshot_scrub.py -k
+    "titled or title_or or equal_on_the_served or readings"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+    six digests;
+  - `uv run fedcourts provision-snapshot --court scotus --docket 73221533`
+    (with the data root pointed at a scratch directory) echoes a non-zero
+    `snapshot contact scrub: N value(s) withheld on 1 amicus-side block(s)`
+    line (6 on the blob's payload; non-zero rather than exact, since
+    provisioning may read a newer content-store payload), where its latest
+    payload still serves the "Professor …" block.
+
+- **The merits-brief selector reads "Brief for the petitioner" and redacted
+  briefs, and a consolidated member reads its merits filings off the lead
+  docket, 2026-10-03.** A **conditioning** entry in the *what the pipeline
+  provisions* class. Two changes to which documents a granted case's cells are
+  given, landed together:
+  1. The merits-brief arms (and the reply arms) read two further spellings of
+     the filing entry: "Brief **for** the petitioner/respondent(s) …" — the
+     Court's title form, often naming no party — and a leading **"Redacted"**,
+     the public copy of a brief filed under seal. Both stay anchored at the
+     entry's start, so a motion *about* a brief ("Motion to file petitioner's
+     brief on the merits under seal with redacted copies …", "Motion for an
+     extension of time to file the briefs on the merits …") is still not
+     selected.
+  2. A **consolidated member** — a docket carrying the Court's entry "Because
+     the Court has consolidated these cases for briefing and oral argument,
+     future filings and activity in the cases will now be reflected on the
+     docket of No. <lead>." naming a number other than its own — has its lead's
+     docket JSON fetched beside its own (one more paced GET), by the live poller
+     and by the `document-backfill` pass (on a candidate missing a merits kind)
+     alike, and each of the four merits
+     kinds its own docket does not yield is taken from the lead's selection
+     over the lead entries that are **the member's own** — an "(as to No.)"
+     mark naming the member's number, or, unmarked, a filer naming a party on
+     the member's own side list — only lead filings dated after the
+     **member's** own grant, and none at all where the lead's party side reads
+     as self-represented. A borrowed row is
+     stored under the member's `case_id` with the lead's PDF URL and the lead
+     entry's date. Cert-stage kinds stay the member's own.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v8` and
+  the same six digests as on `staging`.
+
+  There is no data-visible boundary. The staged documents live in the
+  gitignored `record/`, and `prediction.json` has no field separating a cell
+  that read a merits brief from one that did not. The boundary exists only
+  here, and a stamped cell is post-change if the carrying promotion's merge
+  commit is an ancestor of, or equal to, its `process_version.pipeline_sha` —
+  and, since the documents are fetched rather than staged differently, only
+  once a post-promotion fetch (a live re-poll or a `document-backfill` apply)
+  has stored the newly selected rows for that docket. On an affected docket,
+  cells on either side of the boundary may not be pooled.
+
+  **What does not move.** The registered **briefed** merits moment is still
+  dated by the narrower "Brief of respondent …" reading
+  (`merits_signals.respondent_brief_date`); the selector's wider respondent
+  reading is a separate predicate (`is_respondent_merits_brief_document`). So
+  no moment opens, moves or closes, no base rate re-prices, no membership rule
+  moves and no scored figure moves. The source PDFs and the snapshots are
+  untouched; the corpus gains document rows only through the fetching lanes.
+  The staged-text contact scrub is unchanged: it runs over a borrowed document
+  exactly as over the member's own, keyed on the member's counsel blocks.
+
+  **The population.** An ad hoc read-only pass over a *copy* of the pulled
+  blob, `sha256:2b356dbd…`, newest pull stamp `2026-10-02`, newest stored
+  snapshot `2026-07-13`. It predates the `document-backfill` applies of
+  2026-10-03, and the per-case content store, which alone holds most current
+  dockets, was not read, so these are figures about the blob's 2,925 latest
+  payloads and not about the provisioned population.
+  - **Widened arms:** 4 entries newly match, on 4 dockets, and none stops
+    matching. Petitioner side 2 — "Brief for the petitioner filed." (25-429)
+    and "Redacted brief of petitioner … filed." (23-14) — each a post-grant
+    entry, so each of those two dockets newly selects a
+    `merits-brief-petitioner` row. Respondent side 2 ("Brief for the
+    Respondents filed.", "Brief for respondent … filed."), both cert-stage
+    entries, so neither selects a merits row. Reply arms: none. No other
+    docket's selection changes.
+  - **Consolidation:** 23 dockets carry the entry — 11 leads naming
+    themselves and **12 members**. **1** member has an open merits event
+    (25-566, lead 25-238, at the grant moment). Reading each lead's stored blob
+    snapshot as a stand-in for the fresh fetch, **7** members would borrow
+    **21** merits rows, each one the member's own party's filing, placed by an
+    "(as to No.)" mark or by the filer named (24-151 among them: the United
+    States' brief and reply as petitioner, its own docket carrying the
+    respondent's brief, and the lead petitioners' brief — a respondent on
+    24-151's own docket — not borrowed). 1 member reads a
+    cross-positioned lead whose entries name none of its own side's parties,
+    and borrows nothing (24-1113); for 2 members the lead is not stored on the
+    blob (23-1201, 24-1287), and for 2 the lead's stored snapshot yields no
+    merits filing (25-238, not yet briefed there; 25-406, whose filings are
+    entered under counsel's own names). No stored lead reads as
+    self-represented on a party side.
+
+  **Known residuals.**
+  - A consolidated member's briefed moment still reads the member's own
+    docket, so a member whose respondent filed on the lead never opens it
+    (11 of the 12 members carry no `merits_brief_filed`). The borrowed
+    documents reach that member's cells only at moments placed after the
+    filings (or uncut, the evaluate path and the case-summary lane), and the
+    `document-backfill` merits arm, gated on `merits_brief_filed`, reaches only
+    24-151 among them; a pending member is provisioned by the live poller's
+    selection sweep while its merits event is open. Moving the moment is a
+    separate change.
+  - The lead's own party blocks are not compared by the staged-text scrub,
+    since provisioning reads one case's snapshot; a lead reading as
+    self-represented on a party side lends nothing instead.
+  - The cert-stage opposition arm still reads only "Brief of respondent(s) …",
+    so the two cert-stage "Brief for the respondent(s)" entries above are not
+    selected as oppositions.
+  - Merits filings entered under counsel's own name rather than a party word
+    remain unread, on a lead as on any docket; a lead entry naming no filer
+    ("Brief for the petitioner filed.") is not borrowed, since nothing places
+    it with one docket of the group; and a lead's **own** selection still
+    takes the first matching entry, which on a lead may be a member's filing.
+  - A member whose lead carries the filing but lends nothing (every entry
+    another docket's, or dated before the member's grant) is read at the
+    `no_link` floor by `document-backfill` and stamped until its next poll.
+
+  **What a post-change cell reads.** On an affected docket, a superset of the
+  pre-change documents: a `merits-brief-petitioner` row on 25-429 and 23-14,
+  and on a consolidated member up to four merits rows whose manifest `url` is
+  the lead docket's PDF. Each is placed by its entry date, so a cell cut before
+  the filing does not read it. No skill movement is predicted. In the
+  2026-09-21 entry's negative form, a movement in **either** direction across
+  this boundary may not be read as a model effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py tests/test_document_backfill.py
+    tests/test_cli_provision.py tests/test_live.py -k "consolidat or lead or
+    merits_brief or merits_reply or briefed_moment or as_to or filer or
+    cross_positioned"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v8` and the same
+    six digests;
+  - `gh workflow run run-repair.yml --ref main -f repair=document-backfill -f
+    repair_mode=dry-run -f repair_bound=50` lists 25-429 (`scotus/73228193`),
+    23-14 (`scotus/68354674`) and 24-151 (`scotus/72483856`) under `selected`
+    with their missing merits kinds, and none of the three under
+    `no_entry_modern_cases` — where the ledger's `candidates` exceeds the
+    bound and a docket is not reached, the dry run is repeated with the bound
+    raised to `candidates`, since the class is walked in `case_id` order; an
+    apply bounded to that count then stores them, 24-151's rows carrying the
+    24-20 docket's PDF URLs and the United States' brief.
+
+- **The cert back-test's `--spread` draw becomes a salted-hash random sample of
+  the replayable population; recorded 2026-10-03.** A **sampling-rule** entry,
+  recorded ahead of the promotion that carries the change and of the first
+  scheduled report it governs. It amends the 2026-09-07 entry, which
+  registered the draw as "`--spread` round-robins conference cohorts within a
+  run" and the limit as "a ceiling, not the sample". Both sentences stop
+  describing the instrument at the carrying promotion; that entry stands as
+  landed.
+
+  **Why.** The round-robin took each conference cohort's latest-resolving
+  petition, and the last petition a conference resolves is disproportionately
+  a late grant or a party dismissal. Never-distributed petitions fell back to
+  a Term bucket that was guaranteed a slot. On the blob whose newest pull is
+  2026-10-02 (index sha256 `2b356dbd…`), the paid population is 13,344
+  petitions at a 92% denial share (12,303 denied, 572 granted, 311 GVR, 158
+  dismissed), and its OT2025 slice is 93% denied. The round-robin's 10-, 25-
+  and 50-petition draws were 60%, 56% and 56% denied, before the replay
+  filter.
+
+  **What moved.** Under `--spread` every petition in the population is ranked
+  by `sha256("fedcourtsai/cert-backtest/spread|<key>|<case_id>")`, where the
+  key is the blob's newest `last_pulled` stamp (`undated` where none is set).
+  The draw walks that order and takes petitions until it holds `--limit`.
+  On an engine replay it passes over every petition it cannot replay (no
+  held snapshot or petition event) and keeps walking, so the limit is the
+  set's size wherever the replayable population can fill it. The set is
+  returned in walk order. No outcome, decision date, conference or docket
+  number feeds the rank, so the set is a simple random sample without
+  replacement. Each conference and Term holds a share in proportion to its
+  size, and never-distributed petitions are pooled into the population at
+  their own share, with no slot set aside. They are 94 of the 13,344 and
+  mostly dismissals. Without `--spread` the recency head is unchanged,
+  except that an engine replay now fills it past unreplayable petitions
+  too. The report records the rule, salt, key and pass-over count in
+  `provenance.draw`.
+
+  **Still no per-run randomness.** The key is a property of the corpus, not
+  of the run: the walk order is recomputable from the report's salt and key,
+  and the same blob and dispatch draw the same set so long as the content
+  store's snapshot coverage has not moved in between, since replayability is
+  read from it at run time. A newer blob re-keys the draw, so the
+  fortnightly series accumulates fresh samples instead of replaying one set.
+
+  **What the measurement showed.** On the same blob, measured with the
+  blob's own snapshot rows standing in for the content store, 803 of the
+  13,344 paid petitions are replayable (OT2023–OT2025 only), at a 68% denial
+  share. The new draw over them was 7/10, 18/25 and 38/50 denied (70%, 72%,
+  76%), across 10, 18 and 34 conferences. Over 400 alternative keys the
+  10-petition floor averaged 67.0% with a standard deviation of 15.4 points.
+  The round-robin's replayable survivors were 5, 15 and 29 petitions at 80%,
+  47% and 38% denied. Without the replay filter the new draw was 90%, 92% and
+  92% denied, drawn from OT2017–OT2025 alike (the 50-petition draw held
+  every Term in that range).
+
+  **What did not move.** No digest input: no prompt template, neither agent
+  config, and not `src/fedcourtsai/process_version.py`. `uv run fedcourts
+  process-digest --all` prints `proc-v8` and the same six digests on either
+  side. Replay cells carry no process digest, which is why this record
+  exists. The scheduled pins (`replay=cert`, `engine=auto`, `--limit 10`,
+  `--scope paid`, `--spread`), the cadence, the hold and the stratum are
+  unchanged. No forward cell reads the back-test set.
+
+  **The reading rule.** Two cert back-test reports on either side of the
+  carrying promotion are different samples even where their dispatch blocks
+  agree. A report with `provenance.draw` names its rule; one without it was
+  drawn by the round-robin when `spread` is true. A replayed set's floor
+  estimates the **replayable** population's denial share, not the whole
+  population's. Snapshot coverage is not outcome-neutral: on the blob above
+  the replayable share was 68% against 92%, and only OT2023 onward is
+  replayable at all. So a replayed floor below the
+  statpack's is the coverage, not the draw. At ten petitions one fortnight's
+  floor is noisy around that expectation; only the series is read. The
+  2026-09-07 entry's "at least roughly one half" chance of a fortnight with
+  nothing granted was computed at the paid population's grant-family rate;
+  at the replayable mix measured above it is far smaller (about 4% at ten
+  petitions), so that withholding rule fires less often, not differently. And the
+  limit means two things across the boundary: on a report with a null
+  `draw` it was a cap applied before unreplayable petitions were dropped,
+  and on one with a `draw` it is the target size the walk fills, so the two
+  reports' `limit`s are not differenced.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live, deterministic rather than read
+  off one fortnight's floor (at ten petitions a correct draw lands at or below
+  60% denied about two times in five): the first `metrics/cert-backtest.json`
+  landed after the promotion carries `.provenance.draw.rule` =
+  `vintage-keyed-hash-v1`, `.provenance.draw.salt` =
+  `fedcourtsai/cert-backtest/spread`, and a `.provenance.draw.key` equal to
+  the newest pull stamp `uv run fedcourts corpus-info` prints on the blob at
+  that report's pointer. On that blob, ranking the scope-`paid` population
+  by `sha256("<salt>|<key>|<case_id>")` puts every case id in
+  `.provenance.clocks` among the replayable petitions at the top of that
+  order, and the report's `events_scored` equals its `limit` unless the
+  replayable population is smaller. The denial share across the series is
+  read against the replayable population's, as a description and not a
+  pass/fail test. `uv run fedcourts process-digest --all` still prints
+  `proc-v8` and the same six digests.
