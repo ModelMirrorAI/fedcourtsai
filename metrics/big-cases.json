@@ -1,14 +1,14 @@
 {
-  "cases": 224,
+  "cases": 233,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
     {
-      "cases": 195,
+      "cases": 203,
       "n": 3
     },
     {
-      "cases": 27,
+      "cases": 28,
       "n": 2
     },
     {
@@ -16,8 +16,8 @@
       "n": 1
     }
   ],
-  "current_reads": 670,
-  "declared_no_view": 9,
+  "current_reads": 697,
+  "declared_no_view": 10,
   "frozen_process": {
     "digests": [
       "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
@@ -4231,6 +4231,119 @@
       "status": "resolved"
     },
     {
+      "asking_declined": null,
+      "asking_party": "Putra",
+      "caption": "Matthew Putra, Director of the Detroit Field Office of U.S. Immigration and Customs Enforcement, et al. v. Juan Manuel Lopez-Campos, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73529868",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "The underlying question (mandatory no-bond detention of every unadmitted noncitizen under 8 U.S.C. 1225(b)(2)(A), plus a freestanding due-process holding) is among the Term's largest; this vehicle's own significance is discounted because the Court chose the Second Circuit companion as the lead and this petition is now most likely a held companion disposed of in the lead case's wake.",
+          "big_case_score": 0.8,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "The dispute concerns mandatory immigration detention without individualized bond hearings for noncitizens arrested in the interior, with competing statutory readings across circuits and a constitutional liberty question. Its nationwide stakes are high independently of which petition becomes the lead vehicle.",
+          "big_case_score": 0.91,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "High-profile immigration policy case brought by the Solicitor General involving ICE enforcement.",
+          "big_case_score": 0.7,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261003T200236Z"
+        }
+      ],
+      "docket_id": 73529868,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The underlying question (mandatory no-bond detention of every unadmitted noncitizen under 8 U.S.C. 1225(b)(2)(A), plus a freestanding due-process holding) is among the Term's largest; this vehicle's own significance is discounted because the Court chose the Second Circuit companion as the lead and this petition is now most likely a held companion disposed of in the lead case's wake.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/73529868/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73529868/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.54,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "The dispute concerns mandatory immigration detention without individualized bond hearings for noncitizens arrested in the interior, with competing statutory readings across circuits and a constitutional liberty question. Its nationwide stakes are high independently of which petition becomes the lead vehicle.",
+              "big_case_score": 0.91,
+              "cell_path": "data/cases/scotus/73529868/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73529868/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.8,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "High-profile immigration policy case brought by the Solicitor General involving ICE enforcement.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/73529868/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73529868/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.8,
+              "run_id": "20261003T200236Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Matthew Putra, Director of the Detroit Field Office of U.S. Immigration and Customs Enforcement, et al. v. Juan Manuel Lopez-Campos, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.8033,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-06-24",
+      "n": 3,
+      "other_party": "Juan Manuel Lopez-Campos",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Putra's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Putra's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.91,
+      "score_min": 0.7,
+      "score_range": 0.21,
+      "short_caption": "Putra v. Juan Manuel Lopez-Campos",
+      "status": "pending"
+    },
+    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Philip L. Rhoney, Acting Director of the Buffalo Field Office of U.S. Immigration and Customs Enforcement v. Ricardo Aparecido Barbosa da Cunha",
@@ -4724,6 +4837,108 @@
       "score_min": 0.7,
       "score_range": 0.2,
       "short_caption": "Texas Top Cop Shop v. Blanche",
+      "status": "pending"
+    },
+    {
+      "asking_declined": "original_jurisdiction",
+      "asking_party": null,
+      "caption": "Oklahoma, et al. v. United States, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73500226",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Facial constitutionality of a federal statute under the private nondelegation doctrine, with a square Fifth/Sixth Circuit split and the federal government petitioning; a significant separation-of-powers case, tempered by a single-industry regulatory subject.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "The constitutional limits on private regulatory enforcement affect nationwide horseracing regulation and potentially other federally supervised private regulators, although this petition may remain a companion vehicle.",
+          "big_case_score": 0.76,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "Direct constitutional challenge to a federal statute (HISA) raising a major private non-delegation question with a live circuit split.",
+          "big_case_score": 0.9,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261003T200236Z"
+        }
+      ],
+      "docket_id": 73500226,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Facial constitutionality of a federal statute under the private nondelegation doctrine, with a square Fifth/Sixth Circuit split and the federal government petitioning; a significant separation-of-powers case, tempered by a single-industry regulatory subject.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/73500226/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500226/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.6,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "The constitutional limits on private regulatory enforcement affect nationwide horseracing regulation and potentially other federally supervised private regulators, although this petition may remain a companion vehicle.",
+              "big_case_score": 0.76,
+              "cell_path": "data/cases/scotus/73500226/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500226/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.48,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "Direct constitutional challenge to a federal statute (HISA) raising a major private non-delegation question with a live circuit split.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/73500226/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500226/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.55,
+              "run_id": "20261003T200236Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Oklahoma, et al. v. United States, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7933,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-05-29",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "score_max": 0.9,
+      "score_min": 0.72,
+      "score_range": 0.18,
+      "short_caption": "Oklahoma v. United States",
       "status": "pending"
     },
     {
@@ -9688,6 +9903,119 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Blanche",
+      "caption": "Todd Blanche, Attorney General v. Izuchukwu Ozurumba",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73500246",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Scope of the INA material-support bar (whether 'material' carries a significance threshold, and the fate of Chevron-era circuit precedent like Barahona after Loper Bright) recurs across thousands of asylum cases; significant in immigration law, not a headline case.",
+          "big_case_score": 0.45,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "The scope of the immigration material-support bar affects asylum and withholding eligibility nationwide, including people forced to assist armed groups. Significant immigration and national-security stakes, but a bounded statutory question rather than a general constitutional challenge.",
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "Circuit split on 'material support' bar for terrorism affecting asylum seekers; significant immigration and national security implications.",
+          "big_case_score": 0.8,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261003T200236Z"
+        }
+      ],
+      "docket_id": 73500246,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Scope of the INA material-support bar (whether 'material' carries a significance threshold, and the fate of Chevron-era circuit precedent like Barahona after Loper Bright) recurs across thousands of asylum cases; significant in immigration law, not a headline case.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73500246/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500246/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "confidence": 0.5,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.38,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "The scope of the immigration material-support bar affects asylum and withholding eligibility nationwide, including people forced to assist armed groups. Significant immigration and national-security stakes, but a bounded statutory question rather than a general constitutional challenge.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73500246/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500246/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.78,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "Circuit split on 'material support' bar for terrorism affecting asylum seekers; significant immigration and national security implications.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/73500246/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500246/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261003T200236Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Todd Blanche, Attorney General v. Izuchukwu Ozurumba"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6333,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-06-02",
+      "n": 3,
+      "other_party": "Ozurumba",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Blanche's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Blanche's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.8,
+      "score_min": 0.45,
+      "score_range": 0.35,
+      "short_caption": "Blanche v. Ozurumba",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "General Dynamics",
       "caption": "General Dynamics Corporation, et al. v. Susan Scharpf",
       "caption_event_id": "evt-order-cvsg-disposition",
@@ -13102,6 +13430,169 @@
       "status": "pending"
     },
     {
+      "asking_declined": null,
+      "asking_party": "Wagner",
+      "caption": "Kyle Wagner v. United States",
+      "caption_event_id": "evt-order-response-requested-disposition",
+      "case_id": "scotus/9526000446",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, recurring across tens of thousands of hearings a year, with a politically salient speech-and-ICE backdrop; the application itself resolves in a one-line emergency order, which caps the stakes of this event.",
+          "big_case_score": 0.45,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261003T175711Z"
+        },
+        {
+          "big_case_rationale": "The application concerns individual pretrial liberty, but the appellate-review question could affect federal detention decisions nationwide. The speech-related dangerousness allegations add public significance; the immediate stay remains case-specific.",
+          "big_case_score": 0.52,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261003T175711Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": 0.65,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261003T175711Z"
+        }
+      ],
+      "docket_id": 9526000446,
+      "docket_number": "26A446",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a446.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, bearing on tens of thousands of bail determinations a year, and the applicant is a politically charged defendant detained largely on the basis of anti-ICE speech; the application itself resolves only a procedural stay, which tempers the score.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.12,
+              "run_id": "20261002T212439Z"
+            },
+            {
+              "big_case_rationale": "An individual detention dispute presents a potentially nationwide appellate-review rule under the Bail Reform Act, with substantial liberty and political-speech stakes; the immediate stay remains case-specific.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.2,
+              "run_id": "20261002T212439Z"
+            },
+            {
+              "big_case_rationale": "A routine criminal stay application without obvious nationwide implications.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/gemini-baseline/20261002T212439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/gemini-baseline/20261002T212439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.05,
+              "run_id": "20261002T212439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kyle Wagner v. United States"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-response-requested-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, recurring across tens of thousands of hearings a year, with a politically salient speech-and-ICE backdrop; the application itself resolves in a one-line emergency order, which caps the stakes of this event.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261003T175711Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261003T175711Z",
+              "confidence": 0.7,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.06,
+              "run_id": "20261003T175711Z"
+            },
+            {
+              "big_case_rationale": "The application concerns individual pretrial liberty, but the appellate-review question could affect federal detention decisions nationwide. The speech-related dangerousness allegations add public significance; the immediate stay remains case-specific.",
+              "big_case_score": 0.52,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261003T175711Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261003T175711Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.27,
+              "run_id": "20261003T175711Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261003T175711Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261003T175711Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.12,
+              "run_id": "20261003T175711Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kyle Wagner v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.54,
+      "moment": "evt-order-response-requested-disposition",
+      "moment_opened_at": "2026-10-02",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Wagner gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Wagner does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.65,
+      "score_min": 0.45,
+      "score_range": 0.2,
+      "short_caption": "Wagner v. United States",
+      "status": "pending"
+    },
+    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Kevin Isaac Montoya Palacios v. Vernon Liggins, Acting Field Office Director, Baltimore Field Office, United States Immigration and Customs Enforcement, et al.",
@@ -14940,6 +15431,108 @@
       "status": "pending"
     },
     {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "Benjamin M. Bauer v. Anne Elizabeth Alma Marks",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73527306",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A George Floyd-protest less-lethal-munitions shooting and a second trip to the Court after a Barnes GVR; a summary reversal would be widely noted in the qualified-immunity debate, but any disposition is fact-bound and sets no new rule.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "Police use of less-lethal projectiles, qualified immunity, and compliance with a Supreme Court remand have substantial civil-rights and policing stakes, but this fact-intensive interlocutory dispute is narrower than a categorical nationwide rule.",
+          "big_case_score": 0.57,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": 0.4,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261003T200236Z"
+        }
+      ],
+      "docket_id": 73527306,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A George Floyd-protest less-lethal-munitions shooting and a second trip to the Court after a Barnes GVR; a summary reversal would be widely noted in the qualified-immunity debate, but any disposition is fact-bound and sets no new rule.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73527306/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73527306/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.4,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "Police use of less-lethal projectiles, qualified immunity, and compliance with a Supreme Court remand have substantial civil-rights and policing stakes, but this fact-intensive interlocutory dispute is narrower than a categorical nationwide rule.",
+              "big_case_score": 0.57,
+              "cell_path": "data/cases/scotus/73527306/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73527306/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.38,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/73527306/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73527306/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "summary-reversal",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.6,
+              "run_id": "20261003T200236Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Benjamin M. Bauer v. Anne Elizabeth Alma Marks"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.44,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-06-24",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "score_max": 0.57,
+      "score_min": 0.35,
+      "score_range": 0.22,
+      "short_caption": null,
+      "status": "pending"
+    },
+    {
       "asking_declined": null,
       "asking_party": "Abrams",
       "caption": "James P. Abrams v. United States",
@@ -15958,119 +16551,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Wagner",
-      "caption": "Kyle Wagner v. United States",
-      "caption_event_id": "evt-motion-disposition",
-      "case_id": "scotus/9526000446",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, bearing on tens of thousands of bail determinations a year, and the applicant is a politically charged defendant detained largely on the basis of anti-ICE speech; the application itself resolves only a procedural stay, which tempers the score.",
-          "big_case_score": 0.55,
-          "event_id": "evt-motion-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "run_id": "20261002T212439Z"
-        },
-        {
-          "big_case_rationale": "An individual detention dispute presents a potentially nationwide appellate-review rule under the Bail Reform Act, with substantial liberty and political-speech stakes; the immediate stay remains case-specific.",
-          "big_case_score": 0.58,
-          "event_id": "evt-motion-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "run_id": "20261002T212439Z"
-        },
-        {
-          "big_case_rationale": "A routine criminal stay application without obvious nationwide implications.",
-          "big_case_score": 0.1,
-          "event_id": "evt-motion-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "run_id": "20261002T212439Z"
-        }
-      ],
-      "docket_id": 9526000446,
-      "docket_number": "26A446",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a446.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-motion-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, bearing on tens of thousands of bail determinations a year, and the applicant is a politically charged defendant detained largely on the basis of anti-ICE speech; the application itself resolves only a procedural stay, which tempers the score.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
-              "confidence": 0.6,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.12,
-              "run_id": "20261002T212439Z"
-            },
-            {
-              "big_case_rationale": "An individual detention dispute presents a potentially nationwide appellate-review rule under the Bail Reform Act, with substantial liberty and political-speech stakes; the immediate stay remains case-specific.",
-              "big_case_score": 0.58,
-              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.2,
-              "run_id": "20261002T212439Z"
-            },
-            {
-              "big_case_rationale": "A routine criminal stay application without obvious nationwide implications.",
-              "big_case_score": 0.1,
-              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/gemini-baseline/20261002T212439Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/gemini-baseline/20261002T212439Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.05,
-              "run_id": "20261002T212439Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Kyle Wagner v. United States"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.41,
-      "moment": "evt-motion-disposition",
-      "moment_opened_at": "2026-09-29",
-      "n": 3,
-      "other_party": "United States",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "Wagner gets the relief requested, for now; the case continues in the lower courts.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Wagner does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.58,
-      "score_min": 0.1,
-      "score_range": 0.48,
-      "short_caption": "Wagner v. United States",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Jane Elizabeth Roberts",
       "caption": "Jane Elizabeth Roberts, et al. v. Bob Ferguson, Governor of Washington, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -16621,6 +17101,119 @@
       "score_min": 0.2,
       "score_range": 0.35,
       "short_caption": "Boysen v. PeaceHealth",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Davis",
+      "caption": "Jimmy Davis, Jr. v. Greg Lovelace, Commissioner, Alabama Department of Corrections",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73521973",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A capital habeas petition raising a contested circuit split on jury hesitation in Strickland prejudice; life-or-death stakes for one petitioner and a doctrinal question of real but bounded reach, confined to AEDPA review of penalty-phase ineffectiveness claims.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "Life-or-death stakes and a potentially recurring capital-sentencing prejudice question, but a fact-intensive habeas vehicle rather than a broad challenge to capital punishment.",
+          "big_case_score": 0.58,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "It is a capital case involving an en banc circuit split, but fact-bound and subject to AEDPA deference, limiting national significance.",
+          "big_case_score": 0.2,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261003T200236Z"
+        }
+      ],
+      "docket_id": 73521973,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A capital habeas petition raising a contested circuit split on jury hesitation in Strickland prejudice; life-or-death stakes for one petitioner and a doctrinal question of real but bounded reach, confined to AEDPA review of penalty-phase ineffectiveness claims.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73521973/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73521973/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.08,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "Life-or-death stakes and a potentially recurring capital-sentencing prejudice question, but a fact-intensive habeas vehicle rather than a broad challenge to capital punishment.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/73521973/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73521973/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.06,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "It is a capital case involving an en banc circuit split, but fact-bound and subject to AEDPA deference, limiting national significance.",
+              "big_case_score": 0.2,
+              "cell_path": "data/cases/scotus/73521973/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73521973/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.02,
+              "run_id": "20261003T200236Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jimmy Davis, Jr. v. Greg Lovelace, Commissioner, Alabama Department of Corrections"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3767,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-06-23",
+      "n": 3,
+      "other_party": "Lovelace",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Davis' case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Davis' petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.58,
+      "score_min": 0.2,
+      "score_range": 0.38,
+      "short_caption": "Davis v. Lovelace",
       "status": "pending"
     },
     {
@@ -18688,6 +19281,119 @@
       "score_min": 0.15,
       "score_range": 0.31,
       "short_caption": "Kevin Scott Karsjens v. Gandhi",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Abrahim Mohamed Fofana",
+      "caption": "Abrahim Mohamed Fofana v. Markwayne Mullin, Secretary, Department of Homeland Security, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73281680",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A grant would settle whether 8 U.S.C. 1252(a)(2)(B)(ii) forecloses district-court review of non-discretionary eligibility findings (here a terrorism-related inadmissibility finding) underlying discretionary asylee adjustment, a recurring question Bouarfa expressly reserved; doctrinally significant for immigration reviewability, low public salience.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "Judicial review of statutory eligibility for asylum-based adjustment could matter beyond this litigant, including access to review of terrorism-related inadmissibility findings. The retrieved appellate opinion supports moderate national legal significance; the petition's exact framing is unavailable.",
+          "big_case_score": 0.45,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "Involves technical statutory interpretation of immigration jurisdiction under 1252(a)(2)(B)(ii).",
+          "big_case_score": 0.1,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261003T200236Z"
+        }
+      ],
+      "docket_id": 73281680,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A grant would settle whether 8 U.S.C. 1252(a)(2)(B)(ii) forecloses district-court review of non-discretionary eligibility findings (here a terrorism-related inadmissibility finding) underlying discretionary asylee adjustment, a recurring question Bouarfa expressly reserved; doctrinally significant for immigration reviewability, low public salience.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73281680/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281680/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.08,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "Judicial review of statutory eligibility for asylum-based adjustment could matter beyond this litigant, including access to review of terrorism-related inadmissibility findings. The retrieved appellate opinion supports moderate national legal significance; the petition's exact framing is unavailable.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73281680/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281680/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.06,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "Involves technical statutory interpretation of immigration jurisdiction under 1252(a)(2)(B)(ii).",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/73281680/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281680/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.02,
+              "run_id": "20261003T200236Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Abrahim Mohamed Fofana v. Markwayne Mullin, Secretary, Department of Homeland Security, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-04-07",
+      "n": 3,
+      "other_party": "Mullin",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Abrahim Mohamed Fofana's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Abrahim Mohamed Fofana's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.45,
+      "score_min": 0.1,
+      "score_range": 0.35,
+      "short_caption": "Abrahim Mohamed Fofana v. Mullin",
       "status": "pending"
     },
     {
@@ -21371,6 +22077,119 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Larry Steven Wilkins",
+      "caption": "Larry Steven Wilkins v. United States, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73500234",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Second trip of a single-landowner Quiet Title Act dispute over one Montana forest road; the questions (law of the case after a reversal, accrual from third-party use) are procedural and factbound, with modest reach beyond western QTA litigants.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "Quiet Title Act accrual affects private owners facing federal easements, and the remand question implicates lower-court compliance with Supreme Court judgments. The immediate dispute is a single road easement, with no demonstrated nationwide policy disruption.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "A fact-bound procedural dispute on remand regarding the QTA statute of limitations.",
+          "big_case_score": 0.1,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261003T200236Z"
+        }
+      ],
+      "docket_id": 73500234,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Second trip of a single-landowner Quiet Title Act dispute over one Montana forest road; the questions (law of the case after a reversal, accrual from third-party use) are procedural and factbound, with modest reach beyond western QTA litigants.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/73500234/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500234/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.08,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "Quiet Title Act accrual affects private owners facing federal easements, and the remand question implicates lower-court compliance with Supreme Court judgments. The immediate dispute is a single road easement, with no demonstrated nationwide policy disruption.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73500234/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500234/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.06,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "A fact-bound procedural dispute on remand regarding the QTA statute of limitations.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/73500234/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500234/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.04,
+              "run_id": "20261003T200236Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Larry Steven Wilkins v. United States, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.2,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-06-01",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Larry Steven Wilkins' case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Larry Steven Wilkins' petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.35,
+      "score_min": 0.1,
+      "score_range": 0.25,
+      "short_caption": "Larry Steven Wilkins v. United States",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Samuel Collin Robinson",
       "caption": "Samuel Collin Robinson v. Katherine Lyman Freeman, fka Katherine Lyman Robinson",
       "caption_event_id": "evt-petition-disposition",
@@ -22773,6 +23592,119 @@
       "score_min": 0.05,
       "score_range": 0.27,
       "short_caption": "Child v. Unum Life Insurance Company of America",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Roofing Designs by JR",
+      "caption": "Roofing Designs by JR, L.L.C., dba Roofing Designs v. Royal American Construction, Incorporated, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73500268",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A two-party construction-subcontract dispute whose only live question is whether an unpublished Fifth Circuit judicial-estoppel ruling gets a GVR in light of Keathley; no new legal question, no institutional parties, no public stakes beyond the parties.",
+          "big_case_score": 0.08,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "The dispute affects bankruptcy disclosure and access to commercial claims, but this petition principally seeks application of an intervening precedent rather than a new nationwide rule.",
+          "big_case_score": 0.28,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261003T200236Z"
+        },
+        {
+          "big_case_rationale": "Routine petition likely to be GVR'd in light of the recently decided Keathley case; applies established law rather than breaking new ground.",
+          "big_case_score": 0.1,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261003T200236Z"
+        }
+      ],
+      "docket_id": 73500268,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A two-party construction-subcontract dispute whose only live question is whether an unpublished Fifth Circuit judicial-estoppel ruling gets a GVR in light of Keathley; no new legal question, no institutional parties, no public stakes beyond the parties.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/73500268/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500268/events/evt-petition-disposition/predictions/claude-baseline/20261003T200236Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.75,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "The dispute affects bankruptcy disclosure and access to commercial claims, but this petition principally seeks application of an intervening precedent rather than a new nationwide rule.",
+              "big_case_score": 0.28,
+              "cell_path": "data/cases/scotus/73500268/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500268/events/evt-petition-disposition/predictions/codex-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.82,
+              "run_id": "20261003T200236Z"
+            },
+            {
+              "big_case_rationale": "Routine petition likely to be GVR'd in light of the recently decided Keathley case; applies established law rather than breaking new ground.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/73500268/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500268/events/evt-petition-disposition/predictions/gemini-baseline/20261003T200236Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.92,
+              "run_id": "20261003T200236Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Roofing Designs by JR, L.L.C., dba Roofing Designs v. Royal American Construction, Incorporated, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1533,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-06-09",
+      "n": 3,
+      "other_party": "Royal American Construction",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Roofing Designs by JR's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Roofing Designs by JR's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.28,
+      "score_min": 0.08,
+      "score_range": 0.2,
+      "short_caption": "Roofing Designs by JR v. Royal American Construction",
       "status": "pending"
     },
     {
@@ -27024,9 +27956,122 @@
       "score_range": 0.01,
       "short_caption": "In re Valov",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Holloway",
+      "caption": "Elisha Holloway v. Bryan Polk",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000449",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se stay application from a Texas state-court civil matter by a serial self-represented litigant; no doctrinal question is visible, no institutional party is involved, and the outcome matters only to the parties.",
+          "big_case_score": 0.02,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "run_id": "20261003T175711Z"
+        },
+        {
+          "big_case_rationale": "The application has no extractable text, and the caption and submission entry do not identify the underlying dispute, requested stay's practical consequences, or broader stakes.",
+          "big_case_score": null,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "run_id": "20261003T175711Z"
+        },
+        {
+          "big_case_rationale": "Pro se civil filing by an applicant designated as a vexatious litigant.",
+          "big_case_score": 0.0,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "run_id": "20261003T175711Z"
+        }
+      ],
+      "docket_id": 9526000449,
+      "docket_number": "26A449",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a449.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se stay application from a Texas state-court civil matter by a serial self-represented litigant; no doctrinal question is visible, no institutional party is involved, and the outcome matters only to the parties.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9526000449/events/evt-motion-disposition/predictions/claude-baseline/20261003T175711Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000449/events/evt-motion-disposition/predictions/claude-baseline/20261003T175711Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261003T175711Z"
+            },
+            {
+              "big_case_rationale": "The application has no extractable text, and the caption and submission entry do not identify the underlying dispute, requested stay's practical consequences, or broader stakes.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9526000449/events/evt-motion-disposition/predictions/codex-baseline/20261003T175711Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000449/events/evt-motion-disposition/predictions/codex-baseline/20261003T175711Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.06,
+              "run_id": "20261003T175711Z"
+            },
+            {
+              "big_case_rationale": "Pro se civil filing by an applicant designated as a vexatious litigant.",
+              "big_case_score": 0.0,
+              "cell_path": "data/cases/scotus/9526000449/events/evt-motion-disposition/predictions/gemini-baseline/20261003T175711Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000449/events/evt-motion-disposition/predictions/gemini-baseline/20261003T175711Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.001,
+              "run_id": "20261003T175711Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Elisha Holloway v. Bryan Polk"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.01,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-09-27",
+      "n": 2,
+      "other_party": "Polk",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Holloway gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Holloway does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.02,
+      "score_min": 0.0,
+      "score_range": 0.02,
+      "short_caption": "Holloway v. Polk",
+      "status": "pending"
     }
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.2",
-  "scored_reads": 641
+  "scored_reads": 667
 }
