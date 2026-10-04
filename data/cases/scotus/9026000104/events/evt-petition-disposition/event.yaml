@@ -1,11 +1,10 @@
 case_id: scotus/9026000104
 decision_target: disposition
-description: "Disposition of the petition, forecast at docketing \u2014 before any\
-  \ distribution or docket-acquired signal exists."
+description: null
 docket_entry_id: null
-event_id: evt-petition-arrival-disposition
+event_id: evt-petition-disposition
 kind: petition
-moment: arrival
+moment: distribution
 opened_at: '2026-07-23'
 resolved: true
 schema_version: '1.0'
