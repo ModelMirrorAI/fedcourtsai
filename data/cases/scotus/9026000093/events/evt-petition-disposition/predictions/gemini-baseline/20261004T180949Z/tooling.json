@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000093",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command"
+  ],
+  "helpful": [
+    "run_shell_command for reading base rates and schemas"
+  ],
+  "gaps": [],
+  "notes": null
+}
