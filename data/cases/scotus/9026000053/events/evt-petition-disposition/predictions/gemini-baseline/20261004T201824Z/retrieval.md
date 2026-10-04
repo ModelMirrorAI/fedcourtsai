@@ -1,0 +1,2 @@
+- CourtListener MCP search for docket "25-1383" in "scotus"
+- CourtListener MCP search for case name "Town of Vinton" in "scotus"

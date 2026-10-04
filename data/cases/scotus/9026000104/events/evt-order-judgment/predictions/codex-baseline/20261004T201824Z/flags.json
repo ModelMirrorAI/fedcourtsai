@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000104",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-judgment",
+      "message": "The provisioned record has no documents directory, petition, opposition, or QP text. I recovered the pre-grant lower-court opinion and official QP from court hosts, but did not obtain the parties' cert briefs or the correspondence mentioned in the snapshot. This is an input-coverage limitation, not a missing filing or a known provisioning violation; the completed forecast discounts confidence accordingly."
+    }
+  ]
+}

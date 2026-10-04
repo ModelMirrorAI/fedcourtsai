@@ -1,0 +1,8 @@
+# Retrieval record
+
+- Read the committed `metrics/statpack.md`: modern discretionary-cert disposition and circuit cuts, paid-segment relist and CVSG cuts, per-Term table, and sal-v4 segment table. Read matching aggregate fields in `metrics/statpack.json` to pool the baseline reached rate over Terms 2017–2025. Result: 638 / 12,720 = 0.05015723270440252. No individual-case corpus records were queried.
+- Used `git log -1 --format='%cs %h' -- metrics/statpack.json` to identify the aggregate artifact's last modifying commit: September 28, 2026, `808f812e9`. This is not a live corpus freshness measurement.
+- Web search attempted: `site.supremecourt.gov Rule 10 writ certiorari rarely granted erroneous factual findings misapplication properly stated rule law`. The tool returned no usable content or source references.
+- Web open attempted for Cornell's Supreme Court Rule 10 page. The tool returned no usable content or source references. No legal quotation or verification was obtained from either attempt.
+- No CourtListener MCP lookup, `fedcourts query`, or `fedcourts open-events` call was made. Consequently there are no ranged-corpus transfer lines to report. No search concerned this case, its disposition, subsequent history, or another predictor's output.
+- Local contract/path operations included reading the prompt and schemas and running `UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts paths --court scotus --docket 9026000080 --event evt-petition-disposition --role predictor`. The first attempt with the default cache failed because that location was read-only; the writable-cache retry succeeded.

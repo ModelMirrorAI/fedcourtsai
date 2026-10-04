@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000053",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts open-events",
+    "metrics/statpack.md",
+    "courtlistener search",
+    "courtlistener call_endpoint (dockets, docket-entries)",
+    "WebFetch (supremecourt.gov dockets)",
+    "WebSearch"
+  ],
+  "helpful": [
+    "Provisioned petition and BIO text: the QP itself announced the hold posture, which decided the forecast's structure.",
+    "The sal-v4 segment table with bracketed reached rates gave a clean, version-matched anchor.",
+    "supremecourt.gov docket pages for the lead case supplied the decisive signal (response requested after waiver, two amici)."
+  ],
+  "gaps": [
+    "No provisioned or corpus record for the lead case a hold petition names (25-1383); a 'linked/lead docket' provisioning step for petitions whose QP asks for a hold would put the decisive input on disk.",
+    "CourtListener holds no docket entries for recent SCOTUS dockets, so the MCP path could confirm the docket's existence but not its proceedings.",
+    "No committed base rate conditioned on 'response requested' (as distinct from CVSG) or on cert-stage amicus count."
+  ],
+  "notes": "Retrieval stayed well under the 25-call budget: 3 corpus commands, 3 MCP calls, 4 web fetches, 1 web search."
+}

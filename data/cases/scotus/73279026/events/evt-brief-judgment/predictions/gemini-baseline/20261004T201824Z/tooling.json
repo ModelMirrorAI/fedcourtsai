@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73279026",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [],
+  "helpful": [
+    "Provisioned merits briefs and statpack.md provided sufficient context to evaluate the legal arguments and historical base rates."
+  ],
+  "gaps": [],
+  "notes": ""
+}

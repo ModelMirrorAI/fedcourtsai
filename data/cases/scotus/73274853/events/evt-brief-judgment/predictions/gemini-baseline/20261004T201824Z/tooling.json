@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/73274853",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "statpack merits section"
+  ],
+  "gaps": [
+    "ability to read SG amicus brief at cert stage (not provisioned in documents directory)"
+  ],
+  "notes": "The SG CVSG amicus brief was filed on May 22 2026, but it is not available in the provisioned documents."
+}

@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000183",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "scope",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward cell ran on 2026-10-04 for a petition first distributed for the 2026-09-28 long conference; a corpus priors query showed other petitions from that conference with cert grants dated 2026-10-01, so the conference's grant list had already issued when this cell ran. I did not retrieve this docket's post-conference state or disposition and forecast from the provisioned baseline (one distribution, no CVSG) only. Flagging so the evaluator can weigh the vantage; no leakage occurred."
+    }
+  ]
+}

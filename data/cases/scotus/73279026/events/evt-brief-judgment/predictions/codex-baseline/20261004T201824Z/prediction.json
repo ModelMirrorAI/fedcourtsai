@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "The case concerns the nationwide boundary between religious participation in publicly funded education and states' nondiscrimination conditions, with direct consequences for religious schools and LGBTQ families; the limited grant does not include overruling Smith.",
+  "big_case_score": 0.86,
+  "case_id": "scotus/73279026",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.83
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-08-18",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-18",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-04T20:43:46.905256Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-08-18.json",
+  "judgment": "reversed",
+  "model": "gpt-6-astra",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.83,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "c92dea4c1d48c0d2a0728d141d8f278f809e442d",
+    "stamped_at": "2026-10-04T20:46:01.321007Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261004T201824Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that Colorado's allowance of comparable secular enrollment preferences defeats general applicability under the Free Exercise Clause, triggering strict scrutiny that Colorado fails as applied to the petitioners' religious admissions practices."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will limit its holding to unequal accommodation in Colorado's preschool funding scheme, rather than recognize a categorical religious exemption from every neutral nondiscrimination condition attached to public funding."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

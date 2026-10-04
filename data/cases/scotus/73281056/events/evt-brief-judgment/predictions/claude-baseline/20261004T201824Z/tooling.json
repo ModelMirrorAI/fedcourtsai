@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/73281056",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md merits section",
+    "CourtListener MCP search + call_endpoint",
+    "subagent read of petition and BIOs"
+  ],
+  "helpful": [
+    "Provisioned merits brief text (petitioner) and the statpack merits table with explicit excluded counts",
+    "documents.json entry dates, which exposed that the 'respondent' brief was filed by an aligned party"
+  ],
+  "gaps": [
+    "No provisioned text for the other same-day merits briefs (United States, legislative leaders); one row per side drops the amicus-like respondents in a multi-sided case",
+    "A side-alignment field on provisioned briefs (supporting petitioner / respondent / neither) would have saved a close read to discover the partial-support posture",
+    "CourtListener opinion/cluster records for the Ninth Circuit decision carried no panel or author fields, so the lower-court lineup had to come from the filings",
+    "No committed base rate for the judgment label mix (reversed vs vacated vs in-part) or for vote splits"
+  ],
+  "notes": "The corpus query surface was not useful for a merits cell: the citation column is sparse and the ranked priors are cert-stage shapes. The statpack merits table did the anchoring work."
+}

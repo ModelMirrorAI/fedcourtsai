@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000053",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local provisioned snapshot and filing-text reads",
+    "committed statpack",
+    "fedcourts paths",
+    "web search (no usable results)",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document"
+  ],
+  "helpful": [
+    "Petition and opposition texts expose the companion-case request and contested vehicle issues.",
+    "Frozen context distinguishes the recorded distribution count from a substantive relist.",
+    "Prior-Term reached rates provide a matching private-petitioner anchor.",
+    "Targeted opinion search confirms precisely what GE Energy left open."
+  ],
+  "gaps": [
+    "The snapshot records a reply, but its text is not provisioned.",
+    "The default CLI cache is read-only; a temporary writable cache was needed.",
+    "Both general web searches returned no usable results."
+  ],
+  "notes": "No live corpus query was necessary for this limited precedent check. Companion-case dependence is a major forecast uncertainty; its current status was not independently retrieved. No outcome retrieval or direct CourtListener REST fallback was used."
+}

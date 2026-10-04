@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274866",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (merits docket section)",
+    "record/documents (QP, petition, BIO, both merits briefs)",
+    "WebSearch",
+    "WebFetch (SCOTUSblog, supremecourt.gov docket, justice.gov CVSG PDF)",
+    "local PDF text extraction of the fetched CVSG brief"
+  ],
+  "helpful": [
+    "Both merits briefs were provisioned on this briefed-moment cell, so the doctrinal fight could be read from the parties' own words rather than docket lines",
+    "The merits statpack section publishes an excluded count and per-Term parsed/disturbed rows, so the pooled strictly-prior baseline was computable from the section itself",
+    "documents.json page counts and truncation flags made it clear the petition text (203 pages, truncated) was the appendix-bearing joint petition"
+  ],
+  "gaps": [
+    "The SG's CVSG brief is a filed document on this docket but was not provisioned; it had to be fetched from justice.gov and the PDF text extracted locally because WebFetch could not read the binary",
+    "No provisioned amicus briefs; the respondent-side amici (including the United States' merits brief) landed six days after the cutoff and could only be seen as docket lines on the live docket page",
+    "fedcourts query has no subject or question-presented filter, so it could not surface implied-right-of-action priors (Sandoval, Jackson, Cummings, Medina) without a citation lookup whose egress is large; skipped on cost grounds",
+    "A statpack cut of disturbed rate conditioned on the SG's merits-stage side (supporting petitioner vs respondent) would be the single most useful merits anchor"
+  ],
+  "notes": "CourtListener MCP tools were loaded but not called: the live supremecourt.gov docket page gave the post-baseline docket directly and the CourtListener opinion page for the Eleventh Circuit decision rendered empty through WebFetch, while the panel composition was readable from the provisioned petition appendix."
+}

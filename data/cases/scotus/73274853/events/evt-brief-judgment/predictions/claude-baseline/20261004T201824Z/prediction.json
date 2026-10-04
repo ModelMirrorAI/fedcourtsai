@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "A recurring question for every Natural Gas Act condemnation nationwide, with a four-circuit consensus at stake and broad property-rights and industry amicus interest, but technical, fee-focused, and unlikely to lead general news.",
+  "big_case_score": 0.42,
+  "case_id": "scotus/73274853",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.44
+    }
+  ],
+  "confidence": 0.35,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-09-15",
+    "cvsg_date": "2025-12-08",
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-15",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-04T20:28:20Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 0,
+  "input_snapshot": "2026-09-15.json",
+  "judgment": "affirmed",
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.44,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "c92dea4c1d48c0d2a0728d141d8f278f809e442d",
+    "stamped_at": "2026-10-04T20:31:17.124159Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261004T201824Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority rests on the federal-power reading: because section 717f(h) delegates the federal government's own eminent-domain power (PennEast's 'categorical' delegation), the Fifth Amendment supplies the measure of compensation exactly as it does when the United States condemns in its own name (Kohl, Miller, Bodcaw), state compensation law does not apply of its own force, and Congress adopts state measures only expressly (the General Bridge Act of 1946 and the 'practice and procedure' conformity clause as the contrast with the Act's silence on substance). The Kimbell Foods gap-filling framework the Third, Fifth, Sixth, and Eleventh Circuits used is rejected as inapplicable because there is no gap; attorney's fees are additionally excluded by the American Rule absent express statutory authorization."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is categorical rather than fees-specific: the Fifth Amendment standard governs the measure of compensation in every private condemnation under section 717f(h), whatever the State, whether the state rule concerns valuation or litigation costs, and whether the action is brought in federal or state court. The Court does not confine itself to holding that North Dakota's discretionary fee statute is not part of 'just compensation' or that fees alone are unavailable."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

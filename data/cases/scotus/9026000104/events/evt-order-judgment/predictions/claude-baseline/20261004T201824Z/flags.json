@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000104",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-judgment",
+      "message": "No record/documents/ directory (and no documents.json) was provisioned for this merits grant-moment cell although the petition, QP, and BIO are public on supremecourt.gov; the snapshot even carries a QPLink. I retrieved the QP and the government's petition (with the Second Circuit opinion appended) myself in forward mode. Not a blocker, but the cell forecast from retrieved rather than provisioned filings, so predictors in this fan-out may not share the same document baseline."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-judgment",
+      "message": "Vehicle note for the evaluator: the government filed No. 26-104 as a hold petition asking the Court to hold it behind Putra v. Lopez-Campos (No. 25-1415, CA6), yet the October 1 order granted only 26-104 and left 25-1415 and Buenrostro-Mendez (No. 26-43, CA5) undisposed. The forecast treats that vehicle choice as a modest signal; it is pre-decision public information, not outcome material."
+    }
+  ]
+}

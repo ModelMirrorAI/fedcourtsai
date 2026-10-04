@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274853",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-brief-judgment",
+      "message": "Forward cell; retrieval surfaced this docket's own post-cutoff filings (the United States' merits amicus brief supporting respondent and the Chamber/INGAA briefs, all filed 2026-09-21, and the 2026-11-09 argument setting). No disposition exists; the SG's merits-stage support for respondent, confirming the position its cert-stage CVSG brief already took, was a material input to the forecast. Disclosed as hygiene, not as a breach."
+    }
+  ]
+}

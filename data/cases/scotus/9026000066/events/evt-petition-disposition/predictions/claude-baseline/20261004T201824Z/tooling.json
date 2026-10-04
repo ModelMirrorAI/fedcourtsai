@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000066",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener search (MCP)",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The sal-v4 band table with bracketed reached rates gave a direct, leakage-safe anchor for the frozen band.",
+    "Provisioned petition and questions-presented text made the pro se, fact-bound nature of the petition immediately legible."
+  ],
+  "gaps": [
+    "fedcourts query cannot filter on petitioner type (pro se vs counseled) or on originating court, so it could not surface comparable priors for this profile; the ranked result was dominated by recent emergency applications.",
+    "A statpack cut of the paid scored segment by pro se / counseled status would make the main adjustment in this cell a lookup instead of a judgment.",
+    "CourtListener held neither the Arizona Court of Appeals memorandum decision nor the SCOTUS docket, so the decision below was readable only through the petition."
+  ],
+  "notes": "Five retrieval calls total; all CourtListener searches returned zero results."
+}

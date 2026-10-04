@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73278422",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell provisioned-record reads",
+    "fedcourts paths",
+    "jq merits-pool arithmetic",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "CourtListener MCP read_document",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Both sides' nonempty merits briefs made the briefed moment substantively informative.",
+    "The merits statpack exposes parsed, granted, and excluded counts, enabling the correct prior-Term pool and coverage calculation.",
+    "CourtListener opinion snippets verified the key precedent and vote alignment without retrieving the target case's history."
+  ],
+  "gaps": [
+    "Web search and open calls returned no usable content; CourtListener MCP supplied the needed precedent evidence.",
+    "The United States amicus brief was not provisioned; its position was available only through the parties' descriptions.",
+    "The committed statpack lacks explicit newest-pull and newest-snapshot freshness stamps; its git commit date is only an artifact vintage."
+  ],
+  "notes": "The default uv cache path was read-only; a writable temporary cache resolved command execution. No live corpus queries, target-case outcome searches, or other prediction reads were used. The future argument and the precise scope of Carlson's survival remain genuine forecast uncertainties."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274866",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-brief-judgment",
+      "message": "Forward merits cell. Open-web retrieval (SCOTUSblog case page, the supremecourt.gov docket page, and the SG's CVSG brief PDF on justice.gov) surfaced public material postdating the 2026-08-18 baseline: the United States filed a merits amicus brief in support of respondents on 2026-08-24 and moved for divided argument, respondent-side amici (21 states, Chamber of Commerce, school-board groups) filed the same day, and argument is set for 2026-11-30. No disposition exists; nothing outcome-revealing was seen. The SG's side-switch (from supporting employee suits in Lakoski/Doe v. Mercy to supporting respondents here) was a material input to the forecast and is recorded in reasoning.md."
+    }
+  ]
+}

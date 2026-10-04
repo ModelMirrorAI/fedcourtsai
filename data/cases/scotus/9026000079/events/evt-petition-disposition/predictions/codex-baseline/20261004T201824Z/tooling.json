@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000079",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local file reads", "fedcourts paths", "local Python arithmetic", "web retrieval attempts", "fedcourts validate"],
+  "helpful": ["Frozen sal-v4 conditioning and distribution count", "Prior-Term reached-band denominators in the committed statpack"],
+  "gaps": ["No petition or questions-presented text for the paper-filed case", "Web retrieval calls returned no usable content"],
+  "notes": "The default uv cache was read-only; using a writable temporary cache allowed CLI execution. No live case lookup or outcome retrieval was attempted. The forecast is limited to the docket skeleton and base-rate context."
+}
