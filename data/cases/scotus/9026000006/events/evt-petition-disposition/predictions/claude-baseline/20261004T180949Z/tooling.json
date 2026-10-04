@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000006",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (corpus service)",
+    "fedcourts paths",
+    "courtlistener MCP search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The provisioned petition, BIO, and QP text were sufficient to form the forecast; the BIO's circuit survey did most of the work.",
+    "context.json's frozen band plus the sal-v4 segment table gave an unambiguous anchor."
+  ],
+  "gaps": [
+    "CourtListener MCP hit the upstream 300/hour rate limit on the second call of the cell; a shared quota across concurrent cells in a fan-out means late cells get little or no live retrieval.",
+    "fedcourts query with --court scotus --era 2020s --disposition granted/denied returned mostly 26A application dockets despite the default application screen, so it did not surface comparable paid cert petitions; a filter on docket form (paid cert only) or on originating court for SCOTUS rows would help.",
+    "No way to check for pending merits cases on a topic (hold candidates) without live CourtListener access."
+  ],
+  "notes": "Two of three MCP calls failed with HTTP 429; proceeded on provisioned inputs and the statpack per the prompt's degraded-upstream rule."
+}

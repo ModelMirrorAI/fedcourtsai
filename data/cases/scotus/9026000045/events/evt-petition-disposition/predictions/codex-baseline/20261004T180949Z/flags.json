@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000045",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "External precedent verification was unavailable: the CourtListener Axon citation search returned HTTP 429 and web attempts returned no usable material. Prediction completed from the provisioned snapshot, petition, opposition, QPs, and committed statpack. No direct REST fallback or outcome retrieval occurred. The reply and amicus are docketed but their texts were not provisioned or retrieved."
+    }
+  ]
+}

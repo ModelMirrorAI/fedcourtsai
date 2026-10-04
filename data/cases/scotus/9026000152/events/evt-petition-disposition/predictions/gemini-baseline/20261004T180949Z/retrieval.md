@@ -1,0 +1,4 @@
+- `uv run fedcourts query --court scotus --decided-before "2026-10-04" --judge "Dora L. Adkins"`
+  - `ranged corpus reads: 580 GET(s), 152043520 byte(s)`
+- Read committed statpack (`metrics/statpack.md`).
+- Attempted to query `mcp_courtlistener_search` for the Fourth Circuit proceedings (Adkins v. Rosslyn Syndicate) but received a rate limit error. Relied on provisioned inputs and the statpack.

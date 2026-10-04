@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000152",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "fedcourts paths", "committed statpack markdown and JSON", "jq pooled-rate calculation", "web search/open attempts"],
+  "helpful": ["Readable petition and extracted questions presented", "Frozen sal-v4 conditioning and matching unrounded reached-band rates"],
+  "gaps": ["Lower-court appendix and supplemental-brief text not provisioned", "General-law web calls returned no usable content", "Default uv cache location was read-only; a temporary cache override was required"],
+  "notes": "No CourtListener call or live corpus query was needed. The forecast uses the paid private-petitioner prior-Term risk set, not a terminal-band rate. No outcome retrieval was attempted."
+}

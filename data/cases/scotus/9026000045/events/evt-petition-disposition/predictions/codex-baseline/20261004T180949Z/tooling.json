@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000045",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "committed statpack", "local weighted-rate calculation", "fedcourts paths", "web search/open attempts", "CourtListener MCP search attempt", "fedcourts validate"],
+  "helpful": ["Nonempty petition and opposition texts", "Frozen sal-v4 band and distribution count", "Prior-Term reached rates with denominators"],
+  "gaps": ["CourtListener search throttled with HTTP 429", "Web attempts returned no usable content", "Reply and supporting amicus texts not provisioned"],
+  "notes": "Forecast completed from provisioned advocacy and committed base rates. No independent precedent text was retrieved. Redirecting uv's cache to a writable temporary directory resolved the local CLI startup failure."
+}

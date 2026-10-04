@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000006",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned manifest marks the 103-page petition truncated. Its substantive cert argument and appended Fifth Circuit opinion were available, and the opposition is marked untruncated. The forecast does not assume complete appendix or trial-record coverage; preservation and alternative-ground assertions are distinguished from judicial holdings."
+    }
+  ]
+}
