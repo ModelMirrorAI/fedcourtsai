@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/9026000027",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "Provisioned petition and BIO text extracted cleanly; the BIO's account of the opinion below was the key input.",
+    "The sal-v4 band table with bracketed reached figures made the anchor arithmetic straightforward."
+  ],
+  "gaps": [
+    "fedcourts query has no free-text or subject filter usable on SCOTUS rows, so it cannot surface topically similar priors for a cert cell.",
+    "CourtListener returned no opinion or docket for the Fifth Circuit case below (unpublished), so the lower-court opinion could only be read through the parties' quotations; provisioning the opinion below from the petition appendix would help."
+  ],
+  "notes": "Two MCP calls and one corpus query; well under the advisory budget."
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000093",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["exec_command", "fedcourts paths", "jq", "committed statpack", "web search/open attempts", "httpx", "pypdf", "fedcourts validate"],
+  "helpful": ["Frozen sal-v4 band and distribution count", "Snapshot links to exact pre-decision filings", "Exact reached-band counts in statpack.json", "Public federal response clarified the companion-case hold request"],
+  "gaps": ["The federal response was filed but not provisioned; its title is Brief for the Federal Respondents rather than brief in opposition", "The filed reply was not provisioned", "Web tools supplied no usable displayed content; direct PDF extraction was needed"],
+  "notes": "No live corpus or CourtListener lookup was needed. The default uv cache was read-only; a writable temporary cache allowed CLI execution. Two distribution entries reflected a rescheduling, not demonstrated reconsideration after conference."
+}

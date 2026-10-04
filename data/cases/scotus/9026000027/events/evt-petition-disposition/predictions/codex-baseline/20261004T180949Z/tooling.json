@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000027",
+  "gaps": [
+    "General-rule web retrieval returned no usable text; the shell's pdftotext executable was unavailable.",
+    "The provisioned text did not include the appendix or lower-court opinion, so the preservation account rests on the parties' briefs."
+  ],
+  "helpful": [
+    "Both petition and opposition were provisioned with nonempty, untruncated text and an extraction manifest.",
+    "Frozen sal-v4 context and exact JSON reached-band counts supported a correctly pooled prior-Term anchor."
+  ],
+  "notes": "No case-specific external retrieval or corpus queries were needed. General-rule retrieval attempts supplied no evidence. The initial uv default-cache error was resolved by using a writable temporary cache. No outcome material was encountered.",
+  "role": "predictor",
+  "run_id": "20261004T180949Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell read-only provisioned-input inspection",
+    "committed statpack Markdown and JSON",
+    "jq prior-Term pooling",
+    "fedcourts paths",
+    "web search/open attempts for general Court rules",
+    "shell PDF extraction attempt"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

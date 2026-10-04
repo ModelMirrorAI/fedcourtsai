@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000093",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "Decisive forward-mode signal outside the provisioned inputs: the Solicitor General filed a companion petition from the Fifth Circuit's contrary decision (Department of Justice v. McNutt, No. 26-204, docketed Aug. 18, 2026), distributed for the same Oct. 9, 2026 conference, and asked the Court to grant McNutt and hold this petition. Both sides agree review is warranted. All of this predates the snapshot and is public; no disposition of this petition was sought or seen.",
+      "event_id": "evt-petition-disposition"
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The document pipeline provisioned only petition.txt and questions-presented.txt. The respondents' filing on this docket is titled 'Brief for the Federal Respondents' (Aug. 14, 2026) rather than 'Brief in opposition', and no brief-in-opposition.txt was provisioned; I retrieved and read it from supremecourt.gov. The BIO fetcher may be missing the government's response-brief caption.",
+      "event_id": "evt-petition-disposition"
+    },
+    {
+      "category": "scope",
+      "severity": "info",
+      "message": "The most likely path is a hold pending No. 26-204, so this event may not resolve until McNutt is decided (likely by late June 2027). A hold that ends in a GVR counts as a grant on the binary axis and a hold that ends in a denial does not; the probability stated is a mixture over those paths, not a forecast of the Oct. 9 conference alone.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

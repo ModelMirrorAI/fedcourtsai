@@ -1,0 +1,10 @@
+{
+  "actor": "gemini-baseline",
+  "court": "scotus",
+  "docket": 9026000093,
+  "error_class": "partial",
+  "event_id": "evt-petition-disposition",
+  "run_id": "20261004T180949Z",
+  "schema_version": "1.0",
+  "seam": "predict"
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000152",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition and QP text are readable, but the separately linked appendix and docketed August 14 supplemental brief are not provisioned as text. No BIO text is supplied or BIO entry shown. The forecast relies on the petitioner's description of the lower-court orders and cannot independently assess the show-cause order or any supplemental argument. Prediction completed conservatively; no case outcome was sought or encountered."
+    }
+  ]
+}

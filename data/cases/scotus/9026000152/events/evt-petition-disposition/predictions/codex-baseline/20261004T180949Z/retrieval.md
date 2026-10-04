@@ -1,0 +1,9 @@
+# Retrieval accounting
+
+- Read committed `metrics/statpack.md`: modern discretionary-cert disposition and circuit cuts, paid-segment relist and CVSG cuts, and the `sal-v4` per-Term reached-band table. Also inspected the terminal salience-band and capital-marking cuts; neither supplies the forecast's anchor.
+- Read committed `metrics/statpack.json`: inspected its top-level structure and Term rows, then pooled `baseline` reached rates from `sal-v4` Terms 2017–2025 using `prefix_est_grant_rate * prefix_weighted_resolved`. Result: 638 / 12,720 = 0.05015723270440252. The initial Term-object inspection also displayed aggregate 2026 information; it was excluded from the pooled anchor and contained no case-specific outcomes.
+- Web search: `site.supremecourt.gov Rule 10 considerations governing review certiorari erroneous factual findings`. No usable result content returned.
+- Web open: official Supreme Court resource `https://www.supremecourt.gov/filingandrules/2023RulesoftheCourt.pdf`. No usable content returned; no rule text was relied upon as retrieved authority.
+- No CourtListener MCP lookup, no `fedcourts query`, and no `fedcourts open-events` call. Accordingly, there are no ranged-corpus-read transfer lines to report.
+- Local administrative lookup: `uv run fedcourts paths --court scotus --docket 9026000152 --event evt-petition-disposition --role predictor` initially failed on the read-only default uv cache. It succeeded with `UV_CACHE_DIR=/tmp/uv-cache`; a repeated successful call confirmed the same paths. This reads no case outcome.
+- Other local reads were task instructions, output schemas, the provisioned event/record/documents, the system UTC clock, and working-tree status. No other predictor output or evaluator-only outcome was read. No case-specific external search was made.
