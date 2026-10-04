@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000447",
+  "run_id": "20261004T184733Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "read_file"],
+  "helpful": ["read_file"],
+  "gaps": [],
+  "notes": "No external context or base rates were needed as this is an interim cell evaluation."
+}
