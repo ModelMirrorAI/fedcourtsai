@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "The two questions concern documentary citizenship requirements for federal-election registration and the timing of systematic voter-roll removals, with consequences beyond Arizona for election administration and access to voting.",
+  "big_case_score": 0.9,
+  "case_id": "scotus/73281056",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.84
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-08-29",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-29",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-04T20:49:00Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-08-29.json",
+  "judgment": "reversed",
+  "model": "gpt-6-astra",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.84,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "c92dea4c1d48c0d2a0728d141d8f278f809e442d",
+    "stamped_at": "2026-10-04T20:50:12.490297Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261004T201824Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that the NVRA permits Arizona to require documentary proof of citizenship with its own registration form, reading the Act's separate state-form authorization and Inter Tribal Council's federal-form backstop as inconsistent with the Ninth Circuit's statutory prohibition."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's state-form holding will announce a generally applicable statutory rule permitting documentary citizenship requirements on state-developed registration forms, rather than an exception confined to Arizona's particular administrative record, while leaving the duty to accept the federal form intact."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

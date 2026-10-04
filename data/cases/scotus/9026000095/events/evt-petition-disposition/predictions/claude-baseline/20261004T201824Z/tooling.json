@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000095",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned record/documents"
+  ],
+  "helpful": [
+    "The provisioned BIO text was decisive: it documented the preservation, finality and reasoned-order problems the petition's text conceals.",
+    "The sal-v4 band table matching context.json's salience_version made the anchor unambiguous."
+  ],
+  "gaps": [
+    "The petitioners' supplemental briefs and reply (Aug 11 and Sep 12 entries) were not provisioned, so the preservation dispute could only be read from one side.",
+    "The stay application was fetched with empty_text; an OCR pass on scanned filings would have made it readable.",
+    "A snapshot that carried the Court's order-list calendar (long-conference grant date, next order-list date) would let a post-conference cell state its relist claim with less inference."
+  ],
+  "notes": "Cell ran six days after the petition's conference; the snapshot's docket JSON creation date (9/29/2026) predates the conference's grant orders, so the record is the pre-conference docket polled after the conference."
+}

@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/73281056",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "ambiguous-event",
+      "severity": "warning",
+      "event_id": "evt-brief-judgment",
+      "message": "The `briefed` moment opened on 2026-08-28, but every respondent brief filed that day is aligned with the petitioner: the United States in support, the Arizona legislative leaders in support, and the State of Arizona in partial support. The adverse respondents' (Mi Familia Vota, DNC, AANHPI coalition) merits briefs are due 2026-10-13 per the docket. So 'both sides' merits briefs are on the record' is not true at this cutoff; the cell is effectively a petitioner-briefed moment. The event minter may want to key on an adverse respondent's brief (or the first brief filed after the respondents' due date) when the docket shows multi-sided respondents."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-judgment",
+      "message": "`merits-brief-respondent.txt` is the State of Arizona and Attorney General's brief in partial support of petitioner (it argues the NVRA question for the petitioner and defends only the consent-decree holding). It is labeled as the respondent's merits brief in documents.json. The United States' and the legislative leaders' August 28 briefs were not provisioned (one row per side). I read Arizona's brief as what it is and did not treat it as the opposition."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "My adjustment above the merits base rate leans on two public, pre-snapshot Supreme Court stay orders that I know from the filings and from training: the partial stay in this case (24A164, Aug. 2024) and Beals v. Virginia Coalition for Immigrant Rights (Oct. 2024). Both predate the snapshot and are cited in the petition and BIOs; noted for hygiene, not as leakage."
+    }
+  ]
+}

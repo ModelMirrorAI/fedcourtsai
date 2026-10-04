@@ -1,0 +1,5 @@
+# Predicted Reasoning
+
+- **Judgment & Votes**: I predict a 6-3 conservative majority will reverse the Second Circuit's judgment. The majority will include Chief Justice Roberts and Justices Thomas, Alito, Gorsuch, Kavanaugh, and Barrett. Justices Sotomayor, Kagan, and Jackson will likely dissent.
+- **Majority Ground**: The Court's opinion will likely focus on a strict textual interpretation of the Immigration and Nationality Act (INA), concluding that the statute's mandatory detention provisions do not implicitly require periodic bond hearings or impose strict time limits on detention pending removal proceedings. The majority will rely on and extend the Court's precedent in *Jennings v. Rodriguez* and *Johnson v. Arteaga-Martinez*, holding that the lower courts cannot graft additional procedural requirements onto the statutory scheme.
+- **Breadth**: The ruling will establish a categorical rule limiting the ability of lower courts to grant habeas relief or mandate bond hearings based on the prolonged nature of immigration detention under the relevant INA provisions.

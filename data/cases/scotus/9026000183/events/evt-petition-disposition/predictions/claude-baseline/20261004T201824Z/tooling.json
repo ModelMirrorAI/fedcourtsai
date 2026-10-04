@@ -1,0 +1,26 @@
+{
+  "case_id": "scotus/9026000183",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "courtlistener MCP call_endpoint"
+  ],
+  "helpful": [
+    "Provisioned petition and BIO text with full extraction \u2014 the forecast rests almost entirely on them.",
+    "The sal-v4 band table with bracketed reached rates gave an unambiguous anchor for a baseline-band cell.",
+    "context.json's distribution_count and band made the increment claims easy to state from a known state."
+  ],
+  "gaps": [
+    "No way to check the status of a related pending SCOTUS petition (Detwiler) \u2014 CourtListener does not index 2026 SCOTUS dockets and fedcourts query has no case-name or docket-number filter.",
+    "The reply brief is on the docket but is not provisioned; a reply.txt would help when the BIO raises vehicle objections.",
+    "A per-conference timing hint (whether the baseline's conference has already produced its order list) would help a forward cell state its vantage honestly."
+  ],
+  "notes": "The corpus query surfaced other long-conference petitions with Oct 1, 2026 grant dates, so this forward cell ran after the Sep 28 conference's grant release; I did not retrieve this docket's own post-conference state."
+}

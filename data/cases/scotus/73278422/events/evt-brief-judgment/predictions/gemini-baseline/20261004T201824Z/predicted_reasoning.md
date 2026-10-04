@@ -1,0 +1,7 @@
+The Court will reverse the Ninth Circuit's judgment recognizing a *Bivens* cause of action. 
+
+The Court will hold that the plaintiff's claim presents a "new context" under the *Bivens* framework. The majority will reason that the factual circumstances of this case—a fractured coccyx sustained in a prison gang fight, with allegations that officials failed to provide hospital transport—differ meaningfully from the facts of *Carlson v. Green*, which involved an acute asthma attack and immediate death. 
+
+Furthermore, the Court will find that special factors counsel hesitation in extending *Bivens* to this new context. Primarily, the Court will rely on the existence of the Bureau of Prisons' administrative grievance program. Following the precedent set in *Egbert v. Boule* and *Ziglar v. Abbasi*, the majority will emphasize that Congress has provided an alternative remedial structure for federal inmates, and whether or not that structure provides for damages, its existence precludes courts from implying a new constitutional damages remedy.
+
+The vote will likely be 6-3, with the conservative majority ruling to reverse and the liberal justices dissenting on the ground that the claim is squarely governed by *Carlson*'s recognition of an Eighth Amendment deliberate indifference claim. No summary disposition or procedural exit like a DIG is likely, given the case is fully briefed and directly presents a recurring issue regarding the scope of *Carlson*.

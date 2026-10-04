@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000183",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned document and snapshot reads",
+    "committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "fedcourts corpus-info (unsuccessful on service backend)",
+    "CourtListener citation lookup and opinion retrieval",
+    "web general-rule lookup attempts (no usable results)",
+    "fedcourts validate data"
+  ],
+  "helpful": [
+    "Both petition and opposition were provisioned with nonempty text.",
+    "Frozen context identified the correct sal-v4 baseline risk set.",
+    "Statpack JSON supported exact prior-Term pooling rather than rounded-rate arithmetic.",
+    "CourtListener supplied targeted older-precedent passages without requesting the target case."
+  ],
+  "gaps": [
+    "Service-backed corpus-info could not report corpus freshness.",
+    "Reply and amicus texts were not provisioned; only their filing entries were available.",
+    "Web Rule 10 lookups returned no usable content.",
+    "Citation verification's aggregate summary conflicted with Halliburton's item-level NOT FOUND status."
+  ],
+  "notes": "Used the committed pack with its September 28 artifact vintage disclosed, without claiming live corpus freshness. The default uv cache was read-only; --no-cache run --no-sync worked. No target-case outcome retrieval was attempted. No corpus prior query was needed for the record-based forecast."
+}

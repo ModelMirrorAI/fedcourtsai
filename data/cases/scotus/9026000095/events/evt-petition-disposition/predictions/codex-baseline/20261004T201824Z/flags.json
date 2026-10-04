@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000095",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The event declares moment distribution, but context supplies snapshot_provenance as-stored with null cutoff and cut_kind. The October 4 snapshot includes September 12 filings after the September 9 first distribution. Used the supplied record under the forward-mode contract; this forecast should not be interpreted as verified conditioning strictly at first distribution. No disposition of the target cert petition was encountered; the recorded stay denials concern a separate application."
+    }
+  ]
+}

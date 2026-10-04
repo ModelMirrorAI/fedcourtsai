@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281056",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell and jq", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts", "fedcourts validate"],
+  "helpful": [
+    "Snapshot scheduling entries and brief cover pages exposed adversarial alignment missing from the respondent filename.",
+    "Merits statpack rows made the prior-Term disturbed baseline directly computable.",
+    "CourtListener literal opinion search supplied the exact relevant passage without retrieving the target case."
+  ],
+  "gaps": [
+    "Respondent document selection and briefed-moment detection should distinguish support, partial support, and opposition.",
+    "The provisioned opposition is truncated and no opposing merits brief is present.",
+    "Web calls returned no usable content."
+  ],
+  "notes": "Used only the actual provisioned advocacy; no outcome search. A writable temporary uv cache resolved the default-cache permission failure."
+}

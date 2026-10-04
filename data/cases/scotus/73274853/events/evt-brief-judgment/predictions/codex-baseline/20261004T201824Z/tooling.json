@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73274853",
+  "gaps": [
+    "Web searches and a historical-opinion open returned no usable content.",
+    "corpus-info cannot report blob vintage through this cell's service backend; the committed statpack does not expose a freshness stamp in the fields inspected.",
+    "The default uv cache is read-only; using a temporary writable cache resolved the CLI failure."
+  ],
+  "helpful": [
+    "Both full merits briefs and their filing-date manifest were provisioned.",
+    "The merits statpack provides explicit exclusions and grant-Term counts for a stage-correct anchor.",
+    "Citation-targeted MCP retrieval supplied historical authority without searching the target case."
+  ],
+  "notes": "Completed from provisioned merits advocacy, committed aggregate context, and two historical authorities. No target outcome retrieval; no corpus query/open-events call. The Solicitor General's position was considered only as characterized in the parties' briefs, not from an independently retrieved government brief.",
+  "role": "predictor",
+  "run_id": "20261004T201824Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Provisioned snapshot and filed-document text",
+    "Committed merits statpack and jq pool calculation",
+    "CourtListener MCP search, search_document, read_document",
+    "Web search/open attempts (no usable content)",
+    "fedcourts paths and CasePaths",
+    "fedcourts corpus-info attempt"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

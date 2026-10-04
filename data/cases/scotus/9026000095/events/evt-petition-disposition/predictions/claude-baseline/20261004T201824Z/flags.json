@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000095",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward cell run on 2026-10-04 for a petition distributed to the 9/28/2026 long conference. A fedcourts query for recent priors returned another OT2026 paid petition (26-104) from the same conference already recorded as granted, so the long-conference grant orders have issued and this petition was not among them. This is public calendar context predating the snapshot, not this case's disposition (which I did not retrieve and do not know); it lowered my relist-increment claim and left the grant number essentially unchanged."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "record/documents/application.txt was provisioned with empty_text: true (scanned 24-page stay application, no text layer). Treated as content-unavailable; nothing inferred from it."
+    }
+  ]
+}

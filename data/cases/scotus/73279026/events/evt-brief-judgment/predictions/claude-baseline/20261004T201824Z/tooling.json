@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279026",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and documents",
+    "metrics/statpack.md (merits docket section)",
+    "fedcourts query",
+    "CourtListener MCP search"
+  ],
+  "helpful": [
+    "Both merits briefs provisioned in full text with truncated:false, which is the decisive input on a briefed cell",
+    "The statpack merits table with an excluded count, so the strictly-prior pool could be computed from the section itself"
+  ],
+  "gaps": [
+    "fedcourts query has no merits-judgment filter, so it cannot pull resolved merits priors by stage; the --citation filter is nearly empty on SCOTUS rows and the --disposition granted sweep returns recency-ranked cert dockets with merits_judgment None",
+    "CourtListener search returned no results for the Tenth Circuit opinion under the case name or topical terms, so the lower-court panel and reasoning had to be taken from the briefs",
+    "A provisioned lower-court opinion text (Pet.App.) would help on a merits cell as much as the briefs do"
+  ],
+  "notes": "Retrieval was light (two corpus queries, three MCP searches) because the provisioned briefs covered the record; the reply brief postdates the snapshot and the argument postdates today."
+}
