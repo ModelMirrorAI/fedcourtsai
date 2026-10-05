@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "Scope of CERCLA natural-resource damages (whether trustees may recover for cultural / nonuse losses) with half a billion dollars at stake, industry, tribal and a foreign-sovereign amicus interest; significant for environmental and tribal law but a technical remedies question rather than a headline constitutional case.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/9026000130",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.4
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.04
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.2
+    }
+  ],
+  "confidence": 0.55,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-06",
+    "cvsg_date": "2026-10-05",
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-05",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-05T21:36:21Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-cvsg-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-05.json",
+  "judgment": null,
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.4,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "027238b3e2cd0511f1efc365c1293ee0e30c61fb",
+    "stamped_at": "2026-10-05T21:37:18.112325Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261005T212916Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

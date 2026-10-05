@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000049",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The petition manifest marks 182 pages and truncated=true; supplied text ends in the appendix at printed page 48a. The petition argument and nonempty untruncated BIO support a forecast, but the full appendix/rehearing dissent could not be independently read. The August 26 reply is docketed but not provisioned. These limitations are incorporated into the probability and discussed in reasoning.md.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261005T212916Z",
+  "schema_version": "1.0"
+}

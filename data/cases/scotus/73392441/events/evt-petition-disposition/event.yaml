@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2026-05-26'
-resolved: false
+resolved: true
 schema_version: '1.0'
+stage: cert
 title: "Alvin B. White, Individually and as Trustee for the White Revocable Living\
   \ \r\nTrust dated January 6, 2010 v. U.S. Bank National Association, as Legal Title\
   \ Trustee for Truman 2016 SC6 Title Trust"
