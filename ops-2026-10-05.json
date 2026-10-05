@@ -1,7 +1,7 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 1230.1,
+    "actions_minutes": 1230.0,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 1239.18,
     "fixed_monthly_usd": 115.0,
@@ -217,7 +217,7 @@
       "skipped": false
     },
     "ledger": {
-      "checked": 32594,
+      "checked": 32770,
       "invalid": 0,
       "ok": true,
       "problems": []
@@ -571,13 +571,13 @@
     "warnings": 25,
     "window_days": 14
   },
-  "generated_at": "2026-10-05T16:46:27.217525+00:00",
+  "generated_at": "2026-10-05T17:19:44.204087+00:00",
   "health": [
     {
       "failures": 8,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-05T16:29:03Z",
-      "median_seconds": 417,
+      "last_run_at": "2026-10-05T16:47:00Z",
+      "median_seconds": 416,
       "p95_seconds": 449,
       "runs_considered": 76,
       "success_rate": 0.8947368421052632,
@@ -587,7 +587,7 @@
     {
       "failures": 5,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-05T16:39:30Z",
+      "last_run_at": "2026-10-05T16:47:00Z",
       "median_seconds": 198,
       "p95_seconds": 228,
       "runs_considered": 81,
@@ -642,12 +642,12 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-10-05T16:45:29Z",
+      "last_run_at": "2026-10-05T17:18:51Z",
       "median_seconds": 60,
-      "p95_seconds": 60,
-      "runs_considered": 2,
+      "p95_seconds": 71,
+      "runs_considered": 3,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 2,
       "workflow": "run-ops"
     },
     {
@@ -663,11 +663,11 @@
     },
     {
       "failures": 0,
-      "last_conclusion": null,
+      "last_conclusion": "success",
       "last_run_at": "2026-10-05T16:33:14Z",
       "median_seconds": 850,
       "p95_seconds": 1098,
-      "runs_considered": 16,
+      "runs_considered": 15,
       "success_rate": 1.0,
       "successes": 15,
       "workflow": "run-pull"
@@ -754,8 +754,8 @@
       "evaluations_retrospective": 40,
       "evaluations_retrospective_delta": 40,
       "events_predicted": 294,
-      "predicted_resolved": 36,
-      "predicted_resolved_delta": 14,
+      "predicted_resolved": 49,
+      "predicted_resolved_delta": 27,
       "predictions": 1257,
       "predictions_delta": 152
     },
