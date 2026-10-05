@@ -141,6 +141,8 @@ _CAPTION_RE = re.compile(
 # a column of brackets, then one capitals caption line per docket.
 _BARE_DOCKET_RE = re.compile(r"^(?P<docket>\d{2}-\d{1,5}|\d{2}[AMO]\d{1,5})$")
 _BRACKET_LINE_RE = re.compile(r"^[()\[\]{}| ]+$")
+# A line of order text that runs on into a docket number on the next line.
+_RUNS_INTO_DOCKET_RE = re.compile(r"(?:\bNos?\.|,|\band|\bor)$", re.I)
 _APPLICATION_LINE_RE = re.compile(r"^\((?P<docket>\d{2}A\d{1,5})\)$")
 _PAGE_NUMBER_RE = re.compile(r"^\d{1,3}$")
 _RULE_RE = re.compile(r"^[_\u2014\u2013\-]{3,}$")
@@ -351,8 +353,16 @@ def _opens_bare_caption(lines: Sequence[str], index: int) -> bool:
     It does when the caption goes on: the next line of text is another docket
     number, a bracket column, an application number or a capitals caption
     line. A line of order text that wraps to leave a docket number alone
-    (``… with No.`` / ``25-200`` / ``and a total …``) goes on in lowercase.
+    (``… with No.`` / ``25-200`` / ``and a total …``) runs into it from above
+    and goes on in lowercase; either rules the caption out, so a wrap followed
+    by a section heading does not open an entry the next caption would join.
     """
+    above = next(
+        (line for line in reversed(lines[:index]) if line and not _is_page_furniture(line)),
+        "",
+    )
+    if _RUNS_INTO_DOCKET_RE.search(above):
+        return False
     for line in lines[index + 1 :]:
         if not line or _is_page_furniture(line):
             continue
@@ -378,8 +388,8 @@ def _split_list(  # noqa: PLR0912 - one branch per line shape the list prints
         if _is_page_furniture(line) or _BRACKET_LINE_RE.match(line):
             continue
         caption = _CAPTION_RE.match(line)
-        if caption is None and _opens_bare_caption(lines, index):
-            caption = _BARE_DOCKET_RE.match(line)
+        if caption is None and (bare := _BARE_DOCKET_RE.match(line)) is not None:
+            caption = bare if _opens_bare_caption(lines, index) else None
         if caption is not None:
             if current is None or current.lines:
                 current = _Group()

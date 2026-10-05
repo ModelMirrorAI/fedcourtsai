@@ -670,6 +670,20 @@ def test_a_docket_number_left_alone_by_a_wrap_is_not_a_caption() -> None:
     assert "No. 25-200 is granted." in entry.text
 
 
+def test_a_docket_number_left_alone_before_a_section_heading_is_not_a_caption() -> None:
+    split = split_document(
+        "CERTIORARI GRANTED\n"
+        + "25-100 SMITH V. JONES\n"
+        + "  The petition is granted. The case is consolidated with No.\n"
+        + "25-200\n"
+        + "CERTIORARI DENIED\n"
+        + "25-300 DOE V. ROE\n"
+        + "  The petition is denied. Justice Alito would grant the petition.\n"
+    )
+    assert split.problems == ()
+    assert [p.dockets for p in split.pieces] == [("25-100",), ("25-300",)]
+
+
 def test_a_body_line_opening_on_a_name_is_not_a_header() -> None:
     body = RELATING + (
         "JUSTICE KAGAN, dissenting from the denial of certiorari in Doe v.\n"
