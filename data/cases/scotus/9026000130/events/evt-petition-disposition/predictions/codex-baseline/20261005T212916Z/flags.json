@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000130",
+  "run_id": "20261005T212916Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The event is labeled moment distribution, but the supplied October 5, 2026 latest-state snapshot and frozen context have null cutoff/cut_kind and include a CVSG issued that day, after the September 28 conference. This forecast properly uses the already-issued CVSG and is not a pristine first-distribution forecast. The CVSG-increment claim is already vacuous. No petition outcome was sought or observed; this note preserves the conditioning distinction for cohort interpretation."
+    }
+  ]
+}

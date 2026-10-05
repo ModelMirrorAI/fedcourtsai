@@ -1,0 +1,3 @@
+- `uv run fedcourts query --court scotus --decided-before "2026-10-05"` (ranged corpus reads: 16 GET(s), 4063232 byte(s))
+- Examined provisioned documents: `petition.txt`, `brief-in-opposition.txt`, `questions-presented.txt`.
+- Searched text of petition and BIO for circuit split mentions.

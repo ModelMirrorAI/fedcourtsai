@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000049",
+  "gaps": [
+    "Petition appendix truncated at printed page 48a",
+    "Docketed reply text not provisioned",
+    "General-law web lookups returned no usable content"
+  ],
+  "helpful": [
+    "Readable petition and opposition with document manifests",
+    "Frozen state-band context and distribution count",
+    "Exact reached-band denominators in the statpack JSON"
+  ],
+  "notes": "No live corpus query or CourtListener retrieval was needed. Rescheduling was distinguishable from a true relist in the supplied docket. The default uv cache was read-only; a writable temporary cache allowed the CLI to run. Forecast rests on provisioned advocacy and committed aggregate base rates, not newly verified legal developments.",
+  "role": "predictor",
+  "run_id": "20261005T212916Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local input reads",
+    "fedcourts paths",
+    "jq aggregate arithmetic",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
