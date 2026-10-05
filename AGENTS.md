@@ -154,7 +154,10 @@ non-interactive** container. Two consequences shape everything you do:
   snapshot row, across the whole blob. That is a corpus-wide vintage, not
   per-case provenance — the pull governor rotates stalest-first, so the maximum
   says when *anything* was last refreshed, and a claim about one case quotes
-  that case's own `last_pulled` (a `query` away). Refresh the blob yourself
+  that case's own `last_pulled` (a `query` away). `corpus-info` and
+  `corpus-pull` also warn when the local blob no longer matches its pointer or
+  the checkout's pointer differs from `origin/main`'s; act on that warning
+  before quoting a figure. Refresh the blob yourself
   with `fedcourts corpus-pull`, which a dev checkout's read-only role serves;
   when the *remote* is the stale one, compose the `run-pull` dispatch for the
   maintainer rather than reporting a stale number as current. The same role
@@ -411,10 +414,10 @@ task-specific instructions: the prompt file named in your run
 | How does the SCOTUS live channel work? | `docs/live-sources.md` |
 | Which command does X, and with which flags? | `docs/cli.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
-| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, two batches have landed, and the cut renders at the next `fedcourts docket`) | `docs/qp-topic.md` |
+| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, ten batches have landed covering the scoped frame; the committed `metrics/docket.md` still renders the two-batch cut until the next `fedcourts docket` run regenerates it) | `docs/qp-topic.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` (the rules), `docs/freeze-record.md` (the dated record) |
 | How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote/writing pre-registered; the semantic family an alpha declared, elicited, staged and graded on the merits moments, producing only the availability mask while opinion coverage is a rounding error) | `docs/outcome-decomposition.md` |
-| How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated and completeness-gated, and recomputed over the whole bench for the leaderboard's `mean_vote_accuracy` — the opinions (merits) and orders (cert and interim, banked unscored) vote sources registered with a dispatch-only writer, none populated yet; margins pre-registered only) | `docs/decision-model.md` |
+| How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated and completeness-gated, and recomputed over the whole bench for the leaderboard's `mean_vote_accuracy` — the orders vote source (cert and interim, banked unscored) is stamped on committed outcomes, while the opinions source (merits) is registered with a dispatch-only writer and not yet populated; margins pre-registered only) | `docs/decision-model.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
 | What does one prediction actually consist of, file by file? | `docs/predicted-artifacts.md` |
 | What does a cell agent have to produce? | `.github/prompts/` |
