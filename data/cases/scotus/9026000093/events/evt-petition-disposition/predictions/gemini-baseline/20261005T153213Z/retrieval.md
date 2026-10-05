@@ -1,0 +1,2 @@
+- Read base rates from `metrics/statpack.md`.
+- Searched CourtListener MCP for `court=ca5` and `"home distilling"` to identify the conflicting Fifth Circuit decision (*McNutt v. US Dept of Justice*).
