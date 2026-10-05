@@ -4093,7 +4093,7 @@ def live_rotation(
     tiers below are each unbounded in size, so without this tier a large enough
     one holds the whole per-cycle cap indefinitely and everything behind it
     is never reached. A never-polled row is not overdue (it has no stamp to age);
-    it keeps its place in the term order. ``None`` disables the tier.
+    it keeps its ordinary priority-tier place. ``None`` disables the tier.
     ``overdue_limit`` caps how many of the ``limit`` slots the overdue tier may
     take (``None``: uncapped), so a large backlog drains over several cycles
     while the priority tiers keep the rest of each one; an overdue row past the
@@ -4102,7 +4102,10 @@ def live_rotation(
     days from resolution, the opposite of stalest-first; a past conference date
     sorts first of all, since that petition is overdue for its order-list
     result; a granted docket's stale conference date is masked —
-    :data:`_PENDING_CONFERENCE_SQL`), then recent Terms first, then
+    :data:`_PENDING_CONFERENCE_SQL`; within one conference, never-polled then
+    stalest first, so a conference's whole distributed set is re-read after its
+    order list rather than its newest Term's dockets over and over), then
+    recent Terms first, then
     never-polled before stale, then ``case_id`` for determinism. Rotates on
     ``last_live_polled``, never ``last_pulled``, so the CourtListener
     enrichment rotation is undisturbed.
@@ -4122,8 +4125,14 @@ def live_rotation(
         "AND EXISTS (SELECT 1 FROM events "
         "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
     )
+    # Within one conference, staleness leads the Term: every distributed
+    # petition on a conference must be re-read once its order list issues, and
+    # a Term-first order lets the newest Term's still-pending dockets (relisted,
+    # rescheduled) hold the head of every cycle while an older Term's petitions
+    # on the same conference are never reached.
     priority_order = (
         f"{_PENDING_CONFERENCE_SQL} IS NULL, {_PENDING_CONFERENCE_SQL} ASC, "
+        f"CASE WHEN {_PENDING_CONFERENCE_SQL} IS NOT NULL THEN last_live_polled END ASC, "
         f"{_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
         "last_live_polled ASC, case_id ASC"
     )

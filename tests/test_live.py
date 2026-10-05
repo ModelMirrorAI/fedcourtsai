@@ -1820,6 +1820,65 @@ def test_live_rotation_distributed_petitions_lead(tmp_path: Path) -> None:
     assert watchlist == ["scotus/2", "scotus/3"]
 
 
+def test_live_rotation_reads_a_whole_conference_stalest_first(tmp_path: Path) -> None:
+    # After an order list, the newest Term's still-pending dockets on the
+    # conference (relisted, rescheduled) were just polled; an older Term's
+    # petitions on the same conference were not. Staleness leads the Term within
+    # one conference, so the cycle reaches them instead of re-reading the same
+    # newer dockets; a later conference still waits its turn.
+    db = tmp_path / "corpus.db"
+    conference = date(2026, 9, 28)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="26-1",
+                    distributed_for_conference=conference,
+                    last_live_polled=date(2026, 10, 5),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="25-2",
+                    distributed_for_conference=conference,
+                    last_live_polled=date(2026, 10, 2),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="25-3",
+                    distributed_for_conference=conference,
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/4",
+                    court="scotus",
+                    docket_number="26-4",
+                    distributed_for_conference=date(2026, 10, 9),
+                ),
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id=f"scotus/{n}",
+                    court="scotus",
+                    kind="petition",
+                    title=f"scotus/{n}",
+                )
+                for n in (1, 2, 3, 4)
+            ],
+        )
+        picked = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
+        head = [r.case_id for r in corpus.live_rotation(conn, limit=2)]
+    assert picked == ["scotus/3", "scotus/2", "scotus/1", "scotus/4"]
+    assert head == ["scotus/3", "scotus/2"]
+
+
 def test_conference_date_survives_a_courtlistener_write(tmp_path: Path) -> None:
     # A CourtListener enrichment (no conference parse) must not wipe the live
     # channel's stored membership — the COALESCE latch, like last_live_polled.

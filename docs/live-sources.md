@@ -124,10 +124,14 @@ outcome days later, all in the forward stratum.
 **Implemented:** the latest distribution entry per petition lands as the
 corpus's `distributed_for_conference` (a relist updates it; non-live writers
 preserve it); and the refresh rotation's priority tiers are distributed
-*pending* petitions, nearest conference first (a granted docket retained for its
-open merits event rotates on staleness instead — its latched conference date is
-the one that produced the grant, not a resolution about to happen), then recent
-Terms first, then stalest.
+*pending* petitions, nearest conference first (a granted docket retained for
+its open merits event takes the Term-then-staleness order below instead — its
+latched conference date is the one that produced the grant, not a resolution
+about to happen) and, within one conference, never-polled then stalest first;
+then recent Terms first, then stalest. Staleness leads the Term inside a conference because the whole
+distributed set must be re-read once its order list issues: Term first, the
+newest Term's still-pending dockets (relisted, rescheduled) would take the head
+of every cycle while an older Term's petitions on the same conference waited.
 
 Each of those tiers is unbounded in size while the cycle's cap
 (`live.max_cases_per_run`) is fixed, so a tier larger than the cap — the
@@ -140,7 +144,7 @@ the cycles its overdue backlog takes to drain. The overdue tier takes at most
 `live.max_overdue_per_run` of each cycle, so a large backlog drains over
 several cycles while the distributed petitions, whose order-list results are
 days away, keep the rest; an overdue docket past that share keeps its ordinary
-place. A never-polled row has no stamp to age and keeps its term-order place.
+place. A never-polled row has no stamp to age and keeps its ordinary priority-tier place.
 The bound is set well above one sweep of the polled watchlist at the cap, so
 it bites only when a tier is starving the rest and the priority tiers govern
 otherwise.
