@@ -15,6 +15,12 @@ ranged reads from the same pointer:
 * :func:`download_index` fetches the object the pointer names and verifies its
   sha256 + size before the file lands, failing loudly on any mismatch — a
   truncated or corrupted transfer can never masquerade as the corpus.
+* :func:`local_blob_drift` and :func:`upstream_pointer` are the read-only
+  checks behind a pulled blob's vintage: whether its bytes still match the
+  pointer it came from (stat and hash only, settled from the pull sidecar's
+  timestamp unless the blob was touched since), and whether the checkout's
+  committed pointer differs from ``origin/main``'s (a ``git show`` against the
+  local object store, no network).
 
 Credentials and region come from the environment (the OIDC-assumed role in
 workflows, the developer's profile locally), exactly like the ranged reader
@@ -28,6 +34,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
@@ -36,8 +44,11 @@ from .corpus_ranged import (
     POINTER_OVERRIDE_SOURCE,
     POINTER_SUFFIX,
     IndexPointer,
+    RangedBackendError,
     RemoteObject,
+    parse_index_pointer,
     parse_remote_url,
+    read_index_pointer,
     resolve_pointer,
 )
 
@@ -147,6 +158,99 @@ def digest_file(path: Path) -> tuple[str, int]:
             digest.update(chunk)
             size += len(chunk)
     return digest.hexdigest(), size
+
+
+@dataclass(frozen=True)
+class BlobDrift:
+    """A local blob whose bytes no longer match the pointer it was pulled from.
+
+    ``pointer_source`` names the record the expected digest came from — the
+    pull-provenance sidecar, or the committed ``.ref`` when no pull recorded
+    one — so the report says which claim the bytes broke.
+    """
+
+    pointer_sha256: str
+    pointer_source: Path
+    on_disk_sha256: str
+
+
+def local_blob_drift(db_path: Path) -> BlobDrift | None:
+    """The drift between the blob on disk and its pointer, or ``None`` when it matches.
+
+    A pull lands a sha256-verified blob, but a default local read migrates the
+    file in place (``corpus.connect``), after which its bytes are no longer the
+    ones any pointer names and a vintage quoted from it describes a blob that
+    exists nowhere else. The expected digest is the pull-provenance sidecar's
+    — the pointer the blob actually came from — else the committed ``.ref``.
+    A blob matching the committed ref is not drift either: ``corpus-push``
+    publishes the blob on disk and rewrites the ref, leaving the sidecar behind.
+
+    Hashing a ~1 GB blob costs seconds, so the sidecar's timestamp stands in
+    for the digest where it can: the pull writes the sidecar only after the
+    verified blob is in place, so a blob of the pointer's size last modified
+    strictly *before* its sidecar is still the verified pull. Anything else —
+    a blob modified at or after the pull, a size that differs, no sidecar to
+    time against — is settled by the digest. ``None`` too when there is no blob
+    or no readable pointer to compare against: nothing can be claimed then.
+    """
+    if not db_path.is_file():
+        return None
+    pulled_path = pulled_pointer_path_for(db_path)
+    committed_path = pointer_path_for(db_path)
+    committed: IndexPointer | None = None
+    try:
+        if committed_path.is_file():
+            committed = read_index_pointer(committed_path)
+        expected = read_index_pointer(pulled_path) if pulled_path.is_file() else committed
+    except RangedBackendError:
+        return None
+    if expected is None:
+        return None
+    record = pulled_path if pulled_path.is_file() else committed_path
+    blob = db_path.stat()
+    if (
+        record == pulled_path
+        and blob.st_size == expected.size
+        and blob.st_mtime_ns < pulled_path.stat().st_mtime_ns
+    ):
+        return None
+    sha256, _ = digest_file(db_path)
+    if sha256 == expected.sha256 or (committed is not None and sha256 == committed.sha256):
+        return None
+    return BlobDrift(pointer_sha256=expected.sha256, pointer_source=record, on_disk_sha256=sha256)
+
+
+#: The ref whose committed pointer a checkout's own is compared against: the
+#: production pointer, which the deterministic writers advance on ``main``.
+UPSTREAM_POINTER_REF = "origin/main"
+
+
+def upstream_pointer(db_path: Path, ref: str = UPSTREAM_POINTER_REF) -> IndexPointer | None:
+    """The pointer ``ref`` commits beside ``db_path``, read from the local object store.
+
+    ``git show <ref>:./<pointer>`` reads only what the last fetch brought in —
+    no network — so it answers "has this checkout's pointer fallen behind the
+    production one, as far as this clone knows". ``None`` whenever it cannot
+    answer: no git, not a repository, ``ref`` never fetched, or a pointer the
+    ref does not carry or that does not parse.
+    """
+    pointer_name = pointer_path_for(db_path).name
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(db_path.parent), "show", f"{ref}:./{pointer_name}"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        return parse_index_pointer(json.loads(proc.stdout), source=f"{ref}:{pointer_name}")
+    except (json.JSONDecodeError, RangedBackendError):
+        return None
 
 
 def write_pointer(pointer_path: Path, pointer: IndexPointer) -> None:
