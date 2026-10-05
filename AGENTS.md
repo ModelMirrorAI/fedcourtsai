@@ -97,7 +97,10 @@ non-interactive** container. Two consequences shape everything you do:
   risk: anything under `.github/workflows/` or `.github/actions/` (the
   permission surface), `SECURITY.md` or the security posture it describes, the
   promotion gate itself (`scripts/promotion-gate.sh`, `promote.yml`,
-  `sync-staging.yml`, ci.yml's gate jobs), and `config/predictors.yaml` /
+  `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
+  which of the gate's checks a change gets: `scripts/gate.sh`,
+  `scripts/ci_lane.py`, `tests/test_ci_lane.py`, `tests/lane_guard.py` and its
+  registration in `tests/conftest.py`), and `config/predictors.yaml` /
   `config/evaluators.yaml` (what agents are and what they may reach). Open
   those, get them green, and report them ready.
   The branch rulesets do not encode this: both require zero approvals, so the
@@ -240,13 +243,16 @@ transcript is invisible to the one human who sees the change.
 ## Local gate
 
 The gate that actually blocks a merge is the **required status checks on your
-PR** — CI runs the full suite below; locally you have **discretion** to run
-the subset that fits what you changed, enough for honest confidence (a
-docs-only change needs none of the Python checks).
+PR** — CI runs the full suite below for a code change, and a lighter lane for
+a change that is only data or only prose (*The CI lanes* in `docs/testing.md`);
+locally you have **discretion** to run the subset that fits what you changed,
+enough for honest confidence (a change the docs lane covers needs only
+`docs-tests`).
 
 ```bash
 uv sync                    # once, to sync the env the stages assume
-scripts/gate.sh            # every stage, in CI order — CI runs all but lock
+scripts/gate.sh            # every stage, in CI order — CI runs all but lock for
+                           # a code change; `all` excludes the two lane-test stages
 # or run just the stages that fit your change:
 scripts/gate.sh lock       # uv lock --check (the lock matches pyproject); CI
                            # enforces it instead in setup-python-env, which
@@ -258,9 +264,16 @@ scripts/gate.sh test       # pytest, fanned across cores (GATE_COV=1 adds
                            # serially, which is what debugging wants)
 scripts/gate.sh data       # validate data + corpus-status
 scripts/gate.sh schemas    # export-schemas + schema-drift check (CI fails on drift)
+scripts/gate.sh data-tests # only the tests marked reads_data (CI's data lane)
+scripts/gate.sh docs-tests # only the tests marked reads_docs (CI's docs lane)
 # several stages may be named at once (`scripts/gate.sh lint types`); an unknown
 # name is refused before any stage runs
 ```
+
+A test that opens a committed file under `data/`, the corpus pointer, or the
+prose the docs lane covers carries `@pytest.mark.reads_data` /
+`@pytest.mark.reads_docs`; the full suite fails one that does not
+(`tests/lane_guard.py`).
 
 `scripts/gate.sh` is the single definition of the gate; `ci.yml` and `README.md`
 invoke the same script, so a change to what the gate runs lands in one place.

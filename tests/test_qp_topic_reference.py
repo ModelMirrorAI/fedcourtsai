@@ -12,6 +12,10 @@ from fedcourtsai.serialize import read_model
 
 _REFERENCE = Path(__file__).resolve().parents[1] / "data" / "qp-topics" / "qp-topic-reference.json"
 
+# The reference set is committed data, so a data-only change can break these:
+# the CI data lane runs them (tests/lane_guard.py).
+pytestmark = pytest.mark.reads_data
+
 
 def _entry(case_id: str, docket_number: str) -> QpTopicReferenceEntry:
     return QpTopicReferenceEntry(case_id=case_id, docket_number=docket_number, label="tax")

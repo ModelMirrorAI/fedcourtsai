@@ -27,6 +27,28 @@ from fedcourtsai.pipeline.salience import SalienceScorer
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import Disposition, Evaluation, Prediction, ProcessVersion
 from fedcourtsai.serialize import write_json
+from tests import lane_guard
+from tests.lane_guard import (
+    pytest_collection_modifyitems,
+    pytest_collectreport,
+    pytest_collectstart,
+    pytest_runtest_protocol,
+    pytest_runtest_teardown,
+)
+
+__all__ = [
+    "pytest_collection_modifyitems",
+    "pytest_collectreport",
+    "pytest_collectstart",
+    "pytest_runtest_protocol",
+    "pytest_runtest_teardown",
+]
+
+# The CI lane guard: fails any test that opens a committed file a CI lane lets
+# change without that lane's mark (see tests/lane_guard.py). Installed when this
+# conftest loads — before any test module is collected, so import-time reads
+# are seen too.
+lane_guard.install()
 
 
 @pytest.fixture(autouse=True)

@@ -102,6 +102,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 from pydantic import AliasChoices
 
@@ -909,6 +910,10 @@ def _joined_run_blocks(name: str) -> list[str]:
 GEMINI_CONTEXT_FILENAMES = ("GEMINI.md", "MEMORY.md")
 
 
+# Walks the whole checkout, data/ and docs/ included, so it carries both lane
+# marks; a change that adds such a file is `code` and runs the full suite.
+@pytest.mark.reads_data
+@pytest.mark.reads_docs
 def test_no_file_in_the_checkout_is_a_gemini_context_file() -> None:
     """The checkout is a context-file discovery root for every gemini cell.
 
@@ -931,6 +936,9 @@ def test_no_file_in_the_checkout_is_a_gemini_context_file() -> None:
     )
 
 
+# Walks data/, so it carries the data lane's mark; a change that adds such a
+# file is `code` and runs the full suite.
+@pytest.mark.reads_data
 def test_no_file_under_data_is_an_agent_instruction_file() -> None:
     """Every engine's cells read the ledger, so no agent context file lives in it.
 
