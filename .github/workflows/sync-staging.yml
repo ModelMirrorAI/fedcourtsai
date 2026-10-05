@@ -167,11 +167,14 @@ jobs:
           # `--auto` errors when the PR is *already* mergeable, which happens
           # here more often than usual: the head sha is main's own, so it may
           # already carry a green `gate` check from the push-to-main run. That
-          # check covered main's own last commit (in that commit's CI lane),
-          # not this PR's merged tree — the PR's own `gate` run is what
-          # checks the merge. Fall back to merging outright — the ruleset is
-          # enforced server-side, so an unsatisfied check refuses the merge
-          # rather than letting it through.
+          # check covered main's own last commit (in that commit's CI lane —
+          # for a data commit, without lint, types or the full suite), not
+          # this PR's merged tree, and the fallback below merges on it: the
+          # PR's own `gate` run then follows the merge rather than gating it.
+          # That is adequate only because the content is already-gated main
+          # history (docs/security.md). Fall back to merging outright — the
+          # ruleset is enforced server-side, so an unsatisfied check refuses
+          # the merge rather than letting it through.
           gh pr merge "$num" --repo "$REPO" --auto --merge \
             || gh pr merge "$num" --repo "$REPO" --merge \
             || echo "::warning::sync PR #${num} opened but neither auto-merge nor a direct merge took; resolve it there"

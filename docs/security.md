@@ -207,7 +207,13 @@ pre-registration record's commit ids.
     check and the tests marked `reads_data`; lint, types and the rest of the
     suite are skipped, because nothing they check changed. A docs-only change
     runs the same stages with the `reads_docs` tests instead. The lane is
-    chosen by the base's copy of the classifier, never the change's own.
+    chosen by the base's copy of the classifier, never the change's own; the
+    step that runs it is the change's own `ci.yml`, so an edit to that step
+    is itself a `code` change and a maintainer-reviewed workflow change.
+    "Nothing they check changed" is about the gate's checks: docs-lane
+    prose still includes text agents are pointed at (the labeling contract
+    in `docs/qp-topic.md`, the docs the cell prompts cite), which no test
+    covers in any lane, so those edits are held by review.
   - `paths` is the **auto-merge path jail**. The predict/evaluate
     collect jobs open one PR per run that auto-merges when green, opened with the
     **dev App** token — which is *absent* from this bypass list, so its auto-merge
@@ -296,10 +302,12 @@ pre-registration record's commit ids.
   as any other, and merges it only through them. Worth being precise about what
   binds there, since the sync PR is a special shape: `paths` is a genuine no-op
   for a head that is not a data-production branch, and the head sha may already
-  carry a green `gate` from its push-to-`main` run — so the real control is
-  `gate` re-running over the merged tree, which re-validates data and schemas
-  in every lane (a push-run `gate` on `main`'s sha covered `main`'s own last
-  commit in *its* lane, not the sync's diff).
+  carry a green `gate` from its push-to-`main` run. That push-run check covered
+  `main`'s own last commit in *its* lane — for a writer's data commit, the data
+  lane, with no lint, types or full suite — not the sync's merged tree, and
+  when `sync-staging` finds the PR already mergeable it merges on that check:
+  the PR's own `gate` run, which re-validates data and schemas over the merged
+  tree in every lane, then follows the merge rather than gating it.
   That is adequate for content that is by construction already-gated `main`
   history, and it is not the same as a human reading the diff.
   **Neither App is a bypass actor here**, so the

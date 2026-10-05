@@ -44,7 +44,8 @@ jobs:
           fetch-depth: 2
       - name: lane
         # Which stages this change can affect, from scripts/ci_lane.py: `data`
-        # (only data/ and the corpus pointer), `docs` (only prose), or `code`
+        # (only data/ — never an agent instruction file — and the corpus
+        # pointer), `docs` (only prose), or `code`
         # — the answer to every doubt, including a diff it cannot compute.
         # A step inside this job, never a job this one `needs`: a failed
         # prerequisite *skips* its dependants, and a skipped `gate` would
@@ -55,7 +56,12 @@ jobs:
         # on a PR's merge ref, the prior tip on a push), never the change's
         # own — a change must not grade itself into a lighter lane. An edit to
         # the classifier is itself `code`, so it gets the full gate under the
-        # trusted version. A base without the file yields `code`.
+        # trusted version. A base without the file, or a base copy that fails
+        # (a change to its command line runs against the old one), yields
+        # `code`; its output is written only once it has succeeded, so a failed
+        # run never leaves a half-written lane behind. Only the classifier is
+        # the base's: this step is the change's own ci.yml, which is why an
+        # edit to it is a workflow change the maintainer reviews.
         id: lane
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -63,10 +69,13 @@ jobs:
         run: |
           set -euo pipefail
           classifier="${RUNNER_TEMP}/ci_lane.py"
-          if git show HEAD^1:scripts/ci_lane.py >"$classifier" 2>/dev/null; then
-            python3 "$classifier" --event "$EVENT_NAME" --before "$BEFORE" >>"$GITHUB_OUTPUT"
-          else
+          if ! git show HEAD^1:scripts/ci_lane.py >"$classifier" 2>/dev/null; then
             echo "ci-lane: code — the base has no classifier; running the full gate" >&2
+            echo "lane=code" >>"$GITHUB_OUTPUT"
+          elif out=$(python3 "$classifier" --event "$EVENT_NAME" --before "$BEFORE"); then
+            printf '%s\n' "$out" >>"$GITHUB_OUTPUT"
+          else
+            echo "ci-lane: code — the base's classifier failed; running the full gate" >&2
             echo "lane=code" >>"$GITHUB_OUTPUT"
           fi
       - uses: ./.github/actions/setup-python-env

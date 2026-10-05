@@ -87,14 +87,17 @@ skipped:
 
 | Lane | Every changed path is… | lint, types, test, coverage summary | lane tests | data, schemas |
 | --- | --- | --- | --- | --- |
-| `data` | under `data/`, or the corpus pointer `corpus/corpus.db.ref` | skipped | `scripts/gate.sh data-tests` | run |
-| `docs` | `*.md`, `*.png` or `*.svg` under `docs/`; a top-level `*.md` **except** `AGENTS.md`, `CLAUDE.md`, `SECURITY.md`, `GEMINI.md` and `MEMORY.md`; `metrics/README.md`; `corpus/README.md`; or `CITATION.cff` | skipped | `scripts/gate.sh docs-tests` | run |
+| `data` | under `data/` (but not an agent instruction file), or the corpus pointer `corpus/corpus.db.ref` | skipped | `scripts/gate.sh data-tests` | run |
+| `docs` | `*.md`, `*.png` or `*.svg` under `docs/`; a top-level `*.md` **except** `SECURITY.md` and any agent instruction file; `metrics/README.md`; `corpus/README.md`; or `CITATION.cff` | skipped | `scripts/gate.sh docs-tests` | run |
 | `code` | anything else — and every doubt | run | — | run |
 
-The top-level exceptions are not prose: `AGENTS.md` and `CLAUDE.md` are the
-instructions every coding agent loads, `SECURITY.md` is the security policy,
-and `GEMINI.md` / `MEMORY.md` are names a gemini cell reads into its context.
-A change to one runs the full gate.
+The exceptions are not prose. `SECURITY.md` is the security policy. And a
+path that names an agent instruction, context or config file or directory —
+`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `MEMORY.md`, `.claude/` and the rest of
+the path jail's set (`fedcourtsai.collect.AGENT_CONTEXT_FILENAMES` /
+`AGENT_CONFIG_DIRS`, which `ci_lane.py` copies and a test pins equal) — is
+`code` at any depth, under `data/` and `docs/` included, because coding agents
+and cells read it as instructions. A change to one runs the full gate.
 
 The lanes are allow-lists and every doubt lands on `code`: an empty diff, a
 mixed diff (a data file beside a source file, or data beside prose), a path the
@@ -111,8 +114,10 @@ gate.
 The classifier that runs is the **base's** copy — `HEAD^1`'s
 `scripts/ci_lane.py` — never the change's own, so a change cannot grade itself
 into a lighter lane. An edit to the classifier is itself `code`, and so gets
-the full gate under the trusted version; a base without the file runs the
-full gate.
+the full gate under the trusted version; a base without the file, or a base
+copy that fails, runs the full gate. Only the classifier is the base's: the
+lane step itself is the change's own `ci.yml`, so an edit to the step is a
+workflow change, which runs the full gate and waits for the maintainer.
 
 A skipped step still lets the job conclude, so `gate` reports in every lane
 and the required check is satisfied without a trigger-level `paths:` filter
@@ -125,7 +130,8 @@ output runs the stage.
 **The lane tests.** Some tests read the committed tree itself — the committed
 data a test validates, a tripwire that walks the checkout. A change to those
 files can fail those tests, so the `data` and `docs` lanes run the tests that
-open them: the tests marked `reads_data` or `reads_docs`. The marks are kept
+open them: each lane runs the tests carrying its own mark, `reads_data` or
+`reads_docs`. The marks are kept
 in step by an executed check rather than by review:
 [`tests/lane_guard.py`](../tests/lane_guard.py) installs an audit hook on the
 `open` and directory-listing events each test raises, and the full suite —
@@ -147,8 +153,9 @@ The guard has blind spots, and each one has a rule:
   each worker, and nondeterministically. A module whose fixture or cache reads
   a lane file marks the whole module with `pytestmark`.
 - **Security tripwires over `data/`** (a test that asserts nothing dangerous is
-  committed there) are marked by hand, whatever the guard sees: those are the
-  tests a data-only change most needs to run.
+  committed there) are marked by hand, whatever the guard sees. The agent
+  instruction files they look for already make a change `code`, so the mark
+  is the second line, for whatever a tripwire checks beyond those names.
 
 ```bash
 python3 scripts/ci_lane.py --event pull_request   # classify a merge-ref checkout

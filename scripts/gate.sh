@@ -28,7 +28,7 @@
 # in the order given, failing on the first failure.
 #
 # Named stages preserve the discretion AGENTS.md grants — run the subset that
-# fits the change (a docs-only change needs only docs-tests). With no argument
+# fits the change (a change the docs lane covers needs only docs-tests). With no argument
 # every stage runs in the order CI runs them; the two lane test stages are not
 # part of that, since `test` already runs every test they select.
 set -euo pipefail

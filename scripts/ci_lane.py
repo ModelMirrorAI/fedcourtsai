@@ -12,9 +12,7 @@ change cannot affect. Three lanes:
   ``docs/``, a top-level Markdown file, one of the two directory READMEs outside
   ``docs/``, or ``CITATION.cff``. Lint and types are skipped and the test stage
   narrows to the tests that open those files (``scripts/gate.sh docs-tests``).
-  The top-level files agents read as instructions or policy (``AGENTS.md``,
-  ``CLAUDE.md``, ``SECURITY.md``, and the context-file names ``GEMINI.md`` and
-  ``MEMORY.md``) are not prose here.
+  ``SECURITY.md`` is policy, not prose.
 - ``code`` — everything else, and the answer to every doubt: an empty diff, a
   mixed diff, a path this module does not recognise, or a diff it could not
   compute. The full gate runs.
@@ -23,11 +21,15 @@ A wrong ``data`` or ``docs`` answer passes silently — a skipped step reports
 success and `gate` is a required check — so the lanes are allow-lists and every
 failure path lands on ``code``. Prompts, configs, schemas, workflows, scripts,
 tests and source are never prose or data here, whatever their extension, and
-neither is a symlink or a submodule entry anywhere.
+neither is a symlink or a submodule entry anywhere, nor any file or directory
+name an agent reads as instructions or config (``CLAUDE.md``, ``AGENTS.md``,
+``GEMINI.md``, ``.claude/`` and the rest of the path jail's set), at any depth.
 
 ci.yml runs the *base's* copy of this file (``HEAD^1``), never the change's
-own, so a change cannot pick its own lane; a change to this file is itself
-``code``, and so gets the full gate under the trusted version.
+own, so an edit to the classifier cannot pick its own lane; a change to this
+file is itself ``code``, and so gets the full gate under the trusted version.
+The step that runs it is the change's own ci.yml, so an edit to that step, or
+to the gate scripts, is held by review (AGENTS.md's maintainer-wait list).
 
 Which diff: on ``pull_request`` the checkout is GitHub's merge ref, whose first
 parent is the base tip it was computed against, so ``HEAD^1..HEAD`` is exactly
@@ -63,15 +65,59 @@ CODE = "code"
 # the stage that reads it.
 DATA_FILES = frozenset({"corpus/corpus.db.ref"})
 DOCS_FILES = frozenset({"CITATION.cff", "corpus/README.md", "metrics/README.md"})
-# Top-level Markdown that is operative rather than prose: agent instructions,
-# the security policy, and the names a gemini cell loads as context.
-NOT_DOCS = frozenset({"AGENTS.md", "CLAUDE.md", "GEMINI.md", "MEMORY.md", "SECURITY.md"})
+# Top-level Markdown that is policy rather than prose.
+NOT_DOCS = frozenset({"SECURITY.md"})
+# File and directory names an agent reads as instructions, context or config,
+# lower-cased and matched at any depth: the path jail's own sets
+# (fedcourtsai.collect.AGENT_CONTEXT_FILENAMES / AGENT_CONFIG_DIRS), copied
+# because this script runs with no environment; a test pins them equal. A path
+# that names one is never data or prose, wherever it sits.
+AGENT_CONTEXT_FILENAMES = frozenset(
+    {
+        "claude.md",
+        "claude.local.md",
+        "agents.md",
+        "agents.override.md",
+        "agent.md",
+        "codex.md",
+        ".mcp.json",
+        "gemini.md",
+        "memory.md",
+        ".cursorrules",
+        ".clinerules",
+        ".windsurfrules",
+        "copilot-instructions.md",
+    }
+)
+AGENT_CONFIG_DIRS = frozenset(
+    {
+        ".claude",
+        ".codex",
+        ".gemini",
+        ".agents",
+        ".cursor",
+        ".clinerules",
+        ".windsurf",
+        ".roo",
+        ".kiro",
+        ".continue",
+        ".junie",
+        ".github",
+    }
+)
 # What may live under docs/ and still be prose. Anything else there (a script,
 # a config a docs tool reads) is code until someone decides otherwise.
 DOCS_SUFFIXES = frozenset({".md", ".png", ".svg"})
 # git's modes for a symlink and a submodule (gitlink): neither is a file whose
 # content the lanes can reason about.
 OPAQUE_MODES = frozenset({"120000", "160000"})
+
+
+def _is_agent_context(path: str) -> bool:
+    parts = [part.lower() for part in path.split("/") if part]
+    return bool(parts) and (
+        parts[-1] in AGENT_CONTEXT_FILENAMES or any(p in AGENT_CONFIG_DIRS for p in parts[:-1])
+    )
 
 
 def _is_data(path: str) -> bool:
@@ -89,17 +135,22 @@ def _is_docs(path: str) -> bool:
     return len(pure.parts) == 1 and pure.suffix == ".md" and path not in NOT_DOCS
 
 
-def classify(paths: Iterable[str]) -> tuple[str, str]:
+def classify(paths: Iterable[str]) -> tuple[str, str]:  # noqa: PLR0911 - one return per verdict
     """Return ``(lane, reason)`` for a set of changed repository paths."""
-    changed = sorted({p.strip() for p in paths if p.strip()})
+    # Only empty entries are dropped: a path with surrounding whitespace is a
+    # real (if odd) file name, and stripping it could turn it into another.
+    changed = sorted({p for p in paths if p})
     if not changed:
         return CODE, "no changed paths; running the full gate"
     for path in changed:
         # A path that tries to climb out of the tree, or an absolute one, is
-        # not a path git would print; refuse to reason about it.
+        # not a path git would print; refuse to reason about it. Nor is one
+        # that is blank or carries surrounding whitespace.
         pure = PurePosixPath(path)
-        if pure.is_absolute() or ".." in pure.parts:
+        if pure.is_absolute() or ".." in pure.parts or path != path.strip():
             return CODE, f"unexpected path {path!r}; running the full gate"
+        if _is_agent_context(path):
+            return CODE, f"{path} names an agent instruction or config path; running the full gate"
     if all(_is_data(p) for p in changed):
         return DATA, f"{len(changed)} path(s), all data"
     if all(_is_docs(p) for p in changed):

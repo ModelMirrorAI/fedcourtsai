@@ -19,6 +19,7 @@ from types import ModuleType
 import pytest
 import yaml
 
+from fedcourtsai import collect
 from tests import lane_guard
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -88,7 +89,21 @@ def test_prose_only_diffs_take_the_docs_lane(paths: list[str]) -> None:
         ["SECURITY.md"],
         ["GEMINI.md"],
         ["MEMORY.md"],
+        ["AGENTS.override.md"],
+        ["CLAUDE.local.md"],
+        ["AGENT.md"],
+        ["CODEX.md"],
         ["README.md", "AGENTS.md"],
+        # An agent instruction file or config directory is never data or
+        # prose, at any depth and in any case.
+        ["docs/CLAUDE.md"],
+        ["docs/guides/agents.md"],
+        ["docs/.claude/agents/x.md"],
+        ["docs/.github/copilot-instructions.md"],
+        ["data/cases/scotus/1/AGENTS.md"],
+        ["data/cases/scotus/1/events/e/Claude.MD"],
+        ["data/cases/scotus/1/.mcp.json"],
+        ["data/cases/.gemini/settings.json"],
         # Under docs/, only Markdown and images are prose; tooling is code.
         ["docs/build.py"],
         ["docs/conf.toml"],
@@ -109,12 +124,42 @@ def test_prose_only_diffs_take_the_docs_lane(paths: list[str]) -> None:
         # Nothing to classify, and paths git would never print.
         [],
         ["", "  "],
+        # A blank or whitespace-padded name is a doubt, not a path to drop.
+        ["data/x.json", " "],
+        [" data/x.json"],
         ["/etc/passwd"],
         ["docs/../src/fedcourtsai/cli.py"],
     ],
 )
 def test_everything_else_is_code(paths: list[str]) -> None:
     assert ci_lane.classify(paths)[0] == "code"
+
+
+def test_the_agent_name_sets_are_the_path_jails() -> None:
+    # Copied so the classifier runs with no environment; pinned so the lanes
+    # and the path jail cannot drift apart on what an agent reads.
+    assert ci_lane.AGENT_CONTEXT_FILENAMES == collect.AGENT_CONTEXT_FILENAMES
+    assert ci_lane.AGENT_CONFIG_DIRS == collect.AGENT_CONFIG_DIRS
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "CLAUDE.md",
+        "docs/Claude.MD",
+        "data/cases/scotus/1/AGENTS.md",
+        "data/cases/.gemini/settings.json",
+        "docs/.claude/agents/x.md",
+        ".github/prompts/predict.md",
+        "data/cases/scotus/1/x.json",
+        "docs/pipeline.md",
+        "docs/claude.md.bak",
+        "src/fedcourtsai/agents.py",
+        "",
+    ],
+)
+def test_the_agent_path_matcher_agrees_with_the_path_jails(path: str) -> None:
+    assert ci_lane._is_agent_context(path) == collect.is_agent_context_path(path)
 
 
 # --- changed_paths / main against real git ------------------------------------
@@ -374,6 +419,15 @@ def test_the_lane_step_uses_the_bases_classifier_for_a_data_change(
 
 
 def test_a_base_without_the_classifier_runs_the_full_gate(repo: Path, tmp_path: Path) -> None:
+    _merge_ref(repo, {"data/cases/x.json": "{}\n"})
+    assert _run_lane_step(repo, tmp_path) == "lane=code"
+
+
+def test_a_failing_base_classifier_runs_the_full_gate(repo: Path, tmp_path: Path) -> None:
+    # A base copy that prints a lane and then fails (as an old copy would on a
+    # flag only the change's step passes) leaves no partial output behind.
+    broken = "import sys\nprint('lane=data')\nsys.exit(2)\n"
+    _commit(repo, {"scripts/ci_lane.py": broken}, "base carries a broken classifier")
     _merge_ref(repo, {"data/cases/x.json": "{}\n"})
     assert _run_lane_step(repo, tmp_path) == "lane=code"
 
