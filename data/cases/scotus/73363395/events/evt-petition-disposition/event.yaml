@@ -4,7 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2026-05-19'
-resolved: false
+resolved: true
 schema_version: '1.0'
-title: Yesit Campo, et al. v. Uber Technologies, Inc., et al.
+stage: cert
+title: Yesit Campo, as Personal Representative of the Estate of Arlevys Molina, et
+  al. v. Uber Technologies, Inc., et al.
