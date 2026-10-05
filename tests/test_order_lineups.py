@@ -656,6 +656,26 @@ def test_a_consolidated_caption_printed_as_bare_dockets_opens_one_entry() -> Non
     assert by_dockets[("24-354", "24-422")].startswith("The motion of the Acting Solicitor")
 
 
+def test_a_bracket_line_between_two_captions_does_not_end_the_first() -> None:
+    # The shape of the order list of October 21, 2024: each caption line carries
+    # its bracket, and a lone bracket line sits between them.
+    split = split_document(
+        "CERTIORARI GRANTED\n"
+        + "23-1067  )  OKLAHOMA, ET AL. V. EPA, ET AL.\n"
+        + ") \n"
+        + "23-1068  )  PACIFICORP, ET AL. V. EPA, ET AL.\n"
+        + "  The petitions for writs of certiorari are granted.  The\n"
+        + "cases are consolidated. Justice Alito took no part in the\n"
+        + "consideration or decision of these petitions.\n"
+    )
+    assert split.problems == ()
+    (entry,) = split.pieces
+    assert entry.dockets == ("23-1067", "23-1068")
+    assert entry.text.endswith(
+        "Justice Alito took no part in the consideration or decision of these petitions."
+    )
+
+
 def test_a_docket_number_left_alone_by_a_wrap_is_not_a_caption() -> None:
     split = split_document(
         "25-100 SMITH V. JONES\n"
