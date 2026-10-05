@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2026-05-05'
-resolved: false
+resolved: true
 schema_version: '1.0'
+stage: cert
 title: Judith L. Harvey, as Trustee of the David T. & Judith L. Harvey Trust, and
   as Personal Representative of the Estate of David T. Harvey, Deceased v. City of
   Reno, Nevada, et al.

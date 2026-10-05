@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2026-05-14'
-resolved: false
+resolved: true
 schema_version: '1.0'
+stage: cert
 title: Moneesha Kamani v. Michael A. Stone, DVM, and His Marital Community/Domestic
   Partnership, et al.

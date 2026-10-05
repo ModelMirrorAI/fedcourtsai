@@ -1,0 +1,13 @@
+case_id: scotus/73281689
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-04-21'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: National Small Business United, dba National Small Business Association, et
+  al. v. Scott Bessent, Secretary of the Treasury, et al.

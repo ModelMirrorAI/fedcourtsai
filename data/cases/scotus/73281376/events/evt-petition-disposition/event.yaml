@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2026-03-17'
-resolved: false
+resolved: true
 schema_version: '1.0'
+stage: cert
 title: Davie County, North Carolina, et al. v. Juiliana Swink, Administratrix of the
   Estate of David Ray Gunter, et al.
