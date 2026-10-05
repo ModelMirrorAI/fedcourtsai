@@ -4706,3 +4706,55 @@ def test_the_application_writer_validates_the_whole_plan_before_it_writes() -> N
         'uv run fedcourts backfill-applications --term "${REPAIR_TARGET}" '
         '--from-plan "${HANDOFF_PLAN}" --apply --max-rows "${REPAIR_BOUND}"'
     ) in run
+
+
+def test_the_evaluate_cell_provisions_its_snapshot_before_its_opinion() -> None:
+    """Snapshot first, opinion second — the order the grader's slot depends on.
+
+    `provision-snapshot` empties the record subtrees it owns, the opinion slot
+    among them, because a body postdates every predict moment and must never
+    survive into a forecaster's record. That makes the two steps order-dependent
+    in one direction only: reversed, the evaluate cell's opinion is staged and
+    then silently blanked, and the semantic family's coverage census would read
+    the gap as the Court having written nothing to grade against.
+    """
+    steps = [
+        step
+        for job in _load("run-evaluate.yml")["jobs"].values()
+        for step in job.get("steps", []) or []
+        if "provision-snapshot" in (step.get("run") or "")
+        or "provision-opinion" in (step.get("run") or "")
+    ]
+    order = ["snapshot" if "provision-snapshot" in step["run"] else "opinion" for step in steps]
+    assert order == ["snapshot", "opinion"], order
+
+
+def test_the_settled_case_cascades_keep_both_of_their_refusals() -> None:
+    """The cascade legs' two guards, pinned where they are invisible at runtime.
+
+    `--require-predictions` and `--require-record` are the only two things that
+    make a green cascade leg over the settled case mean anything: without the
+    first, an agent that finishes blocked exits 0 over a validly-empty ledger;
+    without the second, a cell with no snapshot, no `context.json` and no
+    documents certifies a production posture it never ran in. Both fail *open*
+    if the flag is dropped — the run goes green — so nothing at runtime would
+    report the loss. Both legs carry them: the engine smoke, and the token-free
+    stub leg that exercises the same seam and refusal at no cost.
+    """
+    lines = [
+        line
+        for run in _run_blocks(_load("integration-test.yml"))
+        for line in run.replace("\\\n", " ").splitlines()
+        if "local-cascade" in line and not line.lstrip().startswith("#")
+    ]
+    # The settled case is the plan job's `$COURT`/`$DOCKET`; the collect leg's
+    # fixture cells name their own case and are not this guard's subject.
+    settled = [line for line in lines if '--court "$COURT"' in line]
+    engines = sorted(
+        "real" if '--engine "$ENGINE"' in line else "stub" if "--engine stub" in line else "?"
+        for line in settled
+    )
+    assert engines == ["real", "stub"], settled
+    for line in settled:
+        assert "--require-predictions" in line, line
+        assert "--require-record" in line, line

@@ -272,7 +272,9 @@ committed outcome — since the guard reads the record as well as the snapshot,
 which is exactly the gate the resolver asks on the dispatcher's behalf, and the
 obligation a pinned case carries by hand), then runs one offline stub
 `local-cascade` cell over the ranged
-backend, covering provisioning end to end. `mcp-sidecar` launches the same
+backend, covering provisioning end to end — under the same `--require-record`
+the engine smoke passes, so the token-free leg arms the same record seam and
+refusal the paid one does. `mcp-sidecar` launches the same
 CourtListener MCP sidecar composite the
 cell workflows use, deliberately without its optional token input, and runs
 the tested `fedcourts mcp-integration-check` client against it (initialize +
@@ -316,7 +318,42 @@ service sidecar and the cascade's own provisioning reads pinned to `ranged`
 via `--corpus-backend` — the full production cell posture, including each
 engine's real sandbox semantics, which is exactly the layer an engine-level
 integration break (a sandbox denying localhost, a CLI behavior change) hides
-in. Its codex leg additionally wires the CourtListener MCP sidecar and the
+in. The posture includes the cell's **record**, because a cell's posture is its
+inputs: the cascade provisions the snapshot placed at the event's declared
+moment, the `context.json` freezing the cell's mode, band and cutoff, and the
+documents cut with the snapshot and passed through the contact-detail scrubs —
+through the same placement and record writer `provision-snapshot` uses for a
+live cell. A regression that breaks that write reddens this leg instead of
+surfacing in a paid production cell; one that changes what is written — a
+wrong band or cutoff, an over-inclusive document selector, a scrub that
+withholds nothing — stays green, because the ledger check skips the gitignored
+`record/`, and shows only in the leg's `provisioned:` lines (the unit suite pins
+those rules). The moment cut runs too wherever the settled case carries an event
+whose opening date is its declared moment (a cert petition baseline's opening
+date is docketing rather than its moment, so that target takes no cut).
+Every predict target is placed before the first cell runs, so a target the
+cascade cannot place (an interim arrival whose opening entry has no anchor) or a
+document kind that cannot name a file refuses the run before any token is spent.
+`--require-record` adds the one case the cascade would otherwise run through
+silently — an estate holding no snapshot for the case the plan job settled — so
+an unprovisioned run fails rather than certifying a posture it never ran in. The
+leg's evidence for all of this is the `CascadeReport` block it appends to the
+run summary, which carries a `provisioned:` line per provisioning — role,
+event, mode, provenance, cutoff, document count. Per provisioning rather than
+per run, because the record on disk at the end is the last provisioning's: on a
+case carrying a resolved event as well as an open one the evaluate half
+re-provisions last, and its uncut record says nothing about how the
+forecasters were placed.
+
+What the leg still does not reach, each covered somewhere else: the **invocation
+block** (`engine-actions-smoke`'s whole subject, below), the **post-agent harness
+steps** — `stamp-cell` and collect, which the local cascade path does not run
+([process-version.md](process-version.md)) — the provisioning command's own
+**forward gate**, which `stub-cascade` exercises directly above, its **staleness
+bound**, pinned in the unit suite, and, except on the codex leg, the
+**CourtListener MCP surface**.
+
+Its codex leg additionally wires the CourtListener MCP sidecar and the
 generated client config the live cells get, and uploads the cell's rollout
 distilled to item shapes alone (`fedcourts codex-item-shapes` — types and key
 names, never a value, with the key screen's residual and the shape cap stated

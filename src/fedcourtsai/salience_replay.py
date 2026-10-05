@@ -55,7 +55,7 @@ from typing import Literal, NamedTuple
 
 from . import corpus
 from .analytics import _is_scored_segment_row
-from .cert_backtest import _kept_entries_show_a_disposition, redact_snapshot, truncate_snapshot
+from .cert_backtest import _kept_entries_show_a_disposition, redact_snapshot
 from .config import SalienceConfig
 from .pipeline import asof
 from .pipeline.outcome import granted_flag, is_machine_readable
@@ -67,6 +67,7 @@ from .pipeline.salience import (
     registered_versions,
     scorer,
 )
+from .provision import truncate_snapshot
 from .schemas import Disposition, SalienceReplay, SalienceReplayCell
 
 
