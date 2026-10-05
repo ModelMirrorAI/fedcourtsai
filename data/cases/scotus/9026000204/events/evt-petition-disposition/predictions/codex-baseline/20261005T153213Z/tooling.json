@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000204",
+  "run_id": "20261005T153213Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell input reads", "fedcourts paths", "jq statpack pooling", "web search/open attempts", "fedcourts validate"],
+  "helpful": [
+    "Provisioned respondent text revealed affirmative support for certiorari despite the opposition filename.",
+    "Frozen federal band and exact prior-Term reached-rate denominators supplied a well-matched anchor.",
+    "Document manifest distinguished a truncated petition from the complete respondent brief."
+  ],
+  "gaps": [
+    "The reply was docketed but not provisioned as text.",
+    "General official-rules web requests returned no usable content.",
+    "The committed markdown statpack did not state a corpus-freshness timestamp."
+  ],
+  "notes": "Forecast rests on provisioned pre-decision materials and the committed statpack, not live case retrieval. The default uv cache was read-only; selecting a writable cache directory allowed the CLI to run."
+}

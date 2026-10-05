@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "Resolves a circuit split on AEDPA's successive-petition bar, affecting capital habeas litigation and Atkins claims.",
+  "big_case_score": 0.65,
+  "case_id": "scotus/73281043",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.88
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-09-19",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-19",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-05T15:32:13Z",
+  "engine": "gemini",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-09-19.json",
+  "judgment": "reversed",
+  "model": "gemini-3.1-pro-preview",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.88,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
+    "label": "proc-v8",
+    "pipeline_sha": "3fcd5c96ec1b22fe503e67bca45ef357b35b5497",
+    "stamped_at": "2026-10-05T15:47:38.173270Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261005T153213Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Court will hold that under 28 U.S.C. \u00a7 2244(b)(2)(A), the phrase 'previously unavailable' modifies 'a new rule of constitutional law,' meaning that a rule is available as soon as it is announced by the Supreme Court, regardless of whether a petitioner's specific claim had a possibility of success under the clinical or evidentiary standards existing at the time of a prior petition."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court will establish a categorical rule that a new rule of constitutional law is 'available' for purposes of AEDPA's successive-petition bar immediately upon its announcement by the Supreme Court, strictly foreclosing any futility exception or case-specific inquiry into the practical viability of the claim during prior habeas proceedings."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

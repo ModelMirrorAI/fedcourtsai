@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000204",
+  "run_id": "20261005T153213Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode companion signal, disclosed as hygiene: the Sixth Circuit companion petition Ream v. Department of the Treasury (No. 26-93) was fetched from supremecourt.gov and shows it was rescheduled off the 9/28 conference and re-distributed for the same 10/9/2026 conference as this petition, with eleven amicus entries. This public, pre-snapshot information about a different docket raised my grant probability; it reveals nothing about this case's own disposition, which does not yet exist."
+    }
+  ]
+}

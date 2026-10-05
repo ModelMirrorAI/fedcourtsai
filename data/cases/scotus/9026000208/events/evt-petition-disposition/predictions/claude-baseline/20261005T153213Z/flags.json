@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000208",
+  "run_id": "20261005T153213Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen band is `baseline` (sal-v4) although the snapshot already shows the two strongest cert-stage signals this docket carries: a Court-requested response (Sep 29 2026, after the government waived) and ten amicus briefs at the cert stage. Neither signal is a band input or a statpack cut, so the scored yardstick for this cell (the baseline band's bracketed reached rate, about 5% pooled over OT2017-OT2025) understates the population this petition actually sits in. I anchored on the band as instructed and adjusted upward from the record; noting it here because a response-requested cut (and an amicus-count cut) on the paid scored segment would make cells like this one scoreable against the right population."
+    }
+  ]
+}

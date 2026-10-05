@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "A capital case about access to successive habeas review for intellectual-disability claims, with implications for the parallel federal-prisoner gateway. High individual and habeas-system stakes, but a specialized procedural issue rather than a general reconsideration of capital punishment.",
+  "big_case_score": 0.65,
+  "case_id": "scotus/73281043",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.82
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-09-19",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-19",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-05T15:40:55.629118Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-09-19.json",
+  "judgment": "reversed",
+  "model": "gpt-6-astra",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.82,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "3fcd5c96ec1b22fe503e67bca45ef357b35b5497",
+    "stamped_at": "2026-10-05T15:42:00.291438Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261005T153213Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that Section 2244(b)(2)(A)'s previously-unavailable requirement concerns access to the Supreme Court's constitutional rule, not whether a claim invoking it previously had a possibility of success; later changes in diagnostic standards therefore do not make the already-existing Atkins rule newly available to Johnson within this statutory gateway."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will reject a merits-based futility test for previously unavailable rules across Section 2244(b)(2)(A) successive applications, rather than limiting its holding to Johnson's diagnostic evidence or to intellectual-disability claims."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Samuel Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Neil Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Brett Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

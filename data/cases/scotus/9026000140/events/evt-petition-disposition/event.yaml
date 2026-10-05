@@ -1,0 +1,12 @@
+case_id: scotus/9026000140
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-07-29'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: W. A. Griffin, M.D. v. Travelers Property Casualty Company of America, et al.

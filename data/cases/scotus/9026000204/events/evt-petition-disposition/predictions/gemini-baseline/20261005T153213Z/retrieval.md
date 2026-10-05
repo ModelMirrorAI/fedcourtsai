@@ -1,0 +1,3 @@
+- Read `metrics/statpack.md` for base rates on `federal` band cert petitions.
+- Ran `mcp_courtlistener_search` for queries regarding "Necessary and Proper Clause" and "distilled spirits" to gain context on the statutory provision.
+- Attempted to run `uv run fedcourts query` but learned it does not accept free-text arguments.

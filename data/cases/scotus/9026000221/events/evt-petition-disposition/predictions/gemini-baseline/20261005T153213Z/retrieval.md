@@ -1,0 +1,5 @@
+- `uv run fedcourts query --court scotus --topic "Confrontation Clause" --full`
+- `ranged corpus reads: 1595 GET(s), 417529856 byte(s)`
+- CourtListener MCP search for "Theodore James Purdy" (opinions and dockets)
+- CourtListener MCP search for "State v. Purdy" (opinions)
+- CourtListener MCP search for "Confrontation Clause" "background" "hearsay" "child" (opinions)

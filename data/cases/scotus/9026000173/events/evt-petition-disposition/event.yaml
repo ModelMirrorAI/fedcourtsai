@@ -6,7 +6,7 @@ event_id: evt-petition-disposition
 kind: petition
 moment: distribution
 opened_at: '2026-08-06'
-resolved: false
+resolved: true
 schema_version: '1.0'
 stage: cert
 title: William David Jones v. Defense Supply Center, Defense Logistics Agency, Richmond,
