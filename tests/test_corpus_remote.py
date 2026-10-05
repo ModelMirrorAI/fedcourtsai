@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import subprocess
 from pathlib import Path
 
 import boto3
@@ -371,3 +373,251 @@ def test_cli_corpus_push_then_pull_round_trip(
     assert pulled.exit_code == 0, pulled.output
     assert db.read_bytes() == original
     assert "sha256-verified" in pulled.stdout
+
+
+# --- drift: the local blob against its pointer, the pointer against main's ---------
+
+
+def _pointer_for(db: Path) -> corpus_ranged.IndexPointer:
+    sha256, size = corpus_remote.digest_file(db)
+    return corpus_ranged.IndexPointer(key=f"index/sha256/{sha256}", size=size, sha256=sha256)
+
+
+def _pulled(tmp_path: Path) -> Path:
+    """A blob as a pull leaves it: committed ref and sidecar both naming it,
+    the sidecar written after the blob landed."""
+    db = _blob(tmp_path)
+    pointer = _pointer_for(db)
+    corpus_remote.write_pointer(corpus_remote.pointer_path_for(db), pointer)
+    sidecar = corpus_remote.pulled_pointer_path_for(db)
+    corpus_remote.write_pointer(sidecar, pointer)
+    stamp = db.stat().st_mtime_ns + 1_000_000_000
+    os.utime(sidecar, ns=(stamp, stamp))
+    return db
+
+
+def _no_digest(path: Path) -> tuple[str, int]:
+    raise AssertionError(f"digested {path}; the sidecar's timestamp should have settled it")
+
+
+def test_drift_untouched_pull_is_settled_without_hashing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _pulled(tmp_path)
+    monkeypatch.setattr(corpus_remote, "digest_file", _no_digest)
+    assert corpus_remote.local_blob_drift(db) is None
+
+
+def test_drift_reports_a_blob_rewritten_after_its_pull(tmp_path: Path) -> None:
+    db = _pulled(tmp_path)
+    expected = _pointer_for(db).sha256
+    stamp = corpus_remote.pulled_pointer_path_for(db).stat().st_mtime_ns + 1_000_000_000
+    db.write_bytes(b"corpus index bytes, rewritten in place")
+    os.utime(db, ns=(stamp, stamp))
+    drift = corpus_remote.local_blob_drift(db)
+    assert drift is not None
+    assert drift.pointer_sha256 == expected
+    assert drift.pointer_source == corpus_remote.pulled_pointer_path_for(db)
+    assert drift.on_disk_sha256 == hashlib.sha256(db.read_bytes()).hexdigest()
+
+
+def test_drift_same_size_rewrite_is_caught_by_the_digest(tmp_path: Path) -> None:
+    # An ALTER TABLE ADD COLUMN can rewrite a page without growing the file, so
+    # an unchanged size settles nothing once the blob is newer than its pull.
+    db = _pulled(tmp_path)
+    stamp = corpus_remote.pulled_pointer_path_for(db).stat().st_mtime_ns + 1_000_000_000
+    db.write_bytes(b"CORPUS INDEX BYTES")
+    os.utime(db, ns=(stamp, stamp))
+    assert corpus_remote.local_blob_drift(db) is not None
+
+
+def test_drift_a_touched_but_unchanged_blob_is_settled_by_the_digest(tmp_path: Path) -> None:
+    db = _pulled(tmp_path)
+    stamp = corpus_remote.pulled_pointer_path_for(db).stat().st_mtime_ns + 1_000_000_000
+    os.utime(db, ns=(stamp, stamp))
+    assert corpus_remote.local_blob_drift(db) is None
+
+
+def test_drift_without_a_sidecar_compares_the_committed_ref(tmp_path: Path) -> None:
+    db = _blob(tmp_path)
+    corpus_remote.write_pointer(corpus_remote.pointer_path_for(db), _pointer_for(db))
+    assert corpus_remote.local_blob_drift(db) is None
+    db.write_bytes(b"other bytes")
+    drift = corpus_remote.local_blob_drift(db)
+    assert drift is not None
+    assert drift.pointer_source == corpus_remote.pointer_path_for(db)
+
+
+def test_drift_a_pushed_blob_matching_the_committed_ref_is_not_drift(tmp_path: Path) -> None:
+    # corpus-push rewrites the committed ref to the blob on disk and leaves the
+    # sidecar naming the earlier pull: the blob is a published one, not drift.
+    db = _pulled(tmp_path)
+    db.write_bytes(b"a writer's new corpus")
+    corpus_remote.upload_index(db, REMOTE_URL, transport=InMemoryFileTransport())
+    assert corpus_remote.local_blob_drift(db) is None
+
+
+def test_drift_with_nothing_to_compare_is_none(tmp_path: Path) -> None:
+    assert corpus_remote.local_blob_drift(tmp_path / "corpus.db") is None
+    assert corpus_remote.local_blob_drift(_blob(tmp_path)) is None
+
+
+#: An ambient identity (a Codespace sets its committer) would override the
+#: repo config the fixture relies on.
+_IDENTITY_ENV = ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL")
+
+
+def _git(repo: Path, *args: str) -> None:
+    env = {k: v for k, v in os.environ.items() if k not in _IDENTITY_ENV}
+    subprocess.run(["git", "-C", str(repo), *args], capture_output=True, check=True, env=env)
+
+
+def _checkout_behind_main(tmp_path: Path) -> tuple[Path, str, str]:
+    """A clone whose ``origin/main`` commits a different pointer than its checkout's.
+
+    Returns ``(db_path, checkout_sha, main_sha)``. The corpus lives in a
+    ``corpus/`` subdirectory, as in the real repository, and the checkout's
+    pointer names the blob on disk, which was never pulled (no sidecar).
+    """
+    repo = tmp_path / "repo"
+    corpus_root = repo / "corpus"
+    corpus_root.mkdir(parents=True)
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.name", "Test")
+    _git(repo, "config", "user.email", "test@example.invalid")
+    _git(repo, "config", "commit.gpgsign", "false")
+    db = corpus_root / "corpus.db"
+    ref = corpus_remote.pointer_path_for(db)
+    newer = corpus_ranged.IndexPointer(key="index/sha256/" + "b" * 64, size=9, sha256="b" * 64)
+    corpus_remote.write_pointer(ref, newer)
+    _git(repo, "add", "corpus")
+    _git(repo, "commit", "-q", "-m", "pointer")
+    _git(repo, "update-ref", "refs/remotes/origin/main", "HEAD")
+    with corpus.connect(db):
+        pass
+    older = _pointer_for(db)
+    corpus_remote.write_pointer(ref, older)
+    return db, older.sha256, newer.sha256
+
+
+def test_upstream_pointer_reads_origin_main_without_a_fetch(tmp_path: Path) -> None:
+    db, _, main_sha = _checkout_behind_main(tmp_path)
+    upstream = corpus_remote.upstream_pointer(db)
+    assert upstream is not None
+    assert upstream.sha256 == main_sha
+    assert corpus_remote.upstream_pointer(db, ref="origin/never-fetched") is None
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    assert corpus_remote.upstream_pointer(elsewhere / "corpus.db") is None
+
+
+def _clear_pointer_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("FEDCOURTS_CORPUS_POINTER", "CORPUS_POINTER"):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_cli_corpus_info_warns_on_drift_and_a_pointer_behind_main(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db, checkout_sha, main_sha = _checkout_behind_main(tmp_path)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(db.parent))
+    _clear_pointer_override(monkeypatch)
+    info = CliRunner().invoke(app, ["corpus-info", "--corpus-backend", "local"])
+    assert info.exit_code == 0, info.output
+    out = " ".join(info.stdout.split())
+    assert "no longer matches" not in out
+    assert f"differs from origin/main's as last fetched (sha256 {main_sha})" in out
+    assert checkout_sha in out
+    # A default (migrating) open re-creates a dropped table: the bytes move on.
+    with corpus.connect(db) as conn:
+        conn.execute("DROP TABLE opinions")
+        conn.commit()
+    with corpus.connect(db):
+        pass
+    drifted = CliRunner().invoke(app, ["corpus-info", "--corpus-backend", "local"])
+    assert drifted.exit_code == 0, drifted.output
+    out = " ".join(drifted.stdout.split())
+    assert "the blob on disk no longer matches the sha256 its pointer names" in out
+    assert f"corpus.db.ref sha256 {checkout_sha}" in out
+    assert "re-pull before quoting this vintage" in out
+    # The comparison with main's pointer is about the committed ref, so the
+    # out-of-band override, which names another blob outright, silences it.
+    monkeypatch.setenv(
+        "FEDCOURTS_CORPUS_POINTER",
+        json.dumps(
+            {
+                "key": f"index/sha256/{checkout_sha}",
+                "size": 9,
+                "sha256": checkout_sha,
+                "schema_version": "1.0",
+            }
+        ),
+    )
+    overridden = CliRunner().invoke(app, ["corpus-info", "--corpus-backend", "local"])
+    assert overridden.exit_code == 0, overridden.output
+    assert "origin/main" not in overridden.stdout
+
+
+@mock_aws
+def test_cli_corpus_pull_warns_before_replacing_a_drifted_blob(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="test-bucket")
+    corpus_root = tmp_path / "corpus"
+    corpus_root.mkdir()
+    db = corpus_root / "corpus.db"
+    with corpus.connect(db):
+        pass
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", REMOTE_URL)
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    _clear_pointer_override(monkeypatch)
+    published = corpus_remote.upload_index(db, REMOTE_URL)
+    original = db.read_bytes()
+    first = CliRunner().invoke(app, ["corpus-pull"])
+    assert first.exit_code == 0, first.output
+    assert "warning" not in first.stderr
+    with corpus.connect(db) as conn:
+        conn.execute("DROP TABLE opinions")
+        conn.commit()
+    second = CliRunner().invoke(app, ["corpus-pull"])
+    assert second.exit_code == 0, second.output
+    err = " ".join(second.stderr.split())
+    assert "the blob on disk no longer matches the sha256 its pointer names" in err
+    assert f"sha256 {published.sha256}" in err
+    assert "this pull replaces it" in err
+    assert db.read_bytes() == original
+
+
+@mock_aws
+def test_cli_corpus_pull_warns_when_the_pointer_differs_from_main(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="test-bucket")
+    db, checkout_sha, main_sha = _checkout_behind_main(tmp_path)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(db.parent))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", REMOTE_URL)
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+    _clear_pointer_override(monkeypatch)
+    published = corpus_remote.upload_index(db, REMOTE_URL)
+    assert published.sha256 == checkout_sha
+    pulled = CliRunner().invoke(app, ["corpus-pull"])
+    assert pulled.exit_code == 0, pulled.output
+    err = " ".join(pulled.stderr.split())
+    assert f"differs from origin/main's as last fetched (sha256 {main_sha})" in err
+    assert "this pull fetches the checkout's pointer's blob" in err
+    # The override names its blob outright: the committed ref is not in play.
+    monkeypatch.setenv(
+        "FEDCOURTS_CORPUS_POINTER",
+        json.dumps(
+            {
+                "key": published.key,
+                "size": published.size,
+                "sha256": published.sha256,
+                "schema_version": "1.0",
+            }
+        ),
+    )
+    overridden = CliRunner().invoke(app, ["corpus-pull"])
+    assert overridden.exit_code == 0, overridden.output
+    assert "origin/main" not in overridden.stderr

@@ -4960,6 +4960,51 @@ def _require_corpus_remote_url() -> str:
     return remote_url.strip()
 
 
+def _blob_drift_text(drift: corpus_remote.BlobDrift) -> str:
+    """One clause naming a local blob that no longer matches its pointer.
+
+    The likely cause depends on the record compared: the pull sidecar names
+    exactly what was pulled, so a mismatch there is a rewrite on disk; a
+    committed ref compared for want of a sidecar may instead have moved since
+    the pull, with a checkout to another commit.
+    """
+    pulled = drift.pointer_source.name.endswith(".pulled" + corpus_ranged.POINTER_SUFFIX)
+    cause = (
+        "it was rewritten since the pull, most often by a local read that migrated "
+        "its schema in place"
+        if pulled
+        else "it is not the blob that pointer names — rewritten in place by a local "
+        "read that migrated its schema, built locally, or the committed pointer moved"
+    )
+    return (
+        f"the blob on disk no longer matches the sha256 its pointer names "
+        f"({drift.pointer_source.name} sha256 {drift.pointer_sha256}, on disk sha256 "
+        f"{drift.on_disk_sha256}): {cause}"
+    )
+
+
+def _pointer_behind_upstream(db_path: Path) -> str | None:
+    """One clause when the checkout's committed pointer differs from production's.
+
+    Production's is the pointer ``origin/main`` carries as of the clone's last
+    fetch, read from the local object store with no network. ``None`` when the
+    two agree or either cannot be read — a clone without ``origin/main``
+    (a shallow CI checkout of another branch) has nothing to compare.
+    """
+    committed_path = corpus_remote.pointer_path_for(db_path)
+    try:
+        committed = corpus_ranged.read_index_pointer(committed_path)
+    except corpus_ranged.RangedBackendError:
+        return None
+    upstream = corpus_remote.upstream_pointer(db_path)
+    if upstream is None or upstream.sha256 == committed.sha256:
+        return None
+    return (
+        f"the checkout's {committed_path.name} (sha256 {committed.sha256}) differs from "
+        f"{corpus_remote.UPSTREAM_POINTER_REF}'s as last fetched (sha256 {upstream.sha256})"
+    )
+
+
 @app.command("corpus-pull")
 def corpus_pull(
     missing_pointer: Annotated[
@@ -4978,6 +5023,11 @@ def corpus_pull(
     remote URL, streams the blob to ``corpus/corpus.db``, and verifies its
     digest and size before the file lands — a truncated or corrupted transfer
     fails loudly instead of masquerading as the corpus.
+
+    Warns on stderr, without changing what it fetches, when the local blob it
+    replaces no longer matched its pointer (a local read migrated it in place)
+    and when the committed pointer differs from the one ``origin/main``
+    carries as of the last fetch (a checkout on an old commit pulls an old blob).
     """
     if missing_pointer not in {"fail", "warn"}:
         typer.echo(f"--missing-pointer must be 'fail' or 'warn', not {missing_pointer!r}", err=True)
@@ -5003,6 +5053,22 @@ def corpus_pull(
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=1) from exc
     remote_url = _require_corpus_remote_url()
+    if isinstance(pointer, Path):
+        stale = _pointer_behind_upstream(db_path)
+        if stale is not None:
+            typer.echo(
+                f"corpus-pull: warning: {stale} — this pull fetches the checkout's "
+                "pointer's blob, not the current corpus",
+                err=True,
+            )
+    # Checked before the download replaces it: the verified copy that lands
+    # matches its pointer by construction, so the drift is only visible now.
+    drift = corpus_remote.local_blob_drift(db_path)
+    if drift is not None:
+        typer.echo(
+            f"corpus-pull: warning: {_blob_drift_text(drift)}; this pull replaces it",
+            err=True,
+        )
     try:
         remote = corpus_remote.download_index(pointer, remote_url, db_path)
     except (corpus_remote.CorpusRemoteError, corpus_ranged.RangedBackendError) as exc:
@@ -10840,6 +10906,12 @@ def corpus_info(
     Under ``local`` the blob is opened strictly read-only with no schema
     migration, so the report never rewrites the file it dates and a pulled
     blob keeps matching its pointer, even when it predates the code reading it.
+    Other local reads still migrate it, so the report also says when the bytes
+    on disk no longer match the sha256 their pointer names (settled by the
+    digest unless the blob is untouched since its pull), and — with no pointer
+    override set — when the checkout's committed pointer differs from the one
+    ``origin/main`` carries as of the last fetch, so a checkout on an old
+    commit does not quote its old blob's vintage as the current corpus's.
 
     Both are maxima over the whole blob: its vintage, not any one case's. The
     pull governor rotates stalest-first, so a maximum says when *anything* was
@@ -10897,34 +10969,61 @@ def corpus_info(
                     typer.echo("pointer: out-of-band override (set but unparseable)")
             else:
                 typer.echo(f"pointer: out-of-band override set (not read by the {backend} backend)")
-        # The durable half of the same claim: under `local` the vintage above
-        # is the on-disk blob's, and the pull's provenance sidecar says which
-        # pointer that blob came from — a blob pulled through the override (or
-        # left behind by a superseded pull) must not read as the committed ref's.
-        if backend == "local":
-            pulled_path = corpus_remote.pulled_pointer_path_for(db_path)
-            if pulled_path.is_file():
-                try:
-                    pulled_sha: str | None = corpus_ranged.read_index_pointer(pulled_path).sha256
-                except corpus_ranged.RangedBackendError:
-                    pulled_sha = None
-                committed_path = corpus_remote.pointer_path_for(db_path)
-                try:
-                    committed_sha: str | None = (
-                        corpus_ranged.read_index_pointer(committed_path).sha256
-                        if committed_path.is_file()
-                        else None
-                    )
-                except corpus_ranged.RangedBackendError:
-                    committed_sha = None
-                if pulled_sha is not None and pulled_sha != committed_sha:
-                    typer.echo(
-                        f"pointer: the blob on disk is not the committed ref's (pulled "
-                        f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
-                    )
+        _echo_pointer_provenance(db_path, backend, override_set=settings.corpus_pointer is not None)
         if text_coverage:
             _echo_text_coverage(document_text_coverage(conn, settings.data_root))
         _echo_read_stats(conn)
+
+
+def _echo_pointer_provenance(db_path: Path, backend: str, *, override_set: bool) -> None:
+    """The `pointer:` lines that say whether the vintage is the committed pointer's.
+
+    Three ways the vintage can describe a blob other than the one the
+    checkout's pointer names, each its own line: a local blob pulled from
+    another pointer, a local blob whose bytes moved after the pull, and a
+    committed pointer that differs from production's.
+    """
+    # The durable half of the provenance claim: under `local` the vintage is
+    # the on-disk blob's, and the pull's provenance sidecar says which pointer
+    # that blob came from — a blob pulled through the override (or left behind
+    # by a superseded pull) must not read as the committed ref's.
+    if backend == "local":
+        pulled_path = corpus_remote.pulled_pointer_path_for(db_path)
+        if pulled_path.is_file():
+            try:
+                pulled_sha: str | None = corpus_ranged.read_index_pointer(pulled_path).sha256
+            except corpus_ranged.RangedBackendError:
+                pulled_sha = None
+            committed_path = corpus_remote.pointer_path_for(db_path)
+            try:
+                committed_sha: str | None = (
+                    corpus_ranged.read_index_pointer(committed_path).sha256
+                    if committed_path.is_file()
+                    else None
+                )
+            except corpus_ranged.RangedBackendError:
+                committed_sha = None
+            if pulled_sha is not None and pulled_sha != committed_sha:
+                typer.echo(
+                    f"pointer: the blob on disk is not the committed ref's (pulled "
+                    f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
+                )
+        # The bytes half: a pull lands a verified blob, but a default local
+        # read migrates it in place, after which the vintage dates a file no
+        # pointer names.
+        drift = corpus_remote.local_blob_drift(db_path)
+        if drift is not None:
+            typer.echo(f"pointer: {_blob_drift_text(drift)} — re-pull before quoting this vintage")
+    # The checkout half: a pointer can match its blob exactly and still name an
+    # old one, when the checkout sits on a commit behind production's. The
+    # override names its blob outright, so the committed ref is not in play.
+    if not override_set:
+        stale = _pointer_behind_upstream(db_path)
+        if stale is not None:
+            typer.echo(
+                f"pointer: {stale} — re-read under origin/main's pointer before quoting "
+                "this vintage as current"
+            )
 
 
 @app.command("build-index")
