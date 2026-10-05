@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "The case can substantially narrow federal prisoners' constitutional damages remedies for denial of medical care and tests the survival of Carlson. Its nationwide remedial stakes exceed its individual injury dispute, although its immediate reach is federal prison litigation.",
+  "big_case_score": 0.73,
+  "case_id": "scotus/73278422",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.84
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-09-24",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-24",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-04T20:41:11Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-09-24.json",
+  "judgment": "reversed",
+  "model": "gpt-6-astra",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.84,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "c92dea4c1d48c0d2a0728d141d8f278f809e442d",
+    "stamped_at": "2026-10-04T20:43:34.590628Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261004T201824Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that Watanabe's nonfatal, ongoing medical-care claim presents a new context under Egbert and Abbasi, treating the availability of administrative or prospective relief as a meaningful distinction from Carlson and a reason to leave any further damages remedy to Congress."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's rule will reach beyond Watanabe to non-emergency medical-care claims for which administrative or prospective relief was available, but will leave Carlson formally intact rather than expressly overrule the Bivens trilogy."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "concur-in-judgment",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

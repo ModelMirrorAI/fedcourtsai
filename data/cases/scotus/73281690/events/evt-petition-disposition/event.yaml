@@ -1,0 +1,12 @@
+case_id: scotus/73281690
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2026-04-22'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Wes Moore, Governor of Maryland, et al. v. Susannah Warner Kipke, et al.

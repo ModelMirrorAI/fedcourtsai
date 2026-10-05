@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500246",
+  "gaps": [
+    "No provisioned petition, questions presented, or opposition text",
+    "Large tool responses were truncated; smaller targeted reads were necessary",
+    "Web attempts returned no usable content"
+  ],
+  "helpful": [
+    "Frozen federal-band context and prior-Term reached denominators",
+    "Date-bounded lower-court search recovered substantive pre-decision evidence",
+    "Targeted opinion snippets avoided a current Supreme Court docket lookup"
+  ],
+  "notes": "CourtListener MCP remained available. A writable temporary cache resolved the initial CLI cache-permission error. No live corpus queries or current-case disposition retrievals were needed.",
+  "role": "predictor",
+  "run_id": "20261003T200236Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned inputs",
+    "committed statpack",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,2 @@
+- Read `metrics/statpack.md` to retrieve the `elevated` salience band base rate and to review the relist and CVSG segment shapes.
+- No retrieval beyond the provisioned inputs and the statpack.

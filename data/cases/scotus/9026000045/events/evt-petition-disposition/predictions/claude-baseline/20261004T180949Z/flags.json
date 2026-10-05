@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000045",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP was unavailable for this cell: every call returned HTTP 429 (300/hour limit already exhausted, ~19 minutes to reset) at cell start, before any successful lookup. The prediction rests on the provisioned filings, the statpack, and two fedcourts query calls. If sibling cells in this fan-out share one sidecar token, the per-hour budget is being spent before later cells start."
+    }
+  ]
+}

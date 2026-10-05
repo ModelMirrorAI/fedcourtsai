@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000121",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Local provisioned-file reads",
+    "fedcourts paths",
+    "Committed statpack and local pooling calculation",
+    "CourtListener MCP search and search_document",
+    "Web search and open attempts",
+    "fedcourts validate data"
+  ],
+  "helpful": [
+    "Frozen salience band and distribution count",
+    "Full extracted petition and separate questions presented",
+    "Prior-Term reached-band rates",
+    "Targeted CourtListener precedent excerpts"
+  ],
+  "gaps": [
+    "Separate appendix and employment-document text would help assess the disputed timing",
+    "Web calls returned no usable content",
+    "The consulted statpack does not expose its build timestamp"
+  ],
+  "notes": "No corpus-query priors were needed beyond the committed rates and targeted precedent. The BIO is absent consistently with the recorded response waiver. The default uv cache was read-only; a temporary writable cache allowed CLI use. No target-case outcome retrieval was attempted."
+}

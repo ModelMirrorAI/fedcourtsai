@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. Consulted `statpack.json` for baseline grant rates for paid petitions.

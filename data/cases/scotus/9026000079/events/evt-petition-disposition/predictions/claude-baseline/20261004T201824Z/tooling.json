@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000079",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP (search, call_endpoint, read_document)", "WebFetch", "WebSearch", "pdftotext"],
+  "helpful": [
+    "statpack sal-v4 segment table (bracketed reached figures gave a clean pooled anchor)",
+    "CourtListener docket-entries endpoint on the Ninth Circuit docket (found the disposition date and the amicus history)",
+    "WebFetch of the Ninth Circuit datastore PDF plus local pdftotext (the only way to read the memorandum)",
+    "WebFetch of the live supremecourt.gov docket to confirm the cell is still pending"
+  ],
+  "gaps": [
+    "No provisioned documents: the petition is paper-only and the docket links no PDF, so the questions presented were unavailable; a provisioned note saying 'no PDF on the docket' would distinguish this from a fetch failure",
+    "CourtListener's opinion index did not carry the Ninth Circuit memorandum, and read_document had no text for the RECAP copy; a PDF-to-text helper in the cell would avoid the WebFetch-then-pdftotext detour",
+    "fedcourts query ranked by recency and returned applications and open rows; a filter on originating court plus salience band would have made priors useful here"
+  ],
+  "notes": "Baseline-band private petition against the United States with an SG waiver and one distribution; the statpack anchor and the Ninth Circuit memorandum carried the forecast."
+}

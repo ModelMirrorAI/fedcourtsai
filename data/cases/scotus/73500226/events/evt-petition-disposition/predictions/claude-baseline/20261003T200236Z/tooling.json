@@ -1,0 +1,28 @@
+{
+  "case_id": "scotus/73500226",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "web search",
+    "web fetch",
+    "pypdf (local PDF text extraction)"
+  ],
+  "helpful": [
+    "The provisioned petition text and QP file were complete and sufficient for the merits read.",
+    "The salience-band table with the bracketed reached rate made the anchor unambiguous.",
+    "Snapshot entry links to supremecourt.gov PDFs made the opposition briefs easy to retrieve in forward mode."
+  ],
+  "gaps": [
+    "documents.json carried no brief in opposition although two were filed on Aug. 28; provisioning the BIO(s) and the reply would have saved several retrieval calls.",
+    "CourtListener's opinion index did not yet carry the June 2026 Fifth Circuit remand opinion, so the companion split had to be reconstructed from the briefs.",
+    "A provisioned list of linked/companion SCOTUS dockets (here 26-199, 26-201, 26-332, 26-335) would be very valuable on cluster petitions.",
+    "WebFetch cannot read PDFs; local pypdf worked only when run inside the repo's uv environment."
+  ],
+  "notes": "The decisive forward signal was the federal respondents' recommendation to grant the Fifth Circuit petitions and hold this one, which is public and predates the snapshot."
+}

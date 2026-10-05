@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000121",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query (corpus service)",
+    "metrics/statpack.md",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "The provisioned petition text and QP file were enough to form the forecast; the waiver entry in the snapshot did the rest.",
+    "context.json's frozen band plus the sal-v4 segment table gave an unambiguous anchor."
+  ],
+  "gaps": [
+    "fedcourts query with --court scotus --era 2020s --disposition granted/denied returned mostly 25A/26A substantive applications rather than paid cert petitions, so it did not yield comparable priors; a paid-cert-only filter or an originating-court filter for SCOTUS rows would help.",
+    "No way to find recent cert petitions by subject (e.g. Caperton/recusal) in the corpus; the CourtListener opinion search returned only the merits precedent already cited.",
+    "The new docket (26-121) is not yet on CourtListener, so there was no independent freshness check on the snapshot."
+  ],
+  "notes": "All MCP calls succeeded; none was rate-limited in this cell."
+}

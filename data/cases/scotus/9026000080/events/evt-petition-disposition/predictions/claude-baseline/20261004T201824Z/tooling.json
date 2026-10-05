@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000080",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "courtlistener MCP read_document"],
+  "helpful": [
+    "The provisioned petition text and QP file settled the pro se, no-split character of the petition in one read.",
+    "The CourtListener opinion read supplied the forfeiture ground and the fabricated-citation finding, which drove the forecast more than anything in the docket.",
+    "The sal-v4 band table with bracketed reached rates made the anchor arithmetic mechanical."
+  ],
+  "gaps": [
+    "A fee-class and pro se cut in the statpack would let a cell anchor on the pro se paid subpopulation instead of adjusting from the whole baseline band by judgement.",
+    "fedcourts query does not filter on pro se status or originating circuit, so the corpus prior lookup could not retrieve comparable petitions."
+  ],
+  "notes": "The snapshot postdates the long conference by six days but precedes the first October order list, so the cell is genuinely forward; a note of the next expected order-list date in context.json would help a cell confirm that quickly."
+}

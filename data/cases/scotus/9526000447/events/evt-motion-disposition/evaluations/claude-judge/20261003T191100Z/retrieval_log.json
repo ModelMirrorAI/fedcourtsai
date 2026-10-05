@@ -1,0 +1,189 @@
+{
+  "actor_id": "claude-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "dc1759e5a13ee9a3",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/evaluate.md",
+      "result_capture": "captured",
+      "result_digest": "eec50351c2d57a28",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:13:40.623Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c150213969a879b6",
+      "query": "cat /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/c54bce31-1e0b-4f93-8d4f-39ff655a51e8/tool-results/borrj8410.txt",
+      "result_capture": "captured",
+      "result_digest": "02a267e5a772ad89",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:13:43.123Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a9a96d6010cda98d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/evaluate.md\"}",
+      "result_capture": "captured",
+      "result_digest": "c44e6def96ba6a2b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:13:44.734Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "cb4d6a94eae0627a",
+      "query": "E=data/cases/scotus/9526000447/events/evt-motion-disposition; R=data/cases/scotus/9526000447/record; echo \"=== event.yaml\"; cat $E/event.yaml; echo; echo \"=== outcome.json\"; cat $E/outcome.json; echo; echo \"=== event dir\"; ls -la $E; echo \"=== record dir\"; ls -la $R; echo \"=== blinded\"; ls -laR $R/blinded; echo \"=== context.json\"; cat $R/context.json; echo; echo \"=== opinion slot\"; ls -la $R/opinion 2>&1",
+      "result_capture": "captured",
+      "result_digest": "4a85679718f953fc",
+      "result_status": "error",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:13:51.038Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "06063e9b354915a2",
+      "query": "B=data/cases/scotus/9526000447/record/blinded; for a in claude-baseline codex-baseline; do echo \"################ $a\"; for f in prediction.json reasoning.md predicted_reasoning.md retrieval.md; do echo \"=== $a/$f\"; cat $B/$a/$f; echo; done; done",
+      "result_capture": "captured",
+      "result_digest": "9e7a4d7ca6b4f8b0",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:13:56.392Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "0a8e468de16494db",
+      "query": "B=data/cases/scotus/9526000447/record/blinded; for a in claude-baseline codex-baseline; do echo \"=== $a/retrieval_log.json\"; python3 -c \"\nimport json,sys\nd=json.load(open('$B/$a/retrieval_log.json'))\nmeta={k:v for k,v in d.items() if k!='calls'}\nprint(json.dumps(meta,indent=1))\nfor i,c in enumerate(d.get('calls',[])):\n    print(i, json.dumps(c)[:600])\n\"; done",
+      "result_capture": "captured",
+      "result_digest": "49cb8e14ded50ddc",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:14:01.816Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ec1d9b23c13059bd",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; echo \"=== evaluation.schema.json\"; python3 -c \"\nimport json;s=json.load(open('schemas/evaluation.schema.json'))\nprint('required',s.get('required'))\nfor k,v in s['properties'].items():\n    print('-',k, json.dumps({kk:vv for kk,vv in v.items() if kk!='description'})[:300])\n    print('   ', (v.get('description') or '')[:400].replace('\\n',' '))\nprint('DEFS', list(s.get('\\$defs',{}).keys()))\nfor k,v in s.get('\\$defs',{}).items():\n    print('##',k); print(",
+      "result_capture": "captured",
+      "result_digest": "76985d2b15d75611",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:14:33.272Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "833821482a34ea8e",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; echo \"=== LeakageAssessment\"; python3 -c \"\nimport json;s=json.load(open('schemas/evaluation.schema.json'));print(json.dumps(s['\\$defs']['LeakageAssessment']['properties'],indent=1)); print('required', s['\\$defs']['LeakageAssessment'].get('required'))\"; echo \"=== snapshots\"; ls data/cases/scotus/9526000447/record/snapshots; python3 -c \"\nimport json,glob\nfor p in sorted(glob.glob('data/cases/scotus/9526000447/record/snapshots/*.json')):\n    s=json.load",
+      "result_capture": "captured",
+      "result_digest": "f516f93fa91db688",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:14:42.313Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "039825f441edf7ac",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; echo \"=== proceedings\"; python3 -c \"\nimport json\ns=json.load(open('data/cases/scotus/9526000447/record/snapshots/2026-10-03.json'))\nfor e in s['ProceedingsandOrder']:\n    print(e.get('Date'), '|', e.get('Text'), '|', [l.get('File') for l in e.get('Links',[])])\n\"; echo \"=== statpack interim section\"; START=$(grep -n -i \"^## .*interim docket\" metrics/statpack.md | head -1 | cut -d: -f1); END=$(awk -v s=\"$START\" 'NR>s && /^## /{print NR; exit}' metrics/",
+      "result_capture": "captured",
+      "result_digest": "68abcf8a1b06c9e8",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:14:52.498Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "697cc61daf1143b0",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts query --help 2>&1 | sed 's/\\x1b\\[[0-9;]*m//g' | head -90",
+      "result_capture": "captured",
+      "result_digest": "4fd3d668984a07f2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:15:08.115Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "0c0b29f61826926b",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; python3 - <<'EOF'\nimport json, pathlib, datetime\nCOURT=\"scotus\"; DOCKET=\"9526000447\"; EVENT=\"evt-motion-disposition\"; EVAL=\"claude-judge\"; RUN=\"20261003T191100Z\"; MODEL=\"claude-fable-5-1\"\nbase=pathlib.Path(f\"data/cases/{COURT}/{DOCKET}/events/{EVENT}/evaluations/{EVAL}\")\nnow=datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace(\"+00:00\",\"Z\")\ndef ev(alias, prob, rq, leak_notes, big_notes):\n    return {\n      \"schema_v",
+      "result_capture": "captured",
+      "result_digest": "5a51d38311500440",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:15:56.899Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "806795d1bf61821e",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; B=data/cases/scotus/9526000447/events/evt-motion-disposition/evaluations/claude-judge; RUN=20261003T191100Z\ncat > $B/claude-baseline/$RUN/evaluation.md <<'EOF'\n# Evaluation of claude-baseline \u2014 scotus/9526000447, evt-motion-disposition\n\n## The cell\n\nThis is an **interim** cell (`event.yaml` stage `interim`): Swift Transportation's emergency application 26A447 to stay a New Mexico trial court's discovery-examiner order pending a certiorari petition, submitted",
+      "result_capture": "captured",
+      "result_digest": "2f1634fc3b0686e7",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:17:04.594Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d2e7eec1f65c4c1f",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; grep -rn \"^class Evaluation(\\|^class AgentFlags(\\|^class AgentToolingFeedback(\" src/fedcourtsai | head; UV_CACHE_DIR=/tmp/uv-cache uv run python - <<'EOF'\nimport json, pathlib, importlib, inspect\nB=pathlib.Path(\"data/cases/scotus/9526000447/events/evt-motion-disposition/evaluations/claude-judge\"); RUN=\"20261003T191100Z\"\n# locate models\nimport fedcourtsai, pkgutil\nfound={}\nfor m in pkgutil.walk_packages(fedcourtsai.__path__, \"fedcourtsai.\"):\n    try: ",
+      "result_capture": "captured",
+      "result_digest": "ca19f3dff9d90f0d",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:17:19.738Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "09149c27a6eb8b0b",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; UV_CACHE_DIR=/tmp/uv-cache uv run python - <<'EOF'\nimport json, inspect\nfrom types import SimpleNamespace as NS\nfrom fedcourtsai.pipeline import evaluate as e\nprint(inspect.getsource(e.is_correct)[:900])\nout=json.load(open(\"data/cases/scotus/9526000447/events/evt-motion-disposition/outcome.json\"))\no=NS(**out)\nfor alias,p in ((\"claude-baseline\",0.04),(\"codex-baseline\",0.06)):\n    pred=NS(probability=p, predicted_disposition=\"denied\", judgment=None)\n    try: ",
+      "result_capture": "captured",
+      "result_digest": "fa0538550bd45d83",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-03T19:17:32.115Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9526000447",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20261003T191100Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

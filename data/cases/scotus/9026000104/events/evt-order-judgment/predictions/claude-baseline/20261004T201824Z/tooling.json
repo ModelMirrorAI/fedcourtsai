@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000104",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "courtlistener MCP read_document", "WebFetch", "WebSearch", "pypdf (local extraction of fetched PDFs)"],
+  "helpful": [
+    "The statpack merits section with the excluded column: the pooled anchor took one subtraction",
+    "supremecourt.gov QP and docket pages, and the government's petition PDF with the opinion below appended",
+    "The Second Circuit's en banc order, which gave the current ten-circuit tally in one footnote"
+  ],
+  "gaps": [
+    "No record/documents/ at all on a merits grant-moment cell: the QP, petition, and BIO are public and would have saved five retrieval calls",
+    "WebFetch cannot read PDFs; every court PDF had to be text-extracted locally from the saved binary",
+    "CourtListener had no text for the Second Circuit en banc order and no entry for the April panel opinion (175 F.4th 61)",
+    "fedcourts query --citation is nearly empty on SCOTUS rows; a --topic or free-text filter for SCOTUS merits priors would have been useful"
+  ],
+  "notes": "The corpus query returned no rows; priors came from the opinion below and general knowledge of the Court's detention cases. Several news and analysis sites (courthousenews, cis.org, cliniclegal, congress.gov CRS) returned 403 to the fetch tool."
+}

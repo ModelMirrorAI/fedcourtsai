@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "Judicial review of statutory eligibility for asylum-based adjustment could matter beyond this litigant, including access to review of terrorism-related inadmissibility findings. The retrieved appellate opinion supports moderate national legal significance; the petition's exact framing is unavailable.",
+  "big_case_score": 0.45,
+  "case_id": "scotus/73281680",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.06
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.2
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.003
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.15
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.05
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-03",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-03T20:15:11Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-03.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.06,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "990d139e86fa0924e44ecd52074d51dd0efc4595",
+    "stamped_at": "2026-10-03T20:17:10.019348Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261003T200236Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

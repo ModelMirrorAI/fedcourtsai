@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73281680",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "courtlistener MCP read_document", "courtlistener MCP search_document", "WebFetch", "WebSearch", "curl + pypdf"],
+  "helpful": [
+    "search_document across several opinion IDs at once: one call mapped the circuit landscape on the clause (ii) question",
+    "read_document on the lower-court opinion: the only way to learn the question presented when no documents were provisioned",
+    "statpack band table with bracketed reached rates for the anchor"
+  ],
+  "gaps": [
+    "No provisioned documents (no petition, QP, or BIO): a paper-filed petition leaves nothing on the docket to fetch, and the BIO entry carried no link; a pipeline fallback that pulls the SG's brief from the OSG site would have mattered here",
+    "CourtListener search returned empty whenever `court` was passed as a list; single-court or no court filter worked",
+    "fedcourts query has no filter for originating circuit, petitioner type (pro se / government respondent), or subject, so it could not surface close analogues",
+    "A way to look up prior SCOTUS dockets by case name (Shaiban, Mukantagara) via the corpus; the CourtListener docket search returned nothing and I relied on web search"
+  ],
+  "notes": "Forward cell; conference not yet held. The decisive comparators (Shaiban No. 24-183 denied after Bouarfa; Mukantagara vacated after Mullin v. Doe) came from web search, not from the corpus or the provisioned record."
+}

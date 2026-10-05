@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "The case determines access to a nationwide employment-discrimination remedy for workers at federally funded educational institutions. Its significance is substantial, but Title VII, administrative Title IX enforcement, and student-protective retaliation claims limit the consequences of an adverse ruling.",
+  "big_case_score": 0.72,
+  "case_id": "scotus/73274866",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.35
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-08-18",
+    "cvsg_date": "2025-12-08",
+    "decided_before": null,
+    "distribution_count": 4,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-18",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-04T20:40:32Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 0,
+  "input_snapshot": "2026-08-18.json",
+  "judgment": "affirmed",
+  "model": "gpt-6-astra",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.35,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "c92dea4c1d48c0d2a0728d141d8f278f809e442d",
+    "stamped_at": "2026-10-04T20:43:44.712495Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261004T201824Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that Title IX's prohibition of employment discrimination does not itself authorize employees' private employment-discrimination suits: Sandoval requires distinct congressional intent to provide that remedy, and Title VII's express enforcement scheme weighs against inferring it."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will announce a categorical exclusion of employees' own employment-discrimination claims from Title IX's implied private action, rather than a rule confined to these plaintiffs or public universities, while preserving student discrimination suits and Jackson-type retaliation suits protecting students."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Samuel Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Neil Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Brett Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

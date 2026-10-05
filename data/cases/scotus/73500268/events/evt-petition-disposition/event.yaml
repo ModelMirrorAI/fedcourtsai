@@ -1,0 +1,13 @@
+case_id: scotus/73500268
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-06-09'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Roofing Designs by JR, L.L.C., dba Roofing Designs v. Royal American Construction,
+  Incorporated, et al.

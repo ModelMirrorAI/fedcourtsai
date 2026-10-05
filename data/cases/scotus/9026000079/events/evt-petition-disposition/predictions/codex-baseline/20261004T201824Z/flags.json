@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000079",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "No petition, questions-presented text, BIO, lower-court reasoning, or documents manifest was provisioned. The snapshot describes paper-only filing and supplies no petition link. Forecast completed from the procedural snapshot and committed prior-Term rates; substantive certworthiness remains unassessed and big_case_score is explicitly null. This is an input limitation, not a finding that the petition lacks a substantial question."
+    }
+  ]
+}

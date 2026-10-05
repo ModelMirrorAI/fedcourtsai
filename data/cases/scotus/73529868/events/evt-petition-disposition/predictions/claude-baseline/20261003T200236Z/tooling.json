@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73529868",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "fedcourts paths", "metrics/statpack.md", "CourtListener MCP (search, get_endpoint_item, read_document, search_document)", "WebFetch", "WebSearch", "pypdf (local PDF text extraction)"],
+  "helpful": [
+    "statpack sal-v4 per-Term federal-band table (anchor)",
+    "CourtListener read_document/search_document on the Sixth Circuit opinion (split map, freestanding due-process holding)",
+    "WebFetch of the supremecourt.gov docket and order list, and of the SG petitions on justice.gov (the decisive companion-grant fact)"
+  ],
+  "gaps": [
+    "fedcourts query has no text/caption filter, so finding companion petitions on the same question in the corpus meant pulling 200 rows and grepping locally",
+    "CourtListener search returned zero opinions for several well-formed queries about this split (the circuit opinions exist; the ca6 one was found only by a party-name search) and zero SCOTUS dockets for party-name queries",
+    "WebFetch cannot read PDFs; I extracted the saved binaries locally with pypdf, which worked but is a workaround",
+    "Document provisioning silently yields nothing on a paper-only SCOTUS docket; a justice.gov/osg fallback for SG petitions would have filled the gap"
+  ],
+  "notes": "About 17 MCP calls and 14 web fetches/searches, over the advisory 25-call budget when both are counted; the web work was where the forecast-relevant information was."
+}

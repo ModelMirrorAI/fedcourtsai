@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000006",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "committed statpack", "fedcourts paths", "web search and open attempts", "local arithmetic"],
+  "helpful": ["Both sides' cert-stage arguments and the appended appellate opinion were provisioned.", "Frozen context and sal-v4 reached-band denominators made the anchor explicit."],
+  "gaps": ["The petition is marked truncated.", "Generic official-site web attempts returned no usable content.", "The default uv cache was read-only; a temporary writable cache allowed the CLI to run."],
+  "notes": "No live corpus or CourtListener retrieval was needed. Relist and CVSG cuts describe terminal populations rather than forward transition hazards, so increment probabilities remain judgmental. No case outcome was consulted."
+}

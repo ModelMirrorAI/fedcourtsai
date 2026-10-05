@@ -1,0 +1,7 @@
+- Consulted `metrics/statpack.md` to establish the baseline rate for the `baseline` salience band.
+- Executed `uv run fedcourts query --court scotus --limit 3`
+  - `ranged corpus reads: 5 GET(s), 1310720 byte(s)`
+- Searched CourtListener MCP for docket `24-2485` in `ca8` to retrieve the underlying appellate opinion (*Abrahim Fofana v. Kristi Noem*).
+- Used CourtListener MCP `read_document` to read the text of the 8th Circuit opinion (doc_id: 11239048).
+- Searched CourtListener MCP for `"1252(a)(2)(B)(ii)" AND "Patel" AND "circuit"` to determine the extent of any circuit split regarding the extension of *Patel v. Garland* to clause (ii).
+- Searched CourtListener MCP `search_document` on the returned First, Third, and Fifth Circuit opinions (e.g., doc_id: 10611458, 10786455, 9958608) to verify uniform adoption of the *Patel* logic across circuits.

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73274866",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned document text and manifest",
+    "committed merits statpack",
+    "CourtListener MCP search, read_document, and search_document",
+    "web.run search",
+    "fedcourts paths",
+    "fedcourts validate data"
+  ],
+  "helpful": [
+    "Both merits briefs were provisioned with readable, untruncated text.",
+    "The merits statpack exposes grant-Term, parsed, disturbed, and exclusion counts.",
+    "CourtListener snippet searches verified general precedent without retrieving this case's outcome."
+  ],
+  "gaps": [
+    "Web search calls returned no usable result content; CourtListener provided the needed precedent context.",
+    "The default uv cache was read-only; a temporary cache location worked.",
+    "The consulted statpack does not expose a generation timestamp or corpus pull vintage."
+  ],
+  "notes": "No live corpus query was necessary: the main uncertainty was legal framing, not a shortage of aggregate priors. No target-case outcome or subsequent-history material was sought or encountered."
+}

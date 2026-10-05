@@ -1,0 +1,5 @@
+P(grant) 0.55.
+
+The prior-Term salience band for a `state` band petition is ~20% (pooled reached rate). I adjust this up significantly to 0.55 because the petition presents a clean, highly salient circuit split on the private non-delegation doctrine regarding the Horseracing Integrity and Safety Act (HISA). The Court has already demonstrated interest in this exact dispute, having previously GVR'd the circuit decisions in light of *FCC v. Consumers' Research*. On remand, the Sixth Circuit upheld the Act again, maintaining the conflict with the Fifth Circuit's original ruling. 
+
+Given the direct constitutional challenge to a federal statute and the fact that the United States is a party defending it, this is a prime vehicle for plenary review to settle the doctrinal question. The Solicitor General is already a respondent, so a CVSG is unnecessary (P=0). The high likelihood of review pushes the probability well above the base rate.

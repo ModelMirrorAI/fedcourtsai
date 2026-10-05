@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000093",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md (modern cert, relist/CVSG cuts, sal-v4 band table)",
+    "courtlistener MCP search",
+    "WebSearch",
+    "WebFetch (supremecourt.gov dockets and PDFs) with local pypdf text extraction",
+    "provisioned documents (petition, questions-presented)"
+  ],
+  "helpful": [
+    "Forward-mode web retrieval was decisive: the companion government petition (No. 26-204) and the SG's hold recommendation are not visible from this docket's own snapshot.",
+    "The sal-v4 band table with bracketed reached rates made the pooled anchor straightforward.",
+    "supremecourt.gov docket HTML fetched cleanly and gave the companion case's distribution date."
+  ],
+  "gaps": [
+    "WebFetch cannot read PDF text; every supremecourt.gov brief had to be saved and extracted with pypdf by hand. A provisioned text of the respondents' brief (including the 'Brief for the Federal Respondents' caption the SG uses) would have saved most of the retrieval budget.",
+    "No provisioned pointer to related pending SCOTUS dockets on the same question; the companion petition had to be discovered through a web search.",
+    "The corpus has no cut for petitions whose respondent is the SG with a parallel government petition pending, so the key adjustment from the band anchor is unmeasured judgment.",
+    "The CourtListener RECAP docket index does not carry SCOTUS dockets, so the MCP search for the companion case returned nothing."
+  ],
+  "notes": "13 retrieval calls in total (one 403), under the advisory budget. The single corpus query added nothing for this posture."
+}

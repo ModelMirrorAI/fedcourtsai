@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500234",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["functions.exec_command", "web.run", "fedcourts paths", "jq", "fedcourts validate"],
+  "helpful": [
+    "Both petition and opposition were provisioned as nonempty, untruncated text.",
+    "Frozen sal-v4 context and unrounded statpack risk-set fields made a matching prior-Term anchor computable."
+  ],
+  "gaps": [
+    "The filed reply and separate lower-court appendix were not provisioned.",
+    "General Supreme Court rules retrieval through the web tool returned empty responses."
+  ],
+  "notes": "The default uv cache was read-only; selecting a writable temporary cache allowed the CLI to run. No live-corpus or CourtListener retrieval was needed. The forecast uses the supplied briefs rather than independently verified lower-court evidence."
+}

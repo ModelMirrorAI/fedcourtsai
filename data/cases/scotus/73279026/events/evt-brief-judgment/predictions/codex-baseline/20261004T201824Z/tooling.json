@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279026",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local provisioned-file reads",
+    "fedcourts paths",
+    "committed merits statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search and open attempts",
+    "curl official Supreme Court biographies",
+    "fedcourts validate data"
+  ],
+  "helpful": [
+    "Both merits briefs had complete extracted text and dated manifest entries.",
+    "The snapshot preserved the grant's limitation to questions 1 and 2.",
+    "Merits statpack counts support a reproducible prior-Term baseline with an excluded-count guard.",
+    "CourtListener snippet retrieval provided focused access to an older precedent."
+  ],
+  "gaps": [
+    "Browser calls returned no usable results.",
+    "The committed statpack did not expose an underlying corpus freshness timestamp in the consulted metadata."
+  ],
+  "notes": "No case-outcome retrieval or live corpus query. Default uv cache was read-only; a temporary cache allowed CLI use. Provisioned merits briefing was sufficient despite unavailable browser results."
+}

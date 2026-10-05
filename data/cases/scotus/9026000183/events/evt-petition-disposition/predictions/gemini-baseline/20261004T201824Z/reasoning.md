@@ -1,0 +1,7 @@
+P(grant) 0.11. The case falls in the 'baseline' salience band for a once-distributed paid petition, which carries a historical risk-set grant rate of roughly 4-6%. I adjust this probability significantly upward for several reasons. First, the petitioner is represented by elite Supreme Court counsel (Noel Francisco, Jones Day). Second, the petition is supported by two major business amici (Airlines for America and the International Franchise Association), signaling broad industry importance. Third, the subject matter—class action certification under Rule 23 and the boundaries of Wal-Mart v. Dukes—is an area the current Court's conservative majority frequently polices. I am keeping the probability restrained at 0.11 because this is the petition's first conference (the long conference) and the vast majority of petitions are denied. My main uncertainty is whether the Fifth Circuit's procedural posture (denial of en banc review) presents a sufficiently clean vehicle, or if the Court will wait for a deeper circuit split on this specific three-stage trial plan issue.
+
+P(relist-increment) 0.22. If the petition is a serious candidate for a grant, it is almost certain to be relisted at least once from the long conference.
+
+P(cvsg-increment) 0.05. I keep this low as the federal government has no direct regulatory or programmatic interest in this private class action dispute.
+
+No additional retrieval beyond the provisioned inputs was performed, other than checking the statpack base rates.

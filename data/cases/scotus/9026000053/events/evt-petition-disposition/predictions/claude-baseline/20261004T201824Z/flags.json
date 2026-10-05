@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000053",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Hold petition: the QP states it presents the same question as No. 25-1383 (Indian Harbor v. Town of Vinton) and asks the Court to hold it. The forecast is therefore driven by Vinton's docket (response requested Jul 27 2026 after a waiver; two cert-stage amici; no redistribution or disposition as of Oct 4 2026), read from supremecourt.gov because the corpus does not track 25-1383 (no scotus/9025001383 case). The Aug 27 'Rescheduled' entry here tracks Vinton rather than signalling anything about this petition's own merits; resolution may take until mid-2027 if Vinton is granted."
+    }
+  ]
+}

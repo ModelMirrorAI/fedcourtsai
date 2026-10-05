@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000093",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot records an August 14 Brief for the Federal Respondents and September 1 reply, but the provisioned document manifest contains only the petition and QP. I retrieved those exact pre-decision PDFs from their snapshot links. The response materially changes the forecast: it requests a hold for McNutt and says the government no longer advances the commerce-power theory here. This gap was repaired for this prediction; no outcome or subsequent history was retrieved. Consider coverage of federal responses not titled brief in opposition."
+    }
+  ]
+}

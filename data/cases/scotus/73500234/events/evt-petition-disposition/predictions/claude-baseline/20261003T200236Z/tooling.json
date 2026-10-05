@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/73500234",
+  "run_id": "20261003T200236Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener search (MCP)"
+  ],
+  "helpful": [
+    "Provisioned petition and BIO text with documents.json metadata: the BIO's alternative-holding vehicle argument drove most of the downward adjustment.",
+    "Segment base rate by salience band (sal-v4) with bracketed reached figures and per-row n, which made pooling the prior-Term anchor straightforward."
+  ],
+  "gaps": [
+    "fedcourts query has no subject or keyword filter, so priors on a specific doctrine (Quiet Title Act, law of the case, return-trip petitions) cannot be surfaced; the returned priors were unrelated recent grants.",
+    "The reply brief was on the docket but not provisioned; a reply-brief document kind would help on cells where the BIO raises a vehicle problem the reply may answer.",
+    "No published conditioned cut for the forward relist hazard from a given distribution count, or for the cert-order share of grants, so those claims rest on terminal-bucket arithmetic plus judgment.",
+    "A return-trip indicator (prior SCOTUS docket for the same case) in the snapshot or context would be a useful signal; here it had to be read from the petition."
+  ],
+  "notes": "The cvsg-increment claim is structurally impossible on any petition where the United States is already the respondent; a harness-side vacuous mask keyed on a federal respondent would keep those cells from banking near-zero probabilities as if they were forecasts."
+}

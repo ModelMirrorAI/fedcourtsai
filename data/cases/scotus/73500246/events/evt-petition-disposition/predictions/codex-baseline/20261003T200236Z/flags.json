@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500246",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot records a petition, opposition, and reply but no filed-document text or document manifest was provisioned. Its paper-only filing instruction may explain the missing electronic links. Forecast uses the provisioned docket, prior-Term federal-band rates, and the September 2, 2025 Fourth Circuit opinion retrieved through MCP. The actual questions presented and cert-stage vehicle arguments remain unverified; the reconstructed review question is expressly labeled as such. No Supreme Court outcome was sought or encountered.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261003T200236Z",
+  "schema_version": "1.0"
+}

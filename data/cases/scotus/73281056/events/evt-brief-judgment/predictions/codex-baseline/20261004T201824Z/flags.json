@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281056",
+  "run_id": "20261004T201824Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-brief-judgment",
+      "message": "The briefed moment appears to fire on a respondent aligned in partial support of petitioner, not completion of adversarial merits briefing. The August 28 merits-brief-respondent.txt is Arizona and its Attorney General's partial-support brief; it agrees on the state-form statutory issue, contests the decree issue, and expressly does not discuss question two. The snapshot's July 20 order sets opposing respondents' briefs for October 13, 2026. Forecast completed using the actual partial-support brief and retained truncated cert-stage opposition, without assuming opposing merits briefing exists. Consider alignment-aware moment detection and document selection."
+    }
+  ]
+}

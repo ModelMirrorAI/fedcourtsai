@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000152",
+  "run_id": "20261004T180949Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md (cert sections and sal-v4 band table)",
+    "courtlistener MCP search (opinions, dockets)",
+    "courtlistener MCP call_endpoint (docket-entries)",
+    "provisioned documents (petition, questions-presented)"
+  ],
+  "helpful": [
+    "context.json's band plus the sal-v4 band table made the scored anchor a straightforward pooled computation.",
+    "The provisioned petition text settled the call on its own: the questions presented are case-specific and the argument is four pages.",
+    "CourtListener docket-entries on the district court docket corroborated the petition's account of the posture cheaply."
+  ],
+  "gaps": [
+    "fedcourts query ranks by recency with no text or fee-class/pro-se filter, so it cannot surface comparable pro se paid petitions; a --pro-se or --caption-class filter, or a relist/band filter, would make it useful on a cell like this.",
+    "No provisioned text for the supplemental brief or the decision below; the latter is unpublished and not in CourtListener's opinion index.",
+    "The statpack publishes no conditional cert-order share of grants, so summary-disposition-route is anchored on judgment alone."
+  ],
+  "notes": "Five retrieval calls in total, well under budget. Nothing retrieved concerned this petition's own disposition."
+}

@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500268",
+  "gaps": [
+    "Reply brief is listed in the snapshot but its text is not provisioned.",
+    "Web tools returned no usable content."
+  ],
+  "helpful": [
+    "Petition appendices permit checking the opposition against the actual lower-court reasoning.",
+    "CourtListener MCP supplied the intervening lead opinion.",
+    "The statpack JSON supports exact prior-Term reached-rate pooling."
+  ],
+  "notes": "Default uv cache location was read-only; a writable temporary cache allowed the CLI to run. No direct CourtListener REST request was used. Two distributions should not be mistaken for two completed conferences.",
+  "role": "predictor",
+  "run_id": "20261003T200236Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned filings",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "web search/open attempts",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

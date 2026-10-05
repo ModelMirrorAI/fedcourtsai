@@ -1,0 +1,5 @@
+P(grant) 0.005. The prior-Term salience band for a paid baseline petition is roughly 4-6% (the bracketed `reached` rate). I adjust downwards significantly for several severe vehicle problems that make a grant highly improbable. 
+
+First, the petitioners are proceeding pro se, which substantially depresses the grant probability below the baseline band's average. Second, the Brief in Opposition persuasively notes that the federal due process claim was not preserved in the state court proceedings; instead, the trial court's denial rested on independent and adequate state-law grounds regarding timeliness and the sufficiency of the disqualification statement. Third, the alleged bias primarily consists of adverse judicial rulings, which the Court rarely considers sufficient to establish a constitutional violation under *Caperton*. The California Supreme Court has already denied discretionary review.
+
+Given the procedural hurdles and the lack of a preserved federal question, this case is extremely unlikely to attract the Court's attention or warrant further review. The probability of any relists or a CVSG is effectively zero.
