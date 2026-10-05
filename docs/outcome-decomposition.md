@@ -805,7 +805,8 @@ scores rather than before it is declared.
 
 The per-Justice prohibition is structural, not stylistic: nothing in the
 mechanical family records or
-resolves a per-Justice dissent, and nothing writes one into `Outcome.votes`.
+resolves a per-Justice dissent, and the noted votes the orders source does
+write into `Outcome.votes` are admitted to no scored path.
 `docs/decision-model.md` pre-registers that an individual cert vote is never
 scored, and `pipeline.moments.scores_votes` enforces it — vote scoring is
 admitted only on a declared merits moment, so a channel that populated cert

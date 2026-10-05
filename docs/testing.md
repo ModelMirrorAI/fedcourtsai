@@ -667,8 +667,8 @@ environment supplies the out-of-band pointer override (*Developer access* in
 [data-pipeline.md](data-pipeline.md)), so a scenario job resolves the staging
 blob rather than the committed production pointer; provisioning and refreshing
 the slice is the staging corpus runbook in [security.md](security.md). The
-scenarios' read budgets and pathology checks therefore run at slice scale,
-not production's. Changed seams are therefore validated after the
+ranged-reads scenario's wall-clock budget therefore runs at slice scale, not
+production's. Changed seams are therefore validated after the
 merge to `staging` rather than on the PR branch; nothing broken reaches `main`
 regardless: the gate needs the twelve required integration runs — all eight
 required scenarios, with engine-smoke and engine-actions-smoke counted once per
