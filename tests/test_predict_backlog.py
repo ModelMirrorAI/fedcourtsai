@@ -1867,7 +1867,7 @@ def test_a_displaced_re_owed_case_is_refiled_as_cap_reached(tmp_path: Path) -> N
         conference=FUTURE_CONFERENCE,
         polled_on=TODAY - timedelta(days=5),
     )
-    _retired_cohort(data, 1)
+    _decounted_cohort(data, 1)
     _open_case(db, "scotus", 2, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
 
     backlog = _backlog(db, data, cap=1)
@@ -1887,7 +1887,7 @@ def test_a_case_reached_past_a_full_re_predict_budget_is_filed_censored(tmp_path
     data = tmp_path / "data"
     for docket in (1, 2):
         _open_case(db, "scotus", docket, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
-        _retired_cohort(data, docket)
+        _decounted_cohort(data, docket)
 
     backlog = _backlog(db, data, cap=1)
 

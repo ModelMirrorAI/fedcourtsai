@@ -687,7 +687,7 @@ stays outside the gate:
 
   How strongly judges anchor depends on the evaluate prompt, so a tau is
   comparable only within one evaluator digest. The board does not split on it:
-  its scope is `graded_post_freeze`, which records the evaluator digest but does
+  its scope is `graded_in_window`, which records the evaluator digest but does
   not count by it, so a tau whose reads straddle a change to the evaluate prompt
   mixes two anchoring regimes and compares to neither. `evaluator_agreement` is
   exposed the same way: judges anchored on the same candidate's score agree with

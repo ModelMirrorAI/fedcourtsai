@@ -18,7 +18,7 @@ resolution; the corpus supplies the conference.
 - ``conference_at_registration`` (with ``--registered-at``) is read **as at the
   registration day**, and is one input to ``registered``: the reconstruction of
   the registered rule's membership — an event at a re-predict moment that held
-  a retired cell by that day, was still forward then, and, at the distribution
+  a de-counted cell by that day, was still forward then, and, at the distribution
   moment, was distributed for a conference still ahead. Membership is fixed at
   registration, so a registered petition rescheduled afterwards stays in the
   denominator and the move is disclosed rather than dropping it.
@@ -66,6 +66,7 @@ from .store import (
     iter_predicted_events,
     normalized_moment,
     normalized_stage,
+    prediction_counts,
     scored_prediction_cell,
     stratify,
 )
@@ -158,8 +159,10 @@ def _counted_cells(
     A counted grading names the run it scored, and the leaderboard counts that
     run — even where a later run has since been staged — so a predictor with a
     counted grading contributes exactly the run it names. A predictor with
-    none contributes its staged (newest) run, the one provisioning hands the
-    graders, and only when that run carries a frozen process.
+    none contributes its staged run, the one provisioning hands the graders
+    (the newest resolvable run, never a later window's cell in place of the
+    earliest window's), and only when that run is its predictor's counted
+    forecast of the event (:func:`fedcourtsai.store.prediction_counts`).
     """
     staged = latest_prediction_dirs(event_paths)
     cells: list[tuple[str, str, Prediction]] = []
@@ -172,7 +175,7 @@ def _counted_cells(
                 cells.append((predictor_id, found[0].name, found[1]))
             continue
         prediction = read_model(staged[predictor_id] / "prediction.json", Prediction)
-        if is_frozen(prediction.process_version):
+        if prediction_counts(event_paths.base, predictor_id, prediction):
             cells.append((predictor_id, staged[predictor_id].name, prediction))
     return cells
 
@@ -188,7 +191,7 @@ def _status(predictors: list[str], scored: list[str], outcome: Outcome | None) -
 def _registered(
     *,
     registered_at: date,
-    retired_by_registration: bool,
+    decounted_by_registration: bool,
     stage: str | None,
     moment: str | None,
     outcome: Outcome | None,
@@ -196,7 +199,7 @@ def _registered(
 ) -> bool:
     """The registered rule's membership as at ``registered_at``, reconstructed."""
     return bool(
-        retired_by_registration
+        decounted_by_registration
         and stage is not None
         and moment is not None
         and (Stage(stage), Moment(moment)) in REPREDICT_MOMENTS
@@ -222,7 +225,7 @@ def counted_by_conference(
     (:func:`_counted_cells`). ``scored_predictors`` are the predictors with a
     counted grading, from the same :func:`fedcourtsai.store.stratify` pass the
     leaderboard aggregates, so they are always a subset of ``predictors``.
-    ``reowed`` says whether a retired or unstamped cell predates the event's
+    ``reowed`` says whether a de-counted or unstamped cell predates the event's
     earliest counted cell: a re-forecast of an earlier round's event rather than
     one the frozen process forecast first.
 
@@ -249,15 +252,22 @@ def counted_by_conference(
         event_paths = CasePaths(data_root, court_id, int(docket)).event(event_id)
         graded_runs = graded.get((case_id, event_id), {})
         counted = _counted_cells(event_paths, graded_runs)
-        retired = [
+        # The de-counted cells, by the per-cell rule: in no window, or in a
+        # revoked one. The event-aware rule's other uncounted cells are a
+        # later window's — one behind a counted earlier-window sibling (a
+        # duplicate, not a de-count), or one stamped before the revocation of
+        # the earlier window it stood behind, whose revoked sibling is already
+        # here and older, so both event-level reads below (any by the
+        # registration day, any before the earliest counted cell) are the same.
+        decounted = [
             prediction
             for path in sorted(event_paths.predictions_dir.glob("*/*/prediction.json"))
             if not is_frozen((prediction := read_model(path, Prediction)).process_version)
         ]
-        retired_by_registration = registered_at is not None and any(
-            cell_clock(p).date() <= registered_at for p in retired
+        decounted_by_registration = registered_at is not None and any(
+            cell_clock(p).date() <= registered_at for p in decounted
         )
-        if not counted and not retired_by_registration:
+        if not counted and not decounted_by_registration:
             continue
         event = (
             read_model(event_paths.event_file, PredictableEvent)
@@ -285,7 +295,7 @@ def counted_by_conference(
             registration_fallback = source == "current"
             registered = _registered(
                 registered_at=registered_at,
-                retired_by_registration=retired_by_registration,
+                decounted_by_registration=decounted_by_registration,
                 stage=stage,
                 moment=moment,
                 outcome=outcome,
@@ -319,7 +329,7 @@ def counted_by_conference(
                 bands=sorted({cell.band for cell in cells if cell.band is not None}),
                 predictors=predictors,
                 scored_predictors=scored,
-                reowed=earliest is not None and any(cell_clock(p) < earliest for p in retired),
+                reowed=earliest is not None and any(cell_clock(p) < earliest for p in decounted),
                 registered=registered,
                 conference_at_registration=at_registration,
                 resolved=outcome is not None,

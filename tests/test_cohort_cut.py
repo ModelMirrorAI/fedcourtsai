@@ -17,6 +17,7 @@ from fedcourtsai.ids import parse_run_id
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     CountedConferenceCut,
+    CountingWindow,
     Disposition,
     Engine,
     Evaluation,
@@ -29,7 +30,7 @@ from fedcourtsai.schemas import (
     ProcessVersion,
 )
 from fedcourtsai.serialize import write_json, write_yaml
-from tests.conftest import bless_process
+from tests.conftest import bless_process, set_windows
 
 runner = CliRunner()
 
@@ -179,7 +180,7 @@ def ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]
     monkeypatch.delenv("FEDCOURTS_CORPUS_SPLIT", raising=False)
     bless_process(monkeypatch, BLESSED)
     data_root = tmp_path / "data"
-    # 100: re-owed (a retired cell beside the frozen one), cut before the relist.
+    # 100: re-owed (a de-counted cell beside the counted one), cut before the relist.
     _event(data_root, "scotus/100")
     _prediction(data_root, "scotus/100", run_id="20260801T000000Z", digest=None)
     _prediction(data_root, "scotus/100")
@@ -198,14 +199,14 @@ def ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]
     # 102: no live payload — the current column stands in, and says so.
     _event(data_root, "scotus/102")
     _prediction(data_root, "scotus/102")
-    # 103: the staged (newest) cell is retired — not counted, though an older one is frozen.
+    # 103: the staged (newest) cell is de-counted — not counted, though an older one is.
     _event(data_root, "scotus/103")
     _prediction(data_root, "scotus/103")
-    _prediction(data_root, "scotus/103", run_id="20260920T000000Z", digest="sha256:retired")
-    # 104: retired cells only, made before registration — registered, never counted.
+    _prediction(data_root, "scotus/103", run_id="20260920T000000Z", digest="sha256:decounted")
+    # 104: de-counted cells only, made before registration — registered, never counted.
     _event(data_root, "scotus/104")
     _prediction(data_root, "scotus/104", run_id="20260801T000000Z", digest=None)
-    # 105: a counted grading names an older frozen run; a newer retired run is staged.
+    # 105: a counted grading names an older frozen run; a newer de-counted run is staged.
     _event(data_root, "scotus/105")
     _prediction(data_root, "scotus/105")
     _prediction(data_root, "scotus/105", run_id="20260920T000000Z", digest=None)
@@ -215,7 +216,7 @@ def ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]
     _event(data_root, "scotus/106")
     _prediction(data_root, "scotus/106", run_id="20260801T000000Z", digest=None)
     _prediction(data_root, "scotus/106")
-    # 107: retired cells only, on an event resolved before registration.
+    # 107: de-counted cells only, on an event resolved before registration.
     _event(data_root, "scotus/107")
     _prediction(data_root, "scotus/107", run_id="20260801T000000Z", digest=None)
     _outcome(data_root, "scotus/107", resolved_at=date(2026, 9, 10))
@@ -284,7 +285,7 @@ def test_a_counted_grading_names_the_counted_cell(ledger: tuple[Path, Path]) -> 
     assert [(c.predictor_id, c.run_id) for c in event.cells] == [("alpha", "20260917T000000Z")]
     assert event.scored_predictors == ["alpha"]
     assert event.status == "scored"
-    # The retired run postdates the counted one: not a re-forecast.
+    # The de-counted run postdates the counted one: not a re-forecast.
     assert event.reowed is False
 
 
@@ -311,7 +312,7 @@ def test_registration_membership_is_fixed_at_the_registration_day(
     assert events["scotus/106"].conference_at_registration == date(2026, 6, 18)
     # Resolved before registration, and never counted: absent.
     assert "scotus/107" not in events
-    # The retired staged cell postdates registration: neither counted nor registered.
+    # The de-counted staged cell postdates registration: neither counted nor registered.
     assert "scotus/103" not in events
     # 102 has no payload: its registration reading falls back too.
     assert cut.conference_fallbacks == 2
@@ -395,3 +396,55 @@ def test_registered_at_needs_counted(ledger: tuple[Path, Path]) -> None:
 def test_a_malformed_registration_day_is_refused(ledger: tuple[Path, Path]) -> None:
     result = runner.invoke(app, ["conference-set", "--counted", "--registered-at", "9/15"])
     assert result.exit_code == 2
+
+
+_W1, _W2 = "sha256:window-one", "sha256:window-two"
+_OPENS = datetime(2026, 9, 16, tzinfo=UTC)
+_SUCCESSOR = datetime(2026, 9, 25, tzinfo=UTC)
+
+
+def _two_windows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, revoked_at: datetime | None
+) -> tuple[Path, Path]:
+    """One predictor holding a cell in each of two windows on one event.
+
+    The earlier cell is stamped in the first window, the later one in its
+    successor; ``revoked_at`` revokes the first window.
+    """
+    monkeypatch.delenv("FEDCOURTS_CORPUS_SPLIT", raising=False)
+    set_windows(
+        monkeypatch,
+        CountingWindow(
+            label="proc-a", digest=_W1, opens=_OPENS, closes=_SUCCESSOR, revoked_at=revoked_at
+        ),
+        CountingWindow(label="proc-b", digest=_W2, opens=_SUCCESSOR),
+    )
+    data_root = tmp_path / "data"
+    _event(data_root, "scotus/100")
+    _prediction(data_root, "scotus/100", run_id="20260917T000000Z", digest=_W1)
+    _prediction(data_root, "scotus/100", run_id="20260926T000000Z", digest=_W2)
+    return data_root, _corpus(tmp_path / "corpus", {"scotus/100": RELISTED})
+
+
+def test_a_closed_windows_cell_is_the_counted_one_not_its_successors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cut = _cut(*_two_windows(tmp_path, monkeypatch, revoked_at=None), date(2026, 9, 30))
+    (event,) = cut.events
+    # The earliest window's cell counts; the successor's is never staged in its place.
+    assert [(c.run_id, c.process_digest) for c in event.cells] == [("20260917T000000Z", _W1)]
+    # A later window's cell behind a counted one is a duplicate, not a de-count:
+    # the event is neither a re-forecast nor re-owed.
+    assert (event.reowed, event.registered) == (False, False)
+
+
+def test_a_revoked_windows_cell_is_de_counted_and_its_successor_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    revoked = datetime(2026, 9, 25, 12, tzinfo=UTC)
+    cut = _cut(*_two_windows(tmp_path, monkeypatch, revoked_at=revoked))
+    (event,) = cut.events
+    # The successor's cell, stamped after the revocation, is the counted one,
+    # and the revoked window's earlier cell makes it a re-forecast.
+    assert [(c.run_id, c.process_digest) for c in event.cells] == [("20260926T000000Z", _W2)]
+    assert event.reowed is True

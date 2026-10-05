@@ -8324,7 +8324,8 @@ class CountedConferenceEvent(_Strict):
     bands: list[str] = Field(description="Every distinct band the counted cells froze")
     predictors: list[str] = Field(
         description="Predictors with a counted cell: the run a counted grading names, "
-        "else the staged (newest) run when it carries a frozen process. Empty only on "
+        "else the staged (newest resolvable) run when it is its predictor's counted "
+        "forecast of the event. Empty only on "
         "a registered event with no counted cell"
     )
     scored_predictors: list[str] = Field(
@@ -8332,13 +8333,13 @@ class CountedConferenceEvent(_Strict):
         "`stratify` pass the leaderboard aggregates"
     )
     reowed: bool = Field(
-        description="Whether a retired or unstamped cell predates the earliest counted "
+        description="Whether a de-counted or unstamped cell predates the earliest counted "
         "cell: a re-forecast of an earlier round's event rather than one the frozen "
         "process forecast first. Not the registered-membership test; `registered` is"
     )
     registered: bool | None = Field(
         description="The registered rule's membership as at `registered_at`, "
-        "reconstructed: a re-predict moment, a retired cell whose harness clock falls "
+        "reconstructed: a re-predict moment, a de-counted cell whose harness clock falls "
         "on or before that day, no outcome before it, and — at the distribution "
         "moment — `conference_at_registration` on or after it. Null without "
         "`--registered-at`. Fixed at registration, so a later reschedule never "

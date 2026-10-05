@@ -806,7 +806,8 @@ jq '.events_scored, .entries[].events_scored' metrics/leaderboard.json
 `conference-set --counted --registered-at` gives both sides of the
 reconciliation in one reading. Its population is every **counted** event — one
 with a counted cell: the run a counted grading names, else a predictor's staged
-(newest) run when it carries a frozen process — together with every
+(newest resolvable) run when it is its predictor's counted forecast of the
+event — together with every
 **registered** event, counted or not. For each it gives the conference the
 petition was distributed for at its counted cells' cut, the conference it was
 distributed for on the registration day, the current corpus column, the band the
@@ -821,12 +822,12 @@ at.
 
 **The cohort is selected by `registered`, never by a conference.** The flag
 reconstructs the registered rule's membership as at the registration day: an
-event at a re-predict moment that held a retired or unstamped cell by that day,
+event at a re-predict moment that held a de-counted or unstamped cell by that day,
 had no outcome before it, and — at the distribution moment — was distributed
 for a conference still ahead. 2026-09-15 is that day because the census in the
 freeze record was read from a blob pulled 2026-09-14 against a ledger whose tip
 is dated 2026-09-15, so the reconstruction admits docket entries filed through
-09-14 and retired cells made through 09-15. It reconstructs the **rule**, so its
+09-14 and de-counted cells made through 09-15. It reconstructs the **rule**, so its
 per-arm counts are checked against the rule's census in the freeze record —
 123 events: 110 cert/distribution, 10 cert/cvsg and **3** interim/arrival —
 not against the 122 the deriver minted, which held one interim event back; the
