@@ -25,15 +25,21 @@ and what it reads reaches the ledger only through the writer
 A line opening on a docket number starts an entry (consecutive ones share the
 order that follows; a parenthesized application number on the next line joins
 the group), a line with no lowercase letter after the order text is a section
-heading, and the order text is everything else. An order-list entry may print a
-short writing inline, after a colon (``Justice Jackson, dissenting: …``); its
-header is read and its body is not. Each appended section is read for its
-dockets (``No. 25-848``, ``Nos. …``) and date (``Decided June 15, 2026`` or
-``[May 14, 2026]``), then line by line: the order text before the first header
-is read by the notation grammar, every line that opens a header sentence is
-read by the header grammar, and a writing's body is skipped — except the
-lines after the Court's own ``It is so ordered.``, where notations on a
-summary disposition are printed.
+heading, and the order text is everything else. A consolidated caption may
+print its docket numbers alone, one per line, then a column of brackets, then
+a capitals caption line per docket: a line holding only a docket number opens
+an entry when the caption goes on below it, bracket lines are dropped, and
+capitals lines before the order text are the caption's. A change to the split
+can hand either grammar different text, so it bumps both grammar versions.
+An order-list entry may print a short writing inline, after a colon
+(``Justice Jackson, dissenting: …``); its header is read and its body is not.
+Each appended section is read for its dockets (``No. 25-848``, ``Nos. …``)
+and date (``Decided June 15, 2026`` or ``[May 14, 2026]``), then line by
+line: the order text before the first header is read by the notation
+grammar, every line that opens a header sentence is read by the header
+grammar, and a writing's body is skipped — except the lines after the
+Court's own ``It is so ordered.``, where notations on a summary disposition
+are printed.
 
 **Cross-checks.** Every writing prints its author in its running head
 (``ALITO, J., dissenting``, ``Statement of SOTOMAYOR, J.``), so the check
@@ -131,6 +137,12 @@ _LIST_TOP_RE = re.compile(r"^\(ORDER LIST\b")
 _CAPTION_RE = re.compile(
     r"^(?P<docket>\d{2}-\d{1,5}|\d{2}[AMO]\d{1,5}|\d{1,3},\s*ORIG\.?)\s+(?!.*[a-z]{3})\S"
 )
+# A consolidated caption may print its docket numbers alone, one per line, then
+# a column of brackets, then one capitals caption line per docket.
+_BARE_DOCKET_RE = re.compile(r"^(?P<docket>\d{2}-\d{1,5}|\d{2}[AMO]\d{1,5})$")
+_BRACKET_LINE_RE = re.compile(r"^[()\[\]{}| ]+$")
+# A line of order text that runs on into a docket number on the next line.
+_RUNS_INTO_DOCKET_RE = re.compile(r"(?:\bNos?\.|,|\band|\bor)$", re.I)
 _APPLICATION_LINE_RE = re.compile(r"^\((?P<docket>\d{2}A\d{1,5})\)$")
 _PAGE_NUMBER_RE = re.compile(r"^\d{1,3}$")
 _RULE_RE = re.compile(r"^[_\u2014\u2013\-]{3,}$")
@@ -335,6 +347,34 @@ def _inline_pieces(dockets: tuple[str, ...], text: str, day: date | None) -> lis
     return pieces
 
 
+def _opens_bare_caption(lines: Sequence[str], index: int) -> bool:
+    """Whether a line holding only a docket number opens a caption.
+
+    It does when the caption goes on: the next line of text is another docket
+    number, a bracket column, an application number or a capitals caption
+    line. A line of order text that wraps to leave a docket number alone
+    (``… with No.`` / ``25-200`` / ``and a total …``) runs into it from above
+    and goes on in lowercase; either rules the caption out, so a wrap followed
+    by a section heading does not open an entry the next caption would join.
+    """
+    above = next(
+        (line for line in reversed(lines[:index]) if line and not _is_page_furniture(line)),
+        "",
+    )
+    if _RUNS_INTO_DOCKET_RE.search(above):
+        return False
+    for line in lines[index + 1 :]:
+        if not line or _is_page_furniture(line):
+            continue
+        return bool(
+            _BARE_DOCKET_RE.match(line)
+            or _BRACKET_LINE_RE.match(line)
+            or _APPLICATION_LINE_RE.match(line)
+            or _HEADING_RE.match(line)
+        )
+    return False
+
+
 def _split_list(  # noqa: PLR0912 - one branch per line shape the list prints
     lines: Sequence[str], day: date | None
 ) -> tuple[list[OrderPiece], list[str]]:
@@ -342,12 +382,15 @@ def _split_list(  # noqa: PLR0912 - one branch per line shape the list prints
     groups: list[_Group] = []
     current: _Group | None = None
     orphans: list[str] = []
-    for line in lines:
+    for index, line in enumerate(lines):
         if not line or _LIST_TOP_RE.match(line) or _DAY_LINE_RE.match(line):
             continue
-        if _is_page_furniture(line):
+        if _is_page_furniture(line) or _BRACKET_LINE_RE.match(line):
             continue
-        if (caption := _CAPTION_RE.match(line)) is not None:
+        caption = _CAPTION_RE.match(line)
+        if caption is None and (bare := _BARE_DOCKET_RE.match(line)) is not None:
+            caption = bare if _opens_bare_caption(lines, index) else None
+        if caption is not None:
             if current is None or current.lines:
                 current = _Group()
                 groups.append(current)
