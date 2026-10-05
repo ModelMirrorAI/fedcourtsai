@@ -1,0 +1,5 @@
+This is a cert-stage cell. The predictor correctly forecast a denial.
+
+**Base rate and skill**: The prediction carried a frozen context with the `baseline` band under `sal-v4`. Consequently, the `segment_base_rate` employs the `risk_set` basis. I derived this rate by pooling the bracketed `reached` figures for the `baseline` band over Terms strictly before OT2025 (OT2017 to OT2024), which amounts to approximately 5.12%.
+
+**Reasoning Quality**: The reasoning quality is very good (0.90). The predictor correctly identified that the petition was hampered by Article III standing issues, distinguishing the standing holding from the underlying statutory question. The predictor performed targeted primary-source checks on the cases asserting the circuit split, noting important nuances that weakened the petition's claims. While the final probability (0.035) was slightly more conservative than claude-baseline's, the methodical approach and clear differentiation between doctrinal importance and vehicle viability were strong.

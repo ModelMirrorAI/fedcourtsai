@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73372297",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline labels a 3.9% baseline reached rate as prior-Term. The committed sal-v4 table assigns 3.9% to Term 2025, the prediction's own frozen Term; pooling displayed strictly prior Terms 2017-2024 instead yields 5.1202504% from rounded rates over weighted n=11,580. All evaluations use the correct risk-set pool. This is a rationale/anchor-selection error, not evidence of outcome leakage in a forward prediction. Details are in gemini-baseline's evaluation.md.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0"
+}

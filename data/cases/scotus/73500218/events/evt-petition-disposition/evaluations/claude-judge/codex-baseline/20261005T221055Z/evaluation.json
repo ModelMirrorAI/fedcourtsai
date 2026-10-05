@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.01,
+    "notes": "Pro se Rule 20 mandamus petition (No. 25-1315) asking the Court to let the petitioner act as a celebrity's 'next friend' in a dismissed private civil suit the Eighth Circuit affirmed; the petition alleges a government conspiracy, CIA mind control and directed-energy weapons. Every respondent, the Solicitor General included, waived response; single distribution; one-line denial on the long-conference order list with no noted dissent. No doctrinal question, no governmental interest, no downstream effect. Disclosure: the blinded prediction.json carries big_case_score, so I saw each candidate's number while reading the file; my read rests on the petition text and docket shape and would be the same without them."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.990467,
+  "case_id": "scotus/73500218",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.002597359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002597359735235249,
+    "total": 0.002597359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-05T22:35:45Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (snapshot 2026-09-17, conference 2026-09-28, denial 2026-10-05). Log: 28 calls, coverage 0.79; the 6 unobserved rows are web-search/fetch attempts on the Court's rules pages and the petition PDF at its exact May 2026 filing URL (graded on query: generic Rule 20 text and a pre-decision filing, not this case's status). Captured shell calls fetched the 2026 Rules PDF and the petition scan (zero extractable text). No retrieved_doc_date set; no docket-status or disposition lookup; reasoning forecasts the conference as future. Forward default stands.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T181231Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "763e4d1f2361180a82c34385b0bd5968ac6af4cc",
+    "stamped_at": "2026-10-05T22:37:05.189438Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051209,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500222",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the provisioned record, blinded staging area, and committed metrics/statpack.md",
+    "python for pooling the band table and the Brier/skill arithmetic"
+  ],
+  "helpful": [
+    "the sal-v4 band table with bracketed reached figures and n, which made the risk-set pooling mechanical",
+    "retrieval_log.json result_capture markers, which made the unobserved-result rule easy to apply per call"
+  ],
+  "gaps": [
+    "a pre-pooled strictly-prior reached rate per band and Term in the statpack would remove the hand arithmetic (and its rounding) from every cert cell",
+    "the big_case_score is visible in the staged prediction.json, so the evaluator cannot form its stakes read before seeing it; staging the field separately would make the independence real"
+  ],
+  "notes": "Cert cell with three forward candidates; nothing beyond the provisioned inputs and the committed statpack was consulted."
+}

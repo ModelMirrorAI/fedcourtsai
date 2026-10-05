@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73364890",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md reports no retrieval beyond provisioned inputs and the statpack, but its harness transcript records two fedcourts query attempts: a SCOTUS denied-case query and a general SCOTUS query, both with decided-before 2026-09-17. Both results are unobserved, so success, contents, and transfer counts cannot be inferred. This is an incomplete attempt log, not evidence of this petition's outcome leaking; the forward leakage assessment remains not_applicable.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0"
+}

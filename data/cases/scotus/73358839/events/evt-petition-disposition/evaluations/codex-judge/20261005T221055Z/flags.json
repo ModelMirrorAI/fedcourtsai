@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73358839",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline labels 13.5% a prior-Term reached-elevated baseline, but that figure matches the statpack OT2025 row and the prediction freezes Term 2025. The displayed strictly-prior OT2017\u2013OT2024 pool is approximately 17.2379% (weighted n=2,810). This evaluation uses the correct risk_set baseline and leaves the prediction unchanged. This is an anchor-selection error, not evidence that this petition outcome was retrieved; leakage_suspected remains false. See gemini-baseline evaluation.md.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0"
+}

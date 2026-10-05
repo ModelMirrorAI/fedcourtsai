@@ -1,0 +1,25 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73363395",
+  "gaps": [
+    "a `fedcourts` subcommand that prints the pooled cert segment base rate for a given band/version/Term would remove a hand step every cert cell repeats",
+    "the predictor's big_case_score sits in the same prediction.json as the probability, so the evaluator cannot in practice form its big_case read before seeing it; staging that field separately would make the independence real"
+  ],
+  "helpful": [
+    "statpack.json full-precision band rates made the pooled risk-set rate exact rather than a rounded-table estimate",
+    "retrieval_log.json result_capture markers and retrieved_doc_date made the forward-mode check mechanical",
+    "the committed petition.txt let me verify candidates' quotations in place"
+  ],
+  "notes": "Nothing was consulted beyond the provisioned inputs, the committed statpack, and the package source for the scoring definitions.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tool_manifest": null,
+  "tools_used": [
+    "shell (cat/grep/sed/python over provisioned inputs)",
+    "metrics/statpack.md + statpack.json",
+    "fedcourtsai.schemas pydantic models for output validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

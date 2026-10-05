@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73357827",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/python) over the provisioned record and blinded staging",
+    "metrics/statpack.md and metrics/statpack.json for the sal-v4 baseline risk-set rows"
+  ],
+  "helpful": [
+    "statpack.json exposing prefix_est_grant_rate and prefix_weighted_resolved per band, which made the resolved-weighted pooling exact rather than read off rounded percentages",
+    "retrieval_log.json result_capture markers, which made the unobserved rows gradeable on query without guessing at results",
+    "blinded staging with retrieval.md per candidate, which let the leakage grading cross-check the log against the candidate's own account"
+  ],
+  "gaps": [
+    "A helper that prints the pooled risk-set rate for a frozen (band, salience_version, term) triple would remove one hand computation per cert cell",
+    "The retrieval log's per-call 'tool' field is the class; a one-line per-log class histogram in the header would save a pass over the calls"
+  ],
+  "notes": "Cert cell, forward mode, three candidates. No flags raised: the salience version matched the table heading, the rendered Term window equals the pack's, and no candidate retrieved outcome material."
+}

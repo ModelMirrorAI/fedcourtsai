@@ -1,0 +1,3 @@
+# Retrieval log (evaluator)
+
+No retrieval beyond the provisioned inputs. Read for scoring: `outcome.json`, `event.yaml`, `record/context.json`, the 2026-10-05 snapshot's proceedings list, `record/documents/questions-presented.txt` and `documents.json`, the three blinded candidate directories (`prediction.json`, `reasoning.md`, `predicted_reasoning.md`, `retrieval.md`, `retrieval_log.json`), and the committed `metrics/statpack.md` sal-v4 salience-band table for the base rate. No `fedcourts query` / `open-events`, no CourtListener MCP call, no web search. `record/opinion/` is absent, as expected on a cert cell.

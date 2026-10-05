@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500216",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot's proceedings list dates the 'Petition for a writ of certiorari filed' entry Apr 01 2026, the same day as the extension application, while the docket's DocketedDate is May 28, 2026, the extension ran to May 28, and the petition PDF's URL carries a 2026-05-22 stamp. The April date looks like a proceedings-parse artifact attaching the petition entry to the application's date. One candidate noticed it and declined to use the apparent filing-to-distribution interval as a signal; no score here depends on it. Worth a look at the SCOTUS docket parser if filing-to-distribution intervals are ever used as features."
+    }
+  ]
+}

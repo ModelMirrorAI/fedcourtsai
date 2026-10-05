@@ -1,0 +1,3 @@
+This is a cert-stage cell. The prediction correctly anticipated the denial of the petition. 
+The reasoning is outstanding: the predictor properly derived the pooled base rate from the `statpack.md`, recognized that the Seventh Amendment does not apply to state court proceedings, and accurately framed the petition as a request for error-correction over an unpublished state-court decision. 
+The predictor effectively synthesized these points into an accurate and confident probability well below the base rate. No leakage detected.

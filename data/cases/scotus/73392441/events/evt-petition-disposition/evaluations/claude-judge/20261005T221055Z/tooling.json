@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73392441",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "statpack.md",
+    "statpack.json",
+    "git log/show on event.yaml"
+  ],
+  "helpful": [
+    "The unrounded prefix_est_grant_rate / prefix_weighted_resolved fields in statpack.json made the pooled band rate exact rather than reconstructed from rounded percentages.",
+    "result_capture markers on the retrieval logs made the all-unobserved log gradeable on its queries without guessing."
+  ],
+  "gaps": [
+    "A single committed, pre-pooled strictly-prior band rate per Term in the statpack would remove the per-evaluator arithmetic and the rounded-vs-unrounded ambiguity."
+  ],
+  "notes": "Straightforward cert cell: three forward candidates, all denied-calls on a denied outcome, sal-v4 band matched the table heading, no flags needed. Nothing about the tooling blocked or slowed the grading."
+}

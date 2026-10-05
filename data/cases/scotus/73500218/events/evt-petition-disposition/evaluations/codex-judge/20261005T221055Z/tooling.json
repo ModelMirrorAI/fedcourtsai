@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500218",
+  "gaps": [
+    "No matched extraordinary-writ baseline in the supplied cert table",
+    "Unobserved retrieval results limit content-level audit"
+  ],
+  "helpful": [
+    "Blinded prediction and rationale pairs",
+    "Harness retrieval logs with capture markers",
+    "Versioned per-Term reached-band table",
+    "Staged outcome and questions presented"
+  ],
+  "notes": "Scored all three aliases without external retrieval. Used only the committed Markdown table for the baseline. Capture limitations were assessed from each log rather than treated as failed or empty retrievals. Full-data validation is reserved for the post-run restore, un-alias, and stamp steps.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local file reads",
+    "jq",
+    "Python arithmetic and schema-model validation",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

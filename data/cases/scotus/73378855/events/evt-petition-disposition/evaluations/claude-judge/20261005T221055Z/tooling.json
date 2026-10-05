@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73378855",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/grep/python over the provisioned record and blinded staging)",
+    "metrics/statpack.md and metrics/statpack.json (sal-v4 band table)",
+    "src/fedcourtsai/pipeline/{evaluate,base_rates}.py (to match the in-code pooling definition)"
+  ],
+  "helpful": [
+    "statpack.json's exact prefix_weighted_resolved and prefix_est_grant_rate per Term made the pooled risk-set rate reproducible to full precision",
+    "retrieval_log.json's result_capture marker made the all-unobserved log readable as an engine shape rather than a gap"
+  ],
+  "gaps": [
+    "A pre-pooled per-band prior-Term risk-set rate keyed on (salience_version, band, term) would remove the arithmetic every evaluator repeats",
+    "The evaluate prompt could state whether a predictor listing its own predictions/ output directory is expected, so it need not be re-reasoned as a leakage question each cell"
+  ],
+  "notes": "Cert cell, forward mode, three candidates all predicting denial at 0.6-1%; nothing required a corpus or CourtListener lookup, so none was made."
+}

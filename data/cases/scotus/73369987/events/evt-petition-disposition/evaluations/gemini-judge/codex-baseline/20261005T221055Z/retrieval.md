@@ -1,0 +1,1 @@
+No external retrieval was performed. Evaluated based on provided case files.

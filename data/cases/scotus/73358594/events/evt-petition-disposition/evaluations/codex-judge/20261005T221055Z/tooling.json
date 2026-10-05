@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73358594",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local shell/file reads",
+    "jq",
+    "Python arithmetic",
+    "JSON Schema validation",
+    "Pydantic artifact validation"
+  ],
+  "helpful": [
+    "Blinded candidate staging",
+    "Frozen prediction context and versioned prior-Term statpack",
+    "Harness retrieval logs with result-capture markers",
+    "Provisioned petition excerpts and outcome"
+  ],
+  "gaps": [
+    "Unobserved retrieval results limit verification of reported search results; result digests do not expose full returned passages."
+  ],
+  "notes": "Used only provisioned case materials, blinded candidates, committed statpack, contract/schema files and local path/validation helpers. No web, CourtListener or corpus retrieval by this evaluator. Full-tree validation is deferred to the harness because the committed prediction tree is absent and outputs remain alias-keyed."
+}

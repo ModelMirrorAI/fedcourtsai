@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500219",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline retrieval-log rows 16 and 17 (zero-based; September 17, 2026 at 19:18:11.504Z and 19:18:20.214Z) show shell commands attempting helper-file writes to record/documents/petition.txt.grep and petition.txt.grep2, outside its permitted prediction output directory. Results are unobserved, so successful creation or mutation cannot be confirmed. Please review predictor write confinement. This is a scope concern, not evidence of outcome leakage; scoring is complete. Details are in gemini-baseline evaluation.md.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0"
+}

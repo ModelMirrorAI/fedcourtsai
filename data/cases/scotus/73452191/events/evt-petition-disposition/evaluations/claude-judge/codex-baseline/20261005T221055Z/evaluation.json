@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "A judicial-immunity question about a judge directing a warrantless home arrest has doctrinal interest, but the vehicle is a single landlord-tenant contempt dispute, the decision below is unpublished and rested on forfeiture, the respondent waived, and the petition was denied at the first conference with no noted dissent. Legal-press interest at most; no broader public or institutional stakes. Disclosure: the staged prediction.json carries each candidate's big_case_score, so the three scores were visible before this read was fixed; the read rests on the record above, not on them."
+  },
+  "brier_score": 0.000225,
+  "brier_skill_score": 0.914179,
+  "case_id": "scotus/73452191",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": 0.002397359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002397359735235249,
+    "total": 0.002397359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-05T22:29:54Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-16, before the 2026-09-28 conference and the 2026-10-05 denial. Log: 32 calls, coverage 0.9375. Two web-search rows (a Mireles citation search and a Fourth Circuit opinion URL), both unobserved and graded on their queries, neither naming this petition. CourtListener calls fetched Mireles v. Waco (1991) only. No query reached this case's docket or caption, no retrieved_doc_date on or after resolution, no qp-topics read. Reasoning discloses the attempts and states no outcome was encountered; the forecast document predicts the denial timing as a forecast, not a retrieved date.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "763e4d1f2361180a82c34385b0bd5968ac6af4cc",
+    "stamped_at": "2026-10-05T22:31:50.952130Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051203,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

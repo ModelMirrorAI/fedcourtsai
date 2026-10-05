@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73361381",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell (cat/sed/python3 over the provisioned record, blinded staging area, statpack, and schemas)"],
+  "helpful": [
+    "retrieval_log.json per candidate with result_capture markers and retrieved_doc_date made the forward-leakage check mechanical",
+    "the prediction's frozen context (band + salience_version) plus the sal-v4 table heading made the base-rate basis unambiguous",
+    "the staged outcome.json signals (distribution_count, noted_dissent_from_denial) confirmed the posture without any lookup"
+  ],
+  "gaps": [
+    "a rendered per-band pooled prior-Term rate (or a CLI that prints it for a given band/version/term) would remove the by-hand weighted pooling that every evaluator and predictor repeats",
+    "a staged copy of the lower-court opinion when a candidate cites it would let the grader check a preservation claim without re-fetching"
+  ],
+  "notes": "Cert-stage forward cell with three candidates; nothing was blocked. No flags.json written: no version mismatch, no window divergence, no leakage, no data-quality issue."
+}

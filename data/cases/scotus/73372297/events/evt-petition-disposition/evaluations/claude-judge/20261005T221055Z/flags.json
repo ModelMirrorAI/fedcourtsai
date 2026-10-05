@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73372297",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned record/documents/petition.txt for this pro se, pseudonymous ('Jane Doe') petitioner carries two email-address-pattern matches and describes the petitioner's medical diagnoses and military/veterans record history, while documents.json records contact_scrubbed=false and contact_replacements=0 for the file. One candidate's reasoning says it raised the same point in its own flags.json. The petition is a public filing and the matches may be institutional addresses, so this is informational: a maintainer may want to confirm the contact scrub ran as intended on this document before it is reused. Nothing here affected the grades."
+    }
+  ]
+}

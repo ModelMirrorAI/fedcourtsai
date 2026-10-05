@@ -1,0 +1,27 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73500220",
+  "gaps": [
+    "A per-candidate dump of the blinded directory exposes big_case_score alongside reasoning.md, so forming the independent stakes read before seeing the predictor's number required discipline rather than staging; staging prediction.json's big_case fields separately would make the order structural.",
+    "No corpus query was needed on this cell; the local corpus service was not exercised."
+  ],
+  "helpful": [
+    "The per-Term salience-band table and the unrounded prefix figures in statpack.json made the pooled risk-set baseline reproducible to the digit.",
+    "The staged retrieval_log.json with result_capture markers and the predictors' own retrieval.md made the forward leakage check quick and concrete.",
+    "The in-code brier_skill definition in pipeline/evaluate.py settled the formula and its exactness guard."
+  ],
+  "notes": "Cert-stage forward cell, three candidates, all denied-correct. Base rate pooled from the sal-v4 baseline band's bracketed reached figures over Terms 2017-2024 (593/11580), matching the frozen band and version on every prediction.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tool_manifest": null,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "fedcourtsai.schemas (local validation)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

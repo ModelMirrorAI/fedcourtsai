@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73389781",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "file-read", "metrics/statpack.md", "metrics/statpack.json"],
+  "helpful": [
+    "The sal-v4 band table's caption stating 10 of 10 Terms rendered settled the window question in one line.",
+    "The staged retrieval_log.json with result_capture markers made the forward-cell leakage check mechanical, including on the candidate whose engine captures no results.",
+    "The 2026-10-05 snapshot carrying the DENIED entry pinned the disposition and the absence of a relist without any retrieval."
+  ],
+  "gaps": [
+    "The prompt says to read the segment base rate from statpack.md, whose rates are rounded to 0.1%, while the in-code pooler reads statpack.json's unrounded rates; the two differ in the fifth decimal here, but a one-line pointer to which the record prefers on a cert cell would remove the choice.",
+    "A per-docket corpus lookup would let an evaluator confirm a case's own last_pulled and disposition timestamp when checking a forward cell's provisioning."
+  ],
+  "notes": "Cert cell, three candidates, all forward and clean. The band table and the prediction's frozen context matched on version, so the risk_set basis applied without a flag."
+}

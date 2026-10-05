@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73364890",
+  "gaps": [
+    "Unobserved candidate call results limit retrieval auditing"
+  ],
+  "helpful": [
+    "Blinded candidate artifacts",
+    "Harness capture markers",
+    "Versioned reached-band table",
+    "Provisioned appellate appendix"
+  ],
+  "notes": "All three candidates could be scored from provisioned evidence and the committed statpack. Capture coverage was treated as an evidence limitation, not a predictor defect. The rounded rendered percentages yield a slightly different baseline from an exact underlying count ratio.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "local Python",
+    "apply_patch",
+    "schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

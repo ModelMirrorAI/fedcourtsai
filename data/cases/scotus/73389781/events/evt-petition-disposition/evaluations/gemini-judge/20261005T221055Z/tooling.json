@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73389781",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["read_file", "run_shell_command"],
+  "helpful": ["The statpack was helpful to calculate the pooled baseline."],
+  "gaps": [],
+  "notes": "No issues encountered."
+}
