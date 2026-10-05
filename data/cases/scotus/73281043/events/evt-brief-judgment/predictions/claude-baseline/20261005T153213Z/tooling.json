@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281043",
+  "run_id": "20261005T153213Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot, context.json and documents (QP, petition (truncated), BIO, both merits briefs)",
+    "metrics/statpack.md merits section",
+    "fedcourts query (one call, format check only)",
+    "CourtListener MCP search (four calls, locating the Fifth Circuit and Eleventh Circuit opinions)",
+    "three subagents to summarize the petition/BIO and the two merits briefs"
+  ],
+  "helpful": [
+    "Both merits briefs were provisioned on this briefed cell, exactly as the prompt's date-bound rule says; their summaries drove the forecast.",
+    "The statpack merits table publishes an excluded column, so the pooled strictly-prior baseline was quotable without caveat.",
+    "The docket snapshot's amicus entries and their dates let me infer the SG's side without fetching the brief."
+  ],
+  "gaps": [
+    "The SG's merits-stage amicus brief is not provisioned although the docket records it; its side had to be inferred from the filing date (petitioner-side deadline).",
+    "fedcourts query has no doctrinal or text filter on SCOTUS rows, so it cannot surface AEDPA successive-petition priors; the one call run contributed nothing to the forecast.",
+    "CourtListener's opinion index did not return the July 2025 unpublished Fifth Circuit opinion or the 164 F.4th 398 en banc denial, so the decision below was read through the parties' descriptions."
+  ],
+  "notes": "Grant Term read from the docket's 'Petition GRANTED' entry (2026-06-15) as OT2025; baseline pooled over the rendered 2017-2024 rows (the table omits Terms with no parsed judgment)."
+}

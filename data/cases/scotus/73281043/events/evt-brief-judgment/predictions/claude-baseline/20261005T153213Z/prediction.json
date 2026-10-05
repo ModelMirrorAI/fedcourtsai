@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "A capital case that sets the gate for every successive federal habeas petition under 2244(b)(2)(A) and 2255(h)(2), with the SG and a multistate coalition weighing in; consequential for habeas practice and for Atkins litigants, but technical and unlikely to draw broad public attention.",
+  "big_case_score": 0.42,
+  "case_id": "scotus/73281043",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.83
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-09-19",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-19",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-05T15:40:17Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-09-19.json",
+  "judgment": "reversed",
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.83,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "3fcd5c96ec1b22fe503e67bca45ef357b35b5497",
+    "stamped_at": "2026-10-05T15:40:57.552732Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261005T153213Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that 'previously unavailable' in 28 U.S.C. 2244(b)(2)(A) modifies 'new rule' and asks only whether this Court had announced the constitutional rule before the prisoner's prior federal habeas petition, not whether a claim invoking that rule had some possibility of success on the evidence or diagnostic standards then prevailing. Atkins v. Virginia (2002) was therefore available when Johnson filed his first federal petition in 2011, and the Fifth Circuit's In re Cathey 'some possibility of merit' test is rejected as an atextual futility exception that would let new-evidence claims bypass 2244(b)(2)(B)'s clear-and-convincing and actual-innocence requirements, reading (A) and (B) as mutually exclusive channels for new law and new facts, with the 2013 DSM-5 change treated as a factual predicate rather than a new rule."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority's stated ground will be categorical rather than fact-bound: a general rule, stated for 2244(b)(2)(A) and its parallel in 2255(h)(2), that a rule's availability is a purely legal and temporal question (had this Court announced it when the prior petition was filed), admitting no case-specific inquiry into whether the claim would then have been futile. The Court will not decide whether Johnson is intellectually disabled or whether his claim could satisfy 2244(b)(2)(B), and will expressly reserve the situation in which a new rule is announced while a prior petition is still pending."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

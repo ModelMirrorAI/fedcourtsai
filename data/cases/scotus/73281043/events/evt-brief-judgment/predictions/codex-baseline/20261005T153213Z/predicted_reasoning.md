@@ -1,0 +1,11 @@
+# Predicted judgment and reasoning
+
+The Court will **reverse the Fifth Circuit's judgment**, with further proceedings consistent with its interpretation of the successive-habeas gateway. The predicted division is **6–3**: Roberts, Thomas, Alito, Gorsuch, Kavanaugh, and Barrett in the majority; Sotomayor, Kagan, and Jackson dissenting. The scored probability that the judgment is disturbed is **82%**.
+
+The majority will hold that a Supreme Court constitutional rule already available during the prior federal habeas proceeding does not become previously unavailable merely because a later diagnostic framework makes a claim under it potentially meritorious. Section 2244(b)(2)(A) concerns availability of the constitutional rule, not a claimant's earlier likelihood of succeeding. Because Atkins preceded Johnson's first federal application, the change in diagnostic standards will not satisfy this gateway on the theory the Fifth Circuit accepted.
+
+The opinion will give a generally applicable construction of the statutory gateway, rejecting a merits-based futility test rather than merely disagreeing with the assessment of Johnson's medical evidence. The distinction between the new-rule and new-facts routes will reinforce that construction. The holding will not decide whether Johnson is intellectually disabled or overrule Atkins's substantive protection. It need not settle the separate situation in which a constitutional rule is announced while the first habeas application is pending, or becomes retroactive only later.
+
+The dissent will favor a practical reading of availability, emphasizing that the earlier diagnostic framework could deprive the rule of any usable application to this prisoner and that the later framework changes the legal significance of facts rather than simply discovering new evidence. It will resist treating that reading as an extra-statutory exception. Authorship is not forecast.
+
+The Court will reach the statutory issue rather than dismiss the writ over the formulation of the certified question. A DIG remains a live alternative, assigned 5%, because the respondent expressly presses the changing-question and interlocutory-posture objections. I expect a decision after the scheduled November 4, 2026 argument and by the end of June 2027; that timing is context, not a separately scored claim.

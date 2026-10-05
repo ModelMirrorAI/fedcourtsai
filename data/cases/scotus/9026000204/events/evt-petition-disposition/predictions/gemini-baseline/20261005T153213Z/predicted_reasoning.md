@@ -1,0 +1,5 @@
+Distributed once so far; expect the Court to grant certiorari either at the upcoming conference or after one relist. The Court will not call for the views of the Solicitor General (CVSG) because the United States is already the petitioner.
+
+If granted, the Court will likely take the single question presented as written, which cleanly asks whether 26 U.S.C. 5178(a)(1)(B) exceeds Congress's enumerated power to lay and collect taxes under the Necessary and Proper Clause.
+
+A summary disposition is highly unlikely: the Court rarely decides the constitutionality of a federal statute without full briefing and oral argument. Should the Court unexpectedly deny the petition, there is a reasonable chance of a statement respecting the denial or a dissent from denial by justices who wish to clarify the scope of the taxing power or address the circuit split.

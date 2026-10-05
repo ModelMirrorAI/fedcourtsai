@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281043",
+  "gaps": [
+    "The inspected statpack metadata supplied no build time or corpus-wide freshness stamp.",
+    "The web tool returned no usable content for generic statute and precedent retrieval.",
+    "The default uv cache was read-only; a temporary cache path was required."
+  ],
+  "helpful": [
+    "Both complete, extractable merits briefs supported comparison of the actual competing readings.",
+    "The dated snapshot distinguished scheduled argument from completed argument.",
+    "The guarded merits table supplied counts for a strictly-prior-Term baseline.",
+    "CourtListener literal opinion searches verified a historical analogue without retrieving the target case."
+  ],
+  "notes": "Forward merits/briefed cell. No live corpus queries or target-case web/MCP lookups. The petition was marked truncated, but both merits briefs were untruncated. No amicus text or argument transcript was read.",
+  "role": "predictor",
+  "run_id": "20261005T153213Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned-input and schema reads",
+    "fedcourts paths",
+    "committed merits statpack",
+    "CourtListener search",
+    "CourtListener search_document",
+    "web search/open attempts"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
