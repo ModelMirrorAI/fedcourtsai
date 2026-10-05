@@ -1,11 +1,155 @@
 {
-  "cells_with_claims": 0,
-  "entries": [],
-  "evaluations_total": 0,
-  "forward_agreement": null,
+  "cells_with_claims": 9,
+  "entries": [
+    {
+      "forward": {
+        "cells": 3,
+        "claims": [
+          {
+            "claim_id": "disposition",
+            "mean_score": 0.19518331834703223,
+            "scored": 1
+          },
+          {
+            "claim_id": "relist-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "cvsg-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "summary-disposition-route",
+            "mean_score": 0.12268035122457727,
+            "scored": 1
+          },
+          {
+            "claim_id": "dissent-from-denial",
+            "mean_score": null,
+            "scored": 0
+          }
+        ],
+        "declared_set_versions": [
+          "cert-v2"
+        ],
+        "events": 1,
+        "largest_claim_id": "disposition",
+        "largest_claim_score": 0.19518331834703223,
+        "mean_floor": 0.0,
+        "mean_lift": 0.3178636695716095,
+        "mean_total": 0.3178636695716095,
+        "scored_events": 1
+      },
+      "predictor_id": "claude-baseline",
+      "procedural": null,
+      "retrospective": null
+    },
+    {
+      "forward": {
+        "cells": 3,
+        "claims": [
+          {
+            "claim_id": "disposition",
+            "mean_score": 0.19518331834703223,
+            "scored": 1
+          },
+          {
+            "claim_id": "relist-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "cvsg-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "summary-disposition-route",
+            "mean_score": 0.11078035122457727,
+            "scored": 1
+          },
+          {
+            "claim_id": "dissent-from-denial",
+            "mean_score": null,
+            "scored": 0
+          }
+        ],
+        "declared_set_versions": [
+          "cert-v2"
+        ],
+        "events": 1,
+        "largest_claim_id": "disposition",
+        "largest_claim_score": 0.19518331834703223,
+        "mean_floor": 0.0,
+        "mean_lift": 0.3059636695716095,
+        "mean_total": 0.3059636695716095,
+        "scored_events": 1
+      },
+      "predictor_id": "codex-baseline",
+      "procedural": null,
+      "retrospective": null
+    },
+    {
+      "forward": {
+        "cells": 3,
+        "claims": [
+          {
+            "claim_id": "disposition",
+            "mean_score": -0.2173166816529678,
+            "scored": 1
+          },
+          {
+            "claim_id": "relist-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "cvsg-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "summary-disposition-route",
+            "mean_score": 0.12268035122457727,
+            "scored": 1
+          },
+          {
+            "claim_id": "dissent-from-denial",
+            "mean_score": null,
+            "scored": 0
+          }
+        ],
+        "declared_set_versions": [
+          "cert-v2"
+        ],
+        "events": 1,
+        "largest_claim_id": "disposition",
+        "largest_claim_score": -0.2173166816529678,
+        "mean_floor": 0.0,
+        "mean_lift": -0.09463633042839054,
+        "mean_total": -0.09463633042839054,
+        "scored_events": 1
+      },
+      "predictor_id": "gemini-baseline",
+      "procedural": null,
+      "retrospective": null
+    }
+  ],
+  "evaluations_total": 9,
+  "forward_agreement": {
+    "masked_claim_total": 0,
+    "missing_claim_block": 0,
+    "missing_reasoning_quality": 0,
+    "pair_events": 1,
+    "pairs": 9,
+    "rank_agreement": null,
+    "suppressed": true
+  },
   "forward_claim": {
     "by_predictor": {},
-    "claimed_forward": 0,
+    "claimed_forward": 114,
     "excluded": 0,
     "policy": "exclude"
   },
@@ -21,9 +165,11 @@
     "since": "2026-09-16T00:26:04Z"
   },
   "leakage_exclusion": {
-    "assessed": 0,
-    "by_predictor": {},
-    "excluded": 0
+    "assessed": 114,
+    "by_predictor": {
+      "gemini-baseline": 2
+    },
+    "excluded": 2
   },
   "procedural_agreement": null,
   "process_scope": "frozen",
