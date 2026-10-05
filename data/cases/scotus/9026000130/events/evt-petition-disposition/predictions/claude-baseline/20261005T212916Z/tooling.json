@@ -1,0 +1,27 @@
+{
+  "case_id": "scotus/9026000130",
+  "run_id": "20261005T212916Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener.search",
+    "courtlistener.read_document",
+    "record/documents (petition, brief-in-opposition, questions-presented)"
+  ],
+  "helpful": [
+    "Full-text petition and BIO were the decisive inputs; the BIO's no-split and vehicle arguments could not have been assessed from the docket alone.",
+    "The sal-v4 band table with bracketed reached rates gave a directly usable anchor for a CVSG'd high-band petition.",
+    "context.json's cvsg_date and distribution_count made the increment claims unambiguous."
+  ],
+  "gaps": [
+    "No corpus filter for 'CVSG issued' or for a statute/subject, so the corpus query could not surface comparable CVSG'd private petitions; the CVSG-conditioned base rate had to come from the statpack cut alone.",
+    "A cut of CVSG'd petitions by SG recommendation (grant vs deny) and the resulting grant rate would sharpen this kind of cell considerably.",
+    "The citation filter is nearly empty on scotus rows, so the two earlier Teck denials in this same litigation could not be pulled as priors."
+  ],
+  "notes": "The cell was provisioned on the same day the CVSG order issued, so this distribution-moment cell is effectively a CVSG-conditioned forecast; the band already reflects it."
+}

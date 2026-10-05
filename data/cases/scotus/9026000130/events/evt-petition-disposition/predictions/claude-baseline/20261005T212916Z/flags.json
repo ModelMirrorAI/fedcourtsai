@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000130",
+  "run_id": "20261005T212916Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The CVSG order is dated 2026-10-05, the snapshot day itself, so this distribution-moment cell was forecast from a CVSG-issued state with one distribution. The cvsg-increment claim is stated as 0.0 and is vacuous by construction; the disposition forecast anchors on the sal-v4 high band's pooled reached rate (OT2017-OT2025), which already conditions on the CVSG. No data-quality problem; recorded so the evaluator reads the conditioning correctly if a separate evt-order-cvsg-disposition cell is later minted for this docket."
+    }
+  ]
+}
