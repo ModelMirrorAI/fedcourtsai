@@ -11,6 +11,7 @@ from fedcourtsai import casestore, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest
+from fedcourtsai.pipeline.cascade import CascadeError, run_cascade
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.schemas import EventKind, Moment, Stage
 from tests.conftest import FixtureCorpus
@@ -2724,3 +2725,168 @@ def test_the_moment_cut_places_a_lead_docket_document_by_its_lead_entry_date(
     uncut = _provision_cell()
     assert uncut.exit_code == 0, uncut.output
     assert paths.document("merits-reply-petitioner").read_text() == "The petitioners reply.\n"
+
+
+def _record_bytes(data_root: Path, court: str, docket: int) -> dict[str, bytes]:
+    """Every file a provisioning wrote under one case's ``record/``, by relative path."""
+    record = CasePaths(data_root, court, docket).record
+    return {
+        str(path.relative_to(record)): path.read_bytes()
+        for path in sorted(record.rglob("*"))
+        if path.is_file()
+    }
+
+
+def test_the_local_cascade_provisions_the_record_this_command_writes(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # The engine smoke certifies the production cell posture only if the cascade
+    # and this command hand a cell the same record. Both go through one placement
+    # and one writer, and this pins the result rather than the wiring: on a
+    # docket that trips both contact scrubs, every event's record — snapshot,
+    # context.json, documents and manifest — is byte-identical between the two.
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _PRO_SE_DOCKET)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        events = corpus.events_for_case(conn, "scotus/305")
+    assert events
+    assert not any(event.resolved for event in events)  # forward cells on both sides
+
+    for event in events:
+        provisioned = tmp_path / "provisioned" / event.event_id
+        cascaded = tmp_path / "cascaded" / event.event_id
+        result = runner.invoke(
+            app,
+            [
+                "provision-snapshot",
+                "--court",
+                "scotus",
+                "--docket",
+                "305",
+                "--event",
+                event.event_id,
+            ],
+            env={"FEDCOURTS_DATA_ROOT": str(provisioned)},
+        )
+        assert result.exit_code == 0, result.output
+        run_cascade(
+            corpus_db_path=fixture_corpus.db_path,
+            data_root=cascaded,
+            config_root=Path("config"),
+            court="scotus",
+            docket=305,
+            event=event.event_id,
+            run_id="20260720T120000Z",
+        )
+        expected = _record_bytes(provisioned, "scotus", 305)
+        assert "documents/petition.txt" in expected
+        assert b"jane.doe@example.com" not in expected["documents/petition.txt"]
+        assert _record_bytes(cascaded, "scotus", 305) == expected, event.event_id
+
+
+def test_provisioning_clears_what_an_earlier_provisioning_left(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A record holds exactly one cell's inputs: an absent document must mean the
+    # placement did not put it there, and a staged opinion — which postdates
+    # every predict moment — must never survive into a forecaster's record.
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    stale_doc = paths.document("merits-brief-petitioner")
+    stale_doc.parent.mkdir(parents=True, exist_ok=True)
+    stale_doc.write_text("a brief from a wider provisioning\n")
+    stale_snapshot = paths.snapshot("2099-12-31")
+    stale_snapshot.parent.mkdir(parents=True, exist_ok=True)
+    stale_snapshot.write_text("{}\n")
+    paths.opinion_text.parent.mkdir(parents=True, exist_ok=True)
+    paths.opinion_text.write_text("the Court's opinion\n")
+    paths.opinion_manifest.write_text("{}\n")
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    assert not stale_doc.exists()
+    assert not stale_snapshot.exists()
+    assert not paths.opinion_dir.exists()
+    assert len(list(paths.snapshots_dir.iterdir())) == 1
+
+
+def test_provisioning_to_an_explicit_out_leaves_the_record_alone(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # `--out` asks for a copy of the payload, not for a cell's record, so it must
+    # not empty a record some earlier provisioning placed.
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    kept = paths.snapshot("2099-12-31")
+    kept.parent.mkdir(parents=True, exist_ok=True)
+    kept.write_text("{}\n")
+
+    result = _provision_cell("--out", str(tmp_path / "copy.json"))
+
+    assert result.exit_code == 0, result.output
+    assert kept.exists()
+    assert (tmp_path / "copy.json").is_file()
+
+
+def test_a_document_kind_that_cannot_name_a_file_refuses_before_any_write(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The record writer is the one seam that turns a corpus-supplied string into
+    # a path. A kind that is not a bare stem is refused before the first write
+    # and before the clearing, so a refusal can neither leave a half-provisioned
+    # record nor destroy the one already there.
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    earlier = paths.snapshot("2099-12-31")
+    earlier.parent.mkdir(parents=True, exist_ok=True)
+    earlier.write_text("{}\n")
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="../escape",
+                    url="https://example/escape.pdf",
+                    entry_date="2026-07-01",
+                    fetched_at=date(2026, 7, 2),
+                    text="text",
+                )
+            ],
+        )
+
+    result = _provision_cell()
+
+    assert result.exit_code == 1, result.output
+    assert "bare lowercase stem" in result.output
+    assert not paths.cell_context.exists()
+    assert earlier.exists()
+    assert not (paths.record / "escape.txt").exists()
+
+
+def test_the_cascade_refuses_an_unanchorable_moment_before_any_cell_runs(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # The cascade places every predict target before the first one runs, so the
+    # refusal `provision-snapshot` answers with exit 4 costs the cascade no
+    # token: nothing is predicted and no record is written.
+    _seed_application_snapshot(
+        fixture_corpus,
+        date(2026, 7, 14),
+        [
+            ("2026-06-22", "Motion for leave to proceed in forma pauperis filed."),
+            ("2026-06-22", _SAME_DAY_DENIAL),
+        ],
+    )
+    data_root = tmp_path / "cascade"
+
+    with pytest.raises(CascadeError, match="could not be anchored"):
+        run_cascade(
+            corpus_db_path=fixture_corpus.db_path,
+            data_root=data_root,
+            config_root=Path("config"),
+            court="scotus",
+            docket=306,
+            event="evt-motion-disposition",
+            run_id="20260720T120000Z",
+        )
+    assert not list(data_root.rglob("prediction.json"))
+    assert not CasePaths(data_root, "scotus", 306).cell_context.exists()

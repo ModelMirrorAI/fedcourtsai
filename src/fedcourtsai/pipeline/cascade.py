@@ -17,12 +17,20 @@ faithfully predicts a green CI run.
 
 The steps mirror what ``run-predict`` / ``run-evaluate`` do around the agent call:
 
-1. **Provision** the case's latest corpus snapshot to its gitignored ``record/``
-   path (as ``provision-snapshot`` does), and materialize each target event's git
-   ``event.yaml`` definition plus, for a resolved event, the ground-truth
-   ``outcome.json`` the evaluator scores against.
-2. **Predict** the event with every enabled predictor.
+1. **Materialize** each target event's git ``event.yaml`` definition plus, for a
+   resolved event, the ground-truth ``outcome.json`` the evaluator scores against
+   (what ``materialize-event`` writes).
+2. **Provision** each cell's gitignored ``record/`` through the shared
+   :func:`fedcourtsai.provision.write_cell_record` seam — the snapshot placed at
+   the event's declared moment, the ``context.json`` freezing the cell's mode and
+   conditioning, and the documents cut with the snapshot, both staged copies
+   through the contact-detail scrubs: exactly what ``provision-snapshot`` writes
+   — then **predict** the event with every enabled predictor. Per cell, because
+   the record *is* the cell's information set and two targets of one case
+   declare two of them.
 3. **Evaluate** every resolved target's predictions with every enabled evaluator,
+   over a record re-provisioned the way ``run-evaluate`` provisions one (latest
+   payload, no moment cut: a judge grades an event that has already resolved),
    bracketed by the blind-grading steps (:mod:`fedcourtsai.blinding`): the
    candidates are staged under opaque aliases before the agent runs and its
    output is un-aliased after, before ``validate``.
@@ -34,10 +42,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from .. import corpus, ids
+from .. import corpus, ids, provision
 from ..blinding import (
     latest_prediction_dirs,
     provision_blinded_predictions,
@@ -46,7 +55,7 @@ from ..blinding import (
 from ..paths import CasePaths, EventPaths
 from ..registry import enabled_evaluators, enabled_predictors
 from ..schemas import Judgment, Outcome, PredictableEvent, PredictorConfig, Stage, UsageRole
-from ..serialize import write_json, write_raw_json, write_yaml
+from ..serialize import write_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
 from .outcome import (
     NO_ORDER_MARKERS,
@@ -73,12 +82,28 @@ class CascadeReport:
     Not a schema artifact — a transient summary of the cell files written and the
     final ledger verdict, so a maintainer (or a test) can see the cascade ran end
     to end and produced a valid ledger.
+
+    ``snapshot`` / ``context`` / ``documents`` describe the ``record/`` as the run
+    left it, which is the last provisioning's: each one replaces the record, so
+    these name what is on disk rather than everything that was ever written
+    there. They are reported at all because a cell's inputs are the one thing a
+    smoke run cannot re-derive afterwards — a missing ``context`` is exactly the
+    gap a green cascade otherwise hides.
+
+    ``placements`` is the part that survives that replacement: one row per
+    provisioning, recorded as it happened. The end state alone would be
+    misleading on any case with both an open and a resolved event — the evaluate
+    half re-provisions last, so the surviving record is the *judge's*, and a
+    reader of the final ``context.json`` would conclude every cell ran uncut.
     """
 
     case_id: str
     engine: str
     run_id: str
     snapshot: Path | None
+    context: Path | None
+    documents: tuple[Path, ...]
+    placements: tuple[CellPlacement, ...]
     events: tuple[str, ...]
     predictions: tuple[Path, ...]
     outcomes: tuple[Path, ...]
@@ -98,6 +123,214 @@ def _select_events(events: list[corpus.CorpusEvent], event: str | None) -> list[
     if not events:
         raise CascadeError("the case has no predictable events in the corpus")
     return events
+
+
+#: Which half of the cascade a provisioning served. The predict half places each
+#: cell at the moment its event declares; the evaluate half provisions the case,
+#: as ``run-evaluate`` does.
+_Role = Literal["predict", "evaluate"]
+
+
+@dataclass(frozen=True)
+class CellPlacement:
+    """What one provisioning handed one cell — the record as that cell saw it.
+
+    Reported rather than inferred from the tree, because the tree holds only the
+    last provisioning's record. ``role`` says which half of the cascade the
+    provisioning served; ``event_id`` is empty for the evaluate half, which
+    provisions the case rather than a moment.
+    """
+
+    role: _Role
+    event_id: str
+    mode: str
+    provenance: str
+    cutoff: date | None
+    documents: int
+
+
+@dataclass(frozen=True)
+class _Record:
+    """The ``record/`` one provisioning left on disk, for the report to name."""
+
+    snapshot: Path
+    context: Path
+    documents: tuple[Path, ...]
+    placement: CellPlacement
+
+
+def _place_cell(
+    case_id: str, event_id: str, read: provision.CellRead
+) -> provision.Placement | None:
+    """Where one cell is placed, refused here rather than at its write.
+
+    Pure computation over a read already taken, so the cascade places every
+    predict target before the first one runs: a moment that cannot be placed
+    (an interim arrival whose opening entry cannot be anchored) or a document
+    kind that cannot name a file refuses the whole run before any token is
+    spent, rather than after the earlier targets' cells have run.
+
+    ``None`` where the corpus holds no snapshot for the case: there is nothing to
+    place, and the cascade runs its cells on an empty record — the local analogue
+    of the unprovisioned cell ``run-predict`` refuses, which ``require_record``
+    turns into a refusal before this is reached. On that path nothing is written
+    or cleared, as ``provision-snapshot`` writes nothing when it has no snapshot,
+    so a dirty dev tree keeps whatever an earlier run left there and the report
+    says ``context: not provisioned``.
+    """
+    if read.latest is None:
+        return None
+    snapshot_date, payload = read.latest
+    try:
+        placement = provision.place_at_moment(
+            case_id,
+            event_id,
+            read.cutoff,
+            read,
+            payload=payload,
+            snapshot_date=snapshot_date,
+            documents=read.documents,
+        )
+        provision.screen_document_kinds(placement.documents)
+    except provision.ProvisionError as exc:
+        raise CascadeError(str(exc)) from exc
+    return placement
+
+
+def _provision_record(
+    case_paths: CasePaths,
+    case_id: str,
+    event_id: str,
+    mode: str,
+    read: provision.CellRead,
+    role: _Role,
+    placement: provision.Placement,
+) -> _Record:
+    """Write one cell's ``record/`` exactly as the workflow's provisioning step does.
+
+    The snapshot placed at the cell's moment, the ``context.json`` that freezes its
+    mode and conditioning, and the documents cut with the snapshot — through the
+    same placement and writer ``provision-snapshot`` uses, contact scrubs
+    included. A cascade that wrote only the snapshot would hand the agent no
+    frozen mode, band or cutoff, and the cell would have to guess the posture
+    that provisioning exists to settle.
+    """
+    try:
+        written = provision.write_cell_record(
+            case_paths, case_id, placement, mode=mode, cutoff=read.cutoff
+        )
+    except provision.ProvisionError as exc:
+        raise CascadeError(str(exc)) from exc
+    return _Record(
+        snapshot=written.snapshot,
+        context=case_paths.cell_context,
+        documents=tuple(case_paths.document(doc.kind) for doc in placement.documents),
+        placement=CellPlacement(
+            role=role,
+            event_id=event_id,
+            mode=mode,
+            provenance=placement.provenance,
+            cutoff=read.cutoff,
+            documents=len(placement.documents),
+        ),
+    )
+
+
+def _cell_mode(event: corpus.CorpusEvent) -> str:
+    """The mode a cascade cell runs in: ``forward`` unless the event is already over.
+
+    The distinction the prompt contract keys its retrieval etiquette on, and the
+    one thing an unprovisioned cell has to guess. A corpus event marked resolved
+    is one whose outcome exists, which is exactly what ``replay`` means; every
+    other target is a genuinely pending forecast, as ``run-predict`` provisions.
+    Left to the cell, the guess defaults to ``forward``, so a cascade over a
+    decided case would run a replay while its record claimed a live one.
+
+    What a cascade replay cell does **not** get is the back-test's
+    ``DECIDED_BEFORE`` clock, which masks the corpus priors a real replay cell may
+    retrieve (``.github/prompts/predict.md``). The moment cut bounds its docket
+    and its documents — the conditioning ``context.json`` records — but its priors
+    are unmasked, which is the local loop's known narrowing against
+    :mod:`fedcourtsai.cert_backtest`, the lane that produces scored replays.
+    """
+    return "replay" if event.resolved else "forward"
+
+
+def _cell_read(
+    conn: corpus.ReadConnection,
+    case_id: str,
+    event: corpus.CorpusEvent,
+    events: list[corpus.CorpusEvent],
+    found: tuple[date, dict[str, Any]] | None,
+    documents: list[corpus.CaseDocument],
+) -> provision.CellRead:
+    """One predict target's provisioning inputs, with the dated snapshot its cut wants.
+
+    Placed at the declared moment in **either mode**, which is the cascade's own
+    rule rather than ``provision-snapshot``'s. That command cuts a replay cell
+    only at the interim arrival moment, because every other replay in the
+    pipeline is provisioned by the back-test's own point-in-time path
+    (:mod:`fedcourtsai.cert_backtest`) and would be cut twice. The cascade has no
+    such second path: a replay cell it left uncut would read the latest payload
+    and every stored document — the disposing order and the merits briefs
+    included — under a ``context.json`` saying ``replay``, which is the shape of a
+    correctly provisioned replay cell and none of its conditioning.
+
+    A target whose moment has no dated trigger (``provision.moment_cutoff`` is
+    ``None``) asks the corpus for no dated snapshot and takes no cut in either
+    mode. That includes the cert petition baseline, whose opening date is
+    docketing rather than the moment it declares, so a replay cell on a
+    resolved one reads the latest payload and every stored document, the
+    disposing order included — the narrowing the back-test's own point-in-time
+    provisioner closes and this local loop does not.
+    """
+    cutoff = provision.moment_cutoff(event.event_id, events)
+    return provision.CellRead(
+        latest=found,
+        documents=documents,
+        events=events,
+        row=None,
+        cutoff=cutoff,
+        dated=corpus.snapshot_at(conn, case_id, before=cutoff) if cutoff is not None else None,
+    )
+
+
+def _materialize_targets(
+    case_paths: CasePaths,
+    row: corpus.CorpusRow,
+    targets: list[corpus.CorpusEvent],
+    found: tuple[date, dict[str, Any]] | None,
+) -> list[Path]:
+    """The git ``event.yaml`` per target, and the ground truth for a resolved one.
+
+    What ``materialize-event`` projects into the ledger, plus the outcome the live
+    channel's resolution writer would have recorded — the cascade replays an event
+    the corpus already marks resolved, so it builds that outcome from the stored
+    row rather than from an open→resolved transition.
+
+    The order-text markers come from the corpus's **latest** payload, never from
+    whatever a cell was placed at: a cut snapshot is cut precisely at the order
+    that resolved the event, so grading off it would read every resolved case as
+    unassessed. With no stored snapshot they stay at their not-assessed defaults
+    rather than being guessed from the row.
+    """
+    basis: Literal["standard", "mootness"] = "standard"
+    order = NO_ORDER_MARKERS
+    if found is not None:
+        basis = disposition_basis(found[1])
+        order = read_order_markers(
+            found[1], disposition=row.disposition, date_cert_granted=row.date_cert_granted
+        )
+    outcomes: list[Path] = []
+    for ev in targets:
+        events = case_paths.event(ev.event_id)
+        write_yaml(events.event_file, _event_definition(ev))
+        if ev.resolved:
+            outcome = _outcome_for_resolved(row, ev, basis, order=order)
+            if outcome is not None:
+                write_json(events.outcome, outcome)
+                outcomes.append(events.outcome)
+    return outcomes
 
 
 def _provisioning_backend(backend: corpus.CorpusBackend | None) -> corpus.CorpusBackend:
@@ -283,6 +516,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     run_id: str,
     predictor: str | None = None,
     backend: corpus.CorpusBackend | None = None,
+    require_record: bool = False,
 ) -> CascadeReport:
     """Run the full predict → evaluate → validate cascade for one case.
 
@@ -290,16 +524,23 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     seam (:func:`fedcourtsai.corpus.connect_readonly`) — the local file by
     default, or the immutable blob in place on the corpus remote when the
     corpus-backend setting says ``ranged``, so a ranged-configured environment
-    runs the cascade with no local pull. Provisions the snapshot and
-    materializes the git event/outcome definitions the agents read, fans the
-    selected engine out over the enabled predictors then evaluators, and
-    validates the resulting ledger. Returns a :class:`CascadeReport`. Raises
-    :class:`CascadeError` for a missing corpus/case/event and
-    :class:`fedcourtsai.pipeline.runner.EngineUnavailable` /
-    ``EngineFailed`` for a real-engine problem.
+    runs the cascade with no local pull. Materializes the git event/outcome
+    definitions the agents read, provisions each cell's ``record/`` the way the
+    workflow's provisioning step does (snapshot placed at the event's moment,
+    ``context.json``, documents), fans the selected engine out over the enabled
+    predictors then evaluators, and validates the resulting ledger. Returns a
+    :class:`CascadeReport`. Raises :class:`CascadeError` for a missing
+    corpus/case/event, for a moment whose opening entry cannot be anchored, and —
+    under ``require_record`` — for a case with no stored snapshot; and
+    :class:`fedcourtsai.pipeline.runner.EngineUnavailable` / ``EngineFailed`` for
+    a real-engine problem.
 
     ``predictor`` narrows the predictor fan-out to one enabled id — a real
     engine spends real tokens, so a smoke run wants one cell, not three.
+    ``require_record`` refuses, before any cell runs and so before any token is
+    spent, a case the corpus holds no snapshot for: such a cell would run with no
+    snapshot, no context and no documents, and a smoke that let it through would
+    report green over exactly the gap it exists to detect.
     ``backend`` overrides the ambient corpus-backend setting for the cascade's
     *own* provisioning reads only. The split matters because the spawned agent
     inherits the ambient environment (minus credentials): a workflow can point
@@ -324,36 +565,49 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
             raise CascadeError(f"case {case_id} is not in the corpus at {corpus_db_path}")
         all_events = corpus.events_for_case(conn, case_id)
         found = corpus.latest_snapshot(conn, case_id)
+        targets = _select_events(all_events, event)
+        # Before the remaining reads, not after: each cut target costs a
+        # dated-snapshot lookup, and a refused run should pay for nothing more.
+        if require_record and found is None:
+            raise CascadeError(
+                f"the corpus holds no snapshot for {case_id}, so every cell would "
+                "run unprovisioned — no snapshot, no context.json, no documents "
+                "(--require-record)"
+            )
+        stored_documents = corpus.documents_for_case(conn, case_id)
+        # Every target's read on this one connection — the accounting rule
+        # `provision-snapshot` follows, so a ranged cascade opens one connection
+        # and its egress is the whole story.
+        reads = {
+            ev.event_id: _cell_read(conn, case_id, ev, all_events, found, stored_documents)
+            for ev in targets
+        }
 
-    targets = _select_events(all_events, event)
+    # What the last provisioning left on disk, which is what the report names: the
+    # record holds exactly one cell's inputs at a time, and each provisioning below
+    # replaces the previous one's.
+    record: _Record | None = None
+    placements: list[CellPlacement] = []
 
-    snapshot: Path | None = None
-    # The provisioned snapshot also supplies the outcome's order-text markers, so
-    # a cascade over a resolved case grades like the live channel would. Without a
-    # stored snapshot they stay at their not-assessed defaults rather than being
-    # guessed from the row.
-    basis: Literal["standard", "mootness"] = "standard"
-    order = NO_ORDER_MARKERS
-    if found is not None:
-        snapshot_date, payload = found
-        snapshot = case_paths.snapshot(snapshot_date.isoformat())
-        write_raw_json(snapshot, payload)
-        basis = disposition_basis(payload)
-        order = read_order_markers(
-            payload, disposition=row.disposition, date_cert_granted=row.date_cert_granted
-        )
+    def _place(
+        event_id: str,
+        mode: str,
+        read: provision.CellRead,
+        role: _Role,
+        placement: provision.Placement | None,
+    ) -> None:
+        """Provision one cell's record, keeping both what is on disk and what was."""
+        nonlocal record
+        if placement is None:
+            return
+        record = _provision_record(case_paths, case_id, event_id, mode, read, role, placement)
+        placements.append(record.placement)
 
-    # Materialize the git event definitions, and the ground truth for any resolved
-    # target, that the agents read — the workflow's provisioning step.
-    outcomes: list[Path] = []
-    for ev in targets:
-        events = case_paths.event(ev.event_id)
-        write_yaml(events.event_file, _event_definition(ev))
-        if ev.resolved:
-            outcome = _outcome_for_resolved(row, ev, basis, order=order)
-            if outcome is not None:
-                write_json(events.outcome, outcome)
-                outcomes.append(events.outcome)
+    # Every predict target placed before any cell runs, so a refusal costs
+    # nothing (see `_place_cell`).
+    placed = {ev.event_id: _place_cell(case_id, ev.event_id, reads[ev.event_id]) for ev in targets}
+
+    outcomes = _materialize_targets(case_paths, row, targets, found)
 
     def _request(role: UsageRole, actor: str, prompt: str, event_id: str) -> RunRequest:
         return RunRequest(
@@ -371,9 +625,31 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
 
     predictions: list[Path] = []
     for ev in targets:
+        # Per target, because the record IS the cell's information set and two
+        # targets of one case declare two of them: run-predict provisions once per
+        # cell, and a cascade that provisioned once for the whole case would run
+        # the later moment's cell on the earlier one's record.
+        _place(ev.event_id, _cell_mode(ev), reads[ev.event_id], "predict", placed[ev.event_id])
         for entry in predictors:
             request = _request(UsageRole.predictor, entry.id, entry.prompt, ev.event_id)
             predictions.extend(runner.run(request))
+
+    # The evaluate half's record is a different one, and run-evaluate says how:
+    # `provision-snapshot` with no --event, so no moment cut and the latest stored
+    # payload, in the default `forward` mode. A judge reads the decided docket by
+    # design — it is grading an event that has already resolved — where the
+    # predict cells above were placed at the moment they forecast from. Only
+    # where a ground truth was materialized: with none, no evaluate cell runs.
+    if outcomes:
+        uncut = provision.CellRead(
+            latest=found,
+            documents=stored_documents,
+            events=[],
+            row=None,
+            cutoff=None,
+            dated=None,
+        )
+        _place("", "forward", uncut, "evaluate", _place_cell(case_id, "", uncut))
 
     evaluations: list[Path] = []
     for ev in targets:
@@ -405,7 +681,10 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
         case_id=case_id,
         engine=engine,
         run_id=run_id,
-        snapshot=snapshot,
+        snapshot=record.snapshot if record else None,
+        context=record.context if record else None,
+        documents=record.documents if record else (),
+        placements=tuple(placements),
         events=tuple(ev.event_id for ev in targets),
         predictions=tuple(predictions),
         outcomes=tuple(outcomes),

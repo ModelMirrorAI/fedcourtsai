@@ -640,7 +640,9 @@ index facts and the content store exposes no rows — so it reads the row over
 `local`/`ranged` while the body half routes itself through the payload read
 source described below. Its own slot rather than a filed document, because an
 opinion postdates every predict moment and `record/documents/` is cut by date
-alone; the predict lane never invokes it, which is the whole of the guarantee.
+alone; the predict lane never invokes it, which is the guarantee on an ephemeral
+runner — and `provision-snapshot` also clears the slot before writing a record,
+which is the one that holds in a reused tree.
 
 *Which* point in time the record is sourced at is the cell's declared moment,
 not the corpus's newest read: where a cell names an event that declares

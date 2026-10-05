@@ -33,7 +33,6 @@ from fedcourtsai.cert_backtest import (
     run_cert_backtest,
     select_cert_backtest_set,
     spread_draw_rank,
-    truncate_snapshot,
 )
 from fedcourtsai.cli import app
 from fedcourtsai.config import load_salience_config
@@ -51,6 +50,7 @@ from fedcourtsai.pipeline.runner import (
     get_runner,
 )
 from fedcourtsai.pricing import DEFAULT_MODELS
+from fedcourtsai.provision import truncate_snapshot
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import (
     AgentFlag,

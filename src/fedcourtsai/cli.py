@@ -24,7 +24,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
-from typing import Annotated, Any, Literal, NamedTuple, cast, get_args
+from typing import Annotated, Any, Literal, cast, get_args
 from urllib.parse import quote
 
 import httpx
@@ -94,7 +94,6 @@ from .cert_backtest import (
     draw_cert_backtest_set,
     replay_predictors,
     run_cert_backtest,
-    truncate_snapshot,
 )
 from .claim_metrics import agreement_summary, build_claim_scores
 from .cohort_cut import counted_by_conference
@@ -225,8 +224,6 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     application_backfill,
-    arrival_cut,
-    cell_context,
     granted_noted,
     historical,
     liveprobe,
@@ -280,11 +277,7 @@ from .pipeline.documents import (
     document_fetch_losses,
     document_text_coverage,
     extract_pdf_text,
-    party_contact_values,
     questions_presented_extract,
-    scrub_contact_details,
-    scrub_snapshot_contacts,
-    unrepresented_sides,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.judgment import backfill_merits_judgments
@@ -11790,16 +11783,6 @@ def _read_cell_inputs(
     return read
 
 
-class _Placement(NamedTuple):
-    """A cell's inputs after the moment cut, and the boundary its context records."""
-
-    snapshot_date: date
-    payload: dict[str, Any]
-    documents: list[corpus.CaseDocument]
-    provenance: Literal["as-stored", "dated", "truncated"]
-    boundary: arrival_cut.CutBoundary | None
-
-
 def _place_at_moment(
     case: str,
     event: str,
@@ -11809,101 +11792,43 @@ def _place_at_moment(
     payload: dict[str, Any],
     snapshot_date: date,
     documents: list[corpus.CaseDocument],
-) -> _Placement:
-    """Cut a cell's snapshot and documents to the moment its event declares.
+) -> provision.Placement:
+    """:func:`fedcourtsai.provision.place_at_moment`, with this command's annotations.
 
-    ``cutoff is None`` is the no-cut case and passes everything through as read.
-    Otherwise two bounds compose, in this order and no other. The **anchor bound**
-    (:mod:`fedcourtsai.pipeline.arrival_cut`, on the interim arrival moment only)
-    runs on the payload as the corpus served it, so the anchor index it records is
-    a position in that list rather than in one the date rule has already thinned.
-    Then the **date rule** reconstructs, where no stored snapshot from before the
-    cutoff reaches the moment.
+    The cut itself is the shared seam, so the local cascade places its cells by
+    the same rule. What is added here is what only a command can add: the refusal
+    exit code, and the ``::notice::`` recording how much the placement excluded.
 
-    Raises ``typer.Exit(4)`` where an interim arrival's opening entry cannot be
-    anchored. There is deliberately no fall back to the date rule alone: that rule
-    is the conditioning the anchor bound replaces, and a cell taking it while its
-    context recorded the tighter one would carry the defect together with a record
-    saying it had been fixed. ``arrival-cut-ledger`` counts those refusals.
+    Exits 4 where an interim arrival's opening entry cannot be anchored — nothing
+    is written, and the caller's cell is refused. ``arrival-cut-ledger`` counts
+    those refusals.
     """
-    provenance: Literal["as-stored", "dated", "truncated"] = "as-stored"
-    if cutoff is None:
-        return _Placement(snapshot_date, payload, documents, provenance, None)
-    # Nothing is removed from a `dated` payload by the DATE rule: it is what the
-    # docket served. The anchor bound below can still remove from it.
-    dropped_entries = 0
-    reconstruct = read.dated is None or not provision.shows_the_moment(read.dated[1], cutoff)
-    if not reconstruct and read.dated is not None:
-        # What the docket really served at the moment, which also knows what had
-        # not yet been filed — strictly better than reconstructing it, so it is
-        # preferred and recorded apart. Only where it reaches the trigger, though:
-        # a stored snapshot from well before the moment would place the cell
-        # earlier than the cohort it is filed under.
-        snapshot_date, payload = read.dated
-        provenance = "dated"
-    boundary = arrival_cut.CutBoundary(kind="date")
-    if provision.is_interim_arrival(event):
-        # The anchor bound, before the date rule and on BOTH provenances. A
-        # `dated` payload is exempt from the date rule because the docket really
-        # served it — but it can have been served on the opening day itself, after
-        # that day's referral or disposition was docketed, so the one branch that
-        # reads a payload unmodified is the branch this bound is most needed on.
-        anchored = arrival_cut.cut_at_arrival(
-            payload,
-            docket_number=arrival_cut.payload_docket_number(payload),
-            opened_at=cutoff - timedelta(days=1),
+    try:
+        placement = provision.place_at_moment(
+            case,
+            event,
+            cutoff,
+            read,
+            payload=payload,
+            snapshot_date=snapshot_date,
+            documents=documents,
         )
-        if anchored is None:
-            typer.echo(
-                f"::warning::refusing to provision {case} {event}: the opening entry "
-                "could not be anchored in the snapshot, so the arrival moment's "
-                "information set cannot be located",
-                err=True,
-            )
-            raise typer.Exit(code=4)
-        payload = anchored.payload
-        boundary = arrival_cut.CutBoundary(
-            kind="arrival-position", anchor_index=anchored.anchor_index
+    except provision.UnanchorableMoment as exc:
+        typer.echo(f"::warning::{exc}", err=True)
+        raise typer.Exit(code=4) from exc
+    if cutoff is not None and placement.boundary is not None:
+        # Spoken, never written to `context.json`: the cell reads that file, and
+        # how much a cut removed separates a grant from a denial about as cleanly
+        # as the disposing order does. Here it is the harness's own record — the
+        # auditable size of what placement excluded.
+        typer.echo(
+            f"::notice::{case} placed at {cutoff.isoformat()} "
+            f"({placement.provenance}, {placement.boundary.kind}): "
+            f"{placement.dropped_entries} entr(ies) and "
+            f"{placement.dropped_documents} document(s) are outside the moment",
+            err=True,
         )
-        dropped_entries += anchored.dropped_same_day
-    if reconstruct:
-        # Reconstructed from a later payload: post-cutoff entries removed, and an
-        # entry whose date is missing or unparseable removed with them
-        # (`truncate_snapshot` fails closed — an undated entry could be the one
-        # that decides the case). Never `blind`: this path always holds a cutoff to
-        # keep entries against, so it never removes the proceedings key outright,
-        # which is what that provenance records.
-        payload, date_dropped = truncate_snapshot(payload, cutoff)
-        dropped_entries += date_dropped
-        # The same date rule over the top-level fields truncation does not reach,
-        # so the cut docket does not carry an argument date whose entry it just
-        # removed.
-        payload = provision.cut_dated_fields(payload, cutoff)
-        # The docket as at the cutoff is dated by the cutoff, not by the pull whose
-        # bytes it was reconstructed from — otherwise the one file the cell's
-        # information set is judged against carries a later date than anything in
-        # it.
-        snapshot_date = cutoff
-        provenance = "truncated"
-    # Documents take the DATE rule under either cut kind, and that residual is
-    # stated rather than closed: a document is placed by the entry date its link
-    # rode on, which cannot say where inside the opening day it sat, and the one
-    # document an arrival cell most needs — the application itself — is filed on
-    # that day. Tightening to the day before would cost the cell its own
-    # application to remove a tail the corpus cannot locate.
-    kept = provision.documents_before(documents, cutoff)
-    dropped_documents = len(documents) - len(kept)
-    # Spoken, never written to `context.json`: the cell reads that file, and how
-    # much a cut removed separates a grant from a denial about as cleanly as the
-    # disposing order does. Here it is the harness's own record — the auditable
-    # size of what placement excluded.
-    typer.echo(
-        f"::notice::{case} placed at {cutoff.isoformat()} ({provenance}, {boundary.kind}): "
-        f"{dropped_entries} entr(ies) and {dropped_documents} document(s) "
-        f"are outside the moment",
-        err=True,
-    )
-    return _Placement(snapshot_date, payload, kept, provenance, boundary)
+    return placement
 
 
 def _sides_named(sides: tuple[str, ...]) -> str:
@@ -11913,27 +11838,6 @@ def _sides_named(sides: tuple[str, ...]) -> str:
     `other` would read as the opposing side.
     """
     return "/".join("amicus" if side == OTHER_LIST else side.lower() for side in sides)
-
-
-def _staged_scrub(
-    text: str, values: tuple[str, ...], sides: tuple[str, ...]
-) -> ScrubbedText | None:
-    """One staged document's contact scrub on a docket read as self-represented on ``sides``.
-
-    None where the docket is not scrubbed. A docket read so on a party side runs
-    both passes. One read so on its `Other` list alone runs the value pass only:
-    the amicus's own brief is not a staged kind, so what is staged there is
-    counsel's filings — the staged filers there are represented — and the shape
-    pass would cost their text its misreads of legal prose. The premise is about
-    amici: a self-represented non-amicus `Other` filer whose own opposition is
-    staged gets the value pass alone as well. Where no amicus
-    value clears its floor nothing runs, and the document is staged as filed and
-    recorded as unscrubbed (None).
-    """
-    if not sides:
-        return None
-    done = scrub_contact_details(text, values, shape=any(side != OTHER_LIST for side in sides))
-    return done if done.passes else None
 
 
 def _document_scrub_echo(
@@ -12183,135 +12087,46 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     placement = _place_at_moment(
         case, event, cutoff, read, payload=payload, snapshot_date=snapshot_date, documents=documents
     )
-    snapshot_date = placement.snapshot_date
-    payload = placement.payload
-    documents = placement.documents
     paths = CasePaths(settings.data_root, court, docket)
-    dest = out or paths.snapshot(snapshot_date.isoformat())
-    # The staged snapshot is the payload with a self-represented filer's own
-    # contact keys withheld, on either party side or the `Other` list of amici
-    # (`scrub_snapshot_contacts`):
-    # the copy a cell can quote from, on the same docket-level reading the
-    # document scrub below keys on. A separate object, so everything else
-    # here — the cell context, the scrub trigger, the document scrub — reads
-    # the payload as served.
-    unrepresented = unrepresented_sides(payload)
-    staged_snapshot = scrub_snapshot_contacts(payload) if unrepresented else None
-    write_raw_json(dest, payload if staged_snapshot is None else staged_snapshot.payload)
-    # The cell's context: its mode, and the conditioning state it is about to run
-    # against. Both are stated at provisioning — the mode so the prompt contract
-    # keys replay etiquette on it rather than inferring from env vars, and the
-    # rest because the salience band only ever strengthens, so a band re-derived
-    # later is the band the petition *ended* at. Derived from the payload rather
-    # than the corpus row: the row holds current values, the payload is what this
-    # cell can read, and a baseline has to be conditioned on the latter. The
-    # cutoff rides along as the cohort marker: a forward cell whose `cutoff` is
-    # non-null was placed at its moment, and a figure that pools it with one
-    # provisioned from the latest snapshot pools two information sets.
-    write_raw_json(
-        paths.cell_context,
-        cell_context.build(
-            case,
-            snapshot_date,
-            payload,
-            mode,
-            provenance=placement.provenance,
-            cutoff=cutoff,
-            boundary=placement.boundary,
-        ).model_dump(mode="json"),
-    )
+    # The whole record — snapshot, context.json, documents and manifest, each
+    # staged copy through the contact-detail scrubs — goes through the one
+    # writer the local cascade shares (`provision.write_cell_record`), so the
+    # record a cell reads here and the record the engine smoke certifies cannot
+    # be written differently.
+    try:
+        written = provision.write_cell_record(
+            paths, case, placement, mode=mode, cutoff=cutoff, snapshot_dest=out
+        )
+    except provision.ProvisionError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
     placed = (
         f" cut at {cutoff.isoformat()} ({placement.provenance}, {placement.boundary.kind})"
         if cutoff is not None and placement.boundary is not None
         else ""
     )
-    typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}){placed} -> {dest}")
-    if staged_snapshot is not None:
+    typer.echo(
+        f"{case} snapshot {placement.snapshot_date.isoformat()} ({mode}){placed} "
+        f"-> {written.snapshot}"
+    )
+    if written.snapshot_scrub is not None:
         # Counts only, never a value: the run log is public.
         typer.echo(
-            f"{case} snapshot contact scrub: {staged_snapshot.fields} value(s) withheld on "
-            f"{staged_snapshot.blocks} {_sides_named(unrepresented)}-side block(s)"
+            f"{case} snapshot contact scrub: {written.snapshot_scrub.fields} value(s) "
+            f"withheld on {written.snapshot_scrub.blocks} "
+            f"{_sides_named(written.unrepresented)}-side block(s)"
         )
-    if documents:
-        # The contact-detail scrub, keyed on the docket-level reading that
-        # separates a filing signed by counsel from one signed in person:
-        # whether the snapshot names anyone but the filer to write to, on
-        # either party side or on an amicus block.
-        # Where it does not, every document staged for this cell has its
-        # contact details withheld (shapes and served values; served values
-        # alone where only an amicus reads so, see `_staged_scrub`) — the whole
-        # docket rather than the petition alone, since deciding per document
-        # who signed it would be a second reading with its own failure mode,
-        # and a filing by the other side's counsel loses only professional
-        # details the cell has no use for. The
-        # corpus row and the source PDF are untouched: the scrub is on the copy
-        # staged under `record/`, which is the copy a cell can quote into the
-        # public ledger.
-        # The filer's own contact values, off every served block on the sides
-        # the trigger read as self-represented (on the `Other` list, off the
-        # qualifying blocks alone), key the scrub's value pass: it
-        # finds them however a scan fragmented them, which no shape pattern can
-        # promise. Read off
-        # `payload` — the payload as served — and never off the staged
-        # snapshot copy, whose contact keys hold the placeholder: keyed on
-        # that, the pass would look for the placeholder and miss the values.
-        contact_values = party_contact_values(payload, unrepresented)
-        staged = [
-            (doc, _staged_scrub(doc.text, contact_values, unrepresented)) for doc in documents
-        ]
-        for doc, scrubbed in staged:
-            write_text(paths.document(doc.kind), doc.text if scrubbed is None else scrubbed.text)
-        write_raw_json(
-            paths.documents_manifest,
-            [
-                {
-                    # Every stored field but the text itself, so the row's own
-                    # `ocr_derived` marker reaches the cell: text a recovery pass
-                    # read off a page image is a lossy derivation of the filing,
-                    # and a manifest that dropped the marker would present it as a
-                    # clean extraction.
-                    **doc.model_dump(mode="json", exclude={"text"}),
-                    # A present document whose extracted text is blank/whitespace
-                    # (a scanned PDF with no text layer) would read as usable from
-                    # pages/truncated alone; flag it so the cell distinguishes
-                    # "no document" / "document present but no text layer" /
-                    # "text present". Derived here, not stored on the row.
-                    # Read off the stored text, so the flag keeps naming what the
-                    # extraction produced — a scrub replaces a contact detail
-                    # with a placeholder and can never empty text that had any.
-                    "empty_text": not doc.text.strip(),
-                    # Whether the scrub ran over this document's staged text, and
-                    # how many details it withheld. The two are separate facts: a
-                    # scrubbed document with nothing to withhold reads `true, 0`,
-                    # which is a different statement from a document the scrub
-                    # never saw, and a cell that meets the placeholder in the text
-                    # can tell from here that the pipeline put it there.
-                    "contact_scrubbed": scrubbed is not None,
-                    "contact_replacements": 0 if scrubbed is None else scrubbed.replacements,
-                    # Which passes ran: `shape` wherever the scrub ran on a
-                    # docket read as self-represented on a party side, `value`
-                    # only where the docket served a contact value specific
-                    # enough to key on — and `value` alone on a docket read so
-                    # on its `Other` list alone. A shape-only scrub is the
-                    # weaker of the two — it misses a detail a scan split
-                    # mid-word or across a line — so the manifest says which
-                    # one the text went through rather than letting
-                    # `contact_scrubbed` read as complete.
-                    "contact_scrub_passes": [] if scrubbed is None else list(scrubbed.passes),
-                }
-                for doc, scrubbed in staged
-            ],
-        )
-        kinds = ", ".join(doc.kind for doc in documents)
+    if written.staged:
+        kinds = ", ".join(doc.kind for doc, _ in written.staged)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
-        if unrepresented:
+        if written.unrepresented:
             # Echoed for the same reason the cut counts are: the size of a
             # scrub is itself a signal. A pattern that began matching legal
             # prose would show up here as a count no signature block could
             # produce, and the run log is the only place it could show up at
             # all — the manifest that records it is gitignored with the rest of
             # `record/`.
-            typer.echo(_document_scrub_echo(case, staged, unrepresented))
+            typer.echo(_document_scrub_echo(case, written.staged, written.unrepresented))
 
 
 @app.command("summarize-plan")
@@ -12533,22 +12348,6 @@ def summary_paths_cmd(
         typer.echo(path)
 
 
-def _clear_opinion_slot(paths: CasePaths) -> None:
-    """Remove a previously staged opinion, so "no slot" always means "no body".
-
-    The slot's whole contract is that its **absence** tells a grader there is
-    nothing to grade against. A run that stages nothing and leaves an older
-    body in place would break that on the one tree where it can happen — a
-    re-provision over a dirty checkout — and the grader would read a stale
-    opinion as this cell's. Ephemeral runners never reach the state; the
-    invariant is stated unconditionally, so it holds unconditionally.
-    """
-    paths.opinion_text.unlink(missing_ok=True)
-    paths.opinion_manifest.unlink(missing_ok=True)
-    if paths.opinion_dir.is_dir() and not any(paths.opinion_dir.iterdir()):
-        paths.opinion_dir.rmdir()
-
-
 @app.command("provision-opinion")
 def provision_opinion(
     *,
@@ -12623,7 +12422,7 @@ def provision_opinion(
         raise typer.Exit(code=1)
     paths = CasePaths(settings.data_root, court, docket)
     if not row.has_opinion:
-        _clear_opinion_slot(paths)
+        provision.clear_opinion_slot(paths)
         typer.echo(f"{case} has no linked opinion; nothing staged")
         return
     body = corpus.opinion_body(row)
@@ -12637,7 +12436,7 @@ def provision_opinion(
         # case yet. Spoken as a warning rather than an exit: the grader's mask on
         # "not ingested" is the correct grade either way, and failing the step
         # would cost the cell its whole evaluation over a slot it can do without.
-        _clear_opinion_slot(paths)
+        provision.clear_opinion_slot(paths)
         typer.echo(
             f"::warning::{case} is marked as carrying an opinion but no usable "
             f"body was readable from the {backend} backend; nothing staged",
@@ -13217,7 +13016,7 @@ def _finish_integration_report(
 
 
 @app.command("local-cascade")
-def local_cascade(
+def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     court: Annotated[str, typer.Option(help="CourtListener court id, e.g. ca9 or scotus.")],
     docket: Annotated[int, typer.Option(help="CourtListener docket id.")],
     event: Annotated[
@@ -13253,12 +13052,25 @@ def local_cascade(
             "needs that to fail, not pass.",
         ),
     ] = False,
+    require_record: Annotated[
+        bool,
+        typer.Option(
+            "--require-record",
+            help="Exit non-zero, before any cell runs, when the corpus holds no "
+            "snapshot for the case. Such a cell runs with no snapshot, no "
+            "context.json and no documents; the integration smoke certifies the "
+            "production cell posture, so an unprovisioned run must fail rather "
+            "than pass having certified nothing.",
+        ),
+    ] = False,
 ) -> None:
     """Run the full predict → evaluate → validate cascade for one case locally.
 
     The repeatable, local form of the "one full cascade proven" milestone: over
-    the fixture corpus (or a real provisioned one) it provisions the snapshot,
-    materializes the git event/outcome definitions, fans the chosen engine out
+    the fixture corpus (or a real provisioned one) it materializes the git
+    event/outcome definitions, provisions each cell's whole ``record/`` through
+    the seam ``provision-snapshot`` writes with (the snapshot placed at the
+    event's moment, ``context.json``, documents), fans the chosen engine out
     over the enabled predictors then evaluators, and validates the produced
     ledger — the iteration loop that otherwise only runs inside Actions. Corpus
     reads honor the corpus-backend setting, so a ``ranged``-configured
@@ -13271,7 +13083,9 @@ def local_cascade(
     the agent's retrieval through the sidecar while provisioning reads the blob
     directly — the integration-test workflow's engine-smoke split.
     ``--predictor`` narrows the fan-out to one enabled predictor id, the
-    one-cell shape a token-spending smoke run wants.
+    one-cell shape a token-spending smoke run wants. ``--require-record`` refuses
+    a case the corpus holds no snapshot for before any token is spent, so a smoke
+    certifying the production cell posture cannot pass over an unprovisioned cell.
 
     ``--engine stub`` (the default) is deterministic, offline, and token-free.
     ``--engine replay`` is also offline but emits a captured real prediction from
@@ -13298,6 +13112,7 @@ def local_cascade(
             run_id=run_id or ids.run_id(),
             predictor=predictor or None,
             backend=_corpus_backend(corpus_backend),
+            require_record=require_record,
         )
     except KeyError as exc:
         # Unknown engine backend (get_runner names the available ones).
@@ -13312,7 +13127,21 @@ def local_cascade(
 
     typer.echo(f"local-cascade {report.case_id} via {report.engine} (run {report.run_id})")
     typer.echo(f"  events:      {', '.join(report.events)}")
+    # The provisioned record, named rather than assumed: a cell's inputs are the
+    # one thing a green cascade cannot evidence afterwards, and the engine smoke
+    # renders this block into its run summary. Per provisioning, not per run — the
+    # record on disk at the end is the last provisioning's, and on a case carrying
+    # both an open and a resolved event that is the judge's, whose posture says
+    # nothing about how the forecasters were placed.
     typer.echo(f"  snapshot:    {report.snapshot or 'none in corpus'}")
+    typer.echo(f"  context:     {report.context or 'not provisioned'}")
+    typer.echo(f"  documents:   {len(report.documents)} file(s)")
+    for placed in report.placements:
+        cut = f"cut {placed.cutoff.isoformat()}" if placed.cutoff is not None else "no cut"
+        typer.echo(
+            f"  provisioned: {placed.role} {placed.event_id or report.case_id} — "
+            f"{placed.mode}, {placed.provenance}, {cut}, {placed.documents} document(s)"
+        )
     typer.echo(f"  predictions: {len(report.predictions)} file(s)")
     typer.echo(f"  outcomes:    {len(report.outcomes)} file(s)")
     typer.echo(f"  evaluations: {len(report.evaluations)} file(s)")

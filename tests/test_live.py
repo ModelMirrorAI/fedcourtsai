@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import cli as cli_module
 from fedcourtsai import corpus, supremecourt
-from fedcourtsai.cert_backtest import redact_snapshot, truncate_snapshot
+from fedcourtsai.cert_backtest import redact_snapshot
 from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import live as live_module
@@ -37,6 +37,7 @@ from fedcourtsai.pipeline.live import (
 )
 from fedcourtsai.pipeline.outcome import OutcomeConvergence, UnrecordedOutcome
 from fedcourtsai.pipeline.pull import PullQueues
+from fedcourtsai.provision import truncate_snapshot
 from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Moment, Outcome, Stage
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import forecastable_events

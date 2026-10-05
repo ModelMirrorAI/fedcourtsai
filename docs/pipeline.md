@@ -1196,8 +1196,9 @@ stay honest.
 
 To run the predict → evaluate → validate cascade for one case **locally** — off
 Actions, over the fixture corpus, offline by default — use `fedcourts
-local-cascade` (see [cli.md](cli.md)). It reuses the same engine-runner seam and
-registries, so a green local run mirrors a green CI run.
+local-cascade` (see [cli.md](cli.md)). It reuses the same engine-runner seam,
+registries and record-provisioning seam, so a green local run mirrors a green CI
+run.
 
 ## ⚠️ The App-token gotcha
 
