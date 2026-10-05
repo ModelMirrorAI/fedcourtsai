@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73372500",
+  "gaps": [
+    "Unobserved candidate retrieval results limit result-level inspection."
+  ],
+  "helpful": [
+    "Blinded candidate prose and capture-aware retrieval logs",
+    "Committed sal-v4 reached-band table",
+    "Provisioned petition and resolved snapshot"
+  ],
+  "notes": "Used only provisioned case/candidate evidence, repository contracts, schemas and committed statpack. No live corpus, CourtListener or web retrieval. Capture limitations were not treated as empty results or as leakage by themselves.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell/file reads",
+    "jq",
+    "Python arithmetic and validation",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

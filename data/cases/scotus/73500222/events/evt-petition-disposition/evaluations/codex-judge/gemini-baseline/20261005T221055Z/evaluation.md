@@ -1,0 +1,21 @@
+# Evaluation: gemini-baseline
+
+## Outcome and scores
+
+This is a cert-stage cell. The authoritative outcome records denial on October 5, 2026, with `actual_granted = 0`. The September 17 prediction names `denied`, so exact-label correctness is **1**. Its grant probability of 0.08 yields **Brier = (0.08 - 0)^2 = 0.0064**. A correct modal label does not make the probability optimal or establish the Court's reasons for denying review.
+
+The prediction froze `baseline`, `sal-v4`, and Term 2025. The committed `metrics/statpack.md` heading matches that salience version. I use the bracketed reached rates, not terminal rates, over every rendered Term strictly before 2025: 2024 5.7%/1,271; 2023 5.9%/1,312; 2022 5.8%/1,192; 2021 5.6%/1,500; 2020 4.5%/1,739; 2019 4.6%/1,399; 2018 4.6%/1,524; and 2017 4.7%/1,643. Pooling these printed rates gives weighted n = **11,580**, rate **0.05120250431778929**, and baseline Brier **0.002621696448413231**. Basis is `risk_set`; skill is **-1.4411674371659498**. The approximation comes from rounded published percentages. The caption renders 10 of 10 Terms; there is no rendered-window truncation. Terms 2025 and 2026 are excluded. This is the committed pack's denial-reweighted historical slice, not a fresh corpus query or a general-population rate.
+
+## Reasoning quality: 0.50
+
+The rationale correctly recognizes the low prior grant rate, a potentially review-worthy disagreement over chilling effects in costs awards, and the distinction between that legal question and fact-specific appellate error correction. Its directionally cautious prediction is consistent with the realized denial. An approximate 4–6% risk-set starting point is reasonable, though the document does not reproduce the prior-Term pooling that supports it.
+
+A material factual error substantially weakens the vehicle analysis. The rationale says the litigation involved “over 700 experts” and uses that extraordinary number to explain the cost award and messy vehicle. The staged petition's Appendix A, pages 4a–5a (`record/documents/petition.txt`, lines 707–731), instead describes **four jointly nominated court-appointed experts**, appointed under Rule 706, whose fees totaled **$732,923.92**. Half of those fees accounts for the $366,461.96 award. This is not a minor numerical imprecision: it supplies a false factual premise for an important probability adjustment.
+
+The rationale also omits the lower court's concrete emphasis on the parties' 2013 cost-sharing recommendation and the district court's failure to address it (Appendix A, page 6a). That record-specific ground provides a better-supported vehicle objection than the invented expert count. Treating the waiver as evidence of respondents' private assessment is speculative. The asserted conflict could warrant an upward adjustment, but the rationale gives limited support for moving above the risk-set anchor to 8% once the actual vehicle is understood. These shortcomings, rather than the realized Brier score, drive the qualitative grade. The outcome does not establish that the Court adopted any of these vehicle objections.
+
+## Leakage and scope
+
+The harness log records forward mode. Its calls occurred September 17, before this petition's October 5 resolution, and show provisioned-input reads plus generic historical costs research rather than retrieval of this petition's disposition. The predictor's reasoning does not presuppose the outcome. All 28 call results are `unobserved`, so the absence of dates or digests is not evidence that searches returned nothing. I assess the query content and reasoning, with that limitation, and find no affirmative outcome exposure: `retrieved_outcome_material = false`, influence `not_applicable`, and `leakage_suspected = false`. A historical search's reported success cannot independently be confirmed from this log.
+
+The material factual misstatement is recorded in the cell's `flags.json`; it is not a leakage finding. I read the forecast document for context only. Neither its separate-writing forecast nor the structured claims contributes to reasoning quality. Mechanical claim scores are left to the harness. Cert votes are not scored, and no semantic grades apply. I omit the optional independent stakes assessment because I did not form one before viewing candidate stakes material.

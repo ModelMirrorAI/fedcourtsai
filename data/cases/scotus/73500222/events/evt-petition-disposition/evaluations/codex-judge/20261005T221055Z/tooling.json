@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500222",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "local Python arithmetic", "apply_patch", "JSON Schema validation", "Pydantic validation"],
+  "helpful": ["Blinded candidate records and mode-aware retrieval logs", "Appended lower-court opinion in the provisioned petition", "Versioned reached-band table with weighted denominators"],
+  "gaps": ["Unobserved candidate call results limit retrospective confirmation of retrieval contents", "Printed base-rate percentages permit only approximate pooling"],
+  "notes": "All three candidates could be graded from provisioned inputs and the committed statpack. Full-tree validation is intentionally deferred to the restoring and un-aliasing harness; output schemas are checked locally."
+}

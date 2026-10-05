@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "A Rule 54(d)(1) costs-discretion question (whether a chilling effect on civil-rights plaintiffs may reduce costs to a prevailing defendant) with a thin, decades-old circuit disagreement, framed as an abuse-of-discretion factor; the second question is record-specific. Sympathetic facts (indigent civilly committed plaintiffs, a $366,461.96 joint-and-several award) but no amicus, a waiver, one distribution, and a bare denial with no noted dissent. Real but low-visibility stakes for civil-procedure specialists; the big_case_score fields were visible in the staged prediction.json when read, so this read is independent in basis but not in sequence."
+  },
+  "brier_score": 0.002025,
+  "brier_skill_score": 0.227599,
+  "case_id": "scotus/73500222",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.045,
+        "score": 0.000597359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.000597359735235249,
+    "total": 0.000597359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-05T22:40:19Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode=forward; 28 calls, coverage 0.89). Captured calls are prompt/schema/record/statpack reads and two CourtListener lookups of Stanley v. USC (1999, a historical authority); three web-search rows are unobserved and are graded on their queries, which name Rule 54 and a 2014 Ninth Circuit PDF, never this petition. No retrieved_doc_date on or after 2026-10-05; the rationale states it neither sought nor encountered this petition's outcome and reads only the provisioned snapshot. No sign of a decided case provisioned forward.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T181231Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "763e4d1f2361180a82c34385b0bd5968ac6af4cc",
+    "stamped_at": "2026-10-05T22:42:11.677524Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051203,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

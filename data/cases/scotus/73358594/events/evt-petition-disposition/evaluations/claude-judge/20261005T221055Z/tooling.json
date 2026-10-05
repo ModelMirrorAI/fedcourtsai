@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73358594",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "file-write"
+  ],
+  "helpful": [
+    "The blinded staging area with retrieval_log.json per candidate: call classes, capture markers, and retrieved_doc_date made the forward leakage check mechanical.",
+    "metrics/statpack.md's sal-v4 band table with bracketed reached figures and per-Term n, which made the risk_set pooling a direct computation."
+  ],
+  "gaps": [
+    "The band table caption reports the rendered window but not the configured lookback, so confirming that the rendered 8 strictly-prior Terms equal the in-code window took a config read.",
+    "The record snapshot was provisioned post-decision; a copy of the prediction-time snapshot beside the blinded candidates would let a grader verify a candidate's docket reading without inference from its prose."
+  ],
+  "notes": "Cert cell, denied at first conference, three forward candidates all calling denied at 1-1.5%. No corpus query or CourtListener call was needed; the statpack and the staged record sufficed."
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73369987",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "statpack"
+  ],
+  "helpful": [
+    "The blinded staging area with the per-candidate retrieval_log.json and its result_capture markers made the forward leakage check mechanical: dates, query slices and capture state were enough to grade all three without any outside lookup.",
+    "The statpack's sal-v4 segment table with the bracketed reached figures and an explicit Term caption made the cert base rate a short, checkable computation."
+  ],
+  "gaps": [
+    "A pre-pooled strictly-prior reached rate per band and Term in statpack.json (or printed by a CLI) would remove the hand pooling every cert evaluation repeats."
+  ],
+  "notes": "All three candidates froze the same band and version, so one pooled rate served the cell."
+}

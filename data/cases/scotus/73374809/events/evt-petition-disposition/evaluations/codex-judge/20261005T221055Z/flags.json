@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73374809",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "claude-baseline's reasoning and retrieval note report that its CourtListener lookup of docket 73374809 returned docket number 25-1301 with a Bernard/Ignelzi caption, whereas the provisioned event, petition and snapshot identify Kenneth Matsumura. Its captured log confirms a metadata lookup with retrieved date May 21, 2026, but provides a digest rather than the full result body. I did not independently re-fetch the metadata and do not assert that the discrepancy persists. Please verify the upstream docket-to-case mapping. All three evaluations follow the authoritative supplied Matsumura outcome, denial on October 5, 2026; the reported mismatch did not block scoring or establish leakage.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0"
+}

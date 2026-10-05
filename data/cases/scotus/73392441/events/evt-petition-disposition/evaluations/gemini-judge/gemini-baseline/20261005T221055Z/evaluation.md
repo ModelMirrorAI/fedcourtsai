@@ -1,0 +1,2 @@
+This is a cert-stage cell. The prediction correctly anticipated the denial of the petition. 
+The substantive reasoning correctly identifies the Seventh Amendment flaw and the state-court error-correction nature of the petition. The predictor correctly concluded the petition was exceedingly weak, providing a concise rationale. However, the cited baseline rate (5.7%) was taken from a single term (2024) rather than the pooled risk set rate for the `baseline` band. Still, the substantive legal analysis was accurate and concise. No leakage detected.

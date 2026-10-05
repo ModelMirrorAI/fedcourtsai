@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73358839",
+  "gaps": [
+    "Candidate external-source results are represented by digests, not full source bodies; substantive reports cannot be independently verified from those digests."
+  ],
+  "helpful": [
+    "Blinded prediction contexts preserve the baseline band and Term without exposing identity.",
+    "Result-capture markers distinguish missing telemetry from empty retrieval results.",
+    "Committed statpack exposes the risk-set denominators needed to reproduce scores."
+  ],
+  "notes": "Scored three aliases using only provisioned evidence and committed references. gemini-baseline has wholly unobserved results; this is treated as a telemetry limitation, not a defect or leakage finding. Local model schemas match the committed JSON schemas; full-tree validation is deferred to the unblinding harness as required.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local file reads",
+    "Decimal arithmetic",
+    "Pydantic schema validation",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

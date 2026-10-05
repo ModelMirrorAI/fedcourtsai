@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500221",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate artifacts and result-capture markers",
+    "Versioned per-Term risk-set table",
+    "Local output schemas and path helpers"
+  ],
+  "notes": "All three aliases were assessable without external retrieval. Capture gaps were treated as uncertainty, not empty results. Displayed rounded statpack rates were pooled consistently for all candidates.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "Python",
+    "apply_patch",
+    "JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

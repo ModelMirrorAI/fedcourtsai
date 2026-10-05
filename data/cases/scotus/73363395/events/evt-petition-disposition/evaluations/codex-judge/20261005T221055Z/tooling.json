@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73363395",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: local artifact reads",
+    "jq: blinded prediction and retrieval-log inspection",
+    "Python: rendered-table pooling and score checks",
+    "Pydantic: schema-equivalent artifact validation",
+    "apply_patch: evaluator output files"
+  ],
+  "helpful": [
+    "Blinded candidates preserve probabilities, frozen contexts, prose, and retrieval evidence without requiring predictor identities.",
+    "The sal-v4 table labels reached risk sets and publishes weighted denominators.",
+    "Result-capture markers distinguish unobserved telemetry from observed results."
+  ],
+  "gaps": [
+    "Unobserved candidate call results cannot be independently inspected; query intent and chronology remain available."
+  ],
+  "notes": "Evaluated all three staged aliases using local provisioned artifacts and the committed statpack. No evaluator web, CourtListener, or corpus lookup was needed. JSON schemas match the installed Pydantic models exactly. Full-tree validation is deferred to the harness's restore, un-alias, and stamp sequence."
+}

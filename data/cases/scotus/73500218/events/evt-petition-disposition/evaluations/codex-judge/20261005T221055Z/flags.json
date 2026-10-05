@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500218",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "The event declares stage cert, but the May 20 docket entry identifies a petition for a writ of mandamus. All three candidates recognize extraordinary-writ posture. I retained the declared disposition scoring rule and the version-matched frozen-band risk-set baseline, but that ordinary paid-cert population is not a matched mandamus cohort. The displayed high single-case Brier skill should not be interpreted as empirical extraordinary-writ calibration. No input or stage was changed.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's harness log records a corpus query attempt for Joan Farr in addition to its CourtListener docket search; its retrieval.md mentions only the latter. Every logged result is unobserved, so this establishes an omitted attempt, not successful corpus use, failure, or an empty result. I found no evidence of this petition's outcome being available at prediction time and did not classify the self-report discrepancy as leakage.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0"
+}

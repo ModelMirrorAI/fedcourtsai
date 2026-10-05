@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73452191",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/grep/python3 over the provisioned record, the blinded staging area, the schemas and metrics/statpack.md)"
+  ],
+  "helpful": [
+    "The sal-v4 per-Term band table with bracketed reached figures and n, which made the risk_set pooling a direct computation",
+    "The staged retrieval_log.json with per-call result_capture markers and retrieved_doc_date, which made the forward-mode leakage check concrete",
+    "The prediction's frozen context block, which settled band, version and Term without re-deriving anything from the docket"
+  ],
+  "gaps": [
+    "The statpack band table publishes rounded percentages, so the pooled rate is reconstructed from rounded figures; the raw grant and reached counts per Term would make the evaluator's number exact and directly comparable to the in-code pool",
+    "The staged prediction.json exposes each candidate's big_case_score, so the independent big_case read cannot actually be formed before seeing theirs; masking that one field in the blinded view would restore the intended ordering"
+  ],
+  "tool_manifest": ["courtlistener"],
+  "notes": "Cert-stage forward cell with three candidates all predicting denial at 1.2 to 2.5 percent; outcome denied at the first conference. No corpus or CourtListener lookups were needed: the provisioned snapshot, petition text and statpack carried everything the grades rested on."
+}

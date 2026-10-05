@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73363408",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's reasoning anchors on its own Term 2025's 3.9% reached rate instead of pooling strictly prior Terms. The frozen baseline/sal-v4 context is valid; this evaluation uses the required 2017\u20132024 risk-set pool, approximately 5.12025%, rather than changing the frozen band. This forward-cell baseline error is not treated as outcome leakage.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md reports no extra retrieval, but its September 16 log records fedcourts query --court scotus --decided-before 2026-09-16 --limit 5 --full. The result is unobserved, so success, returned contents, hydration, and transfer volume cannot be established. The query should be disclosed even if it failed. No evidence shows this petition's October 5 outcome reached the prediction.",
+      "severity": "warning"
+    },
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "claude-baseline's September 16 21:05:22Z log records selecting and reading a prediction example through a cross-docket wildcard. The identity is masked and the returned content is not exposed beyond a digest; whether it was the candidate's own prior work is unknown. No identity inference or follow-up retrieval was attempted. This provenance limitation is not a finding of outcome leakage or a proven contract violation.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0"
+}

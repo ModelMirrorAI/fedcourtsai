@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500216",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell (cat/grep/sed/python3)", "file read", "metrics/statpack.md"],
+  "helpful": [
+    "The blinded staging area with a per-candidate retrieval_log.json carrying result_capture markers and retrieved_doc_date made the forward leakage check mechanical.",
+    "The statpack's bracketed reached figures with per-Term n made the risk-set pooling a one-line computation that reproduced a candidate's own figure exactly."
+  ],
+  "gaps": [
+    "The staged prediction.json carries big_case_score and big_case_rationale in the clear, so an evaluator reads them before it can form its own big-case read; staging those two fields separately (or masking them until the evaluator has written its read) would make the independence the schema asks for real.",
+    "A pre-pooled prior-Term risk-set rate per band would remove a hand computation that every cert cell repeats."
+  ],
+  "notes": "The git status at session start shows the committed predictions/ trees as deleted, which is the harness staging and not something to tidy; the prompt's note about this was accurate and welcome."
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73389313",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The sal-v4 per-Term band table with bracketed reached figures and n, which made the strictly-prior pooling mechanical",
+    "The blinded staging with retrieval_log.json capture markers, which let the forward-mode check rest on the log rather than the candidates' word",
+    "The provisioned petition text, which let factual claims in the candidates' rationales be checked line by line"
+  ],
+  "gaps": [
+    "A pre-pooled strictly-prior reached rate per Term row (or a one-line fedcourts command for it) would remove the hand pooling and the rounded-table versus unrounded-JSON discrepancy in the fourth decimal"
+  ],
+  "notes": "Cert cell, denied at the first conference. No corpus query was needed: the outcome, the three logs, the petition text and the statpack settled every field. No CourtListener MCP call and no web search."
+}

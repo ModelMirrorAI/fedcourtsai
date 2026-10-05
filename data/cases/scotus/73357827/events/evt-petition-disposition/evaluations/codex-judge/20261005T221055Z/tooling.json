@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73357827",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate artifacts preserve probability, frozen context, and reasoning without requiring identity access.",
+    "Result-capture markers distinguish unobserved retrieval from observed empty results.",
+    "The rendered salience table provides matching-version prior-Term risk-set baselines."
+  ],
+  "notes": "Used only provisioned local evidence and the committed statpack. No corpus query, external legal lookup, or web retrieval was needed. Candidate result-capture limits are reflected in the leakage assessments rather than treated as defects.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "functions.update_plan",
+    "local JSON and Decimal arithmetic",
+    "jsonschema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

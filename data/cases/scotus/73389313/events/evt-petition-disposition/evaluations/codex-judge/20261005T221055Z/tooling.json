@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73389313",
+  "gaps": [
+    "Digest-only or unobserved retrieval results limit independent inspection of returned content."
+  ],
+  "helpful": [
+    "Alias-keyed candidates preserve blind evaluation.",
+    "Frozen contexts and the versioned markdown table identify the proper risk-set baseline.",
+    "Per-call capture markers distinguish unseen results from captured results."
+  ],
+  "notes": "Scored all three provisioned candidates without external retrieval. Baseline arithmetic uses the displayed rounded percentages. Capture limitations were recorded without treating missing telemetry as leakage.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "python",
+    "schema-validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

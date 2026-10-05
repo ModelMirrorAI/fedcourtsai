@@ -1,0 +1,1 @@
+Candidate C delivered an outstanding evaluation. Accurately pooled the statpack anchor. Methodically broke down adjustments, properly emphasizing the waiver, thin split, and poor vehicle history. Handled CourtListener throttling gracefully without failing. The resulting 0.02 probability was very well-justified.

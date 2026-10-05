@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73363408",
+  "gaps": [
+    "General web lookups returned no usable text",
+    "Result digests do not expose the contents of captured candidate retrievals",
+    "gemini-baseline's log contains no captured results"
+  ],
+  "helpful": [
+    "Blinded candidate artifacts with frozen context",
+    "Retrieval logs with capture-coverage markers",
+    "Versioned per-Term reached-band table",
+    "Committed schemas and matching Pydantic models"
+  ],
+  "notes": "No new case facts were retrieved. All three candidates were scored against the provisioned outcome using the same matching prior-Term risk-set baseline. Capture limitations were kept separate from findings of outcome leakage.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell and file reads",
+    "web search/open",
+    "local decimal arithmetic",
+    "Pydantic schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

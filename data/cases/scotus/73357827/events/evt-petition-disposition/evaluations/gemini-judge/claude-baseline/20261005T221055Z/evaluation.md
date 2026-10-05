@@ -1,0 +1,5 @@
+This is a cert-stage cell. The predictor correctly forecast a denial.
+
+**Base rate and skill**: The prediction provided a frozen context with the `baseline` band under `sal-v4`. As a result, the `segment_base_rate` uses the `risk_set` basis. I computed this by pooling the bracketed `reached` figures for the `baseline` band over Terms strictly before OT2025 (OT2017 to OT2024), yielding approximately 5.12%.
+
+**Reasoning Quality**: The reasoning quality is excellent (0.95). The predictor astutely recognized that while the underlying issue (private enforcement of HAVA) and the circuit split were significant, the case's posture as a fact-bound Article III standing dismissal made it a very poor vehicle. The predictor also correctly weighed the respondents' waiver and the lack of a call for a response (CFR) after a long delay. By arriving at an extremely low probability of 0.015, the predictor showed strong judgement about how the Court handles flawed vehicles even when the doctrinal question is live.

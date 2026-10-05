@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73500219",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's staged retrieval log (calls 16 and 17) shows it writing two scratch helper files (petition.txt.grep, petition.txt.grep2) into data/cases/scotus/73500219/record/documents/ during its predict run, a write outside the predictor's own predictions/ path. The files are not in the provisioned record now and the matter bears on neither leakage nor any score in this cell; recorded so a maintainer can see the lane deviation.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0"
+}

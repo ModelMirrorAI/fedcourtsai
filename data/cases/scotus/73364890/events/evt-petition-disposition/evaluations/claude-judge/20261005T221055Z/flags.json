@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73364890",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md states no retrieval beyond the provisioned inputs, but its captured retrieval_log.json shows two general `fedcourts query` calls (bounded by --decided-before 2026-09-17, not naming this case). Not leakage on a forward cell and not graded; noted as a self-report gap in that predictor's retrieval note.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0"
+}
