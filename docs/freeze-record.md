@@ -6721,8 +6721,8 @@ freeze commit is recorded here.
   weighted `n` and the Terms it pooled. A band row that mixes docket Terms
   states its count per docket Term.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-10-05` (merge commit
+  `299dd8829`, merged `2026-10-05T14:56:01Z`).
 
   The runnable effect check once it is live: `uv run fedcourts segment-anchors
   --term 2025 --term 2026` on `main` prints, for docket Term 2025, pools
