@@ -4093,7 +4093,7 @@ def live_rotation(
     tiers below are each unbounded in size, so without this tier a large enough
     one holds the whole per-cycle cap indefinitely and everything behind it
     is never reached. A never-polled row is not overdue (it has no stamp to age);
-    it keeps its place in the term order. ``None`` disables the tier.
+    it keeps its ordinary priority-tier place. ``None`` disables the tier.
     ``overdue_limit`` caps how many of the ``limit`` slots the overdue tier may
     take (``None``: uncapped), so a large backlog drains over several cycles
     while the priority tiers keep the rest of each one; an overdue row past the
