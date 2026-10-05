@@ -97,6 +97,7 @@ from .cert_backtest import (
     truncate_snapshot,
 )
 from .claim_metrics import agreement_summary, build_claim_scores
+from .cohort_cut import counted_by_conference
 from .collect import (
     BOARD_ARTIFACTS,
     CODE_MODE_PARENT_TOOL,
@@ -241,7 +242,12 @@ from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_brie
 from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.arrival_cut import arrival_cut_ledger
 from .pipeline.asof import CutoffPolicy
-from .pipeline.base_rates import interim_base_rate, merits_base_rate
+from .pipeline.base_rates import (
+    _pooled_band_rate,
+    _version_segments,
+    interim_base_rate,
+    merits_base_rate,
+)
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.caption import CAPTION_RULE_VERSION, CAPTION_RULES, caption_census
 from .pipeline.cascade import CascadeError, run_cascade
@@ -356,6 +362,7 @@ from .schemas import (
     ClaimScoreBlock,
     ConferenceBucket,
     CorpusValidation,
+    CountedConferenceTotal,
     DataHealth,
     Disposition,
     Engine,
@@ -5454,6 +5461,137 @@ def claim_scores_command(
         f"evaluation(s) carry a claim block; forward judge agreement: "
         f"{agreement_summary(board.forward_agreement)} -> {destination}"
     )
+
+
+@app.command("segment-anchors")
+def segment_anchors_command(
+    terms: Annotated[
+        list[int],
+        typer.Option(
+            "--term",
+            help="A docket-number October Term to pool for (repeatable): the anchor "
+            "for a cell whose frozen `context.term` is this year pools the Terms "
+            "strictly before it.",
+        ),
+    ],
+    salience_version: Annotated[
+        str,
+        typer.Option(
+            "--salience-version",
+            help="The salience version the bands were frozen under (the pool is version-pinned).",
+        ),
+    ] = SALIENCE_VERSION,
+    statpack_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--statpack",
+            help="The statpack to read (default: <metrics_root>/statpack.json).",
+        ),
+    ] = None,
+) -> None:
+    """Print the exact pooled per-band segment base rates behind cert-cell skill.
+
+    A cert cell's skill is computed against the ``segment_base_rate`` its
+    evaluator recorded, pooled off the rendered statpack table, so a recorded
+    rate can sit up to about 0.0005 from the exact pool printed here.
+
+    Reads only the committed ``metrics/statpack.json`` (no corpus) and pools
+    each band through the scorer's own pooler,
+    :func:`fedcourtsai.pipeline.base_rates._pooled_band_rate`, under
+    ``salience.base_rate_lookback_terms``: for each ``--term`` the Terms
+    strictly before it and inside the window. ``risk_set`` is the rate a cell
+    with a frozen band is scored against (``base_rate_basis: risk_set``);
+    ``terminal`` is the fallback a cell with no frozen band takes. The anchor
+    is keyed on the **docket-number** Term, so a petition docketed in OT2025
+    and decided in OT2026 pools Terms before 2025, not before 2026. Each band
+    carries the weighted resolved denominator it pools, and each docket Term
+    lists the pack Terms inside its window that contributed a resolved slice
+    under the pinned version, so a shortened window is visible. JSON on stdout, a human
+    table on stderr. Exit 1 if the statpack is unreadable.
+    """
+    settings = get_settings()
+    source = statpack_path or settings.metrics_root / "statpack.json"
+    statpack = _read_best_effort(source, StatPack)
+    if statpack is None:
+        typer.echo(f"segment-anchors: no readable statpack at {source}", err=True)
+        raise typer.Exit(code=1)
+    lookback = load_salience_config(settings.config_root).base_rate_lookback_terms
+    anchors: list[dict[str, Any]] = []
+    for term in sorted(set(terms)):
+        oldest = term - lookback if lookback > 0 else None
+        pooled_terms: list[int] = []
+        risk_n: dict[str, int] = {}
+        terminal_n: dict[str, int] = {}
+        for entry in sorted(statpack.terms, key=lambda e: e.term, reverse=True):
+            if entry.term >= term or (oldest is not None and entry.term < oldest):
+                continue
+            segments = _version_segments(entry, salience_version)
+            if segments is None:
+                continue
+            contributed = False
+            for seg in segments:
+                risk_n.setdefault(seg.band, 0)
+                terminal_n.setdefault(seg.band, 0)
+                if seg.prefix_est_grant_rate is not None:
+                    risk_n[seg.band] += seg.prefix_weighted_resolved
+                    contributed = contributed or seg.prefix_weighted_resolved > 0
+                if seg.est_grant_rate is not None:
+                    terminal_n[seg.band] += seg.weighted_resolved
+                    contributed = contributed or seg.weighted_resolved > 0
+            if contributed:
+                pooled_terms.append(entry.term)
+        bands = {
+            band: {
+                basis: _pooled_band_rate(
+                    band,
+                    salience_version,
+                    term,
+                    statpack,
+                    lookback_terms=lookback,
+                    risk_set=basis == "risk_set",
+                )
+                for basis in ("risk_set", "terminal")
+            }
+            | {
+                "risk_set_weighted_resolved": risk_n[band],
+                "terminal_weighted_resolved": terminal_n[band],
+            }
+            for band in risk_n
+        }
+        anchors.append({"docket_term": term, "pooled_terms": sorted(pooled_terms), "bands": bands})
+        span = (
+            f"OT{min(pooled_terms)}-OT{max(pooled_terms)}, {len(pooled_terms)} Term(s)"
+            if pooled_terms
+            else "no Terms"
+        )
+        typer.echo(
+            f"docket Term {term} ({salience_version}, lookback {lookback}; pools {span}):",
+            err=True,
+        )
+        for band, figures in bands.items():
+            typer.echo(
+                f"  {band:<9} risk_set {_percent_or_dash(figures['risk_set'])} "
+                f"(n={figures['risk_set_weighted_resolved']})  "
+                f"terminal {_percent_or_dash(figures['terminal'])} "
+                f"(n={figures['terminal_weighted_resolved']})",
+                err=True,
+            )
+    typer.echo(
+        json.dumps(
+            {
+                "statpack": str(source),
+                "salience_version": salience_version,
+                "base_rate_lookback_terms": lookback,
+                "anchors": anchors,
+            },
+            indent=2,
+        )
+    )
+
+
+def _percent_or_dash(rate: float | int | None) -> str:
+    """A rate as a two-decimal percentage, or an em dash where there is none."""
+    return "—" if rate is None else f"{rate:.2%}"
 
 
 @app.command("export")
@@ -13655,6 +13793,24 @@ def conference_set(
         Path | None,
         typer.Option(help="Also write the machine JSON (per-petition rows) here."),
     ] = None,
+    counted: Annotated[
+        bool,
+        typer.Option(
+            "--counted",
+            help="Instead, cut the counted (frozen-scope) events by the conference each "
+            "counted cell was distributed for at its cut: a CountedConferenceCut on "
+            "stdout, per-conference and per-band totals on stderr.",
+        ),
+    ] = False,
+    registered_at: Annotated[
+        str,
+        typer.Option(
+            "--registered-at",
+            help="With --counted: the ISO registration day. Each event also carries the "
+            "registered rule's reconstructed membership as at that day, and a registered "
+            "event with no counted cell is listed too.",
+        ),
+    ] = "",
 ) -> None:
     """The pending-before-conference set: the live cert watchlist, by conference.
 
@@ -13662,9 +13818,26 @@ def conference_set(
     carry a "DISTRIBUTED for Conference of …" membership, grouped by conference
     date — the set predictions fire ahead of and score against days later. The
     September long-conference set is this report's largest date bucket.
+
+    With ``--counted`` it answers the release question instead: which counted
+    events were distributed for which conference when their cells were made.
+    The ledger supplies the population, band, predictors and resolution; the
+    conference is reconstructed from the corpus as at each counted cell's cut
+    (``fedcourtsai.cohort_cut``), because the current column moves on relist.
     """
     settings = get_settings()
     db = corpus.corpus_db_path(settings.corpus_root)
+    if counted:
+        try:
+            registration_day = date.fromisoformat(registered_at) if registered_at else None
+        except ValueError:
+            typer.echo(f"--registered-at {registered_at!r} is not an ISO date", err=True)
+            raise typer.Exit(code=2) from None
+        _conference_set_counted(settings, db, out, registration_day)
+        return
+    if registered_at:
+        typer.echo("--registered-at applies only with --counted", err=True)
+        raise typer.Exit(code=2)
     if not db.exists():
         typer.echo(f"no corpus at {db}", err=True)
         raise typer.Exit(code=2)
@@ -13697,6 +13870,66 @@ def conference_set(
                 for row in rows
             ],
         )
+
+
+def _conference_set_counted(
+    settings: Settings, db: Path, out: Path | None, registered_at: date | None
+) -> None:
+    """``conference-set --counted``: the counted cohort cut by conference at its cut."""
+    backend = settings.corpus_backend
+    if backend == "local" and not db.exists():
+        typer.echo(
+            f"no corpus at {db}; `fedcourts corpus-pull` it — the conference is read from it",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    corpus_sha = _census_corpus_sha(settings, db)
+    with corpus.connect_readonly(db, backend=backend) as conn:
+        cut = counted_by_conference(
+            settings.data_root,
+            conn,
+            vintage=corpus_vintage(conn, backend),
+            corpus_sha256=corpus_sha,
+            registered_at=registered_at,
+        )
+    vintage = cut.corpus
+    typer.echo(
+        f"counted events by conference at their cut — corpus {backend}, newest pull "
+        f"{vintage.latest_pull or '-'}, newest stored snapshot {vintage.latest_snapshot or '-'}"
+        + (f", registered as at {registered_at}" if registered_at else ""),
+        err=True,
+    )
+    by_group: dict[tuple[bool | None, str], list[CountedConferenceTotal]] = {}
+    for total in cut.totals:
+        by_group.setdefault((total.registered, total.conference), []).append(total)
+    for (registered, conference), totals in by_group.items():
+        label = {True: "registered", False: "not registered", None: "counted"}[registered]
+        events = sum(t.events for t in totals)
+        typer.echo(
+            f"{label}, conference {conference}: {events} event(s) — "
+            f"{sum(t.scored for t in totals)} scored, "
+            f"{sum(t.resolved_unscored for t in totals)} resolved unscored, "
+            f"{sum(t.pending for t in totals)} pending, "
+            f"{sum(t.unforecast for t in totals)} unforecast",
+            err=True,
+        )
+        for t in totals:
+            typer.echo(
+                f"  {t.stage or '-'}@{t.moment or '-'} {t.band or 'mixed/none'}: {t.events} "
+                f"({t.scored} scored, {t.resolved_unscored} resolved unscored, "
+                f"{t.pending} pending, {t.unforecast} unforecast)",
+                err=True,
+            )
+    if cut.conference_fallbacks:
+        typer.echo(
+            f"{cut.conference_fallbacks} conference reading(s) fell back to the current "
+            "column — no live payload was readable — and that column moves on relist: "
+            "these conferences are not reconstructions",
+            err=True,
+        )
+    if out is not None:
+        write_raw_json(out, cut.model_dump(mode="json"))
+    typer.echo(cut.model_dump_json())
 
 
 @app.command("live-frontier")

@@ -8171,6 +8171,145 @@ class CaptionCensus(_Strict):
     pooled: list[CaptionCensusClass] = Field(default_factory=list)
 
 
+class CountedConferenceCell(_Strict):
+    """One counted cell in the conference cut: the conference as at its cut."""
+
+    predictor_id: str = Field(description="The predictor whose staged cell this is")
+    run_id: str = Field(description="The staged run: the newest run, the one graded")
+    process_digest: str | None = Field(description="The frozen process digest it was stamped under")
+    bound: date | None = Field(
+        description="The exclusive day bound of what the provisioned snapshot could show: "
+        "the moment's `cutoff` where provisioning fixed one, else the day after "
+        "`snapshot_date`. Null where the prediction carries no context"
+    )
+    band: str | None = Field(description="The salience band frozen on the cell's context")
+    salience_version: str | None = Field(description="The scorer version that assigned `band`")
+    conference: date | None = Field(
+        description="The conference the petition was distributed for as at `bound` — the "
+        "last DISTRIBUTED entry filed strictly before it — or, where "
+        "`conference_source` is 'current', the corpus column as it stands now. Null "
+        "where neither shows a distribution"
+    )
+    conference_source: Literal["asof", "current"] = Field(
+        description="'asof' when reconstructed from the case's latest live payload at "
+        "`bound`; 'current' when that could not be done — no live payload was "
+        "readable, or the cell carries no context to bound it — and the current "
+        "`distributed_for_conference` column stands in. The current column moves on "
+        "relist and reschedule, so a 'current' value may postdate the cell"
+    )
+
+
+class CountedConferenceEvent(_Strict):
+    """One counted event: its conference at the cut, band, predictors and resolution."""
+
+    case_id: str
+    docket_number: str | None = Field(description="From the corpus; null if absent")
+    event_id: str
+    caption: str | None = Field(description="The event's title")
+    stage: str | None = Field(description="The normalized decision stage")
+    moment: str | None = Field(description="The normalized forecast moment")
+    conference: str = Field(
+        description="The grouping key: the ISO conference date every counted cell was "
+        "cut at; 'mixed' where the cells disagree (one provisioned before a relist, "
+        "another after); 'none' where no cell shows a distribution"
+    )
+    current_conference: date | None = Field(
+        description="The corpus `distributed_for_conference` as it stands now, for "
+        "comparison: it moves on relist, which is why it is not the grouping key"
+    )
+    payload_date: date | None = Field(
+        description="The date of the live payload both conferences were reconstructed "
+        "from. A reconstruction can see no entry filed after it, so a payload older "
+        "than a bound is a per-case freshness limit the corpus-wide vintage hides"
+    )
+    band: str | None = Field(
+        description="The band every counted cell froze; null where they differ"
+    )
+    bands: list[str] = Field(description="Every distinct band the counted cells froze")
+    predictors: list[str] = Field(
+        description="Predictors with a counted cell: the run a counted grading names, "
+        "else the staged (newest) run when it carries a frozen process. Empty only on "
+        "a registered event with no counted cell"
+    )
+    scored_predictors: list[str] = Field(
+        description="The subset with at least one counted grading, from the same "
+        "`stratify` pass the leaderboard aggregates"
+    )
+    reowed: bool = Field(
+        description="Whether a retired or unstamped cell predates the earliest counted "
+        "cell: a re-forecast of an earlier round's event rather than one the frozen "
+        "process forecast first. Not the registered-membership test; `registered` is"
+    )
+    registered: bool | None = Field(
+        description="The registered rule's membership as at `registered_at`, "
+        "reconstructed: a re-predict moment, a retired cell whose harness clock falls "
+        "on or before that day, no outcome before it, and — at the distribution "
+        "moment — `conference_at_registration` on or after it. Null without "
+        "`--registered-at`. Fixed at registration, so a later reschedule never "
+        "removes an event"
+    )
+    conference_at_registration: date | None = Field(
+        description="The conference the petition was distributed for as at "
+        "`registered_at` (entries filed strictly before it); null without "
+        "`--registered-at` or where none was shown"
+    )
+    resolved: bool = Field(description="Whether the event has a committed outcome")
+    resolved_at: date | None = Field(description="The outcome's resolution date")
+    actual_disposition: str | None = Field(description="The outcome's disposition")
+    status: Literal["scored", "resolved_unscored", "pending", "unforecast"] = Field(
+        description="'unforecast' when the event has no counted cell at all — a "
+        "registered event no engine produced a counted forecast for, attrition rather "
+        "than a forecast; otherwise 'scored' when resolved and every counted predictor "
+        "has a counted grading, 'resolved_unscored' when resolved with a grading not "
+        "yet landed or excluded, and 'pending' with no committed outcome"
+    )
+    cells: list[CountedConferenceCell] = Field(description="The counted cells, by predictor")
+
+
+class CountedConferenceTotal(_Strict):
+    """Events in one (registered, conference, stage, moment, band) cell of the cut."""
+
+    registered: bool | None = Field(description="As on the events")
+    conference: str = Field(description="The grouping key, as on the events")
+    stage: str | None
+    moment: str | None
+    band: str | None = Field(description="Null groups the events whose cells froze no single band")
+    events: int = Field(ge=0, description="scored + resolved_unscored + pending + unforecast")
+    scored: int = Field(ge=0)
+    resolved_unscored: int = Field(ge=0)
+    pending: int = Field(ge=0)
+    unforecast: int = Field(ge=0)
+
+
+class CountedConferenceCut(_Strict):
+    """``conference-set --counted`` result: the counted events by conference at their cut.
+
+    The frozen-scope counted population joined to the conference each counted
+    cell's provisioned snapshot showed and, with ``--registered-at``, the
+    registered rule's reconstructed membership. Read against the corpus vintage
+    it names, since both reconstructions read the corpus's latest live payloads.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    corpus: ExportCorpusVintage = Field(
+        description="The blob's freshness, as `corpus-info` reads it"
+    )
+    corpus_sha256: str = Field(description="sha256 of the corpus database the cut ran over")
+    registered_at: date | None = Field(
+        description="The registration day `registered` is reconstructed at; null without "
+        "`--registered-at`"
+    )
+    conference_fallbacks: int = Field(
+        ge=0,
+        description="Conference readings that fell back to the current column, cells and "
+        "registration readings together — every event's registration reading counts, "
+        "whatever its moment, so the count is strict. Nonzero means the cut's "
+        "conferences are not all reconstructions and no figure is quoted from it",
+    )
+    events: list[CountedConferenceEvent] = Field(default_factory=list)
+    totals: list[CountedConferenceTotal] = Field(default_factory=list)
+
+
 class PartySideCell(_Strict):
     """How many frame rows put a sovereign class on which side of the caption."""
 

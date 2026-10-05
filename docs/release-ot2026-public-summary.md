@@ -17,7 +17,7 @@ write-up, and the same rule holds: **no placeholder is ever replaced by an
 estimate**, and the page is not publishable while
 
 ```bash
-grep -n "$(printf '‹')" docs/release-ot2026-public-summary.md
+grep -n "$(printf '\u2039')" docs/release-ot2026-public-summary.md
 ```
 
 returns anything — written with an escape, as in the audit write-up, so that it
@@ -36,24 +36,27 @@ met, so anyone can check that it came first. This is the first scored result.
 
 ### What was predicted, and when
 
-- **Cases forecast:** 110 petitions pending at the 2026-09-28 conference, plus
-  10 where the Court had asked for the Solicitor General's views — the cohort
-  registered before any outcome existed (section 5 of the audit write-up). Of
-  those, ‹n resolved and scored, per arm, from section 5's graded side› had been
-  decided and scored when this page was written.
+- **Cases forecast:** 110 petitions distributed for the 2026-09-28 conference
+  when the cohort was registered, plus 10 where the Court had asked for the
+  Solicitor General's views — the cohort registered before any outcome existed
+  (section 5 of the audit write-up). Of those, ‹n scored on each of the two cert
+  arms, distribution and Solicitor General views, copied from section 5's
+  reconciliation› had been decided and scored when this page was written.
 - **Models:** ‹predictor ids and the resolved model each ran, from the export's
   predictions table›, each run the same way, under the same instructions and
   with the same case materials.
 - **Last forecast in the ledger:** ‹the latest merge into `main` of a counted
-  prediction: the export locates its commit, and the time is that pull
-  request's merge time as GitHub recorded it›. **The Court acted:** ‹order list
-  date(s)›.
+  cohort forecast: the export locates its commit, and the time is that pull
+  request's merge time as GitHub recorded it — the first and second commands
+  under *Where the timing and links come from* below›. **The Court acted:**
+  ‹order list date(s): the third command below›.
 - **Check it yourself:** every forecast is a file in the public repo. The proof
   of timing is the time GitHub recorded when the forecast's pull request merged
   into `main`, and the `prereg/proc-v8` tag that fixed the rules beforehand;
   a commit's own date is set by whoever made it and proves nothing.
-  ‹one-line recipe: a link to an example forecast's merged pull request, beside
-  the order list›.
+  ‹one-line recipe: a link to an example forecast's merged pull request — the
+  second command below, run on any cohort row's `ledger_commit` — beside the
+  order list›.
 
 These were not all the petitions at the conference. The set was chosen by a
 pre-registered ranking that favours petitions showing signs of the Court's
@@ -156,8 +159,14 @@ and each model's forecast:
 | --- | --- | --- | --- | --- | --- |
 | ‹caption› | ‹arm, band› | ‹action› | ‹p› | ‹p› | ‹p› |
 
-**Still pending:** ‹n, from section 5's reconciliation› petitions were relisted
-or held and are not scored yet. They will be scored when the Court acts.
+**Still pending:** ‹n on the distribution arm, copied from section 5's
+reconciliation› petitions were relisted, held or rescheduled, and ‹n on the
+Solicitor General arm, from the same place› petitions where the Court had asked
+for the Solicitor General's views have not yet been acted on; none of them is
+scored yet. They will be scored when the Court
+acts. ‹if section 5 reports any on the cert arms: n petitions the Court has
+acted on whose forecasts are not yet graded, and n the cohort registered that
+no model forecast, each named as such›
 
 ‹optional: two or three sentences on one instructive call, drawn from the
 model's committed reasoning file and quoted from it, not paraphrased into
@@ -184,11 +193,58 @@ something stronger›
 - Full audit write-up, with every denominator:
   [docs/release-ot2026-long-conference.md at `results/ot2026-longconf`](https://github.com/ModelMirrorAI/fedcourtsai/blob/results/ot2026-longconf/docs/release-ot2026-long-conference.md)
 - The ledger: [fedcourts.ai/ledger](https://fedcourts.ai/ledger/)
-- The exact data behind this page: ‹the dataset record's reserved DOI link› ·
+- The exact data behind this page: ‹the dataset record's reserved DOI link —
+  a manual step: the DOI Zenodo shows on the draft deposit reserved in section
+  8, step 3 of the audit write-up› ·
   the code that produced it: tag `results/ot2026-longconf`, in
   [10.5281/zenodo.22966596](https://doi.org/10.5281/zenodo.22966596)
 
 ---
+
+## Where the timing and links come from
+
+The merge time, the example link and the order-list date have no figure in the
+audit write-up to copy, so each comes from the fill export (section 8, step 2 of
+the audit write-up), with the cohort's rows picked out by the cohort cut section
+5 reads. Run the cut from the same checkout and corpus the fill export was built
+from, with the content store wired, so its run ids are the export's and its
+`conference_fallbacks` reads 0:
+
+```bash
+# 0. The cohort's counted forecasts: the cut's registered cert events
+#    (distribution and Solicitor General views), each predictor's counted run.
+uv run fedcourts conference-set --counted --registered-at 2026-09-15 > cut.json
+jq '.conference_fallbacks' cut.json   # must be 0
+jq -r '.events[] | select(.registered and .stage == "cert") | .case_id as $c
+  | .event_id as $e | .cells[] | [$c, $e, .predictor_id, .run_id] | @tsv' \
+  cut.json > cohort.tsv
+# 1. The latest landing commit among them.
+python3 -c 'import csv, sys
+cohort = {tuple(line.rstrip("\n").split("\t")) for line in open(sys.argv[2])}
+rows = [r for r in csv.DictReader(open(sys.argv[1]))
+        if (r["case_id"], r["event_id"], r["predictor_id"], r["run_id"]) in cohort]
+last = max(rows, key=lambda r: r["ledger_committed_at"])
+print(len(rows), last["ledger_commit"], last["case_id"], last["event_id"])' \
+  <fill-dir>/predictions.csv cohort.tsv
+# 2. The pull request that landed it on main, with GitHub's merge time and link.
+gh api repos/ModelMirrorAI/fedcourtsai/commits/<ledger_commit>/pulls \
+  --jq '.[] | select(.base.ref == "main") | [.number, .merged_at, .html_url] | @tsv'
+# 3. The order-list date(s): the export's resolution dates over the same rows.
+python3 -c 'import collections, csv, sys
+cohort = {tuple(line.rstrip("\n").split("\t")) for line in open(sys.argv[2])}
+dates = {(r["case_id"], r["event_id"]): r["resolved_at"]
+         for r in csv.DictReader(open(sys.argv[1]))
+         if (r["case_id"], r["event_id"], r["predictor_id"], r["run_id"]) in cohort
+         and r["resolved_at"]}
+print(sorted(collections.Counter(dates.values()).items()))' \
+  <fill-dir>/predictions.csv cohort.tsv
+```
+
+Step 1 prints how many rows it matched, which is three per cohort event with a
+full grid, and reads `ledger_committed_at` only to pick the row; the time quoted
+is step 2's `merged_at`, under the timing rule below. Step 3's dates are the
+outcomes' own `resolved_at`, as the export carries them; the order list itself
+is the Court's page for that date, which a reader checks by hand.
 
 ## Rules for filling this in
 

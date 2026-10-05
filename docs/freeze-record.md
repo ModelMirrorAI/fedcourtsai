@@ -6277,8 +6277,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-10-03` (merge commit
+  `41d003e28`, merged `2026-10-03T19:08:50Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py tests/test_snapshot_scrub.py -k
@@ -6397,8 +6397,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-10-03` (merge commit
+  `41d003e28`, merged `2026-10-03T19:08:50Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py tests/test_snapshot_scrub.py -k
@@ -6530,8 +6530,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-10-03` (merge commit
+  `41d003e28`, merged `2026-10-03T19:08:50Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py tests/test_document_backfill.py
@@ -6631,8 +6631,8 @@ freeze commit is recorded here.
   and on one with a `draw` it is the target size the walk fills, so the two
   reports' `limit`s are not differenced.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+  Carried to `main` by `promotion/2026-10-03` (merge commit
+  `41d003e28`, merged `2026-10-03T19:08:50Z`).
 
   The runnable effect check once it is live, deterministic rather than read
   off one fortnight's floor (at ten petitions a correct draw lands at or below
@@ -6649,3 +6649,84 @@ freeze commit is recorded here.
   read against the replayable population's, as a description and not a
   pass/fail test. `uv run fedcourts process-digest --all` still prints
   `proc-v8` and the same six digests.
+- **The long-conference cohort's skill anchor is the OT2017–OT2024 pool, not
+  the figures quoted beside its registration; recorded 2026-10-03.** A
+  **correction** entry. It moves no rule, no value any grading carries and no
+  digest. It corrects the numbers two earlier entries printed beside an
+  unchanged definition. Both entries stand as landed:
+  - the 2026-09-15 entry's anchor bullet ("*The predict backlog re-owes a cell
+    on a still-forward event whose whole cohort a re-bless retired*", under
+    *The reading rules that follow, registered now*);
+  - the 2026-09-24 entry's "*The registered band rates are the skill anchor
+    only*" bullet ("*The long-conference cohort's per-band reading is
+    registered against a realized floor*").
+
+  **The definition, unchanged.** A cert cell's skill anchor is the risk-set
+  (`reached`) band rate, version-pinned, pooled over the statpack Terms
+  strictly before the scored prediction's frozen `context.term`, inside
+  `salience.base_rate_lookback_terms`. That Term is the **docket-number**
+  Term. The code implements exactly this rule
+  (`pipeline/base_rates.py` `prediction_base_rate`), and so do the predict and
+  evaluate prompts and the statpack's own footnote.
+
+  **What was wrong.** Both entries printed 5.02% baseline / 16.89% elevated /
+  35.51% high / 70.79% federal / 23.63% state. That is the pool for an
+  **OT2026** docket (OT2017–OT2025). The long-conference cohort was
+  overwhelmingly docketed in OT2025: about 108 of the 110 cert/distribution
+  events and all 10 CVSG events froze `context.term` 2025. Under the rule
+  above, those cells are anchored on the **OT2017–OT2024** pool: 5.121%
+  baseline, 17.224% elevated, 34.967% high, 72.928% federal and 22.704% state.
+  The pack starts at OT2017, so the ten-Term lookback reaches eight Terms
+  there. The OT2026-docket figures stay correct for a cell that froze
+  `context.term` 2026, and only for one. They also move with each statpack
+  build while OT2025 resolves.
+
+  **Corrected band-mix figures.** On the cohort's registered mix (70 baseline
+  / 37 elevated / 1 high / 1 federal / 1 state, with 10 CVSG high), taking the
+  OT2025-docket rates for every event, the band-mix implied grant rate is:
+
+  | Population | Corrected | Replaces |
+  | --- | --- | --- |
+  | 110 cert/distribution events | 10.24% | 10.05% (~10.1%) |
+  | 120 cert-stage events | 12.30% | ~12.2% |
+  | Selected subset (n = 39) | 18.18% | ~17.8% |
+  | Declined remainder (n = 71) | 5.88% | ~5.8% |
+
+  The two OT2026 dockets among the 110 move the 110-event figure by under a
+  hundredth of a point. The 2026-09-15 entry's comparison rates, 8.30% for the
+  in-scope conference and 6.67% for the distributed set, rest on the same
+  OT2026-docket basis. Re-read on the OT2025-docket rates, the in-scope 180
+  (138 baseline / 37 elevated / 1 high / 1 federal / 3 state) is 8.44%, so the
+  cohort stays about 1.2x the in-scope conference. The entry does not give
+  the distributed set's full band mix, so its figure is re-read at release
+  rather than corrected here. The complements of the rates move with them,
+  and no reading uses them as floors.
+
+  **What did not move.** No grading, rule, prompt or digest. The board scores
+  each cert cell against the `segment_base_rate` its grading records, never
+  against a quoted constant. Nothing in code, prompts or config carries the
+  OT2026-docket figures. All 9 frozen `risk_set` cert gradings on `main` at
+  this entry's writing sit within 6e-4 of the docket-Term pool for their
+  scored prediction's Term and band. Those are the 3 judges × 3 predictors on
+  `scotus/73281619`, elevated, `context.term` 2025, recording 0.172242,
+  0.1722 and 0.172379. The last is the same pool taken over the statpack
+  table's rounded rows. So no re-grade is owed, and `uv run fedcourts
+  process-digest --all` prints `proc-v8` and the same six digests on either
+  side.
+
+  **The reading rule.** A per-band anchor quoted for this cohort names its
+  docket Term and its statpack build, and is read off `uv run fedcourts
+  segment-anchors --term 2025 --term 2026`. That command pools the committed
+  pack through the scorer's own pooler and prints each band's rate with its
+  weighted `n` and the Terms it pooled. A band row that mixes docket Terms
+  states its count per docket Term.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge timestamp>`).
+
+  The runnable effect check once it is live: `uv run fedcourts segment-anchors
+  --term 2025 --term 2026` on `main` prints, for docket Term 2025, pools
+  OT2017–OT2024 with elevated `risk_set` 17.22% (n=2810), and for docket Term
+  2026, pools OT2017–OT2025 with elevated 16.89% (n=3085), while
+  `metrics/statpack.json` is the build this entry read (unchanged from
+  `808f812e9`). A later build moves both rows, and they are re-read from it.
