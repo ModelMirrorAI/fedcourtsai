@@ -197,7 +197,13 @@ def _registered(
     outcome: Outcome | None,
     at_registration: date | None,
 ) -> bool:
-    """The registered rule's membership as at ``registered_at``, reconstructed."""
+    """The registered rule's membership as at ``registered_at``, reconstructed.
+
+    Which cells are de-counted is read against today's window registry, not
+    the registry as it stood on ``registered_at``: for a day before the first
+    window opened every cell is de-counted either way, and for a later day a
+    revocation since then counts as already in force.
+    """
     return bool(
         decounted_by_registration
         and stage is not None
@@ -259,6 +265,8 @@ def counted_by_conference(
         # the earlier window it stood behind, whose revoked sibling is already
         # here and older, so both event-level reads below (any by the
         # registration day, any before the earliest counted cell) are the same.
+        # "Older" rests on one predictor's windows never overlapping in time:
+        # a revoked window is closed, and it closes at its successor's opening.
         decounted = [
             prediction
             for path in sorted(event_paths.predictions_dir.glob("*/*/prediction.json"))

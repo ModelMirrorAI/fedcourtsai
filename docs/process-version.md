@@ -693,8 +693,12 @@ predictor's windows they refuse the ledger the moment one predictor's
 in-scope cells span two; the big-case agreement and the tool-usage
 usefulness block (keyed on the engine) do the same. A successor landed before
 those surfaces break out by window would stop every frozen-scope board from
-building, so a test fails the suite while any window carries a `closes` —
-removed in the change that builds per-window strata. The evaluator-agreement
+building, so a test fails the suite while any window carries a `closes`. A
+bless that adds a window for a new predictor id closes nothing, yet ranks an
+engine whose window opened later beside the earlier ones over a different span
+of events — the selected-population comparison this section rules out — so a
+second test fails the suite while any window opens after the earliest. Both
+are removed in the change that builds per-window strata. The evaluator-agreement
 view is keyed on the evaluator and pools the predictors' windows by design,
 since it compares graders rather than forecasters; a figure over it states
 the windows its cells span.

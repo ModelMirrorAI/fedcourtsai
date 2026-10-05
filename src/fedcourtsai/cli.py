@@ -415,6 +415,7 @@ from .store import (
     ledger_cell_counts,
     load_predicted_event,
     open_events,
+    prediction_counts,
     resolved_events,
     scored_prediction,
     stratify,
@@ -7827,11 +7828,12 @@ def _echo_frozen_scope(records: Sequence[tuple[Path, Evaluation]]) -> None:
             continue
         # evaluations/<evaluator>/<predictor>/<run>/evaluation.json
         scored = scored_prediction(path.parents[4], record.predictor_id, record.prediction_run_id)
-        # The prediction's own counting (a revoked window's cell is alpha) and
-        # the grading's timing against that prediction's window.
+        # The prediction's own counting on its event (a revoked window's cell,
+        # or a later window's behind a counted one, is alpha) and the
+        # grading's timing against that prediction's window.
         graded = (
             scored is not None
-            and process_version.is_frozen(scored.process_version)
+            and prediction_counts(path.parents[4], record.predictor_id, scored)
             and process_version.graded_in_window(stamp, scored.process_version)
         )
         scope = "frozen" if graded else "alpha"

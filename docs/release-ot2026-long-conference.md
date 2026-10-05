@@ -76,7 +76,10 @@ digests in `FROZEN_PROCESS_DIGESTS` â€” three predictors and three evaluators â€
 with the counting instant `FROZEN_SINCE = 2026-09-16T00:26:04Z`. A cell counts
 only if its **prediction's** stamp carries a blessed digest with `stamped_at` at
 or after that instant, and the grading evaluation's own harness stamp is at or
-after it too. The write-up states the per-digest census of the conference
+after it too. In the code's terms that is `proc-v8`'s three open counting
+windows in `COUNTING_WINDOWS`, one per predictor digest, each opening at that
+instant; while they are the only windows, the two readings select the same
+cells. The write-up states the per-digest census of the conference
 cohort, not a stamped/unstamped split: an unstamped cell is shakedown by
 construction, and a stamped cell under a de-counted digest is shakedown as well.
 

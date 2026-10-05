@@ -318,6 +318,27 @@ def test_no_window_closes_until_the_boards_are_per_window() -> None:
     )
 
 
+def test_no_window_opens_after_the_earliest_until_the_boards_are_per_window() -> None:
+    """The same hold, for the bless that closes nothing.
+
+    A predictor-half bless that adds a window for a new predictor id leaves
+    every existing window open, so the close tripwire never fires and no
+    predictor spans two windows — yet the boards would rank an engine whose
+    window opened later beside the earlier ones, over a different span of
+    events. Every window opening at one instant is also what keeps the event
+    half of the counting rule a no-op on the live registry. Remove this test in
+    the same change that builds per-window strata.
+    """
+    windows = process_version.COUNTING_WINDOWS
+    earliest = min((w.opens for w in windows), default=None)
+    later = [w for w in windows if w.opens != earliest]
+    assert not later, (
+        "a counting window opens after the earliest before the aggregate boards key "
+        "on (predictor, window) — build per-window strata first (docs/process-version.md, "
+        "the third supersession shape): " + process_version.describe_windows(later)
+    )
+
+
 def test_every_close_is_a_successors_opening_instant() -> None:
     """A window closes at the counting instant of the successor that stopped
     blessing it, so every ``closes`` is some window's ``opens``; and a revocation

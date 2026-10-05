@@ -448,3 +448,15 @@ def test_a_revoked_windows_cell_is_de_counted_and_its_successor_counts(
     # and the revoked window's earlier cell makes it a re-forecast.
     assert [(c.run_id, c.process_digest) for c in event.cells] == [("20260926T000000Z", _W2)]
     assert event.reowed is True
+
+
+def test_a_cell_stamped_before_its_predecessors_revocation_counts_nowhere(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A successor's cell stamped before the earlier window's revocation, with no
+    fresh forecast after it: no counted cell, so the event is listed only as a
+    registered one, through the revoked window's de-counted cell."""
+    ledger = _two_windows(tmp_path, monkeypatch, revoked_at=datetime(2026, 9, 28, tzinfo=UTC))
+    assert _cut(*ledger).events == []
+    (event,) = _cut(*ledger, registered_at=date(2026, 9, 20)).events
+    assert (event.registered, event.predictors, event.status) == (True, [], "unforecast")
