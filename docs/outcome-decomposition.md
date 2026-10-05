@@ -963,7 +963,7 @@ declared on it would settle that question by inertia.
 
 **What stays out, and why.** The merits vote and writing claims wait for a
 populated vote source:
-`Outcome.votes` is `[]` in every committed outcome — the merits outcome
+`Outcome.votes` is `[]` on every committed merits outcome — the merits outcome
 writer deliberately records none, because docket text discloses no
 provenance denominator — and no committed merits outcome carries
 authorship or separate writings yet (`Outcome.writing_roles` exists and the
@@ -1027,7 +1027,7 @@ pre-registered rule that keeps it there permanently.
 | merits | The ground the majority rests on | `majority-ground` (`semantic-v1`) | **Graded**, not scored. The machinery is live end to end; every unit masks until opinion bodies accrue, and the vantage caveat travels as prose |
 | merits | How broad that ground is | `ground-breadth` (`semantic-v1`) | The same, on a separate axis — never a conjunct of the row above |
 | merits | The ground stated coarsely (statutory vs constitutional, which provision) | **Rejected** | Fails test 2: the question presented already discloses it, so it is a level the snapshot hands the predictor rather than a forecast |
-| merits | The vote lineup and the split | Context-only, banked in `votes` | Pre-registered pending a populated vote source: `Outcome.votes` is empty on every committed outcome because docket text discloses no provenance denominator, and the registered opinions source is written only by the dispatched `opinion-votes` pass. Merits votes are banked and scored against complete records the day one is written; cert votes never are |
+| merits | The vote lineup and the split | Context-only, banked in `votes` | Pre-registered pending a populated vote source: `Outcome.votes` is empty on every committed merits outcome because docket text discloses no provenance denominator, and the registered opinions source is written only by the dispatched `opinion-votes` pass. Merits votes are banked and scored against complete records the day one is written; cert votes never are |
 | merits | Whether a separate writing splits the rationale from the result | Context-only; **mechanical** family the day a field records it | Existence is a countable docket fact, not a reader's judgment, so it belongs with a real baseline and a proper score rather than as prose graded by impression. `semantic-v1` holds no place for it |
 | merits | Which question presented the Court reaches and which it leaves | Context-only | The merits-side twin of the cert QP row, with the same framing gap |
 | merits | Authorship and the writing roles | Context-only | `Outcome.writing_roles` and `votes[].writing` hold them once the opinions writer stamps a merits outcome, and none is stamped yet; the prompt tells the cell not to present them as the scoreable part |

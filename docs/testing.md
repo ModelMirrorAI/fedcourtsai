@@ -658,17 +658,17 @@ That is what lets a change's read seams run against real infrastructure once it
 is on `staging` and before it is promoted — the capability the trigger path
 structurally cannot provide.
 
-What those staging-bound runs read is production's corpus today, and is meant
-to become the **staging corpus**: a lean slice of real cases in its own
-bucket/prefix pair, seeded by the dispatch-only `staging-corpus-refresh`
-workflow (`fedcourts corpus-seed-slice`), so orchestration and the read/write
-seams get live verification for runner minutes without anything gaining write
-access to production. The scenario lane does not read it yet — a consumer
-resolves the committed pointer, which names the production blob, unless the
-out-of-band pointer override names the staging one (*Developer access* in
-[data-pipeline.md](data-pipeline.md)), and the scenario jobs' environment
-supplies no override — so provisioning it, and the repointing that remains,
-are the staging corpus runbook in [security.md](security.md). Changed seams are therefore validated after the
+What those staging-bound runs read is the **staging corpus**: a lean slice of
+real cases in its own bucket/prefix pair, seeded by the dispatch-only
+`staging-corpus-refresh` workflow (`fedcourts corpus-seed-slice`), so
+orchestration and the read/write seams get live verification for runner
+minutes without anything gaining write access to production. The `staging`
+environment supplies the out-of-band pointer override (*Developer access* in
+[data-pipeline.md](data-pipeline.md)), so a scenario job resolves the staging
+blob rather than the committed production pointer; provisioning and refreshing
+the slice is the staging corpus runbook in [security.md](security.md). The
+scenarios' read budgets and pathology checks therefore run at slice scale,
+not production's. Changed seams are therefore validated after the
 merge to `staging` rather than on the PR branch; nothing broken reaches `main`
 regardless: the gate needs the twelve required integration runs — all eight
 required scenarios, with engine-smoke and engine-actions-smoke counted once per

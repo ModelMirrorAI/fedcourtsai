@@ -769,7 +769,10 @@ material**:
   name carries a title or honorific ("Professor", "Hon. … (Ret.)"), names
   several people jointly, or adds a comma-separated description (", APC") is
   read as self-represented where the attorney field is the person, or one of
-  the people, it names.
+  the people, it names. On every list, a served name that opens with an
+  "In re", "In the Matter of" or "Ex parte" caption is compared without it,
+  so a filer captioned "In re <name>" whose attorney field is that name reads
+  as self-represented.
   A consolidated member's merits filings read off its lead docket are staged
   and scrubbed on the member's own reading, since only the member's own side's
   filings are borrowed; a lead whose petitioner or respondent side reads as
