@@ -1,0 +1,13 @@
+case_id: scotus/9026000106
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-07-23'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: George Baldwin Hutchinson, Jr. v. 81st Readiness Division, Ft Jackson, South
+  Carolina, et al.

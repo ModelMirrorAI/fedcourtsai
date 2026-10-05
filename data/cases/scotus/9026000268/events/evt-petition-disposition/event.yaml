@@ -1,0 +1,12 @@
+case_id: scotus/9026000268
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-08-31'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Michael Brock, et al. v. City of Bellingham, Washington, et al.
