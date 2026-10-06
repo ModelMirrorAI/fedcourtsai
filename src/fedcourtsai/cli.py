@@ -335,6 +335,12 @@ from .registry import (
     load_predictors,
     resolve_mcp_servers,
 )
+from .release_sensitivity import (
+    GitBuildSource,
+    ReleaseSensitivityError,
+    release_sensitivity,
+    render_table,
+)
 from .required_checks import produced_contexts
 from .salience_replay import replay_gate
 from .schemas import (
@@ -5645,6 +5651,140 @@ def segment_anchors_command(
             indent=2,
         )
     )
+
+
+@app.command("release-sensitivity")
+def release_sensitivity_command(
+    registered_at: Annotated[
+        str,
+        typer.Option(
+            "--registered-at",
+            help="The ISO registration day of the release cohort (as `conference-set "
+            "--counted --registered-at`): adds the registered cohort's transcription "
+            "spread and each listed event's registered membership.",
+        ),
+    ] = "",
+    grant_list: Annotated[
+        str,
+        typer.Option(
+            "--grant-list",
+            help="The ISO day the considering conference's grant list issued: each "
+            "post-conference first forecast says whether its first forward cell ran after it.",
+        ),
+    ] = "",
+) -> None:
+    """Print the release's sensitivity lines beside the registered headline.
+
+    Read-only. Rebuilds the frozen board exactly as ``fedcourts leaderboard``
+    does (the same stratified cells, the same committed pack), prints its cert
+    arms' per-predictor and per-band figures as the **registered headline**, and
+    beside it three blocks, each varying one thing and never stacked:
+
+    1. ``exact_pool_anchor`` — population skill with each skill-scored cert
+       grading's baseline taken from the exact pool ``segment-anchors`` computes
+       for the scored prediction's (docket Term, band), read from the statpack
+       build at the grading's ``process_version.pipeline_sha`` rather than the
+       fill-time pack; plus the transcription spread (recorded vs exact) per
+       judge and per docket Term.
+    2. ``rule_20_excluded`` — accuracy and skill without the cases whose opening
+       petition entry, in the stored live snapshot, names a writ of mandamus,
+       prohibition or habeas corpus; the cases are listed.
+    3. ``post_conference_first_forecasts_excluded`` — every figure without the
+       cert distribution events whose first forward frozen-scope cell (harness
+       ``run_id``) ran on or after the day the conference that actually
+       considered the petition sat; the events are listed, and any board cell
+       whose scored run postdates its considering conference outside them is
+       named.
+
+    JSON on stdout, carrying the ledger commit, the corpus vintage (as
+    ``corpus-info`` reports it) and every statpack build read; a human table on
+    stderr. Run it from the fill export's checkout, with full history and the
+    content store wired. Exit 2 on an unreadable input.
+    """
+    settings = get_settings()
+    try:
+        registration_day = date.fromisoformat(registered_at) if registered_at else None
+        grant_list_day = date.fromisoformat(grant_list) if grant_list else None
+    except ValueError as exc:
+        typer.echo(f"release-sensitivity: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    db = corpus.corpus_db_path(settings.corpus_root)
+    backend = settings.corpus_backend
+    if backend == "local" and not db.exists():
+        typer.echo(f"release-sensitivity: no corpus at {db}; `fedcourts corpus-pull` it", err=True)
+        raise typer.Exit(code=2)
+    try:
+        source = git_source(settings.data_root)
+        builds = GitBuildSource(source.toplevel)
+        fill_build = builds.build_at(source.head)
+    except (ExportError, ReleaseSensitivityError) as exc:
+        typer.echo(f"release-sensitivity: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    run = stratify(settings.data_root, frozen_only=True)
+    statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
+    committed = _read_best_effort(settings.metrics_root / "leaderboard.json", Leaderboard)
+    corpus_sha = _census_corpus_sha(settings, db)
+    with corpus.connect_readonly(db, backend=backend) as conn:
+        vintage = corpus_vintage(conn, backend)
+        registered: set[tuple[str, str]] | None = None
+        fallbacks: int | None = None
+        if registration_day is not None:
+            cut = counted_by_conference(
+                settings.data_root,
+                conn,
+                vintage=vintage,
+                corpus_sha256=corpus_sha,
+                registered_at=registration_day,
+            )
+            registered = {(e.case_id, e.event_id) for e in cut.events if e.registered}
+            fallbacks = cut.conference_fallbacks
+        result = release_sensitivity(
+            run.cells,
+            settings.data_root,
+            statpack,
+            builds=builds,
+            payloads=lambda case_id: corpus.latest_live_snapshot(conn, case_id),
+            registered=registered,
+            grant_list=grant_list_day,
+            committed_board=committed,
+        )
+    output: dict[str, Any] = {
+        "ledger": {
+            "commit": source.head,
+            "dirty": source.dirty,
+            "on_main_first_parent": source.on_main_first_parent,
+        },
+        "corpus": vintage.model_dump(mode="json") | {"sha256": corpus_sha},
+        "fill_statpack": (
+            {"build_commit": fill_build.build_commit, "blob": fill_build.blob}
+            if fill_build is not None
+            else None
+        ),
+        "registered_at": registration_day.isoformat() if registration_day else None,
+        "conference_fallbacks": fallbacks,
+        **result,
+    }
+    typer.echo(
+        f"release-sensitivity: ledger {source.head[:12]}{' (dirty)' if source.dirty else ''}, "
+        f"corpus {backend} newest pull {vintage.latest_pull or '-'}, newest stored snapshot "
+        f"{vintage.latest_snapshot or '-'}",
+        err=True,
+    )
+    for line in render_table(result):
+        typer.echo(line, err=True)
+    if result["registered_headline"]["matches_committed_board"] is False:
+        typer.echo(
+            "release-sensitivity: the committed leaderboard.json is not this ledger's board — "
+            "refresh it before quoting any figure beside it",
+            err=True,
+        )
+    if fallbacks:
+        typer.echo(
+            f"release-sensitivity: {fallbacks} registered-membership reading(s) fell back to "
+            "the current conference column",
+            err=True,
+        )
+    typer.echo(json.dumps(output, indent=2))
 
 
 def _percent_or_dash(rate: float | int | None) -> str:

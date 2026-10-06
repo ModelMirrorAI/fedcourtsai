@@ -46,11 +46,26 @@ figure is the headline, every rank and claim is read off it alone, and the line
 shows how far that one departure would move it. Each line varies one thing
 against the registered figure; lines are never stacked into a second headline.
 Their placeholders name the **release sensitivity command**, a read-only
-analysis over the committed gradings, the statpack and the corpus that prints
-each sensitivity block beside the registered headline it varies, with the corpus
-vintage and the ledger commit it read. That command is not built yet. Until it
-is, its placeholders cannot be filled and the draft is not publishable. It is
-run from the same checkout and corpus as the fill export (section 8, step 2), so
+analysis over the committed gradings, the statpack builds and the corpus that
+prints each sensitivity block beside the registered headline it varies, with the
+corpus vintage, the ledger commit and every statpack build it read:
+
+```bash
+uv run fedcourts release-sensitivity --registered-at 2026-09-15 \
+  --grant-list 2026-10-01 > sensitivity.json
+jq '.ledger, .corpus, .fill_statpack, .conference_fallbacks' sensitivity.json
+jq '.registered_headline.matches_committed_board' sensitivity.json  # must be true
+```
+
+It rebuilds the frozen board exactly as `fedcourts leaderboard` does, so
+`registered_headline.figures` is the board's own cert arms, keyed
+`<stage>@<moment>` (`cert@distribution` is the ranked board, `cert@cvsg` the
+CVSG arm), and `matches_committed_board` says whether the committed
+`metrics/leaderboard.json` is that board. Each block under `.blocks` carries
+its figures in the same shape, each with its own `n`. It is run from the same
+checkout and corpus as the fill export (section 8, step 2), with full git
+history (the anchor block reads the statpack each grading's checkout carried)
+and the content store wired (the other two read the stored live snapshots), so
 its figures and the board's are read off one ledger.
 
 ## 1. The counted population
@@ -519,8 +534,13 @@ over the registered cohort's graded cert cells: the cell count, how many
 recorded the exact pool, the largest and the mean relative deviation of the
 recorded `segment_base_rate` from the exact pool of the statpack build the
 grading read, and how many cells deviate by more than 1% — re-measured over
-the full graded set at fill time, from the release sensitivity command (not
-yet built)›
+the full graded set at fill time, from `release-sensitivity`'s
+`.blocks.exact_pool_anchor.transcription_spread` — its
+`skill_scored_cert_cells` and `registered_cohort_graded_cert_cells`, each
+`by_judge` with `by_docket_term` inside, reading `cells`, `exact`,
+`max_relative_deviation`, `mean_relative_deviation` and `over_one_percent`,
+with the builds read in `.statpack_builds`; the cohort's `unanchored` list and
+the block's `recorded_retained` list must both be empty›
 
 **Sensitivity lines beside the headline.** Three sensitivity lines travel with
 the per-band figures above, each in the sentence that carries its registered
@@ -530,21 +550,23 @@ are disclosed with the cohort in section 5.
 ‹per predictor and per band, population skill recomputed with each cert
 grading's baseline taken from the exact pool of the statpack build it read
 instead of its recorded `segment_base_rate`, beside the registered `population_brier_skill_score` and
-over the same `skill_scored` cells — from the release sensitivity command (not
-yet built)›
+over the same `skill_scored` cells — from `release-sensitivity`'s
+`.blocks.exact_pool_anchor.figures`, beside `.registered_headline.figures`›
 
 ‹per predictor and per band, `event_accuracy`, `event_accuracy_lift` and
 population skill with the extraordinary-writ petitions section 5 names removed
 — every one on the board, in the cohort or not —
-each with its reduced `n`, beside the registered figures — from the release
-sensitivity command (not yet built)›
+each with its reduced `n`, beside the registered figures — from
+`release-sensitivity`'s `.blocks.rule_20_excluded.figures`, beside
+`.registered_headline.figures`›
 
 ‹per predictor and per band, every board-wide figure in this section —
 accuracy, floor, lift, skill, the grant comparison, `complete_grid_by_band`,
 and each engine's `events_scored` in *Comparing the engines* below —
 recomputed without the events section 5 names as first forecast after their
 conference, each with its reduced `n`, beside the registered figures — from
-the release sensitivity command (not yet built)›
+`release-sensitivity`'s `.blocks.post_conference_first_forecasts_excluded.figures`,
+beside `.registered_headline.figures`›
 
 ‹the whole-docket per-Term cert rate, quoted as context only and labelled as
 not this cohort's anchor — from `metrics/statpack.md`, *SCOTUS cert petitions
@@ -852,8 +874,13 @@ that conference, never the agent-written `created_at`; a cell run on the day
 the conference sat counts as after it. Because the board scores each
 predictor's newest cell rather than its first, the release sensitivity command
 also checks every board event whose *scored* cell, for any predictor, postdates
-its considering conference, and names any that falls outside the subset; it
-lists the subset itself.
+its considering conference, and names any that falls outside the subset
+(`scored_after_conference_outside_subset`); it lists the subset itself
+(`subset`). A docket entry reading "Rescheduled." or "Response Requested."
+filed between the distribution and the conference day is what takes a petition
+off it; where the stored payload predates the conference day, whether one was
+filed cannot be read, and the event is listed under `unreadable` rather than
+placed — that list is empty before the count is quoted.
 
 `fedcourts unlatch-overselected` is **not** the source for the overhang, and
 running it in the write-up window would mislead: its dry run scans **pending**
@@ -958,9 +985,11 @@ cut's registered per-band totals›
 
 ‹the cohort's extraordinary-writ petitions, each by docket number and case id
 with the band its cells froze, its outcome and each engine's forecast — from
-the cut's per-event rows, with the identification by opening entry from the
-release sensitivity command (not yet built); the two named above, and any
-further one it finds›
+the cut's per-event rows, with the identification by opening entry from
+`release-sensitivity`'s `.blocks.rule_20_excluded.identified` (each case's
+`opening_entry`, its events and whether each is `registered`), with
+`not_certiorari_not_rule_20` and `unclassified` both empty; the two named
+above, and any further one it finds›
 
 ‹the post-conference first forecasts, re-counted at fill time: how many board
 events, on which conference, how many resolved and how many graded, each named
@@ -968,9 +997,13 @@ by case id with its first forward cell's date and the conference that
 considered it; confirmation that none is registered; and confirmation that
 every one's first forward cell postdates the 2026-10-01 grant list, naming
 any that does not with its date and restating the paragraph above for it —
-from the release sensitivity command (not yet built), with the vintage it read;
-if none is graded, say that the section 3 lines without them are omitted
-because they would equal their headlines›
+from `release-sensitivity`'s `.blocks.post_conference_first_forecasts_excluded`
+(`events`, `by_conference`, `resolved`, `graded`, `registered`, each `subset`
+row's `first_forward_run_id` and `considering_conference`, and
+`not_after_grant_list`, which names any first cell not after the grant list),
+with the vintage it read (`.corpus`); if none is graded
+(`lines_equal_headline: true`), say that the section 3 lines without them are
+omitted because they would equal their headlines›
 
 ## 6. Scope rules: every number names its population
 
