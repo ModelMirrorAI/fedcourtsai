@@ -186,7 +186,7 @@ def fanout_order[A: _Actor](
     """
     seed = "\x00".join((_FANOUT_KEY_DOMAIN, run_id, case, event_id))
 
-    def key(actor: A) -> tuple[str, str]:
+    def key(actor: _Actor) -> tuple[str, str]:
         digest = hashlib.sha256(f"{seed}\x00{actor.id}".encode()).hexdigest()
         return (digest, actor.id)
 
