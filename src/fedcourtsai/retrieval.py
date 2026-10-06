@@ -87,7 +87,14 @@ from typing import Any
 
 from .schemas import RetrievalCall, RetrievalResultStatus, normalize_call
 from .secretscan import REDACTION_MARKER_PREFIX, redact_credentials
-from .usage import _gemini_attrs, _load_json, _load_json_objects, _newest_rollout
+from .usage import (
+    _find_gemini_token_events,
+    _gemini_attrs,
+    _last_codex_token_usage,
+    _load_json,
+    _load_json_objects,
+    _newest_rollout,
+)
 
 # The human-legible query slice kept (redacted; the rest is digested).
 #
@@ -940,3 +947,255 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
     # timestamp where present (stable for ties/absent stamps).
     calls.sort(key=lambda call: call.timestamp or "")
     return calls[:RETRIEVAL_CALL_CAP]
+
+
+# --- Engine-log shape check ------------------------------------------------
+#
+# The parsers above are tolerant by design — an unrecognized log yields no rows
+# and a cell must never fail on instrumentation — and that tolerance is exactly
+# what lets a format change pass unseen: an action or CLI bump that moves the
+# transcript's shape leaves every cell recording "no calls" and no usage, a gap
+# that reads like a quiet cell rather than a broken parse. This is the
+# opposite posture, for a caller that *wants* to fail: does the log still have
+# the structure the usage and tool-call parsers navigate? It is read by
+# ``record-retrieval --strict`` and never on a cell's own capture.
+#
+# Two kinds of finding, and only the first can fire on a log with no tool
+# calls. **Structural**: the log decodes, its records are objects, and the
+# path each parser walks — claude's assistant content blocks and terminal
+# ``result`` usage, codex's ``response_item`` stream and ``total_token_usage``,
+# gemini's token-bearing ``api_response`` records — is present at least once.
+# **Tool-shaped but unread**: a call-like item whose type the tool-call parser
+# does not take, so its rows would be dropped. That screen needs a tool call to
+# see one, so a no-tool probe exercises only the structural half.
+#
+# Every finding names types through :func:`_shape_token` and counts, never a
+# value, because the log carries whatever the agent and its tools wrote.
+
+# The claude content-block types the tool-call parser reads.
+_CLAUDE_TOOL_BLOCK_TYPES = ("tool_use", "tool_result")
+
+
+def engine_log_shape_problems(
+    *,
+    claude_execution_file: Path | None = None,
+    codex_sessions_dir: Path | None = None,
+    gemini_telemetry_file: Path | None = None,
+) -> list[str]:
+    """What, if anything, keeps the capture parsers from reading this engine log.
+
+    Takes the same single source ``record-retrieval`` does, first named wins,
+    and returns human-readable findings — empty when the log is in the shape
+    both the usage and the tool-call parsers read. Naming no source at all is
+    itself a finding: a strict caller with nothing to check has checked nothing.
+    """
+    if claude_execution_file is not None:
+        return _claude_shape_problems(claude_execution_file)
+    if codex_sessions_dir is not None:
+        return _codex_shape_problems(codex_sessions_dir)
+    if gemini_telemetry_file is not None:
+        return _gemini_shape_problems(gemini_telemetry_file)
+    return ["no engine log was named, so there is no shape to check"]
+
+
+def _sorted_tokens(values: set[str]) -> str:
+    return ", ".join(sorted(values))
+
+
+def _claude_shape_problems(execution_file: Path) -> list[str]:
+    doc = _load_json(execution_file)
+    if not isinstance(doc, list | dict):
+        return [
+            "the claude execution file is absent, unparseable, or neither a JSON array "
+            "nor an object"
+        ]
+    events: list[Any] = doc if isinstance(doc, list) else [doc]
+    problems: list[str] = []
+    untyped = sum(
+        1
+        for event in events
+        if not isinstance(event, dict) or not isinstance(event.get("type"), str)
+    )
+    if untyped:
+        problems.append(f"{untyped} claude event(s) are not objects carrying a string `type`")
+    walkable, flat = _claude_assistant_content_counts(events)
+    unread = _claude_unread_block_types(events)
+    if flat:
+        problems.append(f"{flat} claude assistant event(s) carry no content-block list")
+    if not walkable:
+        problems.append(
+            "no claude assistant event carries a content-block list, so the tool-call "
+            "walk finds nothing to read"
+        )
+    if unread:
+        problems.append(
+            f"claude content block type(s) the tool-call parser does not read: "
+            f"{_sorted_tokens(unread)}"
+        )
+    if not any(
+        isinstance(event, dict)
+        and event.get("type") == "result"
+        and isinstance(event.get("usage"), dict)
+        for event in events
+    ):
+        problems.append(
+            "no claude `result` event carries `usage`, so the usage parser falls back "
+            "to a non-cumulative block"
+        )
+    return problems
+
+
+def _claude_assistant_content_counts(events: list[Any]) -> tuple[int, int]:
+    """How many assistant events carry a content-block list, and how many do not."""
+    walkable = flat = 0
+    for event in events:
+        if not isinstance(event, dict) or event.get("type") != "assistant":
+            continue
+        message = event.get("message")
+        content = message.get("content") if isinstance(message, dict) else event.get("content")
+        if isinstance(content, list):
+            walkable += 1
+        else:
+            flat += 1
+    return walkable, flat
+
+
+def _claude_unread_block_types(events: list[Any]) -> set[str]:
+    """Tool-shaped content block types the tool-call parser does not take."""
+    unread: set[str] = set()
+    for event in events:
+        for block in _message_blocks(event):
+            kind = block.get("type")
+            if not isinstance(kind, str):
+                unread.add("<untyped>")
+            elif "tool" in kind and kind not in _CLAUDE_TOOL_BLOCK_TYPES:
+                unread.add(_shape_token(kind))
+    return unread
+
+
+def _codex_shape_problems(sessions_dir: Path) -> list[str]:
+    rollout = _newest_rollout(sessions_dir)
+    if rollout is None:
+        return ["no codex rollout-*.jsonl under the sessions directory"]
+    undecodable = _undecodable_line_count(rollout)
+    if undecodable is None:
+        return ["the newest codex rollout is unreadable"]
+    problems: list[str] = []
+    if undecodable:
+        problems.append(f"{undecodable} codex rollout line(s) are not JSON objects")
+    records = _codex_records(rollout)
+    unresolved = 0
+    response_items = 0
+    unread: set[str] = set()
+    for record in records:
+        payload = _codex_payload(record)
+        if payload is None:
+            unresolved += 1
+            continue
+        if record.get("type") == "response_item":
+            response_items += 1
+        kind = payload.get("type")
+        if isinstance(kind, str) and kind.endswith("_call") and kind not in _CODEX_CALL_TYPES:
+            unread.add(_shape_token(kind))
+    if unresolved:
+        problems.append(f"{unresolved} codex record(s) carry neither a payload nor a type")
+    if not response_items:
+        problems.append(
+            "no codex `response_item` record, so the item stream the tool-call parser "
+            "walks is absent"
+        )
+    if unread:
+        problems.append(
+            f"codex call item type(s) the tool-call parser does not read: {_sorted_tokens(unread)}"
+        )
+    if _last_codex_token_usage(rollout) is None:
+        problems.append("no codex record carries `total_token_usage`")
+    return problems
+
+
+def _undecodable_line_count(rollout: Path) -> int | None:
+    """Non-empty rollout lines that are not JSON objects; ``None`` if unreadable.
+
+    :func:`_codex_records` skips these silently, which is right for a cell and
+    is the thing a strict check has to count.
+    """
+    try:
+        lines = [line.strip() for line in rollout.read_text().splitlines() if line.strip()]
+    except OSError:
+        return None
+    count = 0
+    for line in lines:
+        try:
+            decoded = json.loads(line)
+        except json.JSONDecodeError:
+            count += 1
+            continue
+        if not isinstance(decoded, dict):
+            count += 1
+    return count
+
+
+def _gemini_shape_problems(telemetry_file: Path) -> list[str]:
+    try:
+        text = telemetry_file.read_text().strip()
+    except OSError:
+        return ["the gemini telemetry log is absent or unreadable"]
+    objects = _load_json_objects(telemetry_file)
+    if not text or not objects:
+        return ["the gemini telemetry log is empty or carries no JSON record"]
+    problems: list[str] = []
+    if not _decodes_whole(text):
+        problems.append(
+            "the gemini telemetry log stops decoding part-way, so every record past "
+            "that point is invisible to both parsers"
+        )
+    if not _find_gemini_token_events(objects):
+        problems.append("no gemini record carries token counts (`api_response` attributes)")
+    unread: set[str] = set()
+    stack: list[Any] = [objects]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, list):
+            stack.extend(node)
+            continue
+        if not isinstance(node, dict):
+            continue
+        attrs = _gemini_attrs(node)
+        name = attrs.get("function_name") or node.get("function_name")
+        event_name = str(attrs.get("event.name") or node.get("event.name") or "")
+        if name and event_name and not event_name.endswith("tool_call"):
+            unread.add(_shape_token(event_name))
+            continue
+        stack.extend(node.values())
+    if unread:
+        problems.append(
+            "gemini event(s) naming a function under an event name the tool-call parser "
+            f"does not read: {_sorted_tokens(unread)}"
+        )
+    return problems
+
+
+def _decodes_whole(text: str) -> bool:
+    """Whether ``text`` decodes to the end as one JSON value or a run of them.
+
+    The loader the parsers share stops quietly at the first undecodable byte;
+    this says whether it reached the end.
+    """
+    try:
+        json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    else:
+        return True
+    decoder = json.JSONDecoder()
+    idx, length = 0, len(text)
+    while idx < length:
+        while idx < length and text[idx] in " \t\r\n,":
+            idx += 1
+        if idx >= length:
+            return True
+        try:
+            _, idx = decoder.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            return False
+    return True

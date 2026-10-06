@@ -3419,6 +3419,91 @@ def test_the_action_path_smoke_probes_the_model_a_cell_would_run() -> None:
     }, f"an invocation does not read the resolved model: {sorted(readers)}"
 
 
+ACTIONS_SMOKE_CAPTURE_STEP = "Assert the cells' usage and retrieval capture parses the probe's log"
+# The engine-to-log flags the cells' capture tail passes, each naming the env
+# var it reads. Shared by the cell steps and the probe, so a source the cells
+# move to cannot leave the probe parsing a log nothing reads.
+CAPTURE_SOURCE_FLAGS = (
+    '--claude-execution-file "$CLAUDE_EXECUTION_FILE"',
+    '--codex-sessions-dir "$CODEX_HOME/sessions"',
+    '--gemini-telemetry-file "$GEMINI_TELEMETRY_FILE"',
+)
+
+
+def test_the_action_path_smoke_runs_the_cells_capture_tail_and_fails_on_a_miss() -> None:
+    """The probe's engine log goes through the cells' own usage and retrieval parse.
+
+    On a cell the two captures are best-effort, so a log format an action or
+    CLI bump moved would cost every cell its `usage.json` and an honest
+    `retrieval_log.json` while the run stays green. The probe runs the same two
+    commands over the log it already produced and makes them fail: so the
+    pins are fidelity to the cells' capture (the same commands, sources, env
+    and retrieval mode flags), the failing posture (`--strict`, no
+    continue-on-error, a validate over exactly the two artifacts), and a
+    scratch data root under the runner temp dir rather than `data/`.
+    """
+    steps = _actions_smoke_steps()
+    names = [str(step.get("name")) for step in steps]
+    assert ACTIONS_SMOKE_CAPTURE_STEP in names, "the probe no longer runs the cells' capture"
+    probe = steps[names.index(ACTIONS_SMOKE_CAPTURE_STEP)]
+    # After every invocation and the codex teardown that surfaces the rollout:
+    # earlier, the codex leg would parse an empty sessions dir.
+    ids = [step.get("id") for step in steps]
+    for engine_step in ("actions_smoke_claude", "actions_smoke_codex", "actions_smoke_gemini"):
+        assert ids.index(engine_step) < names.index(ACTIONS_SMOKE_CAPTURE_STEP)
+    teardown = next(
+        i
+        for i, step in enumerate(steps)
+        if str(step.get("uses") or "").endswith("/codex-user-teardown")
+    )
+    assert teardown < names.index(ACTIONS_SMOKE_CAPTURE_STEP)
+
+    # A failing step, never the cells' tolerant one.
+    assert probe["if"] == ACTIONS_SMOKE_IF
+    assert "continue-on-error" not in probe
+    run = " ".join(str(probe["run"]).split())
+    assert "set -euo pipefail" in run
+    assert "uv run fedcourts record-usage" in run
+    assert "uv run fedcourts record-retrieval" in run
+    assert "--strict" in run
+    assert 'uv run fedcourts validate "$FEDCOURTS_DATA_ROOT"' in run
+    assert '"OK: 2 artifact(s) valid"*' in run, "validate must be held to the two artifacts"
+    assert ".output_tokens > 0" in run
+
+    # Into scratch, never the ledger.
+    env = probe["env"]
+    assert str(env["FEDCOURTS_DATA_ROOT"]).startswith("${{ runner.temp }}/")
+    assert env["CLAUDE_EXECUTION_FILE"] == (
+        "${{ steps.actions_smoke_claude.outputs.execution_file }}"
+    )
+
+    # Both cell workflows' capture tails, which share one engine-to-log shape.
+    for name, job_name in (("run-predict.yml", "predict"), ("run-evaluate.yml", "evaluate")):
+        cell_steps = [
+            step
+            for step in _load(name)["jobs"][job_name]["steps"]
+            if str(step.get("name")) in ("Capture model usage", "Capture retrieval log")
+        ]
+        assert len(cell_steps) == 2, f"{name}: the capture steps were renamed"
+        for cell in cell_steps:
+            cell_run = " ".join(str(cell["run"]).split())
+            for flag in CAPTURE_SOURCE_FLAGS:
+                assert flag in cell_run, f"{name}: {cell['name']} no longer passes {flag}"
+                assert flag in run, f"the probe's capture does not pass the cells' {flag}"
+            # The same files: the codex rollout root and gemini's telemetry log.
+            for var in ("CODEX_HOME", "GEMINI_TELEMETRY_FILE"):
+                assert env[var] == cell["env"][var], f"the probe reads {var} from elsewhere"
+    (retrieval_step,) = [
+        step
+        for step in _load("run-predict.yml")["jobs"]["predict"]["steps"]
+        if str(step.get("name")) == "Capture retrieval log"
+    ]
+    retrieval_cell = " ".join(str(retrieval_step["run"]).split())
+    for flags in ("--role predictor", "--mode forward --mode-from-context"):
+        assert flags in retrieval_cell, f"the cell's retrieval capture dropped {flags}"
+        assert flags in run, f"the probe's retrieval capture does not pass {flags}"
+
+
 def test_the_text_coverage_summary_truncation_matches_the_cli_ledger_headers() -> None:
     """The text-coverage job's step summary is truncated at the first ledger
     header by an awk sentinel, because the summary is readable without login

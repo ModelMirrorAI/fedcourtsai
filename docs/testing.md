@@ -397,11 +397,34 @@ see that class either — a bump moves every pin consistently, and only running
 the action shows what it does with them. So this
 scenario sends each engine the cell's own block on a prompt that asks for a
 single word and asserts **acceptance** — that the invocation was taken and a
-turn completed — never output quality. One boot probe per engine, per leg — one a
+turn completed — never output quality.
+
+It then runs the cells' **capture tail** over the probe's own engine log, so a
+bump that changes the log's format reddens the leg (and the next morning's
+canary) instead of silently costing every cell its harness-owned artifacts.
+After a cell, `record-usage` and `record-retrieval` parse the engine log into
+`usage.json` and `retrieval_log.json`, best-effort, so a parse that stopped
+matching would ship cells without them and stay green. The leg runs the same
+two commands with the cells' flags and engine-to-log mapping — claude's
+execution file, codex's session rollout, gemini's telemetry log (the file the
+cells read, not the CLI's JSON result) — into a scratch data root under the
+runner temp dir, and fails unless usage parses to non-zero input and output
+tokens, `record-retrieval --strict` finds the log in the shape the parsers
+walk, and `validate` passes exactly the two artifacts. The probe calls no tools,
+so an empty transcript is the expected one: the leg asserts the parse, never a
+call count, and the strict check's screen for tool-shaped items it cannot read
+has nothing to screen on this leg — what it certifies is the structural half
+(the records decode, and the path each parser walks is present; see
+`record-retrieval` in [cli.md](cli.md)). The step is token-free, and no GitHub
+token reaches either command, so claude's job-token deviation below does not
+bear on it.
+
+One boot probe per engine, per leg — one a
 day per engine on the canary, on the order of fifteen cents an engine, so a couple
-of hundred dollars a year at three engines and linear in engine count. No cell
-writes a `usage.json` beside a probe, so that spend sits outside the ex-post
-backstop and is bounded by the cadence instead. The fidelity of the
+of hundred dollars a year at three engines and linear in engine count. The
+probe's `usage.json` lands in that scratch root and is discarded with the
+runner, so the spend sits outside the ex-post backstop and is bounded by the
+cadence instead. The fidelity of the
 blocks is the whole claim, so the codex one is held in lockstep with both cell
 workflows' by a test, and the two deliberate deviations — the kickoff prompt,
 and handing claude the job's read-capped token instead of minting the cells'

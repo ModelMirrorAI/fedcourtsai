@@ -8313,6 +8313,16 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     gemini_telemetry_file: Annotated[
         Path | None, typer.Option(help="Gemini CLI telemetry.log to read tool calls from.")
     ] = None,
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict",
+            help="After recording, check the named engine log is in the shape the "
+            "usage and tool-call parsers read, and exit 1 naming each finding if it "
+            "is not. For a probe that wants a format change to fail; a cell's own "
+            "capture never passes it.",
+        ),
+    ] = False,
 ) -> None:
     """Record the cell's tool-call transcript to ``retrieval_log.json``.
 
@@ -8325,6 +8335,14 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     they advertise, so a later offered-vs-called rollup has a denominator rather
     than only the numerator. A cell with zero tool calls still records an
     empty log: "retrieved nothing" is itself evidence.
+
+    The parse is tolerant, so an engine log in a shape it no longer recognizes
+    records an empty log too — indistinguishable, from the file alone, from a
+    cell that called nothing. ``--strict`` is the check that separates the two
+    (:func:`fedcourtsai.retrieval.engine_log_shape_problems`): the log is still
+    recorded, then each finding is printed as an error and the command exits 1.
+    The integration workflow's action-path probe passes it; a cell never does,
+    because instrumentation must not fail a real run.
     """
     settings = get_settings()
     if mode_from_context:
@@ -8421,6 +8439,29 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
             f"::warning::retrieval capture redacted credential-shaped text in {redacted} "
             f"call(s) for {actor} ({ids.case_id(court, docket)} {event})"
         )
+    if strict:
+        _require_parsed_engine_log_shape(
+            engine, claude_execution_file, codex_sessions_dir, gemini_telemetry_file
+        )
+
+
+def _require_parsed_engine_log_shape(
+    engine: Engine,
+    claude_execution_file: Path | None,
+    codex_sessions_dir: Path | None,
+    gemini_telemetry_file: Path | None,
+) -> None:
+    """``record-retrieval --strict``: exit 1 naming each shape finding, if any."""
+    problems = retrieval.engine_log_shape_problems(
+        claude_execution_file=claude_execution_file,
+        codex_sessions_dir=codex_sessions_dir,
+        gemini_telemetry_file=gemini_telemetry_file,
+    )
+    for problem in problems:
+        typer.echo(f"::error::record-retrieval --strict: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"retrieval: the {engine.value} log is in the shape the capture parsers read")
 
 
 @app.command("codex-item-shapes")
