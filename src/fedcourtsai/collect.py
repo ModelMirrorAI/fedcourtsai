@@ -349,6 +349,12 @@ class CellStatus:
     ``artifact_dir`` is the cell's directory under the collect job's download root
     (the parent of its ``status.json``); the workflow unions that subtree's
     ``data/`` add-only into the PR it belongs to.
+
+    ``engine_deadline`` records that the engine watchdog acted at the configured
+    engine deadline (its ``FIRED`` or ``STOOD_DOWN`` marker), read by the cell's
+    disarm step from the runner-local bundle. It only names the cause of an
+    early stop in the run PR's table; it never makes a cell ready. A
+    ``status.json`` written before the field existed reads as ``False``.
     """
 
     court: str
@@ -360,6 +366,7 @@ class CellStatus:
     validated: bool
     agent_ok: bool
     artifact_dir: str
+    engine_deadline: bool = False
 
     @property
     def ready(self) -> bool:
@@ -371,6 +378,8 @@ class CellStatus:
         if not self.produced:
             return "no output"
         if not self.agent_ok:
+            if self.engine_deadline:
+                return "engine deadline reached"
             return "agent stopped early"
         if not self.validated:
             return "failed validation"
@@ -388,6 +397,7 @@ class CellStatus:
             validated=bool(data["validated"]),
             agent_ok=bool(data["agent_ok"]),
             artifact_dir=artifact_dir,
+            engine_deadline=data.get("engine_deadline") is True,
         )
 
 

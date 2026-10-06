@@ -456,6 +456,50 @@ def test_all_salvage_opens_only_draft() -> None:
     assert plan.skipped == ()
 
 
+def test_a_cell_stopped_at_the_engine_deadline_says_so_in_the_draft() -> None:
+    """The deadline is the one early stop whose cause the harness knows.
+
+    The disarm step folds the watchdog's deadline marker into ``status.json``;
+    the draft PR's reason column is where that survives the run, and the cell
+    stays a salvage cell — the field names the cause, it never makes one ready.
+    """
+    stopped = CellStatus.from_dict(
+        {
+            "court": "scotus",
+            "docket": 1,
+            "event_id": "evt-petition-disposition",
+            "actor": "codex-baseline",
+            "run_id": "R",
+            "produced": True,
+            "validated": True,
+            "agent_ok": False,
+            "engine_deadline": True,
+        },
+        artifact_dir="cell-codex-baseline-1",
+    )
+    assert stopped.engine_deadline is True
+    assert not stopped.ready
+    plan = collect_plan(FinalizeRole.predict, run_id="R", cells=[stopped])
+    assert plan.ready is None
+    assert plan.partial is not None
+    assert "engine deadline reached" in plan.partial.body
+    # A status.json from before the field existed reads as no deadline.
+    legacy = CellStatus.from_dict(
+        {
+            "court": "scotus",
+            "docket": 1,
+            "event_id": "evt-petition-disposition",
+            "actor": "codex-baseline",
+            "run_id": "R",
+            "produced": True,
+            "validated": True,
+            "agent_ok": False,
+        },
+        artifact_dir="cell-codex-baseline-1",
+    )
+    assert legacy.engine_deadline is False
+
+
 def test_only_skipped_opens_nothing_but_reports() -> None:
     plan = collect_plan(
         FinalizeRole.predict,

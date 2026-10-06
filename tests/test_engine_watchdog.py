@@ -31,18 +31,14 @@ name a real runner, so the suite cannot signal the step that is running it.
 """
 
 import contextlib
-import json
 import os
 import re
 import signal
-import socket
 import subprocess
-import threading
 import time
 from collections.abc import Callable
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, ParamSpec
+from typing import ParamSpec
 
 #: The knobs of `_spawn`, carried through `_run` so a mistyped one at any call
 #: site below is still a type error. Spelled the pre-PEP-695 way on purpose:
@@ -65,18 +61,6 @@ TEST_ARM_SLACK = "120"
 # not exercising is pinned to, so a route left unset can never fall back to a
 # default that names the runner executing the test.
 NO_MATCH = "watchdog-selftest-matches-nothing"
-# Stands in for the arm step's comment-only App mint. Distinctive so the tests
-# can assert it reaches the sink's Authorization header and reaches nothing else.
-CHECKIN_TOKEN = "ghs-watchdog-selftest-token"
-# The armed body the arm step hands over. Every PATCHed body must open with
-# the whole of it: the marker line, or the next find-by-marker would miss the
-# comment the watchdog just rewrote, and the arming line, which is what a
-# reader of a run that never came back has to go on.
-CHECKIN_BASE = (
-    "<!-- codex-watchdog: R/scotus/24-1/evt-x/codex-selftest -->\n"
-    + "### selftest\n"
-    + "armed_at=2026-09-07T12:00:00Z deadline_s=3 fire_eta=2026-09-07T12:00:03Z"
-)
 
 
 def _spawn(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
@@ -88,14 +72,10 @@ def _spawn(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
     min_step_age_s: str | None = None,
     deadline_s: str | None = None,
     arm_slack_s: str = TEST_ARM_SLACK,
-    checkin_url: str = "",
-    checkin_base: str = "",
-    heartbeat_s: str = "0",
     sentinel_paths: list[Path] | None = None,
     output_dir: Path | None = None,
     quiesce_s: str = "2",
     suspension_gap_s: str | None = None,
-    observe_s: str | None = None,
     log_path: Path | None = None,
 ) -> subprocess.Popen[str]:
     # Fail closed on the way in, so a future test cannot hand a discovery route
@@ -120,17 +100,9 @@ def _spawn(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
         # No codex home in the test: the home listing is best-effort, and its
         # absence must not stop the kill.
         "CODEX_HOME": str(watchdog_dir / "absent"),
-        # The off-runner channel, empty for every test that is not about it —
-        # spelled out rather than left to the ambient environment, so a
-        # developer shell that happens to export one cannot make the suite
-        # PATCH a real comment.
-        "WATCHDOG_CHECKIN_URL": checkin_url,
-        "WATCHDOG_CHECKIN_TOKEN": CHECKIN_TOKEN if checkin_url else "",
-        "WATCHDOG_CHECKIN_BASE": checkin_base,
-        "WATCHDOG_HEARTBEAT_S": heartbeat_s,
         # The completion sentinel, empty for every test that is not about it —
-        # spelled out for the same reason the check-in trio is, so an ambient
-        # value can never arm a reaper a test did not ask for.
+        # spelled out rather than left to the ambient environment, so an
+        # ambient value can never arm a reaper a test did not ask for.
         "WATCHDOG_SENTINEL_PATHS": "\n".join(str(p) for p in sentinel_paths or ()),
         "WATCHDOG_OUTPUT_DIR": str(output_dir) if output_dir else "",
         "WATCHDOG_QUIESCE_S": quiesce_s,
@@ -141,14 +113,12 @@ def _spawn(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
         env["WATCHDOG_MIN_STEP_AGE_S"] = min_step_age_s
     if deadline_s is not None:
         env["WATCHDOG_DEADLINE_S"] = deadline_s
-    # The thaw guard's two knobs are left at their shipped values unless a test
-    # is about the guard: no fixture here can produce a two-minute gap, so every
-    # other test runs against a watchdog that never detects a suspension — which
-    # is the property they are pinning.
+    # The thaw guard's knob is left at its shipped value unless a test is about
+    # the guard: no fixture here can produce a two-minute gap, so every other
+    # test runs against a watchdog that never detects a suspension — which is
+    # the property they are pinning.
     if suspension_gap_s is not None:
         env["WATCHDOG_SUSPENSION_GAP_S"] = suspension_gap_s
-    if observe_s is not None:
-        env["WATCHDOG_OBSERVE_S"] = observe_s
     if log_path is not None:
         # A file rather than a pipe, so a test can watch the watchdog's own log
         # *while* it runs — which is the only way to know it has reached its
@@ -964,31 +934,28 @@ def test_a_reap_with_no_step_to_end_writes_no_marker(tmp_path: Path) -> None:
     out_dir = tmp_path / "cell"
     paths = _outputs(out_dir)
     _write_outputs(paths)
-    sink = CheckinSink()
-    try:
-        watchdog_dir = tmp_path / "engine-watchdog"
-        done = _run(
-            watchdog_dir,
-            f"watchdog-selftest-absent-{os.getpid()}",
-            deadline_s="14",
-            sentinel_paths=paths,
-            output_dir=out_dir,
-            quiesce_s="2",
-            checkin_url=sink.url,
-            checkin_base=CHECKIN_BASE,
-        )
-        assert done.returncode == 0, done.stdout + done.stderr
-        assert "completion sentinel observed at" in done.stdout
-        assert not (watchdog_dir / "REAPED").exists(), (
-            "a reap that ended nothing still claimed the step as its own"
-        )
-        # It said so once, off the runner, and then let the deadline stand.
-        phases = _phases(sink.bodies)
-        declined = [line for line in phases if line.startswith("reap declined:")]
-        assert len(declined) == 1, phases
-        assert (watchdog_dir / "STOOD_DOWN").exists()
-    finally:
-        sink.close()
+    watchdog_dir = tmp_path / "engine-watchdog"
+    done = _run(
+        watchdog_dir,
+        f"watchdog-selftest-absent-{os.getpid()}",
+        deadline_s="14",
+        sentinel_paths=paths,
+        output_dir=out_dir,
+        quiesce_s="2",
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "completion sentinel observed at" in done.stdout
+    assert not (watchdog_dir / "REAPED").exists(), (
+        "a reap that ended nothing still claimed the step as its own"
+    )
+    # It said so once, and then let the deadline stand.
+    declined = [
+        line
+        for line in done.stdout.splitlines()
+        if "no step process was identified; not reaping" in line
+    ]
+    assert len(declined) == 1, done.stdout
+    assert (watchdog_dir / "STOOD_DOWN").exists()
 
 
 def test_the_sentinel_is_inert_before_the_cell_writes_anything(tmp_path: Path) -> None:
@@ -1045,362 +1012,33 @@ def test_no_sentinel_leaves_the_deadline_as_the_only_bound(tmp_path: Path) -> No
         tree.close()
 
 
-class CheckinSink:
-    """A stand-in for the telemetry comment's REST endpoint, on localhost.
-
-    The off-runner channel is the only account of a wedge that survives a
-    cancelled job, so what it actually PATCHes has to be driven rather than
-    read: the sink records each body and each Authorization header, and the
-    tests below assert the sequence, the payload's strictness, and that the
-    token reaches the header and nowhere else.
-    """
-
-    def __init__(self, fail_first: int = 0) -> None:
-        self.bodies: list[str] = []
-        self.auth: list[str] = []
-        # PATCHes answered 500 instead of recorded, so a test can drive the
-        # HTTP-failure half of a send: curl exits 0 on an HTTP error, and what
-        # the watchdog does with that status is a behavior of its own.
-        self.rejected: list[str] = []
-        self._fail_first = fail_first
-        sink = self
-
-        class Handler(BaseHTTPRequestHandler):
-            protocol_version = "HTTP/1.0"
-
-            def do_PATCH(self) -> None:
-                length = int(self.headers.get("Content-Length") or 0)
-                payload = json.loads(self.rfile.read(length) or b"{}")
-                if len(sink.rejected) < sink._fail_first:
-                    sink.rejected.append(str(payload.get("body", "")))
-                    self.send_response(500)
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                    self.wfile.write(b"{}")
-                    return
-                sink.bodies.append(str(payload.get("body", "")))
-                sink.auth.append(self.headers.get("Authorization") or "")
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(b"{}")
-
-            def log_message(self, format: str, *args: Any) -> None:
-                """Silent: the handler's default logging writes to the suite's stderr."""
-
-        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
-        self._thread.start()
-
-    @property
-    def url(self) -> str:
-        return f"http://127.0.0.1:{self._server.server_address[1]}/issues/comments/1"
-
-    def close(self) -> None:
-        self._server.shutdown()
-        self._server.server_close()
-        self._thread.join(timeout=10)
-
-
-def _phases(bodies: list[str]) -> list[str]:
-    """The check-in lines of the last (and so most complete) body, stamps stripped.
-
-    Everything past the armed base the arm step handed over — which the watchdog
-    appends to and must never replace.
-    """
-    if not bodies:
-        return []
-    tail = bodies[-1][len(CHECKIN_BASE) :]
-    return [line.split("] ", 1)[-1] for line in tail.splitlines() if line]
-
-
-def test_the_watchdog_reports_every_state_off_the_runner(tmp_path: Path) -> None:
-    """Arm → deadline → discovery → fire → escalation, on a channel a cancel cannot erase.
-
-    This is the whole reason the channel exists: the diagnostics bundle, the
-    disarm step that publishes it, the step summary and the job log are all
-    runner-local, and the wedge they document is what cancels the runner — so a
-    guard relying on them alone cannot even be observed to have fired. Each
-    state is PATCHed onto this cell's
-    comment as it happens, so the record is already off the runner by the time
-    the kill is attempted.
-    """
-    marker = f"fedcourts-watchdog-engine-{os.getpid()}"
-    engine = _named(marker, DEAF)
-    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", DEAF + "\n")
-    sink = CheckinSink()
-    try:
-        done = _run(
-            tmp_path / "engine-watchdog",
-            marker,
-            worker_match=f"watchdog-selftest-{os.getpid()}",
-            grace_s="4",
-            checkin_url=sink.url,
-            checkin_base=CHECKIN_BASE,
-            heartbeat_s="1",
-        )
-        assert done.returncode == 0, done.stdout + done.stderr
-        assert engine.wait(timeout=60) != 0
-        assert _await(lambda: _gone(tree.step_pid))
-
-        phases = _phases(sink.bodies)
-        # The order is the account: a reader has to be able to tell a watchdog
-        # still counting from one that reached its deadline, and one that found
-        # its target from one that refused every candidate.
-        for expected in (
-            "watching: deadline_s=3",
-            "deadline reached after 3s",
-            "FIRED: the engine was still running",
-            "engine SIGTERM issued",
-            "step tree SIGTERM issued",
-            "outcome: fired",
-        ):
-            assert any(line.startswith(expected) for line in phases), (expected, phases)
-        assert [line.startswith("watching") for line in phases].index(True) == 0
-        assert phases[-1].startswith("outcome: fired")
-        # A beat while it waits, which is what separates a live watchdog from
-        # one whose runner was cancelled out from under it.
-        assert any(line.startswith("waiting: elapsed=") for line in phases)
-        # Both carry the runner's headroom: the record is the only account of
-        # a resource trajectory that survives the runner.
-        assert any(line.startswith("watching:") and "mem_avail_mb=" in line for line in phases)
-        assert any(line.startswith("waiting:") and "load1=" in line for line in phases)
-        # The deaf fixtures force both escalations, and both are reported.
-        assert any("SIGKILL issued" in line for line in phases)
-
-        # Every body opens with the whole armed base the arm step handed over.
-        # The marker half is what the next find-by-marker matches on; the arming
-        # half is the fire ETA and the run link, and a watchdog that composed
-        # its body from the marker alone would erase both on its first
-        # heartbeat — leaving the record that outlives the runner unable to say
-        # when the deadline was due or which run it belonged to.
-        assert all(body.startswith(CHECKIN_BASE) for body in sink.bodies)
-        assert all("fire_eta=2026-09-07T12:00:03Z" in body for body in sink.bodies)
-        # The body accumulates: each PATCH is the whole record so far, because a
-        # comment has no append — so every body is a prefix of the next.
-        assert len(sink.bodies) > 1
-        assert all(
-            later.startswith(earlier)
-            for earlier, later in zip(sink.bodies, sink.bodies[1:], strict=False)
-        ), "a PATCH replaced the record instead of extending it"
-        assert all(auth == f"Bearer {CHECKIN_TOKEN}" for auth in sink.auth)
-    finally:
-        sink.close()
-        tree.close()
-        if engine.poll() is None:  # pragma: no cover - only on a failed kill
-            engine.kill()
-            engine.wait(timeout=10)
-
-
-def test_a_failed_send_rides_the_next_landed_send(tmp_path: Path) -> None:
-    """An HTTP failure is read out, recorded once per diagnosis, delivered late.
-
-    curl exits 0 on an HTTP error, so a 500 — or the 401 every deadline-path
-    codex cell is expected to meet once its token's hour lapses — used to read
-    as a landed send. The failure appends a `send-failed:` line to the
-    accumulated body instead: one line per *diagnosis* rather than per failure
-    (the stamps between two such lines already say how long a diagnosis held),
-    no channel probe when the status itself proves the transport reached the
-    host, and the next send that lands uploads the whole history.
-    """
-    marker = f"fedcourts-watchdog-engine-{os.getpid()}"
-    engine = _named(marker, DEAF)
-    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", DEAF + "\n")
-    sink = CheckinSink(fail_first=2)
-    try:
-        done = _run(
-            tmp_path / "engine-watchdog",
-            marker,
-            worker_match=f"watchdog-selftest-{os.getpid()}",
-            grace_s="4",
-            checkin_url=sink.url,
-            checkin_base=CHECKIN_BASE,
-            heartbeat_s="1",
-        )
-        assert done.returncode == 0, done.stdout + done.stderr
-        assert engine.wait(timeout=60) != 0
-        assert _await(lambda: _gone(tree.step_pid))
-
-        assert len(sink.rejected) == 2, "the sink did not refuse the first two sends"
-        phases = _phases(sink.bodies)
-        failed = [line for line in phases if line.startswith("send-failed:")]
-        # Two consecutive identical 500s are one diagnosis, so one line.
-        assert len(failed) == 1, failed
-        assert failed[0].startswith("send-failed: curl_exit=0 http=500"), failed
-        # An HTTP status in hand proves the host was reached: no probe.
-        assert "probe_exit=" not in failed[0]
-        assert "mem_avail_mb=" in failed[0]
-        # The late-delivered record still opens with the whole armed base, and
-        # the check-in host never enters what the record says.
-        assert all(body.startswith(CHECKIN_BASE) for body in sink.bodies)
-        assert "127.0.0.1" not in sink.bodies[-1][len(CHECKIN_BASE) :]
-    finally:
-        sink.close()
-        tree.close()
-        if engine.poll() is None:  # pragma: no cover - only on a failed kill
-            engine.kill()
-            engine.wait(timeout=10)
-
-
-def test_a_dead_channel_cannot_delay_the_deadline(tmp_path: Path) -> None:
-    """Every send refused at the socket: the fire still lands on the wall clock.
-
-    The probe path runs exactly when the network is dead, so its cost has to
-    be bounded — at most one `--max-time`'d request per new diagnosis — and
-    the deadline is derived from the wall clock rather than counted in polls,
-    so no amount of telemetry latency can move the fire toward the step cap
-    whose kill would cancel the job and drop the record.
-    """
-    with socket.socket() as placeholder:
-        placeholder.bind(("127.0.0.1", 0))
-        closed_port = placeholder.getsockname()[1]
-    marker = f"fedcourts-watchdog-engine-{os.getpid()}"
-    engine = _named(marker, DEAF)
-    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", DEAF + "\n")
-    started = time.monotonic()
-    try:
-        done = _run(
-            tmp_path / "engine-watchdog",
-            marker,
-            worker_match=f"watchdog-selftest-{os.getpid()}",
-            grace_s="4",
-            checkin_url=f"http://127.0.0.1:{closed_port}/issues/comments/1",
-            checkin_base=CHECKIN_BASE,
-            heartbeat_s="1",
-        )
-        assert done.returncode == 0, done.stdout + done.stderr
-        assert engine.wait(timeout=60) != 0
-        assert _await(lambda: _gone(tree.step_pid))
-        # A refused connect is curl exit 7, and it is said locally even though
-        # nothing can land off the runner.
-        assert "the off-runner check-in did not land (curl_exit=7" in done.stdout
-        # Well under the budget a per-send stall would blow: the 3s deadline
-        # plus the graces and kill escalations, not the ~dozen failed sends.
-        assert time.monotonic() - started < 60
-    finally:
-        tree.close()
-        if engine.poll() is None:  # pragma: no cover - only on a failed kill
-            engine.kill()
-            engine.wait(timeout=10)
-
-
-def test_the_off_runner_payload_is_stricter_than_the_published_bundle(tmp_path: Path) -> None:
-    """Counts, pids, phases, timestamps, kernel-owned vitals and probe exit
-    codes — never argv, never a path, never the token.
-
-    The bundle rides a cell artifact and expires with it; this comment sits on a
-    public issue forever, so it takes the harder rule. It is composed only from
-    sources the agent cannot write — the script's own variables, plus
-    /proc/meminfo and /proc/loadavg — for the same reason: WATCHDOG_DIR is
-    writable by the very agent the watchdog may be about to kill, and a body
-    read back off that directory would let the agent choose what a public
-    issue says.
-
-    Driven with the sentinel armed, because the sentinel is the newest way for
-    file-derived text to reach the record: it is handed a list of paths and it
-    reads those files every poll. Neither the paths nor a byte of their contents
-    may appear — the counts and the observation timestamp are the whole of what
-    it may say — and the fixture writes a distinctive marker *into* an output
-    file so the contents half is checked rather than assumed.
-    """
-    marker = f"fedcourts-watchdog-engine-{os.getpid()}"
-    engine = _named(marker)
-    sink = CheckinSink()
-    out_dir = tmp_path / "cell"
-    paths = _outputs(out_dir)
-    _write_outputs(paths)
-    content_marker = f"watchdog-selftest-file-content-{os.getpid()}"
-    (out_dir / "run" / "retrieval.md").write_text(f"{content_marker}\n")
-    try:
-        done = _run(
-            tmp_path / "engine-watchdog",
-            marker,
-            checkin_url=sink.url,
-            checkin_base=CHECKIN_BASE,
-            heartbeat_s="1",
-            sentinel_paths=paths,
-            output_dir=out_dir,
-            # Long enough that the deadline is reached first, so this exercises
-            # the sentinel's *observation* without the reap ending the run early.
-            quiesce_s="600",
-        )
-        assert done.returncode == 0, done.stdout + done.stderr
-        assert engine.wait(timeout=30) != 0
-        record = "\n".join(sink.bodies)
-        assert "completion sentinel observed at" in record, "the sentinel never fired here"
-        assert marker not in record, "a matched process's argv reached the public record"
-        assert str(tmp_path) not in record, "a runner path reached the public record"
-        assert "retrieval.md" not in record, "a sentinel path reached the public record"
-        assert content_marker not in record, "an output file's contents reached the public record"
-        assert content_marker not in done.stdout + done.stderr
-        assert CHECKIN_TOKEN not in record, "the token was echoed into the record it authorises"
-        # Nor into the watchdog's own log, which rides the published artifact.
-        # (The process dump beside it cannot settle the argv question either way:
-        # it is written after the check-in's curl has already exited, so the
-        # guarantee that keeps the token out of argv is the `--config` pipe the
-        # `checkin` function uses, not anything observable here.)
-        assert CHECKIN_TOKEN not in done.stdout + done.stderr
-        # The pid of the process it killed is the one identifier that does
-        # belong here: it is what ties this record to the bundle beside it.
-        assert any(str(engine.pid) in body for body in sink.bodies)
-    finally:
-        sink.close()
-        if engine.poll() is None:  # pragma: no cover - only on a failed kill
-            engine.kill()
-            engine.wait(timeout=10)
-
-
 def test_the_discovery_tally_separates_a_refusal_from_an_empty_field(tmp_path: Path) -> None:
     """`roots=0` has two very different causes, and they have opposite fixes.
 
     A floor set too high refuses candidates it should have accepted; a runner
     whose shape moved proposes none at all. Without a tally both read as the
-    same silent stand-down, so it rides the record: candidates seen, and how
-    many each refusal turned away.
+    same silent stand-down, so it rides the watchdog's log: candidates seen,
+    and how many each refusal turned away.
     """
     tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
-    sink = CheckinSink()
     try:
         done = _run(
             tmp_path / "engine-watchdog",
             f"watchdog-selftest-absent-{os.getpid()}",
             worker_match=f"watchdog-selftest-{os.getpid()}",
             min_step_age_s="600",  # the floor refuses the fixture step
-            checkin_url=sink.url,
-            checkin_base=CHECKIN_BASE,
         )
         assert done.returncode == 0, done.stdout + done.stderr
         assert not _gone(tree.step_pid)
-        discovery = next(line for line in _phases(sink.bodies) if line.startswith("discovery: "))
+        lines = done.stdout.splitlines()
+        discovery = next(line for line in lines if "watchdog: discovery: " in line)
         assert "roots=0 engine_matched=0" in discovery
         # The candidate was seen and refused on age, which is the reading the
         # bare `roots=0` could not give.
         assert "refused_age=1" in discovery
-        assert _phases(sink.bodies)[-1].startswith("outcome: stood_down")
+        assert (tmp_path / "engine-watchdog" / "STOOD_DOWN").exists()
     finally:
-        sink.close()
         tree.close()
-
-
-def test_no_check_in_url_leaves_the_kill_duty_untouched(tmp_path: Path) -> None:
-    """The arm step's check-in is best-effort, so the watchdog must work without one.
-
-    A watchdog that refused to arm without a telemetry channel would trade the
-    duty it exists for against its own reporting — the wrong way round.
-    """
-    marker = f"fedcourts-watchdog-engine-{os.getpid()}"
-    engine = _named(marker)
-    try:
-        watchdog_dir = tmp_path / "engine-watchdog"
-        done = _run(watchdog_dir, marker, heartbeat_s="1")  # no URL, no token
-        assert done.returncode == 0, done.stdout + done.stderr
-        assert engine.wait(timeout=30) != 0
-        assert (watchdog_dir / "FIRED").exists()
-        assert "check-in" not in done.stdout
-    finally:
-        if engine.poll() is None:  # pragma: no cover - only on a failed kill
-            engine.kill()
-            engine.wait(timeout=10)
 
 
 def test_the_shipped_floor_derives_from_the_deadline() -> None:
@@ -1489,7 +1127,6 @@ def test_a_watchdog_that_lost_wall_clock_signals_nothing(tmp_path: Path) -> None
         worker_match=f"watchdog-selftest-{os.getpid()}",
         deadline_s="8",
         suspension_gap_s="4",
-        observe_s="1",
         log_path=log_path,
     )
     try:
@@ -1560,7 +1197,6 @@ def test_a_completed_cell_is_not_reaped_by_a_watchdog_that_lost_time(tmp_path: P
         # the writes by the time it thaws, so quiescence is satisfied there.
         quiesce_s="6",
         suspension_gap_s="4",
-        observe_s="1",
         log_path=log_path,
     )
     try:
@@ -1582,61 +1218,11 @@ def test_a_completed_cell_is_not_reaped_by_a_watchdog_that_lost_time(tmp_path: P
         tree.close()
 
 
-def test_a_stood_down_watchdog_keeps_beating_inside_a_bounded_window(tmp_path: Path) -> None:
-    """After standing down it is an instrument, and instruments report.
-
-    Every runner-local account of this failure dies with the runner, and the
-    runner is lost minutes after the thaw — so a beat that lands from inside that
-    window is evidence nothing else can carry out. It is bounded rather than
-    endless: the window closes and the process exits on its own, which is what
-    the tiny window here is checking as much as the beats are.
-    """
-    sink = CheckinSink()
-    watchdog_dir = tmp_path / "engine-watchdog"
-    log_path = tmp_path / "watchdog.log"
-    proc = _spawn(
-        watchdog_dir,
-        f"watchdog-selftest-absent-{os.getpid()}",
-        deadline_s="8",
-        suspension_gap_s="4",
-        # Wide enough that a loaded box still fits several beats inside it, and
-        # still small enough that the window closing is what ends this test.
-        observe_s="10",
-        heartbeat_s="1",
-        checkin_url=sink.url,
-        checkin_base=CHECKIN_BASE,
-        log_path=log_path,
-    )
-    try:
-        _freeze(proc, log_path, frozen_s=10.0)
-        resumed = time.monotonic()
-        assert proc.wait(timeout=120) == 0, _text(log_path)
-        stdout = _text(log_path)
-
-        # The window is what ends this process, and it ends it on its own: the
-        # log says both halves, and neither reading depends on the channel.
-        assert "observing for up to 10s" in stdout
-        assert "the observation window closed" in stdout
-        assert time.monotonic() - resumed < 60, "the observation window did not close on its own"
-
-        phases = _phases(sink.bodies)
-        assert any(line.startswith("SUSPENDED: lost ") for line in phases), phases
-        assert any(line.startswith("outcome: stood_down_suspended") for line in phases), phases
-        # Beats that landed *off* the runner, read across every body the sink
-        # recorded rather than only the last: a send the transport dropped is the
-        # ordinary degraded state of this channel, and it must not read as a
-        # watchdog that stopped beating.
-        assert any("] observing: " in body for body in sink.bodies), sink.bodies
-    finally:
-        _unfrozen(proc)
-        sink.close()
-
-
 def test_the_shipped_thaw_guard_is_armed_and_clear_of_an_ordinary_pass() -> None:
     """The threshold has to sit between two things it cannot be confused with.
 
-    Below it, an ordinary pass — a poll plus the bounded check-in it may pay —
-    which must never read as suspension, or a healthy watchdog disarms itself.
+    Below it, an ordinary pass — a poll plus the sentinel's own reads — which
+    must never read as suspension, or a healthy watchdog disarms itself.
     Above it, a freeze that lasts as long as the agent does. Nothing else pins
     the gap: every test that drives the guard sets a threshold of its own, so a
     shipped value narrowed to nothing, or zeroed into an unarmed guard, would
@@ -1645,4 +1231,3 @@ def test_the_shipped_thaw_guard_is_armed_and_clear_of_an_ordinary_pass() -> None
     gap = int(_shipped_default("WATCHDOG_SUSPENSION_GAP_S"))
     assert gap > 0, "a zero threshold leaves the guard unarmed"
     assert gap >= 10 * int(_shipped_default("WATCHDOG_POLL_S"))
-    assert int(_shipped_default("WATCHDOG_OBSERVE_S")) > 0
