@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.05,
+    "notes": "Pro se paid petition from an unpublished Colorado Court of Appeals decision denying a motion to modify parenting time under a state particularity rule; a facial vagueness attack on best-interests factors that no court has entertained, no split, no response called for, no amicus, denied without comment on the first order list after the long conference. The abstract question would matter if ever decided; this vehicle decided nothing and drew no attention."
+  },
+  "brier_score": 1e-06,
+  "brier_skill_score": 0.9996,
+  "case_id": "scotus/73369987",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": 0.0026213597352352487
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0026213597352352487,
+    "total": 0.0026213597352352487
+  },
+  "correct": 1,
+  "created_at": "2026-10-05T22:21:43Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction written 2026-09-17, denial entered 2026-10-05. Log (22 calls, every result unobserved: result_capture_coverage 0.0, the engine's standing shape) is graded on queries alone: reads of the prompt, AGENTS.md, the provisioned context, snapshot, event, documents manifest and petition, and three greps of the committed statpack. No web, corpus, or CourtListener call; no query names this petition's outcome or data/qp-topics/. The candidate's retrieval note says no retrieval beyond the provisioned inputs. Nothing in reasoning presupposes the result.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "763e4d1f2361180a82c34385b0bd5968ac6af4cc",
+    "stamped_at": "2026-10-05T22:23:29.769532Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000002",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned 2026-10-05 as-stored snapshot ends with an August 14 proceeding and has internal creation date August 14, 2026. It extends a requested response to September 28, but contains no response filing or later distribution; the document manifest contains only petition/QP text fetched August 13. Apparent freshness/coverage gap: no inference of nonfiling, conference consideration, or denial was drawn. No current disposition was retrieved. Prediction uses the frozen one-distribution baseline and discounts the missing opposition."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The petition's hold request inconsistently describes the Town of Vinton companion petition as filed and forthcoming, citing application number 25-A1099. Companion filing status was not independently established; the forecast treats a lead-case hold/GVR as a possibility, not confirmed docket history."
+    }
+  ]
+}

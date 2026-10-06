@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500252",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "functions.exec_command",
+    "web.run",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "fedcourts paths",
+    "fedcourts validate",
+    "jq"
+  ],
+  "helpful": [
+    "Readable petition and opposition distinguished an admitted circuit conflict from disagreement about its continuing importance.",
+    "Frozen mode, salience version, and distribution count avoided substituting raw notice counts for the harness's conditioning state.",
+    "Exact statpack JSON supported pooling every displayed strictly-prior high-band risk set.",
+    "CourtListener citation lookup and opinion snippets verified the original precedent without seeking the target outcome."
+  ],
+  "gaps": [
+    "Web search and direct official-opinion open returned no usable content.",
+    "The petition package is marked truncated; the full appendix was not available in the extracted text.",
+    "The provisioned documents omit the docketed reply and industry amicus text.",
+    "The default uv cache path was read-only; redirecting it to a temporary writable directory worked."
+  ],
+  "notes": "No live corpus lookup or target-case outcome retrieval. The new Solicitor General recommendation is not in the record; the CVSG forecasts await it. Used the supplied aggregate pack without claiming a live corpus freshness stamp."
+}

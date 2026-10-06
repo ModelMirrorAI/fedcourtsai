@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73452191",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: local provisioned-file reads and jq",
+    "Python: Decimal arithmetic",
+    "apply_patch",
+    "Python: JSON Schema and Pydantic validation"
+  ],
+  "helpful": [
+    "Blinded candidate inputs and structured retrieval logs",
+    "Frozen salience-band contexts and versioned statpack table",
+    "Provisioned petition text for checking the stated vehicle objections"
+  ],
+  "gaps": [
+    "Some candidate retrieval results are unobserved; captured rows retain digests rather than full result contents"
+  ],
+  "notes": "Scored all three supplied aliases using only local provisioned material and the committed statpack. No external legal, corpus, CourtListener, or web lookup was needed. The project interpreter lacks jsonschema; the system interpreter supplies it, and the project interpreter supplies the Pydantic models. Full-tree validation is intentionally deferred until harness restoration and un-aliasing."
+}

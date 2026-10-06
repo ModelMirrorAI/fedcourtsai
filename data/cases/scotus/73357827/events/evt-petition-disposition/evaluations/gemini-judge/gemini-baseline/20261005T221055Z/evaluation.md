@@ -1,0 +1,5 @@
+This is a cert-stage cell. The predictor correctly forecast a denial.
+
+**Base rate and skill**: The prediction carried a frozen context with the `baseline` band under `sal-v4`. The `segment_base_rate` therefore uses the `risk_set` basis. I computed this by pooling the bracketed `reached` figures for the `baseline` band over Terms strictly before OT2025 (OT2017 to OT2024), which yields approximately 5.12%.
+
+**Reasoning Quality**: The reasoning quality is fair (0.60). While the predictor acknowledged the circuit split and the involvement of the DOJ, it failed to properly penalize the petition for its severe vehicle problems (the fact-bound standing dismissal). By anchoring too heavily on the substantive question and the federal interest, the predictor assigned a grant probability of 0.15, which is almost triple the baseline rate. This reflects an overestimation of the likelihood that the Court would overlook threshold Article III issues to reach the merits, resulting in a significantly negative Brier skill score.

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73391039",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "statpack.md",
+    "statpack.json"
+  ],
+  "helpful": [
+    "The sal-v4 segment table's bracketed reached figures with per-Term n made the risk_set pool a one-line computation, and statpack.json let me cross-check it exactly.",
+    "Per-call result_capture markers on the blinded retrieval logs made the forward-leakage check tractable even for the fully-unobserved candidate."
+  ],
+  "gaps": [
+    "No provisioned copy of the Eleventh Circuit decision below; the candidates' and my reading of the law-of-the-case holding rests on the petition's own account."
+  ],
+  "notes": "Cert-stage forward cell; all three candidates called denial and the petition was denied at first conference. Nothing to flag."
+}

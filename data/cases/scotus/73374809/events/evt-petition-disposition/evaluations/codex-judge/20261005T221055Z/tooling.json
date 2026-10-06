@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73374809",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate artifacts and retrieval logs",
+    "Frozen prediction contexts",
+    "Versioned per-Term reached-band table",
+    "Provisioned outcome and petition text"
+  ],
+  "notes": "No external retrieval was needed. Leakage assessments distinguish captured from unobserved calls; gemini-baseline's results are entirely unobserved. Scores use the rounded rates in the prescribed markdown table. Validation is local to the authored artifacts, preserving the blind rather than running the full data-tree target check before harness restoration.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "Python arithmetic",
+    "apply_patch",
+    "JSON Schema validation",
+    "Pydantic artifact validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

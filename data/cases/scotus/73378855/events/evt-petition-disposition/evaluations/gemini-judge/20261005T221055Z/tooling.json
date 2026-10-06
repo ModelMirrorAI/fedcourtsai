@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/73378855",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "default_api:read_file",
+    "default_api:run_shell_command",
+    "default_api:list_directory",
+    "default_api:write_file"
+  ],
+  "helpful": [
+    "Shell commands via run_shell_command to parse through prediction outputs quickly."
+  ],
+  "gaps": [],
+  "notes": "No corpus query was needed as the cases were fully forward predictions with no post-decision materials retrieved."
+}

@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/73500235",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "google_web_search",
+    "read_file",
+    "list_directory"
+  ],
+  "helpful": [
+    "The statpack provided clear base rates for the salience bands."
+  ],
+  "gaps": [],
+  "notes": ""
+}

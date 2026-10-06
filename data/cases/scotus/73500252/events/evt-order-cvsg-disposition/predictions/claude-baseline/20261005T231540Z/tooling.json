@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500252",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "fedcourts query (two recency-ranked SCOTUS pulls)",
+    "metrics/statpack.md (CVSG cut, relist cut, sal-v4 band table)",
+    "CourtListener MCP: search, call_endpoint dockets/docket-entries, get_endpoint_item dockets"
+  ],
+  "helpful": [
+    "The sal-v4 band table matching context.salience_version made the pooled anchor mechanical",
+    "Provisioned petition and BIO text, both complete in their argument sections, carried the decisive facts (three pending petitions, the OCC rule, the conceded vehicle)",
+    "The CVSG cut in the statpack gave a second anchor that agreed with the band pool"
+  ],
+  "gaps": [
+    "CourtListener serves no docket entries for SCOTUS dockets and no case-name filter on the dockets endpoint, so sibling petitions (Cantero's 2026 petition) could not be located or read; a provisioned supremecourt.gov docket for companion cases named in the briefs would close this",
+    "fedcourts query has no CVSG or band filter, so similar-prior retrieval for a CVSG cell is not possible; the statpack cut has to stand in",
+    "The prior SG CVSG brief (2023, Nos. 22-349/22-529) is the most probative related document for a CVSG cell and is not provisioned"
+  ],
+  "notes": "Seven MCP calls and two corpus queries, within the advisory budget. The MCP server was reachable throughout."
+}

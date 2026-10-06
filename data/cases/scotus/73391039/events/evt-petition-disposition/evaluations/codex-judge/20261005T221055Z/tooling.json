@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73391039",
+  "gaps": [
+    "Some candidate retrieval results are unobserved; query scope and prose remain available but cannot prove response contents."
+  ],
+  "helpful": [
+    "Blinded candidate staging",
+    "Mode-aware captured retrieval metadata",
+    "Frozen salience version and band",
+    "Rendered strictly-prior Term baseline table"
+  ],
+  "notes": "Scored all three aliases without external retrieval. Used the Markdown table as instructed, retaining its rounding limitation. Full data validation is deferred to the harness after restoration and alias resolution. No workflow-owned files are authored.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "local Python",
+    "apply_patch",
+    "fedcourtsai.paths",
+    "fedcourtsai.serialize",
+    "Pydantic artifact validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73392441",
+  "gaps": [
+    "Unobserved results limit gemini-baseline transcript inspection; four codex-baseline web results are also unobserved."
+  ],
+  "helpful": [
+    "Blinded candidate bundles",
+    "Frozen band and salience-version context",
+    "Per-Term reached-rate table",
+    "Harness result-capture markers"
+  ],
+  "notes": "All three candidates evaluated without identity inference or new case-fact retrieval. Capture gaps were treated as uncertainty, never as evidence of empty results. No task-blocking or data-quality anomaly required flags.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: local file reads",
+    "jq",
+    "Python decimal arithmetic",
+    "apply_patch",
+    "fedcourtsai.paths",
+    "fedcourtsai.serialize",
+    "Pydantic artifact validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

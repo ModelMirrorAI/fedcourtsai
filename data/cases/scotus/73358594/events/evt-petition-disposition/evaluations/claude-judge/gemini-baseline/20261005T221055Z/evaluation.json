@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "A single federal employee's Whistleblower Protection Act reprisal appeal from a nonprecedential Federal Circuit Rule 36 affirmance. No circuit conflict alleged, the Solicitor General waived a response and the Court did not call for one, and the petition was denied at its first conference with no noted dissent or statement. The abstract question (must the MSPB rule on both pleaded disclosure categories) has some general application to the federal workforce, but the vehicle was fact-bound and the outcome produced no law; low stakes."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.961857,
+  "case_id": "scotus/73358594",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.002522359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002522359735235249,
+    "total": 0.002522359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-05T22:16:06Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-16 against a 2026-09-16 snapshot ending at the June 17 distribution; denied 2026-10-05. Log (24 calls) has capture coverage 0.0, the engine's standing shape, so every call is graded on its query: record/statpack reads, two fedcourts query attempts (a free-text query and a 2-row denied sample), and two CourtListener searches, one on MSPB/WPA terms and one on petitioner's counsel's name. The counsel-name search could surface this docket, but on 2026-09-16 the petition was undecided, so nothing outcome-revealing existed to retrieve; the candidate reports 0 results, which the unobserved marker cannot confirm. No qp-topics read. No decided-case mis-provisioning found.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "763e4d1f2361180a82c34385b0bd5968ac6af4cc",
+    "stamped_at": "2026-10-05T22:17:54.858553Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051203,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73369988",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "statpack.md",
+    "statpack.json via in-code pooler (cross-check)"
+  ],
+  "helpful": [
+    "The blinded staging area with retrieval_log.json per candidate: the result_capture marker and per-call retrieved_doc_date made the forward-cell mis-provisioning check mechanical.",
+    "The sal-v4 heading on the statpack band table matching context.salience_version, which settled the basis question without ambiguity.",
+    "Importing the in-code pooler against the committed statpack.json confirmed the hand-pooled rendered-table figure to four decimals."
+  ],
+  "gaps": [
+    "The outcome's resolution date and the candidates' created_at are both present, but no field states the candidate prediction's snapshot-to-resolution gap directly; a stamped 'days before resolution' would make forward-cell leakage grading one read rather than a subtraction.",
+    "The predictors' big_case_score sits in the same prediction.json as the fields an evaluator must read first, so forming the independent stakes read before seeing it requires deliberately not dumping the whole file."
+  ],
+  "notes": "Cert cell, three forward candidates, all denied-correct, no leakage, no flags. Validated each evaluation.json against the pydantic Evaluation model before finishing."
+}

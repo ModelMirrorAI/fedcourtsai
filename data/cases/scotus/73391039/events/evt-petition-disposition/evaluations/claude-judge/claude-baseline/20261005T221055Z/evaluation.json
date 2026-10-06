@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.05,
+    "notes": "Low-stakes pro se Rule 60(b)(4) / law-of-the-case petition from an unreported Eleventh Circuit affirmance in a local code-enforcement dispute; respondents waived, no response requested, denied at first conference. Read formed before opening the candidate's big_case_score."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.990463,
+  "case_id": "scotus/73391039",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.002597359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.55,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002597359735235249,
+    "total": 0.002597359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-05T22:28:30Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-17 against the 2026-09-16 snapshot, 18 days before the 2026-10-05 denial. Log (coverage 1.0, all captured): local reads of the prompt, schema, snapshot, petition and statpack; two corpus queries over granted/denied 2020s dockets (one retrieved_doc_date 2026-09-10, a stay application, not this case); two CourtListener opinion searches for the Eleventh Circuit decision below (0 results). No query reached this petition's disposition; reasoning treats the case as pending.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T181231Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "763e4d1f2361180a82c34385b0bd5968ac6af4cc",
+    "stamped_at": "2026-10-05T22:30:27.087000Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

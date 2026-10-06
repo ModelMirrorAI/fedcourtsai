@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500217",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "statpack.md",
+    "statpack.json",
+    "jq",
+    "python"
+  ],
+  "helpful": [
+    "The blinded staging area with retrieval_log.json per candidate: call classes, result_capture markers and the dated corpus-query row made the forward leakage check mechanical.",
+    "statpack.json carrying the unrounded prefix_est_grant_rate / prefix_weighted_resolved fields confirmed the pooled band figure matched the rendered table."
+  ],
+  "gaps": [
+    "The predictor's big_case_score sits in the same staged prediction.json as the context block the base-rate rule requires, so an evaluator cannot read the file without seeing it before forming an independent stakes read; staging it in a separate file would make the ordering the prompt asks for enforceable."
+  ],
+  "notes": "Cert cell, all three candidates forward and clean; segment_base_rate pooled risk_set OT2017-OT2024 under sal-v4 = 0.0512, no window or version divergence, so no flags.json was written."
+}

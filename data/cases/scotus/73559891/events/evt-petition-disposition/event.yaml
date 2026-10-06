@@ -1,0 +1,12 @@
+case_id: scotus/73559891
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-06-30'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: DTLD L.L.C., et al. v. The Power Station Limited Partnership, et al.

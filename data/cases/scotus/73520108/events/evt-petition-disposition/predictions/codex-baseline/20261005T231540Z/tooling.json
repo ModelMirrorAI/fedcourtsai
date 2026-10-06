@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73520108",
+  "gaps": [
+    "The provisioned document bundle omitted the two supplemental filings that materially changed the vehicle assessment.",
+    "web.open returned no filing content and pdftotext was unavailable; installed pypdf provided a working fallback.",
+    "The default package-manager cache was read-only; a temporary writable cache was required."
+  ],
+  "helpful": [
+    "Paired petition and BIO exposed both sides of the vehicle dispute.",
+    "Exact reached-band numerators could be recovered from statpack.json.",
+    "Snapshot links allowed targeted retrieval without searching for an outcome."
+  ],
+  "notes": "Forward forecast using the supplied latest snapshot; null cutoff metadata for a declared distribution moment is flagged separately. No CourtListener MCP or case-level corpus lookup was needed. The petition manifest reports truncation, so the inspected text is not represented as the entire filing.",
+  "role": "predictor",
+  "run_id": "20261005T231540Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local input and schema reads",
+    "committed statpack",
+    "fedcourts paths",
+    "web.open attempt",
+    "direct Supreme Court filing retrieval with urllib.request and pypdf",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

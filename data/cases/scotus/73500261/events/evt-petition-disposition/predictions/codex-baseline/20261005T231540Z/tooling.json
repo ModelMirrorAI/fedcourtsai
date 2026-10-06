@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500261",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["functions.exec_command", "web.run", "fedcourts paths"],
+  "helpful": [
+    "The petition text makes the protective and expressly conditional posture clear.",
+    "Frozen sal-v4 context and machine-readable risk-set denominators support the correct prior-Term state anchor.",
+    "The docket distinguishes a requested respondent response from a CVSG and explains why another distribution is likely."
+  ],
+  "gaps": [
+    "Both general legal-context web attempts returned no usable content.",
+    "The provided petition is truncated and no brief in opposition is provisioned; the record places its deadline after the snapshot.",
+    "The inspected statpack metadata does not expose a build date or corpus pull vintage."
+  ],
+  "notes": "Forecast rests on the provisioned record and committed statpack. No live case lookup was attempted. The default uv cache was read-only; a temporary writable cache allowed the path command to run. A future distribution can reflect completion of briefing rather than substantive reconsideration."
+}

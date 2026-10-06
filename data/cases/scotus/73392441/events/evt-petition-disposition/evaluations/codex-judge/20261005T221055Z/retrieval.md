@@ -1,0 +1,1 @@
+No external retrieval or corpus lookup. Consulted only provisioned case inputs, all three blinded candidate bundles and captured logs, and the committed metrics/statpack.md for the matching prior-Term baseline. Read task/schema and path/serialization interfaces for output production and validation. No CourtListener lookup or web search was performed by this evaluator.

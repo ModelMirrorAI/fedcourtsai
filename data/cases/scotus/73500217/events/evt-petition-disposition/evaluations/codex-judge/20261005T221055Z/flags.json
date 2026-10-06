@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500217",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md says no corpus queries were executed, but its harness log records a shell call attempting fedcourts query --court scotus --decided-before \"2026-09-17\" | head -n 5 on September 17 at 19:16:43.851Z. The result is unobserved, so success, returned content, and transfer are unknown; this is an omitted query attempt, not proof of successful retrieval or outcome leakage. Future disclosure should distinguish attempted calls from successful retrieval. Details are in gemini-baseline's evaluation.md.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0"
+}

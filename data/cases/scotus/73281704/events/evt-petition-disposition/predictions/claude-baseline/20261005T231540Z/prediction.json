@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "QP1 (whether a circuit split alone makes a claim debatable for a certificate of appealability) is a recurring habeas-administration question that would matter to thousands of 2255 and 2254 appeals a year, but it is procedural and technical; QP2 (2255 cognizability of restitution/forfeiture) has a colorful backstory ($488M in penalties, a commuted 40-year sentence) but the SG persuasively disputes that any split exists. Moderate stakes, low public salience.",
+  "big_case_score": 0.3,
+  "case_id": "scotus/73281704",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.18
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.62
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.75
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.25
+    }
+  ],
+  "confidence": 0.5,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-05",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-05T23:44:30Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-05.json",
+  "judgment": null,
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.18,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "2a269d45b7f9fd819e70c15624e5aa13e63c69ae",
+    "stamped_at": "2026-10-05T23:46:47.576805Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261005T231540Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

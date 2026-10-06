@@ -1,0 +1,13 @@
+case_id: scotus/73530077
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-06-24'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Steven Robert Johnson, et al. v. Ann L. Aiken, Senior Judge, United States
+  District Court for the District of Oregon, et al.

@@ -1,0 +1,13 @@
+case_id: scotus/73535545
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-06-25'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: G. W., a Minor, By and Through Her Guardian ad Litem, Nicole Ward, et al. v.
+  Coronado Unified School District, et al.

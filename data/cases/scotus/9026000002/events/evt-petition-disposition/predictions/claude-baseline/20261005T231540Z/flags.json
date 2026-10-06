@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000002",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward cell; decisive public signal came from companion dockets rather than this docket: the lead petition on the same question, No. 25-1383 Indian Harbor Ins. Co. v. Town of Vinton (CA5, Skadden, two amici, response requested 2026-07-27, BIO 2026-08-26, reply 2026-09-09), and No. 26-53 Indian Harbor v. One Lakeside Plaza (rescheduled 2026-08-27). The petition in this cell itself asks the Court to hold it for 25-1383. I also read the 2026-10-05 order list and the 2026-10-02 grant announcements: none of 25-1383, 26-53 or 26-2 appears, so the cluster has not been acted on. No outcome of this case surfaced anywhere; the forecast is derived from the cluster's posture, not from any disposition."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot (2026-10-05.json) ends at the 2026-08-14 extension order; the live supremecourt.gov docket fetched 2026-10-06 shows the same six entries, so no brief in opposition had been docketed although it was due 2026-09-28, and no redistribution has occurred. Baseline is current, not stale. No BIO text was provisioned (documents.json lists petition and QP only), so the opposition's arguments were read from the lead case's BIO instead."
+    }
+  ]
+}

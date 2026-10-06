@@ -1,0 +1,13 @@
+case_id: scotus/73516232
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-06-22'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Joseph Daryll Rued, Individually and on Behalf of W. O. R., a Minor Child v.
+  Charles Webber, Assistant Chief Judge, Scott County, Minnesota

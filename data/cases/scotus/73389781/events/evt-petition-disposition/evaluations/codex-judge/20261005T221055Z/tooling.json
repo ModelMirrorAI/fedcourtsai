@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73389781",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate staging with frozen band, version and Term contexts",
+    "Harness-captured query logs with explicit result-capture coverage",
+    "Rendered per-Term risk-set rates and weighted denominators"
+  ],
+  "notes": "All three candidates were gradeable from local inputs. Unobserved result markers were treated as an audit limitation, not failed retrievals or a candidate defect. The virtual environment lacked jsonschema; the system Python provides it for schema validation.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: local reads and jq",
+    "Python: Decimal arithmetic and JSON Schema validation",
+    "apply_patch: contract output files"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

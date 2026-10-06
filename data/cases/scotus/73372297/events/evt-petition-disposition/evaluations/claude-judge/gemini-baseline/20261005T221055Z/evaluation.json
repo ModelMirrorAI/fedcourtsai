@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "My own read from the record, formed before weighing the candidates' scores: a pro se, paid petition from a single Vaccine Injury Compensation Program claimant, challenging a nonprecedential Federal Circuit affirmance (No. 2025-1769, Dec. 9, 2025) that rested on an untimely motion for review. The questions presented are grievances about alleged fraud, malpractice, and collusion and state no rule of law; no split, no amicus, SG waived. Denied without writing at the first conference. Stakes beyond the parties are negligible; the program-level policy debate the petition invokes has no vehicle here."
+  },
+  "brier_score": 1e-06,
+  "brier_skill_score": 0.9996186640655881,
+  "case_id": "scotus/73372297",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": 0.0026213597352352487
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0026213597352352487,
+    "total": 0.0026213597352352487
+  },
+  "correct": 1,
+  "created_at": "2026-10-05T22:22:31Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; log carries 20 calls, all `unobserved` (coverage 0.0, the engine's standing shape), so each is graded on its query: reads of AGENTS.md, the predict prompt, context.json, the 2026-09-16 snapshot, the document manifest, the questions presented, the statpack, and the prediction schema, then its own output writes. No corpus query, no web search, no CourtListener call. Prediction created 2026-09-16, before the conference and the denial; reasoning treats the disposition as future. No outcome material retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "763e4d1f2361180a82c34385b0bd5968ac6af4cc",
+    "stamped_at": "2026-10-05T22:25:21.577203Z"
+  },
+  "reasoning_quality": 0.52,
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120898100172712,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

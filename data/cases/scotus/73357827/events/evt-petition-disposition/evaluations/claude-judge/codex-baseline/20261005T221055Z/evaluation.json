@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "Formed before reading any candidate's big_case_score. A private election-integrity group's paid petition from a unanimous, fact-bound Seventh Circuit standing affirmance; respondents waived, no response was called for, one aligned amicus, considered once at the long conference and denied without noted dissent. The HAVA private-enforcement and organizational-standing questions have some national relevance, but this vehicle could not have reached them and drew no signal from the Court."
+  },
+  "brier_score": 0.0012250000000000002,
+  "brier_skill_score": 0.5328634803454582,
+  "case_id": "scotus/73357827",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.035,
+        "score": 0.0013973597352352487
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.17,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0013973597352352487,
+    "total": 0.0013973597352352487
+  },
+  "correct": 1,
+  "created_at": "2026-10-05T22:16:02Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; the petition was genuinely pending on 2026-09-16 (denied 2026-10-05). Three web-search rows are unobserved and are graded on their queries: the Court's Rules PDF, an 'Alliance for Hippocratic Medicine' standing search, and the govinfo copy of the Seventh Circuit opinion; none targets this petition's disposition. Captured calls read pre-decision authorities (Sandusky, Crowley) and the September 15 supplemental brief. No outcome material about this case was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "763e4d1f2361180a82c34385b0bd5968ac6af4cc",
+    "stamped_at": "2026-10-05T22:17:53.975990Z"
+  },
+  "reasoning_quality": 0.75,
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120898100172712,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

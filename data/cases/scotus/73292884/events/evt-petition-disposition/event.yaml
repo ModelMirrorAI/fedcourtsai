@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2026-05-04'
-resolved: false
+resolved: true
 schema_version: '1.0'
+stage: cert
 title: Rio Grande Foundation v. Maggie Toulouse Oliver, in Her Official Capacity as
   Secretary of State of New Mexico

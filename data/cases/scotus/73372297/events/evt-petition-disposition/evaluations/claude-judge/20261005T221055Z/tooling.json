@@ -1,0 +1,25 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73372297",
+  "gaps": [
+    "the predictors' own flags.json is (by design) not staged, so claude-baseline's privacy disclosure reached me only through its reasoning.md; a staged, scrubbed boolean such as 'predictor raised a data-quality flag' would let an evaluator know a note exists without seeing its text",
+    "a one-line helper that prints the pooled risk-set rate for a given band, version and Term from the committed statpack would remove the hand computation every cert cell repeats"
+  ],
+  "helpful": [
+    "metrics/statpack.json exposes the exact per-Term prefix_est_grant_rate / prefix_weighted_resolved fields, so the cert segment base rate can be pooled to the same precision as the in-code pooler rather than from the rendered percentages",
+    "retrieval_log.json's result_capture marker and per-call class made the forward leakage check mechanical for all three candidates",
+    "the decided 2026-10-05 snapshot in record/ let me confirm every docket fact the candidates cited"
+  ],
+  "notes": "Cert cell, all three candidates forward, no external lookups needed; the whole grade rests on the provisioned record, the blinded staging area, and the committed statpack.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "file-read",
+    "file-write",
+    "python3 (json/jsonschema)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

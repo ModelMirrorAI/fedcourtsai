@@ -1,0 +1,28 @@
+{
+  "case_id": "scotus/73292081",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener search (opinions)",
+    "WebFetch (supremecourt.gov DocketPDF and docket page)",
+    "pypdf via uv run --with (local PDF text extraction)",
+    "subagents to summarize petition.txt and brief-in-opposition.txt"
+  ],
+  "helpful": [
+    "The sal-v4 band table with bracketed reached rates gave a direct, leakage-safe anchor.",
+    "Provisioned BIO text plus the petition QP section were enough to see the vehicle problems.",
+    "The snapshot's filing URLs made the post-BIO filings (reply, motion to defer, letter) reachable in forward mode."
+  ],
+  "gaps": [
+    "No PDF text extraction on the runner by default (pypdf is in pyproject but not synced); WebFetch's summarizer cannot read PDF bodies, so I had to pull pypdf ad hoc.",
+    "The reply brief and any post-BIO motions/letters are not provisioned under record/documents even though they sit on the same docket; here they carried the decisive hold-posture information.",
+    "CourtListener returned no Fifth Circuit opinion for No. 25-70005 (unpublished per curiam), so the lower-court opinion was available only through the petition appendix.",
+    "fedcourts query has no capital-case or subject filter, so priors for 'capital habeas, successive petition' could not be pulled directly."
+  ],
+  "notes": "A scanned PDF (the State's response to the motion to defer) yielded no text; an OCR path for supremecourt.gov filings would close that gap."
+}

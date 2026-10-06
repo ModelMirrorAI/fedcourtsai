@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73363408",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell file reads of the provisioned record and blinded staging area",
+    "metrics/statpack.md sal-v4 band table",
+    "python for the pooled base rate, Brier and skill arithmetic, and schema validation"
+  ],
+  "helpful": [
+    "The blinded retrieval_log.json with per-call result_capture markers made the forward-mode leakage check mechanical.",
+    "The statpack caption stating how many Terms it renders settled the pooling window without a second lookup.",
+    "Candidates' own retrieval.md disclosures matched their logs, which made the clean grade easy to confirm."
+  ],
+  "gaps": [
+    "A committed per-Term pooled reached-rate per band (or a CLI that prints it) would remove the rounded-table arithmetic every cert cell repeats.",
+    "A pro se / waiver-of-response cut in the statpack would let a judge check the candidates' largest adjustments against data rather than general knowledge."
+  ],
+  "notes": "Cert cell, three forward candidates, all clean. The predictors' big_case_score values are visible in the staged prediction.json, so a judge cannot form the stakes read strictly before seeing them; staging that field separately would make the independence the schema describes achievable."
+}

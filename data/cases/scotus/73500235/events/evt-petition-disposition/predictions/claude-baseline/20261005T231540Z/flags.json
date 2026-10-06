@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500235",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "distribution_count=2 here is two pre-conference reschedules (DISTRIBUTED 9/09 for 9/28, Rescheduled 9/22; DISTRIBUTED 10/05 for 10/9, Rescheduled 10/05), not relists: the petition has not yet been considered at any conference. The relist-count cut's bucket-2 rate therefore does not describe this petition's position, and I anchored on the elevated band's reached rate instead, adjusted down. A reschedule-aware count beside distribution_count would let cells and the band scorer separate the two."
+    }
+  ]
+}

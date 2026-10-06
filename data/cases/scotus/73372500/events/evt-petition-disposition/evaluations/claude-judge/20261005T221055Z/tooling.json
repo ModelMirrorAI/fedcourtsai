@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73372500",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/grep/python3 over the provisioned record and committed files)",
+    "metrics/statpack.md and metrics/statpack.json (sal-v4 baseline reached rates)",
+    "fedcourts paths"
+  ],
+  "helpful": [
+    "statpack.json carrying the exact per-Term prefix_est_grant_rate and prefix_weighted_resolved, so the pooled rate could be reproduced to full precision rather than from rounded table percentages",
+    "retrieval_log.json result_capture markers and per-call timestamps, which settled the forward leakage check against the resolution date without any outside lookup",
+    "the blinded staging area carrying retrieval.md and both prose documents per candidate"
+  ],
+  "gaps": [
+    "the evaluator sees the predictors' big_case_score in the staged prediction.json before it can form its own stakes read; masking that one field until after the read is written would make the independence the prompt asks for structural rather than a matter of discipline",
+    "a harness-rendered one-line summary of the pooled risk_set rate for the prediction's frozen band and Term would remove the one hand computation left on a cert cell"
+  ],
+  "notes": "Cert cell, three forward candidates, all correctly predicted denial. No flags.json written: no data-quality issue, version mismatch, or lookback divergence surfaced."
+}

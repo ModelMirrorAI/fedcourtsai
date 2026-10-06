@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500218",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "scope",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "This docket (25-1315) is a Rule 20 petition for an extraordinary writ of mandamus, not a certiorari petition, but the event carries kind=petition / stage=cert and so is scored under the cert vocabulary and the sal-v4 baseline-band risk-set rate (5.1%, OT2017-OT2024). All three candidates noted the mismatch and discounted far below the band anchor. The cert band population is a poor reference class for extraordinary-writ petitions, whose grant rate is far lower; a maintainer may want a petition-type marker on the event (or the statpack) so these cells can be separated at the leaderboard rather than inflating baseline-band skill."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500218",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the blinded staging area and record/",
+    "metrics/statpack.md and statpack.json (sal-v4 band table)",
+    "pipeline source (evaluate.py, base_rates.py) to match the pooled-rate definition"
+  ],
+  "helpful": [
+    "The frozen context block on each prediction (band + salience_version) made the risk_set basis unambiguous",
+    "retrieval_log.json result_capture markers let the unobserved-call rule be applied per row",
+    "record/documents/petition.txt (fetched after the predictions ran) made an independent big-case read possible"
+  ],
+  "gaps": [
+    "A rendered pooled prior-Term figure per band in the statpack (or a `fedcourts base-rate --band --term` command) would remove the hand pooling every evaluator repeats",
+    "The retrieval log's tool field is populated but a per-call retrieved_doc_date is null on every row here, so the forward check leans on query text alone"
+  ],
+  "notes": "Cert-stage cell; no corpus query or CourtListener lookup was needed \u2014 the outcome, snapshot, petition text and the committed statpack settled every field."
+}

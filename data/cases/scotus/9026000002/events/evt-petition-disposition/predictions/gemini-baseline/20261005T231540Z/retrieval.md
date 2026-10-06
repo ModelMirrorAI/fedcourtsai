@@ -1,0 +1,3 @@
+- fedcourts query: None (did not run local queries as I relied on the committed statpack and web search).
+- CourtListener MCP: Searched for the docket and case name (scotus and ca5 dockets) to understand the background, but the case text was not found via MCP directly.
+- Web search: Used Google web search for "Independent Specialty Insurance Company", "Lower Cameron Hospital", and "equitable estoppel Fifth Circuit", which successfully surfaced the nature of the circuit split regarding whether state or federal law governs equitable estoppel under the New York Convention.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2026-04-02'
-resolved: false
+resolved: true
 schema_version: '1.0'
+stage: cert
 title: Daisey Trust, By and Through Its Trustee Eddie Haddad, et al. v. Federal Housing
   Finance Agency, et al.

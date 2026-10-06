@@ -1,0 +1,23 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73364890",
+  "gaps": [
+    "a one-line pooled base-rate helper (band, version, term) would remove hand-pooling of the table rows",
+    "a short per-call summary view of retrieval_log.json (class, query slice, date, capture) rather than the full JSON"
+  ],
+  "helpful": [
+    "retrieval_log.json's per-call result_capture marker and retrieved_doc_date",
+    "the statpack's sal-v4 band table with bracketed reached figures and per-Term n",
+    "the frozen context block on each blinded prediction (band, salience_version, mode, snapshot_date)"
+  ],
+  "notes": "Cert cell, three candidates, all forward and all correct; nothing beyond the provisioned inputs was needed.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell (cat/sed/python for reading inputs and writing outputs)",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

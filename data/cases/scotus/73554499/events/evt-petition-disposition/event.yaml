@@ -1,0 +1,13 @@
+case_id: scotus/73554499
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-06-30'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Carlos A. Alonso Cano, as Next Friend of His Minor Daughter Jany Leidy Alonso
+  Morejon, et al. v. 245 C&C, LLC, et al.

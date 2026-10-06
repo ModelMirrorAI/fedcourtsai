@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73500252",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "grep_search",
+    "read_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "statpack.md's salience band risk-set base rates",
+    "CourtListener search for checking the circuit split cases"
+  ],
+  "gaps": [],
+  "notes": "Relied heavily on CVSG and salience band base rates combined with the textual analysis of the BIO referencing the SG's prior position."
+}

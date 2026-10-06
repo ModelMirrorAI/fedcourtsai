@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73292081",
+  "gaps": [
+    "The reply and procedural correspondence were not provisioned as text.",
+    "The opposition to deferral had no extractable PDF text.",
+    "Web-tool direct opens returned no usable content in this session."
+  ],
+  "helpful": [
+    "Provisioned petition appendix allowed direct checking of the independent lower-court ground.",
+    "Unrounded statpack JSON supports an exact prior-Term reached-rate pool.",
+    "Snapshot filing URLs allowed targeted predecision retrieval without a current-docket search."
+  ],
+  "notes": "Default uv cache was read-only; a temporary writable cache resolved the CLI issue. Direct Supreme Court PDF retrieval and in-memory extraction succeeded except for the image-only opposition. No CourtListener or corpus-query fallback was needed. Increment probabilities remain judgmental because published conditioned hazards are unavailable.",
+  "role": "predictor",
+  "run_id": "20261005T231540Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "committed statpack",
+    "web.run direct opens",
+    "httpx",
+    "pypdf",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

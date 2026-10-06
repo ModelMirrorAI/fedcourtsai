@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73358839",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell", "file-read", "fedcourts open-events", "fedcourts query (help only)", "fedcourts paths", "metrics/statpack.md"],
+  "helpful": [
+    "The staged retrieval_log.json with result_capture markers made the forward leakage check fast and concrete.",
+    "The statpack caption stating how many Terms are rendered settled the lookback-window question without a flag."
+  ],
+  "gaps": [
+    "fedcourts query has no per-docket filter, so looking up one companion case's row goes through open-events only; a --docket or --docket-number filter on query would help.",
+    "fedcourts corpus-info fails in the cell because the blob is not local, so a corpus-dependent observation cannot state its vintage from inside a cell; a service-backed vintage line would fix that.",
+    "The blinded prediction.json exposes each candidate's big_case_score, so the evaluator cannot form its own big-case read before seeing theirs as the prompt asks; masking that one field in the staged view would make the independence real."
+  ],
+  "notes": "Cert cell, three forward candidates, all predicted denied against a denial. Band rate pooled by hand from the sal-v4 reached figures over OT2017-OT2024 (the whole rendered window), matching the in-code window since the pack holds no earlier Terms."
+}

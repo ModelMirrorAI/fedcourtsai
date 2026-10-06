@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73378855",
+  "gaps": [
+    "Unobserved candidate retrieval results limit retrospective inspection; digests alone do not reproduce result bodies."
+  ],
+  "helpful": [
+    "Blinded candidate rationale and forecast documents",
+    "Harness retrieval queries with explicit result-capture markers",
+    "Provisioned pleading text and hearing appendix",
+    "Versioned per-Term reached-band table"
+  ],
+  "notes": "Evaluated three aliases without external retrieval. Used only the rendered statpack's strictly-prior-Term baseline rows; percentages are rounded. Output-only schema checks preserve the blind; full-tree validation is left to the post-run restore, un-alias and stamp sequence.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell/file reads",
+    "jq",
+    "Python arithmetic",
+    "JSON Schema validation",
+    "Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

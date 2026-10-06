@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000018",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The event declares moment=distribution, but the provisioned context has null cutoff and cut_kind with as-stored provenance. The October 5 snapshot includes the August response request and October 2 opposition after the July 29 first-distribution entry. I used this supplied material under the forward-mode rule, not as a replay or a pure first-distribution information set. No Supreme Court outcome was encountered. The very high distribution-increment forecast reflects likely post-response redistribution, not inferred substantive consideration at the September 28 conference. Please preserve this boundary distinction in cohort comparisons.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261005T231540Z",
+  "schema_version": "1.0"
+}

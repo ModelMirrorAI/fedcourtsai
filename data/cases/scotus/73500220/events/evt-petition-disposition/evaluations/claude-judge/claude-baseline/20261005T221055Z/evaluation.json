@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "A private paid petition asking the Court to extend Padilla v. Kentucky beyond deportation to civil False Claims Act exposure, on 2255 collateral review with an independent retroactivity ground below; the United States waived, the petition was denied on the first order list after the Long Conference without a noted dissent, and it drew no amicus or press attention. The abstract doctrinal question (the direct/collateral line after Padilla) has real reach, but this vehicle's stakes were confined to two petitioners' civil judgment. Formed from the record and the denial; see evaluation.md on anchoring."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.8474656262352516,
+  "case_id": "scotus/73500220",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.0022223597352352487
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.14,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0022223597352352487,
+    "total": 0.0022223597352352487
+  },
+  "correct": 1,
+  "created_at": "2026-10-05T22:34:56Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-17 against a 2026-09-17 snapshot ending at the single 6/17 distribution for the 9/28 conference; the denial issued 2026-10-05. Log: 20 calls, result_capture_coverage 1.0. One CourtListener search (query names the petitioners and the Sixth Amendment/FCA issue, type opinions, court ca3) was throttled (HTTP 429) and returned nothing; one corpus query (--era 2020s --disposition granted) returned unrelated granted rows the reasoning says it did not use. No retrieved_doc_date, no query reaching this docket's later history, no outcome material in the prose. Nothing shows the case as already decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T181231Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "763e4d1f2361180a82c34385b0bd5968ac6af4cc",
+    "stamped_at": "2026-10-05T22:37:59.265597Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120898100172712,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

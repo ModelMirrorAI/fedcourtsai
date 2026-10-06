@@ -1,0 +1,5 @@
+The candidate accurately predicted a denial of certiorari. The reasoning was excellent and closely integrated the provisioned facts with the context: highlighting the foreclosed nature of the Seventh Amendment issue in state proceedings and properly interpreting the waiver of response by Uber as indicative of a weak petition. The candidate correctly identified the relevant base rate (about 5.1% for risk set OT2017-OT2024 for a baseline private petition) and sensibly lowered the forecasted probability to 0.5% based on the substantive merits and procedural posture. 
+
+The cell is cert-stage. The baseline and skill are based on the candidate's frozen band (`baseline`, `sal-v4`) as computed over the prior 8 Terms' reached segment.
+
+No leakage issues were observed. The candidate properly ran in forward mode, conducting sensible searches without seeking the outcome, which had not yet occurred at the time of prediction.

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500284",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell read-only inspection", "fedcourts paths", "jq", "committed statpack", "web search/open", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document"],
+  "helpful": ["Both petition and opposition were provisioned with extraction metadata.", "Exact risk-set fields in statpack.json support a correctly weighted prior-Term anchor.", "CourtListener citation lookups and targeted snippets verified older authority without looking up the target case."],
+  "gaps": ["The docketed reply text was not provisioned.", "The as-stored baseline lacks moment-cut metadata and a clear per-case pull timestamp.", "Web calls returned no usable content; the long MCP opinion display was truncated."],
+  "notes": "A writable temporary uv cache allowed path resolution after the default cache failed. No corpus-query service or live target-case retrieval was needed; historical authority was available through MCP."
+}

@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500216",
+  "gaps": [
+    "gemini-baseline's retrieval results are all unobserved, limiting result-level leakage verification.",
+    "The standalone jsonschema module is not installed; authoritative Pydantic models provide validation."
+  ],
+  "helpful": [
+    "Frozen candidate contexts permit version-matched risk-set scoring.",
+    "Captured-result markers distinguish missing observation from empty retrieval.",
+    "Provisioned petition appendix supports checking the candidates' vehicle analysis."
+  ],
+  "notes": "All three candidates were evaluated under their supplied aliases. No external retrieval or live corpus query was needed. Full data-tree validation is reserved for the harness after restoration and alias resolution.",
+  "role": "evaluator",
+  "run_id": "20261005T221055Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Local shell and jq reads",
+    "Committed statpack Markdown and JSON",
+    "prediction_base_rate",
+    "Pydantic artifact validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500221",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/find/python3) over the provisioned record and blinded staging area",
+    "metrics/statpack.md salience-band table and metrics/statpack.json prefix fields",
+    "schemas/evaluation.schema.json, schemas/agent_flags.schema.json, schemas/agent_tooling.schema.json"
+  ],
+  "helpful": [
+    "statpack.json's per-Term prefix_est_grant_rate / prefix_weighted_resolved fields made the pooled risk-set rate exact rather than a rounded-table approximation",
+    "the staged retrieval_log.json result_capture markers made the forward-mode leakage check concrete per call",
+    "the snapshot's ProceedingsandOrder list confirmed the denial date and the single distribution directly"
+  ],
+  "gaps": [
+    "a `fedcourts base-rate --band <band> --version <ver> --before-term <T>` helper would remove hand pooling of the band table and the chance of a transcription slip",
+    "the staged prediction.json exposes big_case_score before the evaluator can form its own read; a staging view that masks that one field until the evaluator writes big_case would make the independence real"
+  ],
+  "notes": "Cert cell, forward mode, no opinion slot and no semantic set, so the work was scoring plus a reasoning read; the provisioned inputs were sufficient and no corpus or network lookup was needed."
+}

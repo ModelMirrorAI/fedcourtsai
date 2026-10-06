@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73374809",
+  "run_id": "20261005T221055Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "statpack.md"
+  ],
+  "helpful": [
+    "The sal-v4 band table rendering all ten pack Terms, so the strictly-prior pool was unambiguous and matched the lookback.",
+    "The blinded staging with retrieval_log.json call classes, capture markers, and retrieved_doc_date; the forward check was quick.",
+    "The decided snapshot's proceedings carrying the denial entry and its date, so correctness and the forward-provisioning check rested on the record."
+  ],
+  "gaps": [
+    "A pre-pooled strictly-prior reached-rate per band and Term would remove a hand computation every cert cell repeats.",
+    "A machine-readable schema check command usable while predictions are moved out of the tree (the evaluation-target check cannot run mid-cell) would let a cell confirm shape without re-implementing it."
+  ],
+  "notes": "Cert cell, outcome denied at first conference; all three candidates forward with no outcome material retrieved."
+}

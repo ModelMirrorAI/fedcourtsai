@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500284",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen distribution_count of 1 counts the Jul 8 distribution for the Sep 28 conference, which the Jul 27 call for a response superseded before the petition was considered. The forthcoming redistribution after the Sep 9 reply will resolve relist-increment as a relist although it is the petition's first real consideration. Also, the sal-v4 band is `baseline` despite the call for a response, so the scored baseline understates this docket's observed signal; noted for the banding feature set, not as an error in this cell."
+    }
+  ]
+}

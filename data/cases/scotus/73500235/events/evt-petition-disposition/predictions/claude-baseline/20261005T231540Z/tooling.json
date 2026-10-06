@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500235",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "courtlistener mcp search",
+    "metrics/statpack.md",
+    "record/documents"
+  ],
+  "helpful": [
+    "Full petition and BIO text with clean extraction; the BIO's structural 'no prospective significance' argument drove the forecast.",
+    "The sal-v4 per-Term band table with bracketed reached rates made the anchor arithmetic straightforward.",
+    "context.json's frozen band and distribution_count."
+  ],
+  "gaps": [
+    "No way to tell from context.json whether distribution_count reflects relists or pre-conference reschedules; the docket text had to be read to separate them. A 'considered_count' or 'rescheduled_count' beside distribution_count would be useful.",
+    "fedcourts query has no filter that reaches a subject area (military commissions, mandamus) or a companion docket number; a --docket-number lookup for related cases named in the snapshot's RelatedCaseNumber would help.",
+    "CourtListener's docket index did not have the companion SCOTUS petition (26-13), so the related-case schedule could not be confirmed."
+  ],
+  "notes": "The relist-count cut's bucket 2 would have badly over-stated this petition's position; the statpack's caveat about reschedules counting as distributions was essential."
+}

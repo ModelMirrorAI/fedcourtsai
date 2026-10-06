@@ -1,0 +1,13 @@
+# Forecast of the Court's handling
+
+The Court will most likely grant plenary review of the petition after receiving the Solicitor General's views. The forecast is a 68% probability of any grant, including a GVR or other summary grant, not a 68% probability that Flagstar ultimately wins on preemption.
+
+The starting state is the harness's two conference distributions and the October 5, 2026 invitation to the Solicitor General. The snapshot contains three distribution notices, but two name the same September 28 conference with a rescheduling entry between them; I use the frozen count of two, not three independent conferences. I expect one or two further distinct conference distributions after the United States files its brief. The probability of at least one additional distribution is 98%. Redistribution after the CVSG response suffices for this claim; it need not be a further substantive relist after completed consideration. I expect action on the petition in the first half of 2027, rather than an immediate order in October 2026. Timing is a forecast, not a scored claim.
+
+The CVSG has already happened. I predict no second invitation, and enter 0% for the incremental CVSG claim, which is vacuous and masked at this moment. I expect the United States to favor Supreme Court clarification, but its recommendation has not yet been supplied and is not treated as a known fact.
+
+If the Court grants plenary review here, it will take the question substantially as framed: whether the National Bank Act preempts California's interest-on-mortgage-escrow requirement under the standard articulated in Cantero. The conflicting post-Cantero applications and the appropriate role of evidence of significant interference will be central. I do not expect direct review of the validity of the new OCC rule to replace that question. A final judgment and a developed evidentiary record make this petition a plausible lead vehicle even though related petitions present competing vehicles.
+
+Conditional on any grant, I assign 25% to disposition in the cert order itself and 75% to plenary treatment. The principal summary alternative is a hold for a companion case followed by a GVR, not an immediate summary reversal. A new administrative rule does not, by itself, settle the contested retrospective liability presented here. Thus plenary review is the single most likely route, with an unconditional probability of 51%.
+
+Conditional on denial, I expect an ordinary unexplained order without a separate writing; the probability of any noted dissent or statement respecting denial is 10%. I make no individual-Justice vote or authorship forecast.

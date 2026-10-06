@@ -1,0 +1,2 @@
+- `fedcourts query` (via statpack lookup)
+- Web search: `"Cade Brumley" "Darcy Roake" Ten Commandments Fifth Circuit` to identify the underlying case details and the Fifth Circuit's ripeness ruling vs. the Texas merits ruling.
