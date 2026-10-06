@@ -10,14 +10,14 @@
     },
     {
       "checked": 2153329,
-      "detail": "2153329 rows vs baseline 2153310",
+      "detail": "2153329 rows vs baseline 2153329",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4309886,
+      "checked": 4309888,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4306813,
+      "checked": 4306815,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4309886,
+      "checked": 4309888,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 14879,
+      "checked": 14917,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 136,
+      "checked": 138,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -174,7 +174,7 @@
       "problems": []
     },
     {
-      "checked": 12978,
+      "checked": 13016,
       "detail": "",
       "failures": 0,
       "name": "outcome_votes_await_a_registered_source",
@@ -190,7 +190,7 @@
       "problems": []
     },
     {
-      "checked": 12978,
+      "checked": 13016,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
@@ -198,7 +198,7 @@
       "problems": []
     }
   ],
-  "corpus_events": 2153484,
+  "corpus_events": 2153486,
   "corpus_rows": 2153329,
   "ok": true,
   "schema_version": "1.0",
