@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281376",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/grep over the record, prompt, schemas and statpack)",
+    "python (schema introspection, base-rate pooling, output validation)"
+  ],
+  "helpful": [
+    "metrics/statpack.json's unrounded prefix_est_grant_rate / prefix_weighted_resolved fields: the pooled rate matches the harness's to the digit",
+    "retrieval_log.json result_capture markers and result_capture_coverage: made the 0.0-coverage log gradeable on queries without guessing",
+    "record/documents/ petition appendix and brief in opposition: let me check a disputed quotation of the opinion below against the record"
+  ],
+  "gaps": [
+    "big_case_score is a field of the staged prediction.json, so the 'form your read before seeing theirs' instruction cannot be followed literally; staging it in a separate file read after evaluation.json is written would make the independence real",
+    "the statpack renders per-Term band rates but no pooled strictly-prior figure per (band, Term); every evaluator re-derives the same number by hand",
+    "the petition text truncates inside the appendix (53a), so the Fourth Circuit dissent the candidates discuss could not be read directly here either"
+  ],
+  "notes": "Cert cell, three forward candidates, all denied-correct; the interesting grading work was reasoning quality, where the record settled a factual disagreement between candidates about where the 'nondelegable duty' language sits in the opinion below."
+}

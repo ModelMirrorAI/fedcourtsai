@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "Independent read, formed from the record and the outcome: a clean First Amendment student-speech vehicle (Tinker/Fraser boundary) on a nationally recognizable political slogan, with a published divided CA6 opinion, a call for a response, four cert-stage amici, and FIRE opposite Williams & Connolly. Real doctrinal stakes for every public-school student had it been granted, but incremental rather than structural, and it ended in a quiet denial with no noted dissent after one substantive conference. Disclosure: the predictors' big_case_score values sit in the staged prediction.json and were visible before this read was recorded; the number above is my own and was not adjusted toward them."
+  },
+  "brier_score": 0.1024,
+  "brier_skill_score": -2.4533,
+  "case_id": "scotus/73281630",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.32,
+        "score": -0.07273269588784337
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.42,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.07273269588784337,
+    "total": -0.07273269588784337
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T16:55:57Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: snapshot 2026-09-15, prediction created 2026-09-16, petition denied 2026-10-05, so no disposition existed to retrieve. Log (31 calls, result_capture_coverage 0.90): local reads of the record, petition, BIO, and statpack.json; three web-search rows (unobserved) whose queries target Bethel v. Fraser, 478 U.S. 675 \u2014 a 1986 precedent, not this case; one CourtListener search by citation 725 F.3d 293 (B.H. v. Easton, 2013), captured, returned HTTP 429. No query names this case's caption or docket, no read under data/qp-topics/. Reasoning and retrieval note disclose the attempts and state no outcome material was encountered; nothing in the reasoning presupposes the result.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T16:58:01.652531Z"
+  },
+  "reasoning_quality": 0.7,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1722,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

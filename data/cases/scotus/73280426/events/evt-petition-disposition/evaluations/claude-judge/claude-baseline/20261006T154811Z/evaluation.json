@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "Formed on the record and outcome before weighing the predictors' scores. Intervenor challenge to a court-drawn Section 2 remedial map for one Washington state legislative district (Soto Palmer v. Hobbs), with a companion petition (Garcia v. Hobbs, 25-901). The two questions (intervenor standing to attack an unappealed liability judgment; strict scrutiny for race-conscious remedial maps) have national reach, but the Court disposed of it by GVR in light of Louisiana v. Callais rather than taking it up, so its own footprint is one district and one remand in the first post-Callais wave. Moderate stakes, well short of a landmark."
+  },
+  "brier_score": 0.2025,
+  "brier_skill_score": 0.704459,
+  "case_id": "scotus/73280426",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": 0.4826833183470322
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": 0.4075636436078696
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.8902469619549018,
+    "total": 0.8902469619549018
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T16:43:10Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-16, event resolved 2026-10-05. Log (52 calls, capture coverage 1.0) shows live fetches of dockets 25-918 and 25-901, the State's June 2 brief, the June 10 reply, the May 17 letter, a May 18 2026 order list, and Callais secondary sources; the only legible retrieved_doc_date is 2025-08-27 (the Ninth Circuit opinion). The docket fetch reported no entry after 2026-06-17 and the prose says the petition was pending. Nothing about this case's own disposition surfaced; no qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T16:44:49.104113Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.172242,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "Independent read formed from the record and the outcome: a Fourth Amendment challenge to continuous GPS monitoring of federally-permitted lobster vessels under the closely-regulated-industry doctrine, with four cert-stage amicus briefs, repeat-player petitioner counsel, and a call for a response after the State waived. Doctrinally the question (whether Jones-style property limits constrain Burger administrative searches of mixed-use property) could reach every closely regulated industry, but the vehicle is a single state fisheries rule with a conceded closely-regulated status and a contested preservation record, and the Court denied it silently at its first real conference on 2026-10-05 with no noted dissent. Moderate stakes, below headline."
+  },
+  "brier_score": 0.3025,
+  "brier_skill_score": -9.2014,
+  "case_id": "scotus/73281388",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.55,
+        "score": -0.2728326958878434
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.2728326958878434,
+    "total": -0.2728326958878434
+  },
+  "correct": 0,
+  "created_at": "2026-10-06T16:48:13Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, created 2026-09-17 against a petition resolved 2026-10-05; the case was genuinely open. Log carries result_capture_coverage 0.0 (every call unobserved, an engine's standing shape), so each call is graded on its query: local prompt/record/document reads, the whole statpack, two fedcourts queries that could not have run as written (free text), and one CourtListener search for the caption 'Johnson v. Wilson' with no date filter and no observed result. No query names this petition's disposition or reaches past the event, no data/qp-topics read. Reasoning treats the petition as pending at the long conference. Nothing outcome-revealing was retrieved; the unobserved results are not credited as empty, but no query could have returned the outcome, which did not yet exist.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T16:50:09.601873Z"
+  },
+  "reasoning_quality": 0.25,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1722,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "Independent read: a genuine, respondent-conceded six-circuit split on whether an officer may open a hash-matched CyberTip file without a warrant, governing a nationwide investigative pipeline; a grant would have been a significant Fourth Amendment case. But the vehicle was an interlocutory state criminal suppression ruling with a facial section 1257 finality problem, one amicus, no CVSG, and the Court denied silently after one full conference. Big issue, modest case. Disclosure: I printed the staged prediction.json files whole before writing, so the predictors' big_case_score values were visible before I fixed this number; the read above is formed from the record, not from them."
+  },
+  "brier_score": 0.16,
+  "brier_skill_score": -4.384551,
+  "case_id": "scotus/73281673",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.4,
+        "score": -0.1303326958878434
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.1303326958878434,
+    "total": -0.1303326958878434
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T17:03:05Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-16 from the 2026-09-15 snapshot; the denial came 2026-10-05, so the case was genuinely open. Log: 24 calls, every one `unobserved` (result_capture_coverage 0.0, the engine's standing shape), so each is graded on its query: file reads and directory listings of the provisioned record, greps of the petition and BIO for 'split', a read of metrics/statpack.md, one `fedcourts query` with structured era/disposition filters, and the output writes. No web search, no CourtListener call, no query naming this petition's disposition, no retrieved_doc_date. Nothing outcome-revealing was sought. Minor self-report inconsistency, not leakage: retrieval.md says no retrieval beyond provisioned inputs, but the log carries one corpus query call.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T17:05:23.659975Z"
+  },
+  "reasoning_quality": 0.3,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.172379,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

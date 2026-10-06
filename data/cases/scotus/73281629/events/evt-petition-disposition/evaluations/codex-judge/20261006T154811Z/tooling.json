@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281629",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Local shell reads of provisioned inputs and schemas",
+    "jq for blinded retrieval-log inspection",
+    "Python decimal arithmetic",
+    "apply_patch",
+    "Local JSON Schema validation"
+  ],
+  "helpful": [
+    "Blinded candidate artifacts with frozen band and salience version",
+    "Per-call capture markers and forward-mode timestamps",
+    "Committed reached-band rates with resolved denominators",
+    "Provisioned briefing and appellate memorandum for rationale assessment"
+  ],
+  "gaps": [
+    "Unobserved results limit independent verification of some candidate retrievals",
+    "Rendered baseline percentages are rounded, so pooling has limited precision"
+  ],
+  "notes": "Evaluated all three aliases without identity inference or external case retrieval. Capture gaps were treated as audit limitations, not evidence of empty results or leakage. No corpus freshness claim was made. Only per-file schemas and alias consistency are validated during the blind; target-tree validation belongs to the post-run harness."
+}

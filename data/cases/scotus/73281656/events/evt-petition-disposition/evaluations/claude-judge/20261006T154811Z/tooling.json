@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281656",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file-read",
+    "shell",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The staged retrieval_log.json with result_capture markers made the forward leakage check mechanical: dates and queries were enough to settle it without any external lookup.",
+    "The sal-v4 heading on the statpack band table matching the frozen context.salience_version let the risk_set basis be confirmed directly."
+  ],
+  "gaps": [
+    "A per-call flag marking whether a query names the cell's own case (docket number or caption) would speed the leakage scan on uncaptured logs.",
+    "The statpack table's rendered rates are rounded to 0.1%; the pooled rate therefore differs in the fourth decimal from the exact JSON figure a predictor can compute."
+  ],
+  "notes": "Cert cell, forward mode, no opinion slot, no semantic set. Scored from the blinded staging area, outcome.json, the decided snapshot, and the committed statpack only; no corpus query, MCP call, or web search was needed."
+}

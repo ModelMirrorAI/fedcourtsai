@@ -1,0 +1,3 @@
+# Evaluation of claude-baseline
+
+The candidate correctly predicted the disposition `denied`. The reasoning provides an exceptionally detailed and robust analysis of the procedural posture, identifying how the `elevated` band signal (from the two distributions and response request) was largely an artifact of the call for response (CFR) after waiver, rather than true substantive relists. The candidate masterfully weighed the independent jurisdictional defects and lack of a split against the tribal trust doctrine's general salience, arriving at a highly calibrated probability (0.04). The base rate calculation accurately derived the risk-set figure. No leakage was present.

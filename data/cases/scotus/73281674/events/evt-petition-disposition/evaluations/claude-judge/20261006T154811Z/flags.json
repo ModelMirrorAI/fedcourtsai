@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73281674",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Provisioning carried one brief-in-opposition (the Newspaper Guild's) although the docket lists two filed June 17, 2026; the federal respondent's (Solicitor General's) opposition, linked in the snapshot, was not in documents.json. Two of the three candidates fetched it themselves and one did not, so the fan-out's information sets differed on the government's position. Where a docket day carries multiple BIOs the document fetcher appears to take one; worth a look at the provisioner.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,3 @@
+# Retrieval log (evaluator)
+
+No retrieval beyond the provisioned inputs. Read for this cell: `event.yaml`, `outcome.json`, `record/context.json`, the `2026-10-05` snapshot, and every file under `record/blinded/candidate-{a,b,c}/`. Base rate taken from the committed `metrics/statpack.md` band table (sal-v4) with the exact per-Term denominators from `metrics/statpack.json`. No `fedcourts query` / `open-events` call (so no `ranged corpus reads` line), no CourtListener MCP call, no web search. Nothing under `data/qp-topics/` was read. The stray `events/evt-petition-disposition/gemini-baseline/` directory was listed by filename only and not opened (see `flags.json`).

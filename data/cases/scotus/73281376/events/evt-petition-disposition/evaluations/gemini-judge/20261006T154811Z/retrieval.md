@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. Evaluator only consulted the statpack.md file to pool base rates.

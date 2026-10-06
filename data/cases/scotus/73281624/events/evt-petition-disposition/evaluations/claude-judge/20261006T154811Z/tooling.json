@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281624",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "statpack"
+  ],
+  "helpful": [
+    "The staged retrieval_log.json's result_capture markers and retrieved_doc_date fields made the forward-cell leakage check mechanical: one scan for dates on or after the resolution and for qp-topics reads settled it for all three candidates.",
+    "The sal-v4 segment table with bracketed reached figures and n, plus the frozen context on each prediction, made the risk-set pooling unambiguous.",
+    "The provisioned brief in opposition let me verify the candidates' factual claims (no split asserted, Western Star uncited, the exclusive-rental statutory text, the preservation objection) without any external lookup."
+  ],
+  "gaps": [
+    "The big-case read cannot be fully sequenced before the predictors' scores, because big_case_score and big_case_rationale sit in the staged prediction.json alongside the fields a grade needs; a staged view that withholds those two fields until a second read would make the independence real rather than approximate.",
+    "A pre-pooled per-band strictly-prior reached rate keyed on Term would remove a hand computation that every evaluator on a cert cell repeats."
+  ],
+  "notes": "Cert cell, forward mode, all three candidates called denied. No flags.json written: the salience version resolved, the rendered table window matched the pack, and no leakage or data-quality issue surfaced."
+}

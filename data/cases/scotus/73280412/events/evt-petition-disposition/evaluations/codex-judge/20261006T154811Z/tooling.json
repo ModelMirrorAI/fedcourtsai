@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73280412",
+  "gaps": [
+    "gemini-baseline results are unobserved; outcome absence cannot be independently checked from result text."
+  ],
+  "helpful": [
+    "Blinded candidate staging",
+    "Frozen prediction contexts",
+    "Capture-aware retrieval logs",
+    "Matching Markdown and unrounded JSON statpack fields"
+  ],
+  "notes": "All three candidates assessed from the provisioned record. Result-capture limitations were retained in leakage explanations, not treated as failed searches or data defects. Full-data validation is reserved for the harness after unblinding.",
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell/file reads",
+    "jq",
+    "Python arithmetic",
+    "apply_patch",
+    "JSON Schema and Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

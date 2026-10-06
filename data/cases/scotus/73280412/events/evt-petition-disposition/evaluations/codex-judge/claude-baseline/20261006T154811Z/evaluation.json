@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": null,
+  "brier_score": 0.16,
+  "brier_skill_score": 0.6216907487333458,
+  "case_id": "scotus/73280412",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.34966592427616927,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": 0.2629344100475692
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.8,
+        "score": 0.37756364360786965
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.6404980536554388,
+    "total": 0.6404980536554388
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T17:14:37.297357Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward log: 33 captured calls on 2026-09-16, before the 2026-10-05 resolution. Queries concern the open petition, companion litigation, Callais, and earlier filings. The sole dated result is 2026-09-10 on a general corpus query. No own-case disposition appears in the rationale or retrieval note. Companion outcomes and pre-resolution precedent are legitimate forward signals; capture metadata does not reproduce complete results.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T17:15:21.468328Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.34966592427616927,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

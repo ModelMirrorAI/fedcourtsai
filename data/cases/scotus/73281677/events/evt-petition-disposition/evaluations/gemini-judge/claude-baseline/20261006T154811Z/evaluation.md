@@ -1,0 +1,3 @@
+The prediction correctly forecasted a denial, recognizing that the petition presented exactly the same question as a set of recently denied petitions (e.g. Schneider v. United States) that the SG had opposed. The reasoning quality is excellent: it accurately anchored against the baseline risk-set salience rate, and methodically reduced the probability based on the prior companion denials, the lack of a split, the nonprecedential opinion below, and the mootness due to an Air Force guidance memorandum. 
+
+The cell is cert stage. Segment base rate is computed using the baseline salience band's risk-set reached figures (sal-v4), pooled over Terms strictly before OT2025.

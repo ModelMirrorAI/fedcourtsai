@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73246321",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The blinded staging area with a captured retrieval_log.json per candidate, including result_capture markers, made the forward leakage check mechanical.",
+    "The statpack salience-band table renders its full Term window with the version in the heading, so the base-rate basis resolved without ambiguity.",
+    "Each candidate's frozen context block carried both band and salience_version, so no fallback reasoning was needed."
+  ],
+  "gaps": [
+    "A pre-pooled strictly-prior-Term risk-set rate per (band, version, Term) in the statpack would remove the hand-pooling step every evaluator repeats and the rounding it introduces.",
+    "A one-line statement in the candidate's staged prediction.json of when the event resolved relative to created_at would let the forward check be read off the record rather than cross-referenced."
+  ],
+  "notes": "Cert cell, all three candidates forward and pre-conference; outcome denied at first distribution. Nothing blocked the evaluation."
+}

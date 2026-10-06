@@ -1,0 +1,3 @@
+No retrieval beyond the provisioned inputs.
+
+For the record: no `fedcourts query` or `open-events` call, no CourtListener MCP call, and no web search was made. The base rate was read from the committed `metrics/statpack.md` (the sal-v4 "Segment base rate by salience band" table, Terms 2017–2024, baseline band, bracketed `reached` figures), and the output contract from `schemas/evaluation.schema.json`, `schemas/agent_tooling.schema.json`, and the pooling helpers in `src/fedcourtsai/pipeline/evaluate.py` and `base_rates.py`. The three candidates' staged `retrieval_log.json` files were read from `record/blinded/<alias>/` only.

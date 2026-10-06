@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281318",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "file-read"],
+  "helpful": [
+    "The blinded staging with retrieval_log.json result_capture markers made the forward leakage check mechanical: query classes, retrieved_doc_date, and coverage were enough to grade all three without any external lookup.",
+    "The statpack's rendered sal-v4 table with bracketed reached figures and the 10-of-10 caption let the risk-set pooling be done by hand and checked against the candidates' own quoted anchor."
+  ],
+  "gaps": [
+    "A pooled prior-Term risk-set rate per band, printed beside the table, would remove the hand arithmetic every cert evaluation repeats.",
+    "The candidates' flags.json is dropped from the blinded set, so a predictor's disclosure reaches the judge only if duplicated in reasoning.md; a masked copy would strengthen the leakage grade without unmasking."
+  ],
+  "notes": "Cert cell, forward mode, all three candidates correct on a denial. No corpus or MCP lookup was needed; the band, outcome, and logs were all in the provisioned inputs."
+}

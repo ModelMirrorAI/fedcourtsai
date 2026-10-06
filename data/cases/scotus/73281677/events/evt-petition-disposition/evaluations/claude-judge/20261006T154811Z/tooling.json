@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281677",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/python) over the provisioned inputs",
+    "metrics/statpack.md band table",
+    "staged retrieval_log.json per candidate"
+  ],
+  "helpful": [
+    "Per-call result_capture markers in retrieval_log.json made the three engines' different capture shapes legible at a glance",
+    "The frozen context block on each prediction (band + salience_version) made the basis choice mechanical",
+    "The decided snapshot's proceedings list confirmed the single distribution and the bare denial"
+  ],
+  "gaps": [
+    "A pre-pooled per-band strictly-prior reached rate in the statpack (or a CLI that prints it for a given Term and version) would remove the hand pooling from rounded percentages"
+  ],
+  "notes": "Cert cell, all three candidates forward and clean; nothing to flag, so no flags.json written."
+}

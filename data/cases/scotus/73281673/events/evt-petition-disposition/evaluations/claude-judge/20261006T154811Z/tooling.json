@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/73281673",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/python) over the provisioned record and blinded staging",
+    "metrics/statpack.md sal-v4 per-Term band table",
+    "schemas/evaluation.schema.json and the pydantic Evaluation model for validation"
+  ],
+  "helpful": [
+    "The blinded retrieval_log.json's result_capture markers and retrieved_doc_date fields made the forward-mode mis-provisioning check quick for all three candidates.",
+    "The sal-v4 table's bracketed reached figures with n made the risk-set pooling a one-line computation that matched two candidates' own anchors.",
+    "The decided snapshot's ProceedingsandOrder list confirmed the two distributions were a CFR cycle, which was decisive for grading one candidate's relist adjustment."
+  ],
+  "gaps": [
+    "A harness-staged pooled risk-set rate per band and Term (or the pooler exposed as a CLI) would remove the hand arithmetic the cert cell still asks the evaluator to do.",
+    "A one-line resolution date for the event beside outcome.json's resolved_at in the blinded staging would save re-deriving the forward boundary from the snapshot."
+  ],
+  "notes": "Cert cell, forward mode for all three candidates; no corpus or external retrieval was needed to grade it."
+}

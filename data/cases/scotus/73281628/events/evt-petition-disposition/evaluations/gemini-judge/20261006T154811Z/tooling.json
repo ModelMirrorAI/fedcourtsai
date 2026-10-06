@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73281628",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "schema_version": "1.0",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "helpful": ["run_shell_command", "read_file"],
+  "gaps": [],
+  "notes": "Used bash tools to calculate the base rates directly from the statpack markdown file."
+}

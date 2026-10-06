@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281318",
+  "gaps": [
+    "Unobserved results limit result-level leakage auditing for gemini-baseline and two codex-baseline web calls."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts preserve the grading boundary.",
+    "Frozen band, salience version, and Term identify the cert baseline.",
+    "Per-call capture markers distinguish missing telemetry from empty results."
+  ],
+  "notes": "Used the committed Markdown statpack's rounded reached rates, pooled over every displayed prior Term. No corpus, MCP, or web retrieval. Local schema/model validation is confined to this evaluator's alias-keyed outputs; full data validation belongs to the post-unblinding harness.",
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "apply_patch",
+    "jq",
+    "Python decimal",
+    "jsonschema",
+    "Pydantic"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
