@@ -1062,7 +1062,9 @@ jobs:
       # its schema has twice produced a silent no-op from a wrong namespace,
       # so a probe sending a trimmed one would certify a configuration the
       # cells do not run. Telemetry costs this workflow nothing — the log is
-      # gitignored and nothing here reads or uploads it.
+      # gitignored and nothing uploads it; the engine-actions-smoke leg's
+      # capture assertion reads it, as the cells' usage and retrieval capture
+      # does.
       - name: Configure the Gemini cell env allowlist
         if: ${{ (matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke') && matrix.engine == 'gemini' }}
         run: |
@@ -2268,6 +2270,92 @@ jobs:
               ;;
           esac
           echo "engine-actions-smoke: the ${ENGINE} cell invocation was accepted and completed" \
+            >> "$GITHUB_STEP_SUMMARY"
+
+      # The cells' capture tail, run over the probe's own engine log. After
+      # every cell, `record-usage` and `record-retrieval` parse the log the
+      # assertion above found into the harness-owned usage.json and
+      # retrieval_log.json — best-effort there, so a cell never fails on
+      # instrumentation, which is exactly why a bump that moved the log's
+      # format would ship every cell without them and stay green. Here the
+      # same two commands, with the cells' flags and the cells' engine-to-log
+      # mapping (a test holds both to run-predict's capture steps), are made to
+      # fail instead: usage must parse to non-zero input (cache reads and
+      # writes included) and output tokens,
+      # `--strict` makes the retrieval parse name any shape it cannot walk,
+      # and `validate` must find both artifacts schema-valid. Gemini's source
+      # is the telemetry log the cells read, not the JSON result above — and
+      # it sits in the workspace the `--yolo` turn could write, unlike that
+      # result. Taken there on purpose: the cells read that exact path, and a
+      # probe parsing a different file would certify a parse no cell makes.
+      # No credential is scoped to the step (the job's ambient OIDC request
+      # token is present, as in every step here), and the commands parse the
+      # log rather than execute it — what every cell's capture already does.
+      #
+      # The probe called no tools, so an empty transcript is the expected one:
+      # this asserts that the log parses, never that it holds a call — and the
+      # strict check's tool-shape screen has nothing to screen here, so what
+      # this leg certifies is the structural half (the records decode, and the
+      # path each parser walks is present). Output goes to a scratch data root
+      # under the runner temp dir, never `data/`, at placeholder coordinates
+      # matching no case. It spends no model tokens: it reads files the probe
+      # already wrote. No GitHub token reaches either command, so the claude
+      # leg's job-token deviation sits upstream of the log this parses.
+      - name: Assert the cells' usage and retrieval capture parses the probe's log
+        if: ${{ matrix.scenario == 'engine-actions-smoke' }}
+        env:
+          ENGINE: ${{ matrix.engine }}
+          PREDICTOR_ID: ${{ steps.cell.outputs.predictor }}
+          MODEL: ${{ steps.cell.outputs.model }}
+          CLAUDE_EXECUTION_FILE: ${{ steps.actions_smoke_claude.outputs.execution_file }}
+          CODEX_HOME: ${{ github.workspace }}/.codex
+          GEMINI_TELEMETRY_FILE: ${{ github.workspace }}/.gemini/telemetry.log
+          FEDCOURTS_DATA_ROOT: ${{ runner.temp }}/actions-smoke-capture/data
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+          rm -rf "$FEDCOURTS_DATA_ROOT"
+          court=scotus
+          docket=1
+          event=evt-engine-actions-smoke
+          run_id=$(date -u +%Y%m%dT%H%M%SZ)
+          coords=(--court "$court" --docket "$docket" --event "$event"
+            --run-id "$run_id" --engine "$ENGINE"
+            --role predictor --actor "$PREDICTOR_ID")
+          case "$ENGINE" in
+            claude-code)
+              # Held here rather than left to the assertion above, so an empty
+              # output cannot surface as a misleading "no usage" below.
+              [ -n "$CLAUDE_EXECUTION_FILE" ] \
+                || fail "the claude-code action reported no execution file to parse"
+              source=(--claude-execution-file "$CLAUDE_EXECUTION_FILE")
+              ;;
+            gemini) source=(--gemini-telemetry-file "$GEMINI_TELEMETRY_FILE") ;;
+            codex) source=(--codex-sessions-dir "$CODEX_HOME/sessions") ;;
+            *) fail "unknown engine '${ENGINE}': no capture source is defined for it" ;;
+          esac
+          uv run fedcourts record-usage "${coords[@]}" --model "$MODEL" "${source[@]}" \
+            || fail "record-usage recorded nothing from the ${ENGINE} log (no usage found, or no rate for the model): every cell would ship without usage.json"
+          uv run fedcourts record-retrieval "${coords[@]}" --mode forward --mode-from-context \
+            "${source[@]}" --strict \
+            || fail "record-retrieval cannot walk the ${ENGINE} log: every cell's retrieval_log.json would read as no calls"
+          cell="$FEDCOURTS_DATA_ROOT/cases/$court/$docket/events/$event/predictions/$PREDICTOR_ID/$run_id"
+          jq -e '(.input_tokens + .cache_read_input_tokens + .cache_creation_input_tokens) > 0 and .output_tokens > 0' \
+            "$cell/usage.json" > /dev/null \
+            || fail "usage.json carries a zero input or output token count"
+          jq -e '.calls | type == "array"' "$cell/retrieval_log.json" > /dev/null \
+            || fail "retrieval_log.json carries no calls array"
+          # Exactly the two artifacts, so a capture that wrote somewhere else
+          # cannot pass as a validate over an empty tree.
+          verdict=$(uv run fedcourts validate "$FEDCOURTS_DATA_ROOT") \
+            || fail "the captured usage.json / retrieval_log.json do not validate"
+          case "$verdict" in
+            "OK: 2 artifact(s) valid"*) ;;
+            *) fail "validate checked other than the two captured artifacts: ${verdict}" ;;
+          esac
+          calls=$(jq '.calls | length' "$cell/retrieval_log.json")
+          tokens=$(jq '.input_tokens + .output_tokens + .cache_read_input_tokens + .cache_creation_input_tokens' "$cell/usage.json")
+          echo "engine-actions-smoke: the cells' capture parsed the ${ENGINE} log (${tokens} tok, ${calls} call(s))" \
             >> "$GITHUB_STEP_SUMMARY"
 
       # Both sidecars' logs carry startup lines (the corpus one's
