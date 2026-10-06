@@ -8451,12 +8451,23 @@ def _require_parsed_engine_log_shape(
     codex_sessions_dir: Path | None,
     gemini_telemetry_file: Path | None,
 ) -> None:
-    """``record-retrieval --strict``: exit 1 naming each shape finding, if any."""
+    """``record-retrieval --strict``: exit 1 naming each shape finding, if any.
+
+    The source has to be the ``--engine``'s own as well: a pass over another
+    engine's log under this engine's name would certify a parse nothing runs.
+    """
     problems = retrieval.engine_log_shape_problems(
         claude_execution_file=claude_execution_file,
         codex_sessions_dir=codex_sessions_dir,
         gemini_telemetry_file=gemini_telemetry_file,
     )
+    sources = {
+        Engine.claude_code: claude_execution_file,
+        Engine.codex: codex_sessions_dir,
+        Engine.gemini: gemini_telemetry_file,
+    }
+    if any(path is not None for path in sources.values()) and sources.get(engine) is None:
+        problems.append(f"no {engine.value} log was named; the source given is another engine's")
     for problem in problems:
         typer.echo(f"::error::record-retrieval --strict: {problem}", err=True)
     if problems:

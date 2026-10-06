@@ -408,16 +408,16 @@ matching would ship cells without them and stay green. The leg runs the same
 two commands with the cells' flags and engine-to-log mapping — claude's
 execution file, codex's session rollout, gemini's telemetry log (the file the
 cells read, not the CLI's JSON result) — into a scratch data root under the
-runner temp dir, and fails unless usage parses to non-zero input and output
-tokens, `record-retrieval --strict` finds the log in the shape the parsers
+runner temp dir, and fails unless usage parses to non-zero input (cache reads
+and writes included) and output tokens, `record-retrieval --strict` finds the log in the shape the parsers
 walk, and `validate` passes exactly the two artifacts. The probe calls no tools,
 so an empty transcript is the expected one: the leg asserts the parse, never a
 call count, and the strict check's screen for tool-shaped items it cannot read
 has nothing to screen on this leg — what it certifies is the structural half
 (the records decode, and the path each parser walks is present; see
-`record-retrieval` in [cli.md](cli.md)). The step is token-free, and no GitHub
-token reaches either command, so claude's job-token deviation below does not
-bear on it.
+`record-retrieval` in [cli.md](cli.md)). The step spends no model tokens, and
+no GitHub token reaches either command, so claude's job-token deviation below
+does not bear on it.
 
 One boot probe per engine, per leg — one a
 day per engine on the canary, on the order of fifteen cents an engine, so a couple

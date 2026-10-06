@@ -2280,10 +2280,17 @@ jobs:
       # format would ship every cell without them and stay green. Here the
       # same two commands, with the cells' flags and the cells' engine-to-log
       # mapping (a test holds both to run-predict's capture steps), are made to
-      # fail instead: usage must parse to non-zero input and output tokens,
+      # fail instead: usage must parse to non-zero input (cache reads and
+      # writes included) and output tokens,
       # `--strict` makes the retrieval parse name any shape it cannot walk,
       # and `validate` must find both artifacts schema-valid. Gemini's source
-      # is the telemetry log the cells read, not the JSON result above.
+      # is the telemetry log the cells read, not the JSON result above — and
+      # it sits in the workspace the `--yolo` turn could write, unlike that
+      # result. Taken there on purpose: the cells read that exact path, and a
+      # probe parsing a different file would certify a parse no cell makes.
+      # No credential is scoped to the step (the job's ambient OIDC request
+      # token is present, as in every step here), and the commands parse the
+      # log rather than execute it — what every cell's capture already does.
       #
       # The probe called no tools, so an empty transcript is the expected one:
       # this asserts that the log parses, never that it holds a call — and the
@@ -2291,10 +2298,9 @@ jobs:
       # this leg certifies is the structural half (the records decode, and the
       # path each parser walks is present). Output goes to a scratch data root
       # under the runner temp dir, never `data/`, at placeholder coordinates
-      # matching no case. Token-free: it reads files the probe already wrote.
-      # No GitHub token reaches either command, so the claude leg's job-token
-      # deviation does not touch the parse; it changes only which GitHub tools
-      # the action offers the agent, which a no-tool turn never calls.
+      # matching no case. It spends no model tokens: it reads files the probe
+      # already wrote. No GitHub token reaches either command, so the claude
+      # leg's job-token deviation sits upstream of the log this parses.
       - name: Assert the cells' usage and retrieval capture parses the probe's log
         if: ${{ matrix.scenario == 'engine-actions-smoke' }}
         env:
@@ -2317,13 +2323,19 @@ jobs:
             --run-id "$run_id" --engine "$ENGINE"
             --role predictor --actor "$PREDICTOR_ID")
           case "$ENGINE" in
-            claude-code) source=(--claude-execution-file "$CLAUDE_EXECUTION_FILE") ;;
+            claude-code)
+              # Held here rather than left to the assertion above, so an empty
+              # output cannot surface as a misleading "no usage" below.
+              [ -n "$CLAUDE_EXECUTION_FILE" ] \
+                || fail "the claude-code action reported no execution file to parse"
+              source=(--claude-execution-file "$CLAUDE_EXECUTION_FILE")
+              ;;
             gemini) source=(--gemini-telemetry-file "$GEMINI_TELEMETRY_FILE") ;;
             codex) source=(--codex-sessions-dir "$CODEX_HOME/sessions") ;;
             *) fail "unknown engine '${ENGINE}': no capture source is defined for it" ;;
           esac
           uv run fedcourts record-usage "${coords[@]}" --model "$MODEL" "${source[@]}" \
-            || fail "record-usage found no usage in the ${ENGINE} log: every cell would ship without usage.json"
+            || fail "record-usage recorded nothing from the ${ENGINE} log (no usage found, or no rate for the model): every cell would ship without usage.json"
           uv run fedcourts record-retrieval "${coords[@]}" --mode forward --mode-from-context \
             "${source[@]}" --strict \
             || fail "record-retrieval cannot walk the ${ENGINE} log: every cell's retrieval_log.json would read as no calls"

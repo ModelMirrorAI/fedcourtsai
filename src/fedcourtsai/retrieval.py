@@ -37,7 +37,9 @@ Long parameters and results are digested (SHA-256, 16 hex chars), with a
 truncated human-legible ``query`` slice kept where one is extractable — the
 log is an audit trail, not a content mirror. Deliberately tolerant, exactly
 like the usage parsers: an unreadable or unrecognized log yields ``[]``,
-because capture is instrumentation that must never fail a real run.
+because capture is instrumentation that must never fail a real run. The
+opposite posture, for a caller that wants a log it cannot read to fail, is
+:func:`engine_log_shape_problems` at the end of this module.
 
 Every row also states whether its result was seen at all: ``result_capture``
 is ``captured`` where the transcript carried the result — as a paired result
@@ -957,13 +959,16 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
 # transcript's shape leaves every cell recording "no calls" and no usage, a gap
 # that reads like a quiet cell rather than a broken parse. This is the
 # opposite posture, for a caller that *wants* to fail: does the log still have
-# the structure the usage and tool-call parsers navigate? It is read by
+# the structure the usage and tool-call parsers navigate? It is called by
 # ``record-retrieval --strict`` and never on a cell's own capture.
 #
 # Two kinds of finding, and only the first can fire on a log with no tool
 # calls. **Structural**: the log decodes, its records are objects, and the
 # path each parser walks — claude's assistant content blocks and terminal
-# ``result`` usage, codex's ``response_item`` stream and ``total_token_usage``,
+# ``result`` usage, codex's ``response_item`` envelope (the record type call
+# items arrive in; the parser reads payloads under any envelope, so this one
+# is a proxy for a familiar rollout rather than the walk itself) and
+# ``total_token_usage``,
 # gemini's token-bearing ``api_response`` records — is present at least once.
 # **Tool-shaped but unread**: a call-like item whose type the tool-call parser
 # does not take, so its rows would be dropped. That screen needs a tool call to
@@ -1101,8 +1106,8 @@ def _codex_shape_problems(sessions_dir: Path) -> list[str]:
         problems.append(f"{unresolved} codex record(s) carry neither a payload nor a type")
     if not response_items:
         problems.append(
-            "no codex `response_item` record, so the item stream the tool-call parser "
-            "walks is absent"
+            "no codex `response_item` record, the envelope call items arrive in — "
+            "the rollout no longer looks like the one the tool-call parser was built on"
         )
     if unread:
         problems.append(
@@ -1163,8 +1168,12 @@ def _gemini_shape_problems(telemetry_file: Path) -> list[str]:
         attrs = _gemini_attrs(node)
         name = attrs.get("function_name") or node.get("function_name")
         event_name = str(attrs.get("event.name") or node.get("event.name") or "")
-        if name and event_name and not event_name.endswith("tool_call"):
-            unread.add(_shape_token(event_name))
+        if name and event_name:
+            # A recognized call is a leaf, exactly as the parser treats it: its
+            # arguments are the agent's, so walking into them would let an
+            # agent-chosen key pair raise a finding and name it.
+            if not event_name.endswith("tool_call"):
+                unread.add(_shape_token(event_name))
             continue
         stack.extend(node.values())
     if unread:

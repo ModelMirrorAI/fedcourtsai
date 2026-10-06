@@ -2750,3 +2750,44 @@ def test_record_retrieval_without_strict_stays_tolerant(
         if arg != "--strict"
     ]
     assert runner.invoke(app, args).exit_code == 0
+
+
+def test_the_gemini_shape_walk_never_reads_into_a_calls_own_arguments(tmp_path: Path) -> None:
+    # Arguments are agent-authored: a decoded object carrying the two keys the
+    # walk keys on must neither raise a finding nor have its value named.
+    call = {
+        "event.name": "gemini_cli.tool_call",
+        "function_name": "search",
+        "function_args": {"function_name": "x", "event.name": "agent_chosen_token"},
+    }
+    telemetry = tmp_path / "telemetry.log"
+    telemetry.write_text(json.dumps(call) + json.dumps(_GEMINI_API_RESPONSE))
+    assert retrieval.engine_log_shape_problems(gemini_telemetry_file=telemetry) == []
+
+
+def test_a_non_identifier_type_is_named_only_as_a_placeholder(tmp_path: Path) -> None:
+    records = [*_codex_probe_records(), {"type": "response_item", "payload": {"type": "a b_call"}}]
+    sessions = _codex_sessions(tmp_path, [json.dumps(r) for r in records])
+    (problem,) = retrieval.engine_log_shape_problems(codex_sessions_dir=sessions)
+    assert problem.endswith("does not read: <non-identifier>")
+
+
+def test_a_single_object_claude_document_is_walked_like_a_one_event_list(tmp_path: Path) -> None:
+    # The parser accepts a bare object; so does the check, judging it as one event.
+    log = _write_json(tmp_path / "exec.json", _CLAUDE_PROBE_LOG[2])
+    problems = retrieval.engine_log_shape_problems(claude_execution_file=log)
+    assert problems == [
+        "no claude assistant event carries a content-block list, so the tool-call "
+        "walk finds nothing to read"
+    ]
+
+
+def test_record_retrieval_strict_refuses_another_engines_log(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    log = _write_json(tmp_path / "exec.json", _CLAUDE_PROBE_LOG)
+    args = _strict_record_retrieval(log)
+    args[args.index("claude-code")] = "codex"
+    result = runner.invoke(app, args)
+    assert result.exit_code == 1
+    assert "no codex log was named" in result.output
