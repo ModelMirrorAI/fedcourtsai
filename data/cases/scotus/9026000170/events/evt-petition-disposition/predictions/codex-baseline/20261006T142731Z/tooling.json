@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000170",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot and filed-document text", "committed statpack", "fedcourts paths", "local probability arithmetic", "web search (no usable result)", "CourtListener MCP search (throttled)"],
+  "helpful": ["Petition and opposition both had extracted text and supplied opposing views of the vehicle.", "The docket chronology distinguished a requested party response from a CVSG.", "Prior-Term reached-band denominators supported an appropriate private-petitioner anchor."],
+  "gaps": ["CourtListener's daily rate limit prevented independent reading of a general precedent.", "The statpack inspected here did not expose a clear corpus freshness stamp alongside the rates."],
+  "notes": "Forecast completed from provisioned evidence and committed base rates. The federal response is still pending in the supplied record, not an extraction failure. A writable temporary uv cache resolved the initial read-only cache error. No direct CourtListener REST fallback was attempted."
+}

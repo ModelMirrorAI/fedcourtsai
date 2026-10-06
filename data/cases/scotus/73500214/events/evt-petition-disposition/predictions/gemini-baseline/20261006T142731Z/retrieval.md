@@ -1,0 +1,3 @@
+- `uv run fedcourts query --court scotus --disposition granted --decided-before 2026-10-06 | head -n 20`
+  - `ranged corpus reads: 48 GET(s), 12451840 byte(s)`
+- `google_web_search` for `"Cantero v. Bank of America" Second Circuit 2026`

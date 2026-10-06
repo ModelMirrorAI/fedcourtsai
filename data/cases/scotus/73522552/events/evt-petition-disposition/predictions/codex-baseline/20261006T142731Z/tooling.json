@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73522552",
+  "gaps": [
+    "Petition metadata reports truncation; the full appendix was not available.",
+    "Reply and amicus texts are not provisioned despite their docket entries.",
+    "General web lookup attempts returned no usable content."
+  ],
+  "helpful": [
+    "Frozen salience conditioning and readable questions presented.",
+    "Combined opposition text includes both respondents' distinct positions.",
+    "Unrounded statpack risk-set rates permit exact prior-Term pooling."
+  ],
+  "notes": "The default uv cache location was read-only; using a temporary writable cache restored CLI access. No live case lookup was necessary. The next distribution is likely procedural redistribution after a response request, not necessarily a substantive relist.",
+  "role": "predictor",
+  "run_id": "20261006T142731Z",
+  "schema_version": "1.0",
+  "tools_used": ["shell", "fedcourts paths", "local statpack", "web search/open attempts", "fedcourts validate"],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

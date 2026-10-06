@@ -1,0 +1,28 @@
+{
+  "case_id": "scotus/73500214",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search",
+    "courtlistener MCP call_endpoint (throttled)",
+    "repo event registry grep"
+  ],
+  "helpful": [
+    "Provisioned petition and BIO text with the QP cut: the BIO's vehicle concession and the OCC-rule percolation argument were the two most decision-relevant facts and both came from the documents.",
+    "context.json band plus the statpack's sal-v4 band table and CVSG cut gave two agreeing anchors.",
+    "The committed event registry revealed the same-day companion CVSG on Flagstar v. Kivett when CourtListener was unavailable."
+  ],
+  "gaps": [
+    "CourtListener MCP hit the 1400/day rate limit on the first REST call; a cell has no way to see remaining quota before spending calls, and SCOTUS docket-number search returned nothing even before the throttle.",
+    "No way to pull a companion SCOTUS docket's current entries from the corpus by docket number (fedcourts query has no docket-number or case-name filter), so a paired-petition signal had to be inferred from event.yaml.",
+    "The reply brief and amicus briefs on the docket were not provisioned.",
+    "The --citation filter on scotus rows is too sparse to find a known prior decision."
+  ],
+  "notes": "Forward cell; retrieval budget used: 8 calls, 3 of them throttled."
+}

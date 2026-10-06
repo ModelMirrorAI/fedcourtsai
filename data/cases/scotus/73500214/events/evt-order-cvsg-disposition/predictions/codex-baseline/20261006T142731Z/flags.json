@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500214",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "One sentence on printed p. 17 of the provisioned petition reverses the First and Second Circuits' preemption results. The QP, surrounding petition discussion, and BIO consistently describe the Second Circuit as finding preemption and the First Circuit as rejecting it. The forecast uses that corroborated account. This is an internal source-text inconsistency, not evidence that the target event has resolved."
+    }
+  ]
+}

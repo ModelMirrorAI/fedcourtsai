@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000091",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["provisioned files", "committed statpack", "fedcourts paths", "fedcourts query", "fedcourts corpus-info attempt", "CourtListener MCP search attempt", "web search/open attempts"],
+  "helpful": ["Frozen salience context and dated proceedings", "Readable petition and questions presented", "Exact risk-set denominators in statpack JSON"],
+  "gaps": ["CourtListener MCP daily rate limit blocked authority verification", "Corpus citation lookup had no matching prior", "Corpus freshness command is unavailable with the cell service backend", "Web attempts returned no usable content"],
+  "notes": "Corpus query was attempted but supplied no substantive prior. No BIO was provisioned; the snapshot shows the response is not yet due. A temporary writable uv cache resolved the initial CLI cache failure."
+}

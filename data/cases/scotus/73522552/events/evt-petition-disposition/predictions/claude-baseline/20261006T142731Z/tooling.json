@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73522552",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP search (failed: 429)", "WebSearch", "WebFetch", "pypdf (local PDF text extraction)"],
+  "helpful": [
+    "provisioned petition, BIO and QP text — the BIO's concessions and vehicle arguments were the core of the read",
+    "statpack sal-v4 band table with bracketed reached figures",
+    "direct supremecourt.gov docket fetches for the same petitioner's prior petition (24-259) and the companion (26-302)"
+  ],
+  "gaps": [
+    "CourtListener MCP hit the shared 1400/day rate limit on the first call of the cell; a per-cell quota or a pre-run quota check would avoid silently degraded cells late in a fan-out",
+    "WebFetch cannot read supremecourt.gov PDFs (binary passthrough); amicus and reply briefs had to be extracted with an ad-hoc pypdf install",
+    "no provisioned text for amicus briefs or the reply even when they are on the docket before the snapshot date",
+    "no corpus cut conditioned on 'response requested after waiver', which was the decisive docket signal here"
+  ],
+  "notes": "Forecast rests on provisioned inputs, the statpack anchor, and supremecourt.gov dockets fetched directly; the MCP outage cost nothing material because every needed docket is a Supreme Court docket."
+}

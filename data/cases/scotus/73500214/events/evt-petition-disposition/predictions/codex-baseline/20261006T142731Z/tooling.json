@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500214",
+  "gaps": [
+    "The web search and historical-opinion open returned no usable content.",
+    "A declared distribution moment with null cutoff leaves the first-distribution cohort interpretation ambiguous.",
+    "The inspected statpack metadata do not expose corpus pull/snapshot freshness stamps."
+  ],
+  "helpful": [
+    "Both sides' substantive filings and the extracted QP were available.",
+    "Frozen CVSG and distribution signals prevented treating this as an ordinary first conference.",
+    "Unrounded reached-band denominators enabled exact prior-Term pooling."
+  ],
+  "notes": "No live corpus lookup was necessary: the provisioned adversarial briefs and committed matched-band rates supplied the core evidence. The default uv cache was read-only; a temporary writable cache resolved the local command failure. No secrets or direct CourtListener REST access were used.",
+  "role": "predictor",
+  "run_id": "20261006T142731Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-input reads",
+    "committed statpack markdown and JSON",
+    "fedcourts paths",
+    "web.run historical-opinion search and open attempts",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

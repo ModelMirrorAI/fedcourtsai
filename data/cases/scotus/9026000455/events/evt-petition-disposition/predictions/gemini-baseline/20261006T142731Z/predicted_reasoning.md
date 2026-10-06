@@ -1,0 +1,3 @@
+Distributed 0 times so far; expect no relists before a decision on the petition. The case appears to be a pro se petition stemming from a localized dispute, so the Court is highly unlikely to request the views of the Solicitor General (no CVSG). 
+
+If granted, the Court would likely be addressing a narrow error correction or a blatant procedural misstep by the lower court, but a summary disposition is highly unlikely given the lack of any obvious intervening Supreme Court precedent. Should the Court deny the petition, expect no separate writing or dissent from the denial.

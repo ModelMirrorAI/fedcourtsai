@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500257",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP server was rate-limited for this cell: both search calls returned HTTP 429 (daily quota 1400/day exhausted, reset in ~62 minutes). The cell degraded to the provisioned inputs and the statpack as the prompt directs; no outcome material was seen. If other cells in run 20261006T142731Z share the quota, their retrieval is likely degraded too."
+    }
+  ]
+}

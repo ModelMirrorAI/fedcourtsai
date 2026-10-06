@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000194",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP (search, failed with 429)"],
+  "helpful": [
+    "Provisioned petition.txt including the Second Circuit opinion in the appendix",
+    "Per-Term salience band table with bracketed reached figures",
+    "context.json band and distribution_count"
+  ],
+  "gaps": [
+    "No statpack cut conditioned on a call for a response (response_requested is on the corpus row but not aggregated); the strongest signal on this docket had to be weighed from general knowledge",
+    "fedcourts query has no originating-court or response-requested filter, so it cannot pull comparable CFR-after-waiver priors",
+    "CourtListener MCP shared daily rate limit was exhausted before this cell's first call"
+  ],
+  "notes": "The MCP 429 reported a 1400/day limit with ~53 minutes to reset; a fan-out of many cells on one key will hit it routinely. A response-requested cut in the statpack (grant rate among paid petitions where the Court called for a response after a waiver) would be the single most useful addition for cells in this posture."
+}

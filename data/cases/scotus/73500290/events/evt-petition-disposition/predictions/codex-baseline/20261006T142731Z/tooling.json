@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500290",
+  "gaps": [
+    "No provisioned reply addressing vehicle objections",
+    "Petition appendix text is truncated",
+    "CourtListener daily rate limit prevented precedent verification",
+    "Web attempts returned no usable content"
+  ],
+  "helpful": [
+    "Provisioned petition, opposition, and questions presented",
+    "Explicit frozen CVSG and distribution state",
+    "Exact prior-Term risk-set counts in the statpack JSON"
+  ],
+  "notes": "Completed from the provisioned record and committed base rates without a corpus query. The local uv cache needed a writable temporary location. No direct CourtListener REST fallback or credentials were used.",
+  "role": "predictor",
+  "run_id": "20261006T142731Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell and jq",
+    "fedcourts paths",
+    "committed statpack",
+    "web.run (no usable content)",
+    "CourtListener MCP search (HTTP 429)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500275",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "fedcourts paths", "committed statpack", "web.run attempts", "fedcourts validate"],
+  "helpful": ["Both petition and opposition available", "Lower-court memorandum included in petition", "Frozen salience band and distribution count", "Prior-Term reached-rate denominators"],
+  "gaps": ["General web calls returned no usable content", "Petition appendix truncated", "Snapshot filename does not establish the freshness of the underlying source"],
+  "notes": "The default uv cache was read-only; a writable temporary cache allowed CLI use. No live case-status retrieval or CourtListener call was needed. Timing uncertainty is retained rather than resolved by seeking a potentially decided docket."
+}

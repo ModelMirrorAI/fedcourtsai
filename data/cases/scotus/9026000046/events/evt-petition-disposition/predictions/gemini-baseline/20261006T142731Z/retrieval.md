@@ -1,0 +1,1 @@
+Consulted `metrics/statpack.md` for base rates on the `baseline` band and the effect of a CVSG, though no formal `fedcourts query` tool calls returned successfully due to command formatting. No retrieval beyond the provisioned inputs and the committed `statpack.md`.

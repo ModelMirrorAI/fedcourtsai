@@ -1,0 +1,8 @@
+# Retrieval
+
+- Provisioned inputs: `event.yaml`; `record/context.json`; `record/snapshots/2026-10-06.json`; `record/documents/documents.json`; questions presented; substantive petition text and selected supporting passages; both opposition briefs. No outcome, another predictor's output, or labeling artifact was read.
+- Additional local context: `metrics/statpack.md`, including the modern-cert, originating-circuit, paid-segment relist/CVSG, and sal-v4 per-Term risk-set tables; `metrics/statpack.json` for unrounded baseline reached rates. Pooled only the displayed Terms 2017–2024 for the Term-2025 anchor: 593 / 11,580 = 0.0512089810.
+- Web search: `site.supremecourt.gov rule 10 considerations governing review certiorari conflict courts appeals`. The tool returned no usable results.
+- Web open: the general Supreme Court rules PDF at `https://www.supremecourt.gov/filingandrules/2023RulesoftheCourt.pdf`. The tool returned no usable content. This was not a case-specific lookup; nothing from it informed the prediction.
+- No CourtListener MCP lookups and no corpus `query` or `open-events` calls. Consequently there are no ranged-corpus-read transfer lines to report.
+- Contract/tooling reads: predictor prompt, repository instructions, prediction/flags/tooling schemas, and path/serialization helpers. `fedcourts paths --court scotus --docket 73522552 --event evt-petition-disposition --role predictor` resolved the input layout; `CasePaths` resolved the output directory. The first CLI attempt failed because the default cache was read-only; retrying with a temporary writable cache succeeded.

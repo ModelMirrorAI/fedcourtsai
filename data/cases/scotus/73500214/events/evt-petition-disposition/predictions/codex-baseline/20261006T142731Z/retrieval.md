@@ -1,0 +1,9 @@
+# Retrieval record
+
+- Read the provisioned event definition, October 6, 2026 snapshot, context, document manifest, questions presented, and relevant substantive sections of the petition and BIO. No outcome file or another cell's prediction was read.
+- Consulted committed `metrics/statpack.md`: modern discretionary-cert disposition and circuit cuts; paid-segment relist and CVSG cuts; salience-band table and its `sal-v4` per-Term reached rates. Consulted `metrics/statpack.json` for matching unrounded prior-Term high-band numerator/denominator calculations and coverage metadata. The 2017-2024 pool is 314/898. No individual case outcomes were retrieved from the corpus.
+- Ran `uv run fedcourts paths --court scotus --docket 73500214 --event evt-petition-disposition --role predictor`. The initial attempt failed because the default cache directory was read-only; retrying with a writable temporary cache succeeded. This resolves local paths and is not a corpus query. No ranged-corpus transfer line was emitted.
+- Attempted `web.run` search: `site.supremecourt.gov opinions 2024 Cantero Bank America 22-529 602 205`. The tool returned no usable content or source results.
+- Attempted `web.run` open of the earlier, 2024 opinion PDF at `https://www.supremecourt.gov/opinions/23pdf/22-529_1b7d.pdf`. The tool returned no usable content. This was a historical-precedent check, not a search for the disposition of No. 25-1313. Neither web attempt contributed facts or revealed the current petition's outcome.
+- No CourtListener MCP calls, `fedcourts query`, or `fedcourts open-events` calls were made. No current-case web search, corpus pull, or direct CourtListener REST request was made.
+- Inspected the required output schemas and local path/serialization interfaces for output construction and validation only. These are tooling checks, not case-evidence retrieval.

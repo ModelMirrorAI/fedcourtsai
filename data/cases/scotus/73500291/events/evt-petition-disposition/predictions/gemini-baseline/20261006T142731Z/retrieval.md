@@ -1,0 +1,4 @@
+- Used `cat` and `grep` to read the provisioned `questions-presented.txt` and snippets of `brief-in-opposition.txt` and `petition.txt`.
+- Consulted `metrics/statpack.md` for baseline grant rates for the `elevated` band (sal-v4) and relist counts.
+- Attempted to query the CourtListener MCP `search` tool, but it failed with a rate limit error (HTTP 429).
+- Attempted to query the corpus using `fedcourts query --court scotus --era roberts --decided-before 2026-10-06` but it failed due to an invalid era token, and it was not retried since the provisioned inputs provided sufficient clarity.

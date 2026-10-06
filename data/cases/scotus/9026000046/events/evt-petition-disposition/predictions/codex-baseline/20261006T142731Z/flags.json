@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000046",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Independent general-precedent retrieval was degraded: web search/open attempts returned no usable content and CourtListener MCP returned HTTP 429 on a Caetano citation lookup. The prediction is complete, but its substantial upward adjustment rests in part on the provisioned petition's characterization of intervening Wolford precedent, without independent verification or a provisioned BIO. No target-case disposition was sought or encountered; no REST fallback was used.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261006T142731Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,7 @@
+P(grant) 0.42. The base rate for a paid petition with a CVSG is 34.9% (29.4% grant + 5.5% GVR) according to the statpack's CVSG cut. The petition is in the "high" salience band (base rate for high band is ~35.5% reached-grant). I am adjusting upward slightly from the CVSG and high-band baselines because the petition presents a clean, well-developed circuit split on an important antitrust issue (whether Illinois Brick bars intended targets of group boycotts from lost-profit damages), which was explicitly acknowledged by the Sixth Circuit below (as noted in the questions presented).
+
+I am keeping the probability below 0.5 because the SG has not yet filed their brief. If the SG recommends a denial, the probability will drop significantly, whereas a recommendation to grant will push it much higher. At this stage, without knowing the SG's views, 42% reflects the elevated hazard of a CVSG while retaining the baseline reality that most petitions, even those in high bands, face steep odds without the government explicitly endorsing review.
+
+Big case score 0.65. This is a substantial antitrust issue affecting market incumbents and competitive entry, and the bounds of Illinois Brick standing is a doctrine with broad economic impact. However, it is fundamentally a statutory interpretation and standing question rather than a cultural flashpoint, so the stakes are high within antitrust/business circles but less so for the general public.
+
+No `documents.json` gaps affected this; I was able to read the petition's questions presented to understand the core issue.

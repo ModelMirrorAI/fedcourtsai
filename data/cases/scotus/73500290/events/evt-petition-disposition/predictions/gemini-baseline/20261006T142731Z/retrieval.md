@@ -1,0 +1,3 @@
+- CourtListener MCP `call_endpoint` lookup for `dockets` with `docket_number="25-1388"` (Throttled/Rate-limited).
+- `fedcourts query --court scotus --full 'Illinois Brick'` (Failed: extra argument).
+- Consulted `metrics/statpack.md` for historical base rates regarding CVSG and salience bands.

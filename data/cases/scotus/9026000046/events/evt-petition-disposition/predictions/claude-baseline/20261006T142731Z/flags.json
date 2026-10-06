@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000046",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forecast is decisively shaped by pre-snapshot public information outside the docket: certiorari granted June 30, 2026 in Viramontes v. Cook County (No. 25-238), consolidated with Grant v. Higgins (No. 25-566) from the Second Circuit, argument December 2, 2026, on whether AR-15-platform rifles 'in common use' are protected. The petition asks in the alternative to be held for it. I forecast hold-then-GVR as the modal path, which is why P(grant) sits far above the baseline-band anchor (~5%); the band table carries no cut for a call-for-response or a pending-hold state, so that adjustment rests on general practice, not a committed rate."
+    }
+  ]
+}

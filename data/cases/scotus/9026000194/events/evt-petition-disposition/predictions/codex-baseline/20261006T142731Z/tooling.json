@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000194",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local provisioned-record and schema reads",
+    "committed metrics/statpack.md",
+    "fedcourts paths",
+    "local Python base-rate arithmetic",
+    "web.run search and open attempts",
+    "CourtListener MCP search attempt"
+  ],
+  "helpful": [
+    "The petition includes the appellate opinion, enabling comparison of advocacy with the challenged holding.",
+    "The snapshot records the requested response and extended deadline, which distinguish redistribution from a substantive relist.",
+    "The matching sal-v4 reached-rate table supplies the proper private-petitioner anchor."
+  ],
+  "gaps": [
+    "CourtListener's daily rate limit prevented independent verification of a cited circuit precedent.",
+    "Web tools returned no usable content in this session.",
+    "No opposition or amicus text was provisioned; the petition source is marked truncated."
+  ],
+  "notes": "Completed from provisioned inputs and the committed statpack without live corpus reads. A temporary writable uv cache resolved the local CLI cache-permission error. Missing opposition text is consistent with the snapshot's future response deadline, not assumed to be a fetch failure."
+}
