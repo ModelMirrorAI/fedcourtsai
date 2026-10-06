@@ -22,8 +22,7 @@ The seam carries every issue write the pipeline makes under a non-triggering
 label, not only the latch: :func:`open_issue_once` opens the run-ops digests'
 per-issue reading surfaces from the same bounded runner and the same marker
 test, and :func:`find_or_create_issue` is the long-lived-issue half on its own,
-which :mod:`fedcourtsai.watchdog_telemetry` reuses for the codex watchdog's
-off-runner record — so no workflow has to grow its own find-or-create bash.
+so no workflow has to grow its own find-or-create bash.
 """
 
 from __future__ import annotations
@@ -171,11 +170,10 @@ def find_or_create_issue(
 ) -> int:
     """The number of the single long-lived issue under ``label``, opening it if absent.
 
-    The find-or-create half of :func:`post_agent_feedback`, lifted out because the
-    codex watchdog's telemetry channel wants exactly the same shape — one
-    long-lived issue under a non-triggering label, reused while it is open and
-    reopened as a fresh one once a maintainer closes it — and duplicating it
-    would put two spellings of "which issue is *the* issue" in the tree.
+    The find-or-create half of :func:`post_agent_feedback`, kept as its own
+    function so any long-lived issue under a non-triggering label — reused while
+    it is open and reopened as a fresh one once a maintainer closes it — has one
+    spelling of "which issue is *the* issue" in the tree.
 
     The label is created idempotently first, so the first ever run does not fail
     on a missing label. ``label`` must never be a ``run:*`` trigger: creating an

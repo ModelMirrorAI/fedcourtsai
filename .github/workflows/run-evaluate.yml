@@ -271,10 +271,28 @@ jobs:
     needs: [plan, approval]
     if: needs.plan.outputs.has_jobs == 'true'
     runs-on: ubuntu-latest
-    # Above the codex step's 75-minute backstop with ~10 minutes for setup and
-    # the capture tail; the watchdog arm step carries the full arithmetic.
-    timeout-minutes: 85
+    # The engine deadline below plus the setup ahead of the engine step and the
+    # capture tail behind it, with room: measured since 2026-08-01, the engine
+    # step starts at most ~5.5 minutes into a cell and the tail runs under 1.5,
+    # so 50 + 7 lands near 57 and 65 holds ~8 minutes over that worst case. A
+    # job that reaches this cap is cancelled — no tail, logs dropped — which is
+    # why the engine deadline, not this, is the bound meant to bite.
+    timeout-minutes: 65
     environment: prod
+    # The **engine deadline**, in minutes, and the one place it is set for this
+    # workflow: every engine step's `timeout-minutes` reads it, and the arm step
+    # derives the watchdog's fire time from it, a margin earlier, so the
+    # watchdog — which can end a step's whole process tree — acts before the
+    # runner's own step timeout does. One value for all three engines (claude's
+    # action step, codex's action step, gemini's CLI step), held equal across
+    # run-predict, run-evaluate and integration-test's application-repro leg
+    # by a workflow-shape test. Fifty minutes: since 2026-08-01 the longest
+    # completed engine step on either workflow, any engine, is 13.9 minutes
+    # (p99 under 12), so this is over 3.5x the longest cell observed — a cell
+    # near it is an anomaly worth a kill, not slow work. docs/pipeline.md
+    # (*Graceful degradation on limits*) carries the derivation.
+    env:
+      ENGINE_DEADLINE_MINUTES: "50"
     permissions:
       # The cell no longer commits or opens a PR — it only reads the repo and
       # uploads an artifact; the collect job does the git/PR with its own token.
@@ -325,10 +343,9 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          # 90 minutes, covering the 85-minute job cap: the sidecar's
-          # credentials are static for the whole job, and a codex cell may
-          # still be querying the corpus up to its 75-minute step bound —
-          # the OIDC default hour would expire mid-cell.
+          # 90 minutes, covering the 65-minute job cap with room: the
+          # sidecar's credentials are static for the whole job, so they must
+          # outlive any cell the job cap lets run.
           role-duration-seconds: "5400"
           # One address for the sidecar process itself: `full` query bodies
           # hydrate from the per-case content store the base derives, and the
@@ -586,8 +603,9 @@ jobs:
       # over the checkout, the non-secret cell env across the `sudo -u` hop, and
       # write over its output subtree — the whole evaluator subtree, since the
       # cell writes one dir per predictor it scores. Placed OUTSIDE the engine
-      # bracket, ahead of the mint/arm pair the watchdog tests pin adjacent; the
-      # disarm step returns codexcell's work to the runner. codex-only. The
+      # bracket, ahead of the arm step the watchdog tests pin adjacent to the
+      # engine steps; the disarm step returns codexcell's work to the runner.
+      # codex-only. The
       # predict cell's setup carries the rationale in full.
       - name: Provision the unprivileged codex user
         if: matrix.engine == 'codex'
@@ -597,43 +615,6 @@ jobs:
           codex-config: .codex/config.toml
           grant-workspace-read: "true"
           codex-output-dir: data/cases/${{ matrix.court }}/${{ matrix.docket }}/events/${{ matrix.event_id }}/evaluations/${{ matrix.evaluator_id }}
-
-      # The watchdog's reporting channel cannot live on the runner, because the
-      # cancellation it guards against is what destroys everything there: the
-      # diagnostics bundle, the disarm step that publishes it, the step summary,
-      # and the job log GitHub drops. So the watchdog also reports **off** the
-      # runner, and this is the credential that lets it — comment-only, minted
-      # per step, and held by the watchdog rather than by the agent.
-      #
-      # **Codex cells only**, while the watchdog itself brackets every engine —
-      # the reaper needs no telemetry to work, so the token surface stays where
-      # SECURITY.md already bounds it. The predict cell's mint step carries the
-      # reasoning in full.
-      - name: Mint the codex watchdog telemetry token
-        id: watchdog-token
-        if: matrix.engine == 'codex'
-        # Narrower than the Claude cell's comment token beside it: issues alone,
-        # no contents and no pull-requests. Everything it is used for is the
-        # `codex-watchdog` tracking issue and one comment per cell on it, which
-        # the watchdog then PATCHes in place; the grant itself is the repo's
-        # issue surface, which SECURITY.md bounds rather than understates. The
-        # agent
-        # step is never handed it — it goes to this step, to the disarm step,
-        # and to the detached watchdog this step's successor launches, and no
-        # agent step inherits from any of those. It stays *reachable* at the
-        # runner user's privilege, which SECURITY.md states rather than denies.
-        #
-        # `continue-on-error` because the telemetry is best-effort and the kill
-        # duty is not: a failed mint would otherwise leave the arm and engine
-        # steps skipped on their implicit `success()`, killing the cell to
-        # protect its reporting. Failing soft leaves an empty token output,
-        # which both consumers already guard on.
-        continue-on-error: true
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
-        with:
-          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
-          permission-issues: write
 
       # The bracket around every engine step below. It carries two triggers: a
       # **completion sentinel** — the cell's required outputs, computed here from
@@ -652,58 +633,15 @@ jobs:
           EVENT_ID: ${{ matrix.event_id }}
           ACTOR_ID: ${{ matrix.evaluator_id }}
           RUN_ID: ${{ matrix.run_id }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          # The comment-only mint above, twice: `gh` reads the first to open the
-          # record, and the second rides into the detached watchdog's env so it
-          # can PATCH that record as it passes each state. Both are env, never
-          # argv — the watchdog's own published bundle dumps every argument of
-          # every process this user owns. Empty on a non-codex cell, whose mint
-          # step is skipped — the telemetry is codex-only and the guards below
-          # read that emptiness rather than a second flag. This cell has no
-          # refusal gate of its own, so the arming above is ungated.
-          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
-          WATCHDOG_CHECKIN_TOKEN: ${{ steps.watchdog-token.outputs.token }}
-          # Per engine, because the deadline and the sentinel answer to different
-          # evidence. The **sentinel** is engine-agnostic and unbounded by this:
-          # it fires whenever the work is done, so on the failure this exists for
-          # the deadline is only ever reached by a cell that never finished.
-          #
-          # The **deadline** is a kill on a guess, so it sits clear of what each
-          # engine has been observed to need — a deadline inside the work
-          # envelope kills healthy mid-work cells, and the kill is worse than
-          # the wedge it answers: it can take the whole job down, dropping every
-          # runner-local account. Codex gets 65 minutes: a codex judge cell on
-          # an application record has been measured working past 50, so 65
-          # clears the observed envelope with margin. The cell job is capped at
-          # 85 and reaches this step inside its first minute (measured: +46s on
-          # a healthy cell), and the off-runner record below is bounded to 90s
-          # on top of that, so firing at +65 ends the engine ~68 minutes into
-          # the job and leaves ~17 for the `if: !cancelled()` tail, which
-          # measures in single-digit minutes. It is the engine whose wedges are
-          # the reason any of this exists.
-          #
-          # The 65 minutes sits past the telemetry token's own one-hour life,
-          # deliberately: the kill duty owns the deadline and the record
-          # degrades soft. The armed row, the sentinel observation and the
-          # heartbeats up to the hour all land, and a row frozen mid-wait on a
-          # run that never came back reads as the deadline path — the fire ETA
-          # is in the armed body for exactly that reading. The detached
-          # watchdog cannot re-mint, so no deadline above the hour can buy its
-          # own fire-time PATCHes; what it buys instead is never killing
-          # healthy work, which is the costlier failure.
-          #
-          # Claude and gemini get 47, knowingly inside the envelope this
-          # record shape can present: no claude or gemini cell has ever
-          # tripped its own 50-minute step bound, so nothing observed says
-          # they need more, and a longer
-          # deadline only delays wedge recovery for engines that have never
-          # wedged. A cell of either engine seen near its bound is what moves
-          # them. At 47 the watchdog stays a backstop *below* the step's own
-          # `timeout-minutes: 50` (2820s plus the three 30s graces is 2910,
-          # inside 3000, and these cells make no check-in calls to pay for),
-          # which is the only thing it must be for them: the runner cannot end
-          # a tree, and this can.
-          WATCHDOG_DEADLINE_S: ${{ matrix.engine == 'codex' && '3900' || '2820' }}
+          # The fire time is derived in the script below from the job's one
+          # engine deadline: three minutes under it. The margin is what the
+          # watchdog's own escalation can take once it fires — three graces of
+          # 30 s, each plus up to one 10 s poll, is two minutes at worst — plus
+          # a minute's slack, so a step the watchdog ends is concluded before the
+          # engine step's own `timeout-minutes` (the same deadline) would cancel
+          # it. The watchdog starts within seconds of the engine step, at the end
+          # of this step, so the two clocks run together.
+          DEADLINE_MARGIN_S: "180"
         run: |
           set -euo pipefail
           mkdir -p "$WATCHDOG_DIR"
@@ -714,9 +652,9 @@ jobs:
           # owns this workspace for the whole of its turn, and a list it could
           # rewrite is a list it could satisfy without doing the work.
           #
-          # Best-effort and bounded, exactly like the check-in below: an empty
-          # list disables the reaper and leaves the deadline as the only bound,
-          # which is a degraded watchdog rather than an unguarded cell.
+          # Best-effort and bounded: an empty list disables the reaper and
+          # leaves the deadline as the only bound, which is a degraded watchdog
+          # rather than an unguarded cell.
           sentinel_root=""
           sentinel_paths=""
           if cell_outputs="$(timeout 60 uv run fedcourts cell-outputs --role evaluate \
@@ -751,71 +689,26 @@ jobs:
           else
             echo "::warning::no completion sentinel for ${EVENT_ID}; the watchdog runs on its deadline alone"
           fi
-          # The armed record, written off the runner before the engine starts:
-          # one comment on the long-lived `codex-watchdog` issue, which the
-          # watchdog then updates in place. Its existence is already evidence —
-          # a cell whose comment says only "armed", on a run that never came
-          # back, is a wedge the watchdog failed to convert, which is a
-          # different fault from one it converted and reported.
-          #
-          # Best-effort, and deliberately so: the kill duty is primary, so a
-          # degraded API costs the telemetry and never the deadline. Stdout is
-          # the hand-over: its first line is the comment's API URL, and the rest
-          # is the armed body the watchdog appends each state to — the whole of
-          # it, so the first heartbeat cannot erase the arming time, the fire
-          # ETA and the run link. An empty first line makes every check-in a
-          # no-op.
-          checkin_url=""
-          checkin_base=""
-          if [ -n "${GH_TOKEN:-}" ]; then
-            # `timeout` on top of the command's own bounded gh retry: that
-            # budget is per call and this makes several, so an API having a bad
-            # minute could otherwise push the whole arming — and with it the
-            # deadline this step exists to start — minutes later into a job cap
-            # the arithmetic below is measured against.
-            checkin_out="$(timeout 90 uv run fedcourts watchdog-checkin \
-              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
-              --court "$COURT_ID" --docket "$DOCKET_ID" --event-id "$EVENT_ID" \
-              --actor "$ACTOR_ID" --deadline-s "$WATCHDOG_DEADLINE_S" \
-              --run-url "$RUN_URL" || true)"
-            if [ -n "$checkin_out" ]; then
-              # Split without a pipeline: under `pipefail` a broken pipe here
-              # would be the one way a failed check-in could still abort arming.
-              checkin_url="${checkin_out%%$'\n'*}"
-              checkin_base="${checkin_out#*$'\n'}"
-            fi
-          fi
-          # The URL is where a live credential gets sent for the whole deadline,
-          # and it arrived on a stdout this step does not otherwise police — so
-          # it is checked against the one shape it may have before it is handed
-          # over. Anything else is dropped, which costs the telemetry and never
-          # the deadline. (The watchdog follows no redirects either, so the
-          # header cannot be forwarded onward from an accepted host.)
-          case "$checkin_url" in
-            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*) ;;
-            *)
-              if [ -n "$checkin_url" ]; then
-                echo "::warning::codex watchdog check-in URL was not this repository's; dropped"
-              fi
-              checkin_url=""
-              checkin_base=""
-              ;;
-          esac
-          # Only a codex cell was offered the channel, so only a codex cell can
-          # be missing it; every other engine arms without one by design.
-          if [ -n "${GH_TOKEN:-}" ] && [ -z "$checkin_url" ]; then
-            echo "::warning::codex watchdog armed with no off-runner record (${EVENT_ID})"
-          fi
+          # The fire time, from the one configured deadline. Checked as digits
+          # before the arithmetic — the watchdog refuses a non-numeric knob too,
+          # but a bad value must fail here, loudly, before the engine starts
+          # unguarded.
+          for value in "$ENGINE_DEADLINE_MINUTES" "$DEADLINE_MARGIN_S"; do
+            case "$value" in
+              "" | *[!0-9]* | 0?*)
+                echo "::error::the engine deadline and its margin must be plain whole numbers"
+                exit 1
+                ;;
+            esac
+          done
+          WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S))
+          echo "engine deadline: ${ENGINE_DEADLINE_MINUTES} min (step timeout); watchdog fires at ${WATCHDOG_DEADLINE_S}s"
           # The watchdog and its evidence both live outside the workspace: that
           # tree belongs to the agent for the whole of its turn, and bash reads a
           # script file as it executes it. The disarm step brings the bundle
           # back for the artifact.
           cp scripts/engine-watchdog.sh "$RUNNER_TEMP/engine-watchdog.sh"
-          # `GH_TOKEN=` cleared: the watchdog reads WATCHDOG_CHECKIN_TOKEN and
-          # never `gh`, so the credential need not sit in a process that
-          # outlives this step by the whole deadline twice over.
-          GH_TOKEN='' WATCHDOG_CHECKIN_URL="$checkin_url" \
-            WATCHDOG_CHECKIN_BASE="$checkin_base" \
+          WATCHDOG_DEADLINE_S="$WATCHDOG_DEADLINE_S" \
             WATCHDOG_OUTPUT_DIR="$sentinel_root" \
             WATCHDOG_SENTINEL_PATHS="$sentinel_paths" \
             nohup bash "$RUNNER_TEMP/engine-watchdog.sh" \
@@ -825,10 +718,12 @@ jobs:
       - name: Evaluate with Claude Code
         id: evaluate_claude
         if: matrix.engine == 'claude-code'
-        # Bound the agent below the job timeout so a runaway run trips this *step*
-        # (leaving the finalize step to salvage its work) instead of the job-level
-        # timeout, which would cancel the runner and discard everything.
-        timeout-minutes: 50
+        # The job's one engine deadline, as on every engine step: a runaway run
+        # trips this *step* (leaving the tail to salvage its work) instead of the
+        # job-level timeout, which would cancel the runner and discard
+        # everything. The watchdog armed above fires a margin earlier, and is
+        # what ends a step whose tree will not die on the runner's own timeout.
+        timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
         uses: anthropics/claude-code-action@8ce9314fa9a404564fa7e954cd84f25bcba2b829 # v1.0.236
         env:
           COURT_ID: ${{ matrix.court }}
@@ -904,12 +799,8 @@ jobs:
       - name: Evaluate with Codex
         id: evaluate_codex
         if: matrix.engine == 'codex'
-        # Same role as the Claude step's bound: trip this step, not the job, on
-        # overrun. Higher than theirs because codex's watchdog deadline is 65
-        # minutes (the arm step carries the arithmetic), and the watchdog armed
-        # above is the bound that actually bites a wedged engine; this stays as
-        # the backstop for an overrun the runner can end.
-        timeout-minutes: 75
+        # The same engine deadline as the Claude and Gemini steps.
+        timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
         uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
         env:
           COURT_ID: ${{ matrix.court }}
@@ -1000,8 +891,8 @@ jobs:
       - name: Evaluate with Gemini
         id: evaluate_gemini
         if: matrix.engine == 'gemini'
-        # Same buffer as the Claude step: trip this step, not the job, on overrun.
-        timeout-minutes: 50
+        # The same engine deadline as the Claude and Codex steps.
+        timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -1081,12 +972,6 @@ jobs:
           ACTOR_ID: ${{ matrix.evaluator_id }}
           RUN_ID: ${{ matrix.run_id }}
           ENGINE: ${{ matrix.engine }}
-          # The off-runner record is codex's alone (see the mint step), so the
-          # conclusion it closes out with is the codex step's.
-          ENGINE_CONCLUSION: ${{ steps.evaluate_codex.conclusion }}
-          # Empty on a non-codex cell, whose mint step never ran — which is what
-          # the guards below read: this step is `always()` and the mint is not.
-          GH_TOKEN: ${{ steps.watchdog-token.outputs.token }}
         run: |
           set -euo pipefail
           # The pid file sits on the runner's temp path, which the agent could
@@ -1145,15 +1030,24 @@ jobs:
           # What contains a forged reap on the engines that can is not this path:
           # it only promotes a cell that must still pass `produced`, `validate`,
           # the collect job's secret scan and the `data/` path jail — and an
-          # agent that controls its own outputs faces exactly those anyway. The
-          # one channel no cell can forge is the off-runner comment, which is
-          # codex-only by the same split the mint step describes. SECURITY.md
-          # carries this residual rather than leaving it implied here.
+          # agent that controls its own outputs faces exactly those anyway.
+          # SECURITY.md carries this residual rather than leaving it implied
+          # here.
           reaped=false
           if [ -f "$RUNNER_TEMP/engine-watchdog/REAPED" ]; then
             reaped=true
           fi
           echo "reaped=$reaped" >> "$GITHUB_OUTPUT"
+          # The deadline, as a cell-level fact the tail records into
+          # status.json, so the run PR names the cause of the stop after the
+          # runner and its annotations are gone. Read from the same runner-temp
+          # bundle; an engine that runs as this uid could plant the marker, but
+          # what that buys is a demotion's *label* — it never readies a cell.
+          deadline=false
+          if [ -f "$RUNNER_TEMP/engine-watchdog/FIRED" ] || [ -f "$RUNNER_TEMP/engine-watchdog/STOOD_DOWN" ]; then
+            deadline=true
+          fi
+          echo "deadline=$deadline" >> "$GITHUB_OUTPUT"
           # Bring the bundle into the workspace, which is what the cell
           # artifact uploads. Regular files only: `upload-artifact` follows
           # symlinks, so copying the directory wholesale would let a planted
@@ -1192,9 +1086,9 @@ jobs:
             [ -f "engine-watchdog/$marker" ] || continue
             case "$marker" in
               REAPED) note="the cell finished its work and its step would not conclude; the watchdog ended the step and the output was salvaged" ;;
-              FIRED) note="the engine was killed at its deadline" ;;
+              FIRED) note="the engine was still running at the engine deadline and was killed" ;;
               SUSPENDED) note="the watchdog lost wall clock beside the engine and stood down; nothing was signalled — the cell's outcome is its step's own" ;;
-              *) note="the deadline passed with no engine process matched — check the watchdog still names the action's invocation" ;;
+              *) note="the engine deadline passed with no engine process matched; the marker says whether the step's tree was ended" ;;
             esac
             echo "::warning::engine watchdog (${COURT_ID}/${DOCKET_ID} ${EVENT_ID}): ${note}"
             {
@@ -1206,26 +1100,6 @@ jobs:
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           done
-          # Close the off-runner record out with the engine step's conclusion.
-          # A round where nothing fired collapses to a single armed/disarmed
-          # line, so the telemetry issue stays one readable row per cell instead
-          # of burying the rounds that matter behind uneventful heartbeats. A
-          # reaped cell is *not* healthy — its step hung — so its record stays
-          # expanded even though its work survived.
-          if [ -n "${GH_TOKEN:-}" ]; then
-            healthy_flag=--healthy
-            if [ -f engine-watchdog/REAPED ] || [ -f engine-watchdog/FIRED ] || [ -f engine-watchdog/STOOD_DOWN ] \
-              || [ -f engine-watchdog/SUSPENDED ]; then
-              healthy_flag=--not-healthy
-            fi
-            # Bounded like the arming one, and for the sharper reason: this
-            # step runs ahead of the artifact upload that carries the cell out.
-            timeout 90 uv run fedcourts watchdog-checkin --disarm "$healthy_flag" \
-              --repo "$GITHUB_REPOSITORY" --run-id "$RUN_ID" \
-              --court "$COURT_ID" --docket "$DOCKET_ID" --event-id "$EVENT_ID" \
-              --actor "$ACTOR_ID" --conclusion "${ENGINE_CONCLUSION:-unknown}" \
-              > /dev/null || true
-          fi
 
       # Put the hidden predictions/evaluations trees back the moment the agent
       # stops — ahead of every post-agent step that reads the tree (only the
@@ -1423,6 +1297,11 @@ jobs:
           # `validated` below still have to hold, so a reaped cell that wrote
           # malformed output still lands in the draft PR.
           AGENT_OK: ${{ (matrix.engine == 'claude-code' && steps.evaluate_claude.outcome == 'success') || (matrix.engine == 'codex' && steps.evaluate_codex.outcome == 'success') || (matrix.engine == 'gemini' && steps.evaluate_gemini.outcome == 'success') || steps.disarm.outputs.reaped == 'true' }}
+          # The watchdog acted at the engine deadline (its disarm step's read
+          # of the bundle). Recorded beside `agent_ok`, never instead of it:
+          # it names why a cell stopped, which the collect job renders into
+          # the draft PR's reason column.
+          ENGINE_DEADLINE: ${{ steps.disarm.outputs.deadline == 'true' }}
         run: |
           set -euo pipefail
           # The event.yaml is materialized before the agent runs, so a staged change
@@ -1440,8 +1319,8 @@ jobs:
             --arg court "$COURT_ID" --argjson docket "$DOCKET_ID" \
             --arg event_id "$EVENT_ID" --arg actor "$EVALUATOR_ID" --arg run_id "$RUN_ID" \
             --argjson produced "$produced" --argjson validated "$validated" \
-            --argjson agent_ok "$AGENT_OK" \
-            '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok}' \
+            --argjson agent_ok "$AGENT_OK" --argjson engine_deadline "$ENGINE_DEADLINE" \
+            '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok,engine_deadline:$engine_deadline}' \
             > status.json
 
       # One artifact per cell: its status.json, its own matrix event directory

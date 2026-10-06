@@ -445,7 +445,6 @@ from .vote_writer import (
     vote_docket_numbers,
     vote_plan,
 )
-from .watchdog_telemetry import arm_checkin, disarm_checkin
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -16968,9 +16967,9 @@ def cell_outputs_cmd(
     the runner's own terms — the watchdog never re-derives it, and never reads a
     file the agent could rewrite to say what it should wait for.
 
-    Stdout is a hand-over the arm step splits, like ``watchdog-checkin``'s: the
-    **first line** is the directory whose write quiescence is watched, and
-    **every line after it** is one required file, repo-relative. An evaluate cell
+    Stdout is a hand-over the arm step splits: the **first line** is the
+    directory whose write quiescence is watched, and **every line after it** is
+    one required file, repo-relative. An evaluate cell
     names its candidates by their staging aliases, since the un-aliasing runs in
     the cell's tail, long after the sentinel has to recognize them; a cell with no
     staged candidate has no completion to wait for and exits non-zero, which
@@ -18159,124 +18158,6 @@ def post_agent_feedback_cmd(
     """
     comment = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
     typer.echo(post_agent_feedback(comment, repo))
-
-
-@app.command("watchdog-checkin")
-def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
-    repo: Annotated[str, typer.Option(help="owner/name of the repository to post into.")],
-    run_id: Annotated[str, typer.Option(help="The round's run id.")],
-    court: Annotated[str, typer.Option(help="The cell's court id.")],
-    docket: Annotated[str, typer.Option(help="The cell's docket id.")],
-    event_id: Annotated[str, typer.Option(help="The cell's event id.")],
-    actor: Annotated[str, typer.Option(help="The cell's predictor or evaluator id.")],
-    deadline_s: Annotated[
-        int, typer.Option(help="The watchdog's deadline, in seconds (arm mode).")
-    ] = 0,
-    run_url: Annotated[str, typer.Option(help="The Actions run's URL (arm mode).")] = "",
-    disarm: Annotated[
-        bool,
-        typer.Option(
-            "--disarm/--arm",
-            help="Close the record out with the engine step's conclusion instead of opening it.",
-        ),
-    ] = False,
-    conclusion: Annotated[
-        str, typer.Option(help="The engine step's conclusion (disarm mode).")
-    ] = "",
-    healthy: Annotated[
-        bool,
-        typer.Option(
-            "--healthy/--not-healthy",
-            help="Disarm mode: the watchdog never reached its deadline, so the record collapses.",
-        ),
-    ] = True,
-    channel: Annotated[
-        str,
-        typer.Option(
-            help=(
-                "Which long-lived issue carries the record: 'prod' (the production "
-                "cells' `codex-watchdog` issue, the default) or 'staging' (the "
-                "rehearsal channel's own issue, for staging-bound repro dispatches). "
-                "An unregistered value degrades to a record-less arming with a "
-                "warning, on the command's best-effort contract."
-            ),
-        ),
-    ] = "prod",
-) -> None:
-    """Record this codex cell on the long-lived `codex-watchdog` telemetry issue.
-
-    The one channel a wedged codex cell cannot erase. Every other account the
-    watchdog leaves — the diagnostics bundle, the disarm step that publishes it,
-    the step summary, the job log — dies with the runner when the *job* cap
-    cancels a step that never ended, so a hang erases its own evidence down to
-    whether the watchdog fired at all. This writes the record **off the
-    runner** while the runner is still alive: find-or-create the channel's
-    long-lived issue (a non-triggering label), then create this cell's
-    comment or reset the one its marker already names.
-
-    Stdout is the arm step's hand-over to the detached watchdog, and it is two
-    parts: the **first line** is the comment's API URL, which the watchdog
-    PATCHes as it passes each state, and **everything after it** is the body
-    just written — the base each state is appended to. The whole body and not
-    just its marker line, because the watchdog PATCHes what it has composed, so
-    a trimmed base would have the first heartbeat erase the arming time, the
-    fire ETA and the run link. Passed rather than rebuilt in shell so the marker
-    has one spelling. The token is the comment-only App mint the cell's watchdog
-    steps hold; nothing here reads or writes a cell artifact.
-
-    Best-effort by contract: the kill duty is what the watchdog is for, so a
-    failure here warns and exits zero, leaving the arm step to arm a watchdog
-    with no check-in URL — which simply beats nowhere.
-    """
-    try:
-        if disarm:
-            url, base = disarm_checkin(
-                repo=repo,
-                run_id=run_id,
-                court=court,
-                docket=docket,
-                event_id=event_id,
-                actor=actor,
-                conclusion=conclusion or "unknown",
-                healthy=healthy,
-                channel=channel,
-            )
-        else:
-            url, base = arm_checkin(
-                repo=repo,
-                run_id=run_id,
-                court=court,
-                docket=docket,
-                event_id=event_id,
-                actor=actor,
-                deadline_s=deadline_s,
-                run_url=run_url,
-                channel=channel,
-            )
-    except (OSError, ValueError, subprocess.SubprocessError) as exc:
-        # Named exactly: a missing/unexecutable gh, an unparseable response, and
-        # the bounded runner's exhausted retries. Anything else is a bug here
-        # rather than a degraded API, and a bug should fail loudly — the call
-        # sites carry `|| true` regardless, so a loud failure still costs the
-        # record rather than the arming. The channel refusal is the one case
-        # whose message is composed by this codebase and safe to print — it
-        # names the registered set, which is what makes a typo'd channel
-        # debuggable from the one log a healthy run keeps. JSONDecodeError
-        # subclasses ValueError and reaches here from a degraded gh response,
-        # so it is excluded: this is the lane's only place that prints an
-        # exception message into a public Actions log, and the printed set
-        # stays exactly the messages this codebase composes.
-        detail = (
-            f": {exc}"
-            if isinstance(exc, ValueError) and not isinstance(exc, json.JSONDecodeError)
-            else ""
-        )
-        typer.echo(
-            f"::warning::codex watchdog check-in failed ({type(exc).__name__}{detail})", err=True
-        )
-        return
-    typer.echo(url)
-    typer.echo(base)
 
 
 def main() -> None:

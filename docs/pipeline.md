@@ -39,7 +39,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the manual `review` release | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
-| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, qp-labeler-smoke one labeling agent over a synthetic extract, and each codex-freeze-probe member one trivial codex turn with the watchdog armed around it |
+| `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -494,18 +494,13 @@ artifact. The contract, selection rule, credential split and residuals are in
 ## `integration-test` — the infrastructure preflight
 
 `integration-test` is the infrastructure preflight, also outside the cascade:
-a side-effect-free scenario runner (one carve-out: the application-repro leg
-and the freeze probe each
-write their watchdog's telemetry row onto the bound channel's telemetry
-issue — `codex-watchdog`, or `codex-watchdog-staging` on a staging-bound
-dispatch —
-dispatch-only, marker-keyed, non-triggering) — manual dispatch, plus one
+a side-effect-free scenario runner — manual dispatch, plus one
 scheduled canary — over the **corpus
 read backends, the two sidecars, cascade cells, the engines' own invocation
 blocks, the collect writer, and the
 qp-topic measure path**,
 against the real corpus remote for every scenario but collect, qp-topic,
-qp-labeler-smoke and the codex-freeze-probe family —
+and qp-labeler-smoke —
 the tested `fedcourts corpus-integration-check` read set, a
 cell's-eye probe of the service sidecar, the tokenless CourtListener MCP
 sidecar under the tested `mcp-integration-check` client, a stub
@@ -517,15 +512,12 @@ built from the committed reference set (token-free and credential-free), or
 sidecar, a boot probe of each engine's own invocation block, the qp-topic
 labeler's own invocation block over a five-row synthetic extract, one
 **repro-family** cell — a real cell run against a record pinned to the shape a
-diagnosed engine defect keys on — and the freeze probe's one trivial codex
-turn with the watchdog armed around it
-— dispatched around changes to corpus access, the sidecars, engine
+diagnosed engine defect keys on — dispatched around changes to corpus access, the sidecars, engine
 CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
 releases — from main, or via the `staging` deployment environment (collect
 binds none; qp-topic binds one it never reads; the labeler smoke binds one
-and reads exactly its engine key; the freeze probe binds one and reads the
-telemetry App's pair plus the codex key) from the `staging` branch, which
+and reads exactly its engine key) from the `staging` branch, which
 is the only branch that environment accepts (those runs are the promotion
 gate's freshness evidence; see *Promotion: staging → main* below). The deployment environment resolves from
 the dispatching branch by default — `main` gets `prod`, `staging` gets
@@ -557,8 +549,7 @@ the canary, is the thing that blocks.
 
 **How a red canary reaches anyone.** Through GitHub's own scheduled-workflow
 failure notification and the workflow's run history — nothing else. It opens no
-issue and posts no comment (the repro leg's telemetry row is the workflow's one
-write, and no schedule reaches that leg), because the workflow's
+issue and posts no comment, because the workflow's
 side-effect-free invariant is what lets it dispatch and run unattended at all,
 and an alarm that writes is a write. So the canary is a *shortened discovery window*, not an alerting
 system: what it guarantees is that the breakage is already in the run history
@@ -1344,18 +1335,16 @@ pattern rather than rediscovering it:
   measured is time it was awake for: a pass that lands long after the one before
   it means the deadline expired unobserved, and a guard in that state reports
   rather than signals (the thaw guard, under *Graceful degradation on limits*).
-- **A watchdog that reports only onto the runner reports nothing.** The same
-  cancellation that makes a runner-level watchdog necessary destroys every
-  channel that lives on the runner: the diagnostics bundle, the disarm step that
-  publishes it, the step summary, and the job log GitHub drops. A guard whose
-  entire account of itself dies with the failure it guards cannot even be
-  observed to have fired. So the engine watchdog also writes **off** the runner,
-  on the codex cells that mint the credential for it,
-  while the runner is still alive — one comment per cell on a long-lived
-  tracking issue, opened before the agent starts and updated in place at each
-  state — and the runner-local bundle becomes the detail behind a record that
-  survives. Any guard against a cancellation wants the same shape: write the
-  evidence somewhere the cancellation cannot reach, first.
+- **A guard's account rides the step it concludes, so the guard must fire
+  first.** A job-cap cancellation destroys every channel that lives on the
+  runner: the diagnostics bundle, the disarm step that publishes it, the step
+  summary, and the job log GitHub drops. The engine watchdog needs no channel
+  off the runner because it acts *before* that cancellation — its fire time
+  sits a margin under the engine step's own `timeout-minutes`, which sits under
+  the job cap — and acting concludes the step, so the tail that turns its
+  marker into a warning, a summary line and a `status.json` field runs. Any
+  guard against a cancellation wants the same ordering: guard < step bound <
+  job cap, with each gap wide enough for what runs inside it.
 - **The CI uv pin and the lockfile format are coupled.** `setup-python-env`
   installs with `uv sync --locked`, which refuses a lock it cannot read as
   current — so a lock written by a *newer* uv than the action's pin fails every
@@ -2650,11 +2639,32 @@ artifacts. Finish a draft by merging it, not by editing and then re-running.
 
 ## Graceful degradation on limits
 
-Agent steps (predict, evaluate) are bounded by a step-level
-`timeout-minutes` set below the job's, so a run that overruns trips the *step* —
-not the job. A step timeout (or a max-turns stop) fails only that step and leaves
-the runner alive, so the salvage step still runs (`if: !cancelled()`) and the
+Agent steps (predict, evaluate) are bounded by one **engine deadline**, the
+same for all three engines: a cell job sets it once as job env
+(`ENGINE_DEADLINE_MINUTES`, 50) and every engine step — claude's action step,
+codex's action step, gemini's CLI step — reads it as its `timeout-minutes`. It
+sits below the job cap (65), so a run that overruns trips the *step* — not the
+job. A step timeout (or a max-turns stop) fails only that step and leaves the
+runner alive, so the salvage step still runs (`if: !cancelled()`) and the
 agent's partial work survives instead of being discarded with the cancelled job.
+
+The value is measured, not guessed. Across every completed engine step of
+`run-predict` and `run-evaluate` on `main` from 2026-08-01 to 2026-10-06 — 1,548
+steps — the longest took 13.9 minutes (a predict claude cell), and per engine
+the p99 is 11.6 (claude), 9.4 (codex) and 7.6 (gemini) minutes; no step passed
+14. Fifty minutes is over 3.5x the longest cell ever observed, so a cell that
+reaches it is an anomaly worth ending rather than slow work. The jobs that did
+run past fifty minutes were the codex runner wedge on an application record,
+not work: production predict cells on that docket cancelled at the job cap,
+and the integration suite's application-repro leg ran 52–64 minutes on every
+dispatch whose codex ran under `drop-sudo`, each with the runner dying before
+the engine step recorded a conclusion — while its dispatches under the cells'
+`unprivileged-user` codex concluded their engine step in 0.6 and 2.9 minutes. The job cap holds
+the deadline plus the setup ahead of the engine step (at most 5.4 minutes
+observed) and the capture tail behind it (at most 1.3), with room. A wider
+claim — that a cell of some shape legitimately runs past fifty — would move
+this one number, in the three places a workflow-shape test holds equal (both
+cell jobs and the integration suite's application-repro leg).
 
 Agent steps need more than that bound, because a step can stay `in_progress`
 straight through its own timeout until the *job* cap cancels the runner — and a
@@ -2665,7 +2675,11 @@ are bracketed by an **arm/disarm pair** around a runner-level watchdog
 (`scripts/engine-watchdog.sh`): armed once before the first of them — under the
 cell's refusal gate where it has one, which on predict is the whole of its
 condition, and ungated on evaluate, which has none — and disarmed the moment the
-last ends however it ended.
+last ends however it ended. The arm step derives the watchdog's fire time from
+the same engine deadline, three minutes under it: the watchdog's own escalation
+(three graces of 30 seconds, each plus up to one 10-second poll) takes two
+minutes at worst, so a step it ends has concluded before the runner's own step
+timeout would act, and the deadline is one number rather than one per engine.
 Every engine is bracketed, not only the one whose hangs have been observed —
 both of the watchdog's triggers read the step and the cell's files rather than
 anything engine-specific, so the guard is engine-agnostic by construction.
@@ -2711,16 +2725,13 @@ that did. The parse is deliberately all the sentinel asks: schema truth is the
 tail's `validate`, which routes a malformed cell to the draft PR, and that is
 strictly better than the job cap destroying it.
 
-**The deadline** is the second line, for a wedge that completes nothing. Set
-well inside the job cap, with the arithmetic at the arm step, it captures the
-runner user's process tree, the socket table and a listing of the codex home —
-first, so the evidence exists whatever the kills then do. Under the cells'
-`unprivileged-user` codex two of those are thinner: the agent's own processes
-run under the separate account, outside a runner-uid process listing, and the
-codex home it lists is the workspace one (config only) until the disarm step
-surfaces the rollout into it — so the deep evidence of a wedged codex turn is
-the freeze probe's job, whose base turn runs `drop-sudo` as the runner user.
-It then kills the engine, which fails the *step* and hands the cell back to the salvage path
+**The deadline** is the second line, for a wedge that completes nothing. At the
+fire time above it captures the runner user's process tree, the socket table
+and a listing of the codex home — first, so the evidence exists whatever the
+kills then do. Under the cells' `unprivileged-user` codex two of those are
+thinner: the agent's own processes run under the separate account, outside a
+runner-uid process listing, and the codex home it lists is the workspace one
+(config only) until the disarm step surfaces the rollout into it. It then kills the engine, which fails the *step* and hands the cell back to the salvage path
 above — which is also what makes the sidecar-log step run, so those logs land in
 a job log that now survives. (The engine pattern names codex's invocation; on
 any other engine it matches nothing and the escalation goes straight to the
@@ -2761,8 +2772,8 @@ runner's retained sudo reaches across the uid boundary, and it reaches it to
 which neither of them ever signals. An engine sandbox can suspend the watchdog
 process wholesale — SIGSTOP, or a cgroup freeze — for as long as the agent runs,
 and the sandbox's exit at the agent's finish resumes it. The deadline is
-measured against the wall clock rather than counted in polls, so that telemetry
-latency can never delay a fire; the same property means a resumed process reads
+measured against the wall clock rather than counted in polls, so that a slow
+pass can never delay a fire; the same property means a resumed process reads
 an expired deadline the instant it thaws, and the tree it would end is the
 step's *teardown*, which is exactly where the sandbox's exit has just left it.
 So the loop also reads the wall clock **between its own passes**: a pass that
@@ -2780,23 +2791,15 @@ fire on every suspended run, and the time the watchdog slept through is the time
 the step spent doing the very thing the kill interacts with. What it does
 instead is record the lost seconds in a `SUSPENDED` marker, capture the runner's
 state read-only — a process forest from inside a window the escalation would
-otherwise have ended — and keep beating for a bounded observation window before
-exiting.
-
-Which channel carries that is the reverse of the deadline's, and the reason is
-worth stating. The marker rides the cell artifact and survives, and the disarm
-step reads it like the acting markers — the telemetry row stays expanded and the
-run summary carries the note — but the off-runner lines themselves are
-best-effort: a suspension long enough to expire the deadline has usually
-outlived the hour-long telemetry credential. The beats are still worth issuing,
-since where the channel answers they are the only account of a runner about to
-be lost, but a stood-down cell is **read off its bundle**. The cost is stated in the same breath: that
-cell has no watchdog for the rest of its run, so a genuine wedge following a
-suspension is bounded by the engine step's own `timeout-minutes` rather than by
-the reaper — the safe direction while the kill is the act the deaths follow, and
-the reason the threshold is set where no ordinary latency can reach it. A run
-that is never suspended detects nothing and both triggers behave exactly as
-above.
+otherwise have ended — and exit. The disarm step reads that marker like the
+acting ones, so the run summary carries the note and the bundle rides the
+artifact. The cost is stated in the same breath: that cell has no watchdog for
+the rest of its run, so a genuine wedge following a suspension is bounded by
+the engine step's own `timeout-minutes` — the same engine deadline, three
+minutes later — rather than by the watchdog: the safe direction while the kill
+is the act the deaths follow, and the reason the threshold is set where no
+ordinary latency can reach it. A run that is never suspended detects nothing
+and both triggers behave exactly as above.
 
 Two questions decide what is signalled, and the refusals that answer them are
 what make a kill on a live runner safe. The first is asked of **every** target.
@@ -2838,66 +2841,23 @@ argv and kernel state for this runner user, never a file's contents, and a
 maintainer weighing it should read it as three cells' worth rather than one. The `collect` job commits `data/` alone, so
 none of it reaches the ledger.
 
-That bundle is runner-local, though, and a cancelled job takes it with the
-runner — which is the very failure the watchdog exists to convert, so it is
-exactly the evidence a wedge is best placed to destroy. (A *reaped* cell keeps
-it: concluding the step is what makes the tail that uploads it run.) The record
-that survives a cancellation is off the runner entirely, and it is **codex cells
-only** — the run workflows' cells and the integration suite's application-repro
-leg and codex-freeze-probe members. The reaper needs no telemetry to work, and
-the record is load-bearing
-only where the escalation fails to end the step at all and the job cap cancels
-the runner regardless — the deadline path, which codex is the one engine to have
-taken. Widening the mint would put an issues:write App token in every cell of
-every round to buy a record for a failure no other engine has shown. On a codex cell the arm step opens a comment
-on the long-lived **`codex-watchdog`**
-issue (`fedcourts watchdog-checkin`, a non-triggering label; a staging-bound
-repro dispatch writes `codex-watchdog-staging` instead, via the command's
-channel flag) *before* the engine
-starts, and the detached watchdog PATCHes that comment as it passes each state —
-whether the sentinel armed and over how many files, a heartbeat while it waits
-(each carrying the runner's memory headroom and load), a `send-failed:` line
-when a send's diagnosis changes — the HTTP result, and a bounded probe of the
-check-in host where the transport itself failed —
-**the moment the completion sentinel is observed** (the durable proof that the
-work existed, which survives even a reap that then fails), then the deadline or
-the reap, the discovery tally, each signal issued with its pids, the survivors
-after each grace, and the outcome. The disarm step closes it out with the engine step's
-conclusion, collapsing a round where nothing fired to a single armed/disarmed
-line so the issue stays one readable row per cell. The armed record alone is
-already evidence: a comment that says only "armed", on a run that never came
-back, is a wedge the watchdog failed to convert — a different fault from one it
-converted and reported, and the only thing that tells the two apart is a record
-that outlives the runner. The record has one bound of its own, the
-credential's: an App installation token lives an hour and the detached watchdog
-cannot re-mint, so on the codex deadlines — set past the hour so healthy work
-is never killed — the PATCHes issued at the fire itself may not land. The armed
-row's deadline and fire ETA are written first for exactly that case: a record
-frozen mid-wait on a run that never came back reads as the deadline path.
-
-Which comment is *this cell's* is answered by a hidden marker **and** by App
-authorship, because the repository is public and every part of a marker is
-derivable from the issue's own history: a row an account posted is passed over
-and a fresh one written, so nobody outside can pre-claim the record of a hang.
-The lookup is bounded to the recent end of the issue — a window plus a page
-cap, in that order, since the comments endpoint pages oldest-first — which is
-also why **closing the issue rotates it**: the find-or-create reuses the first
-open one, so a closed issue is an archive and the next cell opens a fresh
-record.
-
-What that comment may carry is **stricter** than the artifact's rule, because it
-sits on a public issue that outlives every run: timestamps, phase names, pid
-numbers, counts and the configured deadline — no argv, no file listing, no
-content the cell read. The watchdog composes each body from its own variables
-and never reads one back off `WATCHDOG_DIR`, which the agent it may be about to
-kill can also write — the arm step hands over the armed body it wrote and the
-watchdog appends to it, so the arming time, the fire ETA and the run link
-survive every later PATCH. The credential is an App token minted with
-`issues: write` and nothing else, distributed to the arm/disarm steps and the
-watchdog they launch and never to an agent step; its mint is
-`continue-on-error`, because a hard failure would skip the engine step and kill
-the cell to protect its own reporting. The residuals it leaves are stated in
-*SECURITY.md* rather than argued away.
+**What a firing looks like.** Every account the watchdog leaves is on the
+runner — its log, the marker it writes when it acts, and the bundle — and that
+is enough because acting concludes the step, so the tail that publishes them
+runs. The disarm step turns a marker into a `::warning::` annotation naming the
+cell and a step-summary section quoting the marker; it brings the bundle into
+the cell artifact; and on `FIRED` or `STOOD_DOWN` — the two deadline outcomes —
+it publishes `deadline=true`, which the status step records in the cell's
+`status.json` as `engine_deadline`. That field never makes a cell ready (a
+deadline stop is not a clean finish, so `agent_ok` stays false); it names the
+cause, and the `collect` job renders it into the draft PR's reason column as
+*engine deadline reached* in place of *agent stopped early* — or, for a cell
+that wrote nothing, as *no output (engine deadline reached)* in the run's
+failure facts — which is the record that outlives the run's annotations. A reaped cell's `REAPED` marker
+reads the other way, as the success its work was. The disarm step reads every
+marker from the runner-temp copy the watchdog wrote, not the workspace copy; an
+engine that runs as the runner user could still plant one there, which
+*SECURITY.md* states as a residual.
 
 What salvage looks like is uniform across **run-predict** and
 **run-evaluate**: each cell records its status and uploads its output
