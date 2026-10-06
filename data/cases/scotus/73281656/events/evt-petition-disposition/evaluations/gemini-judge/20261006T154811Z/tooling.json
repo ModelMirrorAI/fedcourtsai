@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73281656",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command",
+    "read_file"
+  ],
+  "helpful": [
+    "run_shell_command"
+  ],
+  "gaps": [],
+  "notes": "Calculated segment base rate from metrics/statpack.md table directly via python script."
+}
