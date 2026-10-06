@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000060",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The event declares moment=distribution, but context has null cutoff/cut_kind and snapshot_provenance=as-stored. The supplied October 5 snapshot includes the August 26 response request and September 24 amicus entry after the August 19 first distribution. I used that supplied forward information set and its frozen baseline band/count, not a reconstructed first-distribution cutoff. This forecast should not be interpreted as conditioned solely on information available at first distribution. No disposition was sought or encountered."
+    }
+  ]
+}

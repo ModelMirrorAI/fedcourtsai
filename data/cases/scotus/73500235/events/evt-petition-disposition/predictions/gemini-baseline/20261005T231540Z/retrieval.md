@@ -1,0 +1,3 @@
+- `fedcourts query` / `open-events`: No corpus tooling used.
+- Web search: Queried Google for `"Walid bin Atash" "pretrial agreement" mandamus "DC Circuit" OR "D.C. Circuit"` and `"Walid bin Atash" Supreme Court certiorari mandamus 2026 OR "25-1335"` to understand the D.C. Circuit's 2-1 mandamus decision regarding Secretary Austin's revocation of the 9/11 defendants' plea agreements.
+- Read `metrics/statpack.md` to establish the baseline grant rate for the `elevated` salience band in strictly prior Terms (OT2024: 17.9%).

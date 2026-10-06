@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000015",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Forecast uses a truncated petition-and-appendix extraction and no BIO. The available appendix ends within the panel opinion at 45a; the reported rehearing dissents and full underlying evidentiary record were not independently available in the portions read. The missing BIO is consistent with the snapshot's October 30 response deadline, not a provisioning error. See reasoning.md for the resulting uncertainty.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261005T231540Z",
+  "schema_version": "1.0"
+}

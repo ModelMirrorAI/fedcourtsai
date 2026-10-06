@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500252",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "Forward signal predating the snapshot that shaped the number: the provisioned briefs establish that three petitions on the same question are pending (this one, the Cantero plaintiffs' petition from CA2's May 2026 remand decision, and Citizens Bank's rehearing petition in Conti, No. 25-1004, after a denial earlier in 2026), that the OCC issued a final rule preempting state interest-on-escrow laws effective June 19, 2026, and that the SG's 2023 CVSG brief in the prior round named this case the preferred vehicle. CourtListener's Conti docket was last modified on 2026-10-05, the day of this CVSG, but its entries are not served, so whether the SG was invited in the sibling cases too is unconfirmed. Nothing about this petition's disposition was sought or seen."
+    }
+  ]
+}

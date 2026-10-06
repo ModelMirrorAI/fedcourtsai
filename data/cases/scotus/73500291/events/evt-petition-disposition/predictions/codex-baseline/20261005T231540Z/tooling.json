@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500291",
+  "gaps": [
+    "The docketed reply's text was not provisioned.",
+    "The petition extraction was marked truncated, limiting complete appendix review.",
+    "Web calls returned no usable content.",
+    "Citation-only MCP search returned an unrelated reporter match; a court-and-caption query resolved it."
+  ],
+  "helpful": [
+    "Both sides' briefs exposed a disputed split and concrete preservation objections.",
+    "Frozen salience version and distribution count fixed the conditioning state.",
+    "Statpack JSON supplied unrounded reached-band numerators and denominators.",
+    "CourtListener's within-opinion search verified Hope without querying the target case."
+  ],
+  "notes": "The default uv cache was unwritable; redirecting it to /tmp/uv-cache allowed local commands. No live corpus query, target-case outcome retrieval, or direct CourtListener REST request was used.",
+  "role": "predictor",
+  "run_id": "20261005T231540Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Provisioned snapshot, context, and filed-document text",
+    "Committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "CourtListener MCP search and search_document",
+    "Web search and official historical opinion open attempts",
+    "Local probability-pool arithmetic and artifact validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

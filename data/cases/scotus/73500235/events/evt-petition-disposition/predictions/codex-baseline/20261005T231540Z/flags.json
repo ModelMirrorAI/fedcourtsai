@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500235",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen sal-v4 elevated band and distribution_count=2 are retained, but both conference settings in the October 5 snapshot were followed by Rescheduled entries. The record does not establish completed conference consideration or a substantive relist. The forecast's 0.94 distribution-increment probability primarily reflects expected rescheduling, not equivalent evidence of grant interest."
+    }
+  ]
+}

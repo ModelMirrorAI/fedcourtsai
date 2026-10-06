@@ -1,0 +1,13 @@
+case_id: scotus/73500240
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-06-01'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Jonathan Granado v. Juanita Ramirez, Individually and as Personal Representative
+  of the Estate of Estevan Ramirez

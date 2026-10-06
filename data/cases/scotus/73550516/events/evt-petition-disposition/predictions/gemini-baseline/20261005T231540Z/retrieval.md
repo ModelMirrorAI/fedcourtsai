@@ -1,0 +1,3 @@
+- Read `metrics/statpack.md` for baseline salience band base rates.
+- CourtListener MCP search for "Indian Harbor" and "Town of Vinton".
+- Web search for `"Independent Specialty Insurance Company v. Apex Hospitality Group" Fifth Circuit` to identify the underlying circuit split and the connection to *Town of Vinton v. Indian Harbor Insurance Co.*

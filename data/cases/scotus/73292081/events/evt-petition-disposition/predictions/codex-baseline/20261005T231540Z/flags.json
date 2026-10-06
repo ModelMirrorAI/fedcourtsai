@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73292081",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition is marked truncated, but its principal arguments and the relevant appellate opinion are available. The separately retrieved August 24, 2026 opposition to deferral yielded no extractable text on all 11 PDF pages; no argument was inferred from that blank extraction. The reply, deferral motion, and September 17 coordination letter supplied usable predecision context. Prediction completed without retrieving this Supreme Court event's disposition.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261005T231540Z",
+  "schema_version": "1.0"
+}

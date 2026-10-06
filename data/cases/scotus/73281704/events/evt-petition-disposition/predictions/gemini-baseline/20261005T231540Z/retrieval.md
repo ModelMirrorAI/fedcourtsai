@@ -1,0 +1,4 @@
+- Read provisioned snapshot and context.
+- Read `metrics/statpack.md` for salience band base rates and relist counts.
+- `mcp_courtlistener_search`: Searched for docket `25-7026` to check the status of *Berry v. United States*.
+- Read `data/cases/scotus/73281704/record/documents/petition.txt` and `brief-in-opposition.txt` to analyze the circuit split and arguments.

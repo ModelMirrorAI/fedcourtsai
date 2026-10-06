@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500240",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot file is dated 2026-10-05 but its payload's own sJsonCreationDate is 09/28/2026, the day of the long conference the petition was distributed for. The October 2 grant list and the October 5 order list are therefore not reflected in the baseline. I did not look up the docket or any order list, so the forecast is formed as of the pre-conference record; if the petition was disposed of on October 5 the cell is forward in name but the outcome already exists."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The docket carries a September 17 entry reading 'Docket entry of 9/17/2026 requesting a response to the petition entered in error and entry removed from docket. (9/22/2026)'. The response had already been filed on August 17, so this is Clerk-side noise; a parser keying on 'requesting a response' text could misread it as a response request."
+    }
+  ]
+}

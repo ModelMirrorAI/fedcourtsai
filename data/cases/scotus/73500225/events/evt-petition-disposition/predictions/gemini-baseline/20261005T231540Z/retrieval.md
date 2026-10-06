@@ -1,0 +1,3 @@
+- `fedcourts query --court scotus --era 2020s --disposition granted "Second Amendment" "sensitive places"` (failed with unexpected extra arguments)
+- CourtListener MCP search: `q="Katherine Novotny" "Wes Moore"`, `type=d` (results related to Fourth Circuit docket)
+- CourtListener MCP search: `q="Antonyuk"`, `type=o` (found Second Circuit remand decision)

@@ -1,0 +1,19 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73500225",
+  "role": "predictor",
+  "run_id": "20261005T231540Z",
+  "used_base_rates": true,
+  "used_corpus_query": false,
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "fedcourts_query"
+  ],
+  "helpful": [
+    "The CourtListener MCP search allowed checking the status of related circuit court cases to evaluate the circuit split."
+  ],
+  "gaps": [
+    "Would be nice if fedcourts query could accept plain text search as an argument, but I understand it's a structured filter."
+  ],
+  "notes": "Attempted a text search in fedcourts query before realizing it strictly uses flags."
+}

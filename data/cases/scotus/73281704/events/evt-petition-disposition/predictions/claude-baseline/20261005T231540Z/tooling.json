@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281704",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener.search",
+    "courtlistener.call_endpoint",
+    "WebFetch (supremecourt.gov docket pages and PDFs)",
+    "pypdf (local PDF text extraction)"
+  ],
+  "helpful": [
+    "The provisioned SG brief in opposition: its circuit survey on the restitution/forfeiture question and its cross-reference to Berry were the two most decision-relevant inputs.",
+    "The sal-v4 band table with bracketed reached rates gave a clean, version-matched anchor.",
+    "The companion docket (Berry) and its supplemental brief, which explicitly describes the pairing of the two petitions."
+  ],
+  "gaps": [
+    "CourtListener's MCP server carried no docket entries or filings for the companion SCOTUS docket, so the decisive companion-case evidence had to come from supremecourt.gov; a provisioned 'linked/companion petitions' input (same QP, cross-cited in the BIO or reply) would be far more valuable than any corpus prior for a cell like this.",
+    "fedcourts query cannot filter by subject or question presented, so it surfaced nothing resembling a COA-standard or 2255-cognizability petition.",
+    "The petitioner's reply brief is on the docket (8/4/2026) but was not provisioned; here its content mattered because it reportedly asked for a hold or consolidation.",
+    "The frozen distribution_count does not distinguish a reschedule from a post-conference relist; here the entry dates made it clear, but a parsed field would be better.",
+    "The WebFetch summarizer could not read supremecourt.gov PDFs; local extraction worked but costs extra steps."
+  ],
+  "notes": "Forward cell; MCP server worked for 4 calls, corpus service worked for 2 queries, plus 6 web fetches. About 12 retrieval calls, well under the advisory budget."
+}

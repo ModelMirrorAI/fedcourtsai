@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000023",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local file reads and jq",
+    "fedcourts paths",
+    "web search and opinion-page retrieval",
+    "apply_patch",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Petition appendix supplied the lower court's reasoning, including a possible forfeiture issue not emphasized in the petition.",
+    "Matching sal-v4 risk-set fields allowed exact pooling of prior-Term baseline rates.",
+    "Dated docket entries distinguished a likely administrative redistribution from a substantive relist."
+  ],
+  "gaps": [
+    "No brief in opposition was available; the record says the response deadline is November 2, 2026.",
+    "The committed statpack has no consulted corpus-wide freshness timestamp."
+  ],
+  "notes": "The initial uv invocation failed on a read-only default cache; a temporary cache resolved it. No live corpus or CourtListener lookup was needed. A call-for-response followed by an extension beyond the original conference makes a distribution-count increment likely without implying the same grant signal as a substantive relist."
+}

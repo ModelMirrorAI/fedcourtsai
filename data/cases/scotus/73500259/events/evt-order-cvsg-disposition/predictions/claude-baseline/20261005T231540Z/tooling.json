@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500259",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (sal-v4 band table, CVSG and relist cuts)",
+    "fedcourts query (service backend)",
+    "courtlistener-mcp search (types o, d)",
+    "courtlistener-mcp get_endpoint_item (clusters, opinions)"
+  ],
+  "helpful": [
+    "Full-text petition and BIO in record/documents/ carried almost all of the case-specific signal; the BIO's vehicle section in particular.",
+    "The sal-v4 segment table's bracketed reached figures made the strictly-prior pooled anchor a one-line computation."
+  ],
+  "gaps": [
+    "fedcourts query has no CVSG filter, so same-moment priors (petitions after a CVSG, by SG recommendation and outcome) cannot be pulled; a cvsg-only flag or an SG-recommendation column would make the CVSG moment's main variable observable.",
+    "The CourtListener cluster for the decision below carried no panel or author metadata, so whether there was a separate writing below was unknowable without fetching the opinion text.",
+    "A statpack cut of CVSG petitions by SG recommendation (grant / deny / other) would let the largest adjustment in this cell rest on a committed number."
+  ],
+  "notes": "The first of the two recorded distributions preceded the Court's request for a response, so distribution_count overstates the number of conferences at which the petition was actually considered with a BIO on file."
+}

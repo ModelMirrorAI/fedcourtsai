@@ -1,0 +1,37 @@
+# Rationale
+
+## Inputs and limitations
+
+This is a forward, cert-stage distribution cell. I read the event definition, the case-level snapshot `record/snapshots/2026-10-05.json`, `record/context.json`, and the provisioned `documents.json`, `questions-presented.txt`, and `petition.txt`, including the relevant appended lower-court decisions. Context freezes `baseline` under `sal-v4`, Term 2026, one distribution, and no CVSG. I retain that band rather than recomputing it from the response request.
+
+The October 5 snapshot filename is not evidence of an October 5 docket refresh: its last proceeding is August 14, 2026, and its internal creation date is also August 14. The response deadline was extended to September 28, which is already past at prediction time, but no response filing or subsequent distribution is present. The document manifest lists only the petition and extracted question, fetched August 13; both have usable text and neither is marked truncated. There is no provisioned opposition. This is a coverage limitation, not evidence that respondents failed to file, that the Court considered the case without opposition, or that it denied review. I flag the apparent freshness gap. The record does not expose a case-level `last_pulled` timestamp, and I did not query the live corpus or seek this case's current disposition.
+
+The petition itself is inconsistent about whether a companion petition has been filed or is forthcoming and identifies it by application number 25-A1099. I treat its request for a hold as advocacy, not proof that a merits petition was docketed, granted, or decided. I have no known outcome for this petition and encountered none during retrieval.
+
+## Base-rate anchor
+
+I used the committed `metrics/statpack.md`, not a live corpus refresh. Its `sal-v4` band version matches the context. Pooling the **bracketed baseline reached rates** for every displayed prior Term, 2017 through 2025, yields approximately **5.01%** over weighted denominator **12,720**. This is denominator-weighted arithmetic using the displayed rounded percentages, not an exact reconstruction of underlying counts. I exclude Term 2026. The private-insurer petitioners belong to this private-caption risk set; the hospital district's presence as respondent does not turn the petitioner into a state sovereign. The much lower leading terminal-baseline rates would assume away future escalation and are not the appropriate anchor.
+
+For population context only, the pack's modern discretionary-cert section implies about 2.82% any grants: 655 grants plus 577 GVRs over 43,700 resolutions. Its Fifth Circuit cut is approximately 3.7% any grants. Neither replaces the selected paid private-caption anchor. The paid scored segment's terminal relist buckets show roughly 1.7% grants including GVRs at zero relists, 13.3% at one, 40.9% at two, and 36.8% at three or more. Its CVSG cut shows approximately 34.9% any grants with a CVSG versus 6.3% without one. These are terminal-state associations, not probabilities that this petition will next relist or receive a CVSG, and I do not multiply them as independent signals.
+
+The committed pack carries no build timestamp or corpus-pull vintage in the fields I inspected. These figures describe that checked-in artifact, not asserted current corpus state; I obtained no corpus-wide newest-pull or newest-snapshot observation.
+
+## Why 30%, rather than the approximately 5% anchor
+
+The provisioned question and petition identify a concrete federal-versus-state choice-of-law dispute left open by an earlier Supreme Court decision. A targeted CourtListener lookup verified that *GE Energy Power Conversion France SAS, Corp. v. Outokumpu Stainless USA, LLC*, 590 U.S. 432, 445 (2020), left both the application of estoppel and the governing body of law for remand. That supports the question's importance without making the Fifth Circuit's answer a violation of an already-settled Supreme Court rule.
+
+The petition, pages 7–9, alleges a four-to-one circuit conflict. I verified one particularly relevant comparator: *Setty v. Shrinivas Sugandhalaya LLP*, 3 F.4th 1166 (9th Cir. 2021), applies federal substantive law in the Convention setting. The appended *Town of Vinton* opinion, pages 13a–15a, expressly uses state contract law and Louisiana's restriction on estoppel. This gives the asserted disagreement more substance than a bare petition heading. I did not independently audit all four asserted circuits, so the numerical split remains the petitioners' characterization.
+
+The recorded July 28 call for a response after waiver is an affirmative attention signal. It is not a CVSG, not a grant commitment, and not a second distribution. Together with the genuine unresolved doctrinal question, it supports a substantial upward adjustment from the anchor.
+
+Several features prevent a majority-probability grant forecast. The actual judgment under review is the unpublished, one-sentence summary affirmance in Appendix A, not the reasoned lead opinion. The petition itself presents this as a follow-on candidate for a hold. The insured's separate contracts with domestic and foreign insurers, the absence of a claim against the foreign insurer, and Louisiana insurance law add vehicle complexity; petition pages 4–7 and Appendix B make those features visible. They do not automatically defeat the estoppel question, but complicate whether a different choice-of-law rule would change the result.
+
+The comparator also warrants caution: *Setty* concerned federal trademark claims and rejected estoppel on its facts even while selecting federal law. Thus a federal-law label does not itself guarantee arbitration, and the claimed conflict may require refinement across different causes of action and contractual arrangements. Without a BIO, I cannot test preservation or alternative-ground objections against respondents' actual arguments.
+
+My **30%** is an overall judgment incorporating both direct review and derivative relief following a lead case, not the result of an empirically fitted adjustment model. A consistent decomposition is 22.5% cert-order relief, 7.5% plenary-route grant, 68% denial, and 2% another non-grant termination. The hold/lead-case pathway raises conditional summary-route probability while limiting this docket's prospects as the plenary vehicle. No companion outcome is assumed.
+
+## Other elicited judgments
+
+The 80% distribution increment is driven principally by the sequence of distribution, response request, and a response deadline on the scheduled conference date. It prices at least one further recorded distribution, not an 80% chance of a true merits-driven relist. The 12% CVSG probability reflects the treaty/uniformity issue, discounted for private-party posture and possible lead-case handling. The 75% summary route is conditional on a grant and heavily dependent on the petition's follow-on posture; the 4% writing probability is conditional on denial. These are judgmental probabilities, not published hazard estimates.
+
+The **0.45 significance score** concerns stakes, not grant odds. The question potentially affects international commercial arbitration and mixed domestic/foreign insurance arrangements beyond the particular hospital's hurricane claim. Its specialized setting and derivative posture keep it below a broadly salient constitutional or nationwide public-policy case. I omit cert votes because the record does not support a useful individual lineup.

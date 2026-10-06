@@ -1,0 +1,15 @@
+# Forecast: what the Court will do with No. 26-60, Daniel Defense v. Lowy
+
+**Disposition.** More likely denied than granted, but this is a genuinely live petition: I put P(grant) at 0.30. If the Court grants, it will set the case for plenary briefing and argument rather than dispose of it in the cert order; a summary reversal is a minority path (about 1 in 10 of grants) and a GVR is implausible because no intervening decision of this Court bears on the third-party traceability standard.
+
+**Relists.** The docket shows one distribution (for the September 28, 2026 conference). The Court then called for a response after respondents waived, which removed the petition from that conference before any consideration. After the brief in opposition (due October 26) and a reply, the petition will be redistributed, so at least one further distribution entry is near-certain (0.97). Forecast: first real consideration at a conference in early-to-mid December 2026 or the January 2027 conferences, and then one to two relists before the order, because a petition the Court itself asked to hear more about, backed by 22 states, tends to be carried over at least once while the Justices decide whether this is the vehicle for the traceability question. A clean first-conference denial is the second most likely trajectory.
+
+**CVSG.** Unlikely (0.06). No federal party, no federal statute at issue in the question presented (the PLCAA holding was left unreviewed below), and the Solicitor General's views on a pure Article III traceability standard add little the Court cannot supply itself.
+
+**Which question.** If the Court takes the case it will take the question as written: whether Article III traceability can rest on third-party criminal acts allegedly traceable to speech the third party is not alleged to have seen. It would not broaden to the PLCAA or First Amendment issues, which the Fourth Circuit did not reach. It might narrow slightly in the opinion to the "predictable effect" versus "determinative or coercive effect" framing, but would not reformulate the QP at the grant stage.
+
+**If granted, the likely outcome.** Conditional on a grant, reversal is the strong favorite: this Court's recent traceability cases (Murthy, Alliance for Hippocratic Medicine, California v. Texas) read against a standard that lets a plaintiff proceed without alleging the intervening actor encountered the defendant's conduct, and the Court's Smith & Wesson v. Mexico opinion shows the same instinct in the proximate-cause register. The ground would be Article III traceability, not the PLCAA.
+
+**Dissent from denial.** Conditional on a denial, I expect a 0.35 chance of a published dissent or statement respecting denial. The likeliest author is Justice Thomas, possibly joined by Justice Alito, framed around the Fourth Circuit's dilution of the traceability requirement and the burden on the firearms industry; a statement from Justice Gorsuch on standing doctrine is a secondary possibility. A silent denial remains the single most likely form.
+
+**Timing.** Order on the petition most likely between mid-December 2026 and late January 2027.

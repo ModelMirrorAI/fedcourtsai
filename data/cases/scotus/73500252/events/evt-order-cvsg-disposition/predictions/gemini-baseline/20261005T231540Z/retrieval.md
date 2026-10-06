@@ -1,0 +1,4 @@
+- CourtListener MCP lookup for `Flagstar Bank AND Kivett AND Cantero`.
+- Read `metrics/statpack.md` to establish the CVSG base rate and salience band risk-set rate.
+- Read provisioned documents (`petition.txt`, `brief-in-opposition.txt`, `questions-presented.txt`).
+- No `fedcourts query` (corpus) calls executed.

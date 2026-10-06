@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000015",
+  "gaps": [
+    "No provisioned brief in opposition; response deadline remains October 30",
+    "Petition appendix extraction truncated",
+    "Web lookups returned no usable content"
+  ],
+  "helpful": [
+    "Frozen salience context and reached-rate table",
+    "Dated response request and extension entries",
+    "Panel opinion excerpt preserved in petition appendix"
+  ],
+  "notes": "No corpus or CourtListener lookup attempted. A writable temporary cache resolved the initial uv path-command failure. Additional distribution is highly likely because a response request followed the first distribution; this need not represent substantive conference reconsideration.",
+  "role": "predictor",
+  "run_id": "20261005T231540Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned files",
+    "committed statpack",
+    "fedcourts paths",
+    "web search/open attempts",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,4 @@
+- `fedcourts query --court scotus --disposition granted --era 2020s --limit 5` (ranged corpus reads: 27 GET(s), 6946816 byte(s))
+- `mcp_courtlistener_search` for `docket_number: 25-1359`
+- `mcp_courtlistener_search` for `court: scotus`, `q: TitleMax of Virginia`
+- Read local files (`documents.json`, `petition.txt`, `questions-presented.txt`, `snapshots/2026-10-05.json`, `metrics/statpack.md`).

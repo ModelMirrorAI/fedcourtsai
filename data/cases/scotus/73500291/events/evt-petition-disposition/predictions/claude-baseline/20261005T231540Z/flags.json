@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500291",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The docket names a related cross-petition, City of Bossier City v. Hershey, No. 25-1323 (Monell single-incident liability), which the BIO asks the Court to grant while denying this one. It is not an open event in the corpus (open-events grep) and CourtListener's SCOTUS docket search returns nothing for it, so the cell could not tell whether the two petitions were distributed or relisted together. The relist read in this cell is therefore from this docket alone."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000002",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "google_web_search", "run_shell_command", "read_file"],
+  "helpful": ["google_web_search provided excellent context on the circuit split and the parties involved when the provisioned documents were unavailable."],
+  "gaps": ["Would have been helpful to have the petition text, but web search filled the gap adequately."],
+  "notes": "CourtListener MCP search did not return results for the docket, likely because it is too recent or mis-indexed under the exact query strings I used."
+}
