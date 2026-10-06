@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runner-level bound on one engine cell step (run-predict.yml, run-evaluate.yml,
-# and integration-test.yml's application-repro leg).
+# and integration-test.yml's application-repro and engine-actions-smoke legs).
 #
 # The failure is a step that never concludes. It has two observed shapes, and
 # this script has one trigger for each.

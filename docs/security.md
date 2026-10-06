@@ -705,8 +705,8 @@ secret — the running engine's API key, chosen by expression ternary (or, on
 the engine-actions-smoke legs and each repro-family leg, by the step
 conditions the legs are
 partitioned on) so the
-other engines' keys never enter the job. Two further jobs read one of them
-outside that partition. The `qp-labeler-smoke` job reads the Claude key alone
+other engines' keys never enter the job. One further job reads one of them
+outside that partition: the `qp-labeler-smoke` job, which reads the Claude key alone
 from its own resolved environment, and it is the one agent leg here that runs
 outside the runner-seam scrub — on the labeling lane's own terms, which are
 stricter than a cell's: no role, no `id-token`, the subprocess env scrub

@@ -636,7 +636,7 @@ jobs:
           # The fire time is derived in the script below from the job's one
           # engine deadline: three minutes under it. The margin is what the
           # watchdog's own escalation can take once it fires — three graces of
-          # 30 s, each rounded up to a 10 s poll, is two minutes at worst — plus
+          # 30 s, each plus up to one 10 s poll, is two minutes at worst — plus
           # a minute's slack, so a step the watchdog ends is concluded before the
           # engine step's own `timeout-minutes` (the same deadline) would cancel
           # it. The watchdog starts within seconds of the engine step, at the end

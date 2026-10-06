@@ -215,10 +215,7 @@ runbook, [docs/security.md](docs/security.md).
   and not writable by that account; the codex setup additionally strips other
   access from `RUNNER_TEMP`), so this rests on that ownership, not on the uid
   alone. The runner-local marker is therefore forgeable only by the same-user
-  engines. The same holds for the deadline markers (`FIRED`, `STOOD_DOWN`),
-  and what a planted one buys is less still: it sets the cell's
-  `engine_deadline` in `status.json`, which only changes the reason the draft
-  PR names for a stop — it never readies a cell.
+  engines.
   What either buys is narrow and worth stating exactly: the marker sets
   `agent_ok`, which routes the cell to the run's **ready** PR instead of the
   draft one, and nothing else. `produced` and `validated` still have to hold, the
@@ -226,7 +223,10 @@ runbook, [docs/security.md](docs/security.md).
   cell's credential still carries no `contents: write`, and a compliant agent
   could land the same bytes by finishing normally. The residual is that a cell
   which stopped early can present as one that finished — a claim about review
-  routing, not a capability.
+  routing, not a capability. The deadline markers (`FIRED`, `STOOD_DOWN`) are
+  forgeable on the same terms, and a planted one buys less still: it sets the
+  cell's `engine_deadline` in `status.json`, which only changes the reason the
+  draft PR names for a stop — it never readies a cell.
 - **No workflow creates a Release or holds a Zenodo credential.** Release
   archiving is Zenodo's GitHub integration: an OAuth grant on the maintainer's
   account (webhook administration across the repositories that account

@@ -591,8 +591,7 @@ jobs:
     # evaluate cell, so it carries the cell workflows' value — a
     # workflow-shape test holds the three equal. The engine-actions-smoke
     # legs run the same bracket around a one-word boot probe at 13 minutes —
-    # the watchdog then fires at the ten minutes the probe has always been
-    # allowed — so the promotion gate's required suite exercises
+    # the watchdog then fires at the probe's ten-minute budget — so the promotion gate's required suite exercises
     # the deadline wiring on every engine without waiting out a cell's worth
     # of it.
     env:
@@ -674,10 +673,11 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           # The repro leg's cell may still be querying the corpus up to its
-          # 80-minute step bound, past the sidecar's static default hour —
-          # 100 minutes covers this leg's 95-minute job cap. The short legs
-          # keep the stated default.
-          role-duration-seconds: ${{ matrix.scenario == 'codex-application-repro' && '6000' || '3600' }}
+          # 50-minute engine deadline, so its credentials must outlive the
+          # 65-minute job cap rather than the sidecar's static default hour —
+          # 90 minutes, as in the cell workflows. The short legs keep the
+          # stated default.
+          role-duration-seconds: ${{ matrix.scenario == 'codex-application-repro' && '5400' || '3600' }}
           # One address for the sidecar process itself: `full` query bodies
           # hydrate from the per-case content store the base derives, and the
           # sidecar is the credentialed process — a sidecar that could not
@@ -1350,7 +1350,8 @@ jobs:
       # logs GitHub drops, so the hang erases the evidence it exists to produce.
       # The watchdog waits for those outputs to exist, parse and go quiet, then
       # captures the runner's state and ends the step's tree — so on a reproduced
-      # hang it is the **reap** that fires, ~90 s after the agent finishes, and
+      # hang it is the **reap** that fires, about five minutes (the quiescence
+      # grace) after the cell's last write, and
       # its process forest and socket table are what name whatever is holding a
       # finished step open. A green leg is then the precise certification that
       # completed work is concluded and picked up.

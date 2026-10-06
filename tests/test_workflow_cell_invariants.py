@@ -2639,8 +2639,8 @@ ENGINE_WATCHDOG_DIR = "engine-watchdog"
 ENGINE_DEADLINE_MINUTES = 50
 ENGINE_DEADLINE_MARGIN_S = 180
 #: The engine-actions-smoke legs' own value: the same bracket around a
-#: one-word boot probe: 13 minutes, so the watchdog fires at the ten minutes
-#: the probe has always been allowed.
+#: one-word boot probe: 13 minutes, so the watchdog fires at the probe's
+#: ten-minute budget.
 ENGINE_SMOKE_DEADLINE_MINUTES = 13
 ENGINE_DEADLINE_STEP_TIMEOUT = "${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}"
 ENGINE_DEADLINE_ARITHMETIC = (
@@ -2802,10 +2802,10 @@ def test_the_engine_deadline_is_one_value_across_every_cell_surface() -> None:
         f"${{{{ matrix.scenario == 'engine-actions-smoke' && "
         f"'{ENGINE_SMOKE_DEADLINE_MINUTES}' || '{ENGINE_DEADLINE_MINUTES}' }}}}"
     )
+    expected = {"run-predict.yml": 1, "run-evaluate.yml": 1, "integration-test.yml": 1}
     for name in sorted(p.name for p in WORKFLOWS.glob("*.yml")):
         text = (WORKFLOWS / name).read_text()
         spelled = len(re.findall(r"^\s+ENGINE_DEADLINE_MINUTES:", text, flags=re.MULTILINE))
-        expected = {"run-predict.yml": 1, "run-evaluate.yml": 1, "integration-test.yml": 1}
         assert spelled == expected.get(name, 0), f"{name} sets the engine deadline {spelled}x"
 
 

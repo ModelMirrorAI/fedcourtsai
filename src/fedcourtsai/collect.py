@@ -352,9 +352,10 @@ class CellStatus:
 
     ``engine_deadline`` records that the engine watchdog acted at the configured
     engine deadline (its ``FIRED`` or ``STOOD_DOWN`` marker), read by the cell's
-    disarm step from the runner-local bundle. It only names the cause of an
-    early stop in the run PR's table; it never makes a cell ready. A
-    ``status.json`` written before the field existed reads as ``False``.
+    disarm step from the runner-local bundle. It only names the cause of a stop
+    in the run's tables — beside "no output" for a cell that wrote nothing, and
+    in place of "agent stopped early" for one that did; it never makes a cell
+    ready. A ``status.json`` without the field reads as ``False``.
     """
 
     court: str
@@ -374,9 +375,14 @@ class CellStatus:
         return self.produced and self.validated and self.agent_ok
 
     @property
+    def deadline_note(self) -> str:
+        """`` (engine deadline reached)`` when the watchdog acted at the deadline, else empty."""
+        return " (engine deadline reached)" if self.engine_deadline else ""
+
+    @property
     def _reason(self) -> str:
         if not self.produced:
-            return "no output"
+            return f"no output{self.deadline_note}"
         if not self.agent_ok:
             if self.engine_deadline:
                 return "engine deadline reached"
@@ -1754,9 +1760,14 @@ def _facts_only_plan(
     if total == 0:
         return None
     rows = [
-        *(_facts_row(c.actor, c.court, c.docket, c.event_id, "no output") for c in skipped),
         *(
-            _facts_row(c.actor, c.court, c.docket, c.event_id, "produced, unusable")
+            _facts_row(c.actor, c.court, c.docket, c.event_id, f"no output{c.deadline_note}")
+            for c in skipped
+        ),
+        *(
+            _facts_row(
+                c.actor, c.court, c.docket, c.event_id, f"produced, unusable{c.deadline_note}"
+            )
             for c in salvage
         ),
         *(_facts_row(c.actor, c.court, c.docket, c.event_id, "never uploaded") for c in uncovered),

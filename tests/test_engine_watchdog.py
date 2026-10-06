@@ -31,6 +31,7 @@ name a real runner, so the suite cannot signal the step that is running it.
 """
 
 import contextlib
+import json
 import os
 import re
 import signal
@@ -1031,7 +1032,8 @@ def test_the_discovery_tally_separates_a_refusal_from_an_empty_field(tmp_path: P
         assert done.returncode == 0, done.stdout + done.stderr
         assert not _gone(tree.step_pid)
         lines = done.stdout.splitlines()
-        discovery = next(line for line in lines if "watchdog: discovery: " in line)
+        discovery = next((line for line in lines if "watchdog: discovery: " in line), None)
+        assert discovery is not None, done.stdout
         assert "roots=0 engine_matched=0" in discovery
         # The candidate was seen and refused on age, which is the reading the
         # bare `roots=0` could not give.
@@ -1231,3 +1233,38 @@ def test_the_shipped_thaw_guard_is_armed_and_clear_of_an_ordinary_pass() -> None
     gap = int(_shipped_default("WATCHDOG_SUSPENSION_GAP_S"))
     assert gap > 0, "a zero threshold leaves the guard unarmed"
     assert gap >= 10 * int(_shipped_default("WATCHDOG_POLL_S"))
+
+
+def test_nothing_the_cell_writes_reaches_the_watchdogs_log(tmp_path: Path) -> None:
+    """The log rides the published cell artifact, so it carries shapes only.
+
+    The sentinel parses the cell's output files, and the files are the agent's,
+    so a reading that leaked into a log line would publish what the agent
+    wrote. Here a completed output set carries a distinctive marker, the
+    quiescence grace is longer than the deadline so the run ends on the
+    deadline path, and neither the marker nor any output path may appear in
+    what the watchdog printed.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    content_marker = f"watchdog-selftest-content-{os.getpid()}"
+    for path in paths:
+        if path.suffix == ".json":
+            path.write_text(json.dumps({"note": content_marker}))
+        else:
+            path.write_text(content_marker)
+    done = _run(
+        tmp_path / "engine-watchdog",
+        f"watchdog-selftest-absent-{os.getpid()}",
+        deadline_s="4",
+        sentinel_paths=paths,
+        output_dir=out_dir,
+        quiesce_s="600",
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    printed = done.stdout + done.stderr
+    assert "completion sentinel observed at" in printed, "the sentinel never read the files"
+    assert content_marker not in printed
+    for path in paths:
+        assert str(path) not in printed

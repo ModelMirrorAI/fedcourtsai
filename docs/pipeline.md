@@ -2657,9 +2657,9 @@ reaches it is an anomaly worth ending rather than slow work. The jobs that did
 run past fifty minutes were the codex runner wedge on an application record,
 not work: production predict cells on that docket cancelled at the job cap,
 and the integration suite's application-repro leg ran 52–64 minutes on every
-dispatch before the unprivileged-user fix, each with the runner dying before
-the engine step recorded a conclusion — while its two dispatches after the
-fix concluded their engine step in 0.6 and 2.9 minutes. The job cap holds
+dispatch whose codex ran under `drop-sudo`, each with the runner dying before
+the engine step recorded a conclusion — while its dispatches under the cells'
+`unprivileged-user` codex concluded their engine step in 0.6 and 2.9 minutes. The job cap holds
 the deadline plus the setup ahead of the engine step (at most 5.4 minutes
 observed) and the capture tail behind it (at most 1.3), with room. A wider
 claim — that a cell of some shape legitimately runs past fifty — would move
@@ -2677,7 +2677,7 @@ cell's refusal gate where it has one, which on predict is the whole of its
 condition, and ungated on evaluate, which has none — and disarmed the moment the
 last ends however it ended. The arm step derives the watchdog's fire time from
 the same engine deadline, three minutes under it: the watchdog's own escalation
-(three graces of 30 seconds, each rounded up to a 10-second poll) takes two
+(three graces of 30 seconds, each plus up to one 10-second poll) takes two
 minutes at worst, so a step it ends has concluded before the runner's own step
 timeout would act, and the deadline is one number rather than one per engine.
 Every engine is bracketed, not only the one whose hangs have been observed —
@@ -2851,8 +2851,9 @@ it publishes `deadline=true`, which the status step records in the cell's
 `status.json` as `engine_deadline`. That field never makes a cell ready (a
 deadline stop is not a clean finish, so `agent_ok` stays false); it names the
 cause, and the `collect` job renders it into the draft PR's reason column as
-*engine deadline reached* in place of *agent stopped early*, which is the
-record that outlives the run's annotations. A reaped cell's `REAPED` marker
+*engine deadline reached* in place of *agent stopped early* — or, for a cell
+that wrote nothing, as *no output (engine deadline reached)* in the run's
+failure facts — which is the record that outlives the run's annotations. A reaped cell's `REAPED` marker
 reads the other way, as the success its work was. The disarm step reads every
 marker from the runner-temp copy the watchdog wrote, not the workspace copy; an
 engine that runs as the runner user could still plant one there, which
