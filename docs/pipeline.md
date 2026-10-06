@@ -1817,11 +1817,13 @@ whole fan-out, however many cases it spans, and GitHub starts the matrix's
 entries in list order — so list order is start order, and with it how much of
 the shared retrieval quota is left and how fresh the docket is when a cell
 runs. Both builders therefore lay the list out **case-major** (each case's
-cells together, cases in the order derived) and order the engines within each
-(case, event) by a keyed shuffle of the run id, case and event
-(`matrix.fanout_order`): every engine is equally likely to start first or last
-in any case, and none is systematically ahead of another, on the predict side
-and the judge side alike. The order is deterministic — re-planning under the
+cells together, cases in the order derived), which is what removes the
+engine bias: a case's cells sit within a few slots of each other, so across a
+run of N cells no engine's mean start position can trail another's by more
+than about 2/N of the run. Within each (case, event) the engines are ordered by
+a keyed shuffle of the run id, case and event (`matrix.fanout_order`), so which
+engine takes the first or last of those few slots is random rather than fixed,
+on the predict side and the judge side alike. The order is deterministic — re-planning under the
 same run id, as the run's report step does, reproduces it — and it decides
 nothing about which cells exist. After scope filtering the builder
 also applies a **salience-independent volume cap**

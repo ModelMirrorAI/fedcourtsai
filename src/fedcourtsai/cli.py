@@ -16292,10 +16292,11 @@ def _approval_report_table(plan: dict[str, Any]) -> list[str]:
     """The would-mint cells as a markdown table, ordered by case, truncated with its count.
 
     Sorted by (case, actor) rather than left in fan-out order so the 40 rows a
-    truncated table keeps are a **contiguous range of cases**: a reader can see
-    which cases the visible rows cover and know the rest lie past them, where
-    the registry-major fan-out order would instead show every case's first
-    engine and cut the others.
+    truncated table keeps are a **contiguous range of case ids**: a reader can
+    see which cases the visible rows cover and know the rest lie past them. The
+    fan-out keeps a case's cells together too, but in derivation order and with
+    the engines in a per-run shuffle; the sort gives the table an ascending
+    case id and a fixed actor order within each case instead.
     """
     cells = plan["would_mint"]
     if not cells:

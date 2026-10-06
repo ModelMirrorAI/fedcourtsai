@@ -530,7 +530,9 @@ def test_cell_failure_count_is_per_actor_event_and_seam(tmp_path: Path) -> None:
 #
 # GitHub starts a matrix's `include` entries in list order under max-parallel, so
 # list position is start time. These pin that no engine is systematically early
-# or late, and that order is the only thing the layout decides.
+# or late, and that order is the only thing the layout decides. Every input is
+# fixed, so none of these can flake: the SE-based tolerances bound how badly a
+# biased key could still pass, not run-to-run noise — never widen them for that.
 
 _BALANCE_CASES = 600
 _MatrixBuilder = Callable[[Path, list[CaseRequest], str], dict[str, list[dict[str, Any]]]]
@@ -581,16 +583,44 @@ def test_fanout_balances_every_engines_position(
         assert last_share < 1 / n + 0.06, actor
 
 
-def test_fanout_balances_pairwise_precedence() -> None:
+@pytest.mark.parametrize(
+    ("builder", "registry", "actor_key"),
+    [
+        (predict_matrix, PREDICTORS, "predictor_id"),
+        (evaluate_matrix, EVALUATORS, "evaluator_id"),
+    ],
+)
+def test_fanout_balances_pairwise_precedence(
+    builder: _MatrixBuilder, registry: Path, actor_key: str
+) -> None:
     # A plain rotation of the registry order would still put claude ahead of
-    # codex in two cases of three; the keyed shuffle balances every pair.
-    include = predict_matrix(PREDICTORS, _synthetic_cases(_BALANCE_CASES), "RID")["include"]
-    pos = _positions(include, "predictor_id")
+    # codex in two cases of three; the keyed shuffle balances every pair
+    # (SE ~0.02 over 600 cases, so 0.07 is >3 SE).
+    include = builder(registry, _synthetic_cases(_BALANCE_CASES), "RID")["include"]
+    pos = _positions(include, actor_key)
     actors = sorted(pos)
     for i, a in enumerate(actors):
         for b in actors[i + 1 :]:
             ahead = sum(1 for x, y in zip(pos[a], pos[b], strict=True) if x < y)
             assert abs(ahead / _BALANCE_CASES - 0.5) < 0.07, (a, b)
+
+
+def test_fanout_order_is_keyed_per_event_not_only_per_case() -> None:
+    # The key carries the event, so a two-event case does not hand the same
+    # engine the first slot on both events: the two orders agree only at the
+    # 1-in-3! chance rate (SE ~0.015 over 600 cases, so +0.06 is ~4 SE).
+    two_events = ("evt-petition-a", "evt-petition-b")
+    cases = [CaseRequest("scotus", 26_000 + d, two_events) for d in range(_BALANCE_CASES)]
+    include = predict_matrix(PREDICTORS, cases, "RID")["include"]
+    orders: dict[tuple[int, str], list[str]] = {}
+    for cell in include:
+        orders.setdefault((cell["docket"], cell["event_id"]), []).append(cell["predictor_id"])
+    same = sum(
+        1
+        for d in range(_BALANCE_CASES)
+        if orders[(26_000 + d, two_events[0])] == orders[(26_000 + d, two_events[1])]
+    )
+    assert same / _BALANCE_CASES < 1 / 6 + 0.06
 
 
 def test_fanout_is_case_major_in_request_order() -> None:
@@ -624,8 +654,9 @@ def _cell_identity(cell: dict[str, Any]) -> tuple[str, str, int, str]:
 
 def test_fanout_order_does_not_track_the_blinding_shuffle() -> None:
     # The fan-out key is domain-separated from `assign_aliases`, which hashes the
-    # same (run, case, event): without that, an evaluate cell's start slot and
-    # the alias order its judge sees would come from one stream.
+    # same (run, case, event) joined with each predictor id: without the prefix,
+    # the predict fan-out order under a run would equal the alias order those
+    # predictors get under the same run, case and event in every trial.
     predictors = enabled_predictors(PREDICTORS)
     ids = [p.id for p in predictors]
     trials = 300

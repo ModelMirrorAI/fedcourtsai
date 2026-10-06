@@ -156,9 +156,10 @@ class _Actor(Protocol):
 
 
 #: Domain separation for the fan-out key. The blinding shuffle
-#: (:func:`fedcourtsai.blinding.assign_aliases`) hashes a seed built from the
-#: same run, case and event, so without a distinct prefix an evaluate cell's
-#: dispatch position and its candidate aliases would come from one stream.
+#: (:func:`fedcourtsai.blinding.assign_aliases`) hashes the same run, case and
+#: event joined with each predictor id, so without a distinct prefix a predict
+#: fan-out's engine order would be byte-for-byte the alias order those
+#: predictors get under the same arguments — two orders that must not be one.
 _FANOUT_KEY_DOMAIN = "fanout-order"
 
 
