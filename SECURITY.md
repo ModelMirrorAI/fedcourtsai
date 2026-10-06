@@ -401,7 +401,10 @@ runbook, [docs/security.md](docs/security.md).
   store other than through the `prod` writers, read-only on production and
   read-write on the staging bucket pair alone, so production's single-writer
   discipline is unchanged and the worst a staging-bound write can corrupt is
-  the re-seedable fixture the refresh lane rebuilds in one dispatch.
+  the re-seedable fixture the refresh lane rebuilds in one dispatch. Until an
+  admin deletes it, it also still holds the unused `fedcourtsai-staging` App's
+  client id and key, which no workflow references (*The GitHub Apps* in
+  [docs/security.md](docs/security.md)).
 - **Prompt-injection awareness.** Third-party text is untrusted input, and it is
   the input a cell actually reads: the docket, the filed documents provisioned
   under `record/documents/` (party-authored), and — on an evaluate cell — the

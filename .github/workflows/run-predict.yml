@@ -961,12 +961,14 @@ jobs:
           # before the arithmetic — the watchdog refuses a non-numeric knob too,
           # but a bad value must fail here, loudly, before the engine starts
           # unguarded.
-          case "${ENGINE_DEADLINE_MINUTES}:${DEADLINE_MARGIN_S}" in
-            *[!0-9:]* | :* | *:)
-              echo "::error::the engine deadline is not a whole number of minutes"
-              exit 1
-              ;;
-          esac
+          for value in "$ENGINE_DEADLINE_MINUTES" "$DEADLINE_MARGIN_S"; do
+            case "$value" in
+              "" | *[!0-9]* | 0?*)
+                echo "::error::the engine deadline and its margin must be plain whole numbers"
+                exit 1
+                ;;
+            esac
+          done
           WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S))
           echo "engine deadline: ${ENGINE_DEADLINE_MINUTES} min (step timeout); watchdog fires at ${WATCHDOG_DEADLINE_S}s"
           # The watchdog and its evidence both live outside the workspace: that
@@ -1418,7 +1420,7 @@ jobs:
               REAPED) note="the cell finished its work and its step would not conclude; the watchdog ended the step and the output was salvaged" ;;
               FIRED) note="the engine was still running at the engine deadline and was killed" ;;
               SUSPENDED) note="the watchdog lost wall clock beside the engine and stood down; nothing was signalled — the cell's outcome is its step's own" ;;
-              *) note="the engine deadline passed with no engine process matched; the step's tree was ended" ;;
+              *) note="the engine deadline passed with no engine process matched; the marker says whether the step's tree was ended" ;;
             esac
             echo "::warning::engine watchdog (${COURT_ID}/${DOCKET_ID} ${EVENT_ID}): ${note}"
             {

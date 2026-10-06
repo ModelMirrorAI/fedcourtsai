@@ -2653,7 +2653,13 @@ The value is measured, not guessed. Across every completed engine step of
 steps — the longest took 13.9 minutes (a predict claude cell), and per engine
 the p99 is 11.6 (claude), 9.4 (codex) and 7.6 (gemini) minutes; no step passed
 14. Fifty minutes is over 3.5x the longest cell ever observed, so a cell that
-reaches it is an anomaly worth ending rather than slow work. The job cap holds
+reaches it is an anomaly worth ending rather than slow work. The jobs that did
+run past fifty minutes were the codex runner wedge on an application record,
+not work: production predict cells on that docket cancelled at the job cap,
+and the integration suite's application-repro leg ran 52–64 minutes on every
+dispatch before the unprivileged-user fix, each with the runner dying before
+the engine step recorded a conclusion — while its two dispatches after the
+fix concluded their engine step in 0.6 and 2.9 minutes. The job cap holds
 the deadline plus the setup ahead of the engine step (at most 5.4 minutes
 observed) and the capture tail behind it (at most 1.3), with room. A wider
 claim — that a cell of some shape legitimately runs past fifty — would move

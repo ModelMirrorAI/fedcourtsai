@@ -402,7 +402,8 @@ than believed.
 Every secret and the two production S3 role ARNs live on the `prod`
 environment — the dev and data Apps'
 credentials (the engine keys have per-environment twins on `staging`,
-recorded where those holders are described), the Anthropic API key (which the case-summary
+recorded where those holders are described, and `staging` also still holds the
+unused `fedcourtsai-staging` App pair until an admin deletes it), the Anthropic API key (which the case-summary
 lane also spends on, held in `summarize` by its generate job alone), the
 Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion; by the MCP

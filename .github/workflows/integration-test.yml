@@ -590,14 +590,15 @@ jobs:
     # time from it, a margin earlier. The application-repro leg runs a real
     # evaluate cell, so it carries the cell workflows' value — a
     # workflow-shape test holds the three equal. The engine-actions-smoke
-    # legs run the same bracket around a one-word boot probe, at the probe's
-    # own ten-minute bound, so the promotion gate's required suite exercises
+    # legs run the same bracket around a one-word boot probe at 13 minutes —
+    # the watchdog then fires at the ten minutes the probe has always been
+    # allowed — so the promotion gate's required suite exercises
     # the deadline wiring on every engine without waiting out a cell's worth
     # of it.
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
       FEDCOURTS_CORPUS_POINTER: ${{ vars.FEDCOURTS_CORPUS_POINTER }}
-      ENGINE_DEADLINE_MINUTES: ${{ matrix.scenario == 'engine-actions-smoke' && '10' || '50' }}
+      ENGINE_DEADLINE_MINUTES: ${{ matrix.scenario == 'engine-actions-smoke' && '13' || '50' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1421,12 +1422,14 @@ jobs:
           fi
           # The fire time, from the one configured deadline; digits checked
           # before the arithmetic, as in the cells.
-          case "${ENGINE_DEADLINE_MINUTES}:${DEADLINE_MARGIN_S}" in
-            *[!0-9:]* | :* | *:)
-              echo "::error::the engine deadline is not a whole number of minutes"
-              exit 1
-              ;;
-          esac
+          for value in "$ENGINE_DEADLINE_MINUTES" "$DEADLINE_MARGIN_S"; do
+            case "$value" in
+              "" | *[!0-9]* | 0?*)
+                echo "::error::the engine deadline and its margin must be plain whole numbers"
+                exit 1
+                ;;
+            esac
+          done
           WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S))
           echo "engine deadline armed (codex): step timeout ${ENGINE_DEADLINE_MINUTES} min, watchdog fires at ${WATCHDOG_DEADLINE_S}s" \
             >> "$GITHUB_STEP_SUMMARY"
@@ -1603,7 +1606,7 @@ jobs:
               REAPED) note="the cell's outputs were complete and quiescent and the step would not conclude; the watchdog ended it" ;;
               FIRED) note="the engine did not finish inside the engine deadline and was killed" ;;
               SUSPENDED) note="the watchdog lost wall clock beside the engine and stood down; nothing was signalled — the bundle is the evidence" ;;
-              *) note="the engine deadline passed with no engine process matched; the step's tree was ended" ;;
+              *) note="the engine deadline passed with no engine process matched; the marker says whether the step's tree was ended" ;;
             esac
             echo "::warning::codex-application-repro: ${note}"
             {
@@ -1914,7 +1917,8 @@ jobs:
 
       # The cells' engine-deadline bracket, around whichever invocation this
       # leg runs: the same watchdog script, armed the same way from the job's
-      # `ENGINE_DEADLINE_MINUTES` (the probe's own ten minutes here), so a
+      # `ENGINE_DEADLINE_MINUTES` (13 here, so the watchdog fires at the probe's
+      # ten minutes), so a
       # required leg of the promotion gate arms and disarms the deadline on
       # every engine — the claude action step, the codex action step and the
       # gemini CLI step alike. A boot probe owes no output file, so no
@@ -1930,12 +1934,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$WATCHDOG_DIR"
-          case "${ENGINE_DEADLINE_MINUTES}:${DEADLINE_MARGIN_S}" in
-            *[!0-9:]* | :* | *:)
-              echo "::error::the engine deadline is not a whole number of minutes"
-              exit 1
-              ;;
-          esac
+          for value in "$ENGINE_DEADLINE_MINUTES" "$DEADLINE_MARGIN_S"; do
+            case "$value" in
+              "" | *[!0-9]* | 0?*)
+                echo "::error::the engine deadline and its margin must be plain whole numbers"
+                exit 1
+                ;;
+            esac
+          done
           WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S))
           echo "engine deadline armed (${ENGINE}): step timeout ${ENGINE_DEADLINE_MINUTES} min, watchdog fires at ${WATCHDOG_DEADLINE_S}s" \
             >> "$GITHUB_STEP_SUMMARY"
@@ -1948,8 +1954,8 @@ jobs:
       - name: Smoke the Claude Code cell invocation
         id: actions_smoke_claude
         if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'claude-code' }}
-        # The probe's engine deadline (ten minutes, the job env's value for
-        # this leg) rather than the cells' fifty: one word is one turn, and a
+        # The probe's engine deadline (13 minutes on this leg, the watchdog
+        # firing at ten) rather than the cells' fifty: one word is one turn, and a
         # bound that tight is what keeps a hung invocation from eating the job
         # budget.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}

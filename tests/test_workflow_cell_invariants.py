@@ -2639,8 +2639,9 @@ ENGINE_WATCHDOG_DIR = "engine-watchdog"
 ENGINE_DEADLINE_MINUTES = 50
 ENGINE_DEADLINE_MARGIN_S = 180
 #: The engine-actions-smoke legs' own value: the same bracket around a
-#: one-word boot probe, at the probe's ten-minute bound.
-ENGINE_SMOKE_DEADLINE_MINUTES = 10
+#: one-word boot probe: 13 minutes, so the watchdog fires at the ten minutes
+#: the probe has always been allowed.
+ENGINE_SMOKE_DEADLINE_MINUTES = 13
 ENGINE_DEADLINE_STEP_TIMEOUT = "${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}"
 ENGINE_DEADLINE_ARITHMETIC = (
     "WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S))"
@@ -2651,6 +2652,10 @@ ENGINE_DEADLINE_ARITHMETIC = (
 #: before its tail runs.
 CELL_JOB_OVERHEAD_MINUTES = 7
 ENGINE_WATCHDOG_CELL_JOBS = {"run-predict.yml": "predict", "run-evaluate.yml": "evaluate"}
+#: The disarm step's guard on the pid it signals: the pid file sits on a path
+#: the agent can write, so only a pid whose command line names this script is
+#: ever killed.
+PID_OWNERSHIP_CHECK = 'grep -qa engine-watchdog.sh "/proc/$pid/cmdline"'
 # The arm step's whole configuration: the bundle's home, the codex home it
 # lists, the cell's identifiers (the sentinel is resolved from them), and the
 # margin the fire time is derived with. The deadline itself is deliberately
@@ -2765,6 +2770,9 @@ def test_every_engine_step_of_a_cell_is_bracketed_by_the_watchdog() -> None:
         # stands its killer down before the capture tail.
         assert disarm.get("if") == "${{ always() }}"
         assert "engine-watchdog.pid" in str(disarm["run"])
+        assert PID_OWNERSHIP_CHECK in str(disarm["run"]), (
+            f"{name}: the disarm step signals a pid it has not checked is the watchdog's"
+        )
         assert ENGINE_WATCHDOG_DIR in str(disarm["run"]), (
             f"{name}: the disarm step does not carry the bundle back for the upload"
         )
@@ -2782,7 +2790,7 @@ def test_the_engine_deadline_is_one_value_across_every_cell_surface() -> None:
     spelled once per workflow and held equal here: the two cell jobs and the
     integration suite's application-repro leg, which runs a real evaluate cell
     and would otherwise certify a bound production does not run. The
-    engine-actions-smoke legs carry the probe's own ten minutes on the same
+    engine-actions-smoke legs carry the probe's own 13 minutes on the same
     expression, and nothing else in the suite may set the variable.
     """
     for name, job_name in ENGINE_WATCHDOG_CELL_JOBS.items():
@@ -2828,6 +2836,7 @@ def test_the_boot_probe_runs_inside_the_same_deadline_bracket() -> None:
         assert probe.get("timeout-minutes") == ENGINE_DEADLINE_STEP_TIMEOUT
     assert disarm.get("if") == "${{ always() && matrix.scenario == 'engine-actions-smoke' }}"
     assert "engine-watchdog.pid" in str(disarm["run"])
+    assert PID_OWNERSHIP_CHECK in str(disarm["run"])
 
 
 # The workflows that read the watchdog's bundle: the two cell workflows plus

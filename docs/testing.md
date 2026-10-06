@@ -407,7 +407,8 @@ and handing claude the job's read-capped token instead of minting the cells'
 App token — are marked in the workflow where they are made. Each probe also
 runs inside the cells' **engine-deadline bracket**: the same watchdog script,
 armed the same way from the job's `ENGINE_DEADLINE_MINUTES` (the probe's own
-ten minutes on this leg), with every probe step's `timeout-minutes` reading that
+13 minutes on this leg, so the watchdog fires at the ten minutes a probe has
+always had), with every probe step's `timeout-minutes` reading that
 value. So a required leg of the promotion gate arms and disarms the deadline on
 all three engines' real invocation blocks, and its step summary says so per
 engine — `engine deadline armed (<engine>): …` and then `disarmed before it was
