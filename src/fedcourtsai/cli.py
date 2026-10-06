@@ -5721,6 +5721,14 @@ def release_sensitivity_command(
         typer.echo(f"release-sensitivity: {exc}", err=True)
         raise typer.Exit(code=2) from exc
     run = stratify(settings.data_root, frozen_only=True)
+    # The same exclusion notes `leaderboard` prints, since the headline is that board.
+    _report_exclusions(run)
+    if source.dirty:
+        typer.echo(
+            "release-sensitivity: the checkout is dirty — the board reads the working tree, "
+            "while `ledger.commit` and `fill_statpack` name HEAD",
+            err=True,
+        )
     statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
     committed = _read_best_effort(settings.metrics_root / "leaderboard.json", Leaderboard)
     corpus_sha = _census_corpus_sha(settings, db)

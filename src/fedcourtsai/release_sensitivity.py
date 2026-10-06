@@ -305,54 +305,77 @@ ConferenceReading = Literal["sat", "ahead", "off", "undistributed", "unknown"]
 def considering_conference(
     payload: Mapping[str, Any], payload_date: date, run_day: date
 ) -> tuple[date | None, ConferenceReading]:
-    """The conference a cell run on ``run_day`` came after, if one had considered the petition.
+    """The earliest conference that sat on the petition on or before ``run_day``, if any.
 
-    The conference is the one the petition was distributed for as at the run —
-    the latest DISTRIBUTED entry filed on or before ``run_day``
-    (:func:`fedcourtsai.pipeline.asof.asof_conference`), so a later
-    distribution or a reschedule entered before the run moves it, and never the
-    current ``distributed_for_conference`` column. It **sat on the petition**
-    unless a call for response ("Response Requested") or a bare "Rescheduled"
-    entry was filed between that distribution entry and the conference day: a
-    petition taken off a conference before it sat was never considered there.
+    Every conference a DISTRIBUTED entry filed on or before ``run_day`` names
+    is a candidate, read from the docket entries and never from the current
+    ``distributed_for_conference`` column. A candidate on or before the run
+    **sat on the petition** unless, between its distribution entry and its own
+    day, the docket shows the petition taken off it: a call for response
+    ("Response Requested"), a bare "Rescheduled", or a DISTRIBUTED entry naming
+    a different conference (a reschedule by redistribution). A petition taken
+    off a conference before it sat was never considered there. A relist —
+    redistribution *after* a conference sat — leaves that conference sat, so a
+    first forecast made after a relist is after the conference that considered
+    the petition.
 
-    Returns the conference and ``"sat"`` where it sat on or before ``run_day``
-    (a cell run on the conference day counts as after it). Otherwise the
-    reading says why not: ``"ahead"`` (the conference is after the run),
-    ``"off"`` (taken off before it sat), ``"undistributed"`` (no distribution
-    disclosed by the run), or ``"unknown"`` — the payload was stored before the
-    conference day, so whether something took it off cannot be read.
+    Returns the earliest such conference and ``"sat"`` (a cell run on the
+    conference day counts as after it). Otherwise the reading says why not:
+    ``"unknown"`` — a candidate on or before the run is after the day the
+    payload was stored, so whether something took it off cannot be read;
+    ``"off"`` — every candidate on or before the run was taken off;
+    ``"ahead"`` — the petition's conference is after the run; or
+    ``"undistributed"`` — no distribution was disclosed by the run. Entries
+    are day-grained, so an entry filed on the run day counts as before the run.
+    ``run_day`` is the caller's: the commands pass the run's UTC day (the
+    harness ``run_id``), which matches the Court's Eastern day for every cell
+    run after 04:00 UTC (05:00 in winter).
     """
-    conference = asof.asof_conference(payload, run_day + timedelta(days=1))
-    if conference is None:
-        return None, "undistributed"
-    if conference > run_day:
-        return conference, "ahead"
-    if payload_date < conference:
-        return conference, "unknown"
     entries = [
         (text, filed)
         for text, raw in cert_signals.proceedings_entries(payload)
         if (filed := cert_signals.entry_date(raw)) is not None
     ]
-    distributed = max(
-        (
-            filed
-            for text, filed in entries
-            if filed <= run_day
-            and (match := cert_signals.DISTRIBUTED_RE.search(text)) is not None
-            and cert_signals.conference_date(match.group(1)) == conference
-        ),
-        default=None,
-    )
-    if distributed is None:  # pragma: no cover - asof_conference found it
-        return conference, "unknown"
+    distributions: list[tuple[date, date]] = []  # (filed, conference)
     for text, filed in entries:
-        if distributed <= filed < conference and (
-            _RESPONSE_REQUESTED_RE.search(text) or _RESCHEDULED_RE.search(text)
+        match = cert_signals.DISTRIBUTED_RE.search(text)
+        if match is None or filed > run_day:
+            continue
+        conference = cert_signals.conference_date(match.group(1))
+        if conference is not None:
+            distributions.append((filed, conference))
+    if not distributions:
+        return None, "undistributed"
+    past = sorted({c for _, c in distributions if c <= run_day})
+    if not past:
+        return asof.asof_conference(payload, run_day + timedelta(days=1)), "ahead"
+    taken_off: date | None = None
+    for conference in past:
+        if payload_date < conference:
+            return conference, "unknown"
+        distributed = max(
+            (f for f, c in distributions if c == conference and f < conference), default=None
+        )
+        if distributed is None:
+            continue  # named only by an entry filed on or after its own day
+        if any(
+            distributed <= filed < conference
+            and (
+                _RESPONSE_REQUESTED_RE.search(text)
+                or _RESCHEDULED_RE.search(text)
+                or (
+                    (match := cert_signals.DISTRIBUTED_RE.search(text)) is not None
+                    and cert_signals.conference_date(match.group(1)) not in (None, conference)
+                )
+            )
+            for text, filed in entries
         ):
-            return conference, "off"
-    return conference, "sat"
+            taken_off = taken_off or conference
+            continue
+        return conference, "sat"
+    if any(c > run_day for _, c in distributions):
+        return asof.asof_conference(payload, run_day + timedelta(days=1)), "ahead"
+    return taken_off, "off"
 
 
 # ---------------------------------------------------------------------------
@@ -539,7 +562,7 @@ def exact_pool_anchor(
     skills: Mapping[EvaluationKey, CellSkill],
     builds: BuildSource,
     registered: set[tuple[str, str]] | None,
-) -> tuple[dict[str, Any], Leaderboard]:
+) -> dict[str, Any]:
     """Block 1: skill against the exact pool of the build each grading read, plus the spread.
 
     The line's population is the board's own ``skill_scored`` cert cells, so
@@ -645,7 +668,7 @@ def exact_pool_anchor(
         },
         "figures": project(board, SKILL_FIELDS),
     }
-    return block, board
+    return block
 
 
 # ---------------------------------------------------------------------------
@@ -955,7 +978,7 @@ def release_sensitivity(
         return cached[case_id]
 
     events = _cert_events(data_root)
-    anchor, _ = exact_pool_anchor(cells, data_root, skills, builds, registered)
+    anchor = exact_pool_anchor(cells, data_root, skills, builds, registered)
     return {
         "registered_headline": {
             "matches_committed_board": (

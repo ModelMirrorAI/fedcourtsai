@@ -20,6 +20,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.release_sensitivity import (
     RANKED_ARM,
     GitBuildSource,
+    ReleaseSensitivityError,
     StatpackBuild,
     considering_conference,
     opening_petition,
@@ -267,14 +268,43 @@ def test_a_call_for_response_takes_the_petition_off_its_conference() -> None:
     )
 
 
-def test_a_relist_before_the_run_moves_the_conference() -> None:
-    # Run after the relist entry: the petition's conference is still ahead.
-    assert considering_conference(RELISTED, PAYLOAD_DAY, date(2026, 10, 3)) == (
+def test_a_relist_leaves_the_conference_that_sat_on_it() -> None:
+    # Relisted after 9/28 sat: a run on either side of the relist entry is
+    # after the conference that considered the petition.
+    for run_day in (date(2026, 9, 29), date(2026, 10, 3)):
+        assert considering_conference(RELISTED, PAYLOAD_DAY, run_day) == (
+            date(2026, 9, 28),
+            "sat",
+        )
+
+
+def test_a_reschedule_before_the_conference_moves_it() -> None:
+    redistributed = _docket(
+        ("Jun 01 2026", "Petition for a writ of certiorari filed."),
+        ("Jul 01 2026", "DISTRIBUTED for Conference of 9/28/2026."),
+        ("Sep 20 2026", "DISTRIBUTED for Conference of 10/9/2026."),
+    )
+    assert considering_conference(redistributed, PAYLOAD_DAY, date(2026, 10, 3)) == (
         date(2026, 10, 9),
         "ahead",
     )
-    # Run before it: the 9/28 conference had sat.
-    assert considering_conference(RELISTED, PAYLOAD_DAY, date(2026, 9, 29))[1] == "sat"
+    bare = _docket(
+        ("Jun 01 2026", "Petition for a writ of certiorari filed."),
+        ("Aug 26 2026", "DISTRIBUTED for Conference of 9/28/2026."),
+        ("Aug 27 2026", "Rescheduled."),
+    )
+    assert considering_conference(bare, PAYLOAD_DAY, date(2026, 10, 3)) == (
+        date(2026, 9, 28),
+        "off",
+    )
+
+
+def test_an_undistributed_petition_has_no_conference() -> None:
+    assert considering_conference(
+        _docket(("Jun 01 2026", "Petition for a writ of certiorari filed.")),
+        PAYLOAD_DAY,
+        date(2026, 10, 3),
+    ) == (None, "undistributed")
 
 
 def test_a_payload_older_than_the_conference_cannot_say_whether_it_sat() -> None:
@@ -574,6 +604,113 @@ def test_the_command_prints_json_with_its_provenance(
     subset = blocks["post_conference_first_forecasts_excluded"]["subset"]
     assert [r["case_id"] for r in subset] == ["scotus/3"]
     assert "anchor skill" in result.stderr
+
+
+def test_unreadable_dockets_are_listed_not_placed(ledger: Path) -> None:
+    payloads = {
+        # scotus/1: no payload at all; scotus/3: stored before its conference sat.
+        "scotus/2": MANDAMUS,
+        "scotus/3": CERT,
+        "scotus/4": _docket(("Jul 01 2026", "DISTRIBUTED for Conference of 9/28/2026.")),
+    }
+    cells = stratify(ledger, frozen_only=True).cells
+    result = release_sensitivity(
+        cells,
+        ledger,
+        None,
+        builds=_Builds({"sha-a": 0.05, "sha-b": 0.06}),
+        payloads=lambda case_id: (
+            (date(2026, 9, 1) if case_id == "scotus/3" else PAYLOAD_DAY, payloads[case_id])
+            if case_id in payloads
+            else None
+        ),
+    )
+    rule_20 = result["blocks"]["rule_20_excluded"]
+    assert rule_20["unclassified"] == [
+        {"case_id": "scotus/1", "reason": "no live payload"},
+        {"case_id": "scotus/4", "reason": "no opening petition entry"},
+    ]
+    post = result["blocks"]["post_conference_first_forecasts_excluded"]
+    # scotus/4's payload carries no petition entry but does show its conference sit.
+    assert [row["case_id"] for row in post["subset"]] == ["scotus/4"]
+    assert sorted((row["case_id"], row["reason"]) for row in post["unreadable"]) == [
+        ("scotus/1", "no live payload"),
+        ("scotus/3", "payload of 2026-09-01 predates the conference of 2026-09-28"),
+    ]
+
+
+def test_an_ambiguous_writ_is_named_and_not_removed(ledger: Path) -> None:
+    ambiguous = _docket(
+        ("Jun 01 2026", "Petition for a writ of certiorari or, alternatively, mandamus filed."),
+    )
+    cells = stratify(ledger, frozen_only=True).cells
+    result = release_sensitivity(
+        cells,
+        ledger,
+        None,
+        builds=_Builds({}),
+        payloads=lambda case_id: (PAYLOAD_DAY, ambiguous if case_id == "scotus/2" else CERT),
+    )
+    block = result["blocks"]["rule_20_excluded"]
+    assert block["identified"] == []
+    assert [row["case_id"] for row in block["not_certiorari_not_rule_20"]] == ["scotus/2"]
+    assert block["board_cells_removed"] == 0
+
+
+def test_a_shallow_clone_is_refused(repo: Path, tmp_path: Path) -> None:
+    _commit(repo, 0.05, 10)
+    _commit(repo, 0.06, 10)
+    shallow = tmp_path / "shallow"
+    subprocess.run(
+        ["git", "clone", "-q", "--depth", "1", f"file://{repo}", str(shallow)],
+        check=True,
+        capture_output=True,
+    )
+    with pytest.raises(ReleaseSensitivityError, match="shallow"):
+        GitBuildSource(shallow)
+
+
+def test_the_command_reads_the_committed_board_and_the_registered_cohort(
+    repo: Path, ledger: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("FEDCOURTS_CORPUS_SPLIT", raising=False)
+    sha = _commit(repo, 0.05, 10)
+    data_root = repo / "data"
+    ledger.rename(data_root)
+    corpus_root = tmp_path / "corpus"
+    with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(case_id=case_id, court="scotus", docket_number=f"25-{n}")
+                for n, case_id in enumerate(PAYLOADS, start=1)
+            ],
+        )
+        for case_id, payload in PAYLOADS.items():
+            corpus.upsert_snapshot(conn, case_id, PAYLOAD_DAY, payload)
+        conn.commit()
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(repo / "metrics"))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    # The committed board, built by `leaderboard` itself over the same ledger.
+    built = runner.invoke(app, ["leaderboard"])
+    assert built.exit_code == 0, built.output
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "ledger and board")
+    result = runner.invoke(app, ["release-sensitivity", "--registered-at", "2026-09-15"])
+    assert result.exit_code == 0, result.output
+    stdout = result.stdout
+    output = json.loads(stdout[stdout.index("{") :])
+    assert output["registered_headline"]["matches_committed_board"] is True
+    assert output["registered_at"] == "2026-09-15"
+    assert output["conference_fallbacks"] == 0
+    # The gradings name checkouts this repository does not hold: kept as recorded.
+    anchor = output["blocks"]["exact_pool_anchor"]
+    assert len(anchor["recorded_retained"]) == 9
+    assert anchor["transcription_spread"]["registered_cohort_graded_cert_cells"] is not None
+    assert output["fill_statpack"]["build_commit"] == sha
+    # Read-only: the checkout is exactly as committed.
+    assert _git(repo, "status", "--porcelain") == ""
 
 
 def test_the_command_refuses_a_bad_date() -> None:

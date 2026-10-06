@@ -876,9 +876,13 @@ predictor's newest cell rather than its first, the release sensitivity command
 also checks every board event whose *scored* cell, for any predictor, postdates
 its considering conference, and names any that falls outside the subset
 (`scored_after_conference_outside_subset`); it lists the subset itself
-(`subset`). A docket entry reading "Rescheduled." or "Response Requested."
-filed between the distribution and the conference day is what takes a petition
-off it; where the stored payload predates the conference day, whether one was
+(`subset`). A docket entry reading "Rescheduled." or "Response Requested.",
+or a distribution for another conference, filed between the distribution and
+the conference day is what takes a petition off it; a relist entered after the
+conference sat leaves that conference the one that considered it, and the
+earliest conference that sat on or before the run is the one named. A run's
+day is its `run_id`'s UTC day, the Court's own day for any run after 04:00 UTC
+(05:00 in winter). Where the stored payload predates the conference day, whether one was
 filed cannot be read, and the event is listed under `unreadable` rather than
 placed — that list is empty before the count is quoted.
 
