@@ -25,14 +25,17 @@
 #   scripts/promotion-gate.sh freshness <sha>
 #       Every required integration scenario must have a green run at exactly
 #       <sha> — the gate tests what is being promoted, not what staging used
-#       to be. A single green `scenario=all` run (the whole suite as one
-#       run) satisfies every scenario at once; otherwise each is
+#       to be. A single green `scenario=gate` run (the whole required suite
+#       as one run) satisfies every scenario at once; otherwise each is
 #       matched per-run. Matching is on the integration-test workflow's
 #       `run-name`; the format here and there are coupled, and a
 #       workflow-shape test pins both ends (tests/test_workflow_promote.py).
 #       Under PROMOTION_SKIP_SMOKE (below) both engine families' entries leave
-#       the required set and a green `scenario=all-offline` run — the same
-#       suite without them — also counts as whole-suite evidence.
+#       the required set and a green `scenario=offline-gate` run — the same
+#       suite without them — also counts as whole-suite evidence. The
+#       workflow's `all` and `all-offline` selections are never evidence:
+#       they run every scenario it offers, a set that moves with the workflow
+#       rather than with this gate.
 #
 #   scripts/promotion-gate.sh contexts [candidate...]
 #       Every context `main`'s ruleset requires must have a job on `main` that
@@ -42,7 +45,7 @@
 #       not renamed or deleted a job already required. Candidates are reported
 #       as ready or not-yet, never fatally. Needs a token with repository
 #       administration read, which `GITHUB_TOKEN` cannot hold at all — hence
-#       not part of `all`, and the maintainer's to run.
+#       not part of `promotion-gate.sh all`, and the maintainer's to run.
 #
 #   scripts/promotion-gate.sh all <sha>
 #       The quiesce and freshness stages, in order.
@@ -55,13 +58,13 @@
 # PROMOTION_SCENARIOS overrides it outright (space-separated; an entry is
 # `<scenario>` or `engine-smoke/<engine>`) — for narrowing a local re-check,
 # never for weakening the gate in a workflow. An override also
-# disables the whole-suite `scenario=all` acceptance in freshness: the `all`
+# disables the whole-suite `scenario=gate` acceptance in freshness: the `gate`
 # matrix is keyed to the default set, so an overridden set is checked against
 # per-scenario runs only.
 #
 # PROMOTION_SKIP_SMOKE=1 drops the `engine-smoke/*` and
 # `engine-actions-smoke/*` entries — every entry that spends model tokens —
-# and lets a green `scenario=all-offline` run stand in for `scenario=all`. It
+# and lets a green `scenario=offline-gate` run stand in for `scenario=gate`. It
 # is the one relaxation a workflow may set, and exactly two workflows set it (a
 # shape test pins that no third does):
 #
@@ -93,8 +96,8 @@ set -euo pipefail
 REPO="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
 
 # Keep in step with the dispatch-command list the promote workflow prints on a
-# freshness failure, and with the `all` scenario's matrix in
-# integration-test.yml — a `scenario=all` dispatch must fan out exactly this
+# freshness failure, and with the `gate: true` legs of the suite literal in
+# integration-test.yml — a `scenario=gate` dispatch must fan out exactly this
 # set (a workflow-shape test pins both couplings).
 REQUIRED_SCENARIOS="${PROMOTION_SCENARIOS:-ranged-reads corpus-service stub-cascade mcp-sidecar collect qp-topic engine-smoke/claude-code engine-smoke/codex engine-smoke/gemini engine-actions-smoke/claude-code engine-actions-smoke/codex engine-actions-smoke/gemini}"
 
@@ -104,7 +107,7 @@ REQUIRED_SCENARIOS="${PROMOTION_SCENARIOS:-ranged-reads corpus-service stub-casc
 # token-spending families leave together, and they have to: the whole-suite
 # acceptance the skip unlocks returns before this set is ever looped over, so a
 # filter that kept one family required would not make the gate stricter — a
-# green `all-offline` title, from a suite that ran neither, would satisfy the
+# green `offline-gate` title, from a suite that ran neither, would satisfy the
 # kept entry without exercising it. Unsound rather than strict, which is worse
 # than the relaxation it looks like.
 if [ "${PROMOTION_SKIP_SMOKE:-}" = 1 ]; then
@@ -169,11 +172,11 @@ freshness() {
           | select(.conclusion == "success" and .head_branch == "staging"
                    and ((.display_title | test("\n")) | not))
           | .display_title')
-  # A `scenario=all` dispatch fans the whole required suite out as one
-  # workflow run, so one green `all` title at the sha satisfies every
+  # A `scenario=gate` dispatch fans the whole required suite out as one
+  # workflow run, so one green `gate` title at the sha satisfies every
   # required scenario at once. The equivalence holds link by link: this exact
-  # title shape is produced only by an `all` dispatch (a per-scenario run
-  # always carries `<scenario> / <engine>`); an `all` run covers the whole
+  # title shape is produced only by a `gate` dispatch (a per-scenario run
+  # always carries `<scenario> / <engine>`); a `gate` run covers the whole
   # required set — the matrix legs with fail-fast off plus the collect job,
   # separate jobs in the same run — so the run concludes success only when
   # every job succeeded; and `@ staging` names the environment every matrix
@@ -182,21 +185,29 @@ freshness() {
   # which every title here already passed). Matched whole-line
   # (-Fx): the title is one fully-fixed string. Only titles selected as
   # success above are searched, so a match is a green run, never a red one.
-  # Skipped entirely under a PROMOTION_SCENARIOS override: the `all` matrix
+  # Skipped entirely under a PROMOTION_SCENARIOS override: the `gate` matrix
   # covers the default set, so an overridden set — which may name something
   # beyond it — must be satisfied by per-scenario runs.
+  #
+  # Only the two gate titles are read. The workflow's `all` and `all-offline`
+  # runs contain these suites today, but their membership is "every scenario
+  # the workflow offers", which a workflow edit may move — add a diagnostic
+  # that is red by design, drop a broken one — without that edit being a
+  # change to this gate. Accepting them would make every such edit a gate
+  # change in disguise, so a superset run earns no credit here: the gate's
+  # evidence is the run whose name says it is the gate's.
   if [ -z "${PROMOTION_SCENARIOS:-}" ]; then
-    if grep -Fqx "integration-test: all @ staging" <<<"$titles"; then
+    if grep -Fqx "integration-test: gate @ staging" <<<"$titles"; then
       return
     fi
     # Under the engine-smoke skip the requirement is the smaller suite, which
-    # an `all-offline` run covers leg for leg — same jobs, same environment
+    # an `offline-gate` run covers leg for leg — same jobs, same environment
     # binding, same success-only-when-every-job-succeeded arithmetic, minus
-    # the three token-spending legs the skip already removed. The `all`
+    # the six token-spending legs the skip already removed. The `gate`
     # acceptance above stays first and unconditional: a full run is always
     # sufficient evidence for a subset of what it ran.
     if [ "${PROMOTION_SKIP_SMOKE:-}" = 1 ] \
-      && grep -Fqx "integration-test: all-offline @ staging" <<<"$titles"; then
+      && grep -Fqx "integration-test: offline-gate @ staging" <<<"$titles"; then
       return
     fi
   fi
@@ -234,7 +245,7 @@ freshness() {
 # or deleted a job that is already required. Extra arguments are candidate
 # contexts: reported as ready or not-yet, never fatal.
 #
-# Deliberately NOT part of `all`: reading a ruleset needs admin-level access,
+# Deliberately NOT part of `promotion-gate.sh all`: reading a ruleset needs admin-level access,
 # and ci.yml's promotion-gate job holds only contents/actions/issues read. A
 # required check that 403s would block promotions to report an advisory fact,
 # so this stage is the maintainer's to run with their own token.

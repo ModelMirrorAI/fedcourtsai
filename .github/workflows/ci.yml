@@ -297,7 +297,7 @@ jobs:
           {
             echo "## Engine scenarios waived on this batch"
             echo
-            echo "\`${WAIVER_LABEL}\` is on this PR, so the six token-spending engine entries — three \`engine-smoke\` and three \`engine-actions-smoke\` — left the required set and a token-free \`scenario=all-offline\` run counts as whole-suite evidence at \`${HEAD_SHA}\`."
+            echo "\`${WAIVER_LABEL}\` is on this PR, so the six token-spending engine entries — three \`engine-smoke\` and three \`engine-actions-smoke\` — left the required set and a token-free \`scenario=offline-gate\` run counts as whole-suite evidence at \`${HEAD_SHA}\`."
             echo
             echo "What that trades away, for \`claude-code\`, \`codex\` and \`gemini\` alike: that a real cell still runs in the production posture at the sha being promoted, and that each engine's own invocation block is still accepted by the surface that receives it. The second is the one an action version bump breaks — silently, on the promotion carrying the bump. Every other gate is unchanged and still strict."
             echo
