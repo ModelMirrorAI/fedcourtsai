@@ -189,11 +189,9 @@ something stronger›
   forecasts started in a fixed order, so the last model ran later and after
   the others had used part of a shared research allowance. That may have
   helped or hurt it, and nothing here corrects for it (*Comparing the engines*
-  in section 3 of the audit write-up). ‹per model, how often its research
-  requests were seen being turned away for lack of allowance, or that this
-  could not be measured for that model, with the caveat that each count is a
-  lower bound and the counts cannot be compared between models, copied from
-  that section›
+  in section 3 of the audit write-up). How often each model's research
+  requests were turned away for lack of allowance cannot be measured from the
+  logs, so no such figure is given.
 - **Some petitions asked for something rarer than review.** ‹how many, copied
   from section 5› of the petitions asked the Court to order a lower court to
   act (a writ of mandamus), which it almost never does; they are scored like

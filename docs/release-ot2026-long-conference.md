@@ -572,9 +572,9 @@ it.
 **Evidence.** Per entry: `events_scored`, each stratum's `evaluations`, and the
 entry's `evaluators`; and the population's own `events_scored` union. For the
 run-order disclosure: the cohort's predict and evaluate runs and their per-job
-start times (`gh run list`, `gh run view <id> --json jobs`), each cell's
-harness-captured `retrieval_log.json`, the `run_id` in each prediction's
-ledger path, and the harness-stamped `context` on each prediction.
+start times (`gh run list`, `gh run view <id> --json jobs`), the `run_id` in
+each prediction's ledger path, and the harness-stamped `context` on each
+prediction.
 
 **Prose.**
 
@@ -612,22 +612,13 @@ ledger path, and the harness-stamped `context` on each prediction.
 > in the largest runs ‹the longest gap between claude's and gemini's first cell
 > starts, from the start-window figures below› after claude's — behind the other
 > two engines' spend of the shared retrieval quota, and later against the docket.
-> How often that quota turned each engine's cells away is read from the
-> harness's own retrieval logs and reported below, and what those logs can show
-> differs by engine in kind. A refusal is classified only where an engine's log
-> carries the call's result. Gemini's logs carry no result at all, so its
-> incidence is unobserved, not zero. Codex's logs carry results for its direct
-> calls but not for the calls its programs make, and the refusal predicate is
-> anchored on one server's phrasing, so a codex count is a floor whose miss rate
-> is not known; where an independent text screen of the same logs finds
-> refusals the classification does not, both are printed, the screen labelled
-> as a screen. Every count is a floor, its denominator is the calls whose
-> result could be read, and those denominators are not comparable across
-> engines. The figures describe what each engine's cells met in the slot they
-> ran in; they are not a property of the engine, and no engine is ranked,
-> differenced or excused on them. Nor is any
-> figure recomputed without the refused cells, because dropping them would leave
-> each engine's figures over a different event set. The direction of the effect
+> How often that quota turned each engine's cells away cannot be measured
+> across engines from the harness's retrieval logs. Gemini's logs carry no call
+> result at all, and codex's carry results for its direct calls but not for the
+> calls its programs make, so neither engine's refusals can be counted, and no
+> per-engine incidence is reported. Nor is any figure recomputed without the
+> cells a refusal may have reached, because dropping them would leave each
+> engine's figures over a different event set. The direction of the effect
 > on the ranking is unknown — a later docket gives a forward forecast more to go
 > on, a refused retrieval less — and nothing in the ranking adjusts for it, so
 > the cohort cannot separate an engine's skill from its slot, and every
@@ -662,23 +653,6 @@ separately for the runs on each side›
 ‹in the cohort's largest predict and evaluate runs, the first and last cell
 start per engine, and how long after claude's first cell gemini's first cell
 started — from `gh run view <id> --json jobs` (`startedAt` per job)›
-
-‹per engine over the registered cohort's counted predict cells, and per judge
-over its counted gradings, scoped to the cohort and saying so beside the
-board-wide ranking it qualifies: the cells with at least one throttled
-manifest-tool call, the throttled manifest-tool calls, and the total
-manifest-tool calls, each over the cells and calls whose result condition the
-log could show, with that legible share beside it. Each call is classified by
-its recorded `result_status`; an engine whose logs carry no legible
-manifest-tool result is reported as unobserved, not as zero. Where a text
-screen of the same logs counts refusals the classification does not, the
-screen's cells-affected count is printed beside it, labelled as a text screen
-and never as the classification, and a classified zero it contradicts is
-called a floor in its own sentence. The
-counts are a floor, and their denominators are not comparable across engines,
-which the sentence carrying them says ([metrics/README.md](../metrics/README.md),
-*What may be claimed from the throttle counts*) — from the release sensitivity
-command (not yet built)›
 
 ‹per engine, the share of its cohort predictions whose `run_id` is later than
 the earliest sibling engine's `run_id` on the same event — from the
