@@ -39,6 +39,20 @@ returns anything — the command is written with an escape so that it does not
 match itself — and the same grep over the published draft is the last mechanical
 check before the tag in the final section.
 
+**Sensitivity lines.** Some figures carry a sensitivity line beside them: the
+same figure recomputed with one disclosed departure from the registered
+computation. A sensitivity line is a disclosure, never a result. The registered
+figure is the headline, every rank and claim is read off it alone, and the line
+shows how far that one departure would move it. Each line varies one thing
+against the registered figure; lines are never stacked into a second headline.
+Their placeholders name the **release sensitivity command**, a read-only
+analysis over the committed gradings, the statpack and the corpus that prints
+each sensitivity block beside the registered headline it varies, with the corpus
+vintage and the ledger commit it read. That command is not built yet. Until it
+is, its placeholders cannot be filled and the draft is not publishable. It is
+run from the same checkout and corpus as the fill export (section 8, step 2), so
+its figures and the board's are read off one ledger.
+
 ## 1. The counted population
 
 **State.** Which cells the write-up counts, and why every other cell in `data/`
@@ -383,6 +397,19 @@ grading names another Term, add it.
 > evaluator's own pooling of the statpack's prior-Term rows. Judges differ in
 > the fourth decimal: pooling the table's rounded rows gives 0.17238 elevated,
 > the pack's exact counts 0.17224.
+>
+> That recorded rate is the judge's transcription, not a harness stamp, and the
+> registered computation scores skill against it as recorded. The board's only
+> check on it is self-consistency — the recorded rate, Brier and skill agree
+> with one another — and nothing compares the rate with the pool it was read
+> from. So the write-up measures the transcription instead of assuming it: for
+> each judge, over the cohort's graded cert cells, the deviation of every
+> recorded `segment_base_rate` from the exact pool `fedcourts segment-anchors`
+> computes for the scored prediction's docket Term and band, given as the
+> largest and the mean relative deviation and the count above 1%. Beside each
+> headline skill figure sits a sensitivity line with skill recomputed against
+> the exact pool. The registered figure stays the headline; the line shows how
+> much of it the transcription could account for.
 > The complements of these rates are grant-family denial shares, not
 > exact-match always-deny floors, and no lift in this write-up is measured
 > against them. Taking the OT2025-docket rates for all 110 events, the
@@ -481,6 +508,35 @@ the freeze record's correction entry for this cohort's anchor
 ([freeze-record.md](freeze-record.md)), and state which docket Term each quoted
 rate is for›
 
+‹the transcription spread, per judge over the cohort's graded cert cells: the
+cell count, how many recorded the exact pool, the largest and the mean relative
+deviation of the recorded `segment_base_rate` from the exact pool, and how many
+cells deviate by more than 1% — re-measured over the full graded cohort at fill
+time, from the release sensitivity command (not yet built)›
+
+**Sensitivity lines beside the headline.** Three sensitivity lines travel with
+the per-band figures above, each in the sentence that carries its registered
+figure and each with its own `n`. The first is this section's; the other two
+are disclosed with the cohort in section 5.
+
+‹per predictor and per band, population skill recomputed with each cert
+grading's baseline taken from the exact pool instead of its recorded
+`segment_base_rate`, beside the registered `population_brier_skill_score` and
+over the same `skill_scored` cells — from the release sensitivity command (not
+yet built)›
+
+‹per predictor and per band, `event_accuracy`, `event_accuracy_lift` and
+population skill with the extraordinary-writ petitions section 5 names removed,
+each with its reduced `n`, beside the registered figures — from the release
+sensitivity command (not yet built)›
+
+‹per predictor and per band, every board-wide figure in this section —
+accuracy, floor, lift, skill, the grant comparison, `complete_grid_by_band`,
+and each engine's `events_scored` in *Comparing the engines* below —
+recomputed without the events section 5 names as first forecast after their
+conference, each with its reduced `n`, beside the registered figures — from
+the release sensitivity command (not yet built)›
+
 ‹the whole-docket per-Term cert rate, quoted as context only and labelled as
 not this cohort's anchor — from `metrics/statpack.md`, *SCOTUS cert petitions
 by Term*›
@@ -535,6 +591,33 @@ entry's `evaluators`; and the population's own `events_scored` union.
 > no forward accuracy-scored cell in a band leaves that band with no grid, and
 > the missing key reads as that.
 >
+> The engines did not run under identical conditions. Every predict and
+> evaluate run that forecast or graded this cohort listed its cells engine by
+> engine in registry order — claude, then codex, then gemini — and the runner
+> starts cells in list order. So within a run gemini's forecasts started last —
+> in the largest runs ‹the longest gap between claude's and gemini's first cell
+> starts, from the start-window figures below› after claude's — behind the other
+> two engines' spend of the shared retrieval quota, and later against the docket.
+> How often that quota turned each engine's cells away is measured from the
+> harness's own retrieval logs and reported below. The measurement describes
+> what each engine's cells met in the slot they ran in; it is not a property of
+> the engine, and no engine is ranked, differenced or excused on it. Nor is any
+> figure recomputed without the refused cells, because dropping them would leave
+> each engine's figures over a different event set. The direction of the effect
+> on the ranking is unknown — a later docket gives a forward forecast more to go
+> on, a refused retrieval less — and nothing in the ranking adjusts for it, so
+> the cohort cannot separate an engine's skill from its slot, and every
+> cross-engine difference here is read with that in mind. The evaluate runs ran
+> the judges in the same order, so gemini-judge graded last; every judge grades
+> every predictor blind, so that slot is shared by all predictors under one
+> judge and bears on comparisons *between judges*, not on the predictor
+> ranking. Start order within a run is not the only timing difference: a cell
+> that failed and was re-minted ran in a later run against a later docket, and
+> each engine's failure rate sets its share of such late cells, so that share is
+> reported per engine below rather than assumed equal. From the next cohort the
+> fan-out interleaves the engines in a keyed order per run and event, so no
+> engine holds a fixed slot; this cohort ran entirely under registry order.
+>
 > The ranking is on N-unweighted point estimates over a cohort whose band mix
 > implies roughly a dozen grants. A one- or two-event difference reorders it.
 > The order is therefore reported as locating a difference between the engines,
@@ -543,6 +626,36 @@ entry's `evaluators`; and the population's own `events_scored` union.
 ‹each engine's `events_scored`, complete-grid `n`, per-stratum evaluations and
 panel depth, and per band each engine's `accuracy_events_scored` beside
 `complete_grid_by_band` — from `metrics/leaderboard.json`›
+
+‹confirmation that every predict and evaluate run carrying a counted cohort
+cell or grading ran under registry order, before the interleaved fan-out
+reached production — from `gh run list --workflow run-predict.yml` /
+`run-evaluate.yml` against the merge time of the promotion carrying it; if any
+cohort run postdates it, name those runs and restate the paragraph above
+separately for the runs on each side›
+
+‹in the cohort's largest predict and evaluate runs, the first and last cell
+start per engine, and how long after claude's first cell gemini's first cell
+started — from `gh run view <id> --json jobs` (`startedAt` per job)›
+
+‹per engine over the registered cohort's counted predict cells, and per judge
+over its counted gradings: the cells with at least one throttled
+manifest-tool call, the throttled manifest-tool calls, and the total
+manifest-tool calls, each over the cells and calls whose result condition the
+log could show, with that legible share beside it. Each call is classified by
+its recorded `result_status`, never by a text match; an engine whose logs carry
+no legible manifest-tool result is reported as unobserved, not as zero. The
+counts are a floor, and their denominators are not comparable across engines,
+which the sentence carrying them says ([metrics/README.md](../metrics/README.md),
+*What may be claimed from the throttle counts*) — from the release sensitivity
+command (not yet built)›
+
+‹per engine, the share of its cohort predictions whose `run_id` is later than
+the earliest sibling engine's `run_id` on the same event — from the
+`predictions/<predictor>/<run_id>/` paths under each cohort event — beside the
+`attempt.json` counts in *Engine losses stay owed*, and each engine's
+distribution of snapshot as-of date against run date, from the stamped
+`context` on its predictions›
 
 ## 4. The salience limitation
 
@@ -723,7 +836,15 @@ band difference named from the *moved* rows; the scored, resolved-unscored,
 pending and unforecast split, which sums to the arm; and, beside it and never
 inside it, the counted events the registered rule did not cover (the *outside
 the registered rule* command) — forecasts the frozen process made first, which
-are later backlog rather than cohort.
+are later backlog rather than cohort. Within those, the reconciliation names
+the **post-conference first forecasts**: board events whose first forward cell
+postdates the conference that actually considered the petition. That is the
+conference that sat on it — a later distribution or a reschedule moves it, and a
+call for response entered before the conference sat takes the petition off it —
+never the stale `distributed_for_conference` date. The subset is defined from
+committed data and the corpus, as the earliest `created_at` among an event's
+forward, process-stamped cells against that conference, and the release
+sensitivity command lists it.
 
 `fedcourts unlatch-overselected` is **not** the source for the overhang, and
 running it in the write-up window would mislead: its dry run scans **pending**
@@ -784,6 +905,34 @@ band-biased. In that case the band mix is re-measured at the conference and the
 > with a capacity-N salience replay, which is a different population. A figure
 > over all 110 is not a selection at all: it carries no overhang, and its
 > denominator is 110.
+>
+> The registered cohort contains petitions that are not petitions for
+> certiorari. Two of its cert/distribution events — No. 25-1315
+> (`scotus/73500218`) and No. 25-1252 (`scotus/73299074`) — are petitions for
+> a writ of mandamus, an extraordinary writ under the Court's Rule 20. They are
+> docketed in the same form as a cert petition, so scope admitted them, they
+> drew a salience band, and they are graded against the pooled cert base rate
+> of that band like every other cert event. They stay in the cohort and are
+> scored as registered. But the Court grants an extraordinary writ far more
+> rarely than certiorari, so the cert anchor overstates their prior, and a
+> single such event can swing an engine's skill sharply: a forecast near zero
+> earns large positive skill against the band's rate, and a forecast of a few
+> percent can earn large negative skill. So each headline accuracy and skill
+> figure carries a sensitivity line with them removed (section 3). They are
+> identified by the docket's opening entry — a petition for a writ of
+> mandamus, prohibition or habeas corpus — not by docket form, and any further
+> such petition that reading finds in the cohort is named here too.
+>
+> The board is wider than the cohort, and part of what it holds was forecast
+> late. Some events whose first forward cell postdates the conference that
+> considered the petition are on the frozen board as registered: the counting
+> rule admits them, so they stay. They are outside the registered cohort, which
+> the registered cut already excludes, and their cells were made after that
+> conference had sat and after the 2026-10-01 grant list had issued. An
+> undisposed petition after the grant list is very likely to be denied on the
+> next order list, so those forecasts were made with information a forecast at
+> the conference could not have had. Every board-wide figure in section 3
+> carries a sensitivity line without them.
 
 ‹the graded cohort's size and composition, reconciled against the registered
 table above, with any delta explained — from `conference-set --counted
@@ -792,6 +941,20 @@ vintage it was read at, and `metrics/leaderboard.json`'s `events_scored`›
 
 ‹the re-measured band mix, if any tick of the drain did not run — from the same
 cut's registered per-band totals›
+
+‹the cohort's extraordinary-writ petitions, each by docket number and case id
+with the band its cells froze, its outcome and each engine's forecast — from
+the cut's per-event rows, with the identification by opening entry from the
+release sensitivity command (not yet built); the two named above, and any
+further one it finds›
+
+‹the post-conference first forecasts, re-counted at fill time: how many board
+events, on which conference, how many resolved and how many graded, each named
+by case id with its first forward cell's date and the conference that
+considered it; confirmation that none is registered; and confirmation that
+every one's first forward cell postdates the 2026-10-01 grant list, naming
+any that does not with its date and restating the paragraph above for it —
+from the release sensitivity command (not yet built), with the vintage it read›
 
 ## 6. Scope rules: every number names its population
 

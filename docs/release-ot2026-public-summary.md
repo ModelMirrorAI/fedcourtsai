@@ -185,6 +185,27 @@ something stronger›
   judgment standing — and those forecasts resolve as decisions come out through
   June 2027. Forecasts of the vote split and of who writes are pre-registered
   but not yet scored.
+- **The models did not run side by side.** In every run the three models'
+  forecasts started in a fixed order, so the last model ran later and after
+  the others had used part of a shared research allowance. That may have
+  helped or hurt it, and nothing here corrects for it (*Comparing the engines*
+  in section 3 of the audit write-up). ‹how often each model's research
+  requests were turned away for lack of allowance, with the caveat it carries,
+  copied from that section›
+- **Two petitions asked for something rarer than review.** Two of the
+  petitions asked the Court to order a lower court to act (a writ of
+  mandamus), which it almost never does; they are scored like the others,
+  against the ordinary historical rate (section 5 of the audit write-up).
+  ‹the table's figures without them, copied from section 3›
+- **Some forecasts on the wider board came late.** A few petitions were first
+  forecast only after their conference had met; they are not among the cases
+  this page lists, but they are in the scores (section 5 of the audit
+  write-up). ‹how many, and the table's figures without them, copied from
+  sections 5 and 3›
+- **The historical rates were copied by the graders.** Each grader wrote down
+  the band's historical rate it scored against; ‹how far those differ from
+  the exact rates, and the skill column recomputed against the exact rates,
+  copied from section 3›.
 - ‹any exclusion or coverage gap the audit write-up reports that changes how a
   reader should take the table, in one plain sentence each›
 
@@ -304,7 +325,14 @@ is the Court's page for that date, which a reader checks by hand.
   model's petitions scored equals the band's complete-grid count, which is what
   certifies the same petitions; otherwise it describes the result without
   ranking. An order it does state says, in the same sentence, that it
-  points to a possible difference rather than measuring one.
+  points to a possible difference rather than measuring one, and links the
+  write-up's run-order disclosure (*Comparing the engines* in
+  [release-ot2026-long-conference.md](release-ot2026-long-conference.md)):
+  the models did not run under identical conditions.
+- **Sensitivity lines stay beside, never instead.** Where the audit write-up
+  gives a figure a sensitivity line, the table shows the registered figure and
+  the line appears only in the plain sentence that discloses it; no sensitivity
+  figure is put in a table cell or the headline.
 - **Every number keeps its `n`** in the table or the sentence carrying it.
 - **Same page for everyone.** No outside party sees the filled page before it
   publishes.
