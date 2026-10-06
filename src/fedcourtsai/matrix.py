@@ -19,6 +19,12 @@ and resolved events are still skipped because the caller resolves each case's
 default event list (open case-baseline events for predict, resolved events for
 evaluate).
 
+Both fan-outs are laid out **case-major**: a case's cells sit together, in the
+order the cases were requested, and within each (case, event) the engines come
+in a per-run keyed shuffle (:func:`fanout_order`). GitHub starts ``include``
+entries in list order, so this is what spreads every engine across the run's
+start window rather than queueing one engine's cells behind another's.
+
 Keeping this in the library (rather than inline YAML/JS) makes the routing
 testable and keeps the registry the single source of truth for which agents
 exist — the same place the future hypothesis-generation harness will add new
@@ -27,6 +33,7 @@ predictors.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections.abc import Sequence
@@ -34,7 +41,7 @@ from dataclasses import dataclass, replace
 from datetime import date, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from .collect import parse_cell_artifact_name, parse_run_branch
 from .finalize import FinalizeRole
@@ -141,6 +148,50 @@ def reopened_for(data_root: Path, case: CaseRequest, event_id: str, predictor_id
     )
 
 
+class _Actor(Protocol):
+    """A registry entry the fan-out orders: anything carrying a stable ``id``."""
+
+    @property
+    def id(self) -> str: ...
+
+
+#: Domain separation for the fan-out key. The blinding shuffle
+#: (:func:`fedcourtsai.blinding.assign_aliases`) hashes a seed built from the
+#: same run, case and event, so without a distinct prefix an evaluate cell's
+#: dispatch position and its candidate aliases would come from one stream.
+_FANOUT_KEY_DOMAIN = "fanout-order"
+
+
+def fanout_order[A: _Actor](
+    actors: Sequence[A], *, run_id: str, case: str, event_id: str
+) -> list[A]:
+    """The engine order one ``(run, case, event)`` group of cells is dispatched in.
+
+    GitHub dispatches a matrix's ``include`` entries in list order under the
+    workflow's ``max-parallel`` throttle, so an engine's place in the list is
+    when its cell starts — and with it how much of the shared retrieval quota is
+    left and how fresh the docket is when it forecasts or grades. A fixed order
+    would hand one engine the first slot and another the last in every case of
+    every run. Instead each group's order is a keyed shuffle: actors sort by
+    ``sha256(domain, run_id, case, event_id, actor_id)``, the same keyed-sort
+    pattern as :func:`fedcourtsai.blinding.assign_aliases`, so every permutation
+    is equally likely and no engine is systematically first, last, or ahead of
+    another.
+
+    Deterministic, so the same inputs give the same order: a re-plan under the
+    same ``run_id`` (the run's report step, a dry-run plan given that id)
+    reproduces the fan-out exactly. A different run reorders, which is the
+    point. Order is all this decides — the set of cells is the caller's.
+    """
+    seed = "\x00".join((_FANOUT_KEY_DOMAIN, run_id, case, event_id))
+
+    def key(actor: A) -> tuple[str, str]:
+        digest = hashlib.sha256(f"{seed}\x00{actor.id}".encode()).hexdigest()
+        return (digest, actor.id)
+
+    return sorted(actors, key=key)
+
+
 def predict_matrix(
     predictors_path: Path,
     cases: list[CaseRequest],
@@ -180,6 +231,11 @@ def predict_matrix(
     forward at a still-open moment, this decides *which engines* on them are
     owed a blessed cell. A predictor already holding one is skipped here as
     before.
+
+    The list is case-major — case, then event, then the predictors in
+    :func:`fanout_order` for that ``(run_id, case, event)`` — so the order cells
+    start in favours no engine. The gates above decide which cells exist; the
+    order decides nothing about that set.
     """
     predictors = enabled_predictors(predictors_path)
     enabled_ids = {p.id for p in predictors}
@@ -193,11 +249,12 @@ def predict_matrix(
                 f"registry ids (enabled: {sorted(enabled_ids)})."
             )
     include: list[dict[str, Any]] = []
-    for predictor in predictors:
-        for case in cases:
-            if case.predictors and predictor.id not in case.predictors:
-                continue
-            for event_id in case.events:
+    for case in cases:
+        cid = case_id(case.court, case.docket)
+        for event_id in case.events:
+            for predictor in fanout_order(predictors, run_id=run_id, case=cid, event_id=event_id):
+                if case.predictors and predictor.id not in case.predictors:
+                    continue
                 if (
                     data_root is not None
                     and skip_predicted
@@ -285,8 +342,9 @@ def cap_predict_cells(matrix: dict[str, list[dict[str, Any]]], max_cells: int) -
     include = matrix["include"]
     if len(include) <= max_cells:
         return CappedMatrix(include, 0, ())
-    # Cells for one case are scattered across the predictor-major list, so first
-    # tally each case's cell count, then admit whole cases in a stable order.
+    # Tally each case's cell count from the cells themselves rather than from
+    # list adjacency, so admission depends only on the set of cells and never on
+    # the fan-out order; then admit whole cases in a stable order.
     per_case: dict[str, int] = {}
     for cell in include:
         cid = case_id(str(cell["court"]), int(cell["docket"]))
@@ -1023,15 +1081,21 @@ def evaluate_matrix(
     re-grade — a prompt or rubric change, where the point *is* to score an
     already-graded event again — so that never requires deleting committed
     artifacts to get a cell minted.
+
+    The list is case-major with the judges in :func:`fanout_order` per
+    ``(run_id, case, event)``, as in :func:`predict_matrix`, so no judge
+    systematically grades first or last.
     """
+    evaluators = enabled_evaluators(evaluators_path)
     include: list[dict[str, Any]] = []
-    for evaluator in enabled_evaluators(evaluators_path):
-        for case in cases:
-            for event_id in case.events:
-                if data_root is not None and not event_has_predictions(
-                    data_root, case.court, case.docket, event_id
-                ):
-                    continue
+    for case in cases:
+        cid = case_id(case.court, case.docket)
+        for event_id in case.events:
+            if data_root is not None and not event_has_predictions(
+                data_root, case.court, case.docket, event_id
+            ):
+                continue
+            for evaluator in fanout_order(evaluators, run_id=run_id, case=cid, event_id=event_id):
                 if (
                     data_root is not None
                     and skip_evaluated

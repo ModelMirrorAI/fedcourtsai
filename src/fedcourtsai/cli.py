@@ -16548,7 +16548,8 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
         str,
         typer.Option(
             help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
-            "carries it — a plan mints none — so it names the run only in the plan."
+            "carries it — a plan mints none — but it keys the engine order within each "
+            "case, so the plan lists cells in the order a run under this id starts them."
         ),
     ] = "",
     approval_report: _ApprovalReportOption = None,
@@ -16746,7 +16747,8 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
         str,
         typer.Option(
             help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
-            "carries it — a plan mints none — so it names the run only in the plan."
+            "carries it — a plan mints none — but it keys the judge order within each "
+            "case, so the plan lists cells in the order a run under this id starts them."
         ),
     ] = "",
     missed_since: Annotated[

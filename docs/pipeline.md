@@ -1813,7 +1813,17 @@ drop counts and nothing minted; with `--approval-report` it writes only that one
 report file, the bounded markdown a hold gate posts ([cli.md](cli.md)). Each
 matrix cell routes to Claude Code, Codex, or Gemini by the entry's `engine`. The
 agent writes files only. The workflow's `strategy.max-parallel` throttles the
-whole fan-out, however many cases it spans. After scope filtering the builder
+whole fan-out, however many cases it spans, and GitHub starts the matrix's
+entries in list order — so list order is start order, and with it how much of
+the shared retrieval quota is left and how fresh the docket is when a cell
+runs. Both builders therefore lay the list out **case-major** (each case's
+cells together, cases in the order derived) and order the engines within each
+(case, event) by a keyed shuffle of the run id, case and event
+(`matrix.fanout_order`): every engine is equally likely to start first or last
+in any case, and none is systematically ahead of another, on the predict side
+and the judge side alike. The order is deterministic — re-planning under the
+same run id, as the run's report step does, reproduces it — and it decides
+nothing about which cells exist. After scope filtering the builder
 also applies a **salience-independent volume cap**
 (`predict.max_predict_cells_per_run`, default 240): a hard backstop on the number
 of cells queued into one matrix, below GitHub's 256-job ceiling, that holds even
