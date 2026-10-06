@@ -268,14 +268,17 @@ def test_a_call_for_response_takes_the_petition_off_its_conference() -> None:
     )
 
 
-def test_a_relist_leaves_the_conference_that_sat_on_it() -> None:
-    # Relisted after 9/28 sat: a run on either side of the relist entry is
-    # after the conference that considered the petition.
-    for run_day in (date(2026, 9, 29), date(2026, 10, 3)):
-        assert considering_conference(RELISTED, PAYLOAD_DAY, run_day) == (
-            date(2026, 9, 28),
-            "sat",
-        )
+def test_a_relist_moves_the_reading_to_the_conference_ahead() -> None:
+    # Run after the relist entry: forecast against the 10/9 conference, still ahead.
+    assert considering_conference(RELISTED, PAYLOAD_DAY, date(2026, 10, 3)) == (
+        date(2026, 10, 9),
+        "ahead",
+    )
+    # Run between the sitting and the relist entry: the 9/28 conference had sat.
+    assert considering_conference(RELISTED, PAYLOAD_DAY, date(2026, 9, 29)) == (
+        date(2026, 9, 28),
+        "sat",
+    )
 
 
 def test_a_reschedule_before_the_conference_moves_it() -> None:

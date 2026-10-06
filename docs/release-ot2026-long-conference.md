@@ -539,8 +539,10 @@ the full graded set at fill time, from `release-sensitivity`'s
 `skill_scored_cert_cells` and `registered_cohort_graded_cert_cells`, each
 `by_judge` with `by_docket_term` inside, reading `cells`, `exact`,
 `max_relative_deviation`, `mean_relative_deviation` and `over_one_percent`,
-with the builds read in `.statpack_builds`; the cohort's `unanchored` list and
-the block's `recorded_retained` list must both be empty›
+with the builds read in `.blocks.exact_pool_anchor.statpack_builds`; the cohort's `unanchored` list and
+the block's `recorded_retained` list must both be empty (each entry carries
+its `reason`; "build not readable" usually means the clone lacks the grading's
+`pipeline_sha`, so fetch it and re-run)›
 
 **Sensitivity lines beside the headline.** Three sensitivity lines travel with
 the per-band figures above, each in the sentence that carries its registered
@@ -873,18 +875,20 @@ among an event's forward cells in the board's frozen process scope against
 that conference, never the agent-written `created_at`; a cell run on the day
 the conference sat counts as after it. Because the board scores each
 predictor's newest cell rather than its first, the release sensitivity command
-also checks every board event whose *scored* cell, for any predictor, postdates
-its considering conference, and names any that falls outside the subset
+also checks every `cert@distribution` board cell whose *scored* run, for any
+predictor, postdates its considering conference, and names any that falls
+outside the subset
 (`scored_after_conference_outside_subset`); it lists the subset itself
-(`subset`). A docket entry reading "Rescheduled." or "Response Requested.",
-or a distribution for another conference, filed between the distribution and
-the conference day is what takes a petition off it; a relist entered after the
-conference sat leaves that conference the one that considered it, and the
-earliest conference that sat on or before the run is the one named. A run's
-day is its `run_id`'s UTC day, the Court's own day for any run after 04:00 UTC
-(05:00 in winter). Where the stored payload predates the conference day, whether one was
+(`subset`). The conference is the one the petition was distributed for as at
+the run, so a relist entered before the run moves it to the next conference,
+which is still ahead, and the cell is a forecast at the relist moment rather
+than after the petition's last consideration. A docket entry reading
+"Rescheduled." or "Response Requested." filed between the distribution and the
+conference day takes the petition off it. A run's day is its `run_id`'s UTC
+day, the Court's own day for any run after 04:00 UTC (05:00 in winter). Where
+the stored payload predates the conference day, whether such an entry was
 filed cannot be read, and the event is listed under `unreadable` rather than
-placed — that list is empty before the count is quoted.
+placed; that list is empty before the count is quoted.
 
 `fedcourts unlatch-overselected` is **not** the source for the overhang, and
 running it in the write-up window would mislead: its dry run scans **pending**
