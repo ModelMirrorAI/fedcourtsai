@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73248556",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "Python decimal", "apply_patch", "JSON Schema validation"],
+  "helpful": [
+    "Blinded candidate documents preserved the information needed for independent scoring without predictor identities.",
+    "Result-capture markers distinguished missing telemetry from evidence of an empty result.",
+    "The versioned statpack table supported a reproducible strictly-prior federal risk-set baseline."
+  ],
+  "gaps": [
+    "Rounded displayed base rates permit an approximate pooled rate, not recovery of exact underlying counts.",
+    "Unobserved result rows and compact result digests limit independent inspection of retrieved source contents."
+  ],
+  "notes": "Evaluated all three staged aliases using only provisioned case materials and the committed statpack. No external case retrieval was needed. Optional big-case assessments are omitted because no independent stakes score was formed before seeing candidate scores."
+}

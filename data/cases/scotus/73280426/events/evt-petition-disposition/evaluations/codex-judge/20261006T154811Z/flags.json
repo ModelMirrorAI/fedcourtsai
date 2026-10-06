@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73280426",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md reports no retrieval beyond the provisioned inputs and statpack, but its harness log records two attempted corpus queries about voting-rights remedial-map standing, one direct and one through uv, both with a September 17, 2026 decided-before filter. Both results are unobserved: success, failure, returned content, and transfer amounts cannot be determined. The note should account for attempts without claiming they returned nothing. This is a reporting discrepancy, not evidence of outcome leakage; no score or leakage exclusion was changed because of it.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0"
+}

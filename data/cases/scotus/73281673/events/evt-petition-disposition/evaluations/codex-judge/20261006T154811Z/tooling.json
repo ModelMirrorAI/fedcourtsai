@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281673",
+  "gaps": [
+    "gemini-baseline's call results are entirely unobserved, limiting retrospective verification",
+    "Displayed base-rate percentages are rounded, so pooling reconstructs an approximate rate"
+  ],
+  "helpful": [
+    "Frozen candidate contexts preserve the correct risk-set band and Term",
+    "Result-capture markers distinguish unseen results from empty results",
+    "Provisioned filings permit checking the rationales against their sources"
+  ],
+  "notes": "No external web, CourtListener, or corpus retrieval was needed. All candidates were evaluated under their staged aliases. Full-tree validation is deferred to the harness because prediction identities and trees remain blinded during this cell.",
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Local shell reads of provisioned blinded artifacts and schemas",
+    "Committed metrics/statpack.md",
+    "Python decimal arithmetic",
+    "JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

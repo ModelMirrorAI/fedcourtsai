@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281401",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat, sed, python for reading the cell and computing scores)",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The blinded retrieval_log.json with per-call result_capture markers made the forward-cell leakage check mechanical.",
+    "The frozen context block on each prediction (band + salience_version) made the base-rate basis choice unambiguous.",
+    "The decided snapshot's ProceedingsandOrder list let me verify the response-request sequence the candidates argued about."
+  ],
+  "gaps": [
+    "A pre-computed pooled band rate per (band, version, Term) in the statpack would remove hand-pooling of rounded percentages, which drifts in the fourth decimal from the JSON-derived figure one candidate quoted (0.1724 vs 0.17224).",
+    "The evaluate prompt is long enough that reading it exceeds a single tool-output budget; a short per-stage checklist appendix would help."
+  ],
+  "notes": "Cert cell, all three candidates forward and clean; no flags raised."
+}

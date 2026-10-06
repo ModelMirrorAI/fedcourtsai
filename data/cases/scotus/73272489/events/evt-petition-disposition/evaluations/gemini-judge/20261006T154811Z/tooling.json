@@ -1,0 +1,19 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/73272489",
+  "gaps": [],
+  "helpful": [
+    "cat",
+    "grep"
+  ],
+  "notes": "Used basic shell tools to read the case context, the predicted reasoning docs, retrieval logs, and the statpack baseline rates.",
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "tools_used": [
+    "cat",
+    "grep",
+    "ls"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

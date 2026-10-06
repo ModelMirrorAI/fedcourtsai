@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280426",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the blinded staging area, event.yaml, outcome.json, the 2026-10-05 snapshot",
+    "metrics/statpack.md and metrics/statpack.json (band table, exact pooled denominators)",
+    "python for the Brier/skill arithmetic and schema validation"
+  ],
+  "helpful": [
+    "The blinded retrieval_log.json with result_capture markers made the forward leakage check mechanical",
+    "statpack.json beside statpack.md let the pooled elevated rate be computed exactly rather than from rounded percentages"
+  ],
+  "gaps": [
+    "A rendered pooled prior-Term figure per band in statpack.md would remove the by-hand pooling step every cert evaluator repeats",
+    "A harness-side note confirming the blinding move completed (every predictor-named path relocated) would have saved a manual tree inspection"
+  ],
+  "notes": "No corpus query, MCP call, or web search was needed: the outcome, the three staged candidates, and the committed statpack settled every field."
+}

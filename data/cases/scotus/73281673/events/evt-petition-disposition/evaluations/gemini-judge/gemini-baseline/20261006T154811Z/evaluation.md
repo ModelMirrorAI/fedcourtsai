@@ -1,0 +1,3 @@
+This is a cert cell. Candidate B anchored on an incorrect statistic by misreading the distribution count as a relist count, mechanically applying the relist_bucket=2 rate of ~41%. A second distribution following a requested response is not a post-conference relist. Moreover, it completely missed the finality/interlocutory posture (28 U.S.C. Section 1257(a)) arguments which were prominent in the brief in opposition and represented the strongest vehicle obstacle.
+
+The prediction was correctly run in forward mode prior to the case resolution, and the retrieval log shows no access to outcome-revealing information.

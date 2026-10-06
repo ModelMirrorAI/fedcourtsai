@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281372",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate artifacts and capture-coverage markers",
+    "Frozen prediction contexts",
+    "Rendered prior-Term risk-set table"
+  ],
+  "notes": "Scored only provisioned artifacts and committed statistical context; no external retrieval. Result-capture gaps were treated as unknown contents, not empty results. The jsonschema package is unavailable; validation uses the Pydantic models and checks their generated schemas against the committed schemas. Full-tree validation is deferred to the harness after restoration and alias resolution.",
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "Python decimal arithmetic",
+    "Pydantic schema-model validation",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

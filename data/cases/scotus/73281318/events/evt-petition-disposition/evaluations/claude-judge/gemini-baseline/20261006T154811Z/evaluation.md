@@ -1,0 +1,15 @@
+# Evaluation: gemini-baseline — Cummins v. Illinois, No. 25-1030 (evt-petition-disposition)
+
+**Outcome.** Cert stage. The petition was denied on 2026-10-05 after the September 28 long conference, with no noted dissent and no CVSG. `actual_granted` = 0.
+
+**Scores.** `predicted_disposition` = `denied` matches `actual_disposition` = `denied`, so `correct` = 1. Probability 0.02 gives a Brier of 0.0004.
+
+**Base rate.** The prediction froze `band` = `elevated` under `salience_version` = `sal-v4`; the statpack's segment table heading names `sal-v4`, so the basis is `risk_set` and the figure is the bracketed `reached` rate pooled resolved-weighted over rendered Terms strictly before Term 2025 (2017–2024; the table renders 10 of 10 Terms, so the rendered window is the pack's window): 484.4 / 2810 = 0.1724. Baseline Brier 0.0297; Brier skill = 1 - 0.0004 / 0.0297 = 0.987. The candidate quoted the same anchor (roughly 17.2%).
+
+**Reasoning quality (0.68).** Short, but every substantive point in it is correct and the key ones are the right ones: the risk-set anchor, the fact-bound misapplication framing, the interlocutory posture under 28 U.S.C. 1257, the observation that any probable-cause error by the state court favored the defendant and so a GVR in light of Case v. Montana would be futile, and the correct reading of the two distributions as waiver plus call for response rather than relists. The Case point is stated as sharply as any candidate stated it. What holds the score down is what is missing rather than what is wrong. There is no engagement with the response request as the positive signal that put the petition in this band, no page-level engagement with either brief, and no account of how the move from 17% to 2% was sized, so a reader cannot tell whether 2% rather than 5% or 8% reflects a judgment or a round number. "The vehicle is fatal" overstates a bar the Court applies by denial rather than dismissal and leaves the GVR path less room than its own reasoning allows. The forecast turned out right and the analysis is sound as far as it goes; it does not go far.
+
+**Leakage.** Forward mode; `influenced_prediction` = `not_applicable`, `retrieved_outcome_material` = false, `leakage_suspected` = false. Every call in the log is `unobserved`, the engine's standing capture shape, so each is graded on its query: all are reads of the provisioned record, the prompt, the schema and the statpack, plus the candidate's own output writes. There is no external lookup, no query naming this case's disposition, and no `data/qp-topics/` path. `retrieval.md` states no retrieval beyond the provisioned inputs, consistent with the log. Because no result was captured, the clean grade rests on the queries and the reasoning rather than on observed results.
+
+**Big case.** My independent read is 0.15: a fact-bound emergency-aid application in an interlocutory state suppression appeal, denied silently.
+
+**Not scored here.** The claims block and `predicted_reasoning.md` are the harness's and were read for context only. No semantic set is declared on a cert cell, so no `semantic_grades` block is written.

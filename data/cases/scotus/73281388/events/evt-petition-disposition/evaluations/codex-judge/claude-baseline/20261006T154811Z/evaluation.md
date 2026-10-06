@@ -1,0 +1,19 @@
+# Evaluation: claude-baseline
+
+## Outcome and arithmetic
+
+This is a cert-stage event. The supplied outcome records denial on October 5, 2026, with actual_granted = 0. The September 17 prediction assigns 0.14 to a grant and names denied: correct = 1 and Brier = (0.14 - 0)^2 = 0.0196. The denial does not establish why the Court declined review or endorse any party's legal argument.
+
+The frozen prediction context, not the evaluator's decided-docket context, supplies elevated, sal-v4, and Term 2025. The committed metrics/statpack.md heading matches sal-v4 and renders all 10 of its 10 Terms. Every displayed strictly prior Term is used: 2017–2024. The bracketed reached rate/weighted n pairs, newest first, are 17.9%/336, 17.5%/354, 19.0%/300, 20.5%/342, 16.1%/397, 13.8%/334, 15.9%/347, and 17.5%/400. Their resolved-weighted mean is 484.386/2810 = 0.17237935943060498, on the risk_set basis. These are denial-reweighted live/historical-slice estimates from the committed pack, not a fresh corpus query. The numerator is an approximation from displayed rounded rates, not an observed integer grant count. The slight difference from the predictor's approximately 17.2% anchor is rounding, not a population mismatch. Skill is 1 - 0.0196/(0.17237935943060498)^2 = 0.3403925589099902. This single-event improvement is not evidence of aggregate calibration.
+
+## Reasoning quality: 0.85
+
+The rationale weighs both sides rather than equating constitutional importance with certworthiness. It identifies preservation, the conceded closely regulated status of the industry, and disputed comparability of the alleged circuit conflicts. Its distinction between identifying a search and assessing its reasonableness engages the opposition's central argument. The supplied opposition, printed pages 12–19, supports that these were genuine contested issues: it discusses the parties' concessions and distinguishes home daycare inspections and municipal tire chalking. The candidate also correctly treats the two distributions as potentially reflecting response solicitation rather than two completed conference reviews.
+
+The number is transparently tied to a relevant frozen-band anchor, and the candidate discloses the major limits of its investigation. The principal weaknesses are reliance on adversarial accounts instead of reading the lower-court opinion, an unmeasured assumption that response-request redistributions are roughly comparable to true relists, and some speculative claims about individual Justices' preferences and the rarity of this class of petition. Those limits prevent a near-perfect analysis score. The correct denial call alone does not earn the quality score; the competing arguments and stated uncertainties do.
+
+## Leakage and scoring boundaries
+
+The harness log records forward mode and 39/39 captured results. All logged calls precede the supplied resolution date. Queries concern provisioned inputs, historical priors, the July 20 reply, the September 9 supplement, and Chatrie, a different case. The June 29 retrieved-document date belongs to that other case, not an outcome for this petition. There is no evidence of a decided case being mis-provisioned forward or of this petition's disposition being retrieved. Thus retrieved_outcome_material = false, influenced_prediction = not_applicable, and leakage_suspected = false. Captured result digests are not full source texts, and null dates alone prove nothing about content.
+
+The named predicted_reasoning.md was read for context only. Its forecast and the quantitative claims are not included in reasoning_quality; claim_scores remains the harness's responsibility. Vote accuracy is omitted because cert votes are not scored. No semantic set is declared on this cert event, so no semantic_grades block is written. No independent big-case score is supplied.

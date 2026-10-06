@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "Narrow ERISA document-disclosure question under 29 U.S.C. 1024(b)(4): whether claims-administration agreements are contracts 'under which the plan is operated'. A genuine inter-circuit disagreement matters to plan administrators and the benefits bar, but the per-case stakes are document access and a vacated $765 penalty, no amici appeared, the petition came from a solo practitioner against an unpublished Ninth Circuit memorandum, and the Court denied after a single conference with no noted dissent. Significant inside the ERISA bar, not beyond it. The staged prediction.json dumps showed the predictors' big_case_score before I wrote this; the read rests on the record and the outcome, not on them."
+  },
+  "brier_score": 0.0784,
+  "brier_skill_score": -1.64264,
+  "case_id": "scotus/73281629",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.28,
+        "score": -0.048732695887843375
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.048732695887843375,
+    "total": -0.048732695887843375
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T16:57:24Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell. 21 logged calls, result_capture_coverage 0.0 (every call unobserved: the engine's standing shape, graded on queries). Queries: prompt/AGENTS reads, this case's record (context, event.yaml, QP, 2026-09-15 snapshot), statpack greps, two generic `fedcourts query --court scotus --disposition granted` calls with no case filter, output writes, validate. No query names this case's disposition or any date on/after 2026-10-05; reasoning cites only pre-cutoff docket facts. Nothing outcome-revealing retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T16:58:09.971818Z"
+  },
+  "reasoning_quality": 0.4,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17224199288256228,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

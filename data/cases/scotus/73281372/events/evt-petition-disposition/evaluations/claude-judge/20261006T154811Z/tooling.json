@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281372",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat, sed, grep, python3 for reading the staged inputs and the statpack)",
+    "metrics/statpack.md (sal-v4 salience-band table, relist, CVSG and circuit cuts)"
+  ],
+  "helpful": [
+    "The blinded staging area with retrieval_log.json per alias made the leakage pass mechanical.",
+    "The statpack's bracketed reached figures with per-Term n made the pooled cert baseline a two-line computation.",
+    "result_capture markers on each log row made the unobserved-vs-empty distinction unambiguous."
+  ],
+  "gaps": [
+    "A harness-rendered pooled strictly-prior reached rate per band and Term would remove one hand computation every cert evaluator repeats.",
+    "The retrieval log's tool class is null on every row in all three logs here, so call classes had to be inferred from the query shape."
+  ],
+  "notes": "Cert cell, forward mode, all three candidates named denial. No corpus query or CourtListener call was needed: the outcome, the staged candidates and the committed statpack settled every field."
+}

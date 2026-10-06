@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "Judge's read: an as-applied Commerce Clause challenge to the cyberstalking statute turning on whether intrastate phone use is per se use of an instrumentality of interstate commerce. The doctrinal question would reach many federal statutes keyed on facilities of interstate commerce, but the asserted conflict is one motor-vehicle decision against a long line of telephone holdings, the record carried alternative jurisdictional hooks, and the petition was denied without any noted writing. Moderate doctrinal stakes, low public stakes."
+  },
+  "brier_score": 0.0025000000000000005,
+  "brier_skill_score": 0.9157321477358104,
+  "case_id": "scotus/73281345",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.027167304112156634
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.027167304112156634,
+    "total": 0.027167304112156634
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T16:46:40Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-17, event resolved 2026-10-05. 28 logged calls, all unobserved (capture coverage 0.0, the engine's standing shape), graded on query: prompt/schema/snapshot/document reads, a statpack read, a grep of the brief in opposition, and two fedcourts query calls (a topic query on 'instrumentality of interstate commerce' and a 2020s era pull with --full, limit 5). No query names this petition's disposition; no data/qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T16:48:30.290925Z"
+  },
+  "reasoning_quality": 0.58,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17224199288256228,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
