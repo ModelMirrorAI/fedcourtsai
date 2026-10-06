@@ -53,7 +53,7 @@ corpus vintage, the ledger commit and every statpack build it read:
 ```bash
 uv run fedcourts release-sensitivity --registered-at 2026-09-15 \
   --grant-list 2026-10-01 > sensitivity.json
-jq '.ledger, .corpus, .fill_statpack, .conference_fallbacks' sensitivity.json
+jq '.ledger, .corpus, .payloads_read, .fill_statpack, .conference_fallbacks' sensitivity.json
 jq '.registered_headline.matches_committed_board' sensitivity.json  # must be true
 ```
 
@@ -537,7 +537,9 @@ grading read, and how many cells deviate by more than 1% — re-measured over
 the full graded set at fill time, from `release-sensitivity`'s
 `.blocks.exact_pool_anchor.transcription_spread` — its
 `skill_scored_cert_cells` and `registered_cohort_graded_cert_cells`, each
-`by_judge` with `by_docket_term` inside, reading `cells`, `exact`,
+`by_judge` with `by_docket_term` inside, reading `cells`, `exact` (equal to
+six decimals), `faithful_rounding` (equal to the exact pool rounded to the
+recorded rate's own decimals; judges record from four decimals up),
 `max_relative_deviation`, `mean_relative_deviation` and `over_one_percent`,
 with the builds read in `.blocks.exact_pool_anchor.statpack_builds`; the cohort's `unanchored` list and
 the block's `recorded_retained` list must both be empty (each entry carries
@@ -877,18 +879,22 @@ the conference sat counts as after it. Because the board scores each
 predictor's newest cell rather than its first, the release sensitivity command
 also checks every `cert@distribution` board cell whose *scored* run, for any
 predictor, postdates its considering conference, and names any that falls
-outside the subset
-(`scored_after_conference_outside_subset`); it lists the subset itself
-(`subset`). The conference is the one the petition was distributed for as at
-the run, so a relist entered before the run moves it to the next conference,
+outside the subset (`scored_after_conference_outside_subset`); it lists the
+subset itself (`subset`). The first forward cell is the earliest among cells
+in the frozen scope, so a retired cell made before the freeze does not count,
+and "none registered" is a confirmation the command's `registered` count
+makes, not a property of the rule. The conference is the one the petition was
+distributed for as at the run, read off the petition's own distribution
+entries and never an ancillary paper's ("Motion … DISTRIBUTED for Conference
+of …"), so a relist entered before the run moves it to the next conference,
 which is still ahead, and the cell is a forecast at the relist moment rather
 than after the petition's last consideration. A docket entry reading
 "Rescheduled." or "Response Requested." filed between the distribution and the
-conference day takes the petition off it. A run's day is its `run_id`'s UTC
-day, the Court's own day for any run after 04:00 UTC (05:00 in winter). Where
-the stored payload predates the conference day, whether such an entry was
-filed cannot be read, and the event is listed under `unreadable` rather than
-placed; that list is empty before the count is quoted.
+conference day, that day included, takes the petition off it. A run's day is
+its `run_id`'s UTC day, the Court's own day for any run after 04:00 UTC (05:00
+in winter). Where the stored payload predates the conference day, whether such
+an entry was filed cannot be read, and the event is listed under `unreadable`
+rather than placed; that list is empty before the count is quoted.
 
 `fedcourts unlatch-overselected` is **not** the source for the overhang, and
 running it in the write-up window would mislead: its dry run scans **pending**
@@ -1008,8 +1014,10 @@ any that does not with its date and restating the paragraph above for it —
 from `release-sensitivity`'s `.blocks.post_conference_first_forecasts_excluded`
 (`events`, `by_conference`, `resolved`, `graded`, `registered`, each `subset`
 row's `first_forward_run_id` and `considering_conference`, and
-`not_after_grant_list`, which names any first cell not after the grant list),
-with the vintage it read (`.corpus`); if none is graded
+`not_after_grant_list`, which names any first cell not after the grant list;
+the grant list is read against `grant_list_conference` only), with the
+vintage it read (`.corpus`, and `.payloads_read` for the stored dockets the
+block actually read); if none is graded
 (`lines_equal_headline: true`), say that the section 3 lines without them are
 omitted because they would equal their headlines›
 

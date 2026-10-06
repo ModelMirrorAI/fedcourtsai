@@ -719,3 +719,63 @@ def test_the_command_reads_the_committed_board_and_the_registered_cohort(
 def test_the_command_refuses_a_bad_date() -> None:
     result = runner.invoke(app, ["release-sensitivity", "--grant-list", "October"])
     assert result.exit_code == 2
+
+
+def test_an_ancillary_papers_distribution_is_not_the_petitions_conference() -> None:
+    docket = _docket(
+        ("Apr 01 2026", "Motion (25M75) DISTRIBUTED for Conference of 5/14/2026."),
+        ("Jun 01 2026", "Petition for a writ of certiorari filed."),
+        ("Jul 01 2026", "DISTRIBUTED for Conference of 9/28/2026."),
+        ("Aug 01 2026", "Motion (25M90) DISTRIBUTED for Conference of 8/20/2026."),
+    )
+    # Before the petition's own distribution, the motion's conference is not its.
+    assert considering_conference(docket, PAYLOAD_DAY, date(2026, 6, 1)) == (
+        None,
+        "undistributed",
+    )
+    # After it, a later motion distribution does not win the latest-entry read.
+    assert considering_conference(docket, PAYLOAD_DAY, date(2026, 9, 1)) == (
+        date(2026, 9, 28),
+        "ahead",
+    )
+
+
+def test_a_reschedule_on_the_conference_day_takes_it_off() -> None:
+    docket = _docket(
+        ("Jun 01 2026", "Petition for a writ of certiorari filed."),
+        ("Jul 01 2026", "DISTRIBUTED for Conference of 9/28/2026."),
+        ("Sep 28 2026", "Rescheduled."),
+    )
+    assert considering_conference(docket, PAYLOAD_DAY, date(2026, 10, 3)) == (
+        date(2026, 9, 28),
+        "off",
+    )
+
+
+def test_the_spread_counts_faithful_roundings_at_the_recorded_precision(ledger: Path) -> None:
+    cells = stratify(ledger, frozen_only=True).cells
+    result = release_sensitivity(
+        cells,
+        ledger,
+        None,
+        # j2 recorded 0.06: a faithful two-decimal rounding of 0.0600004, not exact.
+        builds=_Builds({"sha-a": 0.05, "sha-b": 0.0600004}),
+        payloads=lambda case_id: None,
+    )
+    by_judge = result["blocks"]["exact_pool_anchor"]["transcription_spread"][
+        "skill_scored_cert_cells"
+    ]["by_judge"]
+    assert (by_judge["j2"]["exact"], by_judge["j2"]["faithful_rounding"]) == (4, 4)
+    # 0.0512 is not 0.05 at four decimals.
+    assert by_judge["j1"]["faithful_rounding"] == 0
+    assert result["payloads_read"] == {"cases": 4, "missing": 4, "oldest": None, "newest": None}
+
+
+def test_the_grant_list_is_read_against_one_conference(ledger: Path) -> None:
+    block = _run(ledger, grant_list=date(2026, 9, 1))["blocks"][
+        "post_conference_first_forecasts_excluded"
+    ]
+    # No considering conference sits on or before a 9/1 grant list.
+    assert block["grant_list_conference"] is None
+    assert [row["after_grant_list"] for row in block["subset"]] == [None]
+    assert block["not_after_grant_list"] == []

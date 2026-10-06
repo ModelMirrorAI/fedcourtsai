@@ -39,14 +39,13 @@ here writes anything, and no figure here reaches the board.
 
 from __future__ import annotations
 
-import math
 import os
 import re
 import subprocess
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
@@ -64,7 +63,7 @@ from .leaderboard import (
     stage_moment_key,
 )
 from .paths import CasePaths
-from .pipeline import asof, cert_signals
+from .pipeline import cert_signals
 from .pipeline.base_rates import _pooled_band_rate
 from .pipeline.moments import first_moment
 from .process_version import is_frozen
@@ -120,8 +119,10 @@ ACCURACY_SKILL_FIELDS: tuple[str, ...] = (
     "skill_scored",
 )
 
-#: A recorded rate within this of the exact pool is a transcription of it: half
-#: a unit in the sixth decimal, the precision committed gradings record.
+#: A recorded rate within this of the exact pool is exact to six decimals: half a
+#: unit in the sixth decimal. Gradings record anywhere from four decimals up, so
+#: the spread also counts ``faithful_rounding`` — the recorded rate equals the
+#: exact pool rounded to the recorded rate's own number of decimals.
 EXACT_TOLERANCE = 5e-7
 
 #: A recorded rate deviating from the exact pool by more than this (relative)
@@ -139,6 +140,9 @@ _PETITION_ENTRY_RE = re.compile(
 )
 #: The extraordinary writs of the Court's Rule 20.
 RULE_20_WRITS: tuple[str, ...] = ("mandamus", "prohibition", "habeas corpus")
+#: A distribution of the petition itself: the entry-initial parse, which leaves out
+#: an ancillary paper's distribution ("Motion (…) DISTRIBUTED for Conference of …").
+_PETITION_DISTRIBUTED_RE = cert_signals.distribution_pattern("dist-v2")
 #: A call for response: takes a petition off the conference it was distributed for.
 _RESPONSE_REQUESTED_RE = re.compile(r"^\s*response\s+requested\b", re.I)
 #: A bare reschedule entry: takes a petition off the conference it was distributed for.
@@ -307,55 +311,54 @@ def considering_conference(
 ) -> tuple[date | None, ConferenceReading]:
     """The conference a cell run on ``run_day`` came after, if one had considered the petition.
 
-    The conference is the one the petition was distributed for as at the run —
-    the latest DISTRIBUTED entry filed on or before ``run_day``
-    (:func:`fedcourtsai.pipeline.asof.asof_conference`), so a later
-    distribution or a reschedule entered before the run moves it, and never the
-    current ``distributed_for_conference`` column. It **sat on the petition**
-    unless a call for response ("Response Requested") or a bare "Rescheduled"
-    entry was filed between that distribution entry and the conference day: a
-    petition taken off a conference before it sat was never considered there.
-    A relist entered after a conference sat moves the reading to the next
-    conference: the petition is then forecast against a conference still
-    ahead, which is the relist moment the pipeline forecasts by design, not a
-    forecast made after the petition's last consideration.
+    The conference is the one the petition was distributed for as at the run:
+    the latest **petition** distribution filed on or before ``run_day``, read
+    under the entry-initial parse (``dist-v2``), so a "Motion (…) DISTRIBUTED"
+    entry for an ancillary paper never stands in for the petition's own
+    conference, and never the current ``distributed_for_conference`` column. A
+    later distribution or a reschedule entered before the run moves it. It
+    **sat on the petition** unless a call for response ("Response Requested")
+    or a bare "Rescheduled" entry was filed between that distribution entry and
+    the conference day, that day included: a petition taken off a conference
+    before or as it sat was never considered there. A relist entered after a
+    conference sat moves the reading to the next conference: the petition is
+    then forecast against a conference still ahead, which is the relist moment
+    the pipeline forecasts by design, not a forecast made after the petition's
+    last consideration.
 
     Returns the conference and ``"sat"`` where it sat on or before ``run_day``
     (a cell run on the conference day counts as after it). Otherwise the
     reading says why not: ``"ahead"`` (the conference is after the run),
-    ``"off"`` (taken off before it sat), ``"undistributed"`` (no distribution
-    disclosed by the run), or ``"unknown"`` — the payload was stored before the
-    conference day, so whether something took it off cannot be read.
-    ``run_day`` is the caller's: the commands pass the run's UTC day (the
-    harness ``run_id``), which matches the Court's Eastern day for every cell
-    run after 04:00 UTC (05:00 in winter).
+    ``"off"`` (taken off before it sat), ``"undistributed"`` (no petition
+    distribution disclosed by the run), or ``"unknown"`` — the payload was
+    stored before the conference day, so whether something took it off cannot
+    be read. Entries are day-grained, so one filed on the run day counts as
+    before the run. ``run_day`` is the caller's: the commands pass the run's
+    UTC day (the harness ``run_id``), which matches the Court's Eastern day for
+    every cell run after 04:00 UTC (05:00 in winter).
     """
-    conference = asof.asof_conference(payload, run_day + timedelta(days=1))
-    if conference is None:
-        return None, "undistributed"
-    if conference > run_day:
-        return conference, "ahead"
-    if payload_date < conference:
-        return conference, "unknown"
     entries = [
         (text, filed)
         for text, raw in cert_signals.proceedings_entries(payload)
         if (filed := cert_signals.entry_date(raw)) is not None
     ]
-    distributed = max(
-        (
-            filed
-            for text, filed in entries
-            if filed <= run_day
-            and (match := cert_signals.DISTRIBUTED_RE.search(text)) is not None
-            and cert_signals.conference_date(match.group(1)) == conference
-        ),
-        default=None,
-    )
-    if distributed is None:  # pragma: no cover - asof_conference found it
+    conference: date | None = None
+    distributed: date | None = None
+    for text, filed in entries:
+        match = _PETITION_DISTRIBUTED_RE.search(text)
+        if match is None or filed > run_day:
+            continue
+        parsed = cert_signals.conference_date(match.group(1))
+        if parsed is not None:
+            conference, distributed = parsed, filed
+    if conference is None or distributed is None:
+        return None, "undistributed"
+    if conference > run_day:
+        return conference, "ahead"
+    if payload_date < conference:
         return conference, "unknown"
     for text, filed in entries:
-        if distributed <= filed < conference and (
+        if distributed <= filed <= conference and (
             _RESPONSE_REQUESTED_RE.search(text) or _RESCHEDULED_RE.search(text)
         ):
             return conference, "off"
@@ -451,6 +454,7 @@ class _Spread:
 
     cells: int = 0
     exact: int = 0
+    faithful_rounding: int = 0
     over_one_percent: int = 0
     deviations: list[float] = field(default_factory=list)
     largest_at: dict[str, Any] | None = None
@@ -459,6 +463,7 @@ class _Spread:
         deviation = abs(recorded - exact) / exact
         self.cells += 1
         self.exact += abs(recorded - exact) <= EXACT_TOLERANCE
+        self.faithful_rounding += round(exact, _decimals(recorded)) == recorded
         self.over_one_percent += deviation > LARGE_DEVIATION
         if not self.deviations or deviation > max(self.deviations):
             self.largest_at = where | {"recorded": recorded, "exact": exact}
@@ -468,6 +473,7 @@ class _Spread:
         return {
             "cells": self.cells,
             "exact": self.exact,
+            "faithful_rounding": self.faithful_rounding,
             "max_relative_deviation": max(self.deviations) if self.deviations else None,
             "mean_relative_deviation": (
                 sum(self.deviations) / len(self.deviations) if self.deviations else None
@@ -475,6 +481,16 @@ class _Spread:
             "over_one_percent": self.over_one_percent,
             "largest_at": self.largest_at,
         }
+
+
+def _decimals(value: float) -> int:
+    """How many decimals ``value`` was recorded to, read off its shortest repr."""
+    text = repr(value)
+    if "e" in text or "E" in text:
+        mantissa, _, exponent = text.lower().partition("e")
+        places = len(mantissa.partition(".")[2]) - int(exponent)
+        return max(places, 0)
+    return len(text.partition(".")[2])
 
 
 def _spread(rows: Iterable[tuple[str, int, float, float, dict[str, Any]]]) -> dict[str, Any]:
@@ -890,12 +906,27 @@ def post_conference_excluded(
                 "considering_conference": conference.isoformat(),
                 "first_forward_run_id": first,
                 "first_forward_day": run_day.isoformat(),
-                "after_grant_list": (run_day > grant_list) if grant_list is not None else None,
                 "resolved": info.resolved,
                 "graded_cells": len(graded.get(key, [])),
                 "registered": key in registered if registered is not None else None,
                 "payload_date": found[0].isoformat(),
             }
+        )
+    # A grant list follows one conference: the latest considering conference on
+    # or before it. Rows read against another conference are not compared.
+    grant_conference = max(
+        (
+            row["considering_conference"]
+            for row in subset
+            if grant_list is not None and row["considering_conference"] <= grant_list.isoformat()
+        ),
+        default=None,
+    )
+    for row in subset:
+        row["after_grant_list"] = (
+            row["first_forward_day"] > grant_list.isoformat()
+            if grant_list is not None and row["considering_conference"] == grant_conference
+            else None
         )
     members = {(row["case_id"], row["event_id"]) for row in subset}
     outside = _scored_after_conference(cells, members, payloads)
@@ -909,6 +940,7 @@ def post_conference_excluded(
             "that considered the petition sat removed"
         ),
         "grant_list": grant_list.isoformat() if grant_list is not None else None,
+        "grant_list_conference": grant_conference,
         "events": len(subset),
         "resolved": sum(1 for row in subset if row["resolved"]),
         "graded": graded_members,
@@ -962,47 +994,57 @@ def release_sensitivity(
         return cached[case_id]
 
     events = _cert_events(data_root)
-    anchor = exact_pool_anchor(cells, data_root, skills, builds, registered)
+    blocks = {
+        "exact_pool_anchor": exact_pool_anchor(cells, data_root, skills, builds, registered),
+        "rule_20_excluded": rule_20_excluded(cells, data_root, skills, events, read, registered),
+        "post_conference_first_forecasts_excluded": post_conference_excluded(
+            cells, data_root, skills, events, read, registered, grant_list
+        ),
+    }
+    stored = sorted(found[0] for found in cached.values() if found is not None)
     return {
+        "payloads_read": {
+            "cases": len(cached),
+            "missing": sum(1 for found in cached.values() if found is None),
+            "oldest": stored[0].isoformat() if stored else None,
+            "newest": stored[-1].isoformat() if stored else None,
+        },
         "registered_headline": {
             "matches_committed_board": (
                 project(committed_board) == headline if committed_board is not None else None
             ),
             "figures": headline,
         },
-        "blocks": {
-            "exact_pool_anchor": anchor,
-            "rule_20_excluded": rule_20_excluded(
-                cells, data_root, skills, events, read, registered
-            ),
-            "post_conference_first_forecasts_excluded": post_conference_excluded(
-                cells, data_root, skills, events, read, registered, grant_list
-            ),
-        },
+        "blocks": blocks,
     }
 
 
-def _fmt(value: Any) -> str:
+def _fmt(value: Any, *, signed: bool = False) -> str:
     if value is None:
         return "—"
     if isinstance(value, float):
-        return f"{value:+.4f}" if not math.isnan(value) else "nan"
+        return f"{value:+.4f}" if signed else f"{value:.4f}"
     return str(value)
 
 
 def render_table(result: Mapping[str, Any]) -> list[str]:
-    """The human table: per arm, predictor and band, the registered figure beside each line."""
+    """The human table: per arm, predictor and band, the registered figure beside each line.
+
+    Accuracy is never shown without its floor: the registered row carries the
+    per-petition accuracy, the realized always-deny floor and the lift over it,
+    and each excluding block shows its lift and skill, each with its own ``n``.
+    """
     headline = result["registered_headline"]["figures"]
     blocks = result["blocks"]
     lines: list[str] = []
     columns = (
         ("anchor skill", blocks["exact_pool_anchor"]["figures"], "population_brier_skill_score"),
-        ("-R20 acc", blocks["rule_20_excluded"]["figures"], "event_accuracy"),
+        ("-R20 lift", blocks["rule_20_excluded"]["figures"], "event_accuracy_lift"),
         ("-R20 skill", blocks["rule_20_excluded"]["figures"], "population_brier_skill_score"),
         (
-            "-post acc",
+            "-post lift",
             blocks["post_conference_first_forecasts_excluded"]["figures"],
-            "event_accuracy",
+            "event_accuracy_lift",
         ),
         (
             "-post skill",
@@ -1018,9 +1060,11 @@ def render_table(result: Mapping[str, Any]) -> list[str]:
                 if stratum is None:
                     continue
                 parts = [
-                    f"acc {_fmt(stratum['event_accuracy'])} "
+                    f"acc {_fmt(stratum['event_accuracy'])} floor "
+                    f"{_fmt(stratum['event_always_deny_accuracy'])} lift "
+                    f"{_fmt(stratum['event_accuracy_lift'], signed=True)} "
                     f"(n={stratum['accuracy_events_scored']})",
-                    f"skill {_fmt(stratum['population_brier_skill_score'])} "
+                    f"skill {_fmt(stratum['population_brier_skill_score'], signed=True)} "
                     f"(n={stratum['skill_scored']})",
                 ]
                 for label, block_figures, name in columns:
@@ -1034,6 +1078,8 @@ def render_table(result: Mapping[str, Any]) -> list[str]:
                         parts.append(f"{label} —")
                         continue
                     n_name = "skill_scored" if "skill" in name else "accuracy_events_scored"
-                    parts.append(f"{label} {_fmt(cut.get(name))} (n={cut.get(n_name)})")
+                    parts.append(
+                        f"{label} {_fmt(cut.get(name), signed=True)} (n={cut.get(n_name)})"
+                    )
                 lines.append(f"  {predictor:<16} {band:<18} " + "; ".join(parts))
     return lines
