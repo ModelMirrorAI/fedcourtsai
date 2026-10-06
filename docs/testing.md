@@ -210,7 +210,8 @@ typed `-f scenario=gate` (or `all`), which a promotion pays once per batch at
 the head it will promote (*Promotion: staging → main* in
 [pipeline.md](pipeline.md)). That default is a spend decision as much as a safety
 one: a paid `scenario=gate` spends three real cells plus the boot probes, on the
-order of $8 a run, and at the measured cadence of about 1.4 paid suites a
+order of $8 a run (an `all` run adds an evaluate cell and the labeler's cents),
+and at the measured cadence of about 1.4 paid suites a
 promotion batch that is roughly $250 a month — re-measured from `gh run list
 --workflow integration-test.yml` filtered to titles beginning
 `integration-test: gate @` or `integration-test: all @` (both paid suites),
