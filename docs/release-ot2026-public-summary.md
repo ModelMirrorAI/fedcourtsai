@@ -189,23 +189,27 @@ something stronger›
   forecasts started in a fixed order, so the last model ran later and after
   the others had used part of a shared research allowance. That may have
   helped or hurt it, and nothing here corrects for it (*Comparing the engines*
-  in section 3 of the audit write-up). ‹how often each model's research
-  requests were turned away for lack of allowance, with the caveat it carries,
-  copied from that section›
-- **Two petitions asked for something rarer than review.** Two of the
-  petitions asked the Court to order a lower court to act (a writ of
-  mandamus), which it almost never does; they are scored like the others,
-  against the ordinary historical rate (section 5 of the audit write-up).
-  ‹the table's figures without them, copied from section 3›
-- **Some forecasts on the wider board came late.** A few petitions were first
-  forecast only after their conference had met; they are not among the cases
-  this page lists, but they are in the scores (section 5 of the audit
-  write-up). ‹how many, and the table's figures without them, copied from
-  sections 5 and 3›
-- **The historical rates were copied by the graders.** Each grader wrote down
-  the band's historical rate it scored against; ‹how far those differ from
-  the exact rates, and the skill column recomputed against the exact rates,
-  copied from section 3›.
+  in section 3 of the audit write-up). ‹per model, how often its research
+  requests were seen being turned away for lack of allowance, or that this
+  could not be measured for that model, with the caveat that each count is a
+  lower bound and the counts cannot be compared between models, copied from
+  that section›
+- **Some petitions asked for something rarer than review.** ‹how many, copied
+  from section 5› of the petitions asked the Court to order a lower court to
+  act (a writ of mandamus), which it almost never does; they are scored like
+  the others, against the ordinary historical rate (section 5 of the audit
+  write-up). ‹how far the table's figures move without them, copied from
+  section 3›
+- ‹only if section 5 reports any of them graded: **Some forecasts on the
+  wider board came late.** A few petitions were first forecast only after
+  their conference had met; they are not among the cases this page lists, but
+  they are in the scores (section 5 of the audit write-up) — then how many,
+  and how far the table's figures move without them, copied from sections 5
+  and 3›
+- **The historical rates were worked out by the graders.** Each grader
+  worked out and wrote down the band's historical rate it scored against;
+  ‹how far those differ from the exact rates, and skill recomputed against the
+  exact rates, copied from section 3›.
 - ‹any exclusion or coverage gap the audit write-up reports that changes how a
   reader should take the table, in one plain sentence each›
 
