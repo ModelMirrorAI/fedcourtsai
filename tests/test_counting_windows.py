@@ -335,7 +335,7 @@ def test_no_window_opens_after_the_earliest_until_the_boards_are_per_window() ->
     assert not later, (
         "a counting window opens after the earliest before the aggregate boards key "
         "on (predictor, window) — build per-window strata first (docs/process-version.md, "
-        "the third supersession shape): " + process_version.describe_windows(later)
+        "the per-window hold): " + process_version.describe_windows(later)
     )
 
 
