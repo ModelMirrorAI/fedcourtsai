@@ -1,0 +1,17 @@
+# Forecast: what the Court will do with No. 25-1324 (Novotny v. Moore)
+
+**Bottom line.** The Court will most likely deny this cross-petition (P(any grant) = 0.18). If it does act favorably, a grant-vacate-remand in light of *Wolford v. Lopez* (decided June 25, 2026) is about as likely as plenary review.
+
+**Distributions and relists.** The docket shows two distributions: distributed September 2 for the September 28 long conference, pulled as "Rescheduled" on September 24 before it was considered, and redistributed October 5 for the October 9 conference. It has therefore never actually been considered at conference, so this is a first-consideration petition despite the count of two. I expect at least one further distribution after October 9 (P = 0.50): the reschedule reads as deliberate handling, most plausibly to take it up alongside Maryland's own petition on the private-property default rule (No. 25-1206), and a sensitive-places denial of a final-judgment case is the kind of order a Justice holds for a separate writing. If relisted, expect one to three further distributions, then an order by late November.
+
+**CVSG.** No call for the views of the Solicitor General (P = 0.04). The United States is not a party, no federal statute is construed, and the Court has not sought the SG's views in the recent state carry cases (*Bruen*, *Wolford*, the Antonyuk and Schoenthal denials).
+
+**Which question, if taken.** The petition's single question is broad ("numerous prohibitions ... in many places frequented by the general public"). If the Court grants plenary review it will not take that question as written; it would reformulate to the methodological question the Agee dissent frames, namely which era's laws and what kind of analogues can establish a "sensitive place," possibly confined to one or two locations with a real inter-circuit disagreement (public transit, health-care facilities).
+
+**Summary disposition versus plenary review.** Conditional on any grant, I put the cert-order route (a GVR in light of *Wolford*) at 0.50. The petition itself asks for a GVR in the alternative, the Fourth Circuit decided before *Wolford*, and *Wolford*'s treatment of late and lone analogues undercuts the panel majority's reliance on mid-to-late nineteenth-century laws. Against that, *Wolford* decided a private-property default rule and said nothing that controls the sensitive-places inquiry, and the Court declined to hold the Schoenthal transit-ban petition for *Wolford*, denying it in April 2026, which signals the Court did not see *Wolford* as bearing on sensitive-places rulings.
+
+**If denied.** I expect a reasonable chance of a dissent from denial or statement respecting denial (P = 0.45), most plausibly from Justice Thomas, who has written on denials in post-*Bruen* carry and arms-ban cases, given that this is a final judgment with a comprehensive set of location bans and a vigorous partial dissent below.
+
+**Companion petition.** Maryland's own petition (No. 25-1206) challenges the panel's invalidation of the private-property default rule, which *Wolford* has now resolved against the State; I expect it to be denied at the same conference.
+
+**If granted on the merits (conditional only).** The likely ground would be that the Fourth Circuit's "principles" approach, resting on scattered nineteenth-century laws and proprietary and crowding rationales, does not establish a Founding-era tradition for several of the challenged bans; the judgment would most likely be vacated at least in part rather than affirmed.

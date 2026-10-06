@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000002",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Provisioned snapshot and filed-document text",
+    "Committed statpack",
+    "fedcourts paths",
+    "CourtListener MCP search and search_document",
+    "Web search/open attempts",
+    "Local arithmetic and schema validation"
+  ],
+  "helpful": [
+    "Petition appendices exposed the summary-affirmance posture and separate-contract issue.",
+    "Version-matched reached-band rates supplied a relevant prior anchor.",
+    "Targeted historical opinion excerpts verified the reserved question and qualified the asserted split."
+  ],
+  "gaps": [
+    "Requested opposition and proceedings after August 14 were not provisioned.",
+    "An explicit case-level refresh timestamp would distinguish a dated snapshot file from current docket coverage.",
+    "Web attempts returned no usable content."
+  ],
+  "notes": "The default uv cache was read-only; a temporary writable cache allowed the CLI to run. No live corpus query or current-case outcome search was needed."
+}

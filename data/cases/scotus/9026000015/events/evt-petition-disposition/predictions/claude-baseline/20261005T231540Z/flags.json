@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000015",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Conditioning note, not a defect: the docket shows the Court requested a response on Jul 30 2026 after the City waived, and the petition was pulled from the 9/28/2026 conference pending a BIO now due Oct 30 2026. The frozen context records band=baseline, distribution_count=1 and response_requested=null, so the scored baseline (~5% pooled reached rate for baseline) does not reflect the call-for-response signal. My P(grant)=0.30 adjusts for it; the gap between the two is the CFR, not a disagreement about the band."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "documents.json marks petition.txt truncated (286 pages, the petition plus Appendix Volume I). The petition body itself (through the Conclusion) is intact; only appendix material is cut, and no BIO exists yet to provision. No effect on the forecast."
+    }
+  ]
+}

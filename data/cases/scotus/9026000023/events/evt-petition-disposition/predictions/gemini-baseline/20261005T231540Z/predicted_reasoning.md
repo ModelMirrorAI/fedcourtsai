@@ -1,0 +1,9 @@
+Distributed once so far (for the September 28, 2026 conference). However, the Court requested a response on August 12, 2026, and the respondent's time to file has been extended to November 2, 2026. Therefore, the petition will definitely be redistributed for a subsequent conference after the response is filed. Expect at least one further distribution (relist) once the briefing is complete, as the Court takes a close look at the response before voting. 
+
+A CVSG is unlikely; although the question presented touches on important aspects of "Our Federalism" and the Dormant Commerce Clause, it fundamentally involves a dispute between a private company (TitleMax) and a state regulatory agency (Pennsylvania Department of Banking). There is no obvious federal interest that would require the Solicitor General's input.
+
+If granted, the Court would likely take the sole Question Presented as written, addressing whether a State's "generic" interest in regulating transactions its residents conduct out-of-state is sufficient to justify Younger abstention. 
+
+A summary disposition route (such as a GVR or summary reversal) is unlikely here. If the Court wishes to resolve the noted circuit split over the application of New Orleans Pub. Serv., Inc. v. Council of City of New Orleans (NOPSI), it would prefer full merits briefing and argument.
+
+Should the Court deny review, there is a modest chance of a dissent from denial from one or more conservative Justices (such as Justice Alito or Justice Thomas), who may view Pennsylvania's extraterritorial regulatory attempts as an overreach that warrants immediate federal court intervention.

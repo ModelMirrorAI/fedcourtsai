@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500259",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "provisioned snapshot and document text",
+    "committed metrics/statpack.md",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web.run search attempts",
+    "local Python arithmetic"
+  ],
+  "helpful": [
+    "Nonempty petition and BIO text allowed direct comparison of the alleged split and vehicle objections.",
+    "Frozen CVSG date, distribution count, band, and docket Term made the conditioning state explicit.",
+    "The reached-band table supplied a strictly-prior-Term numerical anchor.",
+    "Historical-opinion snippets supported narrow legal verification without retrieving this case's outcome."
+  ],
+  "gaps": [
+    "The provisioned record lists a reply and amicus filing but does not include their texts.",
+    "Both general-authority web searches returned no usable content.",
+    "The default uv cache was read-only; an explicit temporary cache directory was needed."
+  ],
+  "notes": "The broad citation-only CourtListener search returned an unrelated case; court, case-name, and historical-date filters located the intended authority. No live corpus query was needed. The forthcoming Solicitor General recommendation remains unknown, as appropriate at the CVSG moment."
+}

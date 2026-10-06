@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000043",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal predating the snapshot: the corpus row for No. 26-104, Rhoney v. Barbosa da Cunha (CA2), the government's petition on the same question with the same counsel on both sides, records cert granted 2026-10-01. This petition was not granted with it, so the forecast is a held-case forecast (GVR if the noncitizens prevail in Rhoney, denial otherwise) rather than an ordinary cert forecast. Not outcome material for this docket."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot payload was generated 2026-10-02 (sJsonCreationDate) while the Court's 2026-10-05 order list disposed of or relisted most long-conference petitions. The cell may already have moved (denied or relisted) without that being visible in the snapshot. I did not look up the docket's post-snapshot state."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "No record/documents/ directory was provisioned for this paid petition, so the questions presented, petition, government brief and the two petitioner letters were not available as text; the forecast rests on the docket entries, the statpack, the corpus row for the companion case, and the Second Circuit en banc order."
+    }
+  ]
+}

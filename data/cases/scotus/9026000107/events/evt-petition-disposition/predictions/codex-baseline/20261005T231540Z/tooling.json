@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000107",
+  "gaps": [
+    "The separate petition appendix and lower-court opinions were not provisioned as text, leaving competing descriptions of the agency letter to be evaluated through the briefs.",
+    "Web search and PDF-open attempts returned no usable visible content; CourtListener MCP supplied the prior opinion.",
+    "No published transition baseline conditions another distribution on a requested opposition arriving after the initially listed conference."
+  ],
+  "helpful": [
+    "Complete petition, questions presented, and opposition allowed an adversarial assessment rather than reliance on the caption.",
+    "Frozen context identified the correct sal-v4 baseline risk set and distribution count.",
+    "Statpack JSON exposed exact weighted denominators for pooling the displayed prior Terms.",
+    "CourtListener MCP retrieved the controlling prior finality opinion without requesting current-case history."
+  ],
+  "notes": "The default uv cache was read-only; a writable temporary cache restored the CLI. Another distribution is forecast primarily as post-opposition scheduling, not as evidence that a substantive relist has already occurred. No corpus query or current-case web lookup was needed.",
+  "role": "predictor",
+  "run_id": "20261005T231540Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell provisioned-input reads",
+    "fedcourts paths",
+    "committed statpack and jq arithmetic",
+    "web search/open attempts",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

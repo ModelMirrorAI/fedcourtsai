@@ -1,0 +1,13 @@
+case_id: scotus/9026000023
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-07-07'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: TMX Finance Corporate Services, Incorporated v. Wendy S. Spicher, Secretary,
+  Pennsylvania Department of Banking and Securities

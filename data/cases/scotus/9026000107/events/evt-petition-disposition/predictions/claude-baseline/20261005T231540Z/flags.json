@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000107",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive public forward signal outside the provisioned record: the companion Pacific Legal Foundation petition Tedford's Tenancy, LLC v. City of New York (No. 26-110) was distributed for the same 9/28/2026 conference, drew a call for response on Sep 9, and its response is now due Nov 10, 2026 (extension granted Oct 2). I read the Court as handling the pair together; this shaped the timing/relist forecast and a hold-and-GVR route in the grant number. The frozen band `baseline` does not reflect this docket's call for response after waiver or its six cert-stage amicus briefs (sal-v4 keys on relists/CVSG), so the band anchor was adjusted up substantially. No outcome material for this case surfaced; the live 26-107 docket matched the snapshot."
+    }
+  ]
+}

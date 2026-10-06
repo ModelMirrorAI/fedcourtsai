@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+The Court will most likely **deny certiorari** in No. 25-1246. The forecast is 8% for any grant and 92% for no grant. The denial forecast does not imply endorsement of the conviction or a merits ruling on the asserted constitutional violations.
+
+The starting record contains **one distribution**, entered July 22 for the September 28, 2026 conference, and **no CVSG**. I forecast no additional distribution as the single most likely path, but put **45%** on at least one more. On that alternative, expect approximately one or two further distributions, rather than a long sequence. The request to coordinate consideration with No. 26-353 and the receipt of the lower-court record create a meaningful possibility of a short delay. My central timing forecast is disposition during October or November 2026; an extended hold is a secondary possibility, not the main prediction.
+
+The Court will not call for the Solicitor General's views: **0.3%** probability of a new CVSG. The underlying federal statutory questions do not make this petition principally a request for the federal government's institutional position.
+
+If review is granted, the likeliest plenary question is a narrowed version of **Question 1**, addressing due diligence under 28 U.S.C. § 2244(b)(2)(B)(i) for a represented applicant alleging serious attorney misconduct. Taking all four questions is less likely. The Court would have to address the effect of the separate innocence determination before resolving diligence could benefit this petitioner. The related petition makes the successive-status question more salient, but I do not forecast that the Court will accept it in this docket merely because coordination has been requested.
+
+**Conditional on a grant, the probability of disposition in the cert order is 40%.** A targeted vacatur and remand addressing the treatment of the successive-petition requirements is more plausible within that branch than an outright summary reversal resolving the underlying ineffective-assistance claim. Plenary briefing and argument remain the more likely grant route, at 60%. I do not posit an unidentified intervening decision as a GVR trigger.
+
+**Conditional on denial, the probability of a noted dissent or statement respecting denial is 20%.** The modal denial is an unsigned order without separate writing. If a writing appears, I expect its concern to be the combination of a death sentence, contested forensic evidence, and barriers to review of attorney-performance claims, rather than a finding that the petitioner has proved innocence. No individual Justice's vote or authorship is forecast.

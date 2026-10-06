@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73520108",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition.txt is truncated (documents.json: truncated=true) at the start of the appendix, so the Fourth Circuit opinion under review was not readable from the record; the petition body itself is complete. Separately, the docket carries three post-BIO filings (reply Sept 9, respondents' supplemental brief Sept 14, petitioner's response Sept 15) that were not provisioned; the Sept 14 brief discloses that the bankruptcy court dismissed the adversary complaint without prejudice on Sept 10, 2026, a vehicle development I fetched from supremecourt.gov and weighed in the forecast."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73550516",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Companion petition: the petition itself asks to be held for Indian Harbor Insurance Co. v. Town of Vinton, No. 25-1383 (corpus docket 73500284, disposition event still open), and the Fifth Circuit decision under review is an unpublished per curiam that simply applies Town of Vinton. This cell's outcome is almost entirely derivative of the lead case (deny together, or hold and GVR after a reversal there), so its score reads as a forecast of No. 25-1383 more than of this docket. The lead case's trajectory (response requested after a waiver, two amicus briefs, BIO and reply filed) was read from its public supremecourt.gov page; no disposition of either petition surfaced."
+    }
+  ]
+}

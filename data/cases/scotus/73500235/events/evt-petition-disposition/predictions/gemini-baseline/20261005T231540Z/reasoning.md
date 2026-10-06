@@ -1,0 +1,9 @@
+P(grant) is estimated at 0.28. 
+
+The case falls into the "elevated" salience band (Term 2025). The base rate for elevated petitions that reached this band in strictly prior terms (e.g., Term 2024) is approximately 17.9%. I adjusted this baseline upward to 0.28 due to several compounding factors. 
+
+First, the stakes are historically unprecedented: this case involves the revoked plea agreements for the 9/11 defendants (including Walid bin 'Atash and KSM) at Guantanamo Bay. Second, the D.C. Circuit split 2-1 on the decision to grant the government's petition for a writ of mandamus, overturning the military judge's ruling that the Secretary of Defense lacked authority to revoke the agreements. Mandamus is an extraordinary remedy, and the petitioner strongly argues that the D.C. Circuit misapplied the standard for mandamus relief in resolving a contractual interpretation issue (whether the defendants had "begun performance").
+
+Despite the high profile, the posture is interlocutory. The Supreme Court often prefers to let military commission trials proceed and review them on direct appeal rather than intervening via mandamus or certiorari before judgment. However, because the plea agreements removed the death penalty, a denial means capital trials proceed, increasing the likelihood that at least some Justices will want to review the revocation now. I balance these factors to 0.28.
+
+Since the U.S. Government is the respondent, a CVSG is impossible (P=0.01). The complexity of the record makes a summary disposition highly unlikely (0.05), but increases the chance of further distributions/reschedules (0.65). If denied, a dissent is very likely given the 2-1 split below and the capital implications (0.50).

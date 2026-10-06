@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500228",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from outside the provisioned record: the companion petition Hershey v. City of Bossier City, No. 25-1389 (same CA5 judgment, qualified-immunity question), was distributed for the 9/28/2026 conference and relisted to 10/9/2026 on the same dates as this petition, with ~15 amicus briefs. Read from the supremecourt.gov docket page; it predates the snapshot and reveals no disposition. The snapshot's own RelatedCaseNumber field lists 25-1389 as 'Vide' but the pipeline provisions nothing from the linked docket; a predictor on a paired petition would benefit from the companion's distribution entries being provisioned alongside."
+    }
+  ]
+}

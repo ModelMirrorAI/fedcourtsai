@@ -1,0 +1,4 @@
+- `fedcourts query --docket 25-1389` (failed, unsupported flag)
+- CourtListener MCP `opinions` endpoint for docket 21-30754 (failed)
+- CourtListener MCP `search` for caseName="Hershey" and court="ca5" (returned 8 results, none matching the recent 2025 decision)
+- Inspected `metrics/statpack.md` for discretionary cert base rates, salience band base rates (`sal-v4` elevated), and relist count base rates.

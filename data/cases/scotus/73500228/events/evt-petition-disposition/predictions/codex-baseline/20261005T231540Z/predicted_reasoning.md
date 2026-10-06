@@ -1,0 +1,13 @@
+# Forecast of the Court's disposition
+
+The Court will most likely deny Bossier City's petition. I assign a 32% probability to any grant, including a grant followed by summary disposition, rather than only a grant for argument.
+
+The provisioned docket records two distributions: September 2 for the September 28, 2026 conference, and October 5 for the October 9 conference. This is one recorded relist, not two. My modal forecast is disposition without another distribution beyond those two, with a 40% probability of at least one additional distribution. If there is another, one or two further conferences are more likely than a prolonged series. The central timing forecast is an October or November 2026 order, not an eventual merits opinion.
+
+No CVSG is recorded. I predict no invitation to the Solicitor General, assigning a 2% probability to a new CVSG. The dispute concerns the municipal-liability standard and disputed pleading sufficiency; the Court can decide whether to take it without a federal executive-branch recommendation. If an invitation issues, I expect it during the initial fall conferences rather than following an extended hold.
+
+If review is granted, the likeliest question is the first: whether single-incident failure-to-train liability requires a violation of a clearly established constitutional right. I expect the Court to frame it specifically around deliberate indifference, rather than confer qualified immunity on municipalities generally. The second question, concerning the absence of training, is more vulnerable to narrowing because the parties dispute whether the complaint alleges no First Amendment training at all or merely no training for this particular setting. The religious-leafleting and qualified-immunity question in the related petition is not itself the question this City's petition presents.
+
+Conditional on a grant, plenary review is more likely than disposition in the cert order: 78% versus 22%. A summary reversal enforcing the demanding failure-to-train standard is the principal summary possibility; reconsideration connected to the related petition is a secondary possibility. No identified intervening decision makes a GVR the central forecast. If the Court reaches the merits after a grant, the likely focus is the relationship between notice, obvious constitutional risk, and deliberate indifference, not an unconditional ruling that all municipal liability depends on individual-officer liability.
+
+Conditional on denial, I expect no separate writing; I assign a 13% probability to some noted dissent or statement respecting denial. That is an aggregate forecast, not a prediction of any Justice's unobservable cert vote.

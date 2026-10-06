@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/9026000023",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "grep",
+    "cat"
+  ],
+  "helpful": [
+    "The statpack's detailed base rates by salience band were very helpful."
+  ],
+  "gaps": [],
+  "notes": "None"
+}

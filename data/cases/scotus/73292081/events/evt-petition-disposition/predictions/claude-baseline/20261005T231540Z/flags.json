@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73292081",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Companion petition exists: petitioner's Sep 17, 2026 letter asks the Court to consider No. 26-353 (Vasquez v. Guerrero, from CA5 No. 26-70008, docketed Sep 16, 2026, response due Oct 16, 2026) together with this petition, and a motion to defer consideration is pending. This docket is very likely being held for the companion, which the corpus does not appear to carry; the relist-increment and disposition timing for this cell depend on it. Worth seeding No. 26-353 so the pair resolves together."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "petition.txt is truncated (documents.json: truncated=true, 155 pages): the appendix stops inside the district court opinion, so the two Nueces County DA position statements, the 2023 first-gate authorization order, and the toxicology report were not available. Forecast rests on the petition body, the BIO, and the retrieved reply/motion/letter."
+    }
+  ]
+}

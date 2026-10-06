@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500284",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": [
+    "provisioned snapshot and context.json",
+    "provisioned documents: questions-presented.txt, petition.txt, brief-in-opposition.txt",
+    "metrics/statpack.md",
+    "fedcourts query (3 calls)",
+    "CourtListener MCP: dockets, docket-entries, search, opinions, read_document",
+    "WebFetch of the live supremecourt.gov docket"
+  ],
+  "helpful": [
+    "full petition and BIO text: the BIO's vehicle objections and its citation of the Seventh Circuit's Kim decision drove most of the adjustment from the anchor",
+    "statpack sal-v4 band table with bracketed reached rates: a clean pooled anchor",
+    "live supremecourt.gov docket fetch: confirmed the snapshot is current and the petition undecided"
+  ],
+  "gaps": [
+    "the sal-v4 band does not reflect a call for a response after a waiver, which is the strongest signal on this docket; a CFR feature in the banding or a statpack cut by response-requested status would give a far better anchor",
+    "the reply brief was not provisioned although it is on the docket; for a called-for-response petition the reply is where the vehicle objections get answered",
+    "CourtListener's text for the Seventh Circuit's Kim opinion is font-encoding garbage in both the opinions endpoint and read_document, so a directly relevant new circuit decision was unreadable",
+    "fedcourts query has no caption or subject filter for SCOTUS rows, so finding arbitration priors meant scanning eighty rows by hand and finding none"
+  ],
+  "notes": "Roughly ten retrieval calls. The corpus priors surface contributed nothing beyond the statpack for this question."
+}

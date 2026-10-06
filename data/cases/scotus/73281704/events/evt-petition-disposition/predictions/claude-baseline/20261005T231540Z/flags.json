@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281704",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal came from a companion docket, not this record: Berry v. United States, No. 25-7026, presents the same COA question, was CFR'd on 4/8/2026, has been distributed four times, and was relisted to 10/9/2026 in lockstep with this petition; Berry's 8/5/2026 supplemental brief asks the Court to grant Berry and hold Clark. The grant-side mass in this forecast is mostly a derivative GVR after a Berry decision. CourtListener's MCP server had the Berry docket shell but no entries or documents, so the docket and three filings were fetched from supremecourt.gov and the PDFs extracted locally; all pre-date this snapshot."
+    }
+  ]
+}

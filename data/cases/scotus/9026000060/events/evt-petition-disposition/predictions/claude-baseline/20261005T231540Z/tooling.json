@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/9026000060",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "CourtListener MCP (search, read_document)",
+    "web search"
+  ],
+  "helpful": [
+    "The provisioned petition text and QP section carried the whole case for review; no retrieval was needed to understand the question.",
+    "The per-Term salience-band table with bracketed `reached` rates made the pooled anchor a one-line computation.",
+    "CourtListener read_document gave the Fourth Circuit panel line (King, Wynn; Quattlebaum dissenting) in one call."
+  ],
+  "gaps": [
+    "No statpack cut conditions on a Court-initiated call for response (CFR) after a waiver, which is the single strongest signal on this docket; the band table cannot see it.",
+    "`fedcourts query` has no text or topic filter for SCOTUS rows, so pulling comparable standing petitions (e.g. by QP keyword) is not possible from the corpus.",
+    "The distribution_count of 1 counts a conference the petition was pulled from by the CFR; a flag distinguishing a superseded distribution from a considered one would sharpen the relist-increment claim."
+  ],
+  "notes": "Six retrieval calls in total: two fedcourts query calls (one citation lookup returned no rows, as the tool's own note predicted), two CourtListener MCP calls, two web searches. None surfaced the disposition."
+}

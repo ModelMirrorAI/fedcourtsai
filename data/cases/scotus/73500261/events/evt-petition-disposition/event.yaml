@@ -1,0 +1,14 @@
+case_id: scotus/73500261
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-06-08'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Cade Brumley, Superintendent, Louisiana State Education, et al. v. Darcy Roake,
+  Reverend, Individually and on Behalf of Their Minor Children, Real Parties in Interest
+  A. V. and S. V., et al.

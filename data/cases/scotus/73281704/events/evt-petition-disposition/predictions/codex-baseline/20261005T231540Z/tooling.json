@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281704",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell file reads", "jq", "fedcourts paths", "CourtListener search", "CourtListener search_document", "web.run"],
+  "helpful": ["Complete petition and opposition texts allowed a two-sided vehicle assessment.", "Frozen sal-v4 context and machine-readable risk-set fields allowed a strictly prior-Term pooled anchor.", "Citation-specific historical opinion retrieval avoided target-case outcome exposure."],
+  "gaps": ["The filed reply was listed but its text was not provisioned.", "Web search and open attempts returned no visible content.", "Long tool outputs were truncated; targeted document excerpts were more usable."],
+  "notes": "The default uv cache was read-only; redirecting the cache to /tmp allowed the path command to run. No corpus-query or target-outcome retrieval was needed. The statpack commit date was identifiable, but top-level corpus freshness metadata was absent."
+}

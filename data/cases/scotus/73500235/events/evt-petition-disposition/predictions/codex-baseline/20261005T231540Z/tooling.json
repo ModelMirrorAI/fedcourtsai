@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500235",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned-file reads", "committed statpack", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "web search and open attempts", "local Python arithmetic", "fedcourts validate"],
+  "helpful": ["Petition and opposition text were both present and marked untruncated.", "The frozen sal-v4 band matched the prior-Term reached-rate table.", "Focused MCP snippet retrieval clarified the historical precedent without seeking this petition's outcome."],
+  "gaps": ["The filed reply was not provisioned.", "Distribution count does not distinguish rescheduling from completed conference consideration.", "General-rule web retrieval attempts returned no usable content."],
+  "notes": "The default uv cache was read-only; using a temporary writable cache enabled the CLI. No live corpus query was necessary. The forecast distinguishes a high scheduling-driven distribution-increment probability from substantive certiorari interest."
+}

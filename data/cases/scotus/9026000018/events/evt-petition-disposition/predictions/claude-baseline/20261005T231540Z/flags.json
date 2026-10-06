@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000018",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward cell, not mis-provisioned: the Court called for a response on 2026-08-03 after the respondents waived, and the BIO was filed 2026-10-02, so the single distribution the context freezes (the 2026-09-28 conference) was superseded before consideration. The petition will be redistributed after the reply; the relist-increment claim is near-certain for structural reasons rather than as a forecast of Court interest. The provisioned petition text is truncated (139-page PDF, appendix cut), but the petition body itself was complete through its conclusion."
+    }
+  ]
+}

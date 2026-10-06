@@ -1,0 +1,2 @@
+- `uv run fedcourts query --court scotus --era 2020s | head -n 20` (ranged corpus reads: 6 GET(s), 1572864 byte(s))
+- `uv run fedcourts query --court scotus --era 2020s | grep "Bird v. Iowa"` (ranged corpus reads: 0 GET(s), 0 byte(s))

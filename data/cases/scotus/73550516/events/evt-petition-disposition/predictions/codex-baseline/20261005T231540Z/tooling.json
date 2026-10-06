@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73550516",
+  "gaps": [
+    "No opposition was provisioned despite a recorded response request and elapsed due date.",
+    "The snapshot filename is current but the disclosed proceedings end on August 17; independent completeness or source-poll freshness information would help.",
+    "Web calls returned no usable visible result in this run."
+  ],
+  "helpful": [
+    "The untruncated petition includes the operative lower-court orders and identifies its proposed companion hold.",
+    "The frozen sal-v4 band and exact JSON risk-set denominators support a reproducible strictly-prior anchor.",
+    "CourtListener date-filtered searches and within-opinion snippets verify legal context without retrieving this petition's outcome."
+  ],
+  "notes": "The CLI initially failed on its read-only default cache; a writable temporary cache resolved it. No direct CourtListener REST fallback, live corpus query, or own-case outcome retrieval was used.",
+  "role": "predictor",
+  "run_id": "20261005T231540Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned-input and schema reads",
+    "fedcourts paths",
+    "jq: exact prior-Term statpack pooling",
+    "CourtListener MCP search, read_document, search_document",
+    "web.run: historical-precedent search and opens, no usable visible results"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

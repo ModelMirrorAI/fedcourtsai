@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73520108",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged backend, --citation filter)",
+    "metrics/statpack.md (sal-v4 band table, relist and CVSG cuts)",
+    "provisioned record/documents (QP, petition, BIO)",
+    "WebFetch of supremecourt.gov docket PDFs (reply, two supplemental briefs)",
+    "WebSearch"
+  ],
+  "helpful": [
+    "The sal-v4 segment band table with the bracketed reached rate: a directly usable, leakage-safe anchor for a frozen elevated band",
+    "Provisioned BIO text: its vehicle arguments and the two prior cert denials it cites were the main downward adjustments",
+    "The snapshot's document links: the post-BIO filings (reply and both supplemental briefs) carried the decisive new fact, a Sept 10 dismissal of the underlying complaint"
+  ],
+  "gaps": [
+    "The provisioned petition is truncated at the appendix, so the lower-court opinion (the thing being reviewed) was not readable from the record",
+    "Post-BIO filings (reply, supplemental briefs) are on the docket but not provisioned; a forward cert cell distributed for conference almost always has a reply, and supplemental briefs are the usual carrier of late developments",
+    "WebFetch returns raw PDF bytes for supremecourt.gov filings; text extraction had to be done by hand with pypdf from the saved file",
+    "fedcourts query --citation is nearly empty on SCOTUS rows, so a known prior cert docket cannot be looked up by its cite; a docket-number filter would have found Belton and Anderson",
+    "No statpack cut conditions on a relist after the long conference specifically, nor on a supplemental brief disclosing an intervening lower-court development"
+  ],
+  "notes": "Forward cell, about 8 retrieval actions, no MCP calls. Two corpus queries returned no rows (citation column unpopulated); the committed statpack supplied the anchor."
+}

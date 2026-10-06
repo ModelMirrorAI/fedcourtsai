@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000023",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.json freezes distribution_count=1, but the single distribution entry (Aug 12 2026, for the Sep 28 conference) was superseded the same day by a 'Response Requested' entry, and the response is now due Nov 2 2026: the petition has been considered at zero conferences. The relist-increment claim is stated from the frozen count of 1 as the contract requires; a re-distribution once the response arrives is near-certain and is not a relist in the pre-grant-signal sense."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode retrieval surfaced two public developments that postdate the petition but predate the snapshot and were decisive for the number: (1) the Fourth Circuit's published Aug 5 2026 decision in TitleMax of South Carolina v. Spicher (No. 25-2027), which applied its own Harper framework and affirmed Younger abstention over the same Pennsylvania enforcement proceeding; (2) the companion petition TitleMax of Virginia v. Spicher (No. 25-1359), read from the supremecourt.gov docket page via a web fetch (CourtListener holds the docket shell but no entries), which shows the same waiver-then-response-requested track, a South Carolina amicus brief, and a response due the same day as this one's. Nothing about this petition's own disposition was found."
+    }
+  ]
+}

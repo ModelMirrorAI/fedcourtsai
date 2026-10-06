@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73500261",
+  "run_id": "20261005T231540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from a companion docket: this is a conditional cross-petition whose grant is conditioned on the Court granting the Texas plaintiffs' petition in Nathan v. Alamo Heights ISD, No. 26-257 (filed Aug. 17, 2026, response due Oct. 28, 2026). The forecast is a product of P(26-257 granted) and P(this petition granted or GVR'd given that). No outcome of this petition was found or exists."
+    },
+    {
+      "category": "ambiguous-event",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot's single distribution (for the 9/28/2026 conference) was superseded by the July 28 call for a response, now due Oct. 19, 2026; the frozen distribution_count of 1 reflects a conference at which the petition could not have been considered. The relist-increment claim is stated from that state."
+    }
+  ]
+}

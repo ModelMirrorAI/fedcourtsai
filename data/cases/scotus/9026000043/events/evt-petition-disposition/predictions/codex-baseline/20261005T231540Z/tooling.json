@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000043",
+  "gaps": [
+    "No petition, questions presented, or federal response text provisioned.",
+    "Direct letter opens returned no usable content; date-bounded lower-court search returned no match."
+  ],
+  "helpful": [
+    "Frozen sal-v4 band and normalized distribution count prevent treating same-conference rescheduling as a relist.",
+    "Per-Term JSON risk-set rates permit exact prior-Term pooling."
+  ],
+  "notes": "Forward-mode prediction kept near the private-petitioner baseline. Default uv cache was read-only; redirecting its cache to /tmp/uv-cache allowed CLI execution. Retrieval was confined to a dated letter and the pre-petition lower-court opinion, never the petition outcome.",
+  "role": "predictor",
+  "run_id": "20261005T231540Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell file reads",
+    "fedcourts paths",
+    "committed statpack",
+    "web.run direct PDF open",
+    "CourtListener MCP search",
+    "local baseline arithmetic",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
