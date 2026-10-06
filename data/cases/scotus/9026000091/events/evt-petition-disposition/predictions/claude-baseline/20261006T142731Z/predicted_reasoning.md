@@ -1,0 +1,15 @@
+# Forecast: what the Court will do with No. 26-91, Ross v. United States
+
+**Disposition.** The petition will most likely be **denied** (P(grant) = 0.18), but this is a live candidate: the Court has already called for a response after the Solicitor General waived, and eight amicus briefs sit on the docket. A denial is still the modal outcome because the first question presented carries no circuit split (four circuits agree with the Second Circuit) and the Solicitor General will oppose.
+
+**Relists.** The docket shows **one distribution** (for the September 28, 2026 conference), which the September 9 call for a response superseded. The brief in opposition is now due November 9, 2026; expect a reply about two weeks later and a **fresh distribution for a December 2026 or January 2027 conference**, so a further distribution is near-certain (0.96). Given the amicus weight and the Court's demonstrated interest, I expect the petition to then be **relisted at least once** before disposition, with roughly even odds of a second relist. If the Court grants, it will do so in January or February 2027 for argument in April 2027 or in October Term 2027.
+
+**CVSG.** None. The United States is the respondent and will file its own brief in opposition, so there is no occasion to call for the Solicitor General's views (0.01).
+
+**Which question.** If the Court grants, it takes **Question 1 as written** (whether a claimant "substantially prevails" under 28 U.S.C. 2465(b)(1) when the government voluntarily dismisses and returns the property), possibly lightly reformulated to ask whether the *Buckhannon* "prevailing party" standard governs the "substantially prevails" language. Question 2 (whether loss of fee eligibility is plain legal prejudice under Rule 41(a)(2)) is a secondary, remedial question the Court would leave behind; the petition itself concedes a ruling on Question 1 moots it.
+
+**Summary disposition.** Unlikely (0.05 conditional on a grant). No intervening decision of this Court post-dates the Second Circuit's December 2025 ruling, which already engaged *Lackey v. Stinnie* and *CRST Van Expedited*, so there is nothing to GVR in light of; and a per curiam reversal of a position four circuits share is not the Court's habit. A grant would mean plenary review.
+
+**If granted, likely ground.** The Court would likely reverse, holding that *Hardt* forbids importing the "prevailing party" term of art into a statute that uses the distinct phrase "substantially prevails," so a claimant who forces a voluntary dismissal and full return of the property substantially prevails. A narrower path is also plausible: that a Rule 41(a)(2) dismissal order is itself court-sanctioned relief satisfying *Buckhannon*.
+
+**If denied.** A dissent from, or statement respecting, denial is a real possibility (0.22): forfeiture has drawn separate writings from Justices Gorsuch and Thomas (*Culley v. Marshall* concurrence) and Justice Sotomayor (*Culley* dissent and earlier statements), and the fee-evasion-by-dismissal theme is the kind of practice that prompts a statement respecting denial. The most likely authors are Justice Gorsuch or Justice Sotomayor.

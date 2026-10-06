@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000046",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query (service backend)", "metrics/statpack.md", "WebSearch", "provisioned petition.txt and questions-presented.txt"],
+  "helpful": [
+    "The provisioned petition text carried the Second Circuit summary order as an appendix, so the lower-court reasoning was readable without any fetch.",
+    "The sal-v4 band table matched the context's salience version, so the anchor was unambiguous.",
+    "Web search answered the companion-case status (Viramontes/Grant grant and argument date) in one call."
+  ],
+  "gaps": [
+    "No statpack cut for petitions where the Court called for a response after a waiver; that signal carried most of my adjustment and has no committed base rate.",
+    "No statpack cut for petitions held pending a granted merits case, or a GVR rate conditional on a hold.",
+    "The corpus citation filter is too sparse to look up a known precedent (Caetano) by reporter cite.",
+    "No fetched text of a pending companion case's grant order or QP; the context block could name a related granted docket where the petition asks for a hold."
+  ],
+  "notes": "Forward cell; two corpus queries, three web searches, no MCP calls. The GVR priors returned by the corpus were not analogous and did not move the forecast."
+}

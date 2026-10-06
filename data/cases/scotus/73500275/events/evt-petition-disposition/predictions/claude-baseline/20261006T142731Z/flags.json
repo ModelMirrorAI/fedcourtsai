@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500275",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward signal used: companion petition Robinhood Markets v. Sodha, No. 25-944 (corpus scotus/73280982), carries a June 1, 2026 CVSG with no SG brief on the public docket as of this run; the petition here asks to be held for it and the Ninth Circuit panel below awaited the Sodha decision. This predates the snapshot and was decisive for the forecast (hold then possible GVR), not leakage. This case's own supremecourt.gov docket page, fetched for post-snapshot entries, matched the snapshot exactly and showed no disposition."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.distribution_count is 1, but that distribution (Jul 15 for the 9/28/2026 conference) was entered on a waiver and superseded by the Jul 22 'Response Requested' entry, so the petition was never actually considered at a conference. Any relist-increment or relist-cut reading that treats this as one real conference overstates the state; the frozen baseline band also does not register the response request, which is the strongest docket signal on this record."
+    },
+    {
+      "category": "other",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP sidecar returned HTTP 429 (daily 1400-request limit exhausted, ~62 min to reset) on both endpoint calls this cell needed, after two docket searches returned 0 results. Degraded to corpus tooling, the committed case tree, one web search and two supremecourt.gov docket fetches per the prompt; no REST fallback attempted. A fan-out sharing one token will hit this on later cells of the same day."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500290",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["fedcourts query", "CourtListener MCP search (429)", "WebSearch", "WebFetch", "statpack.md", "read-only subagents for document summaries"],
+  "helpful": [
+    "context.json band + sal-v4 band table with bracketed reached rates",
+    "provisioned petition and BIO text",
+    "web retrieval surfacing the companion CVSG petition (25-1070)"
+  ],
+  "gaps": [
+    "CourtListener MCP server hit the daily rate limit on the first call; a per-cell quota or retry-after handling would help",
+    "no PDF text extraction on the runner (pdftotext/pypdf), so an order list PDF could not be read",
+    "fedcourts query has no text or topic filter on SCOTUS rows, so it cannot find doctrinally similar priors",
+    "the reply brief was not provisioned; it would have settled the BIO's alternative-ground claim",
+    "petition text truncated at 300 pages before the en banc writings in the appendix"
+  ],
+  "notes": "Decisive signal came from outside the provisioned inputs: a same-day CVSG in a companion petition on the same question. A provisioning hint listing same-conference petitions that share a CVSG date would surface this cheaply."
+}

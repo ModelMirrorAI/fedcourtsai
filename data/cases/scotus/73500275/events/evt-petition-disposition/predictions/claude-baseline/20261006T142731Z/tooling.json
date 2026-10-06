@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500275",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search (0 results)",
+    "courtlistener MCP call_endpoint / get_endpoint_item (429 rate-limited)",
+    "WebSearch",
+    "WebFetch supremecourt.gov docket pages",
+    "committed case tree (event.yaml of the companion petition)"
+  ],
+  "helpful": [
+    "Provisioned petition and BIO text: the BIO's vehicle argument drove most of the downward adjustment.",
+    "Per-Term salience-band table with bracketed reached rates: a clean leakage-safe anchor to pool.",
+    "Companion case discoverable in the committed tree by grepping event.yaml titles."
+  ],
+  "gaps": [
+    "No statpack cut for 'response requested after waiver', the strongest signal on this docket; the band does not encode it.",
+    "No way to look up a related/companion petition in the corpus by party name or docket number (fedcourts query has no caption filter); I fell back to grep over data/cases.",
+    "The CourtListener daily rate limit is shared across cells; a per-cell budget or a cached docket mirror for SCOTUS would avoid the 429 degradation.",
+    "No hold-tracking: a 'held pending <docket>' signal, or the SG CVSG-brief status of a named petition, would directly inform this kind of cell."
+  ],
+  "notes": "Petition text was flagged truncated (136 pages) so the appendix opinions below were unavailable; the argument sections were intact. QP file was cleanly cut."
+}

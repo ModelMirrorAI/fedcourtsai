@@ -1,0 +1,7 @@
+Distributed once so far; the Court then called for the views of the Solicitor General (CVSG). The petition will necessarily be distributed at least once more when the Solicitor General files their brief.
+
+This case presents a direct circuit split on whether the National Bank Act preempts state interest-on-escrow laws, a question the Court remanded just two years ago in this very case (*Cantero v. Bank of America*, 602 U.S. 205 (2024)). Since that remand, the Second Circuit again found preemption, while the First Circuit reached the opposite conclusion under the Court's *Cantero* standard.
+
+Given this explicit, mature circuit split on a high-stakes banking issue, the Court is highly likely to grant plenary review. A summary disposition (GVR or reversal) is unlikely because the Court already provided the standard in 2024; it now needs to resolve the circuit split on the merits of how that standard applies to these laws.
+
+If granted, the Court will likely take the single question presented as written. If the Court surprisingly denies review—perhaps because the SG strongly recommends against it or highlights a vehicle problem not apparent from the filings—a dissent from denial is a real possibility given the split.

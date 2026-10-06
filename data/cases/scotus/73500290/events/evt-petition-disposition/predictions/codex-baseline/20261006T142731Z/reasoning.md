@@ -1,0 +1,39 @@
+# Rationale for the prediction
+
+## Information set
+
+This is a cert-stage, forward prediction of United Biologics, LLC v. Amerigroup Tennessee, Inc., Supreme Court docket 25-1388. I read the provisioned `record/snapshots/2026-10-06.json`, `record/context.json`, `event.yaml`, the questions presented, the petition's argument and relevant appended lower-court passages, and the opposition's principal arguments. References below to petition and appendix pages use the printed pagination in those provisioned texts, not PDF page numbers.
+
+The snapshot's source-generation date is October 5, 2026; its provisioned filename is October 6. It includes the September 2 distribution and the October 5 CVSG, but no terminal petition disposition and no government merits recommendation. The context is `forward`, `as-stored`, with no cutoff, band `high`, salience version `sal-v4`, and docket-number Term **2025**. I use that supplied Term, not the current calendar year, for the prior-Term anchor. This distribution event is being forecast from the actual supplied post-CVSG baseline; I do not pretend the invitation is still uncertain.
+
+`documents.json` marks the petition as truncated, with 300 pages reported, and marks the opposition and questions-presented text as untruncated and nonempty. The petition's core argument and the cited appellate passages are available; I do not claim to have reviewed the entire appendix. The snapshot records a reply filed September 2, but no reply text is provisioned. That matters particularly because it might answer the opposition's vehicle objections. The allegations of conspiracy, improper billing, and factual preclusion are opposing litigating positions, not facts I independently established.
+
+## Quantitative anchor
+
+The committed `metrics/statpack.md` publishes a matching **sal-v4 high-band reached** table. Pooling every displayed Term strictly before 2025 means Terms **2017–2024**, excluding 2025 and 2026. The corresponding exact `prefix_est_grant_rate` and `prefix_weighted_resolved` fields in `metrics/statpack.json` yield **314 / 898 = 0.3496659**, or approximately **35.0%**. This is the risk-set anchor for this cell, not the private-petitioner baseline floor and not an unweighted average of annual percentages.
+
+For context, the modern-cert table has 655 ordinary grants plus 577 GVRs among 43,700 weighted resolved petitions, roughly 2.82% any-grant. The paid-segment CVSG cut has 163 resolved cases and rounded shares of 29.4% ordinary grants and 5.5% GVRs, about 34.9% combined. Those pooled descriptive cuts are not substituted for the strictly-prior-Term high-band anchor. The originating-circuit cut is also unconditioned on this petition's CVSG and does not justify pulling the prediction back toward the whole Sixth Circuit petition population.
+
+The terminal relist buckets rise from about 1.7% any-grant with zero relists to 13.3% with one, 40.9% with two, and 36.8% with three or more. They describe completed trajectories, not the probability of the next distribution. In particular, an already-issued CVSG makes a return to conference much more likely than the ordinary first-conference petition's next-distribution hazard.
+
+These are figures from the committed statpack available in this checkout. Its last recorded commit is dated **September 28, 2026**, which identifies the artifact version, not a corpus-wide pull timestamp. No live corpus blob or case `last_pulled` value was queried; I make no claim that these counts describe a newly refreshed corpus. The case-specific evidence is dated separately above.
+
+## Why 0.40 rather than the 0.35 anchor
+
+The upward considerations are substantive rather than another mechanical CVSG multiplier. The CVSG is already reflected in the high-band conditioning. The petition raises a portable question about the boundary between Illinois Brick and antitrust proximate cause, rather than seeking only fact-specific error correction. Its argument contrasts the Sixth Circuit's treatment of lost-profit boycott injuries with other circuits' treatment of claims that do not divide a single overcharge. See petition pp. 13–19 and 33–35. The provided rehearing discussion, including Judge Bush's invitation to Supreme Court review, makes the dispute more than counsel's unsupported characterization of a conflict. Federal antitrust enforcement interests also make the existing request for the government's views intelligible.
+
+The opposition supplies substantial offsets. It argues that ordinary proximate cause independently defeats the suit, that the joint-venture framing was not preserved, that Mosaic Health presents a distinguishable setting rather than a square conflict, and that the state-law summary-judgment record creates additional obstacles. See BIO pp. 14–24 and 32–34. These are concrete vehicle objections, not merely the observation that petitioner lost below.
+
+I do not treat the asserted independent ground as conclusively established merely because the BIO says it exists. The appended opinion places Illinois Brick within its proximate-cause framework and introduces its application by emphasizing that categorical rule (petition App. 23–29). It also separately rejects the proposition that intentional targeting always supplies proximate cause and discusses speculative derivative injuries (App. 36–37). Thus the unchallenged-ground objection is serious, but the extent to which the judgment survives correction of the categorical rule remains debatable on the materials reviewed. The missing reply makes that uncertainty larger. Similarly, findings on the state-law claims are a vehicle concern without my assuming their preclusive effect on a revived federal claim.
+
+Taken together, the developed legal question and appellate disagreement justify a modest increase from 35%, while the disputed conflict and vehicle problems prevent a majority-probability grant call. **0.40** is a judgmental adjustment, not a fitted estimate. It leaves denial the modal disposition even though review is substantially more plausible than for an ordinary paid petition. The unknown Solicitor General recommendation is the largest pending signal; the invitation itself is not a recommendation to grant.
+
+## Other probabilities and stakes
+
+The **0.95** additional-distribution probability reflects the expected procedural return after a CVSG response, with residual room for withdrawal or another termination before redistribution. **0.00** for cvsg-increment is recorded despite its already-fired, unscored status. The **0.12** summary-route probability is conditional on a grant: there is room for coordination with the Mosaic litigation mentioned in the BIO, but no provisioned intervening precedent dictates summary action. I did not retrieve that litigation's current status. The **0.10** denial-writing probability is also conditional; disagreement below makes a statement conceivable, but does not establish any Justice's commitment to write.
+
+The **0.64** significance score concerns the reach of private antitrust enforcement and exclusionary conduct across business models, not the 0.40 grant probability. The legal rule could matter outside health care, although the dispute remains technical and vehicle-dependent.
+
+## Retrieval limits and leakage
+
+I attempted general-source verification of Illinois Brick and certiorari criteria, not a search for this petition's disposition. The web tool returned no usable content. A CourtListener MCP opinion search by the historical citation `431 U.S. 720` returned HTTP 429. I did not retry, use direct REST, or access credentials; I completed the prediction on the provisioned material and committed base rates. No external legal text from those attempts informed the forecast. No case outcome, subsequent history, other predictor's output, or outcome-bearing labeling artifact was consulted, and I do not carry a known outcome for this petition.

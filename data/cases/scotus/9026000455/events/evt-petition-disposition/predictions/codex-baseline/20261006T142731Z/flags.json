@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000455",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The event declares moment distribution, but frozen context and snapshot show zero petition distributions. The July 22 distribution and October 5 grant concern sealing motion 26M8, not certiorari. I retain distribution_count=0 and predict the petition from this pre-distribution posture; relist-increment=0.97 prices a first petition distribution under the literal count-increment contract, not a true second-conference relist. Please inspect moment selection without treating the ancillary motion grant as the petition outcome."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "No filed-document texts were provisioned. I retrieved the snapshot-linked petition and public appendix; the latter contains only the rehearing-denial order, not the lower merits opinions. CourtListener MCP returned HTTP 429 on a date-bounded lower-opinion search. The forecast therefore relies on petition advocacy without the lower courts' full reasoning or a BIO; the response deadline remains in the future."
+    }
+  ]
+}

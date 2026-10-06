@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/9026000238",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "fedcourts paths", "metrics/statpack.md", "courtlistener MCP (rate-limited, no results)", "repo event records for a related granted case"],
+  "helpful": [
+    "Full petition text and QP file provisioned (not truncated)",
+    "sal-v4 segment table with bracketed reached rates per Term",
+    "GVR-disposition query surfaced hold-then-GVR priors"
+  ],
+  "gaps": [
+    "CourtListener MCP returned HTTP 429 on both calls; the cell could not read the court-of-appeals opinion or a related SCOTUS docket",
+    "No statpack cut conditioned on a Court-requested response (CFR), which is the strongest signal on this record and is invisible to the frozen salience band",
+    "No corpus lookup by case name or by related pending merits case, so hold candidates must be found by grepping repo event titles",
+    "Lower-court opinion text is not provisioned alongside the petition"
+  ],
+  "notes": "Forward cert cell at moment distribution. The response request on Sep 10 means the single provisioned distribution is spent; a conditioned CFR base rate would materially sharpen the anchor."
+}

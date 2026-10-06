@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500290",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from outside the provisioned record: the companion petition AstraZeneca v. Mosaic Health, No. 25-1070 (CA2, the other side of the claimed Illinois Brick split), received a CVSG on the same day as this docket (2026-10-05), per the supremecourt.gov docket page. The forecast treats the two as paired vehicles; nothing retrieved postdates or reveals this case's disposition."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.json freezes cvsg_date 2026-10-05, so the cvsg-increment claim is vacuous for this cell; a probability is stated per the contract and the harness mask applies. petition.txt is marked truncated (300 pages); the truncation falls inside the appendix and the petition body is complete."
+    }
+  ]
+}

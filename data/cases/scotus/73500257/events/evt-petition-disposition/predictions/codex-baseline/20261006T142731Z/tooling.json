@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500257",
+  "gaps": [
+    "CourtListener MCP was daily-rate-limited; no prior opinion could be verified there.",
+    "The citation-filtered corpus fallback returned no rows and disclosed sparse reporter-citation coverage.",
+    "Web search and official-opinion open attempts returned no usable content."
+  ],
+  "helpful": [
+    "Both petition and newly submitted opposition were provisioned with nonempty, untruncated text.",
+    "The frozen context and exact statpack JSON supported a matching strictly-prior-Term risk-set anchor."
+  ],
+  "notes": "A writable temporary uv cache resolved the default cache permission failure. The late requested opposition makes another distribution likely without establishing that substantive reconsideration has already occurred.",
+  "role": "predictor",
+  "run_id": "20261006T142731Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file and schema inspection",
+    "committed statpack",
+    "web search and open attempts",
+    "CourtListener MCP search attempt",
+    "fedcourts paths",
+    "fedcourts query"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

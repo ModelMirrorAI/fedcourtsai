@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000170",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (sal-v4 segment table, relist/CVSG/circuit cuts)",
+    "fedcourts query (one call, ranged backend)",
+    "courtlistener-mcp search (two calls, both HTTP 429)",
+    "WebSearch / WebFetch (supremecourt.gov docket page for No. 25-1011, justice.gov OSG brief listing)"
+  ],
+  "helpful": [
+    "Full-text petition and BIO with no truncation: the BIO's own citation of the Dolby denial and the Director's concession footnote carried most of the case-specific signal.",
+    "The sal-v4 segment table made the strictly-prior pooled anchor a one-line computation (637.4/12720)."
+  ],
+  "gaps": [
+    "The statpack has no call-for-response cut; the 'Response Requested' entry is the strongest signal on this docket and its lift had to come from general knowledge rather than a committed number.",
+    "The CourtListener sidecar's daily limit was already exhausted when this cell started, so neither the Federal Circuit opinion nor the Dolby BIOs could be read; a per-cell budget or a provisioned copy of the opinion below would close that gap.",
+    "fedcourts query has no caption or topic filter on SCOTUS rows, so a 'same-question prior' lookup (here Dolby 25-1011, which is in the corpus) cannot be done through it; a --caption substring or a docket-number lookup would help."
+  ],
+  "notes": "Companion dockets found by grepping data/cases event titles; their outcome.json files were not opened."
+}

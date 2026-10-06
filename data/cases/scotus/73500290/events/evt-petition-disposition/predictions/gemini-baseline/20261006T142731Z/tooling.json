@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73500290",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "CourtListener MCP call_endpoint",
+    "fedcourts query",
+    "read_file"
+  ],
+  "helpful": [
+    "metrics/statpack.md provided vital historical CVSG disposition base rates."
+  ],
+  "gaps": [
+    "A free-text semantic search tool for the fedcourts corpus to query unstructured case names or topics like 'Illinois Brick' without exact topic tags."
+  ],
+  "notes": "CourtListener MCP call_endpoint threw HTTP 429 throttling errors on initial docket lookup. Used the local statpack and record context instead."
+}

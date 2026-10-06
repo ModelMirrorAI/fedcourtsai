@@ -1,0 +1,7 @@
+P(grant): 0.08. The petition is in the `baseline` salience band, which carries a base grant rate of ~0.9% for private petitioners. However, the Court requested a response on August 28 after both respondents (including the Solicitor General on behalf of the PTO) initially waived. A Call for Response (CFR) signals that at least one Justice is interested in the case, raising the grant likelihood significantly. Furthermore, VLSI Technology filed an amicus brief in support of the petitioner, adding to the vehicle's viability. The decision below is published (174 F.4th 910). Still, as a Federal Circuit patent case with no circuit split, the overall odds of a grant remain low. The agency's admission of error adds intrigue, but the Court's precedents in Cuozzo and Thryv heavily favor unreviewability of institution-related findings under § 314(d).
+
+For the `relist-increment` claim, the probability is set to 0.99. The snapshot shows exactly one distribution (for the Sep 28 conference). The CFR pulled the case from that conference, and the SG's response is not due until October 28. It is procedurally required that the petition be distributed at least once more once briefing concludes, so the final distribution count will certainly exceed the current count of 1.
+
+For `cvsg-increment`, the probability is 0.01. The United States is already a respondent (representing the PTO Director) and will file a response, so the Court has no need to call for the SG's views as an amicus.
+
+I used the provided snapshot and documents, with no external retrieval.

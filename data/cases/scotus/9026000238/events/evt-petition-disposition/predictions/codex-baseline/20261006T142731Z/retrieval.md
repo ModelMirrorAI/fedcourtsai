@@ -1,0 +1,8 @@
+# Retrieval
+
+- Read the supplied contract and JSON schemas, the event definition, the October 6, 2026 snapshot and context, the document manifest, questions presented, and relevant petition sections.
+- Read committed `metrics/statpack.md`: modern discretionary-cert dispositions, originating-circuit context, paid-segment relist/CVSG cuts, and sal-v4 per-Term reached rates. Read `metrics/statpack.json` and pooled baseline reached rates for Terms 2017–2025: 638 / 12,720 = 0.05015723270440252. No live corpus query was made and no ranged-transfer line was produced.
+- Web search queries: `site.supremecourt.gov opinions 2017 15-1509 Lakeridge standard review mixed`; `site.supremecourt.gov Rule 10 certiorari review error factual findings`; and `site.supremecourt.gov "Lakeridge" "2018" "mixed"`. Both search calls returned no visible results; no external page was read or used.
+- CourtListener MCP `search`: type `o`, citation `583 U.S. 387`, one result requested. Returned HTTP 429: daily request limit exceeded, availability estimated in 1,991 seconds. No opinion or search result was retrieved. No REST fallback or further MCP retry was attempted.
+- Administrative command: `uv run fedcourts paths --court scotus --docket 9026000238 --event evt-petition-disposition --role predictor`. Initial cache initialization failed on the read-only filesystem; retry with cache disabled and `--no-sync` succeeded. No outcome file was opened.
+- No lookup targeted this petition's disposition or subsequent history. No live lookup of RiseandShine was performed; its possible relevance comes only from the supplied petition.

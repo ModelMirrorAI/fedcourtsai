@@ -1,0 +1,8 @@
+# Retrieval record
+
+- Read the provisioned event, context, October 6, 2026 snapshot, document manifest, questions presented, and portions of the petition and opposition covering the facts and cert arguments. No outcome file or other predictor output was read.
+- Read the task contract and output schemas. Ran `uv run fedcourts paths --court scotus --docket 9026000170 --event evt-petition-disposition --role predictor`. Initial attempts failed because the default uv cache was read-only; using a writable temporary cache succeeded. This resolved paths only, not corpus facts.
+- Read `metrics/statpack.md`: modern discretionary-cert disposition and circuit cuts, paid-segment relist and CVSG cuts, per-Term detail, and the sal-v4 salience-band table. Inspected the top-level keys of `metrics/statpack.json` for metadata. Locally calculated the weighted prior-Term baseline reached rate from the Markdown table, approximately 0.0501089 over weighted n=12,720. No remote corpus query or open-events call was made, so no ranged-corpus transfer line was emitted.
+- Web search query: `site.supremecourt.gov opinions Thryv Click to Call 314(d) 2020 Cuozzo`. The tool returned no usable results or text; no external web document informed the forecast.
+- CourtListener MCP `search`: `type="o"`, `case_name="Thryv"`, `citation="140 S. Ct. 1367"`, `num_results=2`. Returned HTTP 429 daily rate-limit error, with availability in 2,284 seconds. No opinion or case metadata returned. Did not retry or use direct REST.
+- No retrieval sought this petition's outcome, subsequent history, or decision coverage. No outcome-revealing material was encountered. No material under the prohibited topic-label artifact path was read.

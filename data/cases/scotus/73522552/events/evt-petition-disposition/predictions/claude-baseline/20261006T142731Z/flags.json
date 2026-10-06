@@ -1,0 +1,26 @@
+{
+  "case_id": "scotus/73522552",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "ambiguous-event",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot's single distribution (for the 9/28/2026 conference) was superseded by the Aug 19 call for a response (BIOs filed Sep 18, reply Oct 2); the frozen distribution_count of 1 reflects a conference at which the petition could not have been considered. The relist-increment claim is stated from that state."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward signal from related dockets retrieved from supremecourt.gov: the same petitioner has a companion petition on the identical question, Isaacson v. NVLSP, No. 26-302 (respondents' briefs due Nov 9, 2026), and the Court denied this question in Nos. 22-389 (Apr 2023), 24-259 (same petitioner, response requested then denied, Jan 2025) and 24-464 (Feb 2025). All predate the snapshot; no outcome of this petition exists or was seen (live docket ends at the Oct 2 reply)."
+    },
+    {
+      "category": "other",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP returned HTTP 429 (daily limit 1400/day exhausted, ~55 min to reset) on all four calls; the cell proceeded on provisioned inputs, the statpack, corpus query, and direct supremecourt.gov fetches. Later cells in this fan-out likely hit the same wall."
+    }
+  ]
+}
