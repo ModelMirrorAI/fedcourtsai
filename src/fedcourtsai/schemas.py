@@ -3531,19 +3531,19 @@ class FrozenProcessRecord(_Strict):
     digests were blessed and from which instant. Recording them on the board
     itself, the way ``salience_versions`` names the gate, states what was
     blessed at build time — on every build, an ``all``-scope one included, as
-    the partition's definition and never a claim it was applied. It records the
-    *blessed* set, not the *filter*: only the predictor subset is the enforced
-    membership test (``process_version.is_frozen``), while the evaluator
-    digests are record-only (timing alone enforced), and this flat list does
-    not distinguish the two — that mapping lives in ``process_version``.
+    the partition's definition and never a claim it was applied. ``digests`` is
+    the *blessed* set, not the *filter*: the enforced membership rule is
+    ``windows`` (``process_version.is_frozen`` and ``counted_on_event``), one
+    per blessing of a predictor digest, so a closed window's digest keeps
+    counting after it leaves the blessed set; evaluator digests are
+    record-only (timing alone enforced).
     """
 
     digests: list[str] = Field(
         description="The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted — "
         "predictors and evaluators together, exactly as the freeze commit "
-        "blessed them. Not a filter: the enforced membership test is the "
-        "predictor subset alone, which this pooled list does not distinguish "
-        "(see `process_version`)"
+        "blessed them. Not a filter: the enforced membership rule is `windows`, "
+        "which keeps a closed window's digest counting after it leaves this set"
     )
     since: datetime | None = Field(
         description="The current label's counting instant (`FROZEN_SINCE`); null while no "

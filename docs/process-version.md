@@ -82,8 +82,10 @@ all: the scrub reads the live registries and one candidate is staged per
 registered predictor, so **adding or retiring a predictor changes every
 evaluator's information set** — a different scrub-term set and a different number
 of candidates — while moving no evaluator digest, since an evaluator's canonical
-config carries no predictor list. That is a routine operation with no boundary
-behind it. Until the masking surface is folded into the evaluator's canonical
+config carries no predictor list. For the evaluators that is a routine
+operation with no boundary behind it; for counting, a new predictor id opens a
+counting window, which waits on the per-window hold under *Freezing: the
+cutover procedure*. Until the masking surface is folded into the evaluator's canonical
 config (which would make it a partition key rather than an honour system), a
 registry change that alters the candidate set belongs in the freeze record
 ([freeze-record.md](freeze-record.md)) beside the masking changes.
@@ -389,10 +391,13 @@ entry and export row, and the whole registry in each artifact's
 `frozen_process.windows`). Every frozen-scope aggregate keys on `predictor_id`,
 so the shared stratify pass refuses a ledger in which one predictor's
 in-scope cells span two windows rather than average them as one series, and
-the big-case agreement does the same; the dataset export, which is per row and
-names each row's window, is the one reader that takes such a ledger. Building
-per-window strata for those aggregates, and any named cross-window view, is
-the work a successor waits on (the next section). A cross-engine comparison is
+the big-case agreement does the same. The readers that take such a ledger are
+the per-row or per-event ones — the dataset export, which names each row's
+window, the big-case census, the conference cut and the predict backlog — and
+the evaluator-agreement view, which compares graders and pools the
+predictors' windows by design. Building per-window strata for those
+aggregates, and any named cross-window view, is the work a successor waits on
+(the per-window hold under *Freezing: the cutover procedure*). A cross-engine comparison is
 read only over events on which every compared engine holds a counted cell,
 each from one named window; an event split across a closed window and its
 successor belongs to no complete grid.
@@ -529,7 +534,8 @@ land; recording and tagging that commit complete the procedure:
    pins that the two move together — and edit `COUNTING_WINDOWS` to match:
    append one window per newly blessed **predictor** digest, labelled with the
    new label and opening at the instant, and set `closes` to the instant on
-   every window whose digest this label stops blessing. Never delete a window:
+   every window whose digest this label stops blessing (both are held until the
+   boards are per-window; see the per-window hold below). Never delete a window:
    a closed window's cells keep counting, and a test fails the suite if a
    `proc-v8` predictor digest leaves the registry without a close. Each digest's value is its **bless
    moment**, which is not known yet at this step: it is the merge time of the
@@ -684,8 +690,8 @@ cells graded under the successor's rubric, since a window's figure can then pool
 rubrics. An unbroken window licenses no other pooling: a salience, baseline,
 evaluator or other boundary registered elsewhere still cuts inside it.
 
-**No predictor-half re-bless lands on `main` until per-window strata are
-built.** The frozen scope, the counting rule, the run collapse, evaluation
+**No predictor-half re-bless, and no bless that adds a predictor, lands on
+`main` until per-window strata are built.** The frozen scope, the counting rule, the run collapse, evaluation
 staging, the dataset export and the re-predict rule all read the windows. The
 leaderboard, the claim scores, the ops report and every other aggregate over
 the stratify pass still key on `predictor_id` alone, so rather than pool a
@@ -696,7 +702,7 @@ those surfaces break out by window would stop every frozen-scope board from
 building, so a test fails the suite while any window carries a `closes`. A
 bless that adds a window for a new predictor id closes nothing, yet ranks an
 engine whose window opened later beside the earlier ones over a different span
-of events — the selected-population comparison this section rules out — so a
+of events — the comparison *No figure pools windows* rules out — so a
 second test fails the suite while any window opens after the earliest. Both
 are removed in the change that builds per-window strata. The evaluator-agreement
 view is keyed on the evaluator and pools the predictors' windows by design,

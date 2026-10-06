@@ -146,7 +146,9 @@ a `"process_version": null` key without a stamp.
 
 After the metrics refresh in section 3, `metrics/leaderboard.json`'s
 `frozen_process` block must read `since: 2026-09-16T00:26:04Z` beside those six
-digests; a `since` naming any other instant means the board was built against a
+digests, and its `windows` must list exactly the three `proc-v8` predictor
+windows opening at that instant with null `closes`; a `since` naming any other
+instant means the board was built against a
 different freeze and nothing may be quoted from it.
 
 Cohort completeness is settled before the conference, not during the write-up
