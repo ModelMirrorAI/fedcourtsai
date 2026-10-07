@@ -10,8 +10,8 @@ prose that this module makes runnable (``docs/process-version.md``):
   from a closed window and others' from the successor; per engine, how many of
   the successor's counted events hold a failed or missing earlier-window
   attempt (partitioned four ways), because the successor's population is the
-  events the closed window did not reach, and that population is selected; and the count per evaluator
-  digest of the closed windows' gradings, because a window's figure can pool
+  events the closed window did not reach, and that population is selected;
+  and the count per evaluator digest of the closed windows' gradings, because a window's figure can pool
   rubrics once a full freeze moves the evaluator digests.
 * **A revoked window's figures over its resolved slice**
   (:func:`revoked_window_board`). A revocation made after any affected outcome
