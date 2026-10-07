@@ -321,7 +321,7 @@
           "title": "Process Window"
         },
         "rank": {
-          "description": "1-based standing; 1 is best",
+          "description": "1-based standing; 1 is best. Ranked within this entry's `process_window` cohort: on a frozen build whose entries carry more than one window label, the ranking restarts per label (cohorts listed in the order their windows opened), since a rank is a cross-engine comparison and windows that cover different events are not ranked against each other. Under one label, one ranking over the board",
           "minimum": 1,
           "title": "Rank",
           "type": "integer"
@@ -356,12 +356,12 @@
           "additionalProperties": {
             "type": "integer"
           },
-          "description": "Per `by_band` key, the forward cert events on which **every** predictor in this population carries an accuracy-scored forward grading filed under that same band \u2014 the band's complete grid. A per-band comparison between engines is made only over it: where two entries' per-band `events_scored` differ they rank over different petitions, and no per-band ordering is read off them. An event whose predictors froze different bands is complete under none, and on a frozen build so is a split event \u2014 one whose predictors' counted cells come from windows that never ran together. Where the population's complete events fall under more than one window combination this is their total, each event in exactly one, and `complete_grids` breaks it out: a comparison reads its own combination's grid, never the total. Omitted while empty",
+          "description": "Per `by_band` key, the forward cert events on which **every** predictor in this population carries an accuracy-scored forward grading filed under that same band \u2014 the band's complete grid. A per-band comparison between engines is made only over it: where two entries' per-band `events_scored` differ they rank over different petitions, and no per-band ordering is read off them. An event whose predictors froze different bands is complete under none, and on a frozen build so is a split event \u2014 one whose predictors' counted cells come from windows that never ran together. Where the population's entries carry more than one window label this is the total over its window combinations, each event in exactly one, and `complete_grids` breaks it out: a comparison reads its own combination's grid, never the total, which is read as the grid only while `complete_grids` is absent. Omitted while empty",
           "title": "Complete Grid By Band",
           "type": "object"
         },
         "complete_grids": {
-          "description": "The complete grid per window combination (one window per predictor, windows that overlap in time), sorted by the combination's windows. Listed only where the population's complete events fall under more than one combination; while one combination holds them all, `complete_grid_by_band` is that combination's grid and every entry's `process_window` names it. Omitted while empty",
+          "description": "The complete grid per window combination (one window per predictor, windows that overlap in time), sorted by the combination's windows. Listed wherever the population's entries carry more than one window label, even when one combination (or none) holds every complete event: a per-window entry need not cover the total, so a per-band comparison reads the entries whose `process_window` match one combination against that combination's count, and an entry whose window is in no listed combination has no grid. Omitted under one label, where every entry covers `complete_grid_by_band` and it is the grid",
           "items": {
             "$ref": "#/$defs/CompleteGrid"
           },
@@ -414,7 +414,7 @@
           "additionalProperties": {
             "type": "integer"
           },
-          "description": "Per `by_band` key, the forward cert events on which every predictor holds an accuracy-scored forward grading under that band, but from windows that never ran together \u2014 a closed window and the successor that closed it. A split event belongs to no complete grid, so it is counted here rather than in one. Omitted while empty, which it is on any build whose windows all overlap",
+          "description": "Per `by_band` key, the forward cert events on which every predictor holds an accuracy-scored forward grading under that band \u2014 split events among this population's complete graded events only, not the successor entry's count over every counted cell \u2014 but from windows that never ran together \u2014 a closed window and the successor that closed it. A split event belongs to no complete grid, so it is counted here rather than in one. Omitted while empty, which it is on any build whose windows all overlap",
           "title": "Split Events By Band",
           "type": "object"
         }
@@ -834,7 +834,7 @@
       "description": "One (predictor, counting window) series inside a figure that pools several labels.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. Where\nthose span more than one window label, the figure is the **record across\nthose labels**: it lists each series and its ``n`` beside the pooled value,\nand is never a rank key (``docs/process-version.md``, *No figure pools\nwindows*).",
       "properties": {
         "n": {
-          "description": "This series' share of the pooled figure's population, in the figure's own unit (cells, pairs, or reads \u2014 whatever the figure's own count beside it counts)",
+          "description": "This series' share of the pooled figure's population, in the unit the containing `windows` field names (cells or reads) \u2014 not necessarily the unit of the figure's own count, so the n need not sum to it",
           "minimum": 0,
           "title": "N",
           "type": "integer"
@@ -865,12 +865,12 @@
       "additionalProperties": {
         "type": "integer"
       },
-      "description": "Per `by_band` key, the forward cert events on which **every** predictor in this population carries an accuracy-scored forward grading filed under that same band \u2014 the band's complete grid. A per-band comparison between engines is made only over it: where two entries' per-band `events_scored` differ they rank over different petitions, and no per-band ordering is read off them. An event whose predictors froze different bands is complete under none, and on a frozen build so is a split event \u2014 one whose predictors' counted cells come from windows that never ran together. Where the population's complete events fall under more than one window combination this is their total, each event in exactly one, and `complete_grids` breaks it out: a comparison reads its own combination's grid, never the total. Omitted while empty",
+      "description": "Per `by_band` key, the forward cert events on which **every** predictor in this population carries an accuracy-scored forward grading filed under that same band \u2014 the band's complete grid. A per-band comparison between engines is made only over it: where two entries' per-band `events_scored` differ they rank over different petitions, and no per-band ordering is read off them. An event whose predictors froze different bands is complete under none, and on a frozen build so is a split event \u2014 one whose predictors' counted cells come from windows that never ran together. Where the population's entries carry more than one window label this is the total over its window combinations, each event in exactly one, and `complete_grids` breaks it out: a comparison reads its own combination's grid, never the total, which is read as the grid only while `complete_grids` is absent. Omitted while empty",
       "title": "Complete Grid By Band",
       "type": "object"
     },
     "complete_grids": {
-      "description": "The complete grid per window combination (one window per predictor, windows that overlap in time), sorted by the combination's windows. Listed only where the population's complete events fall under more than one combination; while one combination holds them all, `complete_grid_by_band` is that combination's grid and every entry's `process_window` names it. Omitted while empty",
+      "description": "The complete grid per window combination (one window per predictor, windows that overlap in time), sorted by the combination's windows. Listed wherever the population's entries carry more than one window label, even when one combination (or none) holds every complete event: a per-window entry need not cover the total, so a per-band comparison reads the entries whose `process_window` match one combination against that combination's count, and an entry whose window is in no listed combination has no grid. Omitted under one label, where every entry covers `complete_grid_by_band` and it is the grid",
       "items": {
         "$ref": "#/$defs/CompleteGrid"
       },
@@ -878,7 +878,7 @@
       "type": "array"
     },
     "entries": {
-      "description": "The ranked cert-stage board \u2014 one entry per predictor with a cert-stage evaluation, and on a frozen build per (predictor, counting window): two windows of one predictor are two entries over disjoint events, ranked as two forecasters are and never compared with each other off the ranks",
+      "description": "The ranked cert-stage board \u2014 one entry per predictor with a cert-stage evaluation, and on a frozen build per (predictor, counting window): two windows of one predictor are two entries over disjoint events. Listed cohort by cohort \u2014 the entries sharing a `process_window` label, in the order their windows opened \u2014 each ranked within its own cohort",
       "items": {
         "$ref": "#/$defs/LeaderboardEntry"
       },
@@ -997,7 +997,7 @@
       "additionalProperties": {
         "type": "integer"
       },
-      "description": "Per `by_band` key, the forward cert events on which every predictor holds an accuracy-scored forward grading under that band, but from windows that never ran together \u2014 a closed window and the successor that closed it. A split event belongs to no complete grid, so it is counted here rather than in one. Omitted while empty, which it is on any build whose windows all overlap",
+      "description": "Per `by_band` key, the forward cert events on which every predictor holds an accuracy-scored forward grading under that band \u2014 split events among this population's complete graded events only, not the successor entry's count over every counted cell \u2014 but from windows that never ran together \u2014 a closed window and the successor that closed it. A split event belongs to no complete grid, so it is counted here rather than in one. Omitted while empty, which it is on any build whose windows all overlap",
       "title": "Split Events By Band",
       "type": "object"
     },

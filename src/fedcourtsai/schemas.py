@@ -3163,8 +3163,9 @@ class WindowCount(_Strict):
     process_window: str = Field(description="The counting window's label (e.g. `proc-v8`)")
     n: int = Field(
         ge=0,
-        description="This series' share of the pooled figure's population, in the figure's "
-        "own unit (cells, pairs, or reads — whatever the figure's own count beside it counts)",
+        description="This series' share of the pooled figure's population, in the unit the "
+        "containing `windows` field names (cells or reads) — not necessarily the unit of the "
+        "figure's own count, so the n need not sum to it",
     )
 
 
@@ -3318,24 +3319,30 @@ _COMPLETE_GRID_DESCRIPTION = (
     "per-band ordering is read off them. An event whose predictors froze "
     "different bands is complete under none, and on a frozen build so is a "
     "split event — one whose predictors' counted cells come from windows that "
-    "never ran together. Where the population's complete events fall under "
-    "more than one window combination this is their total, each event in "
-    "exactly one, and `complete_grids` breaks it out: a comparison reads its "
-    "own combination's grid, never the total. Omitted while empty"
+    "never ran together. Where the population's entries carry more than one "
+    "window label this is the total over its window combinations, each event "
+    "in exactly one, and `complete_grids` breaks it out: a comparison reads "
+    "its own combination's grid, never the total, which is read as the grid "
+    "only while `complete_grids` is absent. Omitted while empty"
 )
 
 _COMPLETE_GRIDS_DESCRIPTION = (
     "The complete grid per window combination (one window per predictor, "
     "windows that overlap in time), sorted by the combination's windows. "
-    "Listed only where the population's complete events fall under more than "
-    "one combination; while one combination holds them all, "
-    "`complete_grid_by_band` is that combination's grid and every entry's "
-    "`process_window` names it. Omitted while empty"
+    "Listed wherever the population's entries carry more than one window "
+    "label, even when one combination (or none) holds every complete event: "
+    "a per-window entry need not cover the total, so a per-band comparison "
+    "reads the entries whose `process_window` match one combination against "
+    "that combination's count, and an entry whose window is in no listed "
+    "combination has no grid. Omitted under one label, where every entry "
+    "covers `complete_grid_by_band` and it is the grid"
 )
 
 _SPLIT_EVENTS_DESCRIPTION = (
     "Per `by_band` key, the forward cert events on which every predictor holds "
-    "an accuracy-scored forward grading under that band, but from windows that "
+    "an accuracy-scored forward grading under that band — split events among "
+    "this population's complete graded events only, not the successor entry's "
+    "count over every counted cell — but from windows that "
     "never ran together — a closed window and the successor that closed it. A "
     "split event belongs to no complete grid, so it is counted here rather "
     "than in one. Omitted while empty, which it is on any build whose windows "
@@ -3371,7 +3378,14 @@ class LeaderboardEntry(_Strict):
         "a predictor whose counted cells span two windows has one entry per window, and "
         "no entry pools them",
     )
-    rank: int = Field(ge=1, description="1-based standing; 1 is best")
+    rank: int = Field(
+        ge=1,
+        description="1-based standing; 1 is best. Ranked within this entry's `process_window` "
+        "cohort: on a frozen build whose entries carry more than one window label, the ranking "
+        "restarts per label (cohorts listed in the order their windows opened), since a rank "
+        "is a cross-engine comparison and windows that cover different events are not ranked "
+        "against each other. Under one label, one ranking over the board",
+    )
     evaluators: int = Field(ge=0, description="Distinct evaluators that scored this predictor")
     events_scored: int = Field(
         ge=0,
@@ -3902,8 +3916,9 @@ class Leaderboard(_Strict):
         default_factory=list,
         description="The ranked cert-stage board — one entry per predictor with a "
         "cert-stage evaluation, and on a frozen build per (predictor, counting window): two "
-        "windows of one predictor are two entries over disjoint events, ranked as two "
-        "forecasters are and never compared with each other off the ranks",
+        "windows of one predictor are two entries over disjoint events. Listed cohort by "
+        "cohort — the entries sharing a `process_window` label, in the order their windows "
+        "opened — each ranked within its own cohort",
     )
     complete_grid_by_band: dict[str, int] = Field(
         default_factory=dict,

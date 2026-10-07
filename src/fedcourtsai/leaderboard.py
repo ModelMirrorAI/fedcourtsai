@@ -456,7 +456,7 @@ class CompleteGrids:
 
 def _complete_grids(
     cells: Sequence[tuple[Evaluation, Stratum]],
-    roster: Iterable[str],
+    series: Iterable[Series],
     facts: Mapping[EvaluationKey, CellFacts] | None,
     cell_windows: Mapping[EvaluationKey, CountingWindow],
 ) -> CompleteGrids:
@@ -475,12 +475,19 @@ def _complete_grids(
     whose combination pairs a closed window with the successor that closed it
     is a **split event**, counted under ``split_by_band`` and in no grid.
     ``by_band`` is the total over the co-current combinations, each event in
-    exactly one; ``grids`` breaks it out only where there is more than one
-    combination, since with one the total *is* that combination's grid. An
+    exactly one. ``grids`` breaks it out per combination wherever the
+    population's ``series`` carry more than one window label — even where one
+    combination, or none, holds every complete event — because a per-window
+    entry, unlike a per-predictor one, need not cover its population's grid: a
+    successor's entry can sit beside a total it shares no event with, and only
+    the per-combination list shows that. Under one label each predictor has at
+    most one window, every entry covers the grid, and the total is the grid. An
     all-versions build carries no windows, so every complete event shares the
     one window-less combination and nothing is split.
     """
-    members = set(roster)
+    population = list(series)
+    members = {pid for pid, _ in population}
+    labelled = len({window.label for _, window in population if window is not None}) > 1
     if facts is None or not members:
         return CompleteGrids({}, [], {})
     covered: dict[tuple[str, tuple[str, str]], dict[str, CountingWindow | None]] = defaultdict(dict)
@@ -514,7 +521,7 @@ def _complete_grids(
                 combos.items(), key=lambda item: [series_sort_key(series) for series in item[0]]
             )
         ]
-        if len(combos) > 1
+        if labelled
         else []
     )
     return CompleteGrids(dict(sorted(total.items())), grids, dict(sorted(split.items())))
@@ -1252,7 +1259,7 @@ def _stage_board(
                 by_band=_by_band(strata[FORWARD], skills, facts, vote_scores=vote_scores),
             )
         )
-    grids = _complete_grids(cells, {pid for pid, _ in by_series}, facts, cell_windows)
+    grids = _complete_grids(cells, by_series, facts, cell_windows)
     return LeaderboardStage(
         evaluations_total=sum(
             _stratum_total(by_series, stratum) for stratum in (FORWARD, RETROSPECTIVE, PROCEDURAL)
@@ -1266,6 +1273,40 @@ def _stage_board(
         complete_grids=grids.grids,
         split_events_by_band=grids.split_by_band,
     )
+
+
+def _ranked(entries: list[LeaderboardEntry], series: Iterable[Series]) -> list[LeaderboardEntry]:
+    """``entries`` in board order, each ranked within its window label's cohort.
+
+    A rank is a cross-engine comparison, and engines are compared only over
+    events, never spans: an entry from a successor's window covers the events
+    the closed window did not reach, a selected population, and a closed
+    window's standing must not move because a later window's cells interleave
+    above it. So ``rank`` restarts in each cohort of entries sharing a
+    ``process_window`` label, cohorts ordered by the earliest opening among
+    their windows; a carried-forward window ranks with the cohort of the label
+    that opened it. Under one label — every build before a successor, and every
+    all-versions build — this is one ranking over the board, as it always was.
+    Within a cohort the order is :func:`_rank_key`, total down to the id.
+    """
+    opening: dict[str | None, float] = {}
+    for _, window in series:
+        if window is not None:
+            stamp = window.opens.timestamp()
+            opening[window.label] = min(stamp, opening.get(window.label, stamp))
+    ordered = sorted(
+        entries,
+        key=lambda entry: (
+            opening.get(entry.process_window, float("-inf")),
+            entry.process_window or "",
+            _rank_key(entry),
+        ),
+    )
+    position: dict[str | None, int] = defaultdict(int)
+    for entry in ordered:
+        position[entry.process_window] += 1
+        entry.rank = position[entry.process_window]
+    return ordered
 
 
 def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input the board publishes
@@ -1352,11 +1393,11 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         an unchanged ``predictor_id`` is a different forecaster, so a predictor
         whose counted cells span two windows has an entry per window and no
         figure pools them. The complete grids are taken per window combination
-        and a split event belongs to none (:func:`_complete_grids`). Two windows
-        of one predictor rank as two forecasters do — over their own events,
-        which never overlap, so no comparison between them is read off the
-        ranks (``metrics/README.md``). Unsupplied — an all-versions build —
-        every entry is keyed on the predictor alone and the field is null.
+        and a split event belongs to none (:func:`_complete_grids`). Ranks
+        restart in each window label's cohort (:func:`_ranked`), so no entry
+        is ranked against a window that covers different events. Unsupplied —
+        an all-versions build — every entry is keyed on the predictor alone and
+        the field is null.
     """
     cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
@@ -1392,12 +1433,8 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
             )
         )
 
-    # Stable over the series order above, so two windows of one predictor —
-    # tied on every key down to the id — keep their windows' opening order.
-    entries.sort(key=_rank_key)
-    grids = _complete_grids(cert_cells, {pid for pid, _ in by_series}, facts, windows)
-    for position, entry in enumerate(entries, start=1):
-        entry.rank = position
+    entries = _ranked(entries, by_series)
+    grids = _complete_grids(cert_cells, by_series, facts, windows)
 
     return Leaderboard(
         process_scope=process_scope,

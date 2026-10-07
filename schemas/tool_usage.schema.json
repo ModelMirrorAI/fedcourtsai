@@ -588,7 +588,7 @@
       "description": "One (predictor, counting window) series inside a figure that pools several labels.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. Where\nthose span more than one window label, the figure is the **record across\nthose labels**: it lists each series and its ``n`` beside the pooled value,\nand is never a rank key (``docs/process-version.md``, *No figure pools\nwindows*).",
       "properties": {
         "n": {
-          "description": "This series' share of the pooled figure's population, in the figure's own unit (cells, pairs, or reads \u2014 whatever the figure's own count beside it counts)",
+          "description": "This series' share of the pooled figure's population, in the unit the containing `windows` field names (cells or reads) \u2014 not necessarily the unit of the figure's own count, so the n need not sum to it",
           "minimum": 0,
           "title": "N",
           "type": "integer"

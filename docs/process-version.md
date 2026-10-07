@@ -406,16 +406,22 @@ never a rank key. The per-event readers — the dataset export, the big-case
 census (one read per predictor per case, each naming its window), the
 conference cut and the predict backlog — take any ledger. The pass still
 refuses a two-window predictor for a caller that keys on `predictor_id` alone
-and has not been split: `release-sensitivity`, whose population is `proc-v8`
-inside its own window by construction, and `semantic-summary`.
+and has not been split: `release-sensitivity` and `semantic-summary`. That
+refusal reads the whole ledger, so neither builds once any predictor holds
+graded cells in two windows — `release-sensitivity` included, although its
+release is `proc-v8` inside its own window.
 
 A cross-engine comparison is read only over events on which every compared
 engine holds a counted cell, each from one named window. The complete grid is
 therefore taken per window combination — one window per predictor, windows
 that ran together (`process_version.co_current`) — and an event split across a
 closed window and its successor belongs to no grid: the boards count it per
-band in `split_events_by_band`, and list each combination's grid in
-`complete_grids` wherever there is more than one.
+band in `split_events_by_band` (among their complete graded events), and list
+each combination's grid in `complete_grids` wherever the entries carry more
+than one window label, since a per-window entry need not cover the total. A
+rank is a cross-engine comparison too, so where the entries carry more than one
+label `rank` restarts within each label's cohort, and a closed window's
+standings never move when a later window's cells land.
 
 ### Two boundaries, two jobs
 
@@ -549,7 +555,9 @@ land; recording and tagging that commit complete the procedure:
    pins that the two move together — and edit `COUNTING_WINDOWS` to match:
    append one window per newly blessed **predictor** digest, labelled with the
    new label and opening at the instant, and set `closes` to the instant on
-   every window whose digest this label stops blessing. Never delete a window:
+   every window whose digest this label stops blessing (a close is still held
+   until the successor's disclosures come from a command; see *The windows are
+   built* below). Never delete a window:
    a closed window's cells keep counting, and a test fails the suite if a
    `proc-v8` predictor digest leaves the registry without a close. Each digest's value is its **bless
    moment**, which is not known yet at this step: it is the merge time of the
@@ -704,21 +712,23 @@ cells graded under the successor's rubric, since a window's figure can then pool
 rubrics. An unbroken window licenses no other pooling: a salience, baseline,
 evaluator or other boundary registered elsewhere still cuts inside it.
 
-**The windows are built in every frozen-scope surface**, so a predictor-half
-re-bless, or a bless that adds a predictor, closes and opens windows rather
-than de-counting. The frozen scope, the counting rule, the run collapse,
+**The windows are built in every frozen-scope surface**, so a bless that adds a
+predictor opens a window rather than ranking a later span beside the earlier
+ones, and a predictor-half re-bless closes windows rather than de-counting.
+The frozen scope, the counting rule, the run collapse,
 evaluation staging, the dataset export and the re-predict rule read the
 windows; every aggregate keys on (predictor, window) and every pooled figure
 lists its series (*No figure pools windows*). A window opening after the
 earliest is an ordinary entry beside the earlier ones over its own span of
-events, and a cross-engine reading of it goes through the complete grid of its
-window combination, never the ranks. Tests build every board over a synthetic
+events, ranked within its own label's cohort, and a cross-engine reading of it
+goes through the complete grid of its window combination. Tests build every board over a synthetic
 two-window registry and check that each is per window and that nothing pools
 unlisted (`tests/test_counting_windows.py`); `release-sensitivity` and
-`semantic-summary` still refuse a predictor that spans two windows. What the
-successor's entry must state on top is listed above, and a test still fails the
-suite if one of `proc-v8`'s predictor digests leaves the registry without a
-close.
+`semantic-summary` still refuse a predictor that spans two windows. **A window
+still may not close** until the successor's disclosures listed above come from
+a command rather than by hand — a test fails the suite while any window carries
+a `closes` — and a test fails it if one of `proc-v8`'s predictor digests leaves
+the registry without a close.
 
 **Revoking a window** is the one route by which counted cells are de-counted,
 and it is for a defect that invalidates the window's forecasts, never a better

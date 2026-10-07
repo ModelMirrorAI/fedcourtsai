@@ -48,9 +48,15 @@ entry per window, and every artifact carries the whole registry in
 `frozen_process.windows`. Two reading rules follow. **Two windows of one
 predictor share no event** — a predictor holds one counted forecast per event,
 the earliest window's — so their entries are two forecasters over disjoint
-events: they rank on the board as any two engines do, and no comparison
-between them is read off the ranks; a rise across a window boundary is not a
-measurement of improvement. And a figure keyed on something other than the
+events, and a rise across a window boundary is not a measurement of
+improvement. **A rank is read within one window label.** Where a frozen
+board's entries carry more than one label, `rank` restarts in each label's
+cohort (the cohorts listed in the order their windows opened; a
+carried-forward window ranks with the label that opened it), so a successor's
+entries — over the events the closed window did not reach, a selected
+population — are never ranked against the closed window's, and a closed
+window's standings do not move when a later window's cells land. Under one
+label this is the one ranking the board always had. And a figure keyed on something other than the
 forecaster — the claim scores' judge validation, the board's
 `evaluator_agreement` (it compares graders, and pools the predictors' windows by
 design), the ops calibration block, a tool-usage coefficient row — is the
@@ -65,9 +71,12 @@ successor belongs to no complete grid (see `complete_grids` below).
 
 Two readers keep the predictor-keyed shape and so still **refuse** a ledger in
 which one predictor's counted cells span two windows rather than pool them:
-`release-sensitivity`, whose population is `proc-v8` inside `proc-v8`'s window
-by construction, and `semantic-summary`. Their refusal is the floor, not a
-figure.
+`release-sensitivity` and `semantic-summary`. The refusal reads the whole
+ledger, so once any predictor holds graded cells in two windows neither command
+builds at all — `release-sensitivity` included, although the release it
+serves is `proc-v8` inside `proc-v8`'s window — and its figures are re-derived
+before that, or the command is split, never quoted off a refusal. The refusal
+is the floor, not a figure.
 
 **One prediction per predictor per event, and re-predicting a live event is a
 registered rule.** A predictor may hold several committed runs on one event —
@@ -659,11 +668,18 @@ stays outside the gate:
   complete events fall under more than one combination — one engine's process
   changed while another's digest carried forward — `complete_grids` lists each
   combination's windows and per-band count, and `complete_grid_by_band` is
-  their total, each event in exactly one. A per-band comparison then reads its
-  own combination's grid against the entries whose `process_window` match it,
-  never the total. While one combination holds every complete event (today's
-  registry, every window opening at one instant) `complete_grids` is omitted
-  and `complete_grid_by_band` is that combination's grid.
+  their total, each event in exactly one. `complete_grids` is listed wherever
+  the entries carry more than one window label — even when one combination, or
+  none, holds every complete event — because a per-window entry need not cover
+  the total: a successor's entry can match the total's count over events it
+  shares with no other entry. So the containment rule above is read **per
+  combination**: only the entries whose `process_window` match a combination's
+  windows, each against that combination's count; an entry whose window sits in
+  no listed combination has no grid. The total is read as the grid only while
+  `complete_grids` is absent (one label, every window opening at one instant,
+  as today), when every entry covers it. `split_events_by_band` counts split
+  events among these complete graded events only; the successor entry's
+  split-event count is over every counted cell.
 
   The ranked board is the **cert stage's first declared moment** (see the stage
   axis note below); every other population — a later cert moment included —
