@@ -35,6 +35,7 @@ from fedcourtsai.leaderboard import (
     big_case_agreement,
     build_leaderboard,
     cell_facts,
+    coverage_shortfalls,
     evaluator_agreement,
 )
 from fedcourtsai.ops import render_substance, summarize_substance
@@ -439,7 +440,7 @@ def test_a_two_window_registry_builds_the_leaderboard_per_window(
     # The grader view pools the predictors' windows by design and says which.
     for agreement in board.evaluator_agreement.values():
         assert sorted((w.predictor_id, w.process_window) for w in agreement.windows) == ALL_SERIES
-    # Ties down to the id keep the earlier window first.
+    # Cohorts list in the order their windows opened.
     alpha = [e.process_window for e in board.entries if e.predictor_id == "alpha"]
     assert alpha == ["proc-a", "proc-b"]
 
@@ -584,6 +585,8 @@ def test_a_successor_entry_shares_no_grid_it_does_not_cover(
     assert [grid.windows for grid in board.complete_grids] == [
         {"alpha": "proc-a", "beta": "proc-a"}
     ]
+    # Coverage is read within a label's cohort: alpha@proc-b is short of nothing.
+    assert coverage_shortfalls(board.events_scored, board.entries) == []
     # Ranks restart per label: the successor's entry is ranked in its own cohort.
     assert [(e.predictor_id, e.process_window, e.rank) for e in board.entries] == [
         ("alpha", "proc-a", 1),
@@ -744,7 +747,10 @@ def test_tool_usage_splits_one_engine_across_two_windows() -> None:
     coefficient row pools engines by design and names the series it pools."""
     joined = [_joined(CLOSED), _joined(CLOSED), _joined(SUCCESSOR)]
     segments = [(key[1], len(group)) for key, group in _segments(joined)]
-    assert segments == [(CLOSED, 2), (SUCCESSOR, 1)]
+    assert segments == [("proc-a", 2), ("proc-b", 1)]
+    # Two predictors sharing an engine under one label pool as before.
+    beta = [_joined(CLOSED), _joined(BETA, predictor_id="beta")]
+    assert [(key[1], len(group)) for key, group in _segments(beta)] == [("proc-a", 2)]
     row = _correlate(("forward", "cert", "distribution"), joined)
     assert [(w.process_window, w.n) for w in row.windows] == [("proc-a", 2), ("proc-b", 1)]
     # Under one label nothing is listed.

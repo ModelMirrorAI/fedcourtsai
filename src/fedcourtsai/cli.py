@@ -170,6 +170,7 @@ from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
     cell_facts,
+    coverage_shortfalls,
     entry_name,
     evaluator_agreement,
     skill_components,
@@ -15092,9 +15093,8 @@ def _report_uneven_coverage(board: Leaderboard) -> None:
     ]
     for population, covered, entries in populations:
         short = [
-            f"{entry_name(entry, entries)} {entry.events_scored}/{covered}"
-            for entry in entries
-            if entry.events_scored < covered
+            f"{entry_name(entry, entries)} {entry.events_scored}/{against}"
+            for entry, against in coverage_shortfalls(covered, entries)
         ]
         if not short:
             continue

@@ -63,8 +63,8 @@ design), the ops calibration block, a tool-usage coefficient row — is the
 **record across labels** wherever its cells come from windows carrying more
 than one label: it lists each (predictor, window) series and its `n` as
 `windows` beside the pooled value, and is never a rank key. Under a single
-label nothing is listed and the artifact reads exactly as it did before any
-successor. Engines are compared only over **events**: a cross-engine figure is
+label nothing is listed; only the `process_window` on each row, segment and
+read is new. Engines are compared only over **events**: a cross-engine figure is
 read over events on which every compared engine holds a counted cell, each
 from one named window, and an event split across a closed window and its
 successor belongs to no complete grid (see `complete_grids` below).

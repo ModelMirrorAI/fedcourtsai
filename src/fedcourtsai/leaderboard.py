@@ -556,6 +556,33 @@ def _by_band(
     }
 
 
+def coverage_shortfalls(
+    covered: int, entries: Sequence[LeaderboardEntry | LeaderboardStageEntry]
+) -> list[tuple[LeaderboardEntry | LeaderboardStageEntry, int]]:
+    """Each entry scored on fewer events than it is compared against, with that figure.
+
+    Under one window label the figure is the population's own ``events_scored``
+    union, as the board publishes it. Where the entries carry more than one
+    label, two windows cover different events by construction, so an entry is
+    read against its own label's cohort instead: the largest ``events_scored``
+    in that cohort, a lower bound on the cohort's union — a shortfall against it
+    is unequal coverage for certain, and a cohort read against the whole board
+    would be short on every entry and say nothing.
+    """
+    labels = {entry.process_window for entry in entries}
+    if len(labels) <= 1:
+        return [(entry, covered) for entry in entries if entry.events_scored < covered]
+    cohort = {
+        label: max(e.events_scored for e in entries if e.process_window == label)
+        for label in labels
+    }
+    return [
+        (entry, cohort[entry.process_window])
+        for entry in entries
+        if entry.events_scored < cohort[entry.process_window]
+    ]
+
+
 def entry_name(
     entry: LeaderboardEntry | LeaderboardStageEntry,
     entries: Sequence[LeaderboardEntry | LeaderboardStageEntry],
@@ -574,9 +601,8 @@ def entry_name(
 def _rank_key(entry: LeaderboardEntry) -> tuple[float, float, float, float, str]:
     """Forward stratum first, retrospective as tie-break, then id.
 
-    Two windows of one predictor tie on the id; :func:`build_leaderboard`
-    sorts its series in window order first and the sort is stable, so the
-    earlier window's entry stands first and the order stays total.
+    Applied within one window label's cohort (:func:`_ranked`), where each
+    predictor has one entry, so the id makes the order total.
 
     Forward accuracy (desc, missing last) then forward Brier (asc, missing last) lead because
     only the forward stratum measures forecasting skill; the retrospective pair

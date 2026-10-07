@@ -89,7 +89,6 @@ from .process_version import (
     graded_in_window,
     pooled_windows,
     refuse_shared_labels,
-    series_sort_key,
     window_label,
     window_of,
 )
@@ -570,9 +569,14 @@ class _JoinedCell:
     predictor_id: str = ""
 
     @property
-    def segment_key(self) -> tuple[str, CountingWindow | None, str, str, str]:
-        """The segment this cell belongs to: engine, counting window, mode, stage, moment."""
-        return (self.engine, self.window, self.mode, self.stage, self.moment)
+    def segment_key(self) -> tuple[str, str | None, str, str, str]:
+        """The segment this cell belongs to: engine, window label, mode, stage, moment.
+
+        Keyed on the window's label, the name a segment is published under, so
+        two predictors sharing an engine under one label pool as they always
+        have, while one engine's cells under two labels never do.
+        """
+        return (self.engine, window_label(self.window), self.mode, self.stage, self.moment)
 
     @property
     def population_key(self) -> tuple[str, str, str]:
@@ -697,7 +701,7 @@ def _usefulness(
     segments = [
         ToolUsefulnessSegment(
             engine=key[0],
-            process_window=window_label(key[1]),
+            process_window=key[1],
             mode=key[2],
             stage=key[3],
             moment=key[4],
@@ -760,21 +764,25 @@ def _correlate(
 
 def _segments(
     joined: list[_JoinedCell],
-) -> list[tuple[tuple[str, CountingWindow | None, str, str, str], list[_JoinedCell]]]:
-    """The joined cells grouped by segment, ordered engine, window (by opening), mode, moment.
+) -> list[tuple[tuple[str, str | None, str, str, str], list[_JoinedCell]]]:
+    """The joined cells grouped by segment, ordered engine, label (by opening), mode, moment.
 
-    :func:`_grouped`'s rule with the window placed by its opening instant rather
-    than compared directly, since a window carries no order of its own.
+    :func:`_grouped`'s rule with the label placed by the earliest opening among
+    its windows rather than compared as text, so ``proc-v10`` follows ``proc-v9``.
     """
-    grouped: defaultdict[tuple[str, CountingWindow | None, str, str, str], list[_JoinedCell]] = (
-        defaultdict(list)
+    grouped: defaultdict[tuple[str, str | None, str, str, str], list[_JoinedCell]] = defaultdict(
+        list
     )
+    opening: dict[str | None, float] = {}
     for cell in joined:
         grouped[cell.segment_key].append(cell)
+        if cell.window is not None:
+            stamp = cell.window.opens.timestamp()
+            opening[cell.window.label] = min(stamp, opening.get(cell.window.label, stamp))
 
-    def order(key: tuple[str, CountingWindow | None, str, str, str]) -> tuple[object, ...]:
-        engine, window, *rest = key
-        return (series_sort_key((engine, window)), *rest)
+    def order(key: tuple[str, str | None, str, str, str]) -> tuple[object, ...]:
+        engine, label, *rest = key
+        return (engine, opening.get(label, float("-inf")), label or "", *rest)
 
     return [(key, grouped[key]) for key in sorted(grouped, key=order)]
 
