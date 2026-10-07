@@ -710,12 +710,16 @@ def _cert_events(data_root: Path) -> list[_EventInfo]:
         stage = normalized_stage(event.kind, event.stage)
         if stage != Stage.cert:
             continue
+        # Keyed on the predictor directory the cell sits in, as the other
+        # ledger walkers are, rather than the agent-written ``predictor_id``.
+        cells = [
+            (path.parent.parent.name, read_model(path, Prediction))
+            for path in sorted(paths.predictions_dir.glob("*/*/prediction.json"))
+        ]
         frozen = [
             prediction
-            for path in sorted(paths.predictions_dir.glob("*/*/prediction.json"))
-            if prediction_counts(
-                paths.base, (prediction := read_model(path, Prediction)).predictor_id, prediction
-            )
+            for predictor_id, prediction in cells
+            if prediction_counts(paths.base, predictor_id, prediction)
         ]
         if not frozen:
             continue

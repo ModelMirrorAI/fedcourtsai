@@ -887,8 +887,8 @@ also checks every `cert@distribution` board cell whose *scored* run, for any
 predictor, postdates its considering conference, and names any that falls
 outside the subset (`scored_after_conference_outside_subset`); it lists the
 subset itself (`subset`). The first forward cell is the earliest among the
-counted cells (the frozen scope's event-aware rule), so a de-counted cell made
-before the freeze does not count,
+counted cells (the frozen scope's event-aware rule), so neither a de-counted
+cell nor a later window's cell the rule does not count is ever the first,
 and "none registered" is a confirmation the command's `registered` count
 makes, not a property of the rule. The conference is the one the petition was
 distributed for as at the run, read off the petition's own distribution
