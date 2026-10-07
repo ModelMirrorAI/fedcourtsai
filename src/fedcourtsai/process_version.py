@@ -55,7 +55,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
@@ -676,3 +677,25 @@ def pooled_windows(counts: Mapping[Series, int]) -> list[WindowCount]:
         )
         if window is not None
     ]
+
+
+@contextmanager
+def counting_windows(windows: Sequence[CountingWindow]) -> Iterator[None]:
+    """Read the counting rule over ``windows`` instead of the registry, for one block.
+
+    For the one reader that must see the ledger as a different registry would
+    count it: a revoked window's figures over its resolved slice, which lift
+    that window's revocation to show what the revocation removed
+    (:func:`fedcourtsai.window_records.revoked_window_board`). Every counting
+    function reads :data:`COUNTING_WINDOWS` at call time, so the whole rule —
+    the event tie-break, the timing gate, staging's resolver — follows the
+    override, and the committed registry is restored on exit whatever happens.
+    Never used on a path that writes the ledger.
+    """
+    global COUNTING_WINDOWS  # noqa: PLW0603 - swapping the registry is the override
+    saved = COUNTING_WINDOWS
+    COUNTING_WINDOWS = tuple(windows)
+    try:
+        yield
+    finally:
+        COUNTING_WINDOWS = saved

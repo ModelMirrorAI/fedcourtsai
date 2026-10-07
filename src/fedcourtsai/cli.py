@@ -66,6 +66,7 @@ from . import (
     secretscan,
     summaries,
     tool_usage,
+    window_records,
 )
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .application_migration import (
@@ -5805,6 +5806,84 @@ def release_sensitivity_command(
 def _percent_or_dash(rate: float | int | None) -> str:
     """A rate as a two-decimal percentage, or an em dash where there is none."""
     return "—" if rate is None else f"{rate:.2%}"
+
+
+@app.command("successor-disclosures")
+def successor_disclosures_command(
+    closed: Annotated[
+        str, typer.Option("--closed", help="The label whose windows the successor closed.")
+    ],
+    successor: Annotated[
+        str, typer.Option("--successor", help="The successor's label (the one that closed them).")
+    ],
+    out: Annotated[Path | None, typer.Option(help="Also write the disclosures JSON here.")] = None,
+) -> None:
+    """Print what a successor's freeze-record entry states about the windows it closed.
+
+    Read-only and offline over the committed ledger, against the registry as
+    committed — so run it at the successor's freeze commit (once its windows are
+    registered) and again at the carrying promotion. Four disclosures
+    (``docs/process-version.md``): each closed window's counted events, split
+    into resolved and pending at its close; the **split events**, on which
+    counted cells come from a closed window and a successor window that never
+    ran together, so no complete grid holds them; per predictor with
+    successor-counted events, how many hold a failed (``attempt.json``) or a
+    missing earlier-window attempt, since the successor's population is the
+    events the closed window did not reach; and the closed windows' counted
+    gradings per evaluator digest, with those made at or after the instant.
+    Lines on stdout, the JSON with ``--out``. Exit 2 when the registry holds no
+    such closed window or successor.
+    """
+    settings = get_settings()
+    try:
+        report = window_records.successor_disclosures(
+            settings.data_root, closed_label=closed, successor_label=successor
+        )
+    except window_records.WindowRecordError as exc:
+        typer.echo(f"successor-disclosures: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    if out is not None:
+        write_json(out, report)
+    typer.echo(window_records.render_disclosures(report))
+
+
+@app.command("revoked-window-board")
+def revoked_window_board_command(
+    label: Annotated[str, typer.Option("--label", help="The revoked windows' label.")],
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/revoked-<label>.json)."),
+    ] = None,
+) -> None:
+    """Publish a revoked window's figures over the slice that had resolved when it was revoked.
+
+    The declaration's condition on a late revocation: one made after any of the
+    window's outcomes publishes the window's figures over that resolved slice
+    beside the entry, so the exclusion is visible rather than silent. Builds
+    the frozen leaderboard as ``fedcourts leaderboard`` does — same cells, same
+    committed pack — with the revocation lifted for ``--label``'s revoked
+    windows only, keeps those windows' cells on events resolved on or before
+    each window's revocation day, and writes the board inside a record naming
+    the windows and the cut. Never a results surface. Exit 2 when no revoked
+    window carries the label.
+    """
+    settings = get_settings()
+    statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
+    try:
+        record = window_records.revoked_window_board(
+            settings.data_root, label=label, statpack=statpack
+        )
+    except window_records.WindowRecordError as exc:
+        typer.echo(f"revoked-window-board: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    destination = out if out is not None else settings.metrics_root / f"revoked-{label}.json"
+    write_json(destination, record)
+    board = record.board
+    typer.echo(
+        f"revoked-window-board [{label}]: {board.predictors_ranked} entr(ies) from "
+        f"{board.evaluations_total} cert-stage evaluation(s) over {board.events_scored} "
+        f"resolved event(s) -> {destination}"
+    )
 
 
 @app.command("export")

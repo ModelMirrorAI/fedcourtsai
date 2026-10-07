@@ -692,7 +692,7 @@ stays outside the gate:
   as under `proc-v8`'s registry), when every entry covers it. `split_events_by_band` counts split
   events among these complete graded events only. The split-event count a
   successor's freeze-record entry discloses is a different figure, over every
-  counted cell, graded or not.
+  counted cell, graded or not, and comes from `fedcourts successor-disclosures`.
 
   The ranked board is the **cert stage's first declared moment** (see the stage
   axis note below); every other population — a later cert moment included —
