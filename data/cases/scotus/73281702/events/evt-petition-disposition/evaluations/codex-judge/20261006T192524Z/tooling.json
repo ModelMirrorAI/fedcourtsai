@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281702",
+  "gaps": [
+    "Unobserved candidate retrieval results limit content-level leakage auditing; query-based assessment remains possible."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts preserve identity separation.",
+    "Capture markers distinguish missing telemetry from empty results.",
+    "Versioned per-Term reached rates support a common prior-Term baseline.",
+    "Local JSON schemas support validation without restoring blinded targets."
+  ],
+  "notes": "Scored three cert-stage candidates from local inputs. No external facts or corpus refresh were needed. Baselines use rounded Markdown rates, pooled with published denominators.",
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell file inspection",
+    "jq",
+    "Python decimal arithmetic",
+    "fedcourtsai.paths",
+    "apply_patch",
+    "JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

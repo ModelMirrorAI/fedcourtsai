@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.35,
+    "notes": "Formed before reading the candidates' big_case_score. PDVSA and Helmerich & Payne back at the Court a decade after Helmerich I, on whether the Second Hickenlooper Amendment's act-of-state exception reaches a damages claim where no expropriated property or proceeds entered the United States. A real but narrow statutory question in foreign-expropriation litigation, interlocutory posture, no amici, a response called for after waiver, then a bare denial with Justice Kavanaugh recused and no noted dissent. Significant to the sovereign-litigation bar and to this long-running dispute, well short of a headline case."
+  },
+  "brier_score": 0.0196,
+  "brier_skill_score": 0.33934,
+  "case_id": "scotus/73302615",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.14,
+        "score": 0.010067304112156634
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.16,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.010067304112156634,
+    "total": 0.010067304112156634
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:41:50Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward; predicted 2026-09-18, event resolved 2026-10-05). 33 calls, capture coverage 0.94. Two web-search rows are unobserved; graded on their queries (a statute lookup and the docket-linked 2026-08-26 counsel-withdrawal letter URL), neither outcome-seeking. The letter was then fetched by shell from the supremecourt.gov URL already linked in the snapshot: dated 2026-08-26, pre-decision, legitimate forward signal, disclosed in reasoning.md and retrieval.md. CourtListener calls sought Republic of Hungary v. Simon (2025) only. No retrieved_doc_date on or after 2026-10-05, no query for this petition's disposition, no data/qp-topics/ read (one find command explicitly excludes that path). Reasoning does not presuppose the outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:43:41.975147Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.172242,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

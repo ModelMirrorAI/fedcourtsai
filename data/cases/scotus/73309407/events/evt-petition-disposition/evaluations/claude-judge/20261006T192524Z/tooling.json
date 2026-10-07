@@ -1,0 +1,22 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73309407",
+  "gaps": [
+    "A pre-computed pooled risk-set rate per band and Term (strictly-prior window) in the statpack would remove a per-cell arithmetic step every evaluator repeats"
+  ],
+  "helpful": [
+    "statpack.json carrying prefix_est_grant_rate and prefix_weighted_resolved per band and Term, so the risk-set pool is exact rather than recovered from rounded percentages",
+    "retrieval_log.json result_capture markers, which let an all-unobserved log be graded on its queries without treating absence as evidence"
+  ],
+  "notes": "Cert cell, three forward candidates, all denied-correct; no corpus or CourtListener lookups were needed to grade.",
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "tool_manifest": null,
+  "tools_used": [
+    "shell (cat/sed/python over the staged record)",
+    "metrics/statpack.md + metrics/statpack.json"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

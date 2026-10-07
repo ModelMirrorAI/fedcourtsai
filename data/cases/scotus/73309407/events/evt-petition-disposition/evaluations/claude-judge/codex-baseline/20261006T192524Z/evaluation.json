@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "Interlocutory paid petition from a county public defender in a Michigan OWI (marijuana) prosecution, taken before trial after Michigan's appellate courts denied leave without reasoning. The questions presented are a fact question about one driver's notice and a misplaced capable-of-repetition framing, no conflict is asserted, no response was filed, and the denial drew no writing. A national THC-impairment notice rule would matter, but nothing about this vehicle made that outcome live. Read formed before consulting the candidates' own big_case_score values; the outcome (bare denial, one distribution) confirms the low stakes."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9905,
+  "case_id": "scotus/73309407",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.002597359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002597359735235249,
+    "total": 0.002597359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:42:04Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction written 2026-09-16, petition denied 2026-10-05. Log (32 calls, capture coverage 0.91) shows local reads of the provisioned record, statpack and schema files, three uncaptured web calls whose queries were Supreme Court Rule 10 / the Rules PDF (generic, not this case), and two captured CourtListener calls for Cox Broadcasting v. Cohn (1975 precedent). No retrieved_doc_date on or after resolution, no query naming this docket's later history. A find command excluded data/qp-topics by path; nothing under it was read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:43:36.954001Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

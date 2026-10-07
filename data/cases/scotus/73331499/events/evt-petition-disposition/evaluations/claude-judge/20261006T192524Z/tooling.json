@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73331499",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell (cat/sed/grep/python3)", "metrics/statpack.md sal-v4 segment table", "blinded retrieval_log.json per candidate"],
+  "helpful": [
+    "The compact retrieval_log.json with mode, result_capture markers and retrieved_doc_date made the forward leakage check mechanical.",
+    "The sal-v4 reached figures with their n in the statpack made the risk-set pooling a one-line computation.",
+    "The decided snapshot (2026-10-05) showing the denial entry confirmed the outcome without any external lookup."
+  ],
+  "gaps": [
+    "The staged prediction.json puts big_case_score near the top of the file, so the predictor's number is visible before the evaluator can form an independent stakes read; staging it in a separate file (or at the end) would protect the independence the prompt asks for.",
+    "The evaluations/ tree is moved out during the run, so there is no committed example of an evaluation.json to check output shape against; a committed fixture would help."
+  ],
+  "notes": "Cert cell, all three candidates forward, all predicted denied; the only judgment calls were the pooled baseline (2017-2024 reached rows, n=11580) and reasoning_quality."
+}

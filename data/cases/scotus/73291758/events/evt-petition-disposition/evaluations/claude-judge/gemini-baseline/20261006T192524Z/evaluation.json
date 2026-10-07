@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Pro se petition by a couple against their daughter-in-law contesting two-year Illinois protective orders entered after a bench hearing on a harassment theory. No institutional party, no asserted split, an unpublished state intermediate order, constitutional claims the petition itself says were not raised below. The firearm-surrender term and the prayer-walk facts lend a constitutional veneer but no vehicle. Denied at the long conference with no response requested, no relist, no noted dissent. Stakes confined to this family."
+  },
+  "brier_score": 1e-06,
+  "brier_skill_score": 0.9996185675879429,
+  "case_id": "scotus/73291758",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": 0.0026213597352352487
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0026213597352352487,
+    "total": 0.0026213597352352487
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:36:10Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; log mode forward, 25 calls, result_capture_coverage 0.0 (an engine whose telemetry records no results, so every call is graded on its query). Every query is a local read of the prompt, the provisioned snapshot/documents, or a grep of metrics/statpack.md; no MCP, web, or corpus call at all. No query names a disposition, an order list, or any date past 2026-09-16. Prediction created 2026-09-16T21:36Z; the petition was denied 2026-10-05. Nothing outcome-revealing was reachable or sought.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:37:51.521646Z"
+  },
+  "reasoning_quality": 0.45,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120250431778929,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

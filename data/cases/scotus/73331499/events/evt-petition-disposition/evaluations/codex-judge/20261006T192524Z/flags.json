@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73331499",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Question 2 ends incompletely with 'the creation of DNA profiles from.' in both the supplied questions-presented text and petition text. This evaluation does not reconstruct the missing wording or assume whether the defect originated in the filing or its text representation. claude-baseline and codex-baseline identify the limitation; all evaluations remain scoreable against the explicit denial outcome.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md reports no retrieval beyond local inputs and the statpack, but its harness log records two broad corpus-query attempts at zero-based calls 12 and 13 (direct and uv-run forms, SCOTUS with era roberts). Both results are unobserved, so success, failure, and returned content cannot be established. The discrepancy is an incomplete retrieval note, not a finding of outcome retrieval; leakage remains not_applicable for the forward prediction. Zero result-capture coverage itself is not flagged as a defect.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0"
+}

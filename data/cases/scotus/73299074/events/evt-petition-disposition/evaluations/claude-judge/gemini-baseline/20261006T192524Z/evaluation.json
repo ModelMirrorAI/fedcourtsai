@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.25,
+    "notes": "The underlying DeVillier v. Texas litigation is a nationally known takings case decided unanimously in 2024, but this filing is a Rule 20 mandamus petition asking only that these landowners' consolidated case stay in federal court after a jurisdictional remand under 28 U.S.C. 1447(d). Its denial, without a response request or any separate writing, settles no doctrine and affects only these parties' forum. Moderate-low stakes."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.990464,
+  "case_id": "scotus/73299074",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.002597359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.8,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002597359735235249,
+    "total": 0.002597359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:37:36Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; the petition was pending on 2026-09-16 (denied 2026-10-05). The log (22 calls) has capture coverage 0.0, an engine's standing shape, so every call is graded on its query: reads of the provisioned record, the statpack, the schema, one CourtListener search for the caption and docket number (run on 2026-09-16, when no disposition existed), and two corpus queries the candidate reports as failed. No query reaches for a disposition and none postdates the event; the prose presupposes nothing about the outcome. Nothing outcome-revealing was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:38:05.786257Z"
+  },
+  "reasoning_quality": 0.45,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051203,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Pro se section 1983 suit arising from an Ohio custody dispute, against state trial and juvenile judges, a clerk, a probation officer and a patrolman; dismissed below on Rooker-Feldman, pleading, immunity and futility grounds with prefiling restrictions, affirmed in an unpublished Sixth Circuit order. Response waived and never requested; denied at the first conference with no separate writing. The Rooker-Feldman scope question has some doctrinal interest in the abstract, but this vehicle carries nothing beyond the parties."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9904666016397032,
+  "case_id": "scotus/73303792",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.002597359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.7,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002597359735235249,
+    "total": 0.002597359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:42:33Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-16 against a same-day snapshot whose last entry was the 2026-06-17 distribution for the 2026-09-28 conference; the denial issued 2026-10-05, after the prediction. Log (coverage 1.0, all captured): provisioned inputs, the predict prompt and schemas, the committed statpack, one corpus `query` for recent denied SCOTUS rows (not this case), and two CourtListener searches for the Sixth Circuit order below by caption and by docket 24-3840, both returning nothing. No retrieved_doc_date on or after resolution, no query for this petition's own SCOTUS docket, no data/qp-topics/ read. One call lists and reads a prior run's prediction.json, tooling.json and retrieval.md under another case's predictions tree as a format template; that is another cell's output, not outcome material about this case, and is not leakage. The decided case was not mis-provisioned.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:44:09.968792Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120898100172712,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

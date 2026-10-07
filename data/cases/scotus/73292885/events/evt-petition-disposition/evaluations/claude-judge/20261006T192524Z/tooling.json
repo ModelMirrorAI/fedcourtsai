@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292885",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "mcp:courtlistener:get_endpoint_item"
+  ],
+  "helpful": [
+    "The rendered sal-v4 band table with its 'Most recent 10 of 10 Term(s)' caption made the strictly-prior pooling unambiguous.",
+    "Blinded retrieval_log.json with result_capture markers and call classes was enough to grade a forward cell without guessing at results."
+  ],
+  "gaps": [
+    "A harness-staged pointer from the corpus case id to the CourtListener docket's current caption would let an evaluator confirm an id/caption mismatch without an MCP call.",
+    "The predictors' snapshot (2026-09-16.json) is not staged, so a candidate's record-reading claims (e.g. whether the respondent was counseled) can only be checked against the decided snapshot."
+  ],
+  "notes": "Cert cell, forward mode, all three candidates called denied; the only external lookup was one CourtListener dockets fetch to check a data-quality claim a candidate made in its retrieval note."
+}

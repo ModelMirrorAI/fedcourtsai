@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73299074",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "metrics/statpack.md sal-v4 reached table",
+    "record/blinded/<alias>/retrieval_log.json with result_capture markers",
+    "record/documents/questions-presented.txt"
+  ],
+  "gaps": [
+    "A committed mandamus / extraordinary-writ grant rate: this cell is a Rule 20 petition scored against the cert baseline-band rate, and the statpack carries no population for it."
+  ],
+  "notes": "Cert-stage cell with three forward candidates; everything needed was in the staged inputs. The outcome.json fields (distribution_count, noted_dissent_from_denial) made the forecast-document context easy to check without retrieval."
+}

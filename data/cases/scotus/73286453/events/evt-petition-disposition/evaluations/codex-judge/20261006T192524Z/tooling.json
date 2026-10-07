@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73286453",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local shell", "jq", "sed", "rg", "Python decimal", "JSON Schema validation"],
+  "helpful": ["Blinded predictions with frozen band and salience version", "Per-call result-capture markers", "Committed prior-Term reached-band rates", "Provisioned petition and opposition appendices"],
+  "gaps": ["Reply brief text is not provisioned, limiting preservation analysis", "Rounded statpack percentages limit baseline precision", "Unobserved retrieval results limit result-level audit for some candidates"],
+  "notes": "Scored all three staged aliases without external retrieval. Unobserved results are treated as telemetry limits, not empty returns or candidate defects. No pipeline files or harness-owned fields were written."
+}

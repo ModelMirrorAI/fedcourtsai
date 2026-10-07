@@ -1,0 +1,25 @@
+# Evaluation: claude-baseline
+
+## Outcome and numerical scores
+
+This cert-stage evaluation scores the blinded prediction from run `20260916T170237Z`. `outcome.json` records denial on October 5, 2026, with `actual_granted = 0`; the staged October 5 docket snapshot agrees. The predicted `denied` label is correct: **correct = 1**. P(grant) = 0.06 gives **Brier = 0.0036**.
+
+The frozen prediction context supplies Term 2025, `baseline`, and `sal-v4`, matching the committed statpack heading. The appropriate basis is therefore `risk_set`: the bracketed baseline reached rates, pooled over every rendered Term strictly before 2025. For 2017–2024, the rate/weighted-n pairs are 4.7%/1643, 4.6%/1524, 4.6%/1399, 4.5%/1739, 5.6%/1500, 5.8%/1192, 5.9%/1312, and 5.7%/1271. The weighted numerator 592.925 divided by weighted n = 11,580 gives **segment base rate = 0.05120250431778929**. This is approximate because the table rounds percentages; 592.925 is not an observed integer count. The table renders 10 of 10 Terms, with 2025 and 2026 excluded here, so there is no truncated-window discrepancy.
+
+The baseline squared error is approximately 0.002621696448413231, yielding **Brier skill = -0.3731566834058468**. The correct label and negative skill are compatible: on this denied petition, 6% assigns more grant probability than the approximately 5.12% baseline. Neither this one-event skill nor label accuracy establishes calibration or general performance. The baseline describes the committed pack supplied to this cell, not a freshly verified remote corpus.
+
+## Reasoning quality: 0.84
+
+The rationale supplies a reproducible, version-matched, strictly-prior-Term anchor and explicitly distinguishes the reached population from terminal no-relist statistics. It weighs plausible reasons for greater attention against concrete vehicle problems rather than merely restating the overall rarity of grants. Particularly strong are the separation of the assumed constitutional violation from the clearly-established-law inquiry, the divided decision, and the recognition that the unresolved color-of-state-law issue could prevent a qualified-immunity victory from resolving the case. Petition appendix 9a–10a and Chief Judge Pryor's concurrence at 15a support those distinctions.
+
+The account of preservation is less careful than the remainder. The majority says the petitioner relied on the third, obvious-clarity method, but the appellate brief reproduced in opposition appendix 19a does cite Lewis footnote 13 and intentional vehicle misuse. That does not settle whether the certiorari theory was preserved; it does require a clearer distinction between a cited argument and an asserted change in the method of establishing the right. The rationale acknowledges the missing reply, but still describes the objection as confirmed more firmly than the available record warrants.
+
+Other adjustments are partly impressionistic: broad claims about the Court's doctrinal preferences and grant correlates receive less support than the document-based vehicle analysis, and a narrow search returning few opinions does not establish the full depth of a circuit disagreement. These limitations reduce the score without negating the substantial, balanced analysis. The move from about 5.1% to 6% remains a judgmental estimate rather than a fitted model. Denial is consistent with the forecast but supplies no finding that any proposed rationale actually motivated the Court.
+
+Only the headline rationale in `reasoning.md` is graded. The embedded ancillary-claim discussion and separate forecast document do not receive accuracy grades or alter this reasoning score. Mechanical claims belong to the harness. Cert-stage votes and semantic grades are omitted; no optional big-case assessment is supplied.
+
+## Leakage assessment
+
+The harness marks this as forward, and the prediction and log predate the October 5 resolution. All 22 calls have `captured` markers. The log includes corpus context queries, a target-docket search, a target-caption search, and topical authority searches. Legible returned document dates are January 29 and May 22, 2026. The candidate's retrieval note also mentions an August 26 citing decision. Those are pre-resolution materials, not this petition's disposition, and unrestricted retrieval was permitted in a genuinely open forward cell.
+
+A logged example-file read explicitly excludes this docket; it is not evidence that the candidate retrieved this case's outcome. No target disposing order, post-resolution document date, or reasoning that presupposes the denial appears. The structured assessment is therefore `retrieved_outcome_material = false`, `influenced_prediction = not_applicable`, and `leakage_suspected = false`. Captured markers establish capture, not full visibility of source bodies in the staged log; the assessment uses query scope, dates, and prose together. Missing predictor flags were not counted as evidence, and the evaluator's decided-docket context was not substituted for the frozen prediction context.

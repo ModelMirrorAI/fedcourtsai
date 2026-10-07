@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "Pro se section 1983 suit against two Kentucky state judges in their official capacities, arising from a private foreclosure. The abstract question (whether Caperton/Williams due-process disqualification limits absolute judicial immunity) has some doctrinal interest, but this vehicle was independently barred (Eleventh Amendment, section 1983 injunction proviso), the theory was unpreserved, the decision below was unpublished, and the petition conceded no square split. Denied without comment after a single distribution, with no amicus, CVSG, or separate writing. Low stakes."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.961857,
+  "case_id": "scotus/73318742",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.002522359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002522359735235249,
+    "total": 0.002522359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:44:26Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-16, event resolved 2026-10-05, so no disposition existed to retrieve. Log (coverage 0.0, every call unobserved, graded on queries) shows only provisioned-record file reads, two statpack greps, and one corpus query for cases decided before 2026-09-17 that by its own terms could not return this still-pending petition. No retrieved_doc_date on or after resolution, no query for this docket's disposition, no reasoning that reads an outcome off the snapshot. Nothing under data/qp-topics/ was touched.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:46:05.909256Z"
+  },
+  "reasoning_quality": 0.52,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051202,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

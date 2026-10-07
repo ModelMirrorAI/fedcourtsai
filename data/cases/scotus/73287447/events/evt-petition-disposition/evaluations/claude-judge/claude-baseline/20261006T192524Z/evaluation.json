@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.35,
+    "notes": "Independent read formed from the QP, briefs, docket and outcome: a technical antitrust-standing question (non-purchaser downstream losses under AGC) between two large media companies in a visible retransmission dispute, interlocutory posture, no cert-stage amici, denied without any noted dissent or statement. Doctrinally real but narrow; well short of a marquee case."
+  },
+  "brier_score": 0.0169,
+  "brier_skill_score": 0.4314,
+  "case_id": "scotus/73287447",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.13,
+        "score": 0.012767304112156635
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.012767304112156635,
+    "total": 0.012767304112156635
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:36:02Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; case was open at prediction time (written 2026-09-18, decided 2026-10-05). Log: 28 calls, all captured. The only this-case lookups were a CourtListener docket read (date_filed 2026-05-01, date_terminated null) and an empty docket-entries call; web results were pre-snapshot trade press and a 2024 DOJ CA2 amicus brief. No retrieved_doc_date at or after resolution; reasoning does not presuppose the outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:37:21.803018Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1724,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

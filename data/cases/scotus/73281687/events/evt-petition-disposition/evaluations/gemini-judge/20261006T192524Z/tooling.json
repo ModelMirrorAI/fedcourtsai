@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73281687",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command",
+    "read_file",
+    "write_file",
+    "list_directory"
+  ],
+  "helpful": [
+    "run_shell_command combined with grep and cat was very effective for efficiently accessing file contents without loading the entire project context."
+  ]
+}

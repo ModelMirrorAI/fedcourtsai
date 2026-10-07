@@ -1,0 +1,23 @@
+# Evaluation: claude-baseline
+
+## Outcome and quantitative scores
+
+This is a cert-stage distribution cell. The provisioned outcome records denial on October 5, 2026, with `actual_granted = 0`. The candidate predicted `denied`, so exact-label correctness is **1**. Its grant probability of **0.005** produces Brier loss **0.000025**: `(0.005 - 0)^2`.
+
+The prediction freezes Term **2025**, band **baseline**, and salience version **sal-v4**. The committed statpack's band heading matches. I use its bracketed **reached** rates, not terminal rates or the evaluator's decided-docket context. All eight displayed strictly prior Terms, 2017–2024, enter the resolved-weighted pool. In descending Term order the rate/denominator pairs are 5.7%/1271, 5.9%/1312, 5.8%/1192, 5.6%/1500, 4.5%/1739, 4.6%/1399, 4.6%/1524, and 4.7%/1643. Their weighted denominator is **11,580**, and the displayed rounded percentages imply **592.925** grant-family equivalents, not an exact integer count. Thus the baseline is **0.05120250431778929**, on the `risk_set` basis. Skill is `1 - 0.000025 / baseline^2` = **0.9904641896985705**.
+
+The caption renders all ten of the pack's ten Terms; there is no rendered-window truncation. Terms 2025 and 2026 are excluded. The tiny difference from the candidate's approximately 593/11,580 anchor is display rounding, not a substantive disagreement. This calculation describes the committed denial-reweighted statistical table, not independently refreshed corpus state. No remote corpus freshness claim is made. These are single-cell scores, not aggregate performance evidence.
+
+## Reasoning quality: 0.78
+
+The rationale identifies concrete reasons to put this petition well below the private-petitioner risk-set baseline: a response waiver without a recorded response request, an asserted nonprecedential affirmance, multiple possible grounds below, and a weakly developed split. The provisioned petition corroborates the candidate's account that its own narrative describes pleading, jurisdictional, immunity, amendment, and filing-restriction grounds. The candidate appropriately discloses that the appendix was unavailable and that its attempted lower-court searches did not produce the order. It also distinguishes the target petition from a previous petition involving the dispute.
+
+The main deductions concern evidentiary overstatement and precision. The assertion that paid pro se grants occur an order of magnitude below the counseled segment has no demonstrated conditional estimate in the supplied analysis. Describing all case-specific signals as uniformly negative and the alternative grounds as unchallenged is stronger than a one-sided petition without the appendix establishes. The absence of a response request over the summer is also not evidence of repeated judicial consideration: the record described a first September conference. The adjustment from about 5.1% to 0.5% remains judgmental, not fitted or independently calibrated. These limitations justify a good, but not exceptional, analysis score despite the correct outcome.
+
+The denial does not disclose which of these considerations drove the Court. I grade the candidate's analysis rather than treating the outcome as confirmation of its doctrinal account. The forecast document was read for context only; its timing, writings, and subsidiary predictions were not folded into reasoning quality. The structured quantitative claims remain for the harness to score. Cert-stage votes and semantic propositions are not scored.
+
+## Leakage and retrieval scope
+
+The harness log is forward-mode, with **21/21** results captured. Its calls occurred September 16, 2026, before the October 5 target resolution. It includes provisioned-input and statpack reads, a general query for other denied cases, and lower-court searches. Neither the queries nor the rationale show this petition's disposition already known. A cited May 5, 2025 denial is explicitly in a different docket and is not target-outcome leakage. No positive evidence warrants overriding the forward default: outcome material **false**, influence **not_applicable**, suspicion **false**.
+
+At 20:47:01.926Z, however, a captured shell query selected an earlier prediction directory through a case wildcard and attempted to read its prediction, tooling, and retrieval artifacts. The staged log supplies a digest and status, not the returned contents, so I cannot determine whether substantive material was obtained or used. I did not follow that path or try to infer its author. This is a retrieval-scope transparency concern, recorded in the cell flags, not evidence that the still-future target outcome leaked. It does not change the arithmetic or the outcome-leakage exclusion bit.

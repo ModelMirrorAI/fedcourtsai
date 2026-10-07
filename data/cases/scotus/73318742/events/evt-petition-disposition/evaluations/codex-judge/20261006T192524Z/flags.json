@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73318742",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Candidate gemini-baseline's retrieval.md omits a corpus-query attempt present in its harness log: uv run fedcourts query --court scotus --decided-before 2026-09-17. The note says no retrieval beyond provisioned inputs and the statpack. The call's result is unobserved, so success, failure, and transfer volume cannot be established. This is a retrieval-disclosure discrepancy, not evidence of target-outcome leakage: the call was made September 16, before the October 5 denial.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0"
+}

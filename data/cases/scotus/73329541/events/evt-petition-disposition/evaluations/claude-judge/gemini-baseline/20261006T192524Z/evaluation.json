@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "Paid, counseled state-prisoner habeas petition asking whether section 2244(d)(1)'s one-year limit reaches a petition styled under section 2241. The split is real but old and shallow (Cox v. McBride against five circuits, 2002-2006), the decision below is an unpublished COA denial, the custody claim rests on an idiosyncratic two-state executive agreement, no response was called for, and the petition was denied on its first distribution with no writing. Low stakes; a resolution would matter to habeas timing practice but this vehicle drew no attention. Formed from the record and outcome; the predictors' scores were visible in the staged prediction.json while I read it, which I note rather than deny."
+  },
+  "brier_score": 0.0225,
+  "brier_skill_score": -7.582229,
+  "case_id": "scotus/73329541",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": -0.01987764026476475
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.01987764026476475,
+    "total": -0.01987764026476475
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:48:01Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-16, event resolved 2026-10-05. Log (20 calls) has capture coverage 0.0, the engine's standing shape, so every call is graded on its query: provisioned record, statpack, and one CourtListener search for Bowe v. United States. No query names this petition's disposition, no qp-topics read. Reasoning treats the petition as pending. Clean forward cell.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:50:20.026919Z"
+  },
+  "reasoning_quality": 0.4,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051203,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,25 @@
+# Evaluation: claude-baseline
+
+## Outcome and quantitative scores
+
+This is a **cert-stage** petition-disposition cell. The supplied `outcome.json` records denial on October 5, 2026, with `actual_granted = 0`, no noted dissent from denial, and no recorded votes. claude-baseline's September 16 prediction named `denied` and assigned P(any grant) = 0.015. The exact-label score is **1** and the Brier loss is **0.000225**, calculated as `(0.015 - 0)^2`.
+
+The baseline uses the prediction's frozen `baseline` band, `sal-v4` version, and Term **2025**, not the evaluator's decided-docket context or the Term of resolution. The committed `metrics/statpack.md` heading matches sal-v4. Its bracketed reached-baseline rate/weighted-denominator pairs, in Term order 2017–2024, are 4.7%/1643, 4.6%/1524, 4.6%/1399, 4.5%/1739, 5.6%/1500, 5.8%/1192, 5.9%/1312, and 5.7%/1271. Their resolved-weighted pool is **0.05120250431778929**, with weighted denominator **11,580**. Terms 2025 and 2026 are excluded. The caption renders 10 of 10 Terms, so there is no hidden-window discrepancy to flag.
+
+This is a `risk_set` baseline, not the terminal-baseline rate. It is an approximation derived from the committed table's rounded, denial-reweighted estimates, not an independently refreshed corpus estimate. No corpus-wide freshness was established or claimed. The baseline loss is approximately 0.002621696448413231, and `1 - 0.000225 / baseline_loss` gives **0.9141777072871346**. This is one realized-event skill score, not evidence of general calibration or comparative performance.
+
+## Reasoning quality: 0.80
+
+The rationale gives a coherent, case-specific reason to depart downward from the approximately 5.1% anchor. It identifies the unpublished state-court disposition, disputed access and property-interest premises, and the lack of a demonstrated clean conflict. It acknowledges the petitioner's recent-sale accrual response and the possibility that its federal takings theory could attract interest. Its baseline population and strictly-prior pooling are appropriate, and the substantial subjective discount is made explicit rather than presented as a fitted estimate.
+
+The main limitation is overstatement of the independent limitations obstacle. The provisioned petition's Appendix A, pages 7a–10a, distinguishes time-barred quiet-title and historic excess-condemnation theories from the access-based inverse-condemnation theory rejected for lack of an established interest. claude-baseline reports the opposition's broader limitations argument and then treats it too readily as an independent ground defeating the petition's recent-sale theory. It also does not develop the preservation problem recorded in the appendix's footnote at pages 10a–11a. The petition's argument at pages 7–9 and the opposition's competing account make these distinctions material to vehicle analysis.
+
+Additional discounts reflect the limited support for broad state-court selection generalizations from small descriptive cells and the weak explanatory weight given to solo representation. The discussion of takings precedents supplies a counterweight, but not a detailed examination of the petitioner's strongest federal-property argument. These are limitations in the explanation, not a penalty for assigning a low probability to the eventual denial. The correct result does not establish that the Supreme Court adopted any of these reasons: the outcome supplies no merits rationale.
+
+Only `reasoning.md` is graded for soundness. The pointed-to forecast document was read for context but is not scored; neither its specific procedural forecasts nor the structured mechanical claims enter this quality score.
+
+## Leakage and scope
+
+The harness log marks the prediction **forward** and records 27 calls with capture coverage **1.0**. Its timestamps and the prediction timestamp precede the October 5 disposition. The log shows reads of the provisioned September 16 snapshot, documents, and statpack, operational commands, and one broad corpus query for recent SCOTUS rows. The candidate discloses that query as a service check whose unrelated results did not move its number. No query slice or prose shows this petition's disposing order, subsequent history, or outcome knowledge. Result digests are not full bodies and null retrieved-document dates alone prove nothing; the combined chronology, targets, and prospective reasoning support `retrieved_outcome_material = false`, `influenced_prediction = not_applicable`, and `leakage_suspected = false`. The evaluator's later uncut record was not treated as the candidate's baseline.
+
+Votes are unscored because this is cert, not merits. No semantic set is declared, so no semantic grades are written. Mechanical claim scoring and provenance stamps are left to the harness. The petition extraction is marked truncated in the provisioned manifest, although the cited argument and affirmance passages are available; no conclusion depends on having reviewed the entire appendix. No independent big-case assessment is supplied.

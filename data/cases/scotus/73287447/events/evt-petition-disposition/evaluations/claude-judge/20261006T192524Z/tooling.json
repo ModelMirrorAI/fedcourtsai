@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73287447",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the blinded staging area",
+    "metrics/statpack.md",
+    "schema inspection via python"
+  ],
+  "helpful": [
+    "the staged retrieval_log.json with result_capture markers and retrieved_doc_date \u2014 made the forward leakage check mechanical",
+    "the sal-v4 band table carrying both terminal and bracketed reached figures per Term",
+    "the committed case summary for the outcome's path (no relist, no writing)"
+  ],
+  "gaps": [
+    "a pre-pooled strictly-prior reached rate per band and Term in the pack would remove the hand arithmetic every evaluator repeats",
+    "a one-line statement in the blinded prediction.json of whether the predictor read petition.txt / brief-in-opposition.txt (derivable from the log, but slow)"
+  ],
+  "notes": "Cert cell, three forward candidates, no leakage, no flags needed. All computation was from the committed statpack table; no corpus or network access was required."
+}

@@ -1,0 +1,3 @@
+No retrieval beyond the provisioned inputs.
+
+Local scoring used the event definition and outcome, all three blinded candidates' prediction JSON, rationale, forecast, retrieval note and captured retrieval log, the provisioned case context and resolved snapshot, selected passages of the provisioned petition and brief in opposition, and the committed metrics/statpack.md sal-v4 per-Term table. No live corpus query, CourtListener MCP lookup, or external web retrieval was performed by this evaluator. Candidate retrievals described in the evaluations are observations from their staged records, not new evaluator lookups. Baseline calculations use the committed rendered table, not a refreshed corpus or a claim of corpus-wide freshness.
