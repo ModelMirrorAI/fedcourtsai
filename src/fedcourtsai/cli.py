@@ -5827,9 +5827,10 @@ def successor_disclosures_command(
     into resolved and pending at its close; the **split events**, on which
     counted cells come from a closed window and a successor window that never
     ran together, so no complete grid holds them; per predictor with
-    successor-counted events, how many hold a failed (``attempt.json``) or a
-    missing earlier-window attempt, since the successor's population is the
-    events the closed window did not reach; and the closed windows' counted
+    successor-counted events, those events partitioned four ways — a failed
+    earlier-window attempt (``attempt.json``), an uncounted earlier cell, not
+    reached before the close, or missing — since the successor's population is
+    the events the closed window did not reach; and the closed windows' counted
     gradings per evaluator digest, with those made at or after the instant.
     Lines on stdout, the JSON with ``--out``. Exit 2 when the registry holds no
     such closed window or successor.
@@ -5853,12 +5854,13 @@ def revoked_window_board_command(
     out: Annotated[
         Path,
         typer.Option(
-            help="Output path. Required, and never beside the boards: the record is a "
-            "counterfactual, not a results surface."
+            help="Output path (required). Write it to a runner-local or scratch path, never "
+            "under metrics/ or the ledger: the record is a counterfactual working file, not a "
+            "results surface."
         ),
     ],
 ) -> None:
-    """Publish a revoked window's figures over the slice that had resolved when it was revoked.
+    """Build a revoked window's figures over the slice that had resolved when it was revoked.
 
     The declaration's condition on a late revocation: one made after any of the
     window's outcomes publishes the window's figures over that resolved slice
@@ -5886,8 +5888,8 @@ def revoked_window_board_command(
     resolved = sum(record.resolved_counted_events.values())
     typer.echo(
         f"revoked-window-board [{label}]: {board.evaluations_total} cert-stage evaluation(s) "
-        f"over {board.events_scored} cert event(s); resolved slice {resolved} counted "
-        f"event(s), all stages; excluded {record.forward_claim_excluded} forward-claim / "
+        f"over {board.events_scored} ranked cert-moment event(s); resolved slice "
+        f"{resolved} counted event(s), all stages; excluded {record.forward_claim_excluded} forward-claim / "
         f"{record.leakage_excluded} leakage; {record.graded_after_revocation} grading(s) "
         f"stamped after the revocation -> {out}"
     )

@@ -710,9 +710,16 @@ where it is a full freeze, the count per evaluator digest of closed-window
 cells graded under the successor's rubric, since a window's figure can then pool
 rubrics. `fedcourts successor-disclosures --closed <label> --successor <label>`
 prints every count in that list from the committed ledger (the evidence for the
-change is the entry's own prose): run it at the successor's freeze commit, once
-its windows are registered, and again at the carrying promotion, and quote its
-lines. An unbroken window licenses no other pooling: a salience, baseline,
+change is the entry's own prose). The declaration's "failed or missing
+earlier-window attempt" is printed as four buckets that partition each engine's
+successor-counted events — failed (a committed failure fact in its earlier
+span), uncounted (a cell in that span that did not count), not reached before
+the close, and missing (reached, and nothing from the predictor in its span) —
+and the entry quotes all four, since every one of them is an event the closed
+window did not reach. Run it at the successor's freeze commit once its windows
+are registered (provisional: outcomes and gradings keep landing until the
+instant), again at any instant correction, and at the tagged commit, and quote
+the last run's lines. An unbroken window licenses no other pooling: a salience, baseline,
 evaluator or other boundary registered elsewhere still cuts inside it.
 
 **The windows are built in every frozen-scope surface**, so a bless that adds a
@@ -745,8 +752,9 @@ any outcome, made while the affected outcomes are unknown — or disclosing the
 slice that had already resolved, and then publishing the revoked window's
 figures over that slice beside the entry (`fedcourts revoked-window-board
 --label <label>`: the frozen board with that window's revocation lifted, cut to
-its own cells on events resolved by the revocation day, whose figures the entry
-quotes; the JSON is a working file, not a committed artifact), so the exclusion is visible rather
+its own cells on events resolved by the revocation day; the entry transcribes
+the per-predictor board figures from the `--out` JSON, a runner-local working
+file, never committed), so the exclusion is visible rather
 than silent. A revoked window's cells leave every frozen-scope artifact; its
 still-forward events are re-owed afresh under the re-predict rule below; and a
 later-window cell stamped before the revocation stays uncounted, so revoking
