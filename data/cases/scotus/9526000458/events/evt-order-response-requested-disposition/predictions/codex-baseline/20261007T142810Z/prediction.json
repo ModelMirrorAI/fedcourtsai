@@ -1,0 +1,67 @@
+{
+  "big_case_rationale": "The application concerns transgender participation in school athletics, parental notice and opt-out rights, and the standard for mandatory injunctions. These questions have substantial national implications, although the immediate requested protection concerns an individual student.",
+  "big_case_score": 0.76,
+  "case_id": "scotus/9526000458",
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.38
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.0
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.9
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.7
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": 0,
+    "band": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-07",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": false,
+    "response_requested": true,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-06",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-07T14:38:25Z",
+  "engine": "codex",
+  "event_id": "evt-order-response-requested-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-06.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.38,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "4e35ba552942c89dff3d04134534b0b1b35649aa",
+    "stamped_at": "2026-10-07T14:38:51.972432Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261007T142810Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

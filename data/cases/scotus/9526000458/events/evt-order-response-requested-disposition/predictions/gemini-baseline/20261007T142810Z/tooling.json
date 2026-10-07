@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/9526000458",
+  "run_id": "20261007T142810Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "mcp_courtlistener_search was helpful for locating the B.P.J. precedent.",
+    "metrics/statpack.md provided the base rate."
+  ]
+}

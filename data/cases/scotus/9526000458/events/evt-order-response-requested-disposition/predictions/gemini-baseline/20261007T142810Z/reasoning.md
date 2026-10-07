@@ -1,0 +1,9 @@
+P(grant) 0.75.
+
+This is an emergency application for an injunction pending appeal, brought by a female athlete (K.M.K.) seeking to prevent the Washington Interscholastic Activities Association from enforcing a policy that allows transgender girls to compete on girls' sports teams. The application is highly salient, invoking Title IX and the Court's very recent decision in `West Virginia v. B. P. J.` (2026), which interpreted "sex" in Title IX to mean biological sex and not gender identity. 
+
+The application is at the response-requested moment, with Justice Kagan having called for a response. The statutory context strongly favors the applicant here because the Supreme Court just ruled exactly on this issue. The Ninth Circuit denied the injunction pending appeal, appearing to contravene or sidestep the recent precedent.
+
+I anchored against the statpack's pooled grant rate for substantive interim applications over the terms strictly prior to this case (2025, 2024). The pooled grant rate is 10.47% (31 granted / 296 resolved). However, I adjusted this rate upward significantly. The request for a response indicates attention, escalating the application. More importantly, the merits of the application rest squarely on a recently decided SCOTUS case (`B.P.J.`) that ruled in favor of biological females on Title IX grounds. Given the likelihood that the lower courts misapplied or ignored a decision barely months old, the Court is highly likely to intervene to enforce its precedent and prevent irreparable harm to the applicant during the season. Therefore, I place the probability of an unqualified grant at 0.75.
+
+My main uncertainty is whether the Court prefers to grant the injunction pending appeal, or summarily reverse/GVR the Ninth Circuit. Either way, the interim vocabulary focuses on whether the application for relief is granted. I predict it will be granted.
