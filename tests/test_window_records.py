@@ -102,6 +102,7 @@ def test_the_successor_disclosures(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert report.split_events == 0
     (alpha,) = report.engines
     assert (alpha.predictor_id, alpha.closed_window) == ("alpha", "proc-a")
+    assert not alpha.closed_window_inferred
     assert alpha.successor_counted_events == 2
     assert (alpha.failed_earlier_attempt, alpha.missing_earlier_attempt) == (1, 1)
     # Both closed-window gradings: one before the instant, one after it.
@@ -164,8 +165,62 @@ def test_the_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert "1 resolved, 1 pending at close" in result.output
     revoked = CLOSED.model_copy(update={"revoked_at": T2 + timedelta(days=5)})
     set_windows(monkeypatch, revoked, SUCCESSOR, BETA)
-    result = runner.invoke(app, ["revoked-window-board", "--label", "proc-a"], env=env)
+    out = tmp_path / "revoked.json"
+    argv = ["revoked-window-board", "--label", "proc-a", "--out", str(out)]
+    result = runner.invoke(app, argv, env=env)
     assert result.exit_code == 0, result.output
-    assert (tmp_path / "m" / "revoked-proc-a.json").is_file()
-    result = runner.invoke(app, ["revoked-window-board", "--label", "proc-z"], env=env)
+    assert out.is_file()
+    result = runner.invoke(app, [*argv[:2], "proc-z", *argv[3:]], env=env)
     assert result.exit_code == 2
+
+
+def test_the_earlier_attempts_partition_the_successor_events(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every successor-counted event lands in exactly one bucket, and an engine
+    whose closed window left only failures is read over an inferred span rather
+    than reported clean."""
+    set_windows(monkeypatch, CLOSED, SUCCESSOR, BETA)
+    data = tmp_path / "data"
+    # 1: failed; 2: an uncounted shakedown cell inside the span; 3: not reached
+    # before the close; 4: reached (beta before the close), nothing from alpha.
+    _cell(data, "scotus/1", "alpha", B, T2 + timedelta(days=1))
+    _failure(data, "scotus/1", "alpha", "20260201T000000Z")
+    _cell(data, "scotus/2", "alpha", "sha256:" + "7" * 64, T1 + timedelta(days=3), run="p0")
+    _cell(data, "scotus/2", "alpha", B, T2 + timedelta(days=1))
+    _cell(data, "scotus/3", "alpha", B, T2 + timedelta(days=1))
+    _cell(data, "scotus/4", "beta", D, T1 + timedelta(days=5))
+    _cell(data, "scotus/4", "alpha", B, T2 + timedelta(days=1))
+    report = successor_disclosures(data, closed_label="proc-a", successor_label="proc-b")
+    (alpha,) = report.engines
+    buckets = (
+        alpha.failed_earlier_attempt,
+        alpha.uncounted_earlier_cell,
+        alpha.not_reached_before_close,
+        alpha.missing_earlier_attempt,
+    )
+    assert buckets == (1, 1, 1, 1)
+    assert sum(buckets) == alpha.successor_counted_events
+    # No committed cell of alpha carries the closed digest: the span is inferred.
+    assert alpha.closed_window_inferred
+
+
+def test_an_outcome_on_the_boundary_day_counts_as_resolved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    revoked_at = T2 + timedelta(days=5)
+    set_windows(monkeypatch, CLOSED.model_copy(update={"revoked_at": revoked_at}), SUCCESSOR)
+    data = tmp_path / "data"
+    _cell(data, "scotus/1", "alpha", A, T1 + timedelta(days=1))
+    _outcome(data, "scotus/1", resolved_at=revoked_at.date())
+    _grade(data, "scotus/1", "e1", predictor_id="alpha", stamped=revoked_at + timedelta(days=1))
+    record = revoked_window_board(data, label="proc-a", statpack=None)
+    assert record.board.events_scored == 1
+    assert record.resolved_counted_events == {A: 1}
+    assert record.graded_after_revocation == 1
+    set_windows(monkeypatch, CLOSED, SUCCESSOR)
+    _outcome(data, "scotus/1", resolved_at=T2.date())
+    (census,) = successor_disclosures(
+        data, closed_label="proc-a", successor_label="proc-b"
+    ).closed_windows
+    assert (census.resolved_at_close, census.pending_at_close) == (1, 0)

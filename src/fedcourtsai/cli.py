@@ -5851,9 +5851,12 @@ def successor_disclosures_command(
 def revoked_window_board_command(
     label: Annotated[str, typer.Option("--label", help="The revoked windows' label.")],
     out: Annotated[
-        Path | None,
-        typer.Option(help="Output path (default: <metrics_root>/revoked-<label>.json)."),
-    ] = None,
+        Path,
+        typer.Option(
+            help="Output path. Required, and never beside the boards: the record is a "
+            "counterfactual, not a results surface."
+        ),
+    ],
 ) -> None:
     """Publish a revoked window's figures over the slice that had resolved when it was revoked.
 
@@ -5864,8 +5867,9 @@ def revoked_window_board_command(
     committed pack — with the revocation lifted for ``--label``'s revoked
     windows only, keeps those windows' cells on events resolved on or before
     each window's revocation day, and writes the board inside a record naming
-    the windows and the cut. Never a results surface. Exit 2 when no revoked
-    window carries the label.
+    the windows, the resolved slice's size and how many gradings postdate the
+    revocation (gradings are the ledger's as of the build). A counterfactual,
+    never a results surface. Exit 2 when no revoked window carries the label.
     """
     settings = get_settings()
     statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
@@ -5876,13 +5880,13 @@ def revoked_window_board_command(
     except window_records.WindowRecordError as exc:
         typer.echo(f"revoked-window-board: {exc}", err=True)
         raise typer.Exit(code=2) from None
-    destination = out if out is not None else settings.metrics_root / f"revoked-{label}.json"
-    write_json(destination, record)
+    write_json(out, record)
     board = record.board
+    resolved = sum(record.resolved_counted_events.values())
     typer.echo(
-        f"revoked-window-board [{label}]: {board.predictors_ranked} entr(ies) from "
-        f"{board.evaluations_total} cert-stage evaluation(s) over {board.events_scored} "
-        f"resolved event(s) -> {destination}"
+        f"revoked-window-board [{label}]: {board.evaluations_total} cert-stage evaluation(s) "
+        f"over {board.events_scored} of {resolved} resolved counted event(s); "
+        f"{record.graded_after_revocation} grading(s) stamped after the revocation -> {out}"
     )
 
 

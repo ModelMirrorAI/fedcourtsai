@@ -78,7 +78,8 @@ class ClosedWindowCensus(_Report):
     resolved_at_close: int = Field(
         ge=0,
         description="Of those, events whose committed outcome resolved on or before the close's "
-        "UTC day — the slice whose outcomes were visible when the close was decided",
+        "UTC day — an upper bound on the slice whose outcomes were visible when the close was "
+        "decided, since an outcome dated the close's day may have landed after its instant",
     )
     pending_at_close: int = Field(
         ge=0, description="The rest: no outcome yet, or one that resolved after the close's day"
@@ -89,21 +90,38 @@ class EngineEarlierAttempts(_Report):
     """One predictor's successor-window events, and what its closed window left on them."""
 
     predictor_id: str
-    closed_window: str | None = Field(
-        description="The label of the predictor's closed window (null for a predictor the "
-        "closed label never blessed — it has no earlier window to miss)"
+    closed_window: str = Field(description="The label of the closed window read as its earlier one")
+    closed_window_inferred: bool = Field(
+        default=False,
+        description="True where no committed cell carries one of the closed windows' digests "
+        "for this predictor — an engine whose closed window produced only failures, or one the "
+        "closed label never blessed — so its earlier span is read as the closed windows' whole "
+        "span rather than one window's. Never reported as a clean zero",
     )
-    successor_counted_events: int = Field(ge=0)
+    successor_counted_events: int = Field(
+        ge=0, description="The four counts below partition these events"
+    )
     failed_earlier_attempt: int = Field(
         ge=0,
-        description="Successor-counted events on which the predictor holds a committed failure "
-        "fact (`attempt.json`) whose run fell inside its closed window",
+        description="Events on which the predictor holds a committed failure fact "
+        "(`attempt.json`) whose run fell inside its earlier span",
+    )
+    uncounted_earlier_cell: int = Field(
+        ge=0,
+        description="Events with no such failure on which the predictor holds a committed cell "
+        "inside its earlier span that does not count there (a shakedown run, an unstamped or "
+        "unblessed digest) — an earlier attempt that failed to count",
+    )
+    not_reached_before_close: int = Field(
+        ge=0,
+        description="Events with neither, which no predictor had committed a cell on before the "
+        "close — the closed window never had the chance to miss them",
     )
     missing_earlier_attempt: int = Field(
         ge=0,
-        description="Successor-counted events the pipeline had reached before the close (some "
-        "predictor committed a cell on them before it) on which this predictor holds neither a "
-        "cell nor a failure fact from its closed window",
+        description="The rest: events the pipeline had reached before the close (some predictor "
+        "committed a cell on them before it) on which this predictor left neither a cell nor a "
+        "failure fact in its earlier span",
     )
 
 
@@ -280,12 +298,25 @@ def _engines(
     closed: Sequence[CountingWindow],
     successor: set[CountingWindow],
 ) -> list[EngineEarlierAttempts]:
-    """Per predictor, its successor-counted events and what its closed window left on them."""
+    """Per predictor, its successor-counted events and what its earlier span left on them.
+
+    A predictor's earlier span is the closed window whose digest its committed
+    cells carry. Where none does, the closed windows' whole span stands in and
+    the row says it was inferred: a failure fact names no digest, so an engine
+    whose closed window only ever failed owns no window by its cells, and that
+    is the engine whose disclosure matters most.
+    """
     closed_of = {
         predictor_id: window
         for window, predictors in _owners(ledger, closed).items()
         for predictor_id in predictors
     }
+    whole = CountingWindow(
+        label=closed[0].label,
+        digest=closed[0].digest,
+        opens=min(w.opens for w in closed),
+        closes=max(w.closes for w in closed if w.closes is not None),
+    )
     events: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for key, held in ledger.counted.items():
         for predictor_id, window in held.items():
@@ -293,24 +324,30 @@ def _engines(
                 events[predictor_id].append(key)
     engines: list[EngineEarlierAttempts] = []
     for predictor_id in sorted(events):
-        earlier = closed_of.get(predictor_id)
-        failed = missing = 0
-        for key in events[predictor_id] if earlier is not None else []:
-            assert earlier is not None and earlier.closes is not None
+        earlier = closed_of.get(predictor_id, whole)
+        closes = earlier.closes
+        assert closes is not None
+        tally: Counter[str] = Counter()
+        for key in events[predictor_id]:
             runs = _attempt_runs(data_root, ledger.example[key], predictor_id)
             if any(earlier.contains(run) for run in runs):
-                failed += 1
-            elif ledger.first_clock[key] < earlier.closes and not any(
-                earlier.contains(clock) for clock in ledger.clocks[(*key, predictor_id)]
-            ):
-                missing += 1
+                tally["failed"] += 1
+            elif any(earlier.contains(clock) for clock in ledger.clocks[(*key, predictor_id)]):
+                tally["uncounted"] += 1
+            elif ledger.first_clock[key] >= closes:
+                tally["unreached"] += 1
+            else:
+                tally["missing"] += 1
         engines.append(
             EngineEarlierAttempts(
                 predictor_id=predictor_id,
-                closed_window=earlier.label if earlier is not None else None,
+                closed_window=earlier.label,
+                closed_window_inferred=predictor_id not in closed_of,
                 successor_counted_events=len(events[predictor_id]),
-                failed_earlier_attempt=failed,
-                missing_earlier_attempt=missing,
+                failed_earlier_attempt=tally["failed"],
+                uncounted_earlier_cell=tally["uncounted"],
+                not_reached_before_close=tally["unreached"],
+                missing_earlier_attempt=tally["missing"],
             )
         )
     return engines
@@ -363,17 +400,30 @@ class RevokedWindowRecord(_Report):
         description="Per revoked digest, the UTC day of its revocation: a cell enters the board "
         "only where its event's outcome resolved on or before it"
     )
+    resolved_counted_events: dict[str, int] = Field(
+        description="Per revoked digest, the events on which the window holds a counted cell "
+        "(revocation lifted) whose outcome resolved by its revocation day, graded or not — the "
+        "resolved slice the board's `events_scored` is read against"
+    )
+    graded_after_revocation: int = Field(
+        ge=0,
+        description="Gradings on the board stamped after their window's revocation. The board "
+        "reads the ledger's gradings as of its build, so a late grading or re-grade can enter; "
+        "this says how many did",
+    )
     board: Leaderboard = Field(
-        description="The leaderboard as the window's cells read with the revocation lifted, "
-        "restricted to the window's own cells over the resolved slice. Never a results "
-        "surface: it shows what the exclusion removed"
+        description="The frozen leaderboard as the window's cells read with the revocation "
+        "lifted, restricted to the window's own cells over the resolved slice, gradings as of "
+        "the build. Its `process_scope` and ranks are the board builder's: this is a "
+        "counterfactual record of what the exclusion removed, never a results surface, and "
+        "never quoted as performance"
     )
 
 
 def revoked_window_board(
     data_root: Path, *, label: str, statpack: StatPack | None
 ) -> RevokedWindowRecord:
-    """The revoked window's figures over its resolved slice, as the revocation found them.
+    """The revoked window's figures over its resolved slice.
 
     The board is built exactly as ``fedcourts leaderboard`` builds the frozen
     board, with the revocation lifted for ``label``'s revoked windows only and
@@ -382,14 +432,18 @@ def revoked_window_board(
     revocation restores those cells' counting as it stood before it — a later
     window's cell stamped before the revocation stays behind the restored
     earlier cell, as it did — so the board is the one the revocation removed,
-    cut to the outcomes that had been seen. Its ``frozen_process`` is the
-    registry as committed, revocation included.
+    cut to the outcomes that had been seen. Gradings are the ledger's as of the
+    build, so a later grading or re-grade can enter; the record counts how many
+    did. Its ``frozen_process`` is the registry as committed, revocation
+    included, and ``resolved_counted_events`` is the resolved slice the board's
+    events are a part of.
     """
     revoked = [w for w in _windows_labelled(label) if w.revoked_at is not None]
     if not revoked:
         raise WindowRecordError(f"no revoked window carries the label {label!r}")
     lifted = {w: w.model_copy(update={"revoked_at": None}) for w in revoked}
     resolved_by = {w.digest: _day(w.revoked_at) for w in revoked}
+    revocations = {w.digest: w.revoked_at for w in revoked if w.revoked_at is not None}
     registry = tuple(lifted.get(w, w) for w in process_version.COUNTING_WINDOWS)
     with process_version.counting_windows(registry):
         run = stratify(data_root, refuse_pooled_windows=False)
@@ -401,6 +455,14 @@ def revoked_window_board(
             and window is not None
             and _resolved_by(data_root, cell[0], resolved_by[window.digest])
         ]
+        rows = iter_predictions(data_root)
+        slice_events: dict[str, set[tuple[str, str]]] = {w.digest: set() for w in revoked}
+        for row, counts in zip(rows, ledger_counts(rows), strict=True):
+            window = window_of(row.prediction.process_version)
+            if counts and window in keep and window is not None:
+                outcome = _outcome(data_root, row)
+                if outcome is not None and outcome.resolved_at <= resolved_by[window.digest]:
+                    slice_events[window.digest].add((row.case_id, row.event_id))
         board = build_leaderboard(
             cells,
             process_scope="frozen",
@@ -413,6 +475,14 @@ def revoked_window_board(
         label=label,
         windows=revoked,
         resolved_by=resolved_by,
+        resolved_counted_events={digest: len(keys) for digest, keys in slice_events.items()},
+        graded_after_revocation=sum(
+            1
+            for evaluation, *_ in cells
+            if evaluation.process_version is not None
+            and (window := run.cell_windows.get(evaluation_key(evaluation))) is not None
+            and evaluation.process_version.stamped_at > revocations[window.digest]
+        ),
         board=board.model_copy(update={"frozen_process": process_version.frozen_process_record()}),
     )
 
@@ -447,8 +517,11 @@ def render_disclosures(report: SuccessorDisclosures) -> str:
     for engine in report.engines:
         lines.append(
             f"  {engine.predictor_id}: {engine.successor_counted_events} successor-counted "
-            f"event(s); earlier window {engine.closed_window or '—'}: "
-            f"{engine.failed_earlier_attempt} failed, {engine.missing_earlier_attempt} missing"
+            f"event(s); earlier window {engine.closed_window}"
+            f"{' (inferred span)' if engine.closed_window_inferred else ''}: "
+            f"{engine.failed_earlier_attempt} failed, {engine.uncounted_earlier_cell} uncounted "
+            f"cell, {engine.missing_earlier_attempt} missing, "
+            f"{engine.not_reached_before_close} not reached before the close"
         )
     for count in report.evaluator_digests:
         lines.append(
