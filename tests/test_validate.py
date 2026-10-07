@@ -20,6 +20,7 @@ from fedcourtsai.schemas import (
     CorpusCheck,
     CorpusScopeAudit,
     CorpusValidation,
+    CountingWindow,
     Disposition,
     Engine,
     Evaluation,
@@ -75,6 +76,7 @@ from fedcourtsai.validate import (
     run_scope_audit,
     validate_ledger,
 )
+from tests.conftest import set_windows
 
 runner = CliRunner()
 
@@ -1215,6 +1217,53 @@ def test_a_terminal_basis_with_no_frozen_band_or_off_the_cert_stage_passes(
     check = _basis_check(data_root)
     assert check.passed
     assert check.checked == 2
+
+
+def test_the_basis_checks_fallback_join_skips_a_later_windows_cell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With no ``prediction_run_id`` the check falls back to the newest
+    *resolvable* run, as every scoring surface does: a later window's cell
+    behind the earliest window's counted one is never the scored prediction, so
+    its frozen band does not contradict a ``terminal`` basis recorded against
+    the band-less counted cell."""
+    w1, w2 = "sha256:window-one", "sha256:window-two"
+    opens, successor = datetime(2026, 1, 1, tzinfo=UTC), datetime(2026, 2, 1, tzinfo=UTC)
+    set_windows(
+        monkeypatch,
+        CountingWindow(label="proc-a", digest=w1, opens=opens, closes=successor),
+        CountingWindow(label="proc-b", digest=w2, opens=successor),
+    )
+    data_root = tmp_path / "data"
+    path = _write_cert_terminal_cell(data_root, 1, "p1", band=None, salience_version=None)
+    event_paths = CasePaths(data_root, "scotus", 1).event("evt-petition-writ-of-certiorari")
+    counted = read_model(event_paths.prediction("p1", "2026-01-01T00-00-00Z"), Prediction)
+    stamp = ProcessVersion(
+        label="proc-a", digest=w1, stamped_at=datetime(2026, 1, 1, 1, tzinfo=UTC), pipeline_sha="a"
+    )
+    write_json(
+        event_paths.prediction("p1", "2026-01-01T00-00-00Z"),
+        counted.model_copy(update={"process_version": stamp}),
+    )
+    later = datetime(2026, 2, 2, tzinfo=UTC)
+    write_json(
+        event_paths.prediction("p1", "2026-02-02T00-00-00Z"),
+        counted.model_copy(
+            update={
+                "run_id": "2026-02-02T00-00-00Z",
+                "created_at": later,
+                "process_version": ProcessVersion(
+                    label="proc-b", digest=w2, stamped_at=later, pipeline_sha="b"
+                ),
+                "context": (counted.context or pytest.fail("no context")).model_copy(
+                    update={"band": "elevated", "salience_version": "sal-v2"}
+                ),
+            }
+        ),
+    )
+    assert read_model(path, Evaluation).prediction_run_id is None
+    check = _basis_check(data_root)
+    assert check.passed, check.problems
 
 
 def test_the_basis_check_tolerates_unreadable_records(tmp_path: Path) -> None:

@@ -53,7 +53,7 @@ from fedcourtsai.schemas import (
     VoteValue,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
-from tests.conftest import seed_evaluation, seed_prediction
+from tests.conftest import frozen_stamp, seed_evaluation, seed_prediction
 
 runner = CliRunner()
 
@@ -2541,6 +2541,12 @@ def test_regrade_scope_survives_an_evaluator_digest_supersession(
     annotation must say frozen-scope rather than demote it to alpha."""
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
     event_paths = _seed_cert_cell(_data_root, 32, actual=Disposition.granted)
+    # The graded prediction sits in a counting window: a grading is gated on the
+    # instant that opened its prediction's window, so a cell whose prediction
+    # counts nowhere is alpha-scope whatever the evaluation's stamp says.
+    graded = event_paths.prediction("claude-baseline", "RID")
+    prediction = read_model(graded, Prediction)
+    write_json(graded, prediction.model_copy(update={"process_version": frozen_stamp()}))
     # Post-instant by construction, so a freeze cutover moves this test's
     # clock with it rather than silently demoting the cell to alpha.
     post_freeze = (

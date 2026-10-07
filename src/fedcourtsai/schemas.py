@@ -3268,6 +3268,12 @@ class LeaderboardEntry(_Strict):
     """
 
     predictor_id: str
+    process_window: str | None = Field(
+        default=None,
+        description="The label of the counting window every cell behind this entry comes "
+        "from (e.g. `proc-v8`); null on an all-versions build, which pools every process "
+        "by definition. A frozen build never pools two windows into one entry",
+    )
     rank: int = Field(ge=1, description="1-based standing; 1 is best")
     evaluators: int = Field(ge=0, description="Distinct evaluators that scored this predictor")
     events_scored: int = Field(
@@ -3335,6 +3341,12 @@ class LeaderboardStageEntry(_Strict):
     """
 
     predictor_id: str
+    process_window: str | None = Field(
+        default=None,
+        description="The label of the counting window every cell behind this entry comes "
+        "from (e.g. `proc-v8`); null on an all-versions build, which pools every process "
+        "by definition. A frozen build never pools two windows into one entry",
+    )
     evaluators: int = Field(
         ge=0, description="Distinct evaluators that scored this predictor in this stage"
     )
@@ -3450,6 +3462,66 @@ class LeaderboardStage(_Strict):
         return payload
 
 
+class CountingWindow(_Strict):
+    """One blessing of one predictor digest: the span its cells count in.
+
+    The counting rule's unit (:data:`fedcourtsai.process_version.COUNTING_WINDOWS`).
+    A window opens at the counting instant of the label that blessed the digest
+    and closes at the counting instant of the successor that stops blessing it,
+    each as its ``prereg/`` tag records it. A **closed** window's cells keep
+    counting; a **revoked** one's are de-counted, which only a dated
+    freeze-record entry stating a defect licenses. A digest carried forward
+    byte-identical keeps one unbroken window; a digest blessed again after its
+    window closed opens a new one.
+    """
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
+
+    label: str = Field(
+        description="The process label whose blessing opened the window (e.g. `proc-v8`); "
+        "the label every figure over the window is reported under"
+    )
+    digest: str = Field(description="The blessed predictor process digest (`sha256:<hex>`)")
+    opens: datetime = Field(
+        description="The counting instant that opened the window: a cell stamped at or "
+        "after it (and before `closes`) is in the window"
+    )
+    closes: datetime | None = Field(
+        default=None,
+        description="The successor's counting instant that closed the window, exclusive; "
+        "null while the window is open. Closing de-counts nothing",
+    )
+    revoked_at: datetime | None = Field(
+        default=None,
+        description="When a dated revocation de-counted the window's cells for a defect — "
+        "at or after the merge of the promotion that carried it, and only on a closed "
+        "window; null for a window that counts",
+    )
+
+    @model_validator(mode="after")
+    def _revocation_follows_a_close(self) -> CountingWindow:
+        """A revoked window is a closed one, revoked at or after it opened.
+
+        Revoking a window still open would leave its digest blessed, so the
+        backlog would re-mint the re-owed events under the very process the
+        revocation found defective; a successor must close it first.
+        """
+        if self.closes is not None and self.closes <= self.opens:
+            raise ValueError("a window closes after it opens")
+        if self.revoked_at is not None:
+            if self.closes is None:
+                raise ValueError("only a closed window can be revoked: set `closes` first")
+            if self.revoked_at < self.opens:
+                raise ValueError("a window is revoked at or after it opens")
+        return self
+
+    def contains(self, moment: datetime) -> bool:
+        """Whether ``moment`` falls in ``[opens, closes)``; a naive moment never does."""
+        if moment.tzinfo is None:
+            return False
+        return self.opens <= moment and (self.closes is None or moment < self.closes)
+
+
 class FrozenProcessRecord(_Strict):
     """The freeze constants in force when a board was built.
 
@@ -3459,23 +3531,40 @@ class FrozenProcessRecord(_Strict):
     digests were blessed and from which instant. Recording them on the board
     itself, the way ``salience_versions`` names the gate, states what was
     blessed at build time — on every build, an ``all``-scope one included, as
-    the partition's definition and never a claim it was applied. It records the
-    *blessed* set, not the *filter*: only the predictor subset is the enforced
-    membership test (``process_version.is_frozen``), while the evaluator
-    digests are record-only (timing alone enforced), and this flat list does
-    not distinguish the two — that mapping lives in ``process_version``.
+    the partition's definition and never a claim it was applied. ``digests`` is
+    the *blessed* set, not the *filter*: the enforced membership rule is
+    ``windows`` (``process_version.is_frozen`` and ``counted_on_event``), one
+    per blessing of a predictor digest, so a closed window's digest keeps
+    counting after it leaves the blessed set; evaluator digests are
+    record-only (timing alone enforced).
     """
 
     digests: list[str] = Field(
         description="The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted — "
         "predictors and evaluators together, exactly as the freeze commit "
-        "blessed them. Not a filter: the enforced membership test is the "
-        "predictor subset alone, which this pooled list does not distinguish "
-        "(see `process_version`)"
+        "blessed them. Not a filter: the enforced membership rule is `windows`, "
+        "which keeps a closed window's digest counting after it leaves this set"
     )
     since: datetime | None = Field(
-        description="The freeze instant (`FROZEN_SINCE`); null while no freeze is in force"
+        description="The current label's counting instant (`FROZEN_SINCE`); null while no "
+        "freeze is in force. The counting rule itself is `windows`"
     )
+    windows: list[CountingWindow] = Field(
+        default_factory=list,
+        description="The counting windows (`COUNTING_WINDOWS`), in registry order: a "
+        "prediction counts where its digest has a window containing its stamp that no "
+        "revocation de-counted, and where it holds cells from several windows on one "
+        "event only the earliest window's counts. Every figure over a window is "
+        "reported under that window's `label`",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_windows(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``windows`` while it is empty, so a record with none reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict) and not self.windows:
+            payload.pop("windows", None)
+        return payload
 
 
 class ForwardClaimRecord(_Strict):
@@ -3590,8 +3679,8 @@ class Leaderboard(_Strict):
     process_scope: Literal["frozen", "all"] = Field(
         default="frozen",
         description="Which process versions this board covers: `frozen` (the "
-        "default headline — only cells whose predictor ran the blessed frozen "
-        "process at or after the freeze instant, graded at or after it too) "
+        "default headline — only cells whose prediction is its predictor's counted "
+        "forecast inside a counting window, graded at or after that window opened) "
         "or `all` (every version, including the shakedown). A `frozen` "
         "board with zero predictors is the honest 'no frozen-process evaluations "
         "yet' state, not a regression.",
@@ -3919,6 +4008,12 @@ class ClaimScoreEntry(_Strict):
     """
 
     predictor_id: str
+    process_window: str | None = Field(
+        default=None,
+        description="The label of the counting window every cell behind this entry comes "
+        "from (e.g. `proc-v8`); null on an all-versions build, which pools every process "
+        "by definition. A frozen build never pools two windows into one entry",
+    )
     forward: ClaimScoreStratum | None = Field(
         default=None,
         description="Aggregates over true forward forecasts; null until this "
@@ -4720,8 +4815,9 @@ class ToolUsefulness(_Strict):
 
     process_scope: Literal["frozen", "all"] = Field(
         description="Which process versions the joined cells span. `frozen` (the default) "
-        "keeps only cells whose prediction carries a blessed process digest and whose "
-        "gradings were stamped at or after the freeze instant; `all` pools every version, "
+        "keeps only cells whose prediction is its predictor's counted forecast inside a "
+        "counting window and whose gradings were stamped at or after that window opened; "
+        "`all` pools every version, "
         "including pre-freeze shakedown cells whose Brier is not comparable to anything. A "
         "grade with no process scope beside it is not readable, which is why this is not "
         "optional",
@@ -8228,7 +8324,8 @@ class CountedConferenceEvent(_Strict):
     bands: list[str] = Field(description="Every distinct band the counted cells froze")
     predictors: list[str] = Field(
         description="Predictors with a counted cell: the run a counted grading names, "
-        "else the staged (newest) run when it carries a frozen process. Empty only on "
+        "else the staged (newest resolvable) run when it is its predictor's counted "
+        "forecast of the event. Empty only on "
         "a registered event with no counted cell"
     )
     scored_predictors: list[str] = Field(
@@ -8236,13 +8333,13 @@ class CountedConferenceEvent(_Strict):
         "`stratify` pass the leaderboard aggregates"
     )
     reowed: bool = Field(
-        description="Whether a retired or unstamped cell predates the earliest counted "
+        description="Whether a de-counted or unstamped cell predates the earliest counted "
         "cell: a re-forecast of an earlier round's event rather than one the frozen "
         "process forecast first. Not the registered-membership test; `registered` is"
     )
     registered: bool | None = Field(
         description="The registered rule's membership as at `registered_at`, "
-        "reconstructed: a re-predict moment, a retired cell whose harness clock falls "
+        "reconstructed: a re-predict moment, a de-counted cell whose harness clock falls "
         "on or before that day, no outcome before it, and — at the distribution "
         "moment — `conference_at_registration` on or after it. Null without "
         "`--registered-at`. Fixed at registration, so a later reschedule never "
@@ -9815,8 +9912,15 @@ class ExportPredictionRow(_Strict):
         "and configuration that ran; null on an unstamped cell"
     )
     process_frozen: bool = Field(
-        description="Whether the process is in the pre-registered frozen set and ran at or "
-        "after the freeze instant (the manifest's `frozen_process`)"
+        description="Whether the prediction counts: its digest has a counting window "
+        "containing its stamp that no revocation de-counted, and no earlier window holds "
+        "this predictor's counted cell on the event (the manifest's `frozen_process`)"
+    )
+    process_window: str | None = Field(
+        description="The label of the counting window containing the stamp (e.g. `proc-v8`), "
+        "the label its figures are reported under — set on a cell the tie-break or a "
+        "revocation leaves uncounted too, so `process_frozen` is the counting bit; null "
+        "where no window contains the stamp. No figure pools two values of this column"
     )
     stamped_at: datetime | None = Field(
         description="When the harness stamped the cell (UTC): the clock the forward / "

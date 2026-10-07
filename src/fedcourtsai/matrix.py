@@ -44,7 +44,7 @@ from .pipeline.moments import declares
 from .pricing import DEFAULT_MODELS
 from .registry import enabled_evaluators, enabled_predictors
 from .schemas import Stage
-from .store import predictor_holds_only_retired_predictions
+from .store import predictor_holds_no_counted_prediction
 
 _JSON_BLOCK = re.compile(r"```json\s*(.+?)\s*```", re.S)
 
@@ -69,16 +69,16 @@ class CaseRequest:
 
     ``reopen_events`` is, as the predict backlog deriver builds it, a subset of
     ``events``: those admitted on the pre-freeze re-predict ground — still-forward events at a
-    still-open moment whose committed cohort a re-bless has retired
+    still-open moment whose committed cohort is de-counted
     (:func:`fedcourtsai.pipeline.pull.derive_predict_backlog`). A later
     narrowing of ``events`` does not prune it, so the containment is the
     deriver's guarantee rather than a standing invariant of the class; nothing
     depends on it, because the field is only ever consulted for an event
     :func:`predict_matrix` is already iterating. Listing one
     lifts :func:`predict_matrix`'s already-predicted skip for it — and only for
-    the predictors that hold no blessed cell on it, which the matrix decides
-    for itself from the ledger, so a partly-blessed cohort re-mints only the
-    retired half. Empty for evaluate and for a case list parsed from a trigger
+    the predictors that hold no counted cell on it, which the matrix decides
+    for itself from the ledger, so a partly-counted cohort re-mints only the
+    de-counted half. Empty for evaluate and for a case list parsed from a trigger
     body: the corpus-side half of the rule (is the event still forward, is its
     moment still open) is not answerable from a body, so a hand-replayed case
     list re-derives nothing and a deliberate re-predict stays
@@ -131,12 +131,12 @@ def reopened_for(data_root: Path, case: CaseRequest, event_id: str, predictor_id
     ``reopen_events`` is reopenable at all, because whether the event is still
     forward and its moment still open are corpus questions the matrix cannot
     answer. The **predictor** half is the ledger's, and the matrix answers it
-    itself (:func:`fedcourtsai.store.predictor_holds_only_retired_predictions`)
+    itself (:func:`fedcourtsai.store.predictor_holds_no_counted_prediction`)
     rather than taking a per-engine list from the deriver — so a blessed cell
     committed between the derivation and the fan-out drops its engine from the
     re-predict rather than buying a second blessed forecast of the same moment.
     """
-    return event_id in case.reopen_events and predictor_holds_only_retired_predictions(
+    return event_id in case.reopen_events and predictor_holds_no_counted_prediction(
         data_root, case.court, case.docket, event_id, predictor_id
     )
 
@@ -174,7 +174,7 @@ def predict_matrix(
     ``CaseRequest.reopen_events`` is the gate's one standing exception, and it
     is narrower than ``skip_predicted=False`` in both directions: it lifts the
     skip for the named events only, and within them only for the predictors
-    whose every committed cell carries a retired process digest
+    whose every committed cell is de-counted
     (:func:`reopened_for`). That is the fan-out half of the backlog deriver's
     pre-freeze re-predict rule — the deriver decides *which events* are still
     forward at a still-open moment, this decides *which engines* on them are

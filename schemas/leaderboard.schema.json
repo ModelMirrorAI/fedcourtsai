@@ -30,6 +30,63 @@
       "title": "BigCaseLeaderboard",
       "type": "object"
     },
+    "CountingWindow": {
+      "additionalProperties": false,
+      "description": "One blessing of one predictor digest: the span its cells count in.\n\nThe counting rule's unit (:data:`fedcourtsai.process_version.COUNTING_WINDOWS`).\nA window opens at the counting instant of the label that blessed the digest\nand closes at the counting instant of the successor that stops blessing it,\neach as its ``prereg/`` tag records it. A **closed** window's cells keep\ncounting; a **revoked** one's are de-counted, which only a dated\nfreeze-record entry stating a defect licenses. A digest carried forward\nbyte-identical keeps one unbroken window; a digest blessed again after its\nwindow closed opens a new one.",
+      "properties": {
+        "closes": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The successor's counting instant that closed the window, exclusive; null while the window is open. Closing de-counts nothing",
+          "title": "Closes"
+        },
+        "digest": {
+          "description": "The blessed predictor process digest (`sha256:<hex>`)",
+          "title": "Digest",
+          "type": "string"
+        },
+        "label": {
+          "description": "The process label whose blessing opened the window (e.g. `proc-v8`); the label every figure over the window is reported under",
+          "title": "Label",
+          "type": "string"
+        },
+        "opens": {
+          "description": "The counting instant that opened the window: a cell stamped at or after it (and before `closes`) is in the window",
+          "format": "date-time",
+          "title": "Opens",
+          "type": "string"
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When a dated revocation de-counted the window's cells for a defect \u2014 at or after the merge of the promotion that carried it, and only on a closed window; null for a window that counts",
+          "title": "Revoked At"
+        }
+      },
+      "required": [
+        "label",
+        "digest",
+        "opens"
+      ],
+      "title": "CountingWindow",
+      "type": "object"
+    },
     "EvaluatorAgreement": {
       "additionalProperties": false,
       "description": "How far one evaluator's big-case reads track the rest of the panel's.\n\nThe check on grader latitude. An evaluator with room to judge can be\nsystematically generous or strict, and nothing in a per-predictor score would\nshow it \u2014 the distortion is spread evenly across everyone that evaluator\nscored. Comparing each grader against its peers is what makes it visible.\n\nComputed **leave-one-out**: the evaluator's ordering against the mean of the\n*other* evaluators' reads on the events they share. Including the evaluator in\nthe panel it is scored against would correlate it partly with itself, and with\na three-judge panel that self-term is a third of the comparison.\n\nA rank correlation for the same reason the predictor-side agreement is one:\nbigness is comparative, so what matters is whether two graders order cases the\nsame way, not whether they pick the same numbers. Read it with ``events``\nbeside it \u2014 with a panel this small and few shared events, tau-b is noisy, and\na single disagreement moves it far.",
@@ -104,10 +161,10 @@
     },
     "FrozenProcessRecord": {
       "additionalProperties": false,
-      "description": "The freeze constants in force when a board was built.\n\n``process_scope: \"frozen\"`` names a partition whose membership lives in\ncode (:mod:`fedcourtsai.process_version`), so without this block a reader\nwould have to resolve the build's commit back to the source to see *which*\ndigests were blessed and from which instant. Recording them on the board\nitself, the way ``salience_versions`` names the gate, states what was\nblessed at build time \u2014 on every build, an ``all``-scope one included, as\nthe partition's definition and never a claim it was applied. It records the\n*blessed* set, not the *filter*: only the predictor subset is the enforced\nmembership test (``process_version.is_frozen``), while the evaluator\ndigests are record-only (timing alone enforced), and this flat list does\nnot distinguish the two \u2014 that mapping lives in ``process_version``.",
+      "description": "The freeze constants in force when a board was built.\n\n``process_scope: \"frozen\"`` names a partition whose membership lives in\ncode (:mod:`fedcourtsai.process_version`), so without this block a reader\nwould have to resolve the build's commit back to the source to see *which*\ndigests were blessed and from which instant. Recording them on the board\nitself, the way ``salience_versions`` names the gate, states what was\nblessed at build time \u2014 on every build, an ``all``-scope one included, as\nthe partition's definition and never a claim it was applied. ``digests`` is\nthe *blessed* set, not the *filter*: the enforced membership rule is\n``windows`` (``process_version.is_frozen`` and ``counted_on_event``), one\nper blessing of a predictor digest, so a closed window's digest keeps\ncounting after it leaves the blessed set; evaluator digests are\nrecord-only (timing alone enforced).",
       "properties": {
         "digests": {
-          "description": "The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted \u2014 predictors and evaluators together, exactly as the freeze commit blessed them. Not a filter: the enforced membership test is the predictor subset alone, which this pooled list does not distinguish (see `process_version`)",
+          "description": "The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted \u2014 predictors and evaluators together, exactly as the freeze commit blessed them. Not a filter: the enforced membership rule is `windows`, which keeps a closed window's digest counting after it leaves this set",
           "items": {
             "type": "string"
           },
@@ -124,8 +181,16 @@
               "type": "null"
             }
           ],
-          "description": "The freeze instant (`FROZEN_SINCE`); null while no freeze is in force",
+          "description": "The current label's counting instant (`FROZEN_SINCE`); null while no freeze is in force. The counting rule itself is `windows`",
           "title": "Since"
+        },
+        "windows": {
+          "description": "The counting windows (`COUNTING_WINDOWS`), in registry order: a prediction counts where its digest has a window containing its stamp that no revocation de-counted, and where it holds cells from several windows on one event only the earliest window's counts. Every figure over a window is reported under that window's `label`",
+          "items": {
+            "$ref": "#/$defs/CountingWindow"
+          },
+          "title": "Windows",
+          "type": "array"
         }
       },
       "required": [
@@ -206,6 +271,19 @@
           ],
           "default": null,
           "description": "Cells whose outcome was mootness practice (the outcome's disposition_basis) \u2014 the label tracks vacatur practice rather than cert-worthiness, so these aggregate separately and never enter the ranking; null when this predictor has none."
+        },
+        "process_window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The label of the counting window every cell behind this entry comes from (e.g. `proc-v8`); null on an all-versions build, which pools every process by definition. A frozen build never pools two windows into one entry",
+          "title": "Process Window"
         },
         "rank": {
           "description": "1-based standing; 1 is best",
@@ -355,6 +433,19 @@
           ],
           "default": null,
           "description": "This stage's mootness-basis cells; null when this predictor has none in the stage."
+        },
+        "process_window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The label of the counting window every cell behind this entry comes from (e.g. `proc-v8`); null on an all-versions build, which pools every process by definition. A frozen build never pools two windows into one entry",
+          "title": "Process Window"
         },
         "retrospective": {
           "anyOf": [
@@ -786,7 +877,7 @@
     },
     "process_scope": {
       "default": "frozen",
-      "description": "Which process versions this board covers: `frozen` (the default headline \u2014 only cells whose predictor ran the blessed frozen process at or after the freeze instant, graded at or after it too) or `all` (every version, including the shakedown). A `frozen` board with zero predictors is the honest 'no frozen-process evaluations yet' state, not a regression.",
+      "description": "Which process versions this board covers: `frozen` (the default headline \u2014 only cells whose prediction is its predictor's counted forecast inside a counting window, graded at or after that window opened) or `all` (every version, including the shakedown). A `frozen` board with zero predictors is the honest 'no frozen-process evaluations yet' state, not a regression.",
       "enum": [
         "frozen",
         "all"

@@ -76,9 +76,12 @@ digests in `FROZEN_PROCESS_DIGESTS` — three predictors and three evaluators �
 with the counting instant `FROZEN_SINCE = 2026-09-16T00:26:04Z`. A cell counts
 only if its **prediction's** stamp carries a blessed digest with `stamped_at` at
 or after that instant, and the grading evaluation's own harness stamp is at or
-after it too. The write-up states the per-digest census of the conference
+after it too. In the code's terms that is `proc-v8`'s three open counting
+windows in `COUNTING_WINDOWS`, one per predictor digest, each opening at that
+instant; while they are the only windows, the two readings select the same
+cells. The write-up states the per-digest census of the conference
 cohort, not a stamped/unstamped split: an unstamped cell is shakedown by
-construction, and a stamped cell under a retired digest is shakedown as well.
+construction, and a stamped cell under a de-counted digest is shakedown as well.
 
 **Evidence.**
 
@@ -143,7 +146,9 @@ a `"process_version": null` key without a stamp.
 
 After the metrics refresh in section 3, `metrics/leaderboard.json`'s
 `frozen_process` block must read `since: 2026-09-16T00:26:04Z` beside those six
-digests; a `since` naming any other instant means the board was built against a
+digests, and its `windows` must list exactly the three `proc-v8` predictor
+windows opening at that instant with null `closes`; a `since` naming any other
+instant means the board was built against a
 different freeze and nothing may be quoted from it.
 
 Cohort completeness is settled before the conference, not during the write-up
@@ -184,7 +189,7 @@ that every cell read what it was given.
 > The conference cohort is re-forecast under the blessed processes by a
 > registered backlog rule. The rule re-owes a cell on an event that is still
 > genuinely forward, whose declared moment is still open, and whose entire
-> committed cohort the freeze retired — cert distribution and CVSG moments plus
+> committed cohort the freeze de-counted — cert distribution and CVSG moments plus
 > the interim moments; a distribution is refused unless it carries a conference
 > still ahead. The rule re-mints for every engine at once, so an event is never
 > intended to be completed with one blessed cell standing beside de-counted
@@ -196,7 +201,7 @@ that every cell read what it was given.
 > board. A re-forecast supersedes; it never adds a second observation.
 
 > Two readings that boundary does not support. A figure computed on the blessed
-> side is not comparable with one computed on the retired side, and any rise
+> side is not comparable with one computed on the de-counted side, and any rise
 > across the boundary is **not** a measurement of model improvement — the two
 > sides are different processes on different information sets, which is the
 > whole reason the partition exists. And a cohort complete on the board is not
@@ -806,7 +811,8 @@ jq '.events_scored, .entries[].events_scored' metrics/leaderboard.json
 `conference-set --counted --registered-at` gives both sides of the
 reconciliation in one reading. Its population is every **counted** event — one
 with a counted cell: the run a counted grading names, else a predictor's staged
-(newest) run when it carries a frozen process — together with every
+(newest resolvable) run when it is its predictor's counted forecast of the
+event — together with every
 **registered** event, counted or not. For each it gives the conference the
 petition was distributed for at its counted cells' cut, the conference it was
 distributed for on the registration day, the current corpus column, the band the
@@ -821,12 +827,12 @@ at.
 
 **The cohort is selected by `registered`, never by a conference.** The flag
 reconstructs the registered rule's membership as at the registration day: an
-event at a re-predict moment that held a retired or unstamped cell by that day,
+event at a re-predict moment that held a de-counted or unstamped cell by that day,
 had no outcome before it, and — at the distribution moment — was distributed
 for a conference still ahead. 2026-09-15 is that day because the census in the
 freeze record was read from a blob pulled 2026-09-14 against a ledger whose tip
 is dated 2026-09-15, so the reconstruction admits docket entries filed through
-09-14 and retired cells made through 09-15. It reconstructs the **rule**, so its
+09-14 and de-counted cells made through 09-15. It reconstructs the **rule**, so its
 per-arm counts are checked against the rule's census in the freeze record —
 123 events: 110 cert/distribution, 10 cert/cvsg and **3** interim/arrival —
 not against the 122 the deriver minted, which held one interim event back; the
@@ -880,8 +886,9 @@ predictor's newest cell rather than its first, the release sensitivity command
 also checks every `cert@distribution` board cell whose *scored* run, for any
 predictor, postdates its considering conference, and names any that falls
 outside the subset (`scored_after_conference_outside_subset`); it lists the
-subset itself (`subset`). The first forward cell is the earliest among cells
-in the frozen scope, so a retired cell made before the freeze does not count,
+subset itself (`subset`). The first forward cell is the earliest among the
+counted cells (the frozen scope's event-aware rule), so neither a de-counted
+cell nor a later window's cell the rule does not count is ever the first,
 and "none registered" is a confirmation the command's `registered` count
 makes, not a property of the rule. The conference is the one the petition was
 distributed for as at the run, read off the petition's own distribution
