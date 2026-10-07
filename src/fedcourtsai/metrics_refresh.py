@@ -35,6 +35,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from .claim_metrics import agreement_summary
+from .leaderboard import entry_name
 from .schemas import (
     CERT_BACKTEST_ARMS,
     Backtest,
@@ -166,7 +167,7 @@ def _leaderboard_headline(path: Path, roster: Sequence[str] | None = None) -> st
         (key, block.events_scored, block.entries) for key, block in board.stages.items()
     ]
     shortfalls = [
-        (entry.events_scored - covered, entry.predictor_id, entry.events_scored, covered)
+        (entry.events_scored - covered, entry_name(entry, entries), entry.events_scored, covered)
         for _label, covered, entries in populations
         for entry in entries
         if entry.events_scored < covered

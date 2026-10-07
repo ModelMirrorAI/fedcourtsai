@@ -36,10 +36,12 @@ from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.moments import first_moment
 from .process_version import (
+    PooledWindowsError,
     counted_on_event,
     describe_windows,
     freeze_in_force,
     graded_in_window,
+    refuse_shared_labels,
     resolvable_runs,
     window_of,
 )
@@ -1027,6 +1029,23 @@ def _stratum_of(
     return classify_stratum(cell_clock(scored), outcome.resolved_at)
 
 
+#: One scored cell's identity — ``(case, event, predictor, evaluator, run)``.
+#: The join key for per-cell facts a surface reads beside the cells, since
+#: ``Evaluation`` is not hashable.
+EvaluationKey = tuple[str, str, str, str, str]
+
+
+def evaluation_key(evaluation: Evaluation) -> EvaluationKey:
+    """This evaluation's :data:`EvaluationKey`."""
+    return (
+        evaluation.case_id,
+        evaluation.event_id,
+        evaluation.predictor_id,
+        evaluation.evaluator_id,
+        evaluation.run_id,
+    )
+
+
 class StratifiedRun(NamedTuple):
     """:func:`stratify`'s result: the scorable cells, and what was excluded.
 
@@ -1050,9 +1069,11 @@ class StratifiedRun(NamedTuple):
     ``excluded`` **and** ``leaked``: they answer different questions over one
     population, so the counts are published side by side and never summed.
 
-    ``windows`` maps each predictor with in-scope cells to the label of the
-    counting window they come from. Empty on an all-versions pass, which pools
-    by definition and says so in its ``process_scope``.
+    ``cell_windows`` maps each in-scope cell (:func:`evaluation_key`) to the
+    counting window its scored prediction sits in — the second half of the
+    (predictor, window) key every frozen-scope figure is published under.
+    Empty on an all-versions pass, which pools by definition and says so in its
+    ``process_scope``.
     """
 
     cells: list[StratifiedCell]
@@ -1061,10 +1082,10 @@ class StratifiedRun(NamedTuple):
     claimed_forward: int = 0
     superseded: int = 0
     leakage_assessed: int = 0
-    windows: Mapping[str, str] = MappingProxyType({})
+    cell_windows: Mapping[EvaluationKey, CountingWindow] = MappingProxyType({})
 
 
-def stratify(
+def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, both exclusions
     data_root: Path,
     *,
     frozen_only: bool = True,
@@ -1162,14 +1183,16 @@ def stratify(
 
     **Windows are never pooled silently.** Under ``frozen_only`` each in-scope
     cell's scored prediction sits in exactly one counting window, and
-    ``windows`` maps each predictor to the label of the window its in-scope
-    cells come from — the label every figure over those cells is reported
-    under. A predictor whose in-scope cells span two windows raises
+    ``cell_windows`` names it per cell, so a caller keys its figures on
+    (predictor, window) — the series a new model under an unchanged id starts.
+    A predictor whose in-scope cells span two windows raises
     :class:`PooledWindowsError` while ``refuse_pooled_windows`` holds (the
-    default): every aggregate built on this pass keys on ``predictor_id``
-    alone, so a new model under an unchanged id would otherwise be averaged
-    with its predecessor as one series. Only a per-row caller that publishes
-    each row's window beside it — the dataset export — passes ``False``.
+    default), for a caller that keys on ``predictor_id`` alone and would
+    otherwise average the two as one series. A caller that keys on the series
+    (the leaderboard, the claim scores, the ops report) or publishes each row's
+    or event's window beside it (the dataset export, the conference cut) passes
+    ``False``. Two of one predictor's windows sharing a label raise whatever
+    the flag says, since no caller could publish them apart.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -1203,7 +1226,19 @@ def stratify(
     # board does not admit. Every counter below therefore sees one grading per
     # (case, event, predictor, evaluator).
     survivors = latest_evaluation_runs(scoped, lambda cell: cell.evaluation)
-    windows = _window_labels(survivors) if frozen_only else {}
+    cell_windows: dict[EvaluationKey, CountingWindow] = {}
+    if frozen_only:
+        for cell in survivors:
+            window = window_of(cell.scored_prediction.process_version)
+            if window is not None:
+                cell_windows[evaluation_key(cell.evaluation)] = window
+    windows: dict[str, set[CountingWindow]] = {}
+    for (_case, _event, predictor_id, _evaluator, _run), window in cell_windows.items():
+        windows.setdefault(predictor_id, set()).add(window)
+    refuse_shared_labels(
+        ((pid, window) for pid, spans in windows.items() for window in spans),
+        surface="frozen-scope cells",
+    )
     pooled = [pid for pid, spans in sorted(windows.items()) if len(spans) > 1]
     if refuse_pooled_windows and pooled:
         raise PooledWindowsError(
@@ -1244,27 +1279,8 @@ def stratify(
         claimed_forward,
         superseded,
         leakage_assessed,
-        {pid: next(iter(spans)).label for pid, spans in windows.items() if len(spans) == 1},
+        cell_windows,
     )
-
-
-class PooledWindowsError(ValueError):
-    """A frozen-scope pass whose cells for one predictor span two counting windows."""
-
-
-def _window_labels(cells: Iterable[_ScopedCell]) -> dict[str, set[CountingWindow]]:
-    """Each predictor's counting windows over in-scope cells.
-
-    Keyed on the window itself, never its label: two windows can share a label
-    (a digest blessed again after its window closed), and those are still two
-    series.
-    """
-    labels: dict[str, set[CountingWindow]] = {}
-    for cell in cells:
-        window = window_of(cell.scored_prediction.process_version)
-        if window is not None:
-            labels.setdefault(cell.evaluation.predictor_id, set()).add(window)
-    return labels
 
 
 def iter_stratified_evaluations(

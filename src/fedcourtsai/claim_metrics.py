@@ -49,7 +49,14 @@ from typing import Literal
 from .integrity import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell, evaluation_clock
 from .leaderboard import kendall_tau_b
 from .pipeline.moments import first_moment
-from .process_version import frozen_process_record
+from .process_version import (
+    Series,
+    frozen_process_record,
+    pooled_windows,
+    refuse_shared_labels,
+    series_sort_key,
+    window_label,
+)
 from .schemas import (
     ClaimJudgeAgreement,
     ClaimMeanScore,
@@ -57,12 +64,14 @@ from .schemas import (
     ClaimScoreBoard,
     ClaimScoreEntry,
     ClaimScoreStratum,
+    CountingWindow,
     Evaluation,
     ForwardClaimRecord,
     LeakageExclusionRecord,
     Stage,
     Stratum,
 )
+from .store import EvaluationKey, evaluation_key
 
 # The pre-registered suppression threshold for the judge-validation tau-b: below
 # this intersection size the coefficient is withheld and only the counts
@@ -144,7 +153,10 @@ def _aggregate_stratum(evals: Sequence[Evaluation]) -> ClaimScoreStratum | None:
     )
 
 
-def _agreement(evals: Sequence[Evaluation]) -> ClaimJudgeAgreement | None:
+def _agreement(
+    evals: Sequence[Evaluation],
+    cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
+) -> ClaimJudgeAgreement | None:
     """One stratum's judge validation, or ``None`` when the stratum has no cells.
 
     The pair set is the intersection only: a cell enters where **both** the
@@ -167,6 +179,11 @@ def _agreement(evals: Sequence[Evaluation]) -> ClaimJudgeAgreement | None:
     here of anywhere on the surface — duplicate pairs inflate ``pairs`` against
     :data:`AGREEMENT_MIN_PAIRS`, so without the collapse a re-grade could
     publish a coefficient the suppression rule is holding back.
+
+    The validation pools every predictor's cells by design — it validates the
+    judge, not a forecaster — so where those cells come from windows carrying
+    more than one label it lists each (predictor, window) series and its cell
+    count as ``windows`` (:func:`fedcourtsai.process_version.pooled_windows`).
     """
     if not evals:
         return None
@@ -188,7 +205,18 @@ def _agreement(evals: Sequence[Evaluation]) -> ClaimJudgeAgreement | None:
             1 for ev in evals if ev.claim_scores is not None and ev.claim_scores.total is None
         ),
         missing_reasoning_quality=sum(1 for ev in evals if ev.reasoning_quality is None),
+        windows=pooled_windows(_series_counts(evals, cell_windows or {})),
     )
+
+
+def _series_counts(
+    evals: Iterable[Evaluation], cell_windows: Mapping[EvaluationKey, CountingWindow]
+) -> dict[Series, int]:
+    """How many of ``evals`` each (predictor, window) series contributes."""
+    counts: dict[Series, int] = defaultdict(int)
+    for ev in evals:
+        counts[(ev.predictor_id, cell_windows.get(evaluation_key(ev)))] += 1
+    return counts
 
 
 def agreement_summary(agreement: ClaimJudgeAgreement | None) -> str:
@@ -212,7 +240,7 @@ def build_claim_scores(
     process_scope: Literal["frozen", "all"] = "frozen",
     forward_claim: ForwardClaimRecord | None = None,
     leakage_exclusion: LeakageExclusionRecord | None = None,
-    windows: Mapping[str, str] | None = None,
+    cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
 ) -> ClaimScoreBoard:
     """Roll stratified evaluations up into the claim-score surface.
 
@@ -234,13 +262,17 @@ def build_claim_scores(
     block-carrying cell, ordered by ``predictor_id``; the per-stratum judge
     validation is computed over every in-population cell, block-carrying or
     not, so the absence counts describe the whole population the intersection
-    was drawn from. ``windows`` (``store.StratifiedRun.windows``, from the
-    same pass) names each entry's counting window as its ``process_window``;
-    that pass has refused any predictor whose cells span two windows, so no
-    entry pools them. Unsupplied — an all-versions build — the field is null.
+    was drawn from. ``cell_windows`` (``store.StratifiedRun.cell_windows``,
+    from the same pass) names each cell's counting window: entries are per
+    (predictor, window), ordered by ``predictor_id`` then the window's opening,
+    with the label as ``process_window``, so a predictor whose cells span two
+    windows has an entry per window and none pools them. The judge validation
+    pools predictors and lists its series where they span labels. Unsupplied —
+    an all-versions build — entries key on the predictor and the field is null.
     """
     by_stratum: dict[Stratum, list[Evaluation]] = {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
-    by_predictor: dict[str, dict[Stratum, list[Evaluation]]] = defaultdict(
+    windows = cell_windows or {}
+    by_series: dict[Series, dict[Stratum, list[Evaluation]]] = defaultdict(
         lambda: {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
     )
     total = 0
@@ -256,14 +288,16 @@ def build_claim_scores(
         if ev.claim_scores is not None:
             with_claims += 1
         by_stratum[stratum].append(ev)
-        by_predictor[ev.predictor_id][stratum].append(ev)
+        by_series[(ev.predictor_id, windows.get(evaluation_key(ev)))][stratum].append(ev)
 
+    refuse_shared_labels(by_series, surface="claim scores")
     entries: list[ClaimScoreEntry] = []
-    for predictor_id in sorted(by_predictor):
-        strata = by_predictor[predictor_id]
+    for series in sorted(by_series, key=series_sort_key):
+        predictor_id, window = series
+        strata = by_series[series]
         entry = ClaimScoreEntry(
             predictor_id=predictor_id,
-            process_window=(windows or {}).get(predictor_id),
+            process_window=window_label(window),
             forward=_aggregate_stratum(strata[FORWARD]),
             retrospective=_aggregate_stratum(strata[RETROSPECTIVE]),
             procedural=_aggregate_stratum(strata[PROCEDURAL]),
@@ -279,9 +313,9 @@ def build_claim_scores(
         frozen_process=frozen_process_record(),
         evaluations_total=total,
         cells_with_claims=with_claims,
-        forward_agreement=_agreement(by_stratum[FORWARD]),
-        retrospective_agreement=_agreement(by_stratum[RETROSPECTIVE]),
-        procedural_agreement=_agreement(by_stratum[PROCEDURAL]),
+        forward_agreement=_agreement(by_stratum[FORWARD], windows),
+        retrospective_agreement=_agreement(by_stratum[RETROSPECTIVE], windows),
+        procedural_agreement=_agreement(by_stratum[PROCEDURAL], windows),
         entries=entries,
     )
 

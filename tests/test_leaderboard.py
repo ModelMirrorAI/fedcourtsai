@@ -1208,6 +1208,15 @@ def _write_big_case_cell(
     )
 
 
+def _by_predictor(
+    result: dict[tuple[str, str | None], BigCaseLeaderboard],
+) -> dict[str, BigCaseLeaderboard]:
+    """The agreement map keyed on the predictor alone, for a single-window ledger."""
+    keyed = {predictor_id: value for (predictor_id, _window), value in result.items()}
+    assert len(keyed) == len(result), "a predictor spans two windows"
+    return keyed
+
+
 def test_big_case_agreement_correlates_predictor_and_panel_orderings(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     # A predictor whose stakes ordering matches the panel's → tau +1.
@@ -1219,7 +1228,7 @@ def test_big_case_agreement_correlates_predictor_and_panel_orderings(tmp_path: P
     _write_big_case_cell(data_root, "invert", "scotus/5", pred_score=0.5, eval_scores=[0.5])
     _write_big_case_cell(data_root, "invert", "scotus/6", pred_score=0.1, eval_scores=[0.9])
 
-    result = big_case_agreement(data_root, frozen_only=False)
+    result = _by_predictor(big_case_agreement(data_root, frozen_only=False))
 
     assert result["agree"].rank_agreement == 1.0
     assert result["agree"].cases == 3
@@ -1246,7 +1255,7 @@ def test_the_agreement_views_keep_a_leakage_suspected_cell(tmp_path: Path) -> No
     # Every cell is flagged, so the stratified join keeps none of them...
     assert stratify(data_root, frozen_only=False).cells == []
     # ...while the agreement view still reads all three.
-    assert big_case_agreement(data_root, frozen_only=False)["agree"].cases == 3
+    assert _by_predictor(big_case_agreement(data_root, frozen_only=False))["agree"].cases == 3
 
 
 def test_big_case_agreement_averages_the_evaluator_panel(tmp_path: Path) -> None:
@@ -1255,7 +1264,7 @@ def test_big_case_agreement_averages_the_evaluator_panel(tmp_path: Path) -> None
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.9, eval_scores=[0.2, 1.0])
     _write_big_case_cell(data_root, "p", "scotus/2", pred_score=0.1, eval_scores=[0.1, 0.1])
-    result = big_case_agreement(data_root, frozen_only=False)
+    result = _by_predictor(big_case_agreement(data_root, frozen_only=False))
     # case1 panel mean = 0.6 > case2's 0.1, and pred 0.9 > 0.1 → concordant → +1.
     assert result["p"].rank_agreement == 1.0
     assert result["p"].cases == 2
@@ -1287,7 +1296,7 @@ def test_big_case_agreement_uses_the_latest_prediction_score(tmp_path: Path) -> 
             big_case_score=0.9,
         ),
     )
-    result = big_case_agreement(data_root, frozen_only=False)
+    result = _by_predictor(big_case_agreement(data_root, frozen_only=False))
     assert result["p"].rank_agreement == 1.0
     assert result["p"].cases == 2
 
@@ -1297,7 +1306,7 @@ def test_big_case_agreement_single_case_reports_null_agreement(tmp_path: Path) -
     # is undefined with a single point — distinct from the absent-from-map case.
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.5, eval_scores=[0.5])
-    entry = big_case_agreement(data_root, frozen_only=False)["p"]
+    entry = _by_predictor(big_case_agreement(data_root, frozen_only=False))["p"]
     assert entry.cases == 1
     assert entry.rank_agreement is None
 
@@ -1307,17 +1316,17 @@ def test_big_case_agreement_skips_a_predictor_without_a_score(tmp_path: Path) ->
     # case is not comparable, so the predictor is absent from the map.
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "p", "scotus/1", pred_score=None, eval_scores=[0.5])
-    assert big_case_agreement(data_root, frozen_only=False) == {}
+    assert _by_predictor(big_case_agreement(data_root, frozen_only=False)) == {}
 
 
 def test_big_case_agreement_empty_when_no_ledger(tmp_path: Path) -> None:
-    assert big_case_agreement(tmp_path / "nope") == {}
+    assert _by_predictor(big_case_agreement(tmp_path / "nope")) == {}
 
 
 def test_build_leaderboard_attaches_big_case_when_supplied() -> None:
     ev = _evaluation("p1")
     board = build_leaderboard(
-        [_forward(ev)], big_case={"p1": BigCaseLeaderboard(rank_agreement=0.5, cases=4)}
+        [_forward(ev)], big_case={("p1", None): BigCaseLeaderboard(rank_agreement=0.5, cases=4)}
     )
     assert board.entries[0].big_case is not None
     assert board.entries[0].big_case.rank_agreement == 0.5
@@ -1438,9 +1447,9 @@ def test_big_case_agreement_defaults_to_frozen(
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "shakedown", "scotus/1", pred_score=0.5, eval_scores=[0.6, 0.4])
     # Frozen default: the unstamped shakedown read is excluded.
-    assert big_case_agreement(data_root) == {}
+    assert _by_predictor(big_case_agreement(data_root)) == {}
     # All-versions still sees it.
-    assert "shakedown" in big_case_agreement(data_root, frozen_only=False)
+    assert "shakedown" in _by_predictor(big_case_agreement(data_root, frozen_only=False))
 
 
 def _big_case_cell(
@@ -1642,7 +1651,9 @@ def test_big_case_agreement_counts_cases_not_events(tmp_path: Path) -> None:
             _evaluation("p", event_id=event_id, big_case=BigCaseAssessment(evaluator_score=panel)),
             big_case_score=own,
         )
-    ((predictor, agreement),) = big_case_agreement(tmp_path, frozen_only=False).items()
+    ((predictor, agreement),) = _by_predictor(
+        big_case_agreement(tmp_path, frozen_only=False)
+    ).items()
     assert predictor == "p"
     assert agreement.cases == 1  # one case, two moments
 
@@ -2345,7 +2356,7 @@ def test_the_big_case_column_keys_frozen_scope_on_the_named_run(
             ),
         )
 
-    frozen = big_case_agreement(data_root)
+    frozen = _by_predictor(big_case_agreement(data_root))
     assert "alpha" not in frozen, (
         "the stamped shakedown read must stay keyed to its unfrozen run, not "
         "ride the frozen re-run into the frozen view"
@@ -2553,7 +2564,7 @@ def test_big_case_agreement_counts_a_regraded_read_once(tmp_path: Path) -> None:
     _write_big_case_read(data_root, "p", "scotus/1", "eval-0", "r2", 1.0)
     _write_big_case_cell(data_root, "p", "scotus/2", pred_score=0.1, eval_scores=[0.8, 0.8])
 
-    result = big_case_agreement(data_root, frozen_only=False)
+    result = _by_predictor(big_case_agreement(data_root, frozen_only=False))
 
     # Panel mean 1.0 on case 1 (not 0.667 over three reads) keeps it above
     # case 2's 0.8, so the predictor's ordering is concordant with the panel's.
@@ -2617,8 +2628,8 @@ def test_the_agreement_views_collapse_inside_the_scope_they_are_read_under(
         ),
     )
 
-    frozen = big_case_agreement(data_root)
-    pooled = big_case_agreement(data_root, frozen_only=False)
+    frozen = _by_predictor(big_case_agreement(data_root))
+    pooled = _by_predictor(big_case_agreement(data_root, frozen_only=False))
 
     # Frozen: the r1 reads order with the predictor's own scores.
     assert frozen["alpha"].cases == 2

@@ -170,6 +170,7 @@ from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
     cell_facts,
+    entry_name,
     evaluator_agreement,
     skill_components,
     vote_scores,
@@ -5396,7 +5397,9 @@ def leaderboard(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     frozen_only = not all_versions
-    run = stratify(settings.data_root, frozen_only=frozen_only)
+    # Keyed on (predictor, window) throughout, so a predictor whose counted
+    # cells span two windows gets an entry per window rather than a refusal.
+    run = stratify(settings.data_root, frozen_only=frozen_only, refuse_pooled_windows=False)
     _report_exclusions(run)
     cells = run.cells
     # The realized-Term skill column is scored at render against the committed
@@ -5420,7 +5423,7 @@ def leaderboard(
         # against a complete vote record: what `mean_vote_accuracy` averages,
         # counted as `vote_cells_scored`.
         vote_scores=vote_scores(cells, settings.data_root),
-        windows=run.windows,
+        cell_windows=run.cell_windows,
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -5512,14 +5515,14 @@ def claim_scores_command(
     """
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
-    run = stratify(settings.data_root, frozen_only=not all_versions)
+    run = stratify(settings.data_root, frozen_only=not all_versions, refuse_pooled_windows=False)
     _report_exclusions(run)
     board = build_claim_scores(
         run.cells,
         process_scope=scope,
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
-        windows=run.windows,
+        cell_windows=run.cell_windows,
     )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
     write_json(destination, board)
@@ -9009,7 +9012,9 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     # like the prediction counts beside it), so its counts pool stages by
     # design; per-stage segmentation — and every claim that must not pool —
     # is the leaderboard's job.
-    stratified_run = stratify(settings.data_root, frozen_only=not all_versions)
+    stratified_run = stratify(
+        settings.data_root, frozen_only=not all_versions, refuse_pooled_windows=False
+    )
     _report_exclusions(stratified_run)
     stratified = [(ev, stratum) for ev, stratum, _stage, _moment in stratified_run.cells]
     substance = summarize_substance(
@@ -9021,6 +9026,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         process_scope=scope,
         forward_claim=_forward_claim_from(stratified_run),
         leakage_exclusion=_leakage_exclusion_from(stratified_run),
+        cell_windows=stratified_run.cell_windows,
     )
     report = build_ops_report(
         generated_at=when,
@@ -15086,7 +15092,7 @@ def _report_uneven_coverage(board: Leaderboard) -> None:
     ]
     for population, covered, entries in populations:
         short = [
-            f"{entry.predictor_id} {entry.events_scored}/{covered}"
+            f"{entry_name(entry, entries)} {entry.events_scored}/{covered}"
             for entry in entries
             if entry.events_scored < covered
         ]

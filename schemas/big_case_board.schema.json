@@ -70,6 +70,19 @@
           "title": "Predictor Id",
           "type": "string"
         },
+        "process_window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The label of the counting window this read's run sits in, on a frozen build; null on the all-versions census. The row's mean pools predictors, so it can pool reads from different windows \u2014 each read names its own rather than the row naming one",
+          "title": "Process Window"
+        },
         "run_id": {
           "title": "Run Id",
           "type": "string"

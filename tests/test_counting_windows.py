@@ -16,36 +16,49 @@ with a closed window and its successor beside it.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from pathlib import Path
+from typing import Protocol
 
 import pytest
+from typer.testing import CliRunner
 
 from fedcourtsai import process_version
+from fedcourtsai.analytics import build_big_case_board
 from fedcourtsai.blinding import latest_prediction_dirs
-from fedcourtsai.cli import _latest_prediction_for
+from fedcourtsai.claim_metrics import build_claim_scores
+from fedcourtsai.cli import _latest_prediction_for, app
 from fedcourtsai.dataset_export import build_tables
-from fedcourtsai.leaderboard import big_case_agreement
+from fedcourtsai.leaderboard import (
+    big_case_agreement,
+    build_leaderboard,
+    cell_facts,
+    evaluator_agreement,
+)
+from fedcourtsai.ops import render_substance, summarize_substance
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.process_version import PooledWindowsError
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
 from fedcourtsai.release_sensitivity import _cert_events
 from fedcourtsai.schemas import (
     BigCaseAssessment,
+    ClaimScoreBoard,
     CountingWindow,
     Evaluation,
+    Leaderboard,
     Prediction,
     ProcessVersion,
 )
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import (
-    PooledWindowsError,
     event_has_claimable_prediction,
     predictor_holds_no_counted_prediction,
     scored_prediction,
     stratify,
 )
-from fedcourtsai.tool_usage import _JoinedCell, _refuse_pooled_windows
+from fedcourtsai.tool_usage import _correlate, _JoinedCell, _segments
 from tests.conftest import set_windows
 from tests.test_dataset_export import _event, _grade, _outcome, _prediction
 
@@ -253,14 +266,22 @@ def _graded_ledger(data: Path) -> None:
         _grade(data, case, "e1", prediction_run_id="p1", stamped=when + timedelta(days=31))
 
 
-def test_no_aggregate_pools_two_windows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_predictor_keyed_pass_still_refuses_two_windows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The default pass refuses: a caller keyed on ``predictor_id`` alone gets no
+    ledger it would pool. A series-keyed caller opts out and reads each cell's
+    window instead."""
     set_windows(monkeypatch, CLOSED, SUCCESSOR)
     data = tmp_path / "data"
     _graded_ledger(data)
     with pytest.raises(PooledWindowsError, match="alpha"):
         stratify(data)
+    run = stratify(data, refuse_pooled_windows=False)
+    assert sorted(window.label for window in run.cell_windows.values()) == ["proc-a", "proc-b"]
     # The all-versions pass is the named pooled view and says so in its scope.
     assert len(stratify(data, frozen_only=False).cells) == 2
+    assert not stratify(data, frozen_only=False).cell_windows
 
 
 def test_a_single_window_board_names_its_window(
@@ -271,7 +292,19 @@ def test_a_single_window_board_names_its_window(
     _graded_ledger(data)
     run = stratify(data)
     assert len(run.cells) == 1
-    assert dict(run.windows) == {"alpha": "proc-a"}
+    assert [window.label for window in run.cell_windows.values()] == ["proc-a"]
+
+
+def test_two_windows_sharing_a_label_are_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every per-window figure is named (predictor, label), so two of one
+    predictor's windows under one label could not be told apart."""
+    set_windows(monkeypatch, CLOSED, SUCCESSOR.model_copy(update={"label": "proc-a"}))
+    data = tmp_path / "data"
+    _graded_ledger(data)
+    with pytest.raises(PooledWindowsError, match="share a label"):
+        stratify(data, refuse_pooled_windows=False)
 
 
 def test_the_export_carries_each_rows_window(
@@ -297,47 +330,214 @@ def test_the_export_carries_each_rows_window(
     assert not everything[("scotus/1", "p2")].staged
 
 
-# --- binding until built ---------------------------------------------------------
+# --- per-window boards over a two-window registry ------------------------------
+
+# Three predictors. alpha's process changes (proc-a closes, proc-b opens at T2);
+# beta's digest carries forward byte-identical, so its one proc-a window stays
+# open across both; gamma changes too.
+D = "sha256:" + "d" * 64
+E = "sha256:" + "e" * 64
+F = "sha256:" + "f" * 64
+BETA = CountingWindow(label="proc-a", digest=D, opens=T1)
+GAMMA_CLOSED = CountingWindow(label="proc-a", digest=E, opens=T1, closes=T2)
+GAMMA_SUCCESSOR = CountingWindow(label="proc-b", digest=F, opens=T2)
+TWO_LABELS = (CLOSED, SUCCESSOR, BETA, GAMMA_CLOSED, GAMMA_SUCCESSOR)
+EVENT = "evt-petition-disposition"
+
+# case -> each predictor's counted cell: (digest, stamped). Case 1 is all
+# proc-a, case 2 all proc-b (beta's carried window beside the successors), and
+# case 3 is a split event: alpha's cell from the closed window, gamma's from the
+# successor that closed it.
+_CELLS = {
+    "scotus/1": {"alpha": (A, T1), "beta": (D, T1), "gamma": (E, T1)},
+    "scotus/2": {"alpha": (B, T2), "beta": (D, T2), "gamma": (F, T2)},
+    "scotus/3": {"alpha": (A, T1), "beta": (D, T1), "gamma": (F, T2)},
+}
 
 
-def test_no_window_closes_until_the_boards_are_per_window() -> None:
-    """The "binding until built" clause, made mechanical.
+def _two_label_ledger(data: Path) -> None:
+    """Every predictor graded by two judges on every case, big-case reads included."""
+    for case, cells in _CELLS.items():
+        _event(data, case)
+        latest = max(when for _, when in cells.values())
+        _outcome(data, case, resolved_at=(latest + timedelta(days=30)).date())
+        event = CasePaths(data, "scotus", int(case.split("/")[1])).event(EVENT)
+        for predictor, (digest, when) in cells.items():
+            _prediction(
+                data, case, predictor_id=predictor, stamp=_pv(digest, when + timedelta(days=1))
+            )
+            pred_path = event.prediction(predictor, "p1")
+            prediction = read_model(pred_path, Prediction)
+            write_json(pred_path, prediction.model_copy(update={"big_case_score": 0.5}))
+            for judge, score in (("e1", 0.4), ("e2", 0.6)):
+                _grade(
+                    data, case, judge, predictor_id=predictor, stamped=latest + timedelta(days=31)
+                )
+                eval_path = event.evaluation(judge, predictor, "r1")
+                evaluation = read_model(eval_path, Evaluation)
+                assessment = BigCaseAssessment(evaluator_score=score)
+                write_json(eval_path, evaluation.model_copy(update={"big_case": assessment}))
 
-    The aggregate boards (leaderboard, claim scores, ops, semantic summary,
-    big-case agreement, tool usage) key on ``predictor_id`` or the engine and
-    *refuse* a ledger in which one of them spans two windows. A successor that
-    closes a window before they key on (predictor, window) would take every
-    frozen-scope board down — the proc-v8 release figures included — the first
-    time a predictor holds graded cells in both. So no window may close yet.
-    Remove this test in the same change that builds per-window strata.
-    """
-    closed = [w for w in process_version.COUNTING_WINDOWS if w.closes is not None]
-    assert not closed, (
-        "a counting window closed before the aggregate boards key on (predictor, "
-        "window) — build per-window strata first (docs/process-version.md, the "
-        "third supersession shape): " + process_version.describe_windows(closed)
+
+def _series(entries: Iterable[_Keyed]) -> list[tuple[str, str | None]]:
+    return [(entry.predictor_id, entry.process_window) for entry in entries]
+
+
+class _Keyed(Protocol):
+    @property
+    def predictor_id(self) -> str: ...
+    @property
+    def process_window(self) -> str | None: ...
+
+
+ALL_SERIES = [
+    ("alpha", "proc-a"),
+    ("alpha", "proc-b"),
+    ("beta", "proc-a"),
+    ("gamma", "proc-a"),
+    ("gamma", "proc-b"),
+]
+
+
+def test_a_two_window_registry_builds_the_leaderboard_per_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One entry per (predictor, window), each over its own window's cells only;
+    the complete grid read per window combination, the split event in none."""
+    set_windows(monkeypatch, *TWO_LABELS)
+    data = tmp_path / "data"
+    _two_label_ledger(data)
+    run = stratify(data, refuse_pooled_windows=False)
+    board = build_leaderboard(
+        run.cells,
+        big_case=big_case_agreement(data),
+        evaluators=evaluator_agreement(data),
+        facts=cell_facts(run.cells, data),
+        cell_windows=run.cell_windows,
+    )
+    assert sorted(_series(board.entries)) == ALL_SERIES
+    scored = {(e.predictor_id, e.process_window): e.events_scored for e in board.entries}
+    assert scored == {
+        ("alpha", "proc-a"): 2,
+        ("alpha", "proc-b"): 1,
+        ("beta", "proc-a"): 3,
+        ("gamma", "proc-a"): 1,
+        ("gamma", "proc-b"): 2,
+    }
+    # Every entry's big-case agreement is its own window's, never both.
+    cases = {(e.predictor_id, e.process_window): e.big_case for e in board.entries}
+    assert cases[("alpha", "proc-a")] is not None and cases[("alpha", "proc-a")].cases == 2
+    assert cases[("alpha", "proc-b")] is not None and cases[("alpha", "proc-b")].cases == 1
+    # Cases 1 and 2 are complete under two different combinations; case 3 is split.
+    assert board.complete_grid_by_band == {"(none)": 2}
+    assert board.split_events_by_band == {"(none)": 1}
+    assert [grid.windows for grid in board.complete_grids] == [
+        {"alpha": "proc-a", "beta": "proc-a", "gamma": "proc-a"},
+        {"alpha": "proc-b", "beta": "proc-a", "gamma": "proc-b"},
+    ]
+    assert [grid.by_band for grid in board.complete_grids] == [{"(none)": 1}, {"(none)": 1}]
+    # The grader view pools the predictors' windows by design and says which.
+    for agreement in board.evaluator_agreement.values():
+        assert sorted((w.predictor_id, w.process_window) for w in agreement.windows) == ALL_SERIES
+    # Ties down to the id keep the earlier window first.
+    alpha = [e.process_window for e in board.entries if e.predictor_id == "alpha"]
+    assert alpha == ["proc-a", "proc-b"]
+
+
+def test_a_two_window_registry_builds_the_cli_boards(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The commands build rather than refuse: the wiring passes the series key."""
+    set_windows(monkeypatch, *TWO_LABELS)
+    data = tmp_path / "data"
+    _two_label_ledger(data)
+    env = {"FEDCOURTS_DATA_ROOT": str(data), "FEDCOURTS_METRICS_ROOT": str(tmp_path / "m")}
+    out = tmp_path / "leaderboard.json"
+    result = CliRunner().invoke(app, ["leaderboard", "--out", str(out)], env=env)
+    assert result.exit_code == 0, result.output
+    board = read_model(out, Leaderboard)
+    assert sorted(_series(board.entries)) == ALL_SERIES
+    assert board.split_events_by_band == {"(none)": 1}
+    out = tmp_path / "claim-scores.json"
+    result = CliRunner().invoke(app, ["claim-scores", "--out", str(out)], env=env)
+    assert result.exit_code == 0, result.output
+    claims = read_model(out, ClaimScoreBoard)
+    assert claims.forward_agreement is not None
+    assert (
+        sorted((w.predictor_id, w.process_window) for w in claims.forward_agreement.windows)
+        == ALL_SERIES
     )
 
 
-def test_no_window_opens_after_the_earliest_until_the_boards_are_per_window() -> None:
-    """The same hold, for the bless that closes nothing.
-
-    A predictor-half bless that adds a window for a new predictor id leaves
-    every existing window open, so the close tripwire never fires and no
-    predictor spans two windows — yet the boards would rank an engine whose
-    window opened later beside the earlier ones, over a different span of
-    events. Every window opening at one instant is also what keeps the event
-    half of the counting rule a no-op on the live registry. Remove this test in
-    the same change that builds per-window strata.
-    """
-    windows = process_version.COUNTING_WINDOWS
-    earliest = min((w.opens for w in windows), default=None)
-    later = [w for w in windows if w.opens != earliest]
-    assert not later, (
-        "a counting window opens after the earliest before the aggregate boards key "
-        "on (predictor, window) — build per-window strata first (docs/process-version.md, "
-        "the per-window hold): " + process_version.describe_windows(later)
+def test_a_two_window_registry_builds_claim_scores_and_ops_per_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    set_windows(monkeypatch, *TWO_LABELS)
+    data = tmp_path / "data"
+    _two_label_ledger(data)
+    run = stratify(data, refuse_pooled_windows=False)
+    claims = build_claim_scores(run.cells, cell_windows=run.cell_windows)
+    # No cell carries a claim block here, so no entry survives; the judge
+    # validation still names the series its population spans.
+    assert claims.forward_agreement is not None
+    assert (
+        sorted((w.predictor_id, w.process_window) for w in claims.forward_agreement.windows)
+        == ALL_SERIES
     )
+    substance = summarize_substance(
+        cell_counts=(0, 0, 0),
+        stratified_evaluations=[(ev, stratum) for ev, stratum, _, _ in run.cells],
+        cell_windows=run.cell_windows,
+    )
+    assert sorted(_series(substance.predictor_scores)) == ALL_SERIES
+    rendered = render_substance(substance)
+    assert "| alpha (proc-a) |" in rendered and "| alpha (proc-b) |" in rendered
+
+
+def test_a_single_label_board_reads_as_it_did(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Under one label nothing is listed: no grid breakdown, no pooled-window
+    list, no window in a rendered name — the registry before any successor."""
+    set_windows(monkeypatch, CLOSED, BETA)
+    data = tmp_path / "data"
+    _two_label_ledger(data)
+    run = stratify(data, refuse_pooled_windows=False)
+    board = build_leaderboard(
+        run.cells,
+        evaluators=evaluator_agreement(data),
+        facts=cell_facts(run.cells, data),
+        cell_windows=run.cell_windows,
+    )
+    payload = board.model_dump(mode="json")
+    assert "complete_grids" not in payload and "split_events_by_band" not in payload
+    assert all("windows" not in agreement for agreement in payload["evaluator_agreement"].values())
+    substance = summarize_substance(
+        cell_counts=(0, 0, 0),
+        stratified_evaluations=[(ev, stratum) for ev, stratum, _, _ in run.cells],
+        cell_windows=run.cell_windows,
+    )
+    assert "| alpha |" in render_substance(substance)
+
+
+def test_the_big_case_board_names_each_reads_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A census of stakes reads, one per predictor: not split by window, since
+    nothing on it follows one forecaster — each read names its own window."""
+    set_windows(monkeypatch, *TWO_LABELS)
+    data = tmp_path / "data"
+    _two_label_ledger(data)
+    frozen = build_big_case_board(data_root=data, process_scope="frozen")
+    reads = {
+        (row.case_id, read.predictor_id): read.process_window
+        for row in frozen.rows
+        for read in row.current_reads
+    }
+    assert reads[("scotus/3", "alpha")] == "proc-a"
+    assert reads[("scotus/3", "gamma")] == "proc-b"
+    census = build_big_case_board(data_root=data, process_scope="all")
+    assert all(read.process_window is None for row in census.rows for read in row.current_reads)
 
 
 def test_every_close_is_a_successors_opening_instant() -> None:
@@ -446,7 +646,7 @@ def test_release_sensitivity_reads_only_counted_cells(
     assert _cert_events(data) == []
 
 
-def test_big_case_agreement_refuses_two_windows(
+def test_big_case_agreement_keys_each_window_apart(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     set_windows(monkeypatch, CLOSED, SUCCESSOR)
@@ -461,12 +661,17 @@ def test_big_case_agreement_refuses_two_windows(
         evaluation = read_model(eval_path, Evaluation)
         assessment = BigCaseAssessment(evaluator_score=0.4)
         write_json(eval_path, evaluation.model_copy(update={"big_case": assessment}))
-    with pytest.raises(PooledWindowsError, match=r"alpha .*proc-a.*proc-b"):
-        big_case_agreement(data)
-    assert "alpha" in big_case_agreement(data, frozen_only=False)
+    frozen = big_case_agreement(data)
+    assert {key: value.cases for key, value in frozen.items()} == {
+        ("alpha", "proc-a"): 1,
+        ("alpha", "proc-b"): 1,
+    }
+    assert {
+        key: value.cases for key, value in big_case_agreement(data, frozen_only=False).items()
+    } == {("alpha", None): 2}
 
 
-def _joined(window: CountingWindow) -> _JoinedCell:
+def _joined(window: CountingWindow, predictor_id: str = "alpha") -> _JoinedCell:
     return _JoinedCell(
         engine="claude-code",
         mode="forward",
@@ -478,10 +683,17 @@ def _joined(window: CountingWindow) -> _JoinedCell:
         briers=[0.1],
         evaluations=1,
         window=window,
+        predictor_id=predictor_id,
     )
 
 
-def test_tool_usage_refuses_one_engine_across_two_windows() -> None:
-    _refuse_pooled_windows([_joined(CLOSED), _joined(CLOSED)])
-    with pytest.raises(PooledWindowsError, match="claude-code"):
-        _refuse_pooled_windows([_joined(CLOSED), _joined(SUCCESSOR)])
+def test_tool_usage_splits_one_engine_across_two_windows() -> None:
+    """One engine's cells from two windows are two segments, never one mean; the
+    coefficient row pools engines by design and names the series it pools."""
+    joined = [_joined(CLOSED), _joined(CLOSED), _joined(SUCCESSOR)]
+    segments = [(key[1], len(group)) for key, group in _segments(joined)]
+    assert segments == [(CLOSED, 2), (SUCCESSOR, 1)]
+    row = _correlate(("forward", "cert", "distribution"), joined)
+    assert [(w.process_window, w.n) for w in row.windows] == [("proc-a", 2), ("proc-b", 1)]
+    # Under one label nothing is listed.
+    assert _correlate(("forward", "cert", "distribution"), joined[:2]).windows == []

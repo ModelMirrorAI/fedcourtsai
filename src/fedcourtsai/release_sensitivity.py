@@ -56,7 +56,6 @@ from .ids import parse_run_id
 from .integrity import StratifiedCell
 from .leaderboard import (
     CellSkill,
-    EvaluationKey,
     build_leaderboard,
     cell_facts,
     skill_components,
@@ -79,6 +78,7 @@ from .schemas import (
 )
 from .serialize import read_model
 from .store import (
+    EvaluationKey,
     iter_predicted_events,
     normalized_moment,
     normalized_stage,
