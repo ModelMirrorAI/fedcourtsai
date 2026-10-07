@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500214",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP server returned HTTP 429 (daily rate limit 1400/day exceeded, retry in ~62 minutes) on the cell's first two search calls. The cell degraded to the provisioned inputs and the committed statpack as the prompt directs; companion-docket status for Flagstar (25-1350) and Conti (25-1004) was not checked. If this run fanned out many cells, the shared daily quota may be exhausted for the rest of the fan-out."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned docket already carries a CVSG (2026-10-05), so the cvsg-increment claim is vacuous for this cell; a probability was stated per the contract and the harness mask applies. The predictor carries general knowledge of the Court's 2024 decision in this same case (602 U.S. 205) from training; that is pre-decision context for this second petition, not its outcome."
+    }
+  ]
+}

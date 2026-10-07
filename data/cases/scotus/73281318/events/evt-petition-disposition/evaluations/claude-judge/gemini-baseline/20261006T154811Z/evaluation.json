@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "Independent read: a fact-bound application of the Brigham City emergency-aid standard to a noise-complaint welfare check, raised in an interlocutory state suppression appeal with a threshold 28 U.S.C. 1257 finality bar. The underlying welfare-check question has some general policing significance, but this vehicle could not carry it, and the denial drew no noted dissent. Low stakes."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9865,
+  "case_id": "scotus/73281318",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.029267304112156636
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.029267304112156636,
+    "total": 0.029267304112156636
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T16:40:58Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell. Every call is unobserved (engine's standing capture shape), so graded on queries: all are reads of the provisioned record, prompt, schema, and statpack, plus its own output writes. No external lookup, no query naming this case's disposition, no qp-topics path. retrieval.md states no retrieval beyond provisioned inputs.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T16:42:35.818181Z"
+  },
+  "reasoning_quality": 0.68,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1724,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280412",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned document manifest (record/documents/documents.json, fetched 2026-07-16) carries only the petition and its questions presented, although the State's brief in opposition (June 2, 2026) and the petitioner's reply (June 10, 2026) were both on the docket and linked in the snapshot by then. The decisive forward signal in this cell, the respondent's own request for a GVR in light of Louisiana v. Callais, lived only in the un-provisioned brief in opposition. Two of three candidates fetched it themselves from supremecourt.gov and called the GVR; the one that did not read it predicted denial. If provisioning the brief in opposition and reply where they exist at provisioning time is within the manifest's design, this cell is a concrete case where it would have equalised the candidates' common input."
+    }
+  ]
+}

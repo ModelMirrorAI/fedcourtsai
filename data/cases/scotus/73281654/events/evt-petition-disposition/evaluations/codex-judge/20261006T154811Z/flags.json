@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281654",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline treats the Federal Circuit decision as unpublished and nonprecedential, a principal reason for its 1% grant forecast. The provisioned opposition's Opinions Below section, printed page 1, reports the decision at 156 F.4th 1339. Its procedural discussion also fails to distinguish the CFC's alternative water-claim grounds from the appellate holding; the opposition says the Federal Circuit did not reach section 1500 for that claim. Its retrieval note names opinion 11171627, but all captured-log result markers are unobserved, so the returned opinion's contents cannot be verified here. This is a factual/reasoning issue, not a leakage finding; all three evaluations are complete.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0"
+}

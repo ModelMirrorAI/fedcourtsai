@@ -1,0 +1,23 @@
+# Evaluation: codex-baseline
+
+## Outcome and quantitative scores
+
+This is a cert-stage petition-disposition event. The supplied outcome records denial on October 5, 2026, with `actual_granted = 0`; the staged October 5 snapshot also records the denial. The September 16 prediction calls `denied`, so exact-label correctness is **1**. Its grant probability is **0.035**, giving Brier loss `(0.035 - 0)^2 = 0.001225`.
+
+The baseline uses the prediction's frozen `baseline` band, `sal-v4` version, and OT2025 term, not the evaluator's terminal context. The committed statpack's heading matches that version. Pooling its bracketed baseline `reached` rates over every displayed strictly-prior term gives: OT2024 5.7% × 1271; OT2023 5.9% × 1312; OT2022 5.8% × 1192; OT2021 5.6% × 1500; OT2020 4.5% × 1739; OT2019 4.6% × 1399; OT2018 4.6% × 1524; OT2017 4.7% × 1643. The weighted sum is **592.925**, over **11,580** weighted resolved petitions: baseline **0.05120250431778929**, with `base_rate_basis = risk_set`. These are denial-reweighted live/historical-slice estimates, not raw complete-population counts. The table renders all ten pack terms; excluding OT2025 and OT2026 leaves eight eligible terms, with no rendered-window mismatch.
+
+Skill is `1 - 0.001225 / 0.05120250431778929^2 = 0.5327452952299547`. The prediction's reported 593/11,580 anchor uses its stated unrounded companion-artifact figures; this evaluation uses the required displayed markdown rates, so the small rounding difference is not a substantive error. This is a committed-artifact calculation, not a measurement of current corpus freshness; no live corpus was queried.
+
+## Reasoning quality: 0.90
+
+The rationale makes a strong, appropriately qualified vehicle analysis. It addresses the asserted bargaining-rule conflict, distinguishes factual review from statutory interpretation, and explains why the remedies question encounters preservation obstacles. Crucially, it treats the alternative premature-impasse ground as contested: it identifies the petition's contention that the bad-faith analysis infected that ground rather than silently adopting the opposition as a judicial finding. The staged union opposition's printed pages 7–8 and 19–24 support the existence of these disputes. The analysis does not read the eventual denial as an endorsement of either party's merits position.
+
+Its probability formation is unusually clear: a matching frozen-band risk-set anchor, a modest downward adjustment for overlapping vehicle concerns, and an express refusal to turn terminal relist buckets into live transition probabilities. It separates the significance of the legal questions from their likelihood of review and distinguishes the separate Macy's disposition from this petition. The federal opposition retrieval is specifically disclosed, as are the unread reply and independently unverified lower-court opinion.
+
+The remaining limitations are the judgmental size of the adjustment and reliance on party accounts of the underlying decision. The evaluator has not independently fetched the federal brief or verified every authority it discusses. The score rewards the rationale's evidentiary discipline and coherent comparison of competing explanations, not simply its correct denial call. The unelaborated denial does not establish which asserted vehicle problem actually motivated the Court.
+
+## Leakage and scoring boundaries
+
+The harness log labels the prediction forward. All 34 recorded calls are dated September 16, before the October 5 resolution. Thirty-two have captured results and two web calls are unobserved. The unobserved rows name the June 17 federal opposition and a Loper Bright search; they cannot be treated as verified failures or empty results merely because the candidate describes them that way. Captured shell queries also show direct retrieval of the same predecision federal brief. Earlier dispositions of Macy's and the separate emergency application are not the outcome of this cert event. No visible query or reasoning presupposes this petition's denial. Accordingly, outcome-material retrieval is false on the available evidence, influence is `not_applicable`, and leakage is not suspected. This is not a claim to have inspected uncaptured result bodies.
+
+The pointed-to forecast document was read for context only. It and the quantitative claims were not graded into reasoning quality. No semantic set is declared for this cert event, and cert votes are unscored even if noted. Vote accuracy, semantic grades, and harness-owned claim scores are therefore absent. No independent big-case assessment was formed before candidate exposure, so that optional field is omitted.

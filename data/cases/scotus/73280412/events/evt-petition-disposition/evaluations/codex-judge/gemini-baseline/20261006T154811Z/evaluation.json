@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": null,
+  "brier_score": 0.7225,
+  "brier_skill_score": -0.7083027127509853,
+  "case_id": "scotus/73280412",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.34966592427616927,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.15,
+        "score": -0.2995655899524307
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.25,
+        "score": -0.14493635639213037
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.4445019463445611,
+    "total": -0.4445019463445611
+  },
+  "correct": 0,
+  "created_at": "2026-10-06T17:14:37.297357Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward log: 25 calls on 2026-09-16, before the 2026-10-05 resolution. Caption web search, companion-case searches, direct CourtListener search, and attempted corpus queries show no outcome-directed or already-decided fact in the rationale. Every result is unobserved (coverage 0.0); missing dates and the self-reported empty lookup are not evidence of empty results. No affirmative sign of this petition's outcome surfacing; unrestricted retrieval on the open case is permissible.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T17:15:21.468328Z"
+  },
+  "reasoning_quality": 0.5,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.34966592427616927,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

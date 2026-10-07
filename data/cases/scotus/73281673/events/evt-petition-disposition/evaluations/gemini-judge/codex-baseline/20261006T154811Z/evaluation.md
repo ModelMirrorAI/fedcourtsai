@@ -1,0 +1,3 @@
+This is a cert cell. Candidate A accurately recognized the interlocutory posture and lack of finality (28 U.S.C. Section 1257(a)) of the state court judgment, as well as the alternative grounds for affirmance (good faith and alternative probable cause). It correctly adjusted the base rate of ~17% for the elevated band (calculated via risk_set for Terms 2017-2024 from the statpack) downwards to 5% due to these vehicle issues. Its reasoning was thorough, well-supported by the record, and did not hallucinate facts.
+
+The prediction was correctly run in forward mode prior to the case resolution, and the retrieval log shows no access to outcome-revealing information. brier_score is 0.0025 with an excellent BSS of 0.916.

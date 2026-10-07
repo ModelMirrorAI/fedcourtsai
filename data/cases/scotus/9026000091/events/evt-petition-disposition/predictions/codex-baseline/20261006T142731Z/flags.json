@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000091",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "External authority verification degraded: CourtListener MCP returned HTTP 429, web attempts returned no usable content, and the corpus citation fallback returned no match with a sparse-coverage warning. Prediction completed using the provisioned petition/docket and committed statpack; no outcome material surfaced. Corpus-wide freshness could not be verified because corpus-info does not support the cell service backend."
+    }
+  ]
+}

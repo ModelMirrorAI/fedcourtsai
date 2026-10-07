@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "Formed before reading any candidate's big_case_score. A capital petition with elite counsel raising a genuine, long-running disagreement over cumulative Strickland prejudice plus a verbatim-adoption due-process question; but baseline band, no amicus, a contested preservation posture, a federal habeas stay already in place, and a silent denial at the first conference with no noted dissent. Stakes are high for one petitioner and modest for doctrine; public attention negligible."
+  },
+  "brier_score": 0.0169,
+  "brier_skill_score": -5.4468,
+  "case_id": "scotus/73281656",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.13,
+        "score": -0.014277640264764753
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.38,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.014277640264764753,
+    "total": -0.014277640264764753
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T17:01:55Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-16, event resolved 2026-10-05. 34 calls, coverage 0.94; the two web-search rows are unobserved and graded on their queries, which target Thornell v. Jones and Rule 10, not this case. The one CourtListener search also targets Thornell and was throttled. No query names this petition's docket or caption, no retrieved date at or past resolution, reasoning treats the case as pending. A find command excludes the qp-topics path rather than reading it.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T17:03:54.171553Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

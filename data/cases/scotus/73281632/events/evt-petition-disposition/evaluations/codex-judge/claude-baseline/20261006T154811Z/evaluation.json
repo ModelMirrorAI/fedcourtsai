@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": null,
+  "brier_score": 0.0049,
+  "brier_skill_score": 0.8350981397274976,
+  "case_id": "scotus/73281632",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": 0.024767304112156635
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.024767304112156635,
+    "total": 0.024767304112156635
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T17:27:33Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 27 logged calls occurred September 17, 2026, before the October 5 denial, and all have captured results. Searches concern FHFA funding, possible companion petitions, the January 2 lower-court opinion, and unrelated corpus priors. Broad live docket searches were permitted in this forward cell. The reasoning treats the petition as pending; neither queries, available document dates, nor the prose indicate this petition's disposition was already known. Capture markers and digests are not full result texts, and null dates alone do not establish an empty result.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T17:29:50.931856Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17237935943060498,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

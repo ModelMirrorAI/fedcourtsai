@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281382",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate inputs preserved independent grading without requiring predictor identities.",
+    "Frozen salience contexts and the versioned per-Term table made the baseline reproducible.",
+    "Per-call result-capture markers distinguished missing telemetry from empty retrieval."
+  ],
+  "notes": "Used local shell reads, jq, Decimal arithmetic, and local schema validation. No external retrieval was needed. Unobserved candidate results were treated as an audit limitation, not a failure or evidence of empty results. The repository environment lacks jsonschema, but the system Python provides it.",
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "python",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

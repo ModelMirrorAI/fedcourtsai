@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000091",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP server returned HTTP 429 (daily rate limit of 1400 requests exhausted; retry expected in ~54 minutes) on the first two lookups of this cell. The cell proceeded on the provisioned petition, snapshot, and statpack only. If other cells in this fan-out report the same, the shared daily quota is the bottleneck rather than any one cell's budget."
+    }
+  ]
+}

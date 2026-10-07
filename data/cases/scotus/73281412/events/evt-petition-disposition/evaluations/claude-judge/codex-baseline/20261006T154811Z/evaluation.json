@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.28,
+    "notes": "A Section 1983 pretrial-detainee conditions case from the Fifth Circuit dismissed at the pleading stage: five days on suicide watch in a bare cell after an admittedly false suicide report. Published opinion with a dissent and a call for response, but no clean circuit split, fact-bound questions, Texas trial-bar counsel, no cert-stage amicus, and the Court denied with no noted dissent. Real stakes for the jail population, little doctrinal or public reach."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": 0.514617,
+  "case_id": "scotus/73281412",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": 0.015267304112156637
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.015267304112156637,
+    "total": 0.015267304112156637
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T16:53:21Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward; prediction 2026-09-18, denial 2026-10-05). Coverage 0.93: two web-search rows are unobserved and are graded on their queries, which name Taylor v. Riojas and Rule 10, not this case. The captured CourtListener calls fetch Taylor v. Riojas (592 U.S. 7) only. No query reaches this petition's docket past the event date; the reasoning treats the September 28 conference as future. No qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T16:56:44.960460Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.172242,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

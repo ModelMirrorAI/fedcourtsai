@@ -1,0 +1,9 @@
+{
+  "case_id": "scotus/9026000194",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "notes": "Attempted to use fedcourts query but syntax was wrong, relied on statpack.md."
+}

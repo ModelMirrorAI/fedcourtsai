@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281382",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell (cat/grep/python3 over provisioned files)", "metrics/statpack.md"],
+  "helpful": [
+    "The blinded staging with retrieval_log.json per candidate: the result_capture markers and retrieved_doc_date made the forward-mode leakage check mechanical.",
+    "The statpack's bracketed reached figures per Term, with the rendered-window caption, made the risk_set pool unambiguous."
+  ],
+  "gaps": [
+    "A harness-side print of the pooled strictly-prior reached rate per band (with the window used) would remove the one hand computation left to the evaluator on a cert cell.",
+    "A JSON-schema validator in the environment; I validated by loading the pydantic models directly."
+  ],
+  "notes": "Cert-stage forward cell, all three candidates froze band elevated under sal-v4 matching the statpack heading, so the base rate was a straightforward pool. Nothing to flag."
+}

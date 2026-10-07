@@ -1,0 +1,3 @@
+The prediction accurately forecasted a denial, placing significant weight on the prior denials of identical petitions like Schneider v. United States, which the Solicitor General had pointed out. The predictor explicitly identified the correct statpack base rate (5.12% for the baseline band using the risk-set figures pooled prior to OT2025) and made a strong, logical case for discounting this figure down to 1.5% due to the vehicle problems and recent similar denials.
+
+The cell is cert stage. Segment base rate is computed using the baseline salience band's risk-set reached figures (sal-v4), pooled over Terms strictly before OT2025.

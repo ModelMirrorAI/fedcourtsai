@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281624",
+  "gaps": [],
+  "helpful": [
+    "Alias-keyed candidate artifacts preserve blind scoring.",
+    "Capture markers distinguish unobserved responses from observed results.",
+    "The versioned per-Term statpack supports a reproducible prior-Term baseline.",
+    "Local JSON Schema and Pydantic checks validate the cell without resolving masked prediction identities."
+  ],
+  "notes": "Used only the provisioned case material, blinded candidates, committed statpack, contracts, and local helpers. No corpus, CourtListener, or web retrieval was needed. No actionable data-quality anomaly was identified; differing transcript capture coverage is documented in the evaluations rather than flagged as a defect.",
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell file reads",
+    "jq",
+    "Python arithmetic",
+    "apply_patch",
+    "JSON Schema validation",
+    "Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

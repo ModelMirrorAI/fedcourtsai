@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "Independent read from the questions presented, the docket, and the outcome: a private-investor challenge to FHFA's assessment-based funding under the Appropriations Clause and nondelegation. The institutional stakes of a merits ruling would have been real (FHFA is the conservator of Fannie Mae and Freddie Mac and the theory reaches every non-appropriated financial regulator), but the question was substantially settled by CFPB v. CFSA (2024) and FCC v. Consumers' Research (2025), the petition drew no amicus support, the panel below was unanimous and published, and the Court denied at its first substantive conference with no noted dissent or statement. A response request after the SG's waiver is the one sign of attention. Modest significance as the case actually played out."
+  },
+  "brier_score": 0.0049,
+  "brier_skill_score": 0.835098,
+  "case_id": "scotus/73281632",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": 0.024767304112156635
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.13,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.024767304112156635,
+    "total": 0.024767304112156635
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T16:55:41Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-17, petition resolved 2026-10-05. Log: 37 calls, capture coverage 0.92. Reads of the provisioned snapshot, documents, prompt, schemas and statpack; four CourtListener calls on 601 U.S. 416 and 606 U.S. 656 (precedents predating the judgment below); three web searches and one open attempt, all unobserved, all targeting general precedent (supremecourt.gov opinion pages), none naming this docket. No retrieved_doc_date on or after 2026-10-05, no query for this petition's disposition, no read under data/qp-topics/. Reasoning cites nothing post-dating the snapshot. Not a mis-provisioned decided case.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T16:57:01.867563Z"
+  },
+  "reasoning_quality": 0.84,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17237935943060498,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

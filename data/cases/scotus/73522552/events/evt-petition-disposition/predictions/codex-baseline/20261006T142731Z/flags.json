@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73522552",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Provisioned petition metadata reports truncated=true at 120 pages. The question presented and principal argument are readable, and both opposition briefs are available; the prediction does not assume a complete appendix review. The reply and amicus appear in the snapshot but their texts are not provisioned. Forecast completed from the available pre-decision record.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261006T142731Z",
+  "schema_version": "1.0"
+}

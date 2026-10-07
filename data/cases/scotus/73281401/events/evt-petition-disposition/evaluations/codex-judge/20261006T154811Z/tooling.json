@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281401",
+  "gaps": [
+    "gemini-baseline has no captured call results; codex-baseline has three unobserved web results.",
+    "Published Markdown percentages are rounded, making pooled rates approximate."
+  ],
+  "helpful": [
+    "Blinded candidate inputs preserve identity separation.",
+    "Frozen context and versioned reached-band table permit a common baseline.",
+    "Capture markers distinguish unobserved results from empty results."
+  ],
+  "notes": "Used only local provisioned case materials, the committed statpack, schema contracts, and output helpers. No corpus, CourtListener, or web retrieval. Full data validation is deferred to the harness because predictions remain blinded and withheld.",
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "committed metrics/statpack.md",
+    "Python",
+    "JSON Schema validation",
+    "artifact model validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

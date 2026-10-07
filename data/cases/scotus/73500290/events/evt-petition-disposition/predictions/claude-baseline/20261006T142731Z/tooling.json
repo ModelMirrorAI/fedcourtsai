@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500290",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener search (MCP)",
+    "WebFetch (supremecourt.gov)",
+    "local PDF text extraction"
+  ],
+  "helpful": [
+    "The sal-v4 segment base rate table with bracketed reached figures gave a direct, version-matched anchor for the frozen band.",
+    "Provisioned petition, BIO, and QP text made the vehicle dispute readable without any fetch.",
+    "The snapshot's document links let me fetch the reply brief, which was the one party filing not provisioned."
+  ],
+  "gaps": [
+    "fedcourts query has no filter on cvsg_date or on an opened-same-day companion docket, so CVSG-conditioned priors cannot be pulled from the corpus by filter.",
+    "CourtListener's SCOTUS docket search returned nothing for a current-Term docket number; supremecourt.gov had to be fetched directly for the companion case.",
+    "The reply brief is a routine cert-stage filing and would be worth provisioning alongside the BIO.",
+    "WebFetch could not read the PDF; the saved binary had to be extracted locally."
+  ],
+  "notes": "Two corpus queries, two MCP searches, two web fetches: well inside the 25-call budget."
+}

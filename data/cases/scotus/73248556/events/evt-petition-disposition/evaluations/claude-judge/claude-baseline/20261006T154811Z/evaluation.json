@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "The underlying question (whether 922(g)(1) survives as applied to a nonviolent drug-possession felon after Bruen and Rahimi) is nationally significant with a live circuit split, but this event is a derivative Solicitor General hold-and-GVR request on a single-defendant as-applied ruling, with no request for plenary review; the denial leaves one Fifth Circuit as-applied judgment standing and settles nothing beyond it. Moderate stakes for the event, high for the doctrine behind it. The predictors' big_case_score fields were visible in the staged prediction.json before this read was written; the read rests on the petition, the brief in opposition and the outcome."
+  },
+  "brier_score": 0.0049,
+  "brier_skill_score": 0.990792,
+  "case_id": "scotus/73248556",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7292817679558011,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": 0.5269518970727389
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.5269518970727389,
+    "total": 0.5269518970727389
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T16:40:44Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward, coverage 1.0, 5 throttled calls): 45 calls including 6 web searches, 12 web fetches, 8 CourtListener MCP calls and two fedcourts query runs. Every external lookup targets the companion Hemani decision (June 2026) or the comparator dockets Mitchell, Doucet and Cockerham; the only retrieved_doc_dates are 2025-07-24 and 2026-02-06, both before the 2026-10-05 resolution. One search surfaced this petition's own supremecourt.gov PDF and a CRS sidebar listing it as pending, which is legitimate forward signal, not outcome material. No qp-topics read. Prediction created 2026-09-16; its forecast treats the 9/28 conference as future.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T16:42:32.259660Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7295,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

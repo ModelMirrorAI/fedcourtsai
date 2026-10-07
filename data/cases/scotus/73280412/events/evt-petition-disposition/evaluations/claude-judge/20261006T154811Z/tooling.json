@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280412",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/grep/python3 over the provisioned inputs)",
+    "metrics/statpack.md sal-v4 band table",
+    "metrics/statpack.json unrounded band fields (cross-check)",
+    "jsonschema validation of the written outputs"
+  ],
+  "helpful": [
+    "The blinded staging area with the captured retrieval_log.json per candidate: call classes, timestamps and result_capture markers made the forward-mode leakage check mechanical.",
+    "The frozen context block on each prediction (band + salience_version + term) made the base-rate basis unambiguous.",
+    "The statpack table caption stating how many Terms are rendered, which settled the window question without a flag."
+  ],
+  "gaps": [
+    "A small helper that prints the pooled risk-set rate for a (band, salience_version, term) triple from the committed statpack would remove hand arithmetic from every cert evaluation.",
+    "The result_capture=unobserved engine's log carries only query strings, so what that candidate actually saw in its web search cannot be checked; a provider-side result digest would help."
+  ],
+  "notes": "No corpus or CourtListener lookup was needed: a forward cert cell resolved nineteen days after the prediction leaves nothing to check beyond the staged log dates and the committed statpack."
+}

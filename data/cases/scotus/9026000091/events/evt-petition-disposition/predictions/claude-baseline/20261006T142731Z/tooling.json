@@ -1,0 +1,26 @@
+{
+  "case_id": "scotus/9026000091",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search (throttled)"
+  ],
+  "helpful": [
+    "The provisioned petition text and the cut questions-presented file: the whole forecast rests on them.",
+    "The sal-v4 segment base-rate table with the bracketed reached figures and per-Term n, which made the pooled anchor a two-minute computation.",
+    "context.json's frozen band and distribution count, which removed any need to re-derive the conditioning state."
+  ],
+  "gaps": [
+    "No statpack cut for petitions where the Court called for a response after a waiver; this was the decisive signal on this docket and I had to price it from memory of outside empirical work.",
+    "No cert-stage amicus-count cut for cert petitions (the interim section has one); eight amici is the second-strongest signal here and has no committed base rate.",
+    "fedcourts query has no text or subject filter for SCOTUS rows, so it cannot surface a prior on the same statute; a QP-topic or caption-keyword filter would make the priors query useful for a cert cell.",
+    "The CourtListener MCP server's daily quota was already exhausted when this cell started, which made the live-retrieval channel unavailable for the whole cell."
+  ],
+  "notes": "The snapshot's ProceedingsandOrder list carried the 'Response Requested' entry cleanly; it would be worth freezing a response_requested flag on cert cells too, since it is a stronger grant signal than a first relist and the band does not see it."
+}

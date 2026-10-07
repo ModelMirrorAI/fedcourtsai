@@ -1,0 +1,3 @@
+I searched the petition and brief in opposition texts using `grep` to identify the core arguments, revealing the reliance on *Robinhood Markets v. Sodha*.
+I attempted to search CourtListener for *Robinhood Markets v. Sodha* using the MCP search tool, but hit a rate limit (HTTP 429).
+I also ran a shell command to view the `metrics/statpack.md` file to obtain the CVSG base rate and salience band base rate. No `fedcourts query` calls succeeded.

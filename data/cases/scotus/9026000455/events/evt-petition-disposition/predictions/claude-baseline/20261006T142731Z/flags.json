@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000455",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "ambiguous-event",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "This moment: distribution cell ran with distribution_count 0: the only distribution on the docket is of the sealed-filing motion 26M8 (conference of 9/28/2026), and the petition itself was docketed 2026-10-05 and has not been distributed. The relist-increment claim is stated from the zero state and so effectively measures whether the petition is ever distributed, not whether it is relisted."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "No record/documents/ was provisioned although the petition PDF on supremecourt.gov carries a usable OCR text layer (20 pages extracted locally with pypdf). The CourtListener MCP server returned HTTP 429 (daily quota exhausted) on both calls, so the cell degraded to the provisioned snapshot, the statpack, one corpus query, and web fetches of the petition and the Eighth Circuit opinion."
+    }
+  ]
+}

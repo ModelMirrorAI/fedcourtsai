@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281673",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval note reports no retrieval beyond provisioned inputs and the local statpack, but its captured query list includes a fedcourts query attempt filtered to SCOTUS, era roberts, and disposition cert-disposition. The result is unobserved, so whether any corpus data returned is unknown. This is a disclosure discrepancy about an attempted lookup, not evidence of outcome retrieval or prediction influence; no leakage exclusion is applied.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0"
+}

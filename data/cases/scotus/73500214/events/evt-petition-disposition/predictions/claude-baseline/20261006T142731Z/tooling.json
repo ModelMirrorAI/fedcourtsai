@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500214",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "CourtListener MCP (search, failed with HTTP 429)", "metrics/statpack.md", "provisioned record/documents"],
+  "helpful": [
+    "Full-text petition and brief in opposition under record/documents",
+    "context.json band and cvsg_date, which fixed the anchor without parsing",
+    "Band table's bracketed reached rates per Term"
+  ],
+  "gaps": [
+    "CourtListener MCP was rate-limited (429) on the first call, so companion-docket status (25-1350, 25-1004) could not be checked",
+    "fedcourts query rows came back with null captions, so priors could not be recognized",
+    "A way to see whether a companion petition was CVSG'd on the same day would sharpen hold-versus-grant forecasts"
+  ],
+  "notes": "Forward cert cell with a CVSG already on the docket; cvsg-increment stated but vacuous for this cell."
+}

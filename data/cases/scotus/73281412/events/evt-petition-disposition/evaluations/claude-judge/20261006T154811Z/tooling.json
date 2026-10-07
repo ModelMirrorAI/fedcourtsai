@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281412",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md and statpack.json (sal-v4 band table, relist cut)",
+    "record/blinded staging (prediction.json, reasoning.md, predicted_reasoning.md, retrieval.md, retrieval_log.json)",
+    "record/snapshots decided-docket proceedings",
+    "shell + python for pooling and schema checks"
+  ],
+  "helpful": [
+    "The blinded staging area with per-candidate retrieval_log.json and result_capture markers made the leakage grading mechanical.",
+    "statpack.json carrying prefix_est_grant_rate and prefix_weighted_resolved per band and Term let me reproduce the risk-set pool exactly rather than from rounded table cells.",
+    "The decided-docket snapshot's ProceedingsandOrder confirmed the CFR-then-redistribution sequence every candidate reasoned about."
+  ],
+  "gaps": [
+    "A pre-computed segment_base_rate hint for the cell (band, version, window, pooled rate) would remove the one hand computation left to the evaluator on a cert cell.",
+    "The blinded prediction.json exposes each predictor's big_case_score before the evaluator can form its own read; staging it separately would make the independence the prompt asks for structural."
+  ],
+  "notes": "Cert cell, forward mode for all three candidates, no opinion slot, no flags raised. Nothing consulted beyond the checkout."
+}

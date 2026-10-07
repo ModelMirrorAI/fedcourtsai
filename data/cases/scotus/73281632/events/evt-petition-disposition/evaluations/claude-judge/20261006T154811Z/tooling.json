@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281632",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/python3 over provisioned inputs, schemas, and metrics/statpack.md)"
+  ],
+  "helpful": [
+    "The sal-v4 band table with bracketed reached figures and n per Term made the risk_set pooling a one-line computation",
+    "The blinded staging with retrieval_log.json per candidate (mode, result_capture markers, retrieved_doc_date) made the forward leakage check mechanical"
+  ],
+  "gaps": [
+    "A pre-pooled strictly-prior reached rate per band and Term in statpack.json would remove the hand pooling and its rounding",
+    "big_case_score sits in the staged prediction.json, so an evaluator reads it before forming its own stakes read unless it deliberately skips the field"
+  ],
+  "notes": "Cert cell, all three candidates forward and clean; no corpus query or CourtListener lookup was needed to grade."
+}

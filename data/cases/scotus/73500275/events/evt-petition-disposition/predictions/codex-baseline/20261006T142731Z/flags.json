@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500275",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The October 6 as-stored snapshot carries an embedded source-creation date of September 24 and no proceeding after the September 21 opposition. Its sole distribution lists the September 28 conference but precedes a response request and extension. I did not infer actual consideration at that conference or survival of a subsequent order list, and did not retrieve current case status. This is a freshness limitation, not evidence of an already-decided cell."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned manifest marks the 136-page petition truncated. The substantive cert arguments, questions presented, and appellate memorandum at appendix 1a–8a are available; I did not assume the remaining appendix was complete. The opposition is usable and untruncated."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73248556",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["file reads of the blinded staging area and record", "metrics/statpack.md salience-band table", "python for pooling and validation"],
+  "helpful": [
+    "The blinded retrieval_log.json with result_capture markers and the mode field made the forward leakage check mechanical.",
+    "The candidates' own retrieval.md disclosures matched their logs, which made the grading quick to confirm.",
+    "The statpack's bracketed reached figures with n made the risk-set pooling a one-line computation."
+  ],
+  "gaps": [
+    "A harness-rendered pooled prior-Term risk-set rate per band (with its window) beside the table would remove the by-hand pooling and the rounding slack it carries.",
+    "The predictors' big_case_score is visible in the staged prediction.json, so the independent big-case read cannot be formed strictly before seeing it."
+  ],
+  "notes": "Cert cell, three candidates, all forward and all clean. No corpus or network lookup was needed: the record, the brief in opposition and the statpack settled every scored field."
+}

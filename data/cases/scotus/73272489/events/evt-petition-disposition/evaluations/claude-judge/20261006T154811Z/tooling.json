@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73272489",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "python (pooling the band table and writing/validating the JSON outputs)"
+  ],
+  "helpful": [
+    "The staged retrieval_log.json with per-call result_capture markers made the leakage grading mechanical: every call could be classed on its query even where results were unobserved.",
+    "The band table caption stating the rendered Term count removed the need to flag a window divergence.",
+    "The prompt's explicit cert-stage rule for base_rate_basis and the sal-v4 heading match made the basis decision unambiguous."
+  ],
+  "gaps": [
+    "A committed per-band pooled prior-Term rate (or exact weighted counts in the markdown table) would avoid pooling from rounded percentages by hand; the figure here is approximate at the third decimal.",
+    "The predictor's big_case_score is visible in the staged prediction.json, so the evaluator cannot form its stakes read before seeing it; staging that field masked would make the independence real rather than declared.",
+    "No jsonschema module in the runner environment; validation went through the pydantic models instead, which works but is not the documented path."
+  ],
+  "notes": "Cert cell, three forward candidates, all correct on a denied outcome, no leakage. No flags.json written: nothing to flag."
+}

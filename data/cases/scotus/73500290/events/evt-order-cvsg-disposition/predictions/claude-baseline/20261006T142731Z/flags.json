@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500290",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "Decisive pre-snapshot forward signal used: companion petition AstraZeneca v. Mosaic Health, No. 25-1070 (CA2), presenting the same Illinois Brick lost-profits question, was distributed for the same Sept 28, 2026 conference and received a CVSG on Oct 5, 2026 (per SCOTUSblog's docket mirror). It raised P(grant family) via a hold-then-GVR path and the summary-disposition-route conditional. Nothing about this petition's own disposition was seen; it is pending."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "CourtListener MCP server returned HTTP 429 (daily rate limit, 1400/day) on both calls; the cell degraded to corpus query, the committed statpack, and engine web search/fetch. No REST fallback was attempted. Companion-docket and en banc-writing facts therefore come from secondary web sources."
+    }
+  ]
+}

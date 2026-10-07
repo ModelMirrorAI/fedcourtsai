@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281635",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md says no retrieval beyond provisioned inputs, but retrieval_log.json call 18 records an attempted fedcourts query for denied SCOTUS cases bounded before September 17, 2026. Its result is unobserved, so success, failure, and returned rows are unknown. This is a retrieval-report discrepancy, not a finding of outcome exposure; the forward leakage assessment remains not_applicable.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0"
+}

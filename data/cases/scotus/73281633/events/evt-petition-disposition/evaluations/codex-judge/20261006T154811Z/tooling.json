@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281633",
+  "gaps": [
+    "gemini-baseline has no captured tool results; its leakage assessment must rely on query slices, timing, and prose rather than unseen results."
+  ],
+  "helpful": [
+    "Blinded candidate documents and capture markers support identity-independent grading.",
+    "The provisioned appellate appendix resolves the disagreement about alternative grounds.",
+    "The rendered sal-v4 table provides matching frozen-band risk-set rates."
+  ],
+  "notes": "Local artifacts were sufficient. Capture gaps are limitations, not evidence of failure or leakage. Baseline pooling uses rounded rendered percentages. No external retrieval was needed.",
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "local Python",
+    "apply_patch",
+    "Pydantic validation",
+    "JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

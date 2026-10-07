@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73500214",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "Decisive forward signal from outside this docket: the repo's event registry shows an evt-order-cvsg-disposition opened 2026-10-05 on the companion bank-side petition Flagstar Bank v. Kivett (scotus/73500252, No. 25-1350), i.e. the Court called for the SG's views in both vehicles the same day, repeating its 2023 pairing. I folded that into the forecast as legitimate pre-decision public information. Only that case's event.yaml was read, not its snapshot or any outcome file."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "CourtListener MCP degraded: the two docket searches for the companion dockets returned 0 results and every subsequent REST call (dockets endpoint, get_endpoint_item) returned HTTP 429 (1400/day limit, ~1 hour to reset). The cell proceeded on provisioned inputs, the statpack, and corpus query as the prompt directs; the companion dockets' live entries were not verified."
+    }
+  ]
+}

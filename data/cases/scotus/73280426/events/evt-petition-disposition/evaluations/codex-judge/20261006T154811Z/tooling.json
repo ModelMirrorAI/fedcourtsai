@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280426",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "Python arithmetic", "JSON Schema validation"],
+  "helpful": ["Blinded candidate staging", "Mode-aware captured retrieval logs", "Versioned prior-Term risk-set table", "Provisioned outcome and docket snapshot"],
+  "gaps": ["Unobserved retrieval results limit verification of returned content; query intent remains assessable"],
+  "notes": "Scored all three aliases using only local supplied evidence and committed baseline context. Result-capture gaps were not treated as empty results. Independent big-case assessments were omitted because candidate significance scores had already been visible."
+}

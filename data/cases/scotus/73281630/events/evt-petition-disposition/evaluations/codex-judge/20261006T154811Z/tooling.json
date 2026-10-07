@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281630",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local shell", "jq", "Python decimal arithmetic", "apply_patch", "Pydantic model validation"],
+  "helpful": [
+    "Blinded candidates include both prose documents and mode-aware captured retrieval metadata.",
+    "Frozen prediction contexts and the versioned rendered statpack identify the applicable risk-set baseline."
+  ],
+  "gaps": [
+    "Captured-result digests do not expose full historical result text; unobserved results cannot establish that a search returned nothing."
+  ],
+  "notes": "Evaluated all three aliases using only local provisioned case materials, contract/schema files, and the committed Markdown statpack. No corpus service, CourtListener, or web retrieval was used. The rounded rendered prior-Term rates were pooled directly. Optional significance assessments were omitted."
+}

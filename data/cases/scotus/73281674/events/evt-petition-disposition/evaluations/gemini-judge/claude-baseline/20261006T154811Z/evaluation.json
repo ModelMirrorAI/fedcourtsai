@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.35,
+    "notes": "The underlying issues (Thryv consequential damages and Loper Bright applied to NLRB factual review) have broad implications, but this specific vehicle is highly flawed (unpublished decision, independent alternative grounds, Thryv issue unpreserved). Practical stakes are limited to a single bargaining unit's backpay."
+  },
+  "brier_score": 0.000484,
+  "brier_skill_score": 0.8142,
+  "case_id": "scotus/73281674",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.022,
+        "score": 0.002138359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.27,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.5,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002138359735235249,
+    "total": 0.002138359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T15:53:00Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell. The case was open at the time of prediction. Mentions of other case outcomes (e.g., Macy's) and an earlier emergency stay denial represent valid procedural history and context, not leakage of this event.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-3.1-pro-preview",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T18:01:01.342175Z"
+  },
+  "reasoning_quality": 0.95,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051036,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

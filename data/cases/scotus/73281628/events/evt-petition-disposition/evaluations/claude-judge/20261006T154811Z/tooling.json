@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281628",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell (cat/sed/python3 for reading inputs and writing outputs)", "metrics/statpack.md sal-v4 band table"],
+  "helpful": [
+    "The blinded staging area with the retrieval_log.json call classes, result_capture markers and retrieved_doc_date fields made the forward leakage check fast",
+    "The statpack's bracketed reached figures with per-Term n made the risk-set pooling a one-line computation",
+    "The prediction's frozen context block (band + salience_version) removed any need to re-derive the band"
+  ],
+  "gaps": [
+    "No pre-computed pooled prior-Term band rate in the statpack; each evaluator re-pools the same eight rows by hand from rounded percentages, so small rounding differences against the harness are inevitable",
+    "jsonschema is not installed in the uv environment, so validating a single evaluation.json means importing the pydantic model directly"
+  ],
+  "notes": "Forward cert cell, three candidates, all predicting denied; a clean cell with nothing to flag."
+}

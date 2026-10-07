@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.35,
+    "notes": "Formed before reading any candidate's big_case_score. A single Washington legislative district (LD 15), a procedural Article III mootness question, an unpublished three-page memorandum below, and a disposition that turned out to be a one-line GVR in light of Louisiana v. Callais. The petition's significance is derivative of Callais and of the linked Soto Palmer / Trevino litigation rather than its own; the sequencing problem (a single-judge VRA remedy mooting a three-judge-court Equal Protection claim) recurs in redistricting litigation, which keeps this above a routine petition but well short of a headline case."
+  },
+  "brier_score": 0.16,
+  "brier_skill_score": 0.6219,
+  "case_id": "scotus/73280412",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.34966592427616927,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": 0.2629344100475692
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.8,
+        "score": 0.37756364360786965
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.6404980536554388,
+    "total": 0.6404980536554388
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T16:41:21Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-16, event resolved 2026-10-05 (GVR). Log mode forward, 33 calls, result_capture_coverage 1.0. Retrieval reached supremecourt.gov (this docket's page and the briefs in opposition and reply, the companion 25-918 docket and filings), two web searches (Callais; Trevino v. Hobbs), one CourtListener search (0 results) and two corpus queries (newest retrieved_doc_date 2026-09-10). Every call is timestamped 2026-09-16, nineteen days before the order list, so no disposition of this petition existed to be retrieved; the live docket fetch is reported as matching the snapshot with no entry after June 17. No qp-topics read. No outcome material: not_applicable.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T16:44:04.629579Z"
+  },
+  "reasoning_quality": 0.84,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.3495,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

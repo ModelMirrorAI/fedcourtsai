@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "Independent read formed from the record and the outcome: a Fourth Amendment challenge to continuous GPS monitoring of federally-permitted lobster vessels under the closely-regulated-industry doctrine, with four cert-stage amicus briefs, repeat-player petitioner counsel, and a call for a response after the State waived. Doctrinally the question (whether Jones-style property limits constrain Burger administrative searches of mixed-use property) could reach every closely regulated industry, but the vehicle is a single state fisheries rule with a conceded closely-regulated status and a contested preservation record, and the Court denied it silently at its first real conference on 2026-10-05 with no noted dissent. Moderate stakes, below headline."
+  },
+  "brier_score": 0.0196,
+  "brier_skill_score": 0.339,
+  "case_id": "scotus/73281388",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.14,
+        "score": 0.010067304112156634
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.010067304112156634,
+    "total": 0.010067304112156634
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T16:48:13Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, created 2026-09-17 against a petition resolved 2026-10-05; the case was genuinely open. Log (coverage 1.0, all calls captured): local prompt/schema/record reads, the statpack, two web fetches of this docket's own reply (2026-07-20) and supplemental brief (2026-09-09), one CourtListener opinion search for Chatrie (retrieved_doc_date 2026-06-29, pre-resolution), one fedcourts query for recent granted priors. No query names this petition's disposition, no retrieved_doc_date is on or after 2026-10-05, no data/qp-topics read. Reasoning treats the petition as pending at the 9/28 conference. Nothing outcome-revealing was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T16:50:09.601873Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1722,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

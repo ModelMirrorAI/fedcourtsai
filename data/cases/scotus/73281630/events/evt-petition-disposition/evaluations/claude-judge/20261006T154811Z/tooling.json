@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281630",
+  "run_id": "20261006T154811Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/ls/python3 over the provisioned record, blinded staging area, statpack.md and statpack.json)",
+    "schemas/evaluation.schema.json, agent_flags, agent_tooling",
+    "fedcourtsai.schemas pydantic models for output validation"
+  ],
+  "helpful": [
+    "The blinded staging area carried retrieval_log.json with result_capture markers and retrieved_doc_date, which made the forward leakage check concrete rather than a guess.",
+    "statpack.json's unrounded per-Term fields let the base rate be pooled exactly and cross-checked against the rendered table.",
+    "The decided snapshot and outcome.json together settled the dissent-from-denial fact without any external lookup."
+  ],
+  "gaps": [
+    "The predictors' big_case_score values sit in the staged prediction.json, so an evaluator cannot form the independent stakes read before seeing them; staging that field separately (or masking it until evaluation.json is written) would make the independence the prompt asks for structural.",
+    "No committed helper pools the salience-band table for the evaluator; each judge re-derives the same eight-row sum by hand."
+  ],
+  "notes": "Cert-stage forward cell; all three candidates called denied and were correct, all sat above the 17.2% elevated risk-set baseline, so all three skill scores are negative. No flags.json written: nothing was blocked, no version mismatch, and the rendered Term window equals the pack's."
+}

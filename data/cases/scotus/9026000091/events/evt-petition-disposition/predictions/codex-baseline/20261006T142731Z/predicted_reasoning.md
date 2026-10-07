@@ -1,0 +1,9 @@
+# Forecast
+
+The Court will most likely deny certiorari after receiving the requested response and completing briefing. The snapshot records exactly one distribution, on August 12, 2026, for the September 28 conference. It subsequently records a September 9 response request and an extension through November 9, 2026. I expect one further distribution after briefing, most likely in late 2026 or early 2027, with a second additional distribution a less likely possibility. P(at least one further recorded distribution) is 0.96. That forecast includes administrative redistribution after the response request; it does not assert that the Court already substantively considered the petition at its initially scheduled conference.
+
+No CVSG is recorded, and I expect none. The United States is already the respondent and has been directed to respond. Its ordinary response is not a CVSG; P(a new CVSG) is 0.005.
+
+If review is granted, I expect plenary briefing and argument rather than a disposition within the cert order: P(summary route | grant) is 0.08. The likeliest question taken is the first question narrowed to whether a CAFRA claimant substantially prevails when a court-ordered dismissal without prejudice returns all claimed property. The second question, about preserving fee eligibility through conditions on dismissal, is the plausible alternative or companion. A plenary grant would permit the Court to clarify the relationship between the statute's language, defendant-side prevailing status, and the asserted need for an enduring judicial result. I do not forecast a merits holding unconditionally.
+
+On denial, I expect no recorded dissent or statement respecting denial: P(any such writing | denial) is 0.12. The modal disposition is an unexplained denial, not a majority opinion endorsing the lower court's reasoning.

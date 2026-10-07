@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "Narrow military-justice procedural question: whether a Court of Criminal Appeals may correct, under Article 66(d)(2) UCMJ, a firearms-prohibition First Indorsement added after entry of judgment. The Second Amendment issue was never reached below, the Air Force withdrew the indorsement practice in February 2026, the identical question was denied in a 13-case consolidation in January 2026 over SG opposition, and the denial here drew no writing. Low stakes beyond the petitioner."
+  },
+  "brier_score": 0.000225,
+  "brier_skill_score": 0.914179,
+  "case_id": "scotus/73281677",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": 0.002397359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.55,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002397359735235249,
+    "total": 0.002397359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T17:08:19Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward, result_capture_coverage 1.0, 34 captured calls). Prediction created 2026-09-16 from the 2026-09-15 snapshot; the petition was denied 2026-10-05. The only retrieval touching this case was a CourtListener docket item read for id 73281677 (retrieved_doc_date 2026-04-03, date_modified 2026-06-17, no termination) plus docket lookups for companion petitions 25-742, 25-685, 25-730 (all dated Dec 2025) and one fedcourts query for granted priors. No retrieved_doc_date on or after 2026-10-05; the reasoning treats the case as pending. One shell call filtered data/qp-topics lines out of a git-status listing with grep -v; that is not a read of that path. No outcome material retrieved; the January 2026 companion denials it relies on are in the provisioned petition and BIO.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T17:08:56.085223Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051203,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500290",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Historical-precedent verification via CourtListener MCP was unavailable: citation search for 431 U.S. 720 returned HTTP 429 (daily limit exhausted). Web attempts also returned no usable content. Prediction completed on provisioned filings and committed base rates, without REST fallback or outcome retrieval.",
+      "severity": "info"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The document manifest marks the petition text truncated; its core argument and relevant appellate passages were available. The September 2 reply is recorded in the snapshot but not provisioned. Vehicle objections therefore could not be assessed against the reply, limiting confidence without blocking the forecast.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261006T142731Z",
+  "schema_version": "1.0"
+}

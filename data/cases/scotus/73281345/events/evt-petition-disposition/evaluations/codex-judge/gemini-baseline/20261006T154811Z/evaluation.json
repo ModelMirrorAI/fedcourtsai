@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": null,
+  "brier_score": 0.0025,
+  "brier_skill_score": 0.9158663978201518,
+  "case_id": "scotus/73281345",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.027167304112156634
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.027167304112156634,
+    "total": 0.027167304112156634
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T17:15:29.540832Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The log records forward mode and 28 calls, all with unobserved results\n(result_capture_coverage 0.0), on September 17, 2026, before the October 5\nresolution. This is a visibility limitation, not a defect or evidence that the\ncalls failed. Queries name provisioned materials, the statpack, a general\ninstrumentalities topic, and a broad recent-case corpus query. None explicitly\nseeks this petition's outcome. The retrieval note reports corpus transfer but\nomits the commands; the commands remain visible in the captured call queries.\nI cannot infer what those corpus results contained from absent dates/digests.\nNeither the rationale nor the forecast presupposes the disposition, and the\nlogged run predates it. Retrieved_outcome_material is false in the evidentiary\nsense that no outcome exposure is shown, not as proof about unobserved bytes;\ninfluenced_prediction is not_applicable and leakage_suspected is false.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "0e5f0a6b08701ee2c65623990ace5e089aa2e15c",
+    "stamped_at": "2026-10-06T17:16:01.152948Z"
+  },
+  "reasoning_quality": 0.68,
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17237935943060498,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

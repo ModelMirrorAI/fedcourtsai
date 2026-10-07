@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281412",
+  "gaps": [
+    "Unobserved gemini-baseline results limit retrieval assessment to timing, queries, and prose."
+  ],
+  "helpful": [
+    "Blinded candidate directories preserve identity-independent grading.",
+    "Frozen salience versions and reached-rate denominators make the cert baseline reproducible.",
+    "Per-call capture markers separate unseen responses from observed empty results."
+  ],
+  "notes": "No external search or corpus lookup was needed. All candidates were evaluated against the supplied outcome and matching prior-Term Markdown baseline. Candidate result-capture limitations are described in the evaluations without treating missing telemetry as leakage.",
+  "role": "evaluator",
+  "run_id": "20261006T154811Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: scoped reads of provisioned inputs and schemas",
+    "jq: blinded retrieval-log inspection",
+    "Python decimal: baseline and score arithmetic",
+    "apply_patch: evaluation artifacts",
+    "Python jsonschema and Pydantic: artifact validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

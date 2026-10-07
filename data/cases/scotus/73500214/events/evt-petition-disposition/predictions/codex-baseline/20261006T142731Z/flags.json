@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500214",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The event is labeled moment=distribution, but the forward context has null cutoff/cut_kind and an as-stored 2026-10-06 snapshot containing the 2026-10-05 CVSG. Context explicitly freezes high/sal-v4, one distribution, and the CVSG date. I used that supplied post-CVSG information set; this is not a first-distribution-only forecast. No petition disposition was encountered. Please preserve this distinction in cohort interpretation.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The supplied petition's printed page 17 contains one sentence reversing the First and Second Circuits' preemption results. The surrounding petition, QP, and BIO consistently describe the Second Circuit as finding New York's law preempted and the First Circuit as rejecting preemption of Rhode Island's law. I used that corroborated allocation, disregarding the isolated reversed sentence; origin in filing versus extraction was not independently verified.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261006T142731Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,5 @@
+# Evaluation for Candidate A
+
+The predictor accurately predicted a denial of the petition. The prediction correctly anchored on the `sal-v4` baseline band risk-set base rate, successfully calculating ~5.1% across the 2017-2024 Terms. The predictor appropriately adjusted the probability up to 9% due to amicus support and a colorable circuit split on *Central Hudson* scrutiny, but properly limited the uplift given the case's interlocutory posture (preliminary injunction) and alternative grounds below (irreparable harm and public interest). The reasoning is sound, well-calibrated, and relies carefully on the provisioned record.
+
+This is a cert-stage cell. The `segment_base_rate` and `brier_skill_score` were computed using the `risk_set` basis from the statpack over Terms strictly before the case's Term (2025). No `vote_accuracy` or `semantic_grades` are scored.

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000170",
+  "run_id": "20261006T142731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener MCP returned HTTP 429 (daily limit 1400/day already exceeded, ~53 minutes to reset) on the first two calls, so the Federal Circuit opinion below and the Dolby v. Unified Patents (25-1011) briefs were not read through MCP. The cell proceeded on the provisioned petition/BIO, the statpack, and two web fetches of public supremecourt.gov / justice.gov pages."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from public information pre-dating the snapshot: the Court denied Dolby Laboratories v. Unified Patents, No. 25-1011 (same 314(d)/RPI reviewability family, Director opposing as respondent) on June 22, 2026, as Qualcomm's BIO itself reports. Used as a prior, not as this case's outcome, which is unknown to me."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The docket's 'Response Requested' (Aug 28, 2026, after both respondents waived) is the strongest grant signal here but is not part of the sal-v4 band, which froze as baseline; the statpack carries no call-for-response cut, so the lift applied to the anchor rests on general knowledge of the paid docket."
+    }
+  ]
+}

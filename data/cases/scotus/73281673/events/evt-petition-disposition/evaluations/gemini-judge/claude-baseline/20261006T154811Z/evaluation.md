@@ -1,0 +1,3 @@
+This is a cert cell. Candidate C provided an excellent analysis. It correctly pooled the elevated bracketed reached rate (yielding ~17.2%) for prior Terms and properly accounted for the jurisdictional (interlocutory) obstacle and the alternative grounds for affirmance. Additionally, it intelligently gathered external contextual information (the unprovisioned Circuit decision in Braun) to illustrate the alternative ground workaround while recognizing the widening circuit split. Its adjusted probability of 8% (0.08) was very well-justified.
+
+The prediction was correctly run in forward mode prior to the case resolution, and the retrieval log shows no access to outcome-revealing information.
