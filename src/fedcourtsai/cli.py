@@ -5890,8 +5890,8 @@ def revoked_window_board_command(
         f"revoked-window-board [{label}]: {board.evaluations_total} cert-stage evaluation(s) "
         f"over {board.events_scored} ranked cert-moment event(s); resolved slice "
         f"{resolved} counted event(s), all stages; excluded "
-        f"{record.forward_claim_excluded} forward-claim / {record.leakage_excluded} leakage; {record.graded_after_revocation} grading(s) "
-        f"stamped after the revocation -> {out}"
+        f"{record.forward_claim_excluded} forward-claim / {record.leakage_excluded} leakage; "
+        f"{record.graded_after_revocation} grading(s) stamped after the revocation -> {out}"
     )
 
 
