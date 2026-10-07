@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73500237",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md states 'No retrieval beyond the provisioned inputs', but its captured retrieval_log.json carries a shell corpus query (fedcourts query --court scotus --era 2020s on SG-waiver priors; result unobserved). Not leakage (forward cell, pre-resolution, shape query), but the self-reported retrieval note disagrees with the harness log.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

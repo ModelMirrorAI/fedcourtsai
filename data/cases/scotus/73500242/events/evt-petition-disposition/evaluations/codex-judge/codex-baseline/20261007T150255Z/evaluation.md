@@ -1,0 +1,21 @@
+# Evaluation: codex-baseline
+
+## Result and baseline
+
+This cert-stage prediction, run 20260917T214606Z, assigns P(grant) = 0.025 and predicts denied. The supplied outcome is denied on October 5, 2026, actual_granted = 0. Correct = 1; Brier = (0.025 - 0)^2 = 0.000625.
+
+The candidate froze baseline under sal-v4 and Term 2025. The committed metrics/statpack.md table matches that version. Its bracketed reached figures, in descending Term order 2024–2017, are 5.7%/1271, 5.9%/1312, 5.8%/1192, 5.6%/1500, 4.5%/1739, 4.6%/1399, 4.6%/1524, and 4.7%/1643. I pool those printed rates with their weighted resolved denominators: 592.925 / 11,580 = 0.05120250431778929, basis risk_set. These are denial-reweighted live/historical-slice estimates, not raw counts or a newly refreshed corpus observation. The caption renders 10 of 10 Terms; all displayed strictly-prior rows enter, while 2025–2026 do not. There is no window divergence to flag. The candidate's 593 / 11,580 calculation reports use of unrounded companion-JSON rates; the small difference from this evaluation's markdown-derived rate is a rounding distinction, not a wrong population or leakage. Skill = 1 - 0.000625 / baseline^2 = 0.7616047424642627. This single realized denial cannot establish calibration.
+
+## Reasoning quality: 0.90
+
+The rationale is comparatively strong because it tests the petition's characterization against the appended panel opinion rather than treating advocacy as findings. It identifies the statutory argument about discriminatory contractual benefits, recognizes that the panel's reasoning extends beyond a bare ability to finish eating, and explains how the actual service, dress-code notice, and alleged harassment complicate a clean categorical question. That account is supported by the provisioned appendix, especially pages 5a–7a. It distinguishes the contractual-activity issue from ultimate liability and treats missing opposition material as an information limitation rather than a concession.
+
+The reported historical comparison is appropriately qualified: doctrinal tension is not assumed to establish a square split on a completed-meal claim, and other circuit citations remain unchecked. I have not independently retrieved that historical opinion, so the stated comparison is credited for its transparent limitation, not certified as an independently verified holding. The rationale also distinguishes terminal attention statistics from forward transition probabilities and gives limited weight to a sparse docket's silence. Its acknowledgement of the petition filing-date inconsistency avoids an unsupported jurisdictional inference.
+
+The residual weakness is the precision of the 2.5% estimate: the direction is reasoned, but the magnitude is not estimated from a conditioned comparison sample, and the source conflict analysis remains incomplete. The high quality grade reflects analytical discipline, not the correct outcome or the detail of the forecast document. The Court's bare denial does not reveal agreement with any proposed doctrinal explanation.
+
+## Leakage and scope
+
+The log identifies forward mode and 26 calls on September 17, before resolution, with 24 captured results and two unobserved general-rules web requests. I do not convert those requests' null result dates into evidence that they returned nothing. Their queries concern general certiorari standards, not this petition; the historical authority lookup is likewise background context. The logged directory search expressly excludes the prohibited topic-artifact subtree rather than reading it. No recorded query, date, or prose disclosure indicates that this case's denial surfaced. I therefore record retrieved_outcome_material = false, influenced_prediction = not_applicable, leakage_suspected = false, subject to the transcript's result-content limitations.
+
+Only reasoning.md informs reasoning_quality. Predicted_reasoning.md is contextual and unscored; the harness owns quantitative claim scoring. Cert votes and semantic grades are omitted. No independent big_case grade is supplied. The chronology discrepancy remains in the evaluator's October 5 snapshot and is durably flagged; that later snapshot is not treated as proof of the candidate's original information set.

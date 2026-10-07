@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500248",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/python3 over the provisioned record and blinded staging area)",
+    "metrics/statpack.md salience-band table"
+  ],
+  "helpful": [
+    "The retrieval_log.json result_capture markers made the forward-mode check mechanical: one candidate had 0.0 coverage and could be graded on queries alone as the prompt directs.",
+    "The decided 2026-10-05 snapshot in record/ confirmed the outcome row (single distribution, waiver, no call for a response, silent denial) in one read."
+  ],
+  "gaps": [
+    "A rendered pooled prior-Term rate per band beside the statpack table would remove the hand arithmetic every evaluator and predictor repeats (all three candidates and I computed the same 5.12%)."
+  ],
+  "notes": "Cert-stage cell with three forward candidates, all correct on the label; no flags raised."
+}

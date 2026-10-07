@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.04,
+    "notes": "One self-represented attorney's 180-day suspension and public reprimand under Alabama's fee-dispute statute; a single state-law-framed QP with a thin federal fair-notice hook, no asserted split, no amici, respondent waived, denied on the first order list after the long conference with no separate writing. Stakes are confined to this petitioner. Read formed from the record and outcome; note that the predictors' big_case_score fields were visible in the staged prediction.json read for the context block, so strict pre-exposure independence could not be kept."
+  },
+  "brier_score": 6.4e-05,
+  "brier_skill_score": 0.9755945002,
+  "case_id": "scotus/73500245",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": 0.002558359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002558359735235249,
+    "total": 0.002558359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:23:25Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction 2026-09-17, first conference 2026-09-28, denial 2026-10-05, so the case was genuinely unresolved when predicted. Log: 31 calls, coverage 1.0. External calls: one corpus query for recent scotus denials (returned other cases), a CourtListener docket search for 25-1344 (0 results), an opinion search returning the Alabama Supreme Court decision below (retrieved_doc_date 2025-12-19), a docket search for the related M.D. Ala. section 1983 suit (2026-03-01), and a fetch of the opinion below (cluster 10761703). Every dated retrieval predates the event's resolution and concerns the lower-court record or a related case, which is legitimate forward signal. No data/qp-topics read. Nothing outcome-revealing retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:25:43.483446Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051208981,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

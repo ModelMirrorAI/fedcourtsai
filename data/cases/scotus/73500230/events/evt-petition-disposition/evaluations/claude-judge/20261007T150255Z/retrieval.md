@@ -1,0 +1,3 @@
+No retrieval beyond the provisioned inputs.
+
+For the record: no `fedcourts query` / `open-events` call, no CourtListener MCP call, and no web search or fetch. Beyond the cell's provisioned inputs (`outcome.json`, `event.yaml`, `record/context.json`, the 2026-10-05 snapshot, `record/documents/`, and the three `record/blinded/<alias>/` directories including each `retrieval_log.json`), the only files consulted were committed repository surfaces: `metrics/statpack.md` (the sal-v4 segment base-rate table), `schemas/evaluation.schema.json`, `schemas/agent_flags.schema.json`, `schemas/agent_tooling.schema.json`, and the scoring definitions in `src/fedcourtsai/pipeline/evaluate.py` and `src/fedcourtsai/pipeline/base_rates.py`. Nothing under `data/qp-topics/` was read.

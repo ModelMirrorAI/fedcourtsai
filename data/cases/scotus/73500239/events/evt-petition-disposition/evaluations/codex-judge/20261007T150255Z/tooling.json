@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500239",
+  "gaps": [
+    "gemini-baseline's results are wholly unobserved; codex-baseline's three web results are unobserved. Queries remain assessable, but result absence cannot be independently verified."
+  ],
+  "helpful": [
+    "Blinded candidates preserve frozen band, version, Term, and forecast probabilities.",
+    "Capture markers distinguish unobserved results from observed empty results.",
+    "The versioned per-Term statpack supports a reproducible prior-Term baseline."
+  ],
+  "notes": "Scored all three supplied aliases. Used only staged case evidence and the committed statpack; no external case-fact retrieval. Omitted optional independent significance scores. Candidate forecast documents and mechanical claims were not scored.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "Python arithmetic",
+    "apply_patch",
+    "JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

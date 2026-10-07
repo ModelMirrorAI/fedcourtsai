@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "Formed from the record and the outcome: a Pacific Legal Foundation petition asking the Court to overrule PruneYard on Takings and compelled-speech grounds, with four cert-stage amicus briefs and a published state appellate opinion, but a private-party dispute in an interlocutory preliminary-injunction posture with no federal split. A grant would have had national doctrinal reach over state speech-access regimes, which keeps the read above the median paid petition; the Court's treatment (denied at the long conference on first distribution, no relist, no noted dissent) shows it was not regarded as a pressing vehicle, which keeps it well short of the top band."
+  },
+  "brier_score": 0.0064,
+  "brier_skill_score": -1.4414,
+  "case_id": "scotus/73500223",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": -0.0037776402647647514
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.0037776402647647514,
+    "total": -0.0037776402647647514
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:09:03Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-17, before the 9/28 conference. Log shows 41 calls: provisioned-record, prompt, schema and statpack reads; two `unobserved` web calls whose queries target the Cedar Point slip opinion and Moody v. NetChoice (not this docket), graded on query; four captured CourtListener MCP calls retrieving and searching the 2021 Cedar Point and 2024 Moody opinions, both pre-event precedents unrelated to this petition's disposition. No retrieved_doc_date on or after 2026-10-05; no query for docket 25-1322's result; no `data/qp-topics/` read. Reasoning states the outcome was unknown and not sought.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T181231Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:11:27.047746Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

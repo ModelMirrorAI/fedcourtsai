@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500230",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": ["courtlistener"],
+  "tools_used": ["shell", "file-read", "metrics/statpack.md"],
+  "helpful": [
+    "The blinded staging area with the per-candidate retrieval_log.json and its result_capture markers: leakage grading on three forward cells took minutes and needed no outside lookup.",
+    "The statpack's sal-v4 per-Term table with bracketed reached figures and the 'renders N of M Terms' caption made the risk-set pooling unambiguous."
+  ],
+  "gaps": [
+    "A machine-readable pooled risk-set rate per band and Term window (e.g. in statpack.json) would remove hand-pooling from rounded percentages; three graders pooling the same eight rows should land on one number by construction.",
+    "A statpack cut conditioned on 'response requested' for paid baseline petitions: every candidate's largest adjustment was that lift, and none of them, nor I, had a published figure to check it against."
+  ],
+  "notes": "Cert cell, all three candidates forward with frozen baseline/sal-v4 bands, so the whole grade ran off provisioned inputs and the committed statpack; no corpus or CourtListener lookup was needed."
+}

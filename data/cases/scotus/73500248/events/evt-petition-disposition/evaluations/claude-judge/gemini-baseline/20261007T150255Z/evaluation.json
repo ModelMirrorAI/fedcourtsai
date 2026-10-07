@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "Independent read formed from the record and outcome: a single statutory question about the PLRA's 150%-of-judgment attorney-fee cap, on which the Second Circuit's own footnote reports uniform agreement among the circuits that have reached it. Private prisoner-plaintiff against state officers, a $15,000 verdict underneath, a nonprecedential summary order below, a response waiver with no call for a response, and a silent denial on the first order list. Real stakes for the prisoner civil-rights bar if ever decided, but no constitutional dimension, no split, and no public profile."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9619,
+  "case_id": "scotus/73500248",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.002522359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002522359735235249,
+    "total": 0.002522359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:22:25Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-17 against the 2026-09-17 snapshot, event resolved 2026-10-05. Log coverage is 0.0 (every call unobserved), so each call is graded on its query: corpus queries on the PLRA / 42 U.S.C. 1997e, CourtListener searches on the statutory text, two web searches on the fee-cap question, and one CourtListener caption search for 'Webb AND Trombley'. The caption search ran eighteen days before the order issued, so it could not have returned a disposition that did not yet exist. No retrieved_doc_date at or after 2026-10-05; reasoning reads the one distribution and the response waiver off the provisioned snapshot and forecasts the denial rather than reporting it.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:24:16.881409Z"
+  },
+  "reasoning_quality": 0.5,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

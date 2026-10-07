@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "Private Sherman Act dispute over Brown Shoe submarket definition between a medical-supply relabeler and a group purchasing organization; Fifth Circuit summary-judgment affirmance; respondent waived, one solo-practitioner amicus, denied on first conference without noted dissent. Doctrinally recurring question but low institutional stakes."
+  },
+  "brier_score": 0.001225,
+  "brier_skill_score": 0.5327,
+  "case_id": "scotus/73500287",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.035,
+        "score": 0.0013973597352352487
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0013973597352352487,
+    "total": 0.0013973597352352487
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:23:39Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; the petition was open at the 2026-09-18 snapshot and was denied 2026-10-05. Log coverage 0.93 (30 calls, two unobserved). The two unobserved calls are a web-search for Supreme Court Rule 10 text and a fetch of the Court's rules PDF \u2014 graded on their queries, which name no party, docket, or disposition. Captured external calls: a CourtListener citation search for 548 F.3d 1028 (FTC v. Whole Foods, 2008) and a read_document on opinion 9852752, historical comparators only. One shell call ran `find data -name AGENTS.md -not -path 'data/qp-topics/*'`: the forbidden path appears only as an exclusion predicate, the command lists files named AGENTS.md and nothing else, so no qp-topics membership reached the candidate; noted in flags.json as an edge against the literal wording, not graded as outcome-material retrieval. No retrieved_doc_date at or after the resolution; the reasoning states it did not retrieve this case's current docket or outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:25:34.526503Z"
+  },
+  "reasoning_quality": 0.72,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,3 @@
+Candidate C correctly predicted the denial. Their reasoning was exceptionally thorough and methodologically sound. They correctly derived the `risk_set` base rate by pooling across all rendered prior terms in the statpack (0.0512). 
+
+Their analysis of the vehicle problems\u2014specifically the unpublished decision below that relied on the already-denied Curtis case\u2014was excellent and justified their downward adjustment to 2.5% despite the Call for Response. They verified everything efficiently and showed no leakage in forward mode. Reasoning quality is scored 0.95.

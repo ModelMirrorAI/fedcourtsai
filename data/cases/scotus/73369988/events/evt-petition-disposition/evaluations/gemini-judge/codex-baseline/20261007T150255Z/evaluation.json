@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "Private employment arbitration dispute over arbitrator disclosure, fact-bound and primarily of interest to the parties."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.962,
+  "case_id": "scotus/73369988",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.002522359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002522359735235249,
+    "total": 0.002522359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T15:02:55Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "none",
+    "mode": "forward",
+    "notes": "Case was open at prediction. No post-decision material retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-3.1-pro-preview",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:51:57.338662Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

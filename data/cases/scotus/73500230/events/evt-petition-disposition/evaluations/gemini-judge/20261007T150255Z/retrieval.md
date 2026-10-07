@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. I used shell tools to read the local case directories, `statpack.md`, and the prompt instructions. No `fedcourts query` was necessary.

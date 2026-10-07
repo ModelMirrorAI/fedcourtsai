@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500287",
+  "gaps": [
+    "Captured retrieval logs carry result hashes rather than complete source passages, limiting independent checks of historical quotations."
+  ],
+  "helpful": [
+    "Blinded candidates preserved identity separation.",
+    "Frozen band/version/Term and rendered statpack supported a common baseline.",
+    "Capture markers distinguished unavailable results from verified empty results."
+  ],
+  "notes": "All three candidates were scored. No external case facts were sought. gemini-baseline result coverage is zero, a documented telemetry limitation rather than a defect or leakage finding. Full-data validation is deferred to the harness after alias resolution and restoration.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local file reads",
+    "blinded retrieval-log inspection",
+    "Python arithmetic",
+    "apply_patch",
+    "local JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

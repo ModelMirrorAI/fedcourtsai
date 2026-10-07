@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73500241",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "codex-baseline's retrieval log carries a shell call whose text names data/qp-topics/ only as a find exclusion (`find data -name AGENTS.md -not -path 'data/qp-topics/*'`). The evaluate prompt's literal rule counts a file-search whose query names that path as outcome material; I read this one as an exclusion rather than a read and graded the forward cell clean (retrieved_outcome_material false). Recorded so a maintainer can overrule the reading if the rule is meant literally.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

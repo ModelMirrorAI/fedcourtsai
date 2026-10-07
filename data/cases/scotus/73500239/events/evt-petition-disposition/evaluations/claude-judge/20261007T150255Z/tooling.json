@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500239",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/grep/python for reading inputs, verifying petition quotations, pooling the band table, and validating output)",
+    "metrics/statpack.md band table"
+  ],
+  "helpful": [
+    "The staged retrieval_log.json with per-call result_capture markers made the forward leakage check concrete for all three candidates.",
+    "The band table's caption stating 10 of 10 Terms rendered settled the lookback-window question without a flag.",
+    "Having petition.txt staged let me verify the candidates' quotations rather than take them on trust."
+  ],
+  "gaps": [
+    "A pooled strictly-prior reached-band figure per Term printed beside the table would remove hand-pooling of rounded percentages on every cert cell.",
+    "The predictor's big_case_score is visible in the staged prediction.json before the evaluator can form its own read; staging it behind the other fields would make the independence rule easier to honour."
+  ],
+  "notes": "Cert cell, forward, three candidates, all denied-correct. No corpus or CourtListener lookups were needed; the provisioned record and statpack were sufficient."
+}

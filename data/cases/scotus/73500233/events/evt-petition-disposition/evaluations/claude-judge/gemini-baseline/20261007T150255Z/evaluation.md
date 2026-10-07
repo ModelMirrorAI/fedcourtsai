@@ -1,0 +1,17 @@
+# Evaluation: gemini-baseline
+
+**Outcome.** Cert denied on the October 5, 2026 order list after the September 28 long conference, with one distribution, no call for a response, no CVSG, and no noted dissent. The event stage is `cert`.
+
+**Scores.** `predicted_disposition` = `denied` matches, so `correct` = 1. P(grant) = 0.004 against `actual_granted` = 0 gives a Brier of 0.000016.
+
+**Baseline.** Frozen `band` = `baseline` under `salience_version` = `sal-v4`, matching the statpack table's heading, so the basis is `risk_set`: bracketed `reached` figure for `baseline`, resolved-weighted over the rendered Terms 2017 through 2024 (the caption renders 10 of 10 Terms), about 593 weighted grants over n = 11,580, rate 0.0512. Brier skill = 0.994, the best of the three on this cell because the probability was the lowest. That is the arithmetic of a denied petition, not evidence that the lowest number was the best-founded one.
+
+**What the reasoning got right.** The band and its reason (private petitioner, state respondent, baseline floor) are correct, the pooled anchor of about 5.1% is correct, and the three stated reasons point the right way: a relist-0 posture whose historical grant rate sits near 1.2%, the State's waiver, and the fact that the question is a constitutionalized state evidence ruling with no split in view. The stated uncertainty (whether the Court might call for a response) is the right one.
+
+**What I would mark down.** The rationale is thin. It engages the question presented but not the petition: nothing on the preservation problem, the unpublished per curiam below, the ineffective-assistance framing, or the petition's own concession that no authority addresses the practice, all of which were visible in the provisioned text and which both other candidates found. The waiver is read as the respondent signalling frivolousness, which overstates what a routine state waiver means; the better reason it matters is the Court's practice of calling for a response before any grant, which the candidate does not articulate. The pooled window is stated as Terms 2015 to 2024 when the table renders 2017 to 2024 (the number itself is right). The 0.004 figure is below the relist-0 bucket it cites and below both peers without an argument for why this petition is weaker than the bucket's typical member. The prose also says no web retrieval was performed and the retrieval note says nothing beyond the provisioned inputs, while the log shows two corpus query attempts (results unobserved); that is a small disclosure gap rather than a substantive one.
+
+**Reasoning quality: 0.60.**
+
+**Leakage.** Forward cell. The log's 24 rows are all `unobserved` (capture coverage 0.0, an engine's standing shape, not a defect), so each is graded on its query: file reads of the provisioned record, statpack, prompt and schemas, and two `fedcourts query` rows filtered to granted dispositions with a topical phrase about other-acts evidence. Those seek prior granted cases, not this docket or its disposition. No `retrieved_doc_date` anywhere. `retrieved_outcome_material` = false, `influenced_prediction` = `not_applicable`, `leakage_suspected` = false.
+
+**Big case.** My own read, formed before looking at the candidate's score: 0.10. A single state defendant's evidentiary objection, unpublished below, no split, waiver, no amici, denied silently. The candidate's 0.2 is a little above mine. No agreement number is computed here.

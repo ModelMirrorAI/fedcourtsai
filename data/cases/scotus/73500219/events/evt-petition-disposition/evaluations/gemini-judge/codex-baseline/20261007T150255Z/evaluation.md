@@ -1,0 +1,3 @@
+# Evaluation
+
+Candidate A correctly predicted a denial. The candidate demonstrated a strong understanding of the case facts and successfully identified the potential for the Court to take the case based on a split over the *Remmer* standard for extraneous jury information. The candidate calculated the base rate correctly based on the `baseline` band and adjusted upwards slightly from the base rate to account for the split. The candidate acknowledged limits to their reasoning and successfully retrieved the necessary information without leakage.

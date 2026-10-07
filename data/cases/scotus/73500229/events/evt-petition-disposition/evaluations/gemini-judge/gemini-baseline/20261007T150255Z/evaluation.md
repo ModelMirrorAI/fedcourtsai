@@ -1,0 +1,3 @@
+Candidate B correctly predicted the denial. However, their reasoning contains a methodological error: they did not pool the `risk_set` base rate across all strictly prior terms as the prompt instructions require, instead just picking the single 2024 term rate of 5.7%. 
+
+They correctly identified the tension between the Call for Response (an upward signal) and the lack of a circuit split and passed-peak relevance of the pandemic context (downward signals), but due to the base rate flaw, their reasoning quality is scored lower at 0.65. They showed no leakage in forward mode.

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500231",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned record/documents/questions-presented.txt ends mid-question 7 at 'pursuant to 5 U.S.' and omits question 8, although documents.json declares truncated=false. The full petition.txt contains both the continuation and question 8. codex-baseline expressly recovered the missing text; claude-baseline reports reading all eight questions; gemini-baseline's logged reads name the extract but not the full petition. This shared-input coverage defect does not block evaluation; no input files were changed.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

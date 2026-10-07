@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500236",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/grep/python3)",
+    "uv run python (fedcourtsai.pipeline.base_rates.prediction_base_rate, pipeline.evaluate.brier_skill)",
+    "metrics/statpack.md and metrics/statpack.json"
+  ],
+  "helpful": [
+    "The blinded staging area with the neutral-class retrieval_log.json and result_capture markers made the forward leakage check mechanical: scan dates, scan queries for the docket/caption, scan for qp-topics.",
+    "Running the pipeline's own prediction_base_rate against the frozen context confirmed the hand pool from the rendered table to the fourth decimal, which removed any doubt about the window."
+  ],
+  "gaps": [
+    "A one-line CLI (e.g. `fedcourts base-rate --context <path>`) that prints the stamped segment_base_rate and skill for a cert cell would save every evaluator the python invocation.",
+    "The candidates' own flags.json and tooling.json are not staged; understood as a blinding trade-off, but a redacted boolean (`disclosed_outcome_signal: true/false`) would restore the disclosure channel without free text."
+  ],
+  "notes": "Cert-stage forward cell, three candidates, all predicting denial on a baseline/sal-v4 band; nothing required a flag."
+}
