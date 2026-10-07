@@ -5863,8 +5863,9 @@ def revoked_window_board_command(
     The declaration's condition on a late revocation: one made after any of the
     window's outcomes publishes the window's figures over that resolved slice
     beside the entry, so the exclusion is visible rather than silent. Builds
-    the frozen leaderboard as ``fedcourts leaderboard`` does — same cells, same
-    committed pack — with the revocation lifted for ``--label``'s revoked
+    the frozen leaderboard's cells and figures as ``fedcourts leaderboard``
+    does — same stratify pass and exclusions, same committed pack, without the
+    agreement views — with the revocation lifted for ``--label``'s revoked
     windows only, keeps those windows' cells on events resolved on or before
     each window's revocation day, and writes the board inside a record naming
     the windows, the resolved slice's size and how many gradings postdate the
@@ -5885,8 +5886,10 @@ def revoked_window_board_command(
     resolved = sum(record.resolved_counted_events.values())
     typer.echo(
         f"revoked-window-board [{label}]: {board.evaluations_total} cert-stage evaluation(s) "
-        f"over {board.events_scored} of {resolved} resolved counted event(s); "
-        f"{record.graded_after_revocation} grading(s) stamped after the revocation -> {out}"
+        f"over {board.events_scored} cert event(s); resolved slice {resolved} counted "
+        f"event(s), all stages; excluded {record.forward_claim_excluded} forward-claim / "
+        f"{record.leakage_excluded} leakage; {record.graded_after_revocation} grading(s) "
+        f"stamped after the revocation -> {out}"
     )
 
 

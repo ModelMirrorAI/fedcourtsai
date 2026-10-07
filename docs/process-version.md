@@ -745,7 +745,8 @@ any outcome, made while the affected outcomes are unknown — or disclosing the
 slice that had already resolved, and then publishing the revoked window's
 figures over that slice beside the entry (`fedcourts revoked-window-board
 --label <label>`: the frozen board with that window's revocation lifted, cut to
-its own cells on events resolved by the revocation day), so the exclusion is visible rather
+its own cells on events resolved by the revocation day, whose figures the entry
+quotes; the JSON is a working file, not a committed artifact), so the exclusion is visible rather
 than silent. A revoked window's cells leave every frozen-scope artifact; its
 still-forward events are re-owed afresh under the re-predict rule below; and a
 later-window cell stamped before the revocation stays uncounted, so revoking

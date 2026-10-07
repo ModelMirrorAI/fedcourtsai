@@ -25,7 +25,7 @@ board also reads the committed statpack, as ``fedcourts leaderboard`` does).
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -47,6 +47,7 @@ from .schemas import (
 )
 from .serialize import read_model
 from .store import (
+    EvaluationKey,
     LedgerPrediction,
     evaluation_key,
     iter_predictions,
@@ -401,9 +402,19 @@ class RevokedWindowRecord(_Report):
         "only where its event's outcome resolved on or before it"
     )
     resolved_counted_events: dict[str, int] = Field(
-        description="Per revoked digest, the events on which the window holds a counted cell "
-        "(revocation lifted) whose outcome resolved by its revocation day, graded or not — the "
-        "resolved slice the board's `events_scored` is read against"
+        description="Per revoked digest, the events of every stage on which the window holds a "
+        "counted cell (revocation lifted) whose outcome resolved by its revocation day, graded "
+        "or not — the size of the resolved slice. Not a denominator for the board's cert-only "
+        "`events_scored`, which covers the ranked cert moment alone"
+    )
+    forward_claim_excluded: int = Field(
+        ge=0,
+        description="The window's resolved-slice gradings the forward-claim rule kept off the "
+        "board, as the leaderboard's own exclusion does",
+    )
+    leakage_excluded: int = Field(
+        ge=0,
+        description="The window's resolved-slice gradings the leakage bit kept off the board",
     )
     graded_after_revocation: int = Field(
         ge=0,
@@ -425,8 +436,10 @@ def revoked_window_board(
 ) -> RevokedWindowRecord:
     """The revoked window's figures over its resolved slice.
 
-    The board is built exactly as ``fedcourts leaderboard`` builds the frozen
-    board, with the revocation lifted for ``label``'s revoked windows only and
+    The board's cells and figures are built as ``fedcourts leaderboard`` builds
+    the frozen board's — the same stratify pass and exclusions, skill terms,
+    band facts and vote scores — without the agreement views or the collapse
+    count, with the revocation lifted for ``label``'s revoked windows only and
     the cells then restricted to those windows' cells on events whose outcome
     resolved on or before the day each window was revoked. Lifting the
     revocation restores those cells' counting as it stood before it — a later
@@ -444,17 +457,21 @@ def revoked_window_board(
     lifted = {w: w.model_copy(update={"revoked_at": None}) for w in revoked}
     resolved_by = {w.digest: _day(w.revoked_at) for w in revoked}
     revocations = {w.digest: w.revoked_at for w in revoked if w.revoked_at is not None}
+
+    keep = set(lifted.values())
+
+    def in_slice(evaluation: Evaluation, windows: Mapping[EvaluationKey, CountingWindow]) -> bool:
+        window = windows.get(evaluation_key(evaluation))
+        return (
+            window is not None
+            and window in keep
+            and _resolved_by(data_root, evaluation, resolved_by[window.digest])
+        )
+
     registry = tuple(lifted.get(w, w) for w in process_version.COUNTING_WINDOWS)
     with process_version.counting_windows(registry):
         run = stratify(data_root, refuse_pooled_windows=False)
-        keep = set(lifted.values())
-        cells = [
-            cell
-            for cell in run.cells
-            if (window := run.cell_windows.get(evaluation_key(cell[0]))) in keep
-            and window is not None
-            and _resolved_by(data_root, cell[0], resolved_by[window.digest])
-        ]
+        cells = [cell for cell in run.cells if in_slice(cell[0], run.cell_windows)]
         rows = iter_predictions(data_root)
         slice_events: dict[str, set[tuple[str, str]]] = {w.digest: set() for w in revoked}
         for row, counts in zip(rows, ledger_counts(rows), strict=True):
@@ -476,6 +493,12 @@ def revoked_window_board(
         windows=revoked,
         resolved_by=resolved_by,
         resolved_counted_events={digest: len(keys) for digest, keys in slice_events.items()},
+        forward_claim_excluded=sum(
+            1 for cell in run.excluded if in_slice(cell.evaluation, run.cell_windows)
+        ),
+        leakage_excluded=sum(
+            1 for cell in run.leaked if in_slice(cell.evaluation, run.cell_windows)
+        ),
         graded_after_revocation=sum(
             1
             for evaluation, *_ in cells
