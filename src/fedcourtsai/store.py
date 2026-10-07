@@ -1244,7 +1244,7 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, bot
         raise PooledWindowsError(
             "frozen-scope cells span more than one counting window for "
             + ", ".join(f"{pid} ({describe_windows(windows[pid])})" for pid in pooled)
-            + " — the boards key on predictor_id alone and would pool them"
+            + " — this caller keys on predictor_id alone and would pool them"
         )
     # The one place a re-grade is still countable: every survivor below is
     # indistinguishable from a cell that was graded once, so the boards take

@@ -3340,13 +3340,13 @@ _COMPLETE_GRIDS_DESCRIPTION = (
 
 _SPLIT_EVENTS_DESCRIPTION = (
     "Per `by_band` key, the forward cert events on which every predictor holds "
-    "an accuracy-scored forward grading under that band — split events among "
-    "this population's complete graded events only, not the successor entry's "
-    "count over every counted cell — but from windows that "
+    "an accuracy-scored forward grading under that band, but from windows that "
     "never ran together — a closed window and the successor that closed it. A "
     "split event belongs to no complete grid, so it is counted here rather "
     "than in one. Omitted while empty, which it is on any build whose windows "
-    "all overlap"
+    "all overlap. These are split events among this population's complete "
+    "graded events only; the split-event count a successor's freeze-record "
+    "entry discloses is over every counted cell, graded or not"
 )
 
 
@@ -3383,8 +3383,10 @@ class LeaderboardEntry(_Strict):
         description="1-based standing; 1 is best. Ranked within this entry's `process_window` "
         "cohort: on a frozen build whose entries carry more than one window label, the ranking "
         "restarts per label (cohorts listed in the order their windows opened), since a rank "
-        "is a cross-engine comparison and windows that cover different events are not ranked "
-        "against each other. Under one label, one ranking over the board",
+        "is a cross-engine comparison and a successor's window is not ranked against the "
+        "window it closed. A carried-forward window ranks in its opening label's cohort while "
+        "it accrues later events, so a rank inside such a cohort is read through "
+        "`complete_grids`. Under one label, one ranking over the board",
     )
     evaluators: int = Field(ge=0, description="Distinct evaluators that scored this predictor")
     events_scored: int = Field(

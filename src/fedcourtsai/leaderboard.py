@@ -1312,7 +1312,7 @@ def _ranked(entries: list[LeaderboardEntry], series: Iterable[Series]) -> list[L
     ``process_window`` label, cohorts ordered by the earliest opening among
     their windows; a carried-forward window ranks with the cohort of the label
     that opened it. Under one label — every build before a successor, and every
-    all-versions build — this is one ranking over the board, as it always was.
+    all-versions build — this is one ranking over the board.
     Within a cohort the order is :func:`_rank_key`, total down to the id.
     """
     opening: dict[str | None, float] = {}

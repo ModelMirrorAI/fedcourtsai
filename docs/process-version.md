@@ -407,7 +407,7 @@ census (one read per predictor per case, each naming its window), the
 conference cut and the predict backlog — take any ledger. The pass still
 refuses a two-window predictor for a caller that keys on `predictor_id` alone
 and has not been split: `release-sensitivity` and `semantic-summary`. That
-refusal reads the whole ledger, so neither builds once any predictor holds
+refusal reads the whole ledger, so neither builds at frozen scope once any predictor holds
 graded cells in two windows — `release-sensitivity` included, although its
 release is `proc-v8` inside its own window.
 
@@ -713,8 +713,9 @@ rubrics. An unbroken window licenses no other pooling: a salience, baseline,
 evaluator or other boundary registered elsewhere still cuts inside it.
 
 **The windows are built in every frozen-scope surface**, so a bless that adds a
-predictor opens a window rather than ranking a later span beside the earlier
-ones, and a predictor-half re-bless closes windows rather than de-counting.
+predictor can land: it opens a window rather than ranking a later span beside
+the earlier ones. A predictor-half re-bless closes windows rather than
+de-counting, and so waits on the close hold at the end of this paragraph.
 The frozen scope, the counting rule, the run collapse,
 evaluation staging, the dataset export and the re-predict rule read the
 windows; every aggregate keys on (predictor, window) and every pooled figure
