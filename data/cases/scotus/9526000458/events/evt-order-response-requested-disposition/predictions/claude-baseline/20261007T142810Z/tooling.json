@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000458",
+  "run_id": "20261007T142810Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query (ranged corpus, --include-applications, --disposition granted / denied)",
+    "metrics/statpack.md (interim-docket section, per-Term substantive counts)",
+    "CourtListener MCP: search (dockets, opinions, recap), call_endpoint (docket-entries, clusters, opinions)",
+    "provisioned record: snapshot 2026-10-06.json, context.json, documents/application.txt"
+  ],
+  "helpful": [
+    "The provisioned application text (134 pages, truncated) carried the whole substantive record: the relief sought, the Ninth Circuit's grounds, and the authorities the applicants lean on.",
+    "CourtListener docket-entries on the Ninth Circuit appeal (26-5488) gave the panel, the three amicus filings at that stage, and the appellees' pending extension motion — the amicus-increment and timing forecasts rest on it.",
+    "CourtListener opinions endpoint returned the full Mirabelli v. Bonta per curiam, which let me check the posture difference (vacatur of a stay of a merits judgment vs. a first-instance injunction) rather than rely on the applicants' characterization.",
+    "The statpack interim table made the strictly-prior pooled baseline computable directly (31/296)."
+  ],
+  "gaps": [
+    "fedcourts query cannot filter by application kind or applicant class; both --disposition sweeps returned time-extension applications and cert petitions rather than substantive stay/injunction priors, so corpus priors contributed nothing to this cell.",
+    "No ladder-conditioned interim rate (grant rate given a requested response) or applicant-class cut (government vs private applicant) in the statpack; the dominant adjustments came from training knowledge of the Court's injunction-pending-appeal practice.",
+    "CourtListener holds no text for the Ninth Circuit's published order (plain_text empty), so its reasoning is known only through the applicants' account.",
+    "The provisioned application is truncated at 134 pages; the appendix (the lower-court opinions) was not available to read directly."
+  ],
+  "notes": "Retrieval stayed well inside the ~25-call budget (2 corpus queries, 12 MCP calls). Nothing retrieved postdates the snapshot except the Ninth Circuit's 2026-10-05 extension motion, an ordinary forward-mode signal."
+}

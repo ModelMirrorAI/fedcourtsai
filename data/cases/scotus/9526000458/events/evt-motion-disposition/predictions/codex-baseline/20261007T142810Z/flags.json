@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000458",
+  "run_id": "20261007T142810Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The manifest marks the 134-page application PDF truncated. Provisioned text includes the application but stops during appendix page 18a, omitting the complete district-court reasoning and the later injunction-pending-appeal and Ninth Circuit orders at appendix pages 63a–78a. No respondent brief was provisioned. Forecast relies on the available district-court introduction and explicitly attributed applicant summaries, not independently read appellate reasoning. Consider preserving the lower-court orders separately when the combined application appendix exceeds the text cap."
+    }
+  ]
+}
