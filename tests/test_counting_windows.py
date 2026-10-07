@@ -29,6 +29,7 @@ from fedcourtsai.dataset_export import build_tables
 from fedcourtsai.leaderboard import big_case_agreement
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
+from fedcourtsai.release_sensitivity import _cert_events
 from fedcourtsai.schemas import (
     BigCaseAssessment,
     CountingWindow,
@@ -418,6 +419,31 @@ def test_the_stamp_resolver_never_names_a_later_windows_cell(
     event = CasePaths(data, "scotus", 1).event("evt-petition-disposition")
     resolved = _latest_prediction_for(event, "alpha")
     assert resolved is not None and resolved.run_id == "p1"
+
+
+def test_release_sensitivity_reads_only_counted_cells(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An event's first forward cell is its counted cell's, never a later window's.
+
+    The successor's cell sits in a live window, so a per-cell ``is_frozen``
+    would admit it; it was stamped before the earlier window's revocation, so
+    the event-aware rule counts it nowhere and the event carries no counted
+    cell at all.
+    """
+    data = tmp_path / "data"
+    _event(data, "scotus/1")
+    _prediction(data, "scotus/1", run_id="p1", stamp=_pv(A, T1 + timedelta(days=1)), mode="forward")
+    _prediction(data, "scotus/1", run_id="p2", stamp=_pv(B, T2 + timedelta(days=1)), mode="forward")
+
+    set_windows(monkeypatch, CLOSED, SUCCESSOR)
+    (info,) = _cert_events(data)
+    assert info.frozen_forward_runs == ("p1",)
+
+    revoked = CLOSED.model_copy(update={"revoked_at": T2 + timedelta(days=10)})
+    set_windows(monkeypatch, revoked, SUCCESSOR)
+    assert process_version.is_frozen(_pv(B, T2 + timedelta(days=1)))
+    assert _cert_events(data) == []
 
 
 def test_big_case_agreement_refuses_two_windows(

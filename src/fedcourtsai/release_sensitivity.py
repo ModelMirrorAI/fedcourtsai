@@ -66,7 +66,6 @@ from .paths import CasePaths
 from .pipeline import cert_signals
 from .pipeline.base_rates import _pooled_band_rate
 from .pipeline.moments import first_moment
-from .process_version import is_frozen
 from .schemas import (
     Evaluation,
     Leaderboard,
@@ -79,7 +78,13 @@ from .schemas import (
     StatPack,
 )
 from .serialize import read_model
-from .store import iter_predicted_events, normalized_moment, normalized_stage, scored_prediction
+from .store import (
+    iter_predicted_events,
+    normalized_moment,
+    normalized_stage,
+    prediction_counts,
+    scored_prediction,
+)
 
 #: The ranked board's block key: cert's first declared moment.
 RANKED_ARM = stage_moment_key(Stage.cert, first_moment(Stage.cert))
@@ -687,7 +692,14 @@ class _EventInfo:
 
 
 def _cert_events(data_root: Path) -> list[_EventInfo]:
-    """Every cert-stage event carrying a frozen-scope prediction, with its forward runs."""
+    """Every cert-stage event carrying a frozen-scope prediction, with its forward runs.
+
+    A cell is in the frozen scope where it is its predictor's **counted**
+    forecast of the event (:func:`fedcourtsai.store.prediction_counts`, the
+    event-aware counting-window rule) — so a de-counted cell, or a later
+    window's cell behind a counted earlier-window one, never becomes an
+    event's first forward cell.
+    """
     found: list[_EventInfo] = []
     for ref in iter_predicted_events(data_root):
         court_id, _, docket = ref.case_id.partition("/")
@@ -701,7 +713,9 @@ def _cert_events(data_root: Path) -> list[_EventInfo]:
         frozen = [
             prediction
             for path in sorted(paths.predictions_dir.glob("*/*/prediction.json"))
-            if is_frozen((prediction := read_model(path, Prediction)).process_version)
+            if prediction_counts(
+                paths.base, (prediction := read_model(path, Prediction)).predictor_id, prediction
+            )
         ]
         if not frozen:
             continue

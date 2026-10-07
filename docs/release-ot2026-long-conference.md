@@ -886,8 +886,9 @@ predictor's newest cell rather than its first, the release sensitivity command
 also checks every `cert@distribution` board cell whose *scored* run, for any
 predictor, postdates its considering conference, and names any that falls
 outside the subset (`scored_after_conference_outside_subset`); it lists the
-subset itself (`subset`). The first forward cell is the earliest among cells
-in the frozen scope, so a retired cell made before the freeze does not count,
+subset itself (`subset`). The first forward cell is the earliest among the
+counted cells (the frozen scope's event-aware rule), so a de-counted cell made
+before the freeze does not count,
 and "none registered" is a confirmation the command's `registered` count
 makes, not a property of the rule. The conference is the one the petition was
 distributed for as at the run, read off the petition's own distribution
