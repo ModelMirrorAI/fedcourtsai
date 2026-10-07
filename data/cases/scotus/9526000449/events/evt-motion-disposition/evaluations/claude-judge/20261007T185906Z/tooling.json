@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000449",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/ls/python3 over the staged record and schemas)",
+    "metrics/statpack.md (interim docket section)"
+  ],
+  "helpful": [
+    "The blinded retrieval_log.json with result_capture markers and retrieved_doc_date made the forward leakage scan mechanical",
+    "The now-OCR'd application.txt let me check the candidates' subject-matter inferences against the actual filing",
+    "The interim table's per-Term resolved/granted columns made the harness's expected pool easy to describe"
+  ],
+  "gaps": [
+    "A staged copy of the snapshot each candidate actually read (the 2026-09-28 truncated one) would let me confirm what was in its information set without inferring from context fields",
+    "A one-line note in the staged candidate directory recording whether documents.json showed empty_text at that candidate's run time, so the evaluator does not have to reconstruct it from the prose"
+  ],
+  "notes": "Interim cell: segment_base_rate, brier_skill_score, and claim_scores left to the harness per the stage rules. No corpus query was needed; the pack and the staged record were sufficient."
+}

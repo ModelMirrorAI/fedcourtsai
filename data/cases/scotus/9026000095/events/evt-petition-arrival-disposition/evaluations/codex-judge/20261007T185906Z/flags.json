@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000095",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "gemini-baseline, codex-baseline, and claude-baseline each freeze context.band=baseline under sal-v3 for Term 2026. The committed metrics/statpack.md salience-band table is headed sal-v4. As required for a frozen-band version mismatch, all three evaluations omit segment_base_rate and brier_skill_score and leave base_rate_basis null; no terminal substitution or re-banding was used. Correctness and Brier scores remain computable. Each evaluation.md explains the omission.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0"
+}

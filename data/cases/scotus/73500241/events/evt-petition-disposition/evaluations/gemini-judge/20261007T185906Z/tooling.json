@@ -1,0 +1,16 @@
+{
+  "case_id": "scotus/73500241",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "run_shell_command"
+  ],
+  "helpful": [
+    "The shell commands were very helpful for analyzing multiple files efficiently."
+  ],
+  "gaps": [],
+  "notes": "Evaluation complete. No flags were necessary."
+}

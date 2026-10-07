@@ -1,0 +1,3 @@
+This is a cert-stage cell. The baseline `0.05011` was calculated from the statpack over the `baseline` band across strictly prior terms (OT2017-OT2025). The predicted disposition was correct (denied).
+
+Reasoning is extremely thorough, diving deeply into the factual uncertainties and constitutional implications under Caperton. The derivation of the base rate from the statpack is accurately detailed, though the final probability is slightly higher than peers, it is still very well-supported.

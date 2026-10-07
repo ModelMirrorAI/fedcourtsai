@@ -1,0 +1,222 @@
+{
+  "actor_id": "claude-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "03ac174bfc9cb3a2",
+      "query": "cat /home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/evaluate.md",
+      "result_capture": "captured",
+      "result_digest": "6abd1a3252d01784",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:07:18.532Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3a559fd5b423eafc",
+      "query": "cat /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/429e624c-37b4-4eb4-af99-9464c58e7810/tool-results/bwa9p10wt.txt",
+      "result_capture": "captured",
+      "result_digest": "1d96ff8b8d73713e",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:07:21.258Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a9a96d6010cda98d",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/evaluate.md\"}",
+      "result_capture": "captured",
+      "result_digest": "c44e6def96ba6a2b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:07:22.738Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e1285e6a52614613",
+      "query": "E=data/cases/scotus/9026000104/events/evt-petition-arrival-disposition; echo \"== event dir\"; ls -la $E; echo \"== event.yaml\"; cat $E/event.yaml; echo \"== outcome.json\"; cat $E/outcome.json; echo \"== record\"; ls -la data/cases/scotus/9026000104/record; echo \"== blinded\"; ls -laR data/cases/scotus/9026000104/record/blinded; echo \"== context.json\"; cat data/cases/scotus/9026000104/record/context.json",
+      "result_capture": "captured",
+      "result_digest": "6778318242c13ce4",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:07:28.542Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "07c2ac0a1c9f59d1",
+      "query": "cat schemas/evaluation.schema.json",
+      "result_capture": "captured",
+      "result_digest": "85aaa7e707bdac59",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:07:30.790Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7364d63c759259b0",
+      "query": "echo \"== required\"; jq '.required' schemas/evaluation.schema.json; echo \"== top-level props (name: type/desc short)\"; jq -r '.properties | to_entries[] | \"\\(.key): \\(.value | tojson | .[0:300])\"' schemas/evaluation.schema.json; echo \"== LeakageAssessment\"; jq '.[\"$defs\"].LeakageAssessment' schemas/evaluation.schema.json",
+      "result_capture": "captured",
+      "result_digest": "53b0a5942e6aa18c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:07:36.436Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6ab485f5435b0db2",
+      "query": "B=data/cases/scotus/9026000104/record/blinded; for a in claude-baseline codex-baseline gemini-baseline; do echo \"===== $a prediction.json\"; cat $B/$a/prediction.json; echo; done; echo \"== Engine enum\"; jq '.[\"$defs\"].Engine' schemas/evaluation.schema.json; echo \"== snapshots\"; ls -la data/cases/scotus/9026000104/record/snapshots",
+      "result_capture": "captured",
+      "result_digest": "7e4b94676ad035b2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:07:40.488Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f849fc2958939d68",
+      "query": "echo \"== statpack salience band section\"; grep -n -i \"salience band\\|salience version\\|sal-v\" metrics/statpack.md | head -40; echo; awk '/Segment base rate by salience band/,/^## /' metrics/statpack.md | head -120",
+      "result_capture": "captured",
+      "result_digest": "bfa46aa409a8bf28",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:07:44.954Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "09968fdc09f5ac8e",
+      "query": "B=data/cases/scotus/9026000104/record/blinded; for a in claude-baseline codex-baseline gemini-baseline; do for f in reasoning.md predicted_reasoning.md retrieval.md; do echo \"===== $a/$f\"; cat $B/$a/$f; echo; done; done",
+      "result_capture": "captured",
+      "result_digest": "0d17cdd874c0ddcd",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:07:59.366Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a718609aa428468c",
+      "query": "B=data/cases/scotus/9026000104/record/blinded; for a in claude-baseline codex-baseline gemini-baseline; do echo \"===== $a/retrieval_log.json\"; jq '{mode, actor_id, engine, result_capture_coverage, n_calls: (.calls|length), keys: keys}' $B/$a/retrieval_log.json; jq -r '.calls[] | \"\\(.seq // .index // \"-\")\\t\\(.tool_class // .tool // \"-\")\\tcap=\\(.result_capture)\\tstatus=\\(.result_status // \"-\")\\tdate=\\(.retrieved_doc_date // \"-\")\\tq=\\((.query // .query_slice // \"\") | tostring | .[0:200])\"' $B/$a/retrieval_log",
+      "result_capture": "captured",
+      "result_digest": "1b4b1009b3180d6e",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:08:05.058Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b0b69184c8bab90b",
+      "query": "echo \"== snapshot\"; cat data/cases/scotus/9026000104/record/snapshots/2026-10-04.json; echo; echo \"== agent_flags required/enums\"; jq '{required, category: .properties.flags.items.properties.category // .[\"$defs\"].AgentFlag.properties.category, severity: .properties.flags.items.properties.severity // .[\"$defs\"].AgentFlag.properties.severity, role: .properties.role}' schemas/agent_flags.schema.json; jq '.[\"$defs\"] | keys' schemas/agent_flags.schema.json; jq '.[\"$defs\"].AgentFlag // empty | {requi",
+      "result_capture": "captured",
+      "result_digest": "0873258829d046c4",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:08:20.541Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "506c03fe52a3583b",
+      "query": "sed -n 88,200p src/fedcourtsai/pipeline/evaluate.py; echo \"== flags top-level required\"; jq '.required' schemas/agent_flags.schema.json",
+      "result_capture": "captured",
+      "result_digest": "bfa8ee225dc37e5a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:08:25.397Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5030af0686f8387f",
+      "query": "select:mcp__courtlistener__search",
+      "result_capture": "captured",
+      "result_digest": "0032415fbb336547",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:09:04.937Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5440c506d0758407",
+      "query": "\"Barbosa da Cunha\"",
+      "result_capture": "captured",
+      "result_digest": "481bfa4e2b04053d",
+      "result_status": "ok",
+      "retrieved_doc_date": "2026-07-30",
+      "timestamp": "2026-10-07T19:09:10.209Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f24f0c9825108047",
+      "query": "uv run python - <<'EOF'\nimport json\nfrom pathlib import Path\n\nCOURT=\"scotus\"; DOCKET=\"9026000104\"; EVENT=\"evt-petition-arrival-disposition\"\nEVAL=\"claude-judge\"; RUN=\"20261007T185906Z\"; MODEL=\"claude-fable-5-1\"\nNOW=\"2026-10-07T19:08:20Z\"\nbase = Path(f\"data/cases/{COURT}/{DOCKET}/events/{EVENT}/evaluations/{EVAL}\")\n\nbig_case = {\n    \"evaluator_score\": 0.85,\n    \"notes\": (\"Solicitor General petition on whether 8 U.S.C. 1225(b)(2)(A) mandatory detention reaches noncitizens \"\n              \"arrested ",
+      "result_capture": "captured",
+      "result_digest": "da91737396d15473",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:09:50.052Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "33c6da552f72928c",
+      "query": "set -e\nB=data/cases/scotus/9026000104/events/evt-petition-arrival-disposition/evaluations/claude-judge\nR=20261007T185906Z\nCOMMON_HEAD='# Evaluation \u2014 scotus/9026000104, evt-petition-arrival-disposition\n\n**Stage:** cert, arrival moment, forward mode. **Outcome:** the petition was\nGRANTED on 2026-10-01 after a single distribution (conference of 9/28/2026),\nby the plenary route; `actual_granted` = 1.\n\n## Base rate: omitted for a salience-version mismatch\n\nThis candidate froze `band: federal` under ",
+      "result_capture": "captured",
+      "result_digest": "faaaa4f7da42f2ed",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:10:41.911Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "21d2ffb004b969d9",
+      "query": "uv run python - <<'EOF'\nimport json, glob\nfrom fedcourtsai.schemas import Evaluation, AgentFlags, AgentToolingFeedback\nB=\"data/cases/scotus/9026000104/events/evt-petition-arrival-disposition/evaluations/claude-judge\"\nfor p in sorted(glob.glob(f\"{B}/candidate-*/20261007T185906Z/evaluation.json\")):\n    d=json.load(open(p)); e=Evaluation.model_validate(d)\n    alias=p.split(\"/\")[-3]\n    assert e.predictor_id==alias, (e.predictor_id, alias)\n    print(\"OK\", alias, \"correct\", e.correct, \"brier\", e.brie",
+      "result_capture": "captured",
+      "result_digest": "7b3ea8765948f06c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-07T19:10:50.591Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000104",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": 0
+}

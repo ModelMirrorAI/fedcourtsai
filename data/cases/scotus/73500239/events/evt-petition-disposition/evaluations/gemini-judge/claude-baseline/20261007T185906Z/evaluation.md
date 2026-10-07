@@ -1,0 +1,1 @@
+Reasoning is excellent. Identified the respondent waiver of the right to respond, which is highly predictive of denial at this stage. Correctly pooled the base rate across prior Terms. Identified the vehicle problems cleanly. No leakage in forward mode.

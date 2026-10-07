@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000095",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (salience band table)",
+    "metrics/statpack.json (alt_segments version check)",
+    "local file reads of the provisioned record and blinded candidates"
+  ],
+  "helpful": [
+    "retrieval_log.json result_capture markers made the all-unobserved log gradable on queries without guessing",
+    "brief-in-opposition.txt in the record let the vehicle analyses be checked against the respondent's actual arguments",
+    "blinded staging with fixed prose filenames"
+  ],
+  "gaps": [
+    "statpack.md renders only the active salience version's band table; a frozen sal-v3 cell cannot be scored from the rendered surface even though statpack.json carries the sal-v3 pool, so the evaluator-side rule and the harness-side pool diverge",
+    "no single-file validator for an evaluation.json; validated via the pydantic models directly"
+  ],
+  "notes": "All three candidates in this cell froze band under sal-v3 while the pack renders sal-v4, so segment_base_rate and brier_skill_score were omitted for all three per the prompt rule. The sal-v3 and sal-v4 baseline-band risk-set figures are byte-identical in statpack.json, so the omission loses a baseline the harness could resolve; worth a maintainer's look at whether the rendered table should carry alt-version blocks."
+}

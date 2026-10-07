@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000104",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the staged blinded set, outcome.json, event.yaml, snapshot and statpack",
+    "jq over the retrieval logs and schemas",
+    "CourtListener MCP search (one opinion search)"
+  ],
+  "helpful": [
+    "retrieval_log.json result_capture markers made the 0.0-coverage log readable on its queries",
+    "the sal-vN heading on the statpack table made the version check mechanical"
+  ],
+  "gaps": [
+    "a per-version archive of the segment table, so a cell whose predictions froze an older salience version could still be scored against the version that assigned its band",
+    "the predictors' big_case_score sits in the same prediction.json an evaluator must read first, so the 'form your read before seeing theirs' instruction cannot be followed literally"
+  ],
+  "notes": "Cert cell, forward mode, three candidates; base-rate fields omitted for a sal-v3 vs sal-v4 mismatch."
+}

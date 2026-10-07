@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": null,
+  "brier_score": 0.0169,
+  "brier_skill_score": -5.730653756171572,
+  "case_id": "scotus/9026000183",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05015723270440252,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.13,
+        "score": -0.014384252007436416
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.27,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 1,
+        "probability": 0.1,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.014384252007436416,
+    "total": -0.014384252007436416
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:36:33.441659Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction and all 26 logged calls are dated October 4, 2026, before the recorded October 5 denial; result-capture coverage is 1.0. The log includes searches for docket 26-183 and the United Airlines/Kincannon caption, plus Detwiler and generic corpus priors. The dated caption result is July 8, 2024; the Detwiler opinion result is September 23, 2025. The candidate discloses other petitions' October 1 grants, not this petition's result. Such pre-resolution context is legitimate forward signal. Nothing visible establishes this petition's disposition before it occurred; influence is not_applicable.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261004T201824Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:37:20.237758Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.050108883647798745,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

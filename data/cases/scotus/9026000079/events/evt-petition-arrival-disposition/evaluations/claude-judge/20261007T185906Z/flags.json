@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000079",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Salience-version mismatch: all three candidates (claude-baseline, gemini-baseline, codex-baseline) froze band `baseline` under `salience_version: sal-v3`, but the committed metrics/statpack.md renders its only 'Segment base rate by salience band' table under sal-v4. Per the evaluate contract, segment_base_rate and brier_skill_score are omitted and base_rate_basis is null for every candidate on this cell (no terminal relabel). The pack's JSON still carries sal-v3 rows per Term under `terms[].alt_segments`, so an in-code recompute keyed on the prediction's own version could restore the cert skill score if that is wanted.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Capture observation on codex-baseline's retrieval_log.json: it reports in retrieval.md a CourtListener MCP opinion search (bounded to filings before 2026-02-01, returned HTTP 429), but the log carries no distinct mcp row \u2014 only scripted shell batches and one 'other' call whose payload is a harness credential redaction. Not a leakage signal (forward cell, pre-petition bound, nothing returned); noted because the log's fidelity is what the leakage grading rests on.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0"
+}

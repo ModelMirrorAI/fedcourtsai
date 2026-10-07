@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.05,
+    "notes": "A private Maryland residential-fraud suit whose live dispute is a statutory attorney's-fee order; the federal hook is a Caperton-style due process claim that a recalled retired judge was practicing law when he signed a one-page fee order, with the dispositive employment timing unresolved below. Private parties, solo counsel, no circuit or state-court conflict alleged, response waived, no amicus, denied on the first conference without any noted dissent. Reaction nil. A grant would have mattered chiefly to Maryland's senior-judge recall practice. Formed from the record and outcome; the three predictors' big_case_score values were visible in the staged prediction.json files I had to read for the probabilities, so this read is independent in substance but not strictly blind to them."
+  },
+  "brier_score": 1e-06,
+  "brier_skill_score": 0.9996017364641319,
+  "case_id": "scotus/9026000121",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05015723270440252,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": 0.0025147479925635855
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0025147479925635855,
+    "total": 0.0025147479925635855
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:11:00Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode=forward). result_capture_coverage=0.0: every one of the 25 marker-carrying calls is `unobserved`, the engine's standing telemetry shape, so each call is graded on its query alone and none is credited as having returned nothing. Queries: planning notes, reads of AGENTS.md/the predict prompt/event.yaml/context.json/documents.json/the 2026-10-04 snapshot/questions-presented.txt, two `fedcourts query --court scotus` corpus calls (--era modern, then --limit 5), file writes, and `fedcourts validate data`. No CourtListener or web call; no query names this petition's docket number, caption, or disposition; no read under data/qp-topics/. Reasoning reads the pre-decision docket (first distribution, waiver) and does not presuppose the outcome. The unobserved results mean the absence of outcome material rests on the queries and the prose, not on observed results.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261004T201824Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:13:02.928383Z"
+  },
+  "reasoning_quality": 0.45,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05010888364779874,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

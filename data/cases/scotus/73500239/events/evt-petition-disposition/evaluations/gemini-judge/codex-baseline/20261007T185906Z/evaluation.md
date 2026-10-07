@@ -1,0 +1,1 @@
+Reasoning is thorough. Correctly pooled the prior-Term reached rates for the baseline band (OT2017-OT2024). Identified the factual causation issue as a major vehicle flaw, reasonably reducing the rate. No outcome material retrieved in forward mode. High quality.

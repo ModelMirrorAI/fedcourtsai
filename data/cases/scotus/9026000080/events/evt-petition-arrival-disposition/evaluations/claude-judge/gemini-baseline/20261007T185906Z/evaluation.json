@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Pro se, fact-bound Title VII promotion dispute between one employee and one city, raising only error-correction questions on settled summary-judgment and McDonnell Douglas doctrine. Response waived, one distribution, denied without any noted writing. No precedential or public stakes beyond the parties."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": null,
+  "case_id": "scotus/9026000080",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05015723270440252,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.0024907479925635858
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024907479925635858,
+    "total": 0.0024907479925635858
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:05:42Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell. The prediction was created 2026-08-16 against a snapshot with zero distributions; the petition was first distributed 2026-08-19 and denied 2026-10-05, so the case was genuinely open when predicted and no outcome existed to retrieve. Log: 30 calls, every marker 'unobserved' (coverage 0.0, the engine's standing shape), so each call is graded on its query. Queries: provisioned files, statpack greps, two corpus 'query --era roberts --decided-before 2026-08-16' attempts, a rate-limited CourtListener search and a web search on the case caption; the candidate's own prose says the search showed the petition still pending. No query reaches past the event date or names data/qp-topics/.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:07:52.591462Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": null,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

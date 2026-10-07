@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000079",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/grep/python) over the provisioned record, the blinded staging area, schemas, and metrics/statpack.md",
+    "in-repo source (pipeline/evaluate.py) to confirm the scoring definitions"
+  ],
+  "helpful": [
+    "The per-Term sal-v4 segment table with bracketed reached figures: the pooled baseline risk-set rate was a one-line computation and all three candidates reproduced the same figure, so anchoring was easy to audit.",
+    "Per-call result_capture markers on the retrieval logs made the unobserved-vs-captured distinction explicit for the leakage read."
+  ],
+  "gaps": [
+    "No staged copy of the prediction's own input snapshot (2026-10-04.json): I could only infer from the stored 2026-10-05 snapshot that the denial entry postdated it.",
+    "Candidate created_at stamps can equal the run id rather than the write time (one candidate's log calls run 40 minutes after its created_at), which weakens created_at as a timing check against resolution."
+  ],
+  "notes": "Cert cell, forward mode, no flags.json written: band and salience version match the statpack heading, the table renders every Term the pack holds, and no leakage question arose."
+}

@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": null,
+  "brier_score": 0.04,
+  "brier_skill_score": null,
+  "case_id": "scotus/9026000183",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05015723270440252,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": -0.03748425200743642
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 1,
+        "probability": 0.07,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.03748425200743642,
+    "total": -0.03748425200743642
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:34:09Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The August 16, 2026 forward prediction precedes the recorded October 5 denial. The log has result-capture coverage 1.0; visible external calls concern other granted petitions and Detwiler, with extracted dates before this resolution. The reasoning treats the BIO and disposition as future events and shows no retrieval of this case's disposing order. Null dates alone are not evidence of empty results, and the original result bodies are not reproduced in the staged log.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:36:44.221316Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": null,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

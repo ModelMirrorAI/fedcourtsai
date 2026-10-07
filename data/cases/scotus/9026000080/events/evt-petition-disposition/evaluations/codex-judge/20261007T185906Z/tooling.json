@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000080",
+  "gaps": [
+    "Captured retrieval logs provide query slices and result digests, not complete returned text; some queries are truncated.",
+    "Two candidates have partially or wholly unobserved results, limiting retrospective content inspection."
+  ],
+  "helpful": [
+    "Blinded per-candidate staging preserves identity separation.",
+    "Frozen salience versions and the rendered risk-set table make the baseline reproducible.",
+    "Per-call capture markers distinguish missing telemetry from empty retrieval results."
+  ],
+  "notes": "All three candidates were scored from provisioned evidence. No external case lookup was needed. The baseline uses rounded Markdown rates; no live corpus freshness is claimed. Forecast documents and mechanical claims were not qualitatively scored.",
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "Python decimal arithmetic",
+    "fedcourtsai.paths",
+    "apply_patch",
+    "JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

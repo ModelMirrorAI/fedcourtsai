@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000095",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local shell", "jq", "Python arithmetic", "JSON Schema validation"],
+  "helpful": ["Blinded candidate artifacts preserve identity separation.", "Capture markers distinguish unobserved results from empty results.", "Versioned reached-band table supports a common prior-Term baseline."],
+  "gaps": ["Unobserved candidate tool results cannot be independently inspected.", "Published rounded band percentages yield an approximate pooled baseline."],
+  "notes": "Evaluated all three staged aliases using provisioned evidence and the committed statpack. No external legal retrieval was necessary; no candidate identity was sought. Missing result capture was treated as a limitation rather than a defect."
+}

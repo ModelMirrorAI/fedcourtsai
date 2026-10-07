@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000080",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition has a March 23, 2026 filing stamp but a June 2026 signature, while the snapshot records July 17 docketing after January 6 rehearing denial. The chronology is unresolved, not proof of untimeliness. claude-baseline acknowledges the inconsistency but incorrectly says either filing-date reading is within 90 days: March 23 is 76 days after January 6; even June 1 is 146 days later. Scores retain the recorded October 5 denial. See evaluation.md for the reasoning-quality consequence; no outcome leakage is inferred.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0"
+}

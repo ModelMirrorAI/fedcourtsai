@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000449",
+  "gaps": [
+    "The candidate-time application document version is not staged; current OCR metadata differs from all candidates' reported blank-text inputs.",
+    "Result hashes and extracted dates do not reproduce complete retrieved source content."
+  ],
+  "helpful": [
+    "Blinded predictions, both prose documents, and harness retrieval logs permit alias-only evaluation.",
+    "Result-capture markers distinguish uncaptured responses from observed failed calls.",
+    "The interim statpack's integer counts and coverage caveats clarify baseline eligibility without writing harness-owned scores."
+  ],
+  "notes": "Only provisioned local artifacts and the committed statpack were used. No corpus, CourtListener, or web retrieval was performed. Current application metadata and byte count were inspected, not its body. Unobserved results were not treated as empty or failed retrievals.",
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local file reads",
+    "jq",
+    "fedcourts paths",
+    "Python artifact-model validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

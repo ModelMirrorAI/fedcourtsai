@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000095",
+  "gaps": [
+    "No version-compatible sal-v3 baseline in the current rendered statpack",
+    "gemini-baseline retrieval results are unobserved; codex-baseline self-reported authority lookups are not individually identifiable in its staged log"
+  ],
+  "helpful": [
+    "Blinded predictions and captured retrieval logs",
+    "Explicit frozen salience versions and statpack version heading",
+    "Provisioned petition and resolved outcome"
+  ],
+  "notes": "The supplied evidence was sufficient for all three disposition and Brier scores. Capture limitations were stated rather than treated as empty results. No external retrieval was needed. Baseline and skill were omitted under the required version-mismatch rule.",
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "Python JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

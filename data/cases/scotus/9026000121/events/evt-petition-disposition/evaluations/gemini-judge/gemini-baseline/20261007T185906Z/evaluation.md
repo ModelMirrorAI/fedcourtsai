@@ -1,0 +1,3 @@
+This is a cert-stage cell. The baseline `0.05011` was calculated from the statpack over the `baseline` band across strictly prior terms (OT2017-OT2025). The predicted disposition was correct (denied).
+
+Reasoning is concise but captures all the critical signals: waiver of response, distribution count, and lack of a compelling split or federal interest. P(grant) matches the extremely low risk profile of the case.

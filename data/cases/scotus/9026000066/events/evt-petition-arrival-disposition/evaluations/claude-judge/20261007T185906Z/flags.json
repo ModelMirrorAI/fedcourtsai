@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000066",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Salience-version mismatch on every candidate: all three predictions froze context.band=baseline under context.salience_version=sal-v3, but the committed metrics/statpack.md renders its only 'Segment base rate by salience band' table under sal-v4 (no sal-v3 table is rendered). Per the evaluate contract the table is no baseline for a sal-v3 band, so segment_base_rate, brier_skill_score, and base_rate_basis are omitted (null) on gemini-baseline, claude-baseline, and codex-baseline rather than relabelled terminal. Skill is therefore unscored for this cell; a rendered sal-v3 table, or a registered mapping from sal-v3 bands to the sal-v4 table, would let cells minted before the version change be scored.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "codex-baseline's retrieval.md discloses three CourtListener MCP opinion searches (adequate-and-independent-state-ground doctrine; Lee v. Kemna), but its staged retrieval_log.json carries 22 calls and no mcp:* class call at all (two calls read as `other` with a harness-redacted token-shaped message). The disclosed queries are doctrinal and sought nothing about this case, so leakage grading is unaffected, but the capture appears not to record this engine's MCP calls, which weakens the log as an independent check on future cells.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0"
+}

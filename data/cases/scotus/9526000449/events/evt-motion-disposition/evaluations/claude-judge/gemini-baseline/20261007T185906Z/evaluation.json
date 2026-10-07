@@ -1,0 +1,77 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Pro se emergency stay application by an individual against an individual, arising from a Texas child-custody modification and attachment matter whose appeal was dismissed below for nonpayment of a $205 fee. High personal stakes for the applicant, but no institutional party, no circuit conflict, no response called for, no referral, and a one-line single-Justice denial. Institutionally negligible."
+  },
+  "brier_score": 1e-06,
+  "brier_skill_score": 0.9999088283038502,
+  "case_id": "scotus/9526000449",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.10472972972972973,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": 0.010967316289262235
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.010967316289262235,
+    "total": 0.010967316289262235
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:17:14Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-10-03, application denied 2026-10-05, so the outcome did not exist at prediction time. The log (23 calls, result capture 0.0 so every row is graded on its query) shows one web search on the parties' names and the Texas Supreme Court and one generic corpus query (--disposition denied, a shape query not keyed on this case); neither targets this application's disposition, and no retrieved_doc_date is on or after 2026-10-05. The reasoning reads the pending state off the 2026-09-28 snapshot and nowhere presupposes a result. No qp-topics read. Not a mis-provisioned decided case.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261003T175711Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:19:46.486498Z"
+  },
+  "reasoning_quality": 0.45,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.10472972972972973,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

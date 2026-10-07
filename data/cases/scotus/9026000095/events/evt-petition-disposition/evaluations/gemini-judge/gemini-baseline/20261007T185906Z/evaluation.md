@@ -1,0 +1,3 @@
+# Evaluation of Candidate C
+
+The predictor correctly forecasted the denial of certiorari. The rationale correctly identifies the baseline band rate (noting 4-6%) and points out key vehicle problems: the pro se status of the petitioners, preservation issues regarding the federal due process claim, and independent/adequate state-law grounds based on the Brief in Opposition. The analysis accurately supports the low probability of a grant but is less detailed and comprehensive than the other candidates.

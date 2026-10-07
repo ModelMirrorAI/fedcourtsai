@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000080",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "statpack"
+  ],
+  "helpful": [
+    "The per-Term statpack.json fields (prefix_est_grant_rate, prefix_weighted_resolved) made the pooled risk-set rate exact rather than a reading off rendered percentages.",
+    "The retrieval_log.json result_capture markers and neutral call classes were enough to grade leakage on all three candidates without any external lookup."
+  ],
+  "gaps": [
+    "A small helper that pools the sal-v4 band rate for a given band and Term window (the same arithmetic every cert evaluation repeats by hand) would remove a transcription risk."
+  ],
+  "notes": "Cert cell, three forward candidates, all denied-correct; nothing required the corpus service or CourtListener."
+}

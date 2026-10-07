@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000449",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "All three candidates report that at their 2026-10-03 run the provisioned application (44 pages, fetched 2026-10-03) carried empty_text: true and a blank application.txt, so every prediction was made from the docket line and caption alone. The record staged for this evaluation now carries an OCR-derived body (documents.json: empty_text false, ocr_derived true) showing a Texas child-custody conservatorship modification and writ of attachment, with the appeal dismissed below for nonpayment of a $205 fee. Not a defect in any candidate; recorded so the OCR fallback's timing relative to the predict fan-out is visible to maintainers, since one candidate's subject-matter inference (landlord-tenant or civil-rights) was wrong for want of the text."
+    }
+  ]
+}

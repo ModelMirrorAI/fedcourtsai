@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.85,
+    "notes": "Solicitor General petition on whether 8 U.S.C. 1225(b)(2)(A) mandatory detention reaches noncitizens arrested in the interior, against a multi-circuit split over a nationwide enforcement policy; plenary grant at the first conference, ACLU and NWIRP as respondent counsel. High stakes for a large detained population, but one of several parallel government vehicles on the same question rather than a singular landmark. Disclosure: the staged prediction.json files carry the predictors' big_case_score values, so I had seen them before writing this; the read above rests on the docket record and the public posture, not on those numbers."
+  },
+  "brier_score": 0.0841,
+  "brier_skill_score": null,
+  "case_id": "scotus/9026000104",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7079207920792079,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.71,
+        "score": 0.0012102636996372956
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.33,
+        "score": 0.015997985537190063
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.017208249236827358,
+    "total": 0.017208249236827358
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:08:20Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell run 2026-08-16, case open until the 2026-10-01 grant. Log (29 calls, all captured): repository reads of schemas, prompt, statpack, snapshot and the predictor's own prior cells on other dockets; one CourtListener attempt on the Second Circuit docket returned HTTP 429 per the candidate's disclosure. Nothing about this case's outcome was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:11:09.825819Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": null,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

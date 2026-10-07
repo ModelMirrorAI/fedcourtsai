@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000121",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "Salience version mismatch: The predictors froze a band under 'sal-v3', but the statpack provided base rates only for 'sal-v4'. Base rates and skill scores were omitted from the evaluations.",
+      "event_id": "evt-petition-arrival-disposition"
+    }
+  ]
+}

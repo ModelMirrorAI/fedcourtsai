@@ -1,0 +1,1 @@
+Reasoning is solid but flawed on base rates. The candidate anchored on the current Term (OT2025) terminal/reached rate instead of pooling over strictly prior Terms, which is a rules violation for this evaluation framework. However, they correctly spotted the waiver of the right to respond and fact-bound nature of the petition, which justified their low probability. No leakage.

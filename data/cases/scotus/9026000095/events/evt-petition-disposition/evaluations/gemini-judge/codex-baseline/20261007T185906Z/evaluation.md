@@ -1,0 +1,3 @@
+# Evaluation of Candidate A
+
+The predictor correctly forecasted the denial of certiorari. The reasoning is sound and correctly computes the `risk_set` base rate for the `baseline` band (~5.0%). The qualitative analysis is thorough, identifying multiple severe vehicle problems that make a grant highly improbable: the petitioners' pro se status, preservation issues of the federal due process claim, factual mismatches in the question presented, and finality concerns under state law based on the Brief in Opposition. The predictor rightly discounted the probability from the base rate and gave an accurate forecast.

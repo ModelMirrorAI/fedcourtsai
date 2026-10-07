@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000121",
+  "gaps": [
+    "No version-matched sal-v3 rendered baseline is available in the current statpack.",
+    "gemini-baseline has unobserved result bodies; its leakage assessment is limited to visible queries and prose."
+  ],
+  "helpful": [
+    "Blinded candidate files preserve probability and frozen context without revealing identity.",
+    "Result-capture markers distinguish unobserved outputs from captured results.",
+    "Versioned statpack heading makes baseline incompatibility explicit."
+  ],
+  "notes": "All three candidates were scoreable against the provisioned denial. The committed base-rate context was consulted for eligibility, but no rate or skill was assigned because of the salience-version mismatch. No external retrieval was necessary.",
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Local shell and jq for provisioned inputs and blinded retrieval logs",
+    "Committed metrics/statpack.md salience-band table",
+    "Local Python artifact validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

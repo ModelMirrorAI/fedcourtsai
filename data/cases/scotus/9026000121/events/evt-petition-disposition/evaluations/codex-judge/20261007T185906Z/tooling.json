@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000121",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "fedcourts paths", "CourtListener search", "CourtListener search_document", "web search/open", "Python decimal", "JSON Schema validation"],
+  "helpful": ["Blinded candidates and harness capture markers", "Versioned reached-band table with rendered-window caption", "Primary-opinion snippets for checking a categorical legal assertion"],
+  "gaps": ["Web calls returned no visible content", "Some candidate tool results are explicitly unobserved", "jsonschema was absent from the default Python environment"],
+  "notes": "All three candidates could be scored from the provisioned outcome and blinded inputs. External retrieval was limited to older general authorities. No remote corpus lookup was needed. Unknown result capture was not treated as proof of empty results."
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000121",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Salience version mismatch on every candidate (codex-baseline, claude-baseline, gemini-baseline): each prediction froze context.band=baseline under context.salience_version=sal-v3, but the committed metrics/statpack.md 'Segment base rate by salience band' table is headed sal-v4. Per the evaluate contract the table is no baseline for a sal-v3 band, so segment_base_rate and brier_skill_score are omitted and base_rate_basis left null on all three evaluations; no terminal relabel was applied. Skill for this cell can be scored only against a sal-v3 band table, which the committed pack no longer renders.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0"
+}
