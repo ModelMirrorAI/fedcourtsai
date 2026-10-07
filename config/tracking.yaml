@@ -453,7 +453,16 @@ spend:
   # non-claimable retrospective cell once the outcome lands, and committed
   # re-forecast and re-grade campaigns drawing on this same ceiling — is in
   # `src/fedcourtsai/spend.py`.
-  ceiling_usd: 2500.0
+  #
+  # The derivation above gives $2,500. The value below is that figure raised
+  # while a long conference's forecast and grading campaign sits inside the
+  # window: the campaign's own cells (~$930 over its three predict days, then
+  # daily grading) hold the trailing sum above $2,500 until they age out, and
+  # a breach would defer the cohort's last gradings and every new forward cell
+  # with it. At this value the backstop still stops a runaway burst but no
+  # longer trips on the sustained-regression band, so it returns to $2,500
+  # once the campaign's spend has left the window.
+  ceiling_usd: 4000.0
   # The window the ceiling applies over, days. Sized to approximate the billing
   # period being protected, not a run (trailing, so it never aligns exactly
   # with a calendar cycle). NOTE the measurement lags: a cell's usage.json
