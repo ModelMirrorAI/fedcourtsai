@@ -40,18 +40,34 @@ diagnostic view, never a results surface.
 
 **No figure pools windows.** A new model under an unchanged `predictor_id` is
 a different forecaster, so an engine's cells on either side of a closed window
-are two series, not one. Each frozen-scope entry names its window as
-`process_window`, and every artifact carries the whole registry in
-`frozen_process.windows`. The boards key on `predictor_id`, so while one
-predictor's in-scope cells come from a single window the entry *is* the
-(predictor, window) figure; the build **refuses** a ledger in which they span
-two rather than average them. A view over several windows is named as the
-record across those labels, lists them, shows each window's `n` beside the
-pooled figure, and is never a rank key; a rise across a window boundary is not
-a measurement of improvement. Engines are compared only over **events**: a
-cross-engine figure is read over events on which every compared engine holds a
-counted cell, each from one named window, and an event split across a closed
-window and its successor belongs to no complete grid.
+are two series, not one. Every frozen-scope figure is keyed on **(predictor,
+window)**: each entry on the leaderboard, its stage blocks and the claim scores,
+each ops score row and each tool-usage segment names its window as
+`process_window`, so a predictor whose counted cells span two windows has an
+entry per window, and every artifact carries the whole registry in
+`frozen_process.windows`. Two reading rules follow. **Two windows of one
+predictor share no event** — a predictor holds one counted forecast per event,
+the earliest window's — so their entries are two forecasters over disjoint
+events: they rank on the board as any two engines do, and no comparison
+between them is read off the ranks; a rise across a window boundary is not a
+measurement of improvement. And a figure keyed on something other than the
+forecaster — the claim scores' judge validation, the board's
+`evaluator_agreement` (it compares graders, and pools the predictors' windows by
+design), the ops calibration block, a tool-usage coefficient row — is the
+**record across labels** wherever its cells come from windows carrying more
+than one label: it lists each (predictor, window) series and its `n` as
+`windows` beside the pooled value, and is never a rank key. Under a single
+label nothing is listed and the artifact reads exactly as it did before any
+successor. Engines are compared only over **events**: a cross-engine figure is
+read over events on which every compared engine holds a counted cell, each
+from one named window, and an event split across a closed window and its
+successor belongs to no complete grid (see `complete_grids` below).
+
+Two readers keep the predictor-keyed shape and so still **refuse** a ledger in
+which one predictor's counted cells span two windows rather than pool them:
+`release-sensitivity`, whose population is `proc-v8` inside `proc-v8`'s window
+by construction, and `semantic-summary`. Their refusal is the floor, not a
+figure.
 
 **One prediction per predictor per event, and re-predicting a live event is a
 registered rule.** A predictor may hold several committed runs on one event —
@@ -634,6 +650,20 @@ stays outside the gate:
   puts each engine's per-petition figures over exactly the grid; anywhere else
   no per-band ordering is read. None of it ranks anything: this is where the
   per-band reading the frozen cohort requires is copied from.
+
+  On a frozen build the grid is also **per window combination**. A complete
+  event names one window per predictor, and it counts only where those windows
+  ran together (overlapped in time); an event whose predictors' counted cells
+  come from a closed window and the successor that closed it is a **split
+  event**, counted per band in `split_events_by_band` and in no grid. Where the
+  complete events fall under more than one combination — one engine's process
+  changed while another's digest carried forward — `complete_grids` lists each
+  combination's windows and per-band count, and `complete_grid_by_band` is
+  their total, each event in exactly one. A per-band comparison then reads its
+  own combination's grid against the entries whose `process_window` match it,
+  never the total. While one combination holds every complete event (today's
+  registry, every window opening at one instant) `complete_grids` is omitted
+  and `complete_grid_by_band` is that combination's grid.
 
   The ranked board is the **cert stage's first declared moment** (see the stage
   axis note below); every other population — a later cert moment included —

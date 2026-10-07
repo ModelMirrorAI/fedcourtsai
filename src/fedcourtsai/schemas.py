@@ -3538,8 +3538,8 @@ class LeaderboardStage(_Strict):
     )
     entries: list[LeaderboardStageEntry] = Field(
         default_factory=list,
-        description="Per-predictor aggregates, ordered by predictor_id — an "
-        "ordering, not a ranking",
+        description="Per-predictor aggregates — per (predictor, counting window) on a frozen "
+        "build — ordered by predictor_id then the window's opening: an ordering, not a ranking",
     )
 
     complete_grid_by_band: dict[str, int] = Field(
@@ -3828,8 +3828,10 @@ class Leaderboard(_Strict):
     )
     predictors_ranked: int = Field(
         ge=0,
-        description="Number of predictors on the cert board (a procedural-only "
-        "predictor still appears, sorted after every ranked one)",
+        description="Number of entries on the cert board — one per predictor, or on a frozen "
+        "build one per (predictor, counting window), so a predictor whose counted cells span "
+        "two windows counts twice (a procedural-only predictor still appears, sorted after "
+        "every ranked one)",
     )
     evaluations_total: int = Field(
         ge=0,
@@ -3899,7 +3901,9 @@ class Leaderboard(_Strict):
     entries: list[LeaderboardEntry] = Field(
         default_factory=list,
         description="The ranked cert-stage board — one entry per predictor with a "
-        "cert-stage evaluation",
+        "cert-stage evaluation, and on a frozen build per (predictor, counting window): two "
+        "windows of one predictor are two entries over disjoint events, ranked as two "
+        "forecasters are and never compared with each other off the ranks",
     )
     complete_grid_by_band: dict[str, int] = Field(
         default_factory=dict,
@@ -4239,8 +4243,9 @@ class ClaimScoreBoard(_Strict):
     )
     entries: list[ClaimScoreEntry] = Field(
         default_factory=list,
-        description="One entry per predictor with at least one block-carrying "
-        "cell, ordered by predictor_id — never ranked",
+        description="One entry per predictor — per (predictor, counting window) on a frozen "
+        "build — with at least one block-carrying cell, ordered by predictor_id then the "
+        "window's opening — never ranked",
     )
 
 

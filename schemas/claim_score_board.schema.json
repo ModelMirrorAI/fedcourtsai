@@ -497,7 +497,7 @@
       "type": "integer"
     },
     "entries": {
-      "description": "One entry per predictor with at least one block-carrying cell, ordered by predictor_id \u2014 never ranked",
+      "description": "One entry per predictor \u2014 per (predictor, counting window) on a frozen build \u2014 with at least one block-carrying cell, ordered by predictor_id then the window's opening \u2014 never ranked",
       "items": {
         "$ref": "#/$defs/ClaimScoreEntry"
       },

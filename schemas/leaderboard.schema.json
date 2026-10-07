@@ -369,7 +369,7 @@
           "type": "array"
         },
         "entries": {
-          "description": "Per-predictor aggregates, ordered by predictor_id \u2014 an ordering, not a ranking",
+          "description": "Per-predictor aggregates \u2014 per (predictor, counting window) on a frozen build \u2014 ordered by predictor_id then the window's opening: an ordering, not a ranking",
           "items": {
             "$ref": "#/$defs/LeaderboardStageEntry"
           },
@@ -878,7 +878,7 @@
       "type": "array"
     },
     "entries": {
-      "description": "The ranked cert-stage board \u2014 one entry per predictor with a cert-stage evaluation",
+      "description": "The ranked cert-stage board \u2014 one entry per predictor with a cert-stage evaluation, and on a frozen build per (predictor, counting window): two windows of one predictor are two entries over disjoint events, ranked as two forecasters are and never compared with each other off the ranks",
       "items": {
         "$ref": "#/$defs/LeaderboardEntry"
       },
@@ -950,7 +950,7 @@
       "description": "The leakage exclusion applied to this build and the count of cells it dropped (`integrity.leakage_excluded`) \u2014 an independent rule from `forward_claim` beside it, so a cell caught by both is counted in both and the two counts must never be summed into an exclusion total; null on a board built before the record existed, or one constructed without it"
     },
     "predictors_ranked": {
-      "description": "Number of predictors on the cert board (a procedural-only predictor still appears, sorted after every ranked one)",
+      "description": "Number of entries on the cert board \u2014 one per predictor, or on a frozen build one per (predictor, counting window), so a predictor whose counted cells span two windows counts twice (a procedural-only predictor still appears, sorted after every ranked one)",
       "minimum": 0,
       "title": "Predictors Ranked",
       "type": "integer"
