@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000080",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Docket date oddity on the upstream record, no effect on scoring: the snapshot's first proceedings entry (petition filed) is dated Mar 23 2026 while DocketedDate is July 17, 2026 and the petition itself is signed June 2026; the event's opened_at follows the docketed date. Noted by one candidate as well. Recorded so a maintainer can see it if the entry-date vs docketed-date gap matters to any date-keyed cut."
+    }
+  ]
+}

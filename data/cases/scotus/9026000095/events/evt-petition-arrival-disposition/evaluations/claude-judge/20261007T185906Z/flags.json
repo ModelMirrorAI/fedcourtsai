@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000095",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Salience-version mismatch: all three candidates (gemini-baseline, codex-baseline, claude-baseline) froze band=baseline under salience_version=sal-v3, but the committed metrics/statpack.md renders its 'Segment base rate by salience band' table under sal-v4. Per the evaluate prompt, segment_base_rate and brier_skill_score were omitted and base_rate_basis left null on every candidate; no cell was relabelled terminal. Note for the maintainer: metrics/statpack.json carries sal-v3 alt_segments for every Term OT2017-OT2025 and the baseline band's risk-set figures are identical under sal-v3 and sal-v4 (pooled reached rate 5.02%, n=12,720), so the harness's version-pinned pool can resolve what the rendered-table rule cannot. The candidates' quoted anchor (6.55%, n~13,163) came from the table as rendered on 2026-08-16; the current pack pools to 5.02%, a vintage difference, not an arithmetic error.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Arrival-moment cell provisioned from a snapshot dated 2026-08-16, 26 days after docketing (2026-07-21). The snapshot already carried the linked stay application 26A145 (filed Jul 24, denied by Justice Kagan Aug 3, refiled Aug 6) and an Aug 11 supplemental brief; two candidates used the single-Justice stay denial as a negative signal and one explicitly set it aside. This is legitimate forward information, not leakage (distribution_count was still 0), but it is a docket-acquired signal inside a cell defined as 'before any docket-acquired signal exists'. Separately, the docket's petition entry is dated Dec 30 2025 while DocketedDate is July 21, 2026 and the PDF path is dated 2026-07-24; one candidate noted the inconsistency.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0"
+}

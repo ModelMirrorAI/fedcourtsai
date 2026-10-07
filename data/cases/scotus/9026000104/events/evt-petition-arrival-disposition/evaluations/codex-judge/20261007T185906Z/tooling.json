@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000104",
+  "gaps": [
+    "No compatible sal-v3 baseline table in the committed statpack",
+    "Unobserved gemini-baseline retrieval results; codex-baseline's reported MCP search is not separately visible in its staged log"
+  ],
+  "helpful": [
+    "Blinded prediction and prose artifacts",
+    "Per-call result-capture markers",
+    "Explicit statpack salience-version heading",
+    "Provisioned outcome and resolved snapshot"
+  ],
+  "notes": "Scored all three aliases without external retrieval. The sal-v3 versus sal-v4 mismatch prevents baseline and skill scoring for every candidate. Individual JSON artifacts are validated without running the full-tree check while predictions remain blinded.",
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "Python jsonschema",
+    "Pydantic artifact models"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

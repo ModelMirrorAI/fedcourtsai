@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "A pro se petition from an unpublished Arizona Court of Appeals memorandum decision affirming a divorce decree, raising three fact-bound procedural due process grievances (waiver on a subsection miscitation, a notice defect called harmless, a missing-record presumption). No conflict alleged, no amicus, no response called for, denied on the long-conference order list without a noted dissent. Stakes are confined to the two former spouses."
+  },
+  "brier_score": 3.6e-05,
+  "brier_skill_score": 0.985690140623618,
+  "case_id": "scotus/9026000066",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05015723270440252,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.006,
+        "score": 0.0024797479925635856
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024797479925635856,
+    "total": 0.0024797479925635856
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:03:20Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-10-04, event resolved 2026-10-05. Beyond provisioned reads and the statpack, three web-search class calls (a generic Rule 10 query and two fetches of the Supreme Court's rules-guidance page), all unobserved, so graded on their queries: none names this case, docket, or party. No corpus query and no CourtListener call. reasoning.md states no outcome was known and treats the passed conference as silence rather than a signal. No outcome material about this case was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261004T201824Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:05:04.070395Z"
+  },
+  "reasoning_quality": 0.84,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05015723270440252,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

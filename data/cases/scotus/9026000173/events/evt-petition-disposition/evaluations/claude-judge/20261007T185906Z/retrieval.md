@@ -1,0 +1,3 @@
+No retrieval beyond the provisioned inputs.
+
+Consulted only committed, non-retrieval surfaces: `metrics/statpack.md` ("Segment base rate by salience band (sal-v4)" table, pooled OT2017–OT2025 for `elevated`, bracketed `reached` figures) and the matching `metrics/statpack.json` segments as a rounding cross-check; `schemas/evaluation.schema.json`, `schemas/agent_flags.schema.json`, `schemas/agent_tooling.schema.json`; and the scoring definitions in `src/fedcourtsai/pipeline/evaluate.py` and `src/fedcourtsai/pipeline/base_rates.py`. No `fedcourts query` or `open-events` call, no CourtListener MCP call, no web search. Nothing under `data/qp-topics/` was read.

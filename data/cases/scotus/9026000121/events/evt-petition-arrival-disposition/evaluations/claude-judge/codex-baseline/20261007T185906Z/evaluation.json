@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": {
+    "evaluator_score": 0.05,
+    "notes": "Private Maryland consumer-fraud and statutory attorney-fee dispute. The due-process hook (a recalled senior judge allegedly ineligible to sit while practicing law) is novel in framing but rests on a contested factual predicate the Appellate Court of Maryland found unproven, reaches the Court through an unreported intermediate opinion and a procedural dismissal by the Supreme Court of Maryland, alleges no split, and QP2 is pure state law. Respondents waived, one distribution, silent denial, no amici. Stakes confined to the parties."
+  },
+  "brier_score": 3.6e-05,
+  "brier_skill_score": null,
+  "case_id": "scotus/9026000121",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05015723270440252,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.006,
+        "score": 0.0024797479925635856
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.985,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024797479925635856,
+    "total": 0.0024797479925635856
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:09:26Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode=forward, 17 calls, all captured). Every call is a shell read of the provisioned record, the prompt, the schema, or the committed statpack; one call collapsed to `other` carries only harness-redacted text. No web search, no CourtListener call, no corpus query, no read under data/qp-topics/. No retrieved_doc_date on any call. The prediction (created 2026-08-16) predates the 2026-09-09 distribution and the 2026-10-05 denial, and the reasoning reads nothing off this case beyond the arrival-time docket and the petition. No sign of a decided case provisioned forward.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:12:29.195836Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": null,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

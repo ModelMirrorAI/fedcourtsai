@@ -1,0 +1,13 @@
+{
+  "case_id": "scotus/9026000066",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "Salience version mismatch: predictions' frozen context uses 'sal-v3', but statpack provides base rates for 'sal-v4'. Left base_rate_basis null and omitted segment_base_rate and brier_skill_score per instructions."
+    }
+  ]
+}

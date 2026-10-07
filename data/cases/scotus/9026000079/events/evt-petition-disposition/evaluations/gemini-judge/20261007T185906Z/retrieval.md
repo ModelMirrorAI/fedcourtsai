@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs, other than using standard command-line tools to process the statpack for rate calculations.

@@ -1,0 +1,3 @@
+No retrieval beyond the provisioned inputs.
+
+Local inputs consulted: the event and outcome; all three blinded predictions, rationales, forecast documents, retrieval notes, and captured logs; the provisioned questions presented and selected petition passages; snapshot key names; and the committed statpack segment table. The statpack was used to check baseline compatibility, not to substitute a differently versioned rate. Task instructions, schemas, and local path/serialization helpers were read for output construction and validation. No corpus query, CourtListener lookup, web search, or external opinion retrieval was performed.

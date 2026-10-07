@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000080",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "Salience version mismatch: predictors evaluated on 'sal-v3', but statpack.md only has base rates for 'sal-v4'. Base rates and skill scores were omitted.",
+      "event_id": "evt-petition-arrival-disposition"
+    }
+  ]
+}

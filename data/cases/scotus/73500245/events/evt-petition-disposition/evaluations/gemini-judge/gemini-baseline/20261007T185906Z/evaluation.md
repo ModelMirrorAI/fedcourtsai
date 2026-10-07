@@ -1,0 +1,1 @@
+The predictor correctly forecasted a denial, giving it a 0.2% probability. It correctly referenced the `baseline` salience band. The reasoning was brief but accurate, noting the waived response and the fact-bound nature of the state bar disciplinary challenge. The analysis supports the prediction well, though it is slightly less detailed than the others.

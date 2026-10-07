@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000183",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the blinded staging area and record",
+    "metrics/statpack.md and statpack.json",
+    "python for pooling and schema validation"
+  ],
+  "helpful": [
+    "exact per-Term risk-set fields in statpack.json (lets the evaluator pool the rate exactly rather than from rounded percentages)",
+    "retrieval_log.json result_capture markers and retrieved_doc_date",
+    "context.json / event.yaml stage and mode fields"
+  ],
+  "gaps": [
+    "a harness-rendered pooled prior-Term band rate per (band, version, Term) would remove the evaluator's hand arithmetic entirely",
+    "the blinded prediction.json carries big_case_score, so the 'form your read before seeing theirs' instruction cannot be honoured structurally; staging that field separately would restore the independence"
+  ],
+  "notes": "Cert forward cell; no corpus lookups were needed. Candidate retrieval logs with coverage 0.0 force query-only grading, which was adequate here since the queries were all local file reads."
+}

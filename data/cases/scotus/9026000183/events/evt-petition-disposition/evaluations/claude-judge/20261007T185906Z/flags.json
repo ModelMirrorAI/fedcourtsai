@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000183",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-cell timing relative to the conference order lists: all three candidates ran on 2026-10-04, after the 2026-10-01 grant list from the 2026-09-28 conference had issued and one day before the 2026-10-05 denial. A petition absent from the grant list is, at that point, almost certainly a denial or a relist, so a forward cell placed in that window carries a strong legitimate signal about its own disposition that the band baseline does not condition on. claude-baseline disclosed seeing other 2026-10-01 grants in a corpus query and did not look for this case; none of the three used the signal. Not leakage under the mode rules, but worth weighing in how forward distribution-moment cells are scheduled against the Court's order-list calendar.",
+      "severity": "info"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "The blinded prediction.json stages big_case_score and big_case_rationale alongside the fields the evaluator must read first, so the instruction to form the big_case read before seeing the predictor's cannot be honoured structurally. My read (0.42) was formed from the record and outcome and I did not use the predictors' values, but the independence is procedural rather than enforced.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0"
+}

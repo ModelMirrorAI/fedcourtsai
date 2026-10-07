@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.42,
+    "notes": "Rule 23 commonality/predominance for a Title VII religious-accommodation class of roughly a thousand United employees who refused a COVID-19 vaccine mandate, with the Fifth Circuit's novel three-stage 'class rostering' plan as the concrete target; former Solicitor General as counsel and two trade-association amici. A grant would have reached class-action practice broadly and the setting is newsworthy, but the question is procedural and interlocutory, the Court denied after one conference, and only one Justice noted a would-grant with no written dissent. Mid-range stakes, below the top tier. Formed from the record and outcome; the predictors' big_case_score fields were visible inside prediction.json when I read it, which I note but did not use."
+  },
+  "brier_score": 0.0121,
+  "brier_skill_score": -3.8015,
+  "case_id": "scotus/9026000183",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05015723270440252,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.11,
+        "score": -0.009584252007436414
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 1,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.009584252007436414,
+    "total": -0.009584252007436414
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:17:35Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode=forward); prediction created 2026-10-04T20:25Z, the denial issued 2026-10-05. Log: 31 calls, every result marker `unobserved` (coverage 0.0, the engine's standing shape), so each call is graded on its query: reads of the prompt, context, event, documents manifest, snapshot 2026-10-04, questions presented, statpack and schema; one corpus `query` for Rule 23 priors with `--decided-before 2026`, which the candidate's retrieval.md says failed on an argument error; no web search, no CourtListener call, no docket-caption or disposition query, no `data/qp-topics/` read. Reasoning reads only pre-conference facts. No outcome material retrieved; nothing to suggest a decided case was provisioned forward.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261004T201824Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:18:13.942240Z"
+  },
+  "reasoning_quality": 0.48,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0502,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

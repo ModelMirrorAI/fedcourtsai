@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": null,
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9991251705412212,
+  "case_id": "scotus/9026000173",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.16888168557536468,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.028496023722776338
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.028496023722776338,
+    "total": 0.028496023722776338
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:31:03Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 22 logged calls have captured results and date to September 18, 2026, before the October 5 cert denial. Queries concern provisioned documents, aggregate context, corpus priors and the lower-court case. The corpus query's recorded document date is September 10, not a post-disposition date. The reasoning identifies June 8 as denial of the veteran-status motion, not certiorari, and continues to describe cert as pending. No evidence that this petition's disposition was retrieved or that a decided case was provisioned forward appears.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:35:03.540928Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.16904732576985412,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

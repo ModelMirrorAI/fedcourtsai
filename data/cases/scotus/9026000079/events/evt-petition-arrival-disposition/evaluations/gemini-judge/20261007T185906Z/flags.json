@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000079",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "Salience version mismatch: the predictions used sal-v3, but the metrics/statpack.md table is for sal-v4. segment_base_rate omitted."
+    }
+  ]
+}

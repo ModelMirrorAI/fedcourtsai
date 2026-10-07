@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000449",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "gemini-baseline, codex-baseline, and claude-baseline all report a blank 44-page application extraction at prediction time. The evaluator's current document manifest marks it empty_text=false and ocr_derived=true, and the current application.txt is 50,786 bytes. The candidate-time document version is not staged, so the current OCR availability cannot verify what each candidate could read. Evaluations honor the disclosed earlier text gap and do not penalize it or use the current body to reconstruct the candidates' evidence. This is an input-provenance limitation, not evidence of leakage or an evaluation blocker.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0"
+}
