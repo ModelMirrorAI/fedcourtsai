@@ -1,0 +1,21 @@
+# Evaluation: codex-baseline
+
+## Outcome and quantitative score
+
+The cert-stage outcome records `denied` on October 5, 2026 and `actual_granted = 0`. codex-baseline predicted `denied` with P(any grant) = 0.005. Correctness is **1**, and Brier loss is **0.000025**. The unexplained denial does not confirm the predictor's account of the Court's internal reasons.
+
+The prediction's frozen context supplies `baseline`, `sal-v4`, and Term 2025; the committed Markdown statpack uses the same salience version. I pool its bracketed **reached** baseline figures for every displayed Term strictly before 2025: 2017: 4.7%/1643; 2018: 4.6%/1524; 2019: 4.6%/1399; 2020: 4.5%/1739; 2021: 5.6%/1500; 2022: 5.8%/1192; 2023: 5.9%/1312; 2024: 5.7%/1271. Denominator **11,580** gives **0.05120250431778929**, on the `risk_set` basis, and skill **0.9904641896985705**. The table renders all ten pack Terms; 2025 and 2026 are excluded, not silently pooled. Rates describe denial-reweighted paid-segment estimates in the committed pack, not freshly queried corpus state. Pooling the displayed rounded percentages explains the small difference from codex-baseline's reported exact-JSON rate of 593/11,580; this is not an analytical error in the prediction. I did not independently retrieve that JSON companion. No aggregate performance inference follows from one correct denial.
+
+## Reasoning quality: 0.93
+
+The analysis is unusually well grounded in the petition rather than just the low unconditional grant rate. It identifies the expressly interlocutory posture, distinguishes a state appellate refusal from completion of the underlying prosecution, and treats finality as a serious obstacle while acknowledging possible exceptions. The petition's opening page and its reproduced appellate orders support that characterization. The rationale separates the individualized factual dispute from the constitutional notice theory, addresses the missing developed conflict, and explains why the capable-of-repetition argument does not itself establish a need for immediate review. It treats the petition's proposed THC conversion as advocacy rather than verified science.
+
+Calibration discipline is also strong: it selects the frozen risk set, excludes the case's own Term from its anchor, includes GVRs in the headline binary, and expressly avoids treating terminal relist frequencies as transition probabilities. It distinguishes a missing opposition entry from a verified absence of a response and recognizes snapshot-vintage limitations. Its treatment of general authority is supported by the destinations in the staged retrieval transcript; I have not independently re-retrieved those authorities.
+
+The principal limitation is the magnitude of the reduction to 0.5%, which remains judgmental rather than empirically calibrated. The unavailable appendix and opposition also leave some vehicle issues unresolved. The candidate expressly acknowledges those limits, so the deduction is modest. The grade reflects the soundness and evidentiary care of `reasoning.md`, not its length, the eventual correct label, or its forecast-document predictions.
+
+## Leakage and scope
+
+This is a forward prediction from September 16, before the October 5 resolution. The log has 32 calls and result-capture coverage 0.90625. Three web calls are `unobserved`: their visible queries concern Rule 10 and rules pages, not this case's disposition. The candidate's statement that they returned nothing usable is a self-report, not a substitute for captured results. Other logged research concerns general finality, the historical Cox decision, and Rule 10. Reads of local petition materials and statpack calculations do not reveal a later SCOTUS outcome. References excluding the forbidden labeling directory in an instruction-file search are not reads of its contents. No target-outcome retrieval or already-decided reasoning is shown. Assessment: `retrieved_outcome_material = false`, influence `not_applicable`, and `leakage_suspected = false`.
+
+The forecast document was read only as context; it and the mechanical claims block are not graded here. No cert vote accuracy or semantic-grades block is written. Harness-owned fields and the optional independent big-case assessment are omitted.

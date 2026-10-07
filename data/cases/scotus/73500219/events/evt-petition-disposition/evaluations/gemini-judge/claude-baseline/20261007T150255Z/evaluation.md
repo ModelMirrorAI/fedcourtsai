@@ -1,0 +1,3 @@
+# Evaluation
+
+Candidate B correctly predicted a denial. The candidate carefully identified the government's waiver of a response as the most critical signal of an upcoming denial. The candidate's calculation of the `baseline` band rate was accurate. The candidate discounted the base rate slightly by acknowledging the waiver, the fact-bound posture, and the private petitioner. The reasoning quality was very high.

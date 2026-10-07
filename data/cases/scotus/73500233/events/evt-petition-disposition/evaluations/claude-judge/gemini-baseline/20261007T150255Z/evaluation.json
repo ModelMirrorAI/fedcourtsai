@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "Paid petition by a single Wisconsin arson defendant challenging admission of pending-charge other-acts evidence; unpublished per curiam below, state supreme court denied review without opinion, no split alleged, respondent waived, no amici, denied after one distribution with no writing. Low stakes beyond the parties."
+  },
+  "brier_score": 1.6e-05,
+  "brier_skill_score": 0.9939,
+  "case_id": "scotus/73500233",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.004,
+        "score": 0.002606359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002606359735235249,
+    "total": 0.002606359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:16:34Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-17 off the 2026-09-17 snapshot; the petition was denied 2026-10-05. Log (24 calls, mode forward, capture 0.0 \u2014 every row unobserved, an engine's standing shape): file reads of the provisioned record, statpack, prompt and schemas; two shell rows running fedcourts query with --disposition granted and a topical phrase about other-acts evidence, graded on their queries since results were never seen: they seek prior granted cases, not this docket or its disposition. No retrieved_doc_date on any row. The candidate's retrieval.md says no retrieval beyond the provisioned inputs, which understates the two query attempts but discloses nothing outcome-related because none was sought.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T181231Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:17:00.540269Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

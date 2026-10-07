@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500237",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md states no retrieval beyond provisioned inputs, but its harness-captured call list records a corpus query for waiver/Solicitor General material. That call's result_capture and result_status are unobserved: whether it succeeded, what it returned, and its transfer volume cannot be established. The attempted lookup should be disclosed; this reporting discrepancy is not evidence of outcome leakage. Details appear in gemini-baseline's evaluation.md.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

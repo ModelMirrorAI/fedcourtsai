@@ -1,0 +1,3 @@
+Candidate A correctly predicted a denial. Their reasoning is sound: they used the statpack to find the correct `risk_set` base rate for the `baseline` band across strictly-prior terms (0.0512), and adjusted slightly down because the vehicle was weak, while noting the Call for Response provided a slight upward tug. 
+
+They retrieved the BIOs legitimately in forward mode and found no outcome data. The reasoning was solid, earning a quality score of 0.85.

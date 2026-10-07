@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500229",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's reasoning says documents.json confirmed petition, BIOs, and QPs and that these were reviewed. The provisioned manifest lists only petition and QP text fetched July 18, before the August 24 BIOs. Its blinded log contains petition reads and general research but no identifiable BIO retrieval. The manifest attribution is unsupported and claimed BIO review is uncorroborated. All results are unobserved, so this is not proof of what general searches returned and not an outcome-leakage finding. See gemini-baseline's evaluation.md.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

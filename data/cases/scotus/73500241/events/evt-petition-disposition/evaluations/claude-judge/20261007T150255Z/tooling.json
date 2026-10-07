@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500241",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "fedcourtsai.pipeline.base_rates.prediction_base_rate (local, offline)"
+  ],
+  "helpful": [
+    "The blinded staging with retrieval_log.json per candidate, including result_capture markers, made the forward-mode leakage check mechanical.",
+    "Running the in-code risk-set pooler against the frozen context confirmed the hand-pooled statpack figure to four decimals."
+  ],
+  "gaps": [
+    "A rendered per-call summary of each retrieval log (class, query slice, date, capture marker) would save re-deriving it with a script on every cell.",
+    "The statpack table prints rounded percentages, so a hand pool and the in-code pool differ in the fifth decimal; printing the pooled baseline figure per band in the pack would remove the step."
+  ],
+  "notes": "Cert cell, three forward candidates, all denied-correct. No corpus query, CourtListener, or web retrieval was needed."
+}

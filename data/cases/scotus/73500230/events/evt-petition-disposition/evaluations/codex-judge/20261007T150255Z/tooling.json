@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500230",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "Python decimal arithmetic", "apply_patch", "JSON Schema validation"],
+  "helpful": ["Blinded candidate records", "Harness retrieval capture markers", "Versioned per-Term reached-rate table", "Provisioned outcome and dated docket snapshot"],
+  "gaps": ["Unobserved candidate retrieval results cannot be independently inspected", "Rounded statpack percentages limit baseline precision"],
+  "notes": "Used only staged case inputs, committed schemas and instructions, and the committed statpack. No web, CourtListener, or corpus retrieval. System Python provides jsonschema; the repository virtual environment does not. No independent big-case assessment was formed before viewing candidate scores, so that optional field is omitted."
+}

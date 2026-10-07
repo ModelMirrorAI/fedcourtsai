@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500233",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "local file reads", "Python arithmetic", "JSON Schema validation", "Pydantic validation"],
+  "helpful": ["Blinded candidates and frozen contexts", "Harness retrieval logs with capture markers", "Versioned statpack reached rates"],
+  "gaps": ["Unobserved candidate retrieval results limit independent verification of returned content"],
+  "notes": "Evaluation used only staged records, committed instructions/schemas and the committed statpack. No external case lookup or corpus query was needed. Whole-tree validation is deferred to the harness's restore and un-alias steps."
+}

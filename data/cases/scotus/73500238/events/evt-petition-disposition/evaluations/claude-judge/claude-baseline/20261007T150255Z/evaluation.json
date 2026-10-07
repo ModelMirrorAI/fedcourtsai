@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "Independent read, formed before weighing the candidates' scores. Public stakes are high by name recognition: the Theranos prosecution of Ramesh Balwani is among the most-covered white-collar cases of the decade. Doctrinal stakes are mid-sized and procedural: plain-error review of an unpreserved Napue claim the prosecution exploited in closing, and whether an appellate court may excuse absent Rule 702 gatekeeping on credentials alone. Either would reach every federal criminal trial if decided, but neither is a landmark. The Court denied at the first conference with the government's waiver undisturbed, no call for a response, and no separate writing (Justice Thomas took no part), which confirms low institutional salience. Mid-scale: 0.40."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.8474656262,
+  "case_id": "scotus/73500238",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.0022223597352352487
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.13,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0022223597352352487,
+    "total": 0.0022223597352352487
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:16:22Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction dated 2026-09-17, resolution 2026-10-05. Log: 36 calls, capture coverage 1.0. Four fedcourts query calls over 2020s granted/denied priors (latest retrieved_doc_date 2025-02-11); CourtListener searches for a Holmes companion petition (0 results) and for the Ninth Circuit's amended opinion in United States v. Holmes (cluster 10763137, dated 2025-12-22), then four search_document calls within it. Latest retrieved document date 2025-12-22, well before the 2026-10-05 denial. No query names this petition's disposition, no data/qp-topics read. Candidate discloses that nothing retrieved touched the disposition. Decided-case-forward check passes.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T181231Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:18:06.589636Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120898100172712,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

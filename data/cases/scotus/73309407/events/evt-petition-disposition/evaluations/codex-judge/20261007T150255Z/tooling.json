@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73309407",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate artifacts and capture-coverage markers",
+    "Versioned risk-set table in the committed statpack",
+    "Provisioned petition text and authoritative outcome"
+  ],
+  "notes": "All grading uses provisioned artifacts and the committed Markdown statpack. No web, CourtListener, or corpus retrieval was performed. Candidate retrieval descriptions were audited against the staged transcripts, not re-executed. The project interpreter lacks jsonschema, but the system interpreter provides it for direct schema checks.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "Python decimal arithmetic",
+    "apply_patch",
+    "JSON Schema validation",
+    "Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

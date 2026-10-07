@@ -1,0 +1,23 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73500242",
+  "gaps": [
+    "A rendered per-Term dissent-from-denial or statement-respecting-denial rate for the paid scored segment would let an evaluator check a candidate's dissent-from-denial number against something other than judgment."
+  ],
+  "helpful": [
+    "metrics/statpack.md sal-v4 band table and metrics/statpack.json (unrounded prefix rates for the pooled baseline)",
+    "record/blinded/<alias>/retrieval_log.json with result_capture markers",
+    "the appended Fifth Circuit opinion inside record/documents/petition.txt, which let me check each candidate's account of the holding"
+  ],
+  "notes": "Cert cell, forward mode for all three candidates, outcome denied without noted dissent. No corpus or CourtListener lookup was needed: the provisioned record and the committed statpack answered every question the grade raised.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "file-read",
+    "python3"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

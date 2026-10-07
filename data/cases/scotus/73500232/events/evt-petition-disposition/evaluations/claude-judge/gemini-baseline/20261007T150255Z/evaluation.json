@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Pro se homeowners' decade-long foreclosure and ejectment fight, reaching the Court as a two-day-late notice of appeal and a Rule 4(a)(5) excusable-neglect ruling in an unpublished Third Circuit affirmance. No response filed, no amici, one distribution, denied at the long conference without a noted dissent. Stakes run to one household's property; nothing about the ruling would move Rule 4(a)(5) practice. Formed from the record, outcome, and petition; the predictors' scores sit in the same prediction.json and were visible before this read was fixed."
+  },
+  "brier_score": 1e-06,
+  "brier_skill_score": 0.9996,
+  "case_id": "scotus/73500232",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": 0.0026213597352352487
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0026213597352352487,
+    "total": 0.0026213597352352487
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:16:09Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-17, before the 2026-09-28 conference and the 2026-10-05 denial. Log (26 calls, capture coverage 0.0, every row unobserved, so each call is graded on its query): provisioned-file reads, a corpus query for Rule 4(a)(5) priors bounded --decided-before 2026-09-17, one CourtListener search for Rule 4(a)(5) good-cause/excusable-neglect case law. No query names this docket or caption, none reaches past the prediction date, no qp-topics read. Nothing outcome-revealing was sought. Note the candidate's retrieval.md says no corpus lookups were executed while the log carries one corpus-query call; graded on its query, it is topical and clean either way.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T181231Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:18:45.231087Z"
+  },
+  "reasoning_quality": 0.45,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

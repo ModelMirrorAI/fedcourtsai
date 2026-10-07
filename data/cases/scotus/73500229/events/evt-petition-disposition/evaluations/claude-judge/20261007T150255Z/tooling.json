@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500229",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the blinded staging area",
+    "metrics/statpack.md",
+    "python3 for the pooled rate, Brier and skill arithmetic and schema validation"
+  ],
+  "helpful": [
+    "the staged retrieval_log.json with result_capture markers, which let the forward-mode check be done from the log rather than the candidates' word",
+    "the frozen context block on each prediction, which pinned the band and salience version without re-deriving them",
+    "the statpack table caption stating it renders all 10 of 10 Terms, which settled the pooling window"
+  ],
+  "gaps": [
+    "a committed pooled 'reached' figure per band and prior-Term window would remove the rounded-percentage arithmetic every grader repeats",
+    "the decided-docket snapshot staged for the evaluator is the only snapshot present; the predictions' own 2026-09-17 snapshot is not staged, so a claim about what the predictors were given is checked against their prose rather than the file"
+  ],
+  "notes": "Cert cell, all three candidates forward mode. Statpack read for the sal-v4 band table only; no corpus query was needed because no new case fact was at issue."
+}

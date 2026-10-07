@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500231",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "record/documents/questions-presented.txt ends mid-sentence inside question 7 ('...if I allege discrimination pursuant to 5 U.S.') and carries no question 8, while its documents.json manifest entry records truncated=false and pages=0. The full petition.txt carries all eight questions, so predictors could recover them (one candidate reports doing so), but the extract's manifest overstates its completeness. Not a scoring problem for this cell."
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500231",
+  "gaps": [
+    "The questions-presented extract ends mid-question despite its manifest declaring truncated=false"
+  ],
+  "helpful": [
+    "Blinded candidates and captured retrieval logs",
+    "Versioned reached-band table with explicit denominators",
+    "Full petition text to check the incomplete questions extract"
+  ],
+  "notes": "No external retrieval was needed. Result-capture markers distinguish unobserved output from captured throttling; gemini-baseline's 0.0 coverage limits visibility without itself supporting leakage. Baseline pooling uses the committed rendered table, not a live corpus query.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local artifact reads",
+    "jq",
+    "Python arithmetic and schema validation",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

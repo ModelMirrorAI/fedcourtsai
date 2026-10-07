@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500231",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md",
+    "fedcourtsai.pipeline.base_rates.prediction_base_rate (executed check of the pooled band rate)",
+    "shell (python3, sed, grep)"
+  ],
+  "helpful": [
+    "The sal-v4 band table with its bracketed reached figures and per-Term n, which made the risk-set pooling mechanical",
+    "Running the in-code pooler against the committed statpack.json confirmed the hand-pooled rate in one step",
+    "The staged retrieval_log.json with result_capture markers and retrieved_doc_date, which made the forward leakage check concrete per call"
+  ],
+  "gaps": [
+    "The staged prediction.json exposes big_case_score before the evaluator can form its own stakes read; staging that field separately would make the independence the prompt asks for structural",
+    "`fedcourts paths --role evaluator` printed only case-level paths without the evaluator and run ids, so the output layout was taken from the prompt rather than resolved by the tool"
+  ],
+  "notes": "Cert cell with three forward candidates; everything needed was in the provisioned record, the statpack, and the logs."
+}

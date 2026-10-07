@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73500242",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The as-stored snapshot (2026-10-05.json, and per the candidates the 2026-09-17 snapshot too) dates the 'Petition for a writ of certiorari filed' proceeding Apr 13 2026, the same date as the extension application, while the linked PDF is stamped 2026-05-26 and the docket's DocketedDate is June 1, 2026. The event's opened_at (2026-06-01) is unaffected, but any filing-to-decision latency read off the proceedings list would be six weeks too long. No action taken; noted for whoever maintains the proceedings parser.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

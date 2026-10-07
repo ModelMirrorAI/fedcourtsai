@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500223",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "python", "apply_patch", "jsonschema"],
+  "helpful": [
+    "Blinded candidate directories preserve identity-independent grading.",
+    "Frozen prediction contexts and the versioned statpack distinguish risk-set from terminal baselines.",
+    "Per-call result-capture markers distinguish unobserved telemetry from failed retrieval."
+  ],
+  "gaps": [
+    "One candidate's result contents are entirely unobserved; leakage assessment is limited to query scope and prose.",
+    "Rounded rendered base-rate percentages limit baseline precision."
+  ],
+  "notes": "Used only staged cell evidence and committed contracts/statpack. No external legal retrieval or live corpus query was needed. Full-tree validation is reserved for the harness after restoration and un-aliasing; local checks validate the written JSON schemas and score arithmetic."
+}

@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.05,
+    "notes": "Judge's own read, formed from the record before weighing the candidates' scores: a pro se participant's ERISA benefits dispute over the reading of 'may be reduced' in one North Carolina QDRO and the cost of a survivor annuity under one plan. The Chenery/ERISA 503 framing is the petitioner's; the published Fourth Circuit opinion decided a state-law contract question. One distribution, respondent waived, denied on the first order list after the long conference with no call for a response and no separate writing. Stakes confined to the parties."
+  },
+  "brier_score": 0.000144,
+  "brier_skill_score": 0.945088,
+  "case_id": "scotus/73500263",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": 0.002478359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.22,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002478359735235249,
+    "total": 0.002478359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:23:19Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode=forward; result_capture_coverage 0.95). External calls: one CourtListener opinion search bounded to ca4, docket 24-1959, filed_before 2025-12-09 (returned only the Dec 8 2025 opinion below), chunked reads and two in-document searches of that opinion, and two unobserved web calls whose queries are Supreme Court Rule 10 text and the Court's rules PDF, not this case; the candidate reports both returned nothing. No retrieved_doc_date on or after 2026-10-05, no query for this petition's own disposition. One shell call names data/qp-topics/ only as a -not -path exclusion in a find for AGENTS.md; nothing under it was opened and the output could not reveal membership, so I do not read it as a read. Reasoning states it did not know the outcome and read the outcome off nothing.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:24:47.507558Z"
+  },
+  "reasoning_quality": 0.84,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051209,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

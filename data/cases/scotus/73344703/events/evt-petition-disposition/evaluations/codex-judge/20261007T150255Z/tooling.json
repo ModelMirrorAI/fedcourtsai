@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73344703",
+  "gaps": [
+    "Unobserved call results prevent checking whether gemini-baseline's corpus-query attempts returned anything"
+  ],
+  "helpful": [
+    "Blinded candidate documents and harness-captured retrieval logs",
+    "Versioned reached-rate table in the committed statpack",
+    "Local schemas and path helpers"
+  ],
+  "notes": "Scored all three staged aliases without consulting predictor identities, repository history, external sources, or the corpus service. Used the system Python JSON Schema package and repository environment for model validation. Full data-tree validation is deferred to the harness because the targets remain blinded.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "Python decimal arithmetic",
+    "JSON Schema validation",
+    "Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

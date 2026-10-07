@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500241",
+  "gaps": [
+    "Unobserved retrieval results and query-slice/digest-only evidence limit independent source auditing."
+  ],
+  "helpful": [
+    "Blinded candidates and captured retrieval metadata",
+    "Frozen prediction band and salience version",
+    "Committed per-Term reached-rate table"
+  ],
+  "notes": "Scored all three supplied aliases from provisioned evidence and the committed statpack. No external retrieval or corpus query. Pooled the displayed markdown rates; did not infer empty retrieval results from missing dates or unobserved markers.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell reads",
+    "jq",
+    "Python decimal arithmetic",
+    "Pydantic artifact validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

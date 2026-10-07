@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500238",
+  "gaps": [
+    "gemini-baseline result capture is unavailable; assessment is limited to queries and prose."
+  ],
+  "helpful": [
+    "Blinded reasoning and forecast documents",
+    "Mode-aware captured retrieval logs",
+    "Versioned reached-band statpack table",
+    "Committed JSON schemas"
+  ],
+  "notes": "No external retrieval was needed. The Markdown table publishes rounded rates, so the baseline is an explicitly approximate resolved-weighted reconstruction. No candidate identities were sought.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "python",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
