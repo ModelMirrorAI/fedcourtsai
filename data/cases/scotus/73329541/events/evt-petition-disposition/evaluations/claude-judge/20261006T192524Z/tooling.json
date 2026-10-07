@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73329541",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "statpack"
+  ],
+  "helpful": [
+    "The sal-v4 band table rendering all ten Terms with bracketed reached figures and n made the risk_set pooling a one-line computation.",
+    "The retrieval logs' result_capture markers made the three engines' very different capture coverage legible without guessing."
+  ],
+  "gaps": [
+    "The predictors' big_case_score sits in the staged prediction.json beside the fields the evaluator must read first, so the 'form your read before seeing theirs' instruction cannot be honored literally; staging the score in a separate file would make it possible."
+  ],
+  "notes": "Cert cell, denied on first distribution; all three candidates called denied, so the cell discriminates on calibration and reasoning only."
+}

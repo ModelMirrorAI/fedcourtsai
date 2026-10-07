@@ -1,0 +1,5 @@
+# Evaluation
+
+The candidate correctly predicted the disposition ("denied"). The candidate provided a strong rationale for the chosen probability of 13%, acknowledging the legal complexity (capital case, split below) while appropriately accounting for the preservation objection in the BIO. The Brier score is 0.0169, with a Brier skill score of -5.444577, reflecting that the prediction underperformed the segment base rate, but the reasoning remains legally sound given the case context.
+
+This is a forward prediction with no leakage. The log indicates retrieval of standard case law and prior opinions without touching on the outcome of this specific case. The segment base rate (5.12%) was correctly calculated using the baseline statpack matching the risk set basis. The reasoning is well-structured and grounded in the provisioned documents.

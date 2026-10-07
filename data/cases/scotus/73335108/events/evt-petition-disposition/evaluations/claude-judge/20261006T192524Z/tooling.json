@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73335108",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/grep/python3 over the provisioned record, the blinded staging area, the schemas, and metrics/statpack.md)"
+  ],
+  "helpful": [
+    "The blinded retrieval_log.json with per-call result_capture markers made the forward leakage check mechanical: three different capture shapes (0.74, 1.0, 0.0) were each readable on their own terms.",
+    "The sal-v4 band table's per-Term bracketed reached figures and n let the pooled base rate be computed and checked against two candidates' own pools in one pass."
+  ],
+  "gaps": [
+    "The statpack renders rounded percentages, so the pooled base rate is a weighted mean of rounded rates rather than of counts; a per-Term grant count beside each n would make the evaluator's number match the in-code one exactly.",
+    "The prompt asks for the big_case read to be formed before seeing the predictor's score, but big_case_score sits in the staged prediction.json that must be read first; a staged view with that field masked would make the independence real rather than a discipline."
+  ],
+  "notes": "Cert cell, three candidates, all forward, all predicted denied against a denial; evaluation turned almost entirely on reasoning_quality and the base-rate step."
+}

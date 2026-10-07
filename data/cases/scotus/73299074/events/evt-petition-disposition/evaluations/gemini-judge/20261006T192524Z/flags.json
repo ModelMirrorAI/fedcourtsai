@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73299074",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "A mandamus petition was provisioned as a cert-stage event with a baseline salience band. The base rates for regular cert petitions do not accurately reflect the grant probability of a mandamus petition.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

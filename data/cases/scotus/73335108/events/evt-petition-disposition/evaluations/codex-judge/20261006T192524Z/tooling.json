@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73335108",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "Python arithmetic", "apply_patch", "JSON Schema validation", "Pydantic validation"],
+  "helpful": [
+    "Blinded candidate directories preserve identity separation while retaining frozen scoring context.",
+    "The prior-Term reached-rate table supports an auditable common baseline.",
+    "Capture markers distinguish unobserved retrieval results from captured empty results."
+  ],
+  "gaps": [],
+  "notes": "Used only provisioned case evidence, blinded candidate documents and logs, committed statpack, and local validation resources. No external legal research or corpus lookup was necessary. All candidate outputs remain alias-keyed; harness-owned fields are omitted."
+}

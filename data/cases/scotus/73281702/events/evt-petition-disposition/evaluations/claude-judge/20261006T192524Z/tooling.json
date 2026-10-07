@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281702",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/python over the staged record and candidates)",
+    "metrics/statpack.md (sal-v4 salience-band table)"
+  ],
+  "helpful": [
+    "The blinded staging area with retrieval_log.json per candidate, including result_capture markers, made the leakage grading mechanical",
+    "The decided snapshot's ProceedingsandOrder list let me verify every docket fact the candidates cited",
+    "The statpack's bracketed reached figures per Term made the risk-set pooling a one-line computation"
+  ],
+  "gaps": [
+    "A committed per-band pooled prior-Term rate (or a fedcourts subcommand printing it) would remove the hand pooling every evaluator repeats and the rounding drift between them",
+    "A JSON-schema validator available in the uv environment (the pydantic models work but need the import path)"
+  ],
+  "notes": "Cert cell, all three candidates forward and clean; no flags raised."
+}

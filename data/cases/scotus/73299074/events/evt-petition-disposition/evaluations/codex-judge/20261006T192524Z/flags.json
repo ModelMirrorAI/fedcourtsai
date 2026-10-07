@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73299074",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned event is stage cert, but the snapshot and question presented identify an original mandamus petition seeking enforcement of a prior mandate. All three candidates recognize the writ form. I scored codex-baseline, gemini-baseline, and claude-baseline on the authoritative denied/actual_granted=0 outcome and retained the contract-required sal-v4 baseline risk-set comparator. Its pooled cert rate is not an empirical mandamus baseline, so the recorded skill values have a population-transport limitation. No event, outcome, or prediction was relabeled or changed.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0"
+}

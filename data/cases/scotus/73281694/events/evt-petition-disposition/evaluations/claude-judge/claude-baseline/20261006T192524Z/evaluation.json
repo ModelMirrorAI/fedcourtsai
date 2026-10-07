@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "Stakes read as a judge, with the outcome in view: the dormant Commerce Clause limit on registration-based general jurisdiction is a genuine, nationally consequential question the Court itself reserved in the 2023 Mallory decision, closely followed by the business and plaintiffs' bars. But this vehicle was an interlocutory state-trial-court order with a live waiver and finality dispute, and the Court denied it on the long-conference order list with no noted dissent or statement, so the case itself produced nothing. High-stakes question, low-realized-significance case; not a public-salience matter."
+  },
+  "brier_score": 0.0625,
+  "brier_skill_score": -1.1028,
+  "case_id": "scotus/73281694",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": -0.03283269588784336
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.03283269588784336,
+    "total": -0.03283269588784336
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:30:54Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-16, event resolved 2026-10-05. Log (21 calls, coverage 1.0) shows: corpus queries (a citation lookup for 600 U.S. 122 and a granted-2020s list, retrieved_doc_date 2025-02-11, unrelated rows), a curl of this petition's own July 14 2026 reply brief, a web-fetch of the sibling docket 25-1046 (Lynn v. BNSF, denied May 4 2026, a different petition), and two CourtListener calls on the 2023 Mallory opinion (doc date 2023-06-27). All material predates this event's resolution; the sibling denial and the 2023 opinion are legitimate forward context. Reasoning states the conference had not occurred. No outcome material about this case retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:31:35.963226Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1724,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

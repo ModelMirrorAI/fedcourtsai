@@ -1,0 +1,3 @@
+The prediction correctly forecasted the denial. The base rate used was `risk_set` for the `baseline` band under `sal-v4`. By pooling the reached rates for Terms 2017 through 2024, the baseline computes to 5.12%.
+
+The reasoning appropriately discounted the rate to 2.5% based on multiple factors: the lack of a Brief in Opposition (and lack of a call for response), the fact-bound nature of the QP, a weak split on abandoned DNA searches, and the procedural posture of the case coming from a state intermediate appellate court. This demonstrates a strong understanding of cert-stage signals and vehicle problems. The analysis is thorough, clear, and highly sound, resulting in a strong reasoning quality score.

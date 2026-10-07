@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281693",
+  "gaps": [
+    "Unobserved retrieval results limit direct exposure verification for some candidates",
+    "Rounded markdown rates support an approximate rather than exact-count baseline"
+  ],
+  "helpful": [
+    "Blinded predictions with frozen band and salience version",
+    "Separate rationale and forecast documents",
+    "Per-call result-capture markers",
+    "Provisioned opposition and questions presented",
+    "Committed reached-band table"
+  ],
+  "notes": "Scored every supplied alias without identity inference or external retrieval. The table renders all 10 pack Terms; eight precede this petition's Term. No missing inputs or reportable data-quality blocker was found. Full-tree target validation is reserved for the harness after alias resolution and restoration.",
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell",
+    "jq",
+    "Python decimal arithmetic",
+    "apply_patch",
+    "Pydantic schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "Post-AFPF challenge to a state electioneering-communication donor-disclosure law, a published divided Tenth Circuit opinion, four cert-stage amici, a response request after waiver, and the Court denied silently on the long-conference order list with no noted dissent. A grant would have reached every state's pre-election disclosure regime, but no split was claimed, the vehicle was contested, and the realized disposition drew no writing. Middle of the elevated band: more than a routine paid petition, well short of a headline case. Formed from the record and outcome; the staged prediction.json carries each candidate's score, so I could not avoid seeing them, but this read was set from the docket and briefs rather than from those numbers."
+  },
+  "brier_score": 0.0196,
+  "brier_skill_score": 0.33934,
+  "case_id": "scotus/73292884",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.14,
+        "score": 0.010067304112156634
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.28,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.010067304112156634,
+    "total": 0.010067304112156634
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:36:31Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: snapshot dated 2026-09-17 with the 2026-08-12 distribution as its last entry; the 2026-10-05 denial did not yet exist. Log (result_capture_coverage below 1.0: the four web-search rows are unobserved): every captured call is a shell read of the prompt, schemas, snapshot, provisioned briefs, and statpack; the four unobserved web-search rows query only the AFPF v. Bonta opinion PDF and a Rule 10 phrase, graded on their queries, which name neither this petition nor its outcome. Reasoning states no outcome was sought or encountered and treats the case as pending.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:38:31.294139Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.172242,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

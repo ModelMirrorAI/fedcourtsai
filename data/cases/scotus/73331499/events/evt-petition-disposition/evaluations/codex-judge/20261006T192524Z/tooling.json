@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73331499",
+  "gaps": [
+    "Result digests do not expose full historical response text; unobserved calls can be assessed only from their queries and accompanying prose."
+  ],
+  "helpful": [
+    "Blinded predictions, separate rationale and forecast documents, and mode-aware retrieval logs supported identity-independent grading.",
+    "The committed sal-v4 Term table allowed a reproducible strictly-prior risk-set baseline.",
+    "Local JSON schemas and Python validation supported output checks without restoring hidden prediction trees."
+  ],
+  "notes": "Used only provisioned case materials, the committed statpack, and local contracts/helpers. No web, CourtListener, or corpus retrieval was performed. Candidate result-capture limitations were not treated as failed calls or leakage evidence. Validation is scoped to the alias-keyed outputs; the harness owns full-data validation after restoration and un-aliasing.",
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "functions.update_plan",
+    "local file reads",
+    "Python decimal arithmetic",
+    "apply_patch",
+    "JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

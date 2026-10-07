@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292884",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "fedcourtsai.pipeline.base_rates.prediction_base_rate (local, offline)"
+  ],
+  "helpful": [
+    "metrics/statpack.json unrounded prefix fields beside the rendered table",
+    "staged retrieval_log.json with result_capture markers",
+    "snapshot ProceedingsandOrder list"
+  ],
+  "gaps": [
+    "a one-command `fedcourts` baseline printer for a frozen context (band, version, Term) would replace the ad hoc Python pooling",
+    "prediction.json stages each candidate's big_case_score, so the evaluator cannot form the big-case read before seeing it; a staged view that drops that field would make the independence real"
+  ],
+  "notes": "No corpus or CourtListener lookups were needed: the outcome, docket snapshot, provisioned briefs, and statpack answered every grading question."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73299074",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "scope",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "This cell is a Rule 20 petition for a writ of mandamus (docket text: 'Petition for a writ of mandamus filed'), minted as a cert-stage petition-disposition event with band 'baseline' under sal-v4. I scored it per the cert rules (risk_set basis, pooled reached rate 0.0512 over OT2017-OT2024), but that rate describes a cert population the petition does not belong to; mandamus petitions are denied at a far higher rate than baseline-band cert petitions, so the skill scores on this cell overstate skill for any candidate that simply priced the writ form. Two of the three candidates flagged the same mismatch in their own run. Consider whether extraordinary-writ petitions should carry a stage or population of their own."
+    }
+  ]
+}

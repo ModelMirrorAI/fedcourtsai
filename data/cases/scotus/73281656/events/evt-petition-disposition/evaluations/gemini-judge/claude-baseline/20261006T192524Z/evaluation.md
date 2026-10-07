@@ -1,0 +1,5 @@
+# Evaluation
+
+The candidate correctly predicted the disposition ("denied") with a probability of 0.08. The rationale is highly detailed and balanced, delving into the context from the provisioned documents (such as the 3-2 split and repeat Supreme Court counsel) and directly analyzing the preservation issues in the state court's text. The candidate effectively used this to discount the likelihood of cert being granted, leading to the 0.08 prediction.
+
+The Brier score is 0.0064, and the Brier skill score is -1.44055. This is a forward prediction with no leakage; while the candidate engaged in additional retrieval activity (including MCP and web searches), no outcome-revealing material was found or cited. The base rate and risk set pool were computed appropriately. The reasoning quality is excellent.

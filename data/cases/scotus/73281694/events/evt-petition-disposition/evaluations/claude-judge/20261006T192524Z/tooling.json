@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281694",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/ls/grep/python3) over the provisioned inputs and blinded staging area",
+    "metrics/statpack.md sal-v4 segment table for the cert base rate"
+  ],
+  "helpful": [
+    "The blinded retrieval_log.json per candidate with result_capture markers made the forward leakage check mechanical",
+    "The frozen context block on each prediction (band + salience_version) made the risk_set basis unambiguous",
+    "outcome.json's noted_dissent_from_denial and distribution_count gave the post-decision context in one place"
+  ],
+  "gaps": [
+    "Reading the staged prediction.json necessarily shows big_case_score before the evaluator can form an independent read; a staging view that masks that one field (or stages it in a separate file) would make the independence the contract asks for structural rather than a matter of discipline",
+    "A statpack cut for 'response requested after waiver' would let the evaluator judge that adjustment against a committed figure instead of each candidate's memory"
+  ],
+  "notes": "Cert cell, three candidates, all forward; no corpus or external retrieval was needed to grade. The table caption's '10 of 10 Terms' made the no-divergence determination for the lookback window a one-line check."
+}

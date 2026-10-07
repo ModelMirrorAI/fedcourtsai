@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73300246",
+  "gaps": [
+    "gemini-baseline's result capture coverage is zero; leakage review can assess query targets and prose but not result contents.",
+    "The statpack displays rounded reached rates, so the weighted baseline is approximate."
+  ],
+  "helpful": [
+    "Opaque candidate aliases and fixed prose filenames preserve blind grading.",
+    "Frozen context includes the band, salience version, Term, and forward mode.",
+    "The staged petition appendix permits checking the distinction between limitations and property-interest grounds.",
+    "Capture markers prevent treating unobserved retrieval results as empty."
+  ],
+  "notes": "Scored all three aliases using supplied outcome data and local context only. No case retrieval or corpus freshness claim was needed. The project virtual environment lacked jsonschema and the attempted legacy models import; system Python provides jsonschema, allowing direct validation without installing packages or modifying pipeline files.",
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: local file reads and jq",
+    "shell: Python Decimal arithmetic",
+    "shell: apply_patch",
+    "shell: system Python jsonschema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

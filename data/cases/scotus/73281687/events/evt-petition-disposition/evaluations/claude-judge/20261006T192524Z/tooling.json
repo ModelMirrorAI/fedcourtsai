@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281687",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell file reads of the blinded staging area, the decided snapshot, event.yaml, outcome.json",
+    "metrics/statpack.md (sal-v4 reached table, relist and CVSG cuts)",
+    "pydantic model validation of the outputs"
+  ],
+  "helpful": [
+    "the bracketed reached figures with per-Term n, which make the pooled baseline a two-line computation",
+    "retrieval_log.json result_capture markers, which let an all-unobserved log be graded on queries rather than misread as empty",
+    "the decided 2026-10-05 snapshot, which let me verify each candidate's reading of the distribution/response sequence"
+  ],
+  "gaps": [
+    "the staged prediction.json exposes big_case_score before an evaluator can form an independent stakes read; staging it in a separate file or masking it until evaluation.md is written would protect the independence the field asks for",
+    "no committed evaluation.json example is reachable while the evaluations tree is moved out, so the output shape had to be rebuilt from the schema and model"
+  ],
+  "notes": "No corpus query or MCP lookup was needed: the cell resolved on the docket itself and every candidate's retrieval was legible from the staged logs."
+}

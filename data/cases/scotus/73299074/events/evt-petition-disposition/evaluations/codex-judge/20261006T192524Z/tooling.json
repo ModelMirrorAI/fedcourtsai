@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73299074",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate documents preserve independent grading.",
+    "Capture markers distinguish unavailable results from empty retrieval.",
+    "Frozen salience context and the committed per-Term table support a reproducible baseline."
+  ],
+  "notes": "Used only local provisioned records, blinded candidate artifacts, the committed statpack, schemas, and validation models. No corpus or external lookup was necessary. gemini-baseline's unobserved results were treated as telemetry limits, not failed searches. Full-tree validation is reserved for the harness after restoration and alias resolution.",
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell read-only artifact inspection",
+    "jq",
+    "Python decimal arithmetic",
+    "Pydantic output-model validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

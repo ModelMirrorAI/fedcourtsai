@@ -1,0 +1,22 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73281699",
+  "gaps": [
+    "A harness-side helper that pools the cert segment base rate from the committed statpack for a given band, version, and Term would remove hand arithmetic from every cert evaluation.",
+    "A log-level marker for calls that name a forbidden path (data/qp-topics/) would surface the gemini-baseline case without a manual scan."
+  ],
+  "helpful": [
+    "The sal-v4 per-Term band table with bracketed reached figures and n made the risk_set pooling a one-line computation.",
+    "retrieval_log.json's result_capture markers and retrieved_doc_date made the forward leakage check concrete rather than impressionistic."
+  ],
+  "notes": "No corpus, MCP, or web retrieval was needed: a cert denial with an unambiguous outcome.json and three forward candidates is fully gradeable from the provisioned inputs.",
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell (cat/sed/python over the provisioned record, the blinded staging area, the schemas, and metrics/statpack.md)",
+    "fedcourtsai.schemas pydantic models for output validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
