@@ -521,7 +521,7 @@
     },
     "LeaderboardStratum": {
       "additionalProperties": false,
-      "description": "Aggregates over one stratum of a predictor's evaluations.\n\nA cell is *forward* when the event was still unresolved at the prediction's\nharness clock (`integrity.cell_clock` \u2014 the process stamp, else the\nunstamped cell's `created_at`) and *retrospective* when it had already\nresolved \u2014 in which case\nthe outcome is public knowledge inside every modern model's training data, so\nthe cell measures recall plus calibration, never ex-ante forecasting skill.\nThe strata are therefore aggregated separately and never blended into one\nheadline number.\n\nTwo skill columns sit here, and they are never blended either. ``population_brier_skill_score``\nscores against the strictly-prior pooled band rate \u2014 the leakage-safe\nbaseline, and the primary outcome measure \u2014 while\n``population_realized_term_skill_score`` holds the level at the rate the case's own\nTerm actually realized. Together they decompose skill **per cell**: the\nfirst rewards knowing the level *and* discriminating within it, the second\nnets the level out and leaves discrimination alone. Different baselines\nanswer different questions, so no figure combines them, only the first may\nrank, and \u2014 since the second qualifies a narrower, never-identical set of\ncells, which its own ``*_scored`` count records \u2014 the two are not a\ndifference either.\n\nBoth are **population** skills, ``1 - sum(brier) / sum(baseline_brier)``\nover the cells they score, rather than means of per-cell ratios \u2014 which is\nwhat the ``population_`` prefix records, against the plain ``mean_*``\nfields beside them. The ratio caps at +1 but is unbounded below, so a mean\nof ratios under cert's class imbalance rewards under-forecasting the rare\nevent (``fedcourtsai.leaderboard.CellSkill``).",
+      "description": "Aggregates over one stratum of a predictor's evaluations.\n\nA cell is *forward* when the event was still unresolved at the prediction's\nharness clock (`integrity.cell_clock` \u2014 the process stamp, else the\nunstamped cell's `created_at`) and *retrospective* when it had already\nresolved \u2014 in which case\nthe outcome is public knowledge inside every modern model's training data, so\nthe cell measures recall plus calibration, never ex-ante forecasting skill.\nThe strata are therefore aggregated separately and never blended into one\nheadline number.\n\nTwo skill columns form a pair here, and they are never blended either.\n``population_brier_skill_score`` scores against the strictly-prior pooled\nband rate \u2014 the leakage-safe baseline, and the primary outcome measure \u2014 while\n``population_realized_term_skill_score`` holds the level at the rate the case's own\nTerm actually realized. Together they decompose skill **per cell**: the\nfirst rewards knowing the level *and* discriminating within it, the second\nnets the level out and leaves discrimination alone. Different baselines\nanswer different questions, so no figure combines them, only the first may\nrank, and \u2014 since the second qualifies a narrower, never-identical set of\ncells, which its own ``*_scored`` count records \u2014 the two are not a\ndifference either.\n\nA third, ``population_in_sample_skill_score``, is a post-hoc descriptive\nbenchmark rather than a member of that pair: it scores against the block's\nown in-sample grant rate (``in_sample_grant_rate``), which contains every\nscored case's outcome, so it is hindsight by construction and never ranks.\n\nAll three are **population** skills, ``1 - sum(brier) / sum(baseline_brier)``\nover the cells they score, rather than means of per-cell ratios \u2014 which is\nwhat the ``population_`` prefix records, against the plain ``mean_*``\nfields beside them. The ratio caps at +1 but is unbounded below, so a mean\nof ratios under cert's class imbalance rewards under-forecasting the rare\nevent (``fedcourtsai.leaderboard.CellSkill``).",
       "properties": {
         "accuracy": {
           "anyOf": [
@@ -695,6 +695,35 @@
           "description": "Grant-family events (as `grants_realized` counts them) among exactly the `grants_expected_scored` events \u2014 the realized side of the expected-vs-realized pair, over the same events as `grants_expected`. Null where `grants_realized` is",
           "title": "Grants Realized Expected Scored"
         },
+        "in_sample_events_scored": {
+          "default": 0,
+          "description": "Distinct (case, event) pairs in `in_sample_grant_rate`'s denominator \u2014 the events of the `in_sample_skill_scored` gradings (or, where the rate is 0 or 1, of the gradings that would have been)",
+          "minimum": 0,
+          "title": "In Sample Events Scored",
+          "type": "integer"
+        },
+        "in_sample_grant_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The in-sample constant population_in_sample_skill_score scores against: the mean binary target `Outcome.actual_granted` over the `in_sample_events_scored` distinct events of the gradings that column scores, each event counted once however many judges graded it. On the binary target rather than the grant family, so a `granted-in-part` outcome counts as a grant here, as it does in every Brier score; elsewhere the two coincide. Published even where it is 0 or 1 and the skill is null. Null where no grading qualifies",
+          "title": "In Sample Grant Rate"
+        },
+        "in_sample_skill_scored": {
+          "default": 0,
+          "description": "Gradings contributing to population_in_sample_skill_score: every grading in the block carrying a Brier score and cert outcome facts. 0 wherever the figure is null \u2014 including where `in_sample_grant_rate` is 0 or 1",
+          "minimum": 0,
+          "title": "In Sample Skill Scored",
+          "type": "integer"
+        },
         "mean_brier_score": {
           "anyOf": [
             {
@@ -753,6 +782,20 @@
           "default": null,
           "description": "Brier skill vs the stage's own segment base rate over the cells that report one (higher is better; ~0 = no better than that baseline, negative = worse). Despite the name it is the **population** skill \u2014 `1 - sum(cell Brier) / sum(cell baseline Brier)` \u2014 not a mean of per-cell ratios, which under cert's class imbalance would be dominated by low-baseline denial cells and would pay a predictor to under-forecast the rare event. Distinct from raw Brier: it credits beating the biased predicted-segment base rate, not the whole-docket rate. On the cert board the baseline is the salience segment's grant rate; a merits cell's is the statpack merits section's guarded disturbed rate pooled strictly prior (docs/decision-model.md), null below its stated minimum sample",
           "title": "Population Brier Skill Score"
+        },
+        "population_in_sample_skill_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A **post-hoc descriptive benchmark**: Brier skill against the constant `in_sample_grant_rate` \u2014 the sample climatology of this very block's scored events, the case being scored included \u2014 aggregated as the same population ratio as the other skill columns, `1 - sum(cell Brier) / sum((c - y)^2)`, over the `in_sample_skill_scored` gradings. Its baseline nets out the level entirely, the scored case's own outcome included, so it measures discrimination net of miscalibration against the block's own base rate: with one grading per event it equals (resolution - reliability) / uncertainty in the Murphy decomposition, and with unequal panel depth it is that reading weighted by gradings. Hindsight by construction \u2014 the rate exists only once every scored event has resolved \u2014 so it never ranks, is never a headline, and is never pooled or differenced with population_brier_skill_score (the strictly-prior band rate, the primary outcome measure) or population_realized_term_skill_score (a Term-wide band rate, leave-one-out, at the pack's term-to-date vintage). Cert cells only (the cells carrying outcome facts); null where the rate is 0 or 1, since every reference Brier is then 0",
+          "title": "Population In Sample Skill Score"
         },
         "population_realized_term_skill_score": {
           "anyOf": [

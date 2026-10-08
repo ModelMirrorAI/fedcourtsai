@@ -577,6 +577,41 @@ conference, each with its reduced `n`, beside the registered figures — from
 `release-sensitivity`'s `.blocks.post_conference_first_forecasts_excluded.figures`,
 beside `.registered_headline.figures`›
 
+**A post-hoc benchmark, labelled as one.** One figure in this section is
+neither registered nor a sensitivity line: Brier skill against each block's own
+**in-sample grant rate** (`population_in_sample_skill_score`), defined after
+the conference's outcomes were known. It scores every grading against the
+share of granted outcomes among the block's own scored events, the case being
+scored included, so it nets the level out entirely — with one grading per event
+it is (resolution − reliability) / uncertainty in the Murphy decomposition —
+and no forecaster could have known its baseline. It is read off the same
+refreshed board:
+
+```bash
+jq '.entries[] | {predictor_id, forward: (.forward | {in_sample_events_scored, in_sample_grant_rate, population_in_sample_skill_score, in_sample_skill_scored}), by_band: ((.by_band // {}) | map_values({in_sample_events_scored, in_sample_grant_rate, population_in_sample_skill_score, in_sample_skill_scored}))}' metrics/leaderboard.json
+```
+
+(`release-sensitivity` carries the same figures under
+`.post_hoc_in_sample_benchmark.figures`, outside the registered headline.)
+
+> Beside the registered figures we report one benchmark chosen after the
+> outcomes were known: skill against the grant rate the scored petitions
+> themselves realized. It is hindsight by construction — its baseline contains
+> every scored petition's outcome, including the one being scored — so it
+> ranks nothing, carries no claim, and is not the measure this release
+> pre-registered; the prior-Term skill above is. It answers a narrower
+> question: setting the level aside entirely, how well did each engine
+> separate the petitions that were granted from those that were not? It is
+> undefined in any band where no scored petition was granted, and where it is
+> defined the few granted petitions dominate it.
+
+‹per predictor, over the forward stratum of the ranked board, the in-sample
+benchmark — `population_in_sample_skill_score` with `in_sample_skill_scored`,
+beside `in_sample_grant_rate` over `in_sample_events_scored` — and per band
+where it is defined, every row labelled post-hoc and placed after the
+registered prior-Term figure it sits beside, never before it; from the `jq`
+line above›
+
 ‹the whole-docket per-Term cert rate, quoted as context only and labelled as
 not this cohort's anchor — from `metrics/statpack.md`, *SCOTUS cert petitions
 by Term*›
