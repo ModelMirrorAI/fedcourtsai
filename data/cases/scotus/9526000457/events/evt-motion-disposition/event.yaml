@@ -1,0 +1,12 @@
+case_id: scotus/9526000457
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-motion-disposition
+kind: motion
+moment: arrival
+opened_at: '2026-10-02'
+resolved: true
+schema_version: '1.0'
+stage: interim
+title: Rachael Eubanks, et al. v. Dennis O'Connor, et al.
